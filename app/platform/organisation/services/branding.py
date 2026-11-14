@@ -35,7 +35,7 @@ from app.core.errors import NotFoundError
 from app.core.i18n import SwissLanguage
 from app.core.object_store import ObjectStore, StoredObject, get_object_store
 from app.core.uuid7 import uuid7
-from app.platform.organisation.models.branding_asset import BrandingAsset, BrandingAssetKind
+from app.platform.organisation.models.branding_asset import LOGO_KINDS, BrandingAsset, BrandingAssetKind, LogoKind
 from app.platform.organisation.models.dealership import Dealership, Location
 from app.platform.organisation.schemas.branding import (
     BrandingAssetRead,
@@ -74,7 +74,11 @@ def list_assets(db: Session, dealership_id: uuid.UUID) -> dict[BrandingAssetKind
     """The Betrieb's own variants — never a location's letterhead logo."""
 
     rows = db.scalars(
-        select(BrandingAsset).where(BrandingAsset.dealership_id == dealership_id, BrandingAsset.location_id.is_(None))
+        select(BrandingAsset).where(
+            BrandingAsset.dealership_id == dealership_id,
+            BrandingAsset.location_id.is_(None),
+            BrandingAsset.kind.in_(LOGO_KINDS),
+        )
     ).all()
     return {row.kind: row for row in rows}
 
@@ -122,7 +126,7 @@ def _asset_read(kind: BrandingAssetKind, assets: dict[BrandingAssetKind, Brandin
     own = assets.get(kind)
     if own is not None:
         return BrandingAssetRead(
-            kind=kind,
+            kind=LogoKind(kind.value),
             source="own",
             mime_type=own.mime_type,
             width=own.width,
@@ -132,8 +136,8 @@ def _asset_read(kind: BrandingAssetKind, assets: dict[BrandingAssetKind, Brandin
             uploaded_at=own.uploaded_at,
         )
     if BrandingAssetKind.PRIMARY in assets:
-        return BrandingAssetRead(kind=kind, source="primary")
-    return BrandingAssetRead(kind=kind, source="none")
+        return BrandingAssetRead(kind=LogoKind(kind.value), source="primary")
+    return BrandingAssetRead(kind=LogoKind(kind.value), source="none")
 
 
 def branding_read(db: Session, dealership: Dealership) -> BrandingRead:
@@ -145,7 +149,7 @@ def branding_read(db: Session, dealership: Dealership) -> BrandingRead:
         placements=BrandingPlacements(
             **{name: getattr(dealership, column) for name, column in _PLACEMENT_COLUMNS.items()}
         ),
-        assets=[_asset_read(kind, assets) for kind in BrandingAssetKind],
+        assets=[_asset_read(kind, assets) for kind in LOGO_KINDS],
         location_logos=[
             LocationLogoRead(
                 location_id=location_id,

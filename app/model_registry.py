@@ -28,6 +28,7 @@ from app.inventory.models.stock_item import StockItem, StockNumberSequence
 from app.inventory.models.stock_item_ledger import StockItemLedger
 from app.inventory.models.stock_item_option import StockItemOption
 from app.inventory.models.stock_item_publishing import StockItemMedia, StockItemPublishing
+from app.inventory.models.website_listing import StockItemWebsiteListing
 from app.platform.models.auth_event import AuthEvent
 from app.platform.models.auth_session import AuthSession
 from app.platform.models.auth_token import AuthToken
@@ -60,8 +61,10 @@ from app.platform.organisation.models.holiday_calendar import Holiday, HolidayCa
 from app.platform.organisation.models.location_schedule import LocationClosure, LocationOpeningHours
 from app.platform.organisation.models.module_entitlement import ModuleEntitlement
 from app.platform.organisation.models.number_range import NumberRange, NumberRangeConfirmation
+from app.platform.organisation.models.publishing_profile import LocationLeadRouting, PublishingProfile
 from app.platform.reference.models.reference_data import ReferenceList, ReferenceValue
 from app.platform.reference.models.ui_translation import MissingTranslation, UiTranslation, UiTranslationRevision
+from app.reporting.models.public_stock_listing import PublicStockListing
 from app.sales.models.contract import SalesContract
 from app.sales.models.deal import SalesDeal, SalesNumberSequence
 from app.sales.models.document import SalesDocument
@@ -152,6 +155,7 @@ __all__ = [
     "LegalDocument",
     "Location",
     "LocationClosure",
+    "LocationLeadRouting",
     "LocationOpeningHours",
     "MappingGap",
     "MfaPasskey",
@@ -172,6 +176,8 @@ __all__ = [
     "ProcessedEvent",
     "ProviderCodeMap",
     "ProviderEntityRef",
+    "PublicStockListing",
+    "PublishingProfile",
     "PushSubscription",
     "ReconciliationOrphan",
     "ReconciliationRun",
@@ -193,6 +199,7 @@ __all__ = [
     "StockItemMedia",
     "StockItemOption",
     "StockItemPublishing",
+    "StockItemWebsiteListing",
     "StockNumberSequence",
     "TypeApproval",
     "TyreSpecCache",

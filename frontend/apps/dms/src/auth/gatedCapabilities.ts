@@ -16,6 +16,7 @@ export const GATED_CAPABILITIES = [
   'locations',
   'marketplace_publishing',
   'number_ranges',
+  'publishing_profile',
   'reference_lists',
   'sales_contracts',
   'sales_offers',

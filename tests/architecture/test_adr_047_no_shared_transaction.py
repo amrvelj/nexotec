@@ -339,6 +339,8 @@ _READS = {
     # KAN-214 (FR-A-26): derives the setup checklist and raises when an item the
     # action needs is incomplete; a SELECT only, nothing written.
     "app.platform.public.require_setup_item_for",
+    # KAN-225: what the Betrieb's publishing profile lacks for the website; SELECTs only.
+    "app.platform.public.publishing_profile_missing_items",
     "app.platform.public.ui_language_of",  # KAN-585: the enrolment's Accept-Language; a SELECT, no commit
     # KAN-146: Sales' storno consumer re-reads whether Stock holds the car as
     # bought now (delivery is unordered); a SELECT only.
@@ -353,6 +355,10 @@ _READS = {
     "app.inventory.public.stock_item_prices_moved",
     "app.inventory.public.stock_item_reference_check",
     "app.inventory.public.stock_item_reservation_exists",
+    # KAN-225: the public stock projection's reconciliation against Stock's
+    # website listings — a StateCheck and an EXISTS; reads nothing itself.
+    "app.inventory.public.listed_on_website_check",
+    "app.inventory.public.website_listing_exists",
     "app.valuation.public.get_valuation_or_404",
     "app.valuation.public.list_valid_valuations_for_vehicle",
     # KAN-189: the trade-in finds a valuation by VIN when the car is not in the register; a SELECT only.

@@ -40,7 +40,9 @@ Customers' and Vehicle's nightly reconciliation checks against Stock's
 `stock_item` table is built here (`stock_item_reference_check`,
 `stock_item_exists`, `stock_item_reservation_exists`, `stock_item_prices_moved`,
 `stock_item_differs_from_holding`, `purchased_stock_item_check`,
-`held_stock_item_check`; services/reconciliation_targets.py) and confined to
+`held_stock_item_check`, and since KAN-225 the public stock projection's
+`website_listing_exists` and `listed_on_website_check`;
+services/reconciliation_targets.py) and confined to
 the reconciliation modules by an architecture test.
 """
 
@@ -56,12 +58,14 @@ from app.inventory.services.group_listing import get_stock_items_for_vehicles
 from app.inventory.services.pricing import get_stock_item_pricing
 from app.inventory.services.reconciliation_targets import (
     held_stock_item_check,
+    listed_on_website_check,
     purchased_stock_item_check,
     stock_item_differs_from_holding,
     stock_item_exists,
     stock_item_prices_moved,
     stock_item_reference_check,
     stock_item_reservation_exists,
+    website_listing_exists,
 )
 from app.inventory.services.reservation import release, reserve, reserve_for_contract
 from app.inventory.services.sales_contract import CONSUMERS as SALES_CONTRACT_PROJECTION_CONSUMERS
@@ -87,6 +91,7 @@ __all__ = [
     "held_stock_item_check",
     "is_stock_item_purchased",
     "list_held_vehicle_records",
+    "listed_on_website_check",
     "oldest_configuration_label_age_seconds",
     "purchased_stock_item_check",
     "record_backfill",
@@ -101,4 +106,5 @@ __all__ = [
     "stock_item_prices_moved",
     "stock_item_reference_check",
     "stock_item_reservation_exists",
+    "website_listing_exists",
 ]

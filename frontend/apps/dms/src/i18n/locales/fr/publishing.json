@@ -1,0 +1,126 @@
+{
+  "title": "Publication",
+  "subtitle": "Ce que montre votre site web : présentation, mentions légales, valeurs par défaut des annonces et, par site, demandes et photos.",
+  "loadError": "Le profil de publication n'a pas pu être chargé.",
+  "saveFailed": "Les données n'ont pas pu être enregistrées.",
+  "inheritsPlaceholder": "Repris de l'entreprise : {{text}}",
+  "languages": {
+    "de": "Allemand",
+    "fr": "Français",
+    "it": "Italien",
+    "en": "Anglais"
+  },
+  "scope": {
+    "label": "Données pour",
+    "betrieb": "Toute l'entreprise",
+    "overrideToggle": "Données propres à ce site",
+    "inherits": "Ce site reprend la description, les valeurs par défaut des annonces et l'exemple de financement de l'entreprise."
+  },
+  "sections": {
+    "identity": "Présentation publique",
+    "legal": "Mentions légales",
+    "listingDefaults": "Valeurs par défaut des annonces",
+    "financing": "Exemple de financement",
+    "leadRouting": "Demandes",
+    "imagery": "Photos"
+  },
+  "identity": {
+    "tradeName": "Nom public : {{name}}",
+    "noTradeName": "aucun nom commercial saisi",
+    "editInBusiness": "Modifier sous Entreprise",
+    "websiteDomain": "Domaine du site web",
+    "websiteDomainHint": "L'adresse à laquelle Nexotec publie votre site, p. ex. garage-muster.ch.",
+    "isPublished": "Site web publié",
+    "isPublishedHint": "Désactivé, le site ne montre rien, même avec des véhicules publiés."
+  },
+  "fields": {
+    "shortDescription": "Description courte",
+    "longDescription": "Description détaillée",
+    "impressum": "Mentions légales (impressum)",
+    "privacyNotice": "Déclaration de protection des données",
+    "withdrawalWording": "Mention du droit de révocation",
+    "agbUrl": "CG (adresse de la page)",
+    "warrantyText": "Texte de garantie",
+    "mfkStatement": "Mention expertise / contrôle technique",
+    "deliveryFeeChf": "Frais de livraison et de transfert",
+    "priceDisplayWording": "Mention à côté du prix",
+    "standardEquipmentBlurb": "Texte sur l'équipement de série",
+    "tradeInPromotionText": "Texte de promotion de reprise",
+    "financingTermMonths": "Durée (mois)",
+    "financingDownPaymentChf": "Acompte",
+    "financingResidualValueChf": "Valeur résiduelle",
+    "financingNominalRatePct": "Taux annuel nominal",
+    "financingEffectiveRatePct": "Taux annuel effectif",
+    "financingProvider": "Partenaire de financement"
+  },
+  "social": {
+    "facebook": "Facebook",
+    "instagram": "Instagram",
+    "linkedin": "LinkedIn",
+    "youtube": "YouTube",
+    "tiktok": "TikTok"
+  },
+  "legal": {
+    "hint": "Vaut pour toute l'entreprise — les mentions légales nomment toujours la personne morale, jamais un site."
+  },
+  "agb": {
+    "label": "CG en PDF",
+    "none": "Pas encore de fichier",
+    "present": "PDF téléversé le {{date}} · {{size}} Ko",
+    "open": "Ouvrir",
+    "choose": "Choisir un PDF",
+    "upload": "Téléverser",
+    "remove": "Supprimer",
+    "failed": "Les CG n'ont pas pu être enregistrées."
+  },
+  "listing": {
+    "deliveryFeeHint": "Montant TVA incluse, tel qu'il figure dans l'annonce."
+  },
+  "financing": {
+    "pendingTitle": "Formulation en cours d'examen juridique (A-6)",
+    "pendingLegalReview": "La publicité d'un prix financé est soumise à la loi sur le crédit à la consommation. Les données sont enregistrées, mais publiées seulement une fois la formulation confirmée juridiquement."
+  },
+  "leadRouting": {
+    "hint": "Où vont les demandes concernant les véhicules de ce site.",
+    "leadEmail": "E-mail pour les demandes",
+    "leadPhone": "Téléphone pour les demandes",
+    "createsTask": "Une demande crée aussi une tâche dans le DMS",
+    "recipientRole": "Destinataire",
+    "recipientRoleHint": "Qui reçoit la demande. Vide : la direction de l'entreprise."
+  },
+  "imagery": {
+    "hint": "JPEG ou PNG, au moins 800 px sur le grand côté. La photo étoilée s'affiche en premier.",
+    "kinds": {
+      "premises": "Locaux",
+      "team": "Équipe",
+      "hero": "Image principale"
+    },
+    "none": "Pas encore de photos",
+    "primary": "Première photo",
+    "choose": "Choisir une photo",
+    "upload": "Téléverser",
+    "moveUp": "Avancer",
+    "moveDown": "Reculer",
+    "makePrimary": "Afficher en premier",
+    "remove": "Supprimer",
+    "failed": "La photo n'a pas pu être enregistrée."
+  },
+  "validation": {
+    "title": "Prêt pour le site web ?",
+    "ready": "Tout le nécessaire est saisi. Les véhicules peuvent être publiés sur le site.",
+    "notReady": "Avant qu'un véhicule puisse être publié sur le site, il manque encore :",
+    "openLocation": "Ouvrir le site",
+    "carsOnWebsite_one": "{{count, number}} véhicule est sur le site.",
+    "carsOnWebsite_other": "{{count, number}} véhicules sont sur le site.",
+    "defaultNote": "Les données exigées par le site sont une valeur par défaut de Nexotec encore à confirmer."
+  },
+  "refusals": {
+    "agb_not_a_pdf": "Les CG doivent être un fichier PDF.",
+    "agb_too_large": "Le PDF est trop volumineux — 10 Mo au maximum.",
+    "image_not_an_image": "La photo doit être un fichier JPEG ou PNG.",
+    "image_too_large": "La photo est trop volumineuse — 10 Mo au maximum.",
+    "image_too_small": "La photo est trop petite — au moins 800 px sur le grand côté.",
+    "image_unreadable": "Le fichier image est endommagé.",
+    "lead_recipient_not_a_user": "Le destinataire doit être un utilisateur actif de votre entreprise."
+  }
+}

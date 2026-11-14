@@ -7,6 +7,7 @@ import { useFieldHint } from '../../hooks/useFieldHint'
 import { api, ApiError } from '../../api/client'
 import { BlockingConditionBanner } from './BlockingConditionBanner'
 import { ChannelPublishCard } from './ChannelPublishCard'
+import { WebsiteListingCard } from './WebsiteListingCard'
 import type { EquipmentRead, MarketplaceChannel, MediaRead, PublishingRead } from '../../api/types'
 import { useDealSaveQueue, type DealSaveQueue } from '../../hooks/useDealSaveQueue'
 import { useDebouncedTextField } from '../../hooks/useDebouncedTextField'
@@ -231,6 +232,8 @@ export function PublishingTab({ stockItemId, locale, canPublish = true }: Publis
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.lg }}>
+      <WebsiteListingCard stockItemId={stockItemId} canPublish={canPublish} />
+
       <BlockingConditionBanner conditions={blockingConditions} />
 
       <div>

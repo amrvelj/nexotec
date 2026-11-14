@@ -45,6 +45,11 @@ from app.platform.services.document_render import render_document
 from app.platform.services.group_labels import get_group_display_labels
 from app.platform.services.notification_catalogue import NotificationEventCode
 from app.platform.services.notifications import NotificationSubject, UnknownNotificationEvent, notify
+from app.platform.services.publishing_readiness import (
+    PublishingMissingItem,
+    publishing_profile_missing_items,
+    publishing_profile_ready,
+)
 from app.platform.services.setup_checklist import BlockedAction as SetupBlockedAction
 from app.platform.services.setup_checklist import require_item_for as require_setup_item_for
 from app.platform.services.standard_text import RenderedStandardText, render_standard_text
@@ -91,6 +96,13 @@ from app.platform.services.user_reads import (
 # migration) in the same PR. An unknown code raises UnknownNotificationEvent.
 # Never an e-mail.
 #
+# KAN-225 (FR-A-05): publishing_profile_missing_items is what a channel the
+# profile feeds lacks, as stable codes in the dealer's words — Stock asks it
+# before a car is published to the Betrieb's website, so a missing Impressum
+# is refused before the listing exists. publishing_profile_ready is the yes/no
+# the setup checklist (KAN-214) reads for its publishing-profile item once
+# that item joins it. Both are plain reads; neither writes.
+#
 # KAN-412 (FR-AU-24): register_grant_revoker is how the integration that
 # links a provider's accounts (the Outlook integration, Microsoft 365) ends
 # a revoked grant at the provider. The revoker receives a RevokedGrant —
@@ -128,6 +140,7 @@ __all__ = [
     "ParagraphBlock",
     "Placeholder",
     "PlatformExporter",
+    "PublishingMissingItem",
     "RenderedStandardText",
     "RevokedGrant",
     "SetupBlockedAction",
@@ -157,6 +170,8 @@ __all__ = [
     "list_user_dealer_group_ids",
     "list_user_dealership_ids",
     "notify",
+    "publishing_profile_missing_items",
+    "publishing_profile_ready",
     "register_grant_revoker",
     "render_document",
     "render_standard_text",

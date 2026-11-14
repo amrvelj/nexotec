@@ -20,9 +20,11 @@ from app.inventory.schemas.publishing import (
     PublishingRead,
     ReorderMediaRequest,
     UnpublishRequest,
+    WebsiteListingRead,
 )
 from app.inventory.services import publishing as publishing_service
 from app.inventory.services import stock_item as stock_item_service
+from app.inventory.services import website_listing as website_listing_service
 from app.vehicle.public import get_vehicle_equipment
 
 # KAN-198 (D-A-04): the entitlement gate runs before any role check; an
@@ -153,3 +155,60 @@ def remove_media(
 ):
     item = stock_item_service.get_stock_item_or_404(db, principal.tenant_id, stock_item_id)
     publishing_service.remove_media(db, item=item, media_id=media_id)
+
+
+# --- The Betrieb's own website (KAN-225, D-A-26) ------------------------------------------------
+
+
+def _website_read(db: Session, item: StockItem) -> WebsiteListingRead:
+    row = website_listing_service.read_listing(db, item)
+    return WebsiteListingRead(
+        stock_item_id=item.id,
+        is_listed=row.is_listed,
+        listed_at=row.listed_at,
+        unlisted_at=row.unlisted_at,
+        blocking_conditions=website_listing_service.blocking_conditions(db, item),
+        version=row.version,
+    )
+
+
+@router.get("/inventory/stock-items/{stock_item_id}/website-listing", response_model=WebsiteListingRead)
+def get_website_listing(
+    stock_item_id: uuid.UUID,
+    principal: Principal = Depends(get_current_principal),
+    db: Session = Depends(get_db),
+):
+    """Whether the car is on the Betrieb's website, and what would refuse
+    it there — the publishing profile's missing items included (FR-A-05)."""
+
+    item = stock_item_service.get_stock_item_or_404(db, principal.tenant_id, stock_item_id)
+    return _website_read(db, item)
+
+
+@router.post("/inventory/stock-items/{stock_item_id}/website-listing/publish", response_model=WebsiteListingRead)
+def publish_to_website(
+    stock_item_id: uuid.UUID,
+    if_match: int = Depends(require_if_match),
+    principal: Principal = Depends(require_write("marketplace_publishing")),
+    db: Session = Depends(get_db),
+):
+    item = stock_item_service.get_stock_item_for_update_or_404(db, principal.tenant_id, stock_item_id)
+    check_version(website_listing_service.read_listing(db, item).version, if_match, entity_name="WebsiteListing")
+    website_listing_service.list_on_website(db, item=item, actor_id=principal.user_id)
+    return _website_read(db, item)
+
+
+@router.post("/inventory/stock-items/{stock_item_id}/website-listing/unpublish", response_model=WebsiteListingRead)
+def unpublish_from_website(
+    stock_item_id: uuid.UUID,
+    if_match: int = Depends(require_if_match),
+    principal: Principal = Depends(require_write("marketplace_publishing")),
+    db: Session = Depends(get_db),
+):
+    """Takes the car off the website. Nothing is deleted at a third party, so
+    no confirmation is asked (unlike a marketplace's full delivery)."""
+
+    item = stock_item_service.get_stock_item_for_update_or_404(db, principal.tenant_id, stock_item_id)
+    check_version(website_listing_service.read_listing(db, item).version, if_match, entity_name="WebsiteListing")
+    website_listing_service.unlist_from_website(db, item=item, actor_id=principal.user_id)
+    return _website_read(db, item)

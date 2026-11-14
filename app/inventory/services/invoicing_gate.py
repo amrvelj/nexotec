@@ -30,6 +30,7 @@ from app.core.base import utcnow
 from app.core.errors import ConflictError
 from app.core.outbox import OutboxEvent, publish
 from app.inventory.models.stock_item import LifecycleStatus, StockItem
+from app.inventory.services import website_listing
 from app.inventory.services.stock_item import get_stock_item_or_404
 
 _EVENT_PRODUCER = "inventory"
@@ -79,6 +80,7 @@ def apply_finance_invoice_issued(
             payload={"invoiceRef": invoice_ref},
         ),
     )
+    website_listing.restate_if_listed(db, item)  # KAN-225: a car that left stock leaves the website
     db.commit()
     db.refresh(item)
     return item

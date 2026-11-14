@@ -42,6 +42,7 @@ from app.core.outbox import OutboxEvent, publish
 from app.core.uuid7 import uuid7
 from app.inventory.models.cancelled_contract import InventoryCancelledContract
 from app.inventory.models.stock_item import ReservationState, StockItem
+from app.inventory.services import website_listing
 
 _EVENT_PRODUCER = "inventory"
 
@@ -256,6 +257,7 @@ def reserve_and_flush(db: Session, *, item: StockItem, contract_id: uuid.UUID) -
             payload={"reservationId": str(reservation_id), "contractId": str(contract_id)},
         ),
     )
+    website_listing.restate_if_listed(db, item)  # KAN-225: the website shows «reserviert»
     return reservation_id
 
 
@@ -281,6 +283,7 @@ def release_and_flush(db: Session, *, item: StockItem) -> None:
             payload={"reservationId": str(reservation_id)},
         ),
     )
+    website_listing.restate_if_listed(db, item)
 
 
 def lock_contract(db: Session, *, tenant_id: uuid.UUID, contract_id: uuid.UUID) -> None:

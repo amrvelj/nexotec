@@ -99,6 +99,9 @@ from app.platform.daily_jobs import (
     run_daily_user_expiry,
 )
 from app.reconciliation_runner import run_all_daily
+from app.reporting.consumers import CONSUMER_NAME as REPORTING_PUBLIC_STOCK_CONSUMER
+from app.reporting.consumers import EVENT_TYPE as REPORTING_WEBSITE_LISTING_EVENT
+from app.reporting.consumers import handle_website_listing_changed_message
 from app.sales.consumers import (
     handle_customer_merged_message,
     handle_stock_item_added_message,
@@ -385,6 +388,13 @@ def register_handlers(transport: InProcessTransport) -> None:
         "inventory.dealership_listings.withdrawn",
         consumer_name="integration.marketplace_connections_disabled_on_withdrawn",
         handler=disable_marketplace_connections_on_listings_withdrawn,
+    )
+    # KAN-225 — the public stock projection the Betrieb's website reads
+    # (FR-A-27), built from Stock's statements only.
+    transport.register(
+        REPORTING_WEBSITE_LISTING_EVENT,
+        consumer_name=REPORTING_PUBLIC_STOCK_CONSUMER,
+        handler=handle_website_listing_changed_message,
     )
 
     if os.environ.get("DMS_OUTBOX_WORKER_CI_SMOKE_TEST_PROBE") == "1":

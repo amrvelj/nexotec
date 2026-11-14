@@ -34,6 +34,9 @@ const NOT_MONEY_LABELS = new Set([
   "t('business.security.idleMinutes')", // minutes (KAN-229)
   "t('business.security.absoluteHours')", // hours (KAN-229)
   "t('setup.platform.publish.grace')", // days (KAN-214)
+  "t('publishing.fields.financingTermMonths')", // months (KAN-225)
+  "t('publishing.fields.financingNominalRatePct')", // a percentage (KAN-225)
+  "t('publishing.fields.financingEffectiveRatePct')", // a percentage (KAN-225)
   // PriceBuildUp: the discount value as a percentage (or disabled with no
   // discount type); an amount discount renders a ChfInput instead — the label
   // is shared, so the last test below pins the ChfInput branch.
@@ -108,6 +111,7 @@ describe('a CHF amount is never typed into a bare NumberInput (KAN-168)', () => 
         'components/configurator/ConfiguratorOverlay.tsx',
         'components/configurator/IdentificationPanel.tsx',
         'components/customer-detail/OverviewTab.tsx',
+        'components/publishing/ProfileSections.tsx',
         'components/stock-detail/DetailsTab.tsx',
         'components/stock-detail/RecordCostDialog.tsx',
         'components/stock-detail/RecordPurchaseDialog.tsx',

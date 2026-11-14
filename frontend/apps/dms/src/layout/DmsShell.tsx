@@ -23,6 +23,7 @@ import {
   ListChecks,
   MapPin,
   Palette,
+  Megaphone,
   FileImage,
   Plug,
   Receipt,
@@ -116,6 +117,10 @@ function buildNavGroups(t: (key: string) => string): NavGroupConfig[] {
         // KAN-205 — Dealer Administration › Logo and colours (PRD "Logo and
         // brand assets"). Any role reads, the manager writes; never role-hidden.
         { label: t('shell.nav.branding'), href: '/administration/branding', icon: Palette, status: 'active' },
+        // KAN-225 — Dealer Administration › Publishing (PRD «Publishing profile»): what the
+        // Betrieb's website shows. Any role reads, inventory and the manager write; shown to a
+        // Betrieb holding `sales` (navEntitlements), never role-hidden (A-RULE-7).
+        { label: t('shell.nav.publishing'), href: '/administration/publishing', icon: Megaphone, status: 'active' },
         // KAN-206 — Dealer Administration › Letterhead and template (PRD «Branding and
         // documents»). Any role reads; the manager writes and previews. Never role-hidden.
         { label: t('shell.nav.letterhead'), href: '/administration/letterhead', icon: FileImage, status: 'active' },

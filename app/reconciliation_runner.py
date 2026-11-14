@@ -30,6 +30,7 @@ from app.customer import reconciliation as customer_reconciliation
 from app.integration import reconciliation as integration_reconciliation
 from app.inventory import reconciliation as inventory_reconciliation
 from app.platform import reconciliation as platform_reconciliation
+from app.reporting import reconciliation as reporting_reconciliation
 from app.sales import reconciliation as sales_reconciliation
 from app.valuation import reconciliation as valuation_reconciliation
 from app.vehicle import reconciliation as vehicle_reconciliation
@@ -44,6 +45,7 @@ _JOBS = [
     valuation_reconciliation,
     vehicle_reconciliation,
     integration_reconciliation,
+    reporting_reconciliation,
 ]
 
 

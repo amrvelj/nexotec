@@ -1714,6 +1714,218 @@ export interface paths {
         patch: operations["update_number_range_v1_dealerships__dealership_id__number_ranges__document_type__patch"];
         trace?: never;
     };
+    "/v1/dealerships/{dealership_id}/public-stock": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Public Stock */
+        get: operations["get_public_stock_v1_dealerships__dealership_id__public_stock_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/dealerships/{dealership_id}/publishing-profile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Publishing Profile */
+        get: operations["get_publishing_profile_v1_dealerships__dealership_id__publishing_profile_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Publishing Profile */
+        patch: operations["update_publishing_profile_v1_dealerships__dealership_id__publishing_profile_patch"];
+        trace?: never;
+    };
+    "/v1/dealerships/{dealership_id}/publishing-profile/agb": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Agb Document */
+        get: operations["get_agb_document_v1_dealerships__dealership_id__publishing_profile_agb_get"];
+        /** Put Agb Document */
+        put: operations["put_agb_document_v1_dealerships__dealership_id__publishing_profile_agb_put"];
+        post?: never;
+        /** Delete Agb Document */
+        delete: operations["delete_agb_document_v1_dealerships__dealership_id__publishing_profile_agb_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/dealerships/{dealership_id}/publishing-profile/effective": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Effective Profile
+         * @description What a channel publishes for the site: its override over the Betrieb.
+         */
+        get: operations["get_effective_profile_v1_dealerships__dealership_id__publishing_profile_effective_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/dealerships/{dealership_id}/publishing-profile/images/{image_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Publishing Image */
+        get: operations["get_publishing_image_v1_dealerships__dealership_id__publishing_profile_images__image_id__get"];
+        put?: never;
+        post?: never;
+        /** Delete Publishing Image */
+        delete: operations["delete_publishing_image_v1_dealerships__dealership_id__publishing_profile_images__image_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/dealerships/{dealership_id}/publishing-profile/images/{image_id}/primary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Set Primary Publishing Image */
+        post: operations["set_primary_publishing_image_v1_dealerships__dealership_id__publishing_profile_images__image_id__primary_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/dealerships/{dealership_id}/publishing-profile/locations/{location_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create Location Override
+         * @description Switches the site's override on (the screen's toggle). Idempotency-Key
+         *     is honoured; switching on an override that exists answers it unchanged.
+         */
+        post: operations["create_location_override_v1_dealerships__dealership_id__publishing_profile_locations__location_id__post"];
+        /**
+         * Delete Location Override
+         * @description Switches the site's override off: it inherits everything again.
+         */
+        delete: operations["delete_location_override_v1_dealerships__dealership_id__publishing_profile_locations__location_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update Location Override */
+        patch: operations["update_location_override_v1_dealerships__dealership_id__publishing_profile_locations__location_id__patch"];
+        trace?: never;
+    };
+    "/v1/dealerships/{dealership_id}/publishing-profile/locations/{location_id}/images/{kind}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add Publishing Image */
+        post: operations["add_publishing_image_v1_dealerships__dealership_id__publishing_profile_locations__location_id__images__kind__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/dealerships/{dealership_id}/publishing-profile/locations/{location_id}/images/{kind}/order": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Reorder Publishing Images */
+        put: operations["reorder_publishing_images_v1_dealerships__dealership_id__publishing_profile_locations__location_id__images__kind__order_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/dealerships/{dealership_id}/publishing-profile/locations/{location_id}/lead-routing": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set Lead Routing
+         * @description Replaces the site's lead routing. Its lead e-mail is the location's
+         *     own column (the Locations master data): saved here, it moves the
+         *     location's version too.
+         */
+        put: operations["set_lead_routing_v1_dealerships__dealership_id__publishing_profile_locations__location_id__lead_routing_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/dealerships/{dealership_id}/publishing-profile/validation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Validate Publishing Profile
+         * @description FR-A-05: what the channel needs that the profile lacks, as stable
+         *     codes the SPA renders in the dealer's words.
+         */
+        get: operations["validate_publishing_profile_v1_dealerships__dealership_id__publishing_profile_validation_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/dealerships/{dealership_id}/settings": {
         parameters: {
             query?: never;
@@ -2942,6 +3154,65 @@ export interface paths {
          * @description KAN-557 «VIN korrigieren» (ADR-116): corrects the VIN of a car this Betrieb bought — on the stock item, its vehicle-mdm record and its configuration together, each audited with the reason. Vehicle is asked first (its own transaction); a refusal there writes nothing here. 409 `vin_already_in_stock`, `vin_belongs_to_other_vehicle` (another record carries the VIN: one car, merged with «Merge into…»), `vin_correction_left_stock`, `vin_correction_needs_vehicle` (a car never bought: correct its configuration), `vehicle_vin_changed`, `vehicle_merged`; 422 `vin_unchanged`, `configuration_vin_differs`.
          */
         post: operations["correct_vin_v1_inventory_stock_items__stock_item_id__vin_correction_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/inventory/stock-items/{stock_item_id}/website-listing": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Website Listing
+         * @description Whether the car is on the Betrieb's website, and what would refuse
+         *     it there — the publishing profile's missing items included (FR-A-05).
+         */
+        get: operations["get_website_listing_v1_inventory_stock_items__stock_item_id__website_listing_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/inventory/stock-items/{stock_item_id}/website-listing/publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Publish To Website */
+        post: operations["publish_to_website_v1_inventory_stock_items__stock_item_id__website_listing_publish_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/inventory/stock-items/{stock_item_id}/website-listing/unpublish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Unpublish From Website
+         * @description Takes the car off the website. Nothing is deleted at a third party, so
+         *     no confirmation is asked (unlike a marketplace's full delivery).
+         */
+        post: operations["unpublish_from_website_v1_inventory_stock_items__stock_item_id__website_listing_unpublish_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4852,6 +5123,16 @@ export interface components {
          * @enum {string}
          */
         AddressWindow: "left" | "right";
+        /** AgbDocumentRead */
+        AgbDocumentRead: {
+            /** Bytesize */
+            byteSize: number;
+            /**
+             * Uploadedat
+             * Format: date-time
+             */
+            uploadedAt: string;
+        };
         /**
          * AgeingBucket
          * @description WP-7 PR-7. Fixed, NOT dealer-configurable — "a configurable
@@ -5109,6 +5390,8 @@ export interface components {
          *     internal name) — computed and named before send, per ADR-062.
          */
         BlockingCondition: {
+            /** Code */
+            code?: string | null;
             /** Field */
             field: string;
             /** Message */
@@ -5161,11 +5444,6 @@ export interface components {
             displayName?: string | null;
         };
         /**
-         * BrandingAssetKind
-         * @enum {string}
-         */
-        BrandingAssetKind: "primary" | "mono_dark" | "favicon";
-        /**
          * BrandingAssetRead
          * @description One logo variant. `source` says which file a reader is served:
          *     `own` (this variant's file), `primary` (no file of its own, so the
@@ -5178,7 +5456,7 @@ export interface components {
             byteSize?: number | null;
             /** Height */
             height?: number | null;
-            kind: components["schemas"]["BrandingAssetKind"];
+            kind: components["schemas"]["LogoKind"];
             /** Mimetype */
             mimeType?: string | null;
             /**
@@ -8107,6 +8385,87 @@ export interface components {
             pageNumbers?: boolean | null;
         };
         /**
+         * EffectiveProfileRead
+         * @description What a channel publishes for a site: the override over the Betrieb.
+         */
+        EffectiveProfileRead: {
+            /** Agburl */
+            agbUrl: string | null;
+            /**
+             * Dealershipid
+             * Format: uuid
+             */
+            dealershipId: string;
+            /** Deliveryfeechf */
+            deliveryFeeChf: string | null;
+            /** Financingdownpaymentchf */
+            financingDownPaymentChf: string | null;
+            /** Financingeffectiveratepct */
+            financingEffectiveRatePct: string | null;
+            /** Financingnominalratepct */
+            financingNominalRatePct: string | null;
+            /** Financingprovider */
+            financingProvider: string | null;
+            /** Financingresidualvaluechf */
+            financingResidualValueChf: string | null;
+            /** Financingtermmonths */
+            financingTermMonths: number | null;
+            /** Hasagbdocument */
+            hasAgbDocument: boolean;
+            /** Impressum */
+            impressum: {
+                [key: string]: string;
+            };
+            /** Ispublished */
+            isPublished: boolean;
+            /** Locationid */
+            locationId: string | null;
+            /** Longdescription */
+            longDescription: {
+                [key: string]: string;
+            };
+            /** Mfkstatement */
+            mfkStatement: {
+                [key: string]: string;
+            };
+            /** Pricedisplaywording */
+            priceDisplayWording: {
+                [key: string]: string;
+            };
+            /** Privacynotice */
+            privacyNotice: {
+                [key: string]: string;
+            };
+            /** Shortdescription */
+            shortDescription: {
+                [key: string]: string;
+            };
+            /** Socialprofiles */
+            socialProfiles: {
+                [key: string]: string;
+            };
+            /** Standardequipmentblurb */
+            standardEquipmentBlurb: {
+                [key: string]: string;
+            };
+            /** Tradeinpromotiontext */
+            tradeInPromotionText: {
+                [key: string]: string;
+            };
+            /** Tradename */
+            tradeName: string | null;
+            /** Warrantytext */
+            warrantyText: {
+                [key: string]: string;
+            };
+            /** Websitedomain */
+            websiteDomain: string | null;
+            /** Withdrawalwording */
+            withdrawalWording: {
+                [key: string]: string;
+            };
+        };
+        /**
          * EmailType
          * @description Remapped in WP-3 PR-5 (ADR-067): PRIVATE->PERSONAL, BUSINESS->WORK —
          *     same concept either way, "reachable at an address tied to their job/
@@ -8462,6 +8821,11 @@ export interface components {
          * @enum {string}
          */
         IdentifierKind: "vin" | "kontrollschild" | "stammnummer" | "typenschein" | "werkscode";
+        /** ImageOrderUpdate */
+        ImageOrderUpdate: {
+            /** Imageids */
+            imageIds: string[];
+        };
         /** InvitationAccept */
         InvitationAccept: {
             /** Password */
@@ -8477,6 +8841,40 @@ export interface components {
          * @enum {string}
          */
         Language: "de" | "fr" | "it" | "en";
+        /** LeadRoutingRead */
+        LeadRoutingRead: {
+            /** Createstask */
+            createsTask: boolean;
+            /** Leademail */
+            leadEmail: string | null;
+            /** Leadphone */
+            leadPhone: string | null;
+            /**
+             * Locationid
+             * Format: uuid
+             */
+            locationId: string;
+            /** Locationname */
+            locationName: string;
+            recipientRole: components["schemas"]["AccessRole"] | null;
+            /** Recipientuserid */
+            recipientUserId: string | null;
+        };
+        /** LeadRoutingUpdate */
+        LeadRoutingUpdate: {
+            /**
+             * Createstask
+             * @default false
+             */
+            createsTask?: boolean;
+            /** Leademail */
+            leadEmail?: string | null;
+            /** Leadphone */
+            leadPhone?: string | null;
+            recipientRole?: components["schemas"]["AccessRole"] | null;
+            /** Recipientuserid */
+            recipientUserId?: string | null;
+        };
         /**
          * LedgerCategory
          * @enum {string}
@@ -8922,6 +9320,105 @@ export interface components {
             /** Width */
             width?: number | null;
         };
+        /** LocationOverrideRead */
+        LocationOverrideRead: {
+            /** Deliveryfeechf */
+            deliveryFeeChf: string | null;
+            /** Financingdownpaymentchf */
+            financingDownPaymentChf: string | null;
+            /** Financingeffectiveratepct */
+            financingEffectiveRatePct: string | null;
+            /** Financingnominalratepct */
+            financingNominalRatePct: string | null;
+            /** Financingprovider */
+            financingProvider: string | null;
+            /** Financingresidualvaluechf */
+            financingResidualValueChf: string | null;
+            /** Financingtermmonths */
+            financingTermMonths: number | null;
+            /**
+             * Locationid
+             * Format: uuid
+             */
+            locationId: string;
+            /** Longdescription */
+            longDescription: {
+                [key: string]: string;
+            };
+            /** Mfkstatement */
+            mfkStatement: {
+                [key: string]: string;
+            };
+            /** Pricedisplaywording */
+            priceDisplayWording: {
+                [key: string]: string;
+            };
+            /** Shortdescription */
+            shortDescription: {
+                [key: string]: string;
+            };
+            /** Standardequipmentblurb */
+            standardEquipmentBlurb: {
+                [key: string]: string;
+            };
+            /** Tradeinpromotiontext */
+            tradeInPromotionText: {
+                [key: string]: string;
+            };
+            /** Warrantytext */
+            warrantyText: {
+                [key: string]: string;
+            };
+        };
+        /**
+         * LocationOverrideUpdate
+         * @description A location's override, partial. A null (or an empty map) inherits the
+         *     Betrieb's value again.
+         */
+        LocationOverrideUpdate: {
+            /** Deliveryfeechf */
+            deliveryFeeChf?: number | string | null;
+            /** Financingdownpaymentchf */
+            financingDownPaymentChf?: number | string | null;
+            /** Financingeffectiveratepct */
+            financingEffectiveRatePct?: number | string | null;
+            /** Financingnominalratepct */
+            financingNominalRatePct?: number | string | null;
+            /** Financingprovider */
+            financingProvider?: string | null;
+            /** Financingresidualvaluechf */
+            financingResidualValueChf?: number | string | null;
+            /** Financingtermmonths */
+            financingTermMonths?: number | null;
+            /** Longdescription */
+            longDescription?: {
+                [key: string]: string;
+            } | null;
+            /** Mfkstatement */
+            mfkStatement?: {
+                [key: string]: string;
+            } | null;
+            /** Pricedisplaywording */
+            priceDisplayWording?: {
+                [key: string]: string;
+            } | null;
+            /** Shortdescription */
+            shortDescription?: {
+                [key: string]: string;
+            } | null;
+            /** Standardequipmentblurb */
+            standardEquipmentBlurb?: {
+                [key: string]: string;
+            } | null;
+            /** Tradeinpromotiontext */
+            tradeInPromotionText?: {
+                [key: string]: string;
+            } | null;
+            /** Warrantytext */
+            warrantyText?: {
+                [key: string]: string;
+            } | null;
+        };
         /**
          * LocationRead
          * @description A site of the Betrieb. `bankAccountOverrideId` is filled only for the
@@ -9136,6 +9633,13 @@ export interface components {
             mfaRequired?: boolean;
             session?: components["schemas"]["LoginResponse"] | null;
         };
+        /**
+         * LogoKind
+         * @description The logo variants — what the Branding screen's routes take. The
+         *     imagery kinds are the publishing profile's (its own routes).
+         * @enum {string}
+         */
+        LogoKind: "primary" | "mono_dark" | "favicon";
         /**
          * LogoSize
          * @description The logo's maximum printed width — 30 / 40 / 50 mm — at 20 mm high at
@@ -9362,6 +9866,25 @@ export interface components {
             challengeId: string;
             /** Code */
             code: string;
+        };
+        /**
+         * MissingItemRead
+         * @description One thing the channel needs that the profile lacks. `code` is stable
+         *     — the SPA renders it in the dealer's words (`publishingValidation.<code>`)
+         *     — and `section` names where to fix it.
+         */
+        MissingItemRead: {
+            /** Code */
+            code: string;
+            /** Locationid */
+            locationId?: string | null;
+            /** Locationname */
+            locationName?: string | null;
+            /**
+             * Section
+             * @enum {string}
+             */
+            section: "identity" | "legal" | "leadRouting" | "imagery" | "listingDefaults";
         };
         /** MissingTranslationPage */
         MissingTranslationPage: {
@@ -10323,6 +10846,18 @@ export interface components {
          * @enum {string}
          */
         PreviewDocument: "offer" | "invoice";
+        /** ProfileValidationRead */
+        ProfileValidationRead: {
+            /**
+             * Channel
+             * @constant
+             */
+            channel: "website";
+            /** Missing */
+            missing: components["schemas"]["MissingItemRead"][];
+            /** Ready */
+            ready: boolean;
+        };
         /** ProviderCreate */
         ProviderCreate: {
             /** Authtype */
@@ -10491,6 +11026,254 @@ export interface components {
             requiredConfigKeys?: string[] | null;
             /** Supportssandbox */
             supportsSandbox?: boolean | null;
+        };
+        /**
+         * PublicStockListingRead
+         * @description One car as the Betrieb's website shows it — the allow-listed fields
+         *     only (ADR-029).
+         */
+        PublicStockListingRead: {
+            /** Bodystyle */
+            bodyStyle?: string | null;
+            /** Condition */
+            condition?: string | null;
+            /** Exteriorcolour */
+            exteriorColour?: string | null;
+            /** Firstregistrationdate */
+            firstRegistrationDate?: string | null;
+            /** Imageurls */
+            imageUrls?: string[];
+            /** Locationid */
+            locationId: string | null;
+            /** Odometerkm */
+            odometerKm?: number | null;
+            /** Pricechf */
+            priceChf?: string | null;
+            /** Publishedat */
+            publishedAt: string | null;
+            /**
+             * Reserved
+             * @default false
+             */
+            reserved?: boolean;
+            /**
+             * Stockitemid
+             * Format: uuid
+             */
+            stockItemId: string;
+            /** Stocknumber */
+            stockNumber?: string | null;
+            /** Vehiclelabel */
+            vehicleLabel?: string | null;
+        };
+        /** PublicStockRead */
+        PublicStockRead: {
+            /**
+             * Dealershipid
+             * Format: uuid
+             */
+            dealershipId: string;
+            /** Items */
+            items: components["schemas"]["PublicStockListingRead"][];
+            /** Total */
+            total: number;
+        };
+        /**
+         * PublishingImageKind
+         * @enum {string}
+         */
+        PublishingImageKind: "premises" | "team" | "hero";
+        /** PublishingImageRead */
+        PublishingImageRead: {
+            /** Bytesize */
+            byteSize: number;
+            /** Height */
+            height: number | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Isprimary */
+            isPrimary: boolean;
+            kind: components["schemas"]["PublishingImageKind"];
+            /**
+             * Locationid
+             * Format: uuid
+             */
+            locationId: string;
+            /** Mimetype */
+            mimeType: string;
+            /** Position */
+            position: number;
+            /**
+             * Uploadedat
+             * Format: date-time
+             */
+            uploadedAt: string;
+            /** Width */
+            width: number | null;
+        };
+        /** PublishingProfileRead */
+        PublishingProfileRead: {
+            agbDocument: components["schemas"]["AgbDocumentRead"] | null;
+            /** Agburl */
+            agbUrl: string | null;
+            /**
+             * Dealershipid
+             * Format: uuid
+             */
+            dealershipId: string;
+            /** Deliveryfeechf */
+            deliveryFeeChf: string | null;
+            /** Financingdownpaymentchf */
+            financingDownPaymentChf: string | null;
+            /** Financingeffectiveratepct */
+            financingEffectiveRatePct: string | null;
+            /** Financingnominalratepct */
+            financingNominalRatePct: string | null;
+            /** Financingprovider */
+            financingProvider: string | null;
+            /** Financingresidualvaluechf */
+            financingResidualValueChf: string | null;
+            /** Financingtermmonths */
+            financingTermMonths: number | null;
+            /** Images */
+            images: components["schemas"]["PublishingImageRead"][];
+            /** Impressum */
+            impressum: {
+                [key: string]: string;
+            };
+            /** Ispublished */
+            isPublished: boolean;
+            /** Leadrouting */
+            leadRouting: components["schemas"]["LeadRoutingRead"][];
+            /** Locationoverrides */
+            locationOverrides: components["schemas"]["LocationOverrideRead"][];
+            /** Longdescription */
+            longDescription: {
+                [key: string]: string;
+            };
+            /** Mfkstatement */
+            mfkStatement: {
+                [key: string]: string;
+            };
+            /** Pricedisplaywording */
+            priceDisplayWording: {
+                [key: string]: string;
+            };
+            /** Privacynotice */
+            privacyNotice: {
+                [key: string]: string;
+            };
+            /** Shortdescription */
+            shortDescription: {
+                [key: string]: string;
+            };
+            /** Socialprofiles */
+            socialProfiles: {
+                [key: string]: string;
+            };
+            /** Standardequipmentblurb */
+            standardEquipmentBlurb: {
+                [key: string]: string;
+            };
+            /** Tradeinpromotiontext */
+            tradeInPromotionText: {
+                [key: string]: string;
+            };
+            /** Tradename */
+            tradeName: string | null;
+            /**
+             * Updatedat
+             * Format: date-time
+             */
+            updatedAt: string;
+            /** Version */
+            version: number;
+            /** Warrantytext */
+            warrantyText: {
+                [key: string]: string;
+            };
+            /** Website */
+            website: string | null;
+            /** Websitedomain */
+            websiteDomain: string | null;
+            /** Withdrawalwording */
+            withdrawalWording: {
+                [key: string]: string;
+            };
+        };
+        /**
+         * PublishingProfileUpdate
+         * @description The Betrieb's profile, partial. A localised field named with `{}` (or
+         *     null) clears it.
+         */
+        PublishingProfileUpdate: {
+            /** Agburl */
+            agbUrl?: string | null;
+            /** Deliveryfeechf */
+            deliveryFeeChf?: number | string | null;
+            /** Financingdownpaymentchf */
+            financingDownPaymentChf?: number | string | null;
+            /** Financingeffectiveratepct */
+            financingEffectiveRatePct?: number | string | null;
+            /** Financingnominalratepct */
+            financingNominalRatePct?: number | string | null;
+            /** Financingprovider */
+            financingProvider?: string | null;
+            /** Financingresidualvaluechf */
+            financingResidualValueChf?: number | string | null;
+            /** Financingtermmonths */
+            financingTermMonths?: number | null;
+            /** Impressum */
+            impressum?: {
+                [key: string]: string;
+            } | null;
+            /** Ispublished */
+            isPublished?: boolean | null;
+            /** Longdescription */
+            longDescription?: {
+                [key: string]: string;
+            } | null;
+            /** Mfkstatement */
+            mfkStatement?: {
+                [key: string]: string;
+            } | null;
+            /** Pricedisplaywording */
+            priceDisplayWording?: {
+                [key: string]: string;
+            } | null;
+            /** Privacynotice */
+            privacyNotice?: {
+                [key: string]: string;
+            } | null;
+            /** Shortdescription */
+            shortDescription?: {
+                [key: string]: string;
+            } | null;
+            /** Socialprofiles */
+            socialProfiles?: {
+                [key: string]: string;
+            } | null;
+            /** Standardequipmentblurb */
+            standardEquipmentBlurb?: {
+                [key: string]: string;
+            } | null;
+            /** Tradeinpromotiontext */
+            tradeInPromotionText?: {
+                [key: string]: string;
+            } | null;
+            /** Warrantytext */
+            warrantyText?: {
+                [key: string]: string;
+            } | null;
+            /** Websitedomain */
+            websiteDomain?: string | null;
+            /** Withdrawalwording */
+            withdrawalWording?: {
+                [key: string]: string;
+            } | null;
         };
         /** PublishingRead */
         PublishingRead: {
@@ -13034,6 +13817,24 @@ export interface components {
             id: string;
             /** Stocknumber */
             stockNumber: string;
+        };
+        /** WebsiteListingRead */
+        WebsiteListingRead: {
+            /** Blockingconditions */
+            blockingConditions?: components["schemas"]["BlockingCondition"][];
+            /** Islisted */
+            isListed: boolean;
+            /** Listedat */
+            listedAt: string | null;
+            /**
+             * Stockitemid
+             * Format: uuid
+             */
+            stockItemId: string;
+            /** Unlistedat */
+            unlistedAt: string | null;
+            /** Version */
+            version: number;
         };
     };
     responses: never;
@@ -16094,7 +16895,7 @@ export interface operations {
             };
             path: {
                 dealership_id: string;
-                kind: components["schemas"]["BrandingAssetKind"];
+                kind: components["schemas"]["LogoKind"];
             };
             cookie?: {
                 dms_session?: string | null;
@@ -16131,7 +16932,7 @@ export interface operations {
             };
             path: {
                 dealership_id: string;
-                kind: components["schemas"]["BrandingAssetKind"];
+                kind: components["schemas"]["LogoKind"];
             };
             cookie?: {
                 dms_session?: string | null;
@@ -16172,7 +16973,7 @@ export interface operations {
             };
             path: {
                 dealership_id: string;
-                kind: components["schemas"]["BrandingAssetKind"];
+                kind: components["schemas"]["LogoKind"];
             };
             cookie?: {
                 dms_session?: string | null;
@@ -17482,6 +18283,663 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["NumberRangeRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_public_stock_v1_dealerships__dealership_id__public_stock_get: {
+        parameters: {
+            query?: {
+                locationId?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicStockRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_publishing_profile_v1_dealerships__dealership_id__publishing_profile_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublishingProfileRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_publishing_profile_v1_dealerships__dealership_id__publishing_profile_patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PublishingProfileUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublishingProfileRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_agb_document_v1_dealerships__dealership_id__publishing_profile_agb_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_agb_document_v1_dealerships__dealership_id__publishing_profile_agb_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/pdf": string;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublishingProfileRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_agb_document_v1_dealerships__dealership_id__publishing_profile_agb_delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublishingProfileRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_effective_profile_v1_dealerships__dealership_id__publishing_profile_effective_get: {
+        parameters: {
+            query?: {
+                locationId?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EffectiveProfileRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_publishing_image_v1_dealerships__dealership_id__publishing_profile_images__image_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                image_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_publishing_image_v1_dealerships__dealership_id__publishing_profile_images__image_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                image_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublishingProfileRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_primary_publishing_image_v1_dealerships__dealership_id__publishing_profile_images__image_id__primary_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+                authorization?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                image_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublishingProfileRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_location_override_v1_dealerships__dealership_id__publishing_profile_locations__location_id__post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+                authorization?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                location_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["LocationOverrideUpdate"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublishingProfileRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_location_override_v1_dealerships__dealership_id__publishing_profile_locations__location_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                location_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublishingProfileRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_location_override_v1_dealerships__dealership_id__publishing_profile_locations__location_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                location_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LocationOverrideUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublishingProfileRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_publishing_image_v1_dealerships__dealership_id__publishing_profile_locations__location_id__images__kind__post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+                authorization?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                location_id: string;
+                kind: components["schemas"]["PublishingImageKind"];
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "image/jpeg": string;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublishingProfileRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reorder_publishing_images_v1_dealerships__dealership_id__publishing_profile_locations__location_id__images__kind__order_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                location_id: string;
+                kind: components["schemas"]["PublishingImageKind"];
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ImageOrderUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublishingProfileRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_lead_routing_v1_dealerships__dealership_id__publishing_profile_locations__location_id__lead_routing_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                location_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LeadRoutingUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublishingProfileRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    validate_publishing_profile_v1_dealerships__dealership_id__publishing_profile_validation_get: {
+        parameters: {
+            query?: {
+                channel?: "website";
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfileValidationRead"];
                 };
             };
             /** @description Validation Error */
@@ -20737,6 +22195,117 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["StockItemRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_website_listing_v1_inventory_stock_items__stock_item_id__website_listing_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                stock_item_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebsiteListingRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    publish_to_website_v1_inventory_stock_items__stock_item_id__website_listing_publish_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "If-Match"?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                stock_item_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebsiteListingRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    unpublish_from_website_v1_inventory_stock_items__stock_item_id__website_listing_unpublish_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "If-Match"?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                stock_item_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebsiteListingRead"];
                 };
             };
             /** @description Validation Error */

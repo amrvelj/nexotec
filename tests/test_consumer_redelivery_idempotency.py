@@ -514,6 +514,22 @@ def _stock_item_unpublished(db_session, engine, monkeypatch):
     return _message(db_session, "inventory.stock_item.unpublished", item.id), lambda db: len(adapter.transmitted)
 
 
+def _website_listing_changed(db_session, engine, monkeypatch):
+    """KAN-225: a car listed on the Betrieb's website — the public stock
+    projection gains its row."""
+
+    from app.inventory.services.website_listing import list_on_website
+    from app.reporting.models.public_stock_listing import PublicStockListing
+    from tests.website_listing_support import ready_item, website_ready_dealership
+
+    item = ready_item(db_session, website_ready_dealership(db_session))
+    list_on_website(db_session, item=item, actor_id=uuid.uuid4())
+    message = _message(db_session, "inventory.stock_item.website_listing_changed", item.id)
+    return message, lambda db: db.scalar(
+        select(func.count()).select_from(PublicStockListing).where(PublicStockListing.is_listed.is_(True))
+    )
+
+
 def _push_user(db_session, monkeypatch):
     """KAN-216: a user with one live Web Push subscription and a recording
     sender in place of the (unbuilt) VAPID adapter."""
@@ -949,6 +965,7 @@ _FIXTURES: dict[str, Fixture] = {
     "sales.customer_merged": _customer_merged,
     "sales.stock_item_reassigned": _stock_item_reassigned,
     "inventory.marketplace_transmission_on_publish": _stock_item_published,
+    "reporting.public_stock_listing": _website_listing_changed,
     "inventory.marketplace_transmission_on_unpublish": _stock_item_unpublished,
     "platform.web_push_on_notification": _notification_delivered,
     "platform.web_push_on_digest": _digest_released,
