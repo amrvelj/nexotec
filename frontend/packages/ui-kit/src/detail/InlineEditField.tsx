@@ -221,7 +221,7 @@ export function InlineEditField({
         }}
       >
         {insideGridCell ? (
-          // KAN-710 (ADR-162): a grid cell clips everything below its one
+          // KAN-710 (ADR-164): a grid cell clips everything below its one
           // line, so there the refusal and «reload» open in a popover
           // anchored to the editor, in a portal above the grid. Opened only
           // while there is a refusal; focus stays in the editor.
