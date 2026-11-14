@@ -12,6 +12,7 @@ paths:
   - "app/**/*consumer*.py"
   - "app/**/*reconciliation*.py"
   - "app/*/services/*label*.py"
+  - "app/platform/*/services/*label*.py"
   - "scripts/*outbox*.py"
   - "tests/test_consumer_redelivery_idempotency.py"
   - "tests/test_*label*.py"

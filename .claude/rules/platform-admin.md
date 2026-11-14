@@ -5,7 +5,7 @@ paths:
   - "app/platform/api/branding.py"
   - "app/platform/reference/api/reference_data.py"
   - "app/platform/reference/services/reference_data.py"
-  - "app/platform/models/dealership*.py"
+  - "app/platform/identity/*/dealership*.py"
   - "app/platform/reference/models/reference_data.py"
   - "app/platform/reference_data_seed/**"
   - "app/platform/reference/schemas/reference_data.py"
