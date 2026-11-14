@@ -17,8 +17,8 @@ import pytest
 
 from app.core.i18n import SwissLanguage
 from app.core.object_store import LocalDirectoryObjectStore
+from app.platform.identity.models.user import User, UserRole, UserStatus
 from app.platform.models.document_template import AddressWindow, DocumentTemplate, HeaderLayout, LogoSize
-from app.platform.models.user import User, UserRole, UserStatus
 from app.platform.organisation.models.branding_asset import BrandingAsset, BrandingAssetKind
 from app.platform.organisation.models.dealership import Location
 from app.platform.organisation.models.dealership_bank_account import DealershipBankAccount

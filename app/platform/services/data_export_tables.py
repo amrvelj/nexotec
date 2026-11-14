@@ -10,28 +10,29 @@ from sqlalchemy.orm import Session
 
 from app.core.export import ExportedTable, ExportFile, ExportScope, TableExporter, table_of
 from app.core.object_store import ObjectStore, get_object_store
-from app.platform.models.auth_event import AuthEvent
-from app.platform.models.auth_session import AuthSession
-from app.platform.models.auth_token import AuthToken
-from app.platform.models.credential import Credential
-from app.platform.models.dealership_auth_config import DealershipAuthConfig
-from app.platform.models.dealership_membership import DealershipMembership
-from app.platform.models.document_template import DocumentTemplate
-from app.platform.models.export_job import ExportJob
-from app.platform.models.legal import LegalAcceptance, LegalDocument
-from app.platform.models.mfa import MfaPasskey, MfaRecoveryCode, MfaTotp
-from app.platform.models.notification import (
+from app.platform.identity.models.auth_event import AuthEvent
+from app.platform.identity.models.auth_session import AuthSession
+from app.platform.identity.models.auth_token import AuthToken
+from app.platform.identity.models.credential import Credential
+from app.platform.identity.models.dealership_auth_config import DealershipAuthConfig
+from app.platform.identity.models.dealership_membership import DealershipMembership
+from app.platform.identity.models.mfa import MfaPasskey, MfaRecoveryCode, MfaTotp
+from app.platform.identity.models.notification import (
     Notification,
     NotificationEvent,
     PushSubscription,
     UserNotificationPreference,
 )
+from app.platform.identity.models.standard_text_delegation import StandardTextDelegation
+from app.platform.identity.models.user import User
+from app.platform.identity.models.user_location import UserLocation
+from app.platform.identity.models.user_preference import UserPreference
+from app.platform.identity.services import connected_account
+from app.platform.models.document_template import DocumentTemplate
+from app.platform.models.export_job import ExportJob
+from app.platform.models.legal import LegalAcceptance, LegalDocument
 from app.platform.models.setup_checklist import SetupChecklistRegression
 from app.platform.models.standard_text import StandardText
-from app.platform.models.standard_text_delegation import StandardTextDelegation
-from app.platform.models.user import User
-from app.platform.models.user_location import UserLocation
-from app.platform.models.user_preference import UserPreference
 from app.platform.organisation.models.branding_asset import IMAGERY_KINDS, BrandingAsset
 from app.platform.organisation.models.dealership import DealerGroup, Dealership, Location
 from app.platform.organisation.models.dealership_bank_account import DealershipBankAccount
@@ -44,7 +45,6 @@ from app.platform.organisation.models.publishing_profile import LocationLeadRout
 from app.platform.organisation.services import contact_group
 from app.platform.reference.models.reference_data import ReferenceList, ReferenceValue
 from app.platform.reference.models.ui_translation import MissingTranslation, UiTranslation, UiTranslationRevision
-from app.platform.services import connected_account
 
 _user = table_of(User)
 _location = table_of(Location)

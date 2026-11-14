@@ -29,29 +29,29 @@ from app.inventory.models.stock_item_ledger import StockItemLedger
 from app.inventory.models.stock_item_option import StockItemOption
 from app.inventory.models.stock_item_publishing import StockItemMedia, StockItemPublishing
 from app.inventory.models.website_listing import StockItemWebsiteListing
-from app.platform.models.auth_event import AuthEvent
-from app.platform.models.auth_session import AuthSession
-from app.platform.models.auth_token import AuthToken
-from app.platform.models.connected_account import UserConnectedAccount
-from app.platform.models.credential import Credential
-from app.platform.models.dealership_auth_config import DealershipAuthConfig
-from app.platform.models.dealership_membership import DealershipMembership
-from app.platform.models.document_template import DocumentTemplate
-from app.platform.models.export_job import ExportJob
-from app.platform.models.legal import LegalAcceptance, LegalDocument
-from app.platform.models.mfa import MfaPasskey, MfaRecoveryCode, MfaTotp
-from app.platform.models.notification import (
+from app.platform.identity.models.auth_event import AuthEvent
+from app.platform.identity.models.auth_session import AuthSession
+from app.platform.identity.models.auth_token import AuthToken
+from app.platform.identity.models.connected_account import UserConnectedAccount
+from app.platform.identity.models.credential import Credential
+from app.platform.identity.models.dealership_auth_config import DealershipAuthConfig
+from app.platform.identity.models.dealership_membership import DealershipMembership
+from app.platform.identity.models.mfa import MfaPasskey, MfaRecoveryCode, MfaTotp
+from app.platform.identity.models.notification import (
     Notification,
     NotificationEvent,
     PushSubscription,
     UserNotificationPreference,
 )
+from app.platform.identity.models.standard_text_delegation import StandardTextDelegation
+from app.platform.identity.models.user import User
+from app.platform.identity.models.user_location import UserLocation
+from app.platform.identity.models.user_preference import UserPreference
+from app.platform.models.document_template import DocumentTemplate
+from app.platform.models.export_job import ExportJob
+from app.platform.models.legal import LegalAcceptance, LegalDocument
 from app.platform.models.setup_checklist import SetupChecklistRegression
 from app.platform.models.standard_text import StandardText
-from app.platform.models.standard_text_delegation import StandardTextDelegation
-from app.platform.models.user import User
-from app.platform.models.user_location import UserLocation
-from app.platform.models.user_preference import UserPreference
 from app.platform.organisation.models.branding_asset import BrandingAsset
 from app.platform.organisation.models.contact_group import DealershipContactGroup
 from app.platform.organisation.models.dealership import DealerGroup, Dealership, Location

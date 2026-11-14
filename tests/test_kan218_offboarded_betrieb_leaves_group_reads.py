@@ -16,7 +16,7 @@ from app.inventory.models.stock_item import StockItemCondition
 from app.inventory.public import get_stock_items_for_vehicles
 from app.inventory.schemas.stock_item import StockItemCreate
 from app.inventory.services.group_listing import list_group_stock_dealerships
-from app.platform.models.user import User, UserRole, UserStatus
+from app.platform.identity.models.user import User, UserRole, UserStatus
 from app.platform.organisation.models.dealership import DealerGroup, Dealership, DealershipStatus
 from app.platform.public import list_group_read_dealerships
 from tests.stock_support import create_in_stock_item

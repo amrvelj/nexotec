@@ -44,7 +44,7 @@ from app.core.base import utcnow
 from app.core.errors import BadRequestError, NotFoundError, UnprocessableEntityError
 from app.core.object_store import ObjectStore, StoredObject
 from app.core.uuid7 import uuid7
-from app.platform.models.user import User, UserStatus
+from app.platform.identity.models.user import User, UserStatus
 from app.platform.organisation.models.branding_asset import (
     IMAGERY_KINDS,
     BrandingAsset,

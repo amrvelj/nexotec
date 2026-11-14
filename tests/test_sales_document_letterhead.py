@@ -11,7 +11,7 @@ import pytest
 
 from app.core.i18n import SwissLanguage
 from app.core.object_store import LocalDirectoryObjectStore
-from app.platform.models.user import User, UserRole, UserStatus
+from app.platform.identity.models.user import User, UserRole, UserStatus
 from app.platform.schemas.document_content import DocumentWatermark, SignatureBlock
 from app.sales.models.offer import OfferStatus
 from app.sales.services.document import (

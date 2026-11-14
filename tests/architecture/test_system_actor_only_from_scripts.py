@@ -19,7 +19,7 @@ _APP_ROOT = _REPO_ROOT / "app"
 
 _SYSTEM_PATH_SERVICES = {"create_dealership", "create_user"}
 # Where the two services live: only there may a call hand the reason on.
-_SERVICE_FILES = {"app/platform/organisation/services/dealership.py", "app/platform/services/user.py"}
+_SERVICE_FILES = {"app/platform/organisation/services/dealership.py", "app/platform/identity/services/user.py"}
 
 
 def _calls(tree: ast.AST):

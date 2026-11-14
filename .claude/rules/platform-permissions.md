@@ -1,10 +1,10 @@
 ---
 paths:
   - "app/core/permissions.py"
-  - "app/platform/services/user.py"
-  - "app/platform/services/user_common.py"
-  - "app/platform/services/membership.py"
-  - "app/platform/schemas/user.py"
+  - "app/platform/identity/services/user.py"
+  - "app/platform/identity/services/user_common.py"
+  - "app/platform/identity/services/membership.py"
+  - "app/platform/identity/schemas/user.py"
   - "app/platform/schemas/auth.py"
   - "app/platform/api/auth.py"
   - "tests/test_permission*.py"

@@ -23,8 +23,8 @@ from app.core.audit_model import AuditEvent
 from app.core.auth import AccessRole, Principal, create_access_token, decode_token_claims, require_mfa_session
 from app.core.errors import register_error_handlers
 from app.db import get_db
-from app.platform.models.auth_event import AuthEvent, AuthEventKind
-from app.platform.models.mfa import MfaPasskey, MfaRecoveryCode, MfaTotp
+from app.platform.identity.models.auth_event import AuthEvent, AuthEventKind
+from app.platform.identity.models.mfa import MfaPasskey, MfaRecoveryCode, MfaTotp
 from tests.identity_support import (
     STRONG_PASSWORD,
     PasswordLogin,
@@ -61,7 +61,7 @@ def _wait_out_backoff(db_session, user: dict) -> None:
     """Moves the account's last failure an hour back, as a patient guesser
     would wait — so a test about another limit is not stopped by this one."""
 
-    from app.platform.models.credential import Credential
+    from app.platform.identity.models.credential import Credential
 
     row = db_session.scalar(select(Credential).where(Credential.user_id == user["id"]))
     db_session.refresh(row)
@@ -263,8 +263,8 @@ def test_five_wrong_answers_end_the_challenge(client, login, db_session, monkeyp
 
 
 def test_a_challenge_spent_by_a_twin_request_mints_nothing(client, login, db_session):
-    from app.platform.models.auth_token import AuthTokenKind
-    from app.platform.services import auth_tokens
+    from app.platform.identity.models.auth_token import AuthTokenKind
+    from app.platform.identity.services import auth_tokens
 
     dealership = create_dealership(client)
     anna = create_user(client, dealership)
@@ -534,7 +534,7 @@ def test_every_wrong_second_step_answer_counts_on_the_account(client, login, db_
     third and the fifth locks the account, whether the challenges were
     exhausted or abandoned (the fourth review's seventy-five-guess probe)."""
 
-    from app.platform.models.credential import Credential
+    from app.platform.identity.models.credential import Credential
 
     dealership = create_dealership(client)
     anna = create_user(client, dealership)
@@ -585,7 +585,7 @@ def test_parallel_wrong_answers_never_exceed_the_attempt_limit(client, login, db
     from concurrent.futures import ThreadPoolExecutor
 
     from app.platform.api.auth import MFA_MAX_ATTEMPTS
-    from app.platform.models.credential import Credential
+    from app.platform.identity.models.credential import Credential
 
     dealership = create_dealership(client)
     anna = create_user(client, dealership)
@@ -614,7 +614,7 @@ def test_removing_the_last_factor_makes_the_session_owe_enrolment_again(client, 
     user's last factor proved nothing any more — and the user's other
     sessions, which proved it at sign-in, end (recorded)."""
 
-    from app.platform.models.mfa import MfaTotp
+    from app.platform.identity.models.mfa import MfaTotp
 
     dealership = create_dealership(client, mfa_enforced=True)
     anna = create_user(client, dealership)
@@ -663,7 +663,7 @@ def test_removing_a_factor_the_user_never_held_touches_no_other_session(client, 
     never happened (the sixth review found the sign-out running
     unconditionally, in a Betrieb that does not even enforce a factor)."""
 
-    from app.platform.models.mfa import MfaTotp
+    from app.platform.identity.models.mfa import MfaTotp
 
     dealership = create_dealership(client, mfa_enforced=False)
     anna = create_user(client, dealership)
@@ -693,9 +693,9 @@ def test_the_guard_re_reads_the_row_before_ending_the_session_that_is_confirming
     is revoked as `factor_enrolled`, with it the request goes through."""
 
     from app.core.base import utcnow
-    from app.platform.models.auth_session import AuthSession
-    from app.platform.models.mfa import MfaTotp
-    from app.platform.services import mfa as mfa_service
+    from app.platform.identity.models.auth_session import AuthSession
+    from app.platform.identity.models.mfa import MfaTotp
+    from app.platform.identity.services import mfa as mfa_service
 
     dealership = create_dealership(client, mfa_enforced=True)
     anna = create_user(client, dealership)
@@ -794,7 +794,7 @@ def test_a_passkey_holder_gets_the_passkey_step_and_a_bad_assertion_is_refused(c
     # the factor and a token naming it (the real ceremony has its own test
     # below), so the guard and the removal below see a real row.
     assert client.get("/v1/auth/mfa", headers=cookie_headers(cookie)).status_code == 401
-    from app.platform.services import auth_sessions
+    from app.platform.identity.services import auth_sessions
 
     tid = uuid.UUID(dealership)
     row = auth_sessions.create(
@@ -865,8 +865,8 @@ def test_a_malformed_passkey_answer_is_a_refusal_whichever_exception_the_library
 
     from webauthn.helpers.exceptions import InvalidJSONStructure
 
-    from app.platform.models.auth_session import AuthSession
-    from app.platform.services import mfa as mfa_service
+    from app.platform.identity.models.auth_session import AuthSession
+    from app.platform.identity.services import mfa as mfa_service
 
     dealership = create_dealership(client, mfa_enforced=True)
     anna = create_user(client, dealership)
@@ -920,7 +920,7 @@ def _passkey_holder(client, login, db_session) -> tuple[dict, str, str]:
     """Anna with one passkey on file and a factor-backed session: returns her,
     the stored credential id and her session cookie."""
 
-    from app.platform.models.auth_session import AuthSession
+    from app.platform.identity.models.auth_session import AuthSession
 
     dealership = create_dealership(client, mfa_enforced=True)
     anna = create_user(client, dealership)
@@ -1019,7 +1019,7 @@ def test_a_malformed_attestation_object_is_refused_before_the_library(client, lo
     """2.7.1's `parse_attestation_object` indexes the decoded CBOR unguarded
     (KeyError / TypeError); the shape is checked before the library sees it."""
 
-    from app.platform.services import mfa as mfa_service
+    from app.platform.identity.services import mfa as mfa_service
 
     _anna, credential_id, cookie = _passkey_holder(client, login, db_session)
     options = client.post("/v1/auth/mfa/passkeys/options", headers=cookie_headers(cookie))
@@ -1051,8 +1051,8 @@ def test_a_stored_passkey_the_library_cannot_decode_is_a_server_defect_not_a_wro
 
     from webauthn.helpers.exceptions import WebAuthnException
 
-    from app.platform.models.user import User
-    from app.platform.services import mfa as mfa_service
+    from app.platform.identity.models.user import User
+    from app.platform.identity.services import mfa as mfa_service
 
     anna, credential_id, _cookie = _passkey_holder(client, login, db_session)
     stored = db_session.scalars(select(MfaPasskey).where(MfaPasskey.credential_id == credential_id)).one()
@@ -1087,8 +1087,8 @@ def test_a_passkey_whose_key_cannot_be_loaded_is_refused_at_registration(client,
     from webauthn.helpers import encode_cbor
 
     from app.core.errors import UnprocessableEntityError
-    from app.platform.models.user import User
-    from app.platform.services import mfa as mfa_service
+    from app.platform.identity.models.user import User
+    from app.platform.identity.services import mfa as mfa_service
 
     anna, _credential_id, _cookie = _passkey_holder(client, login, db_session)
     user = db_session.get(User, uuid.UUID(anna["id"]))
@@ -1118,8 +1118,8 @@ def test_only_known_transport_names_are_stored(client, login, db_session, monkey
     its letters, a number was a 500 after the library had accepted the
     attestation (eleventh review). Only the spec's names, as strings, stay."""
 
-    from app.platform.models.user import User
-    from app.platform.services import mfa as mfa_service
+    from app.platform.identity.models.user import User
+    from app.platform.identity.services import mfa as mfa_service
 
     anna, _credential_id, _cookie = _passkey_holder(client, login, db_session)
     user = db_session.get(User, uuid.UUID(anna["id"]))
@@ -1306,7 +1306,7 @@ def test_an_attestation_the_library_refuses_is_passkey_not_verified(client, logi
     from cryptography.hazmat.primitives.asymmetric import ec
     from webauthn.helpers import encode_cbor
 
-    from app.platform.services import mfa as mfa_service
+    from app.platform.identity.services import mfa as mfa_service
 
     calls = []
     library = mfa_service.verify_registration_response
@@ -1512,7 +1512,7 @@ def test_client_data_past_the_cap_is_a_wrong_answer_before_any_parsing():
     """`CLIENT_DATA_MAX_BYTES` is what keeps a pathological `clientDataJSON`
     away from `json.loads`: one byte over is refused, the cap itself passes."""
 
-    from app.platform.services import mfa as mfa_service
+    from app.platform.identity.services import mfa as mfa_service
 
     def answer(padding: int) -> dict:
         data = {"type": "webauthn.get", "challenge": "AA", "origin": "http://localhost:5173", "pad": ""}

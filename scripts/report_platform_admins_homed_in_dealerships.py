@@ -16,9 +16,9 @@ from sqlalchemy.orm import Session
 
 from app.core.auth import AccessRole
 from app.db import SessionLocal
-from app.platform.models.user import User
+from app.platform.identity.models.user import User
+from app.platform.identity.services.user_reads import list_membership_dealership_ids
 from app.platform.organisation.models.dealership import Dealership
-from app.platform.services.user_reads import list_membership_dealership_ids
 
 
 def platform_admins_homed_in_dealerships(db: Session) -> list[tuple[User, Dealership | None, list[Dealership]]]:

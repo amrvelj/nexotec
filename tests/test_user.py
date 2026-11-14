@@ -377,7 +377,7 @@ def test_demoting_a_manager_is_allowed_when_another_active_manager_remains(clien
 
 
 def _grant_membership(db_session, *, user_id: str, dealership_id: str, is_dealer_manager: bool) -> None:
-    from app.platform.models.dealership_membership import DealershipMembership
+    from app.platform.identity.models.dealership_membership import DealershipMembership
 
     db_session.add(
         DealershipMembership(
@@ -458,7 +458,7 @@ def test_manager_emails_include_an_active_manager_by_membership_only(client, db_
     _grant_membership(db_session, user_id=sister_manager["id"], dealership_id=dealer_b, is_dealer_manager=True)
     _grant_membership(db_session, user_id=plain_member["id"], dealership_id=dealer_b, is_dealer_manager=False)
     # Created users start `invited`; warnings go to active managers only.
-    from app.platform.models.user import User, UserStatus
+    from app.platform.identity.models.user import User, UserStatus
 
     db_session.query(User).update({User.status: UserStatus.ACTIVE})
     db_session.commit()

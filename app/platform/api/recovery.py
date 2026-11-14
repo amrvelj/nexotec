@@ -27,11 +27,9 @@ from app.core.pagination import SortPageParams
 from app.core.sorting import SortField, decode_cursor_for_sort, parse_sort
 from app.db import get_db
 from app.platform.api.auth import client_ip
-from app.platform.models.auth_event import AuthEvent
-from app.platform.models.user import User
-from app.platform.organisation.services import dealership as dealership_service
-from app.platform.reference.services.mailer import PlatformMailer, get_mailer
-from app.platform.schemas.recovery import (
+from app.platform.identity.models.auth_event import AuthEvent
+from app.platform.identity.models.user import User
+from app.platform.identity.schemas.recovery import (
     ChangeEmailRequest,
     GrantManagerRequest,
     RecoveryRequest,
@@ -39,7 +37,9 @@ from app.platform.schemas.recovery import (
     RecoveryUserList,
     RecoveryUserRead,
 )
-from app.platform.services import recovery
+from app.platform.identity.services import recovery
+from app.platform.organisation.services import dealership as dealership_service
+from app.platform.reference.services.mailer import PlatformMailer, get_mailer
 
 settings = get_settings()
 router = APIRouter(tags=["platform-recovery"], route_class=IdempotentRoute)

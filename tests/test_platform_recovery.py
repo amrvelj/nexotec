@@ -17,11 +17,11 @@ from app.core.audit_model import AuditEvent
 from app.core.auth import AccessRole, Principal, get_current_principal
 from app.core.base import utcnow
 from app.main import app
-from app.platform.models.auth_event import AuthEvent, AuthEventKind
-from app.platform.models.credential import Credential
-from app.platform.models.mfa import MfaTotp
-from app.platform.models.user import User
-from app.platform.services import security_notifications
+from app.platform.identity.models.auth_event import AuthEvent, AuthEventKind
+from app.platform.identity.models.credential import Credential
+from app.platform.identity.models.mfa import MfaTotp
+from app.platform.identity.models.user import User
+from app.platform.identity.services import security_notifications
 from tests.identity_support import (
     STRONG_PASSWORD,
     PasswordLogin,

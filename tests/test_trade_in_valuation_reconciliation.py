@@ -25,7 +25,7 @@ from app.inventory.models.stock_item import StockItem, StockItemCondition
 from app.inventory.schemas.stock_item import StockItemCreate
 from app.inventory.services.pipeline import handle_sales_contract_confirmed
 from app.inventory.services.stock_item import create_stock_item
-from app.platform.models.user import User, UserRole, UserStatus
+from app.platform.identity.models.user import User, UserRole, UserStatus
 from app.sales import reconciliation as sales_reconciliation
 from app.sales.models.contract import ContractStatus, SalesContract
 from app.valuation import reconciliation as valuation_reconciliation

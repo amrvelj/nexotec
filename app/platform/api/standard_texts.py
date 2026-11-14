@@ -25,8 +25,8 @@ from app.core.idempotent_route import IdempotentRoute
 from app.core.permissions import require_read, require_write_or_delegated
 from app.core.tenancy import require_tenant_match
 from app.db import get_db
+from app.platform.identity.models.standard_text_delegation import StandardTextCategory
 from app.platform.models.standard_text import StandardText
-from app.platform.models.standard_text_delegation import StandardTextCategory
 from app.platform.schemas.standard_text import (
     StandardTextCreate,
     StandardTextList,

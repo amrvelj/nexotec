@@ -15,7 +15,7 @@ from sqlalchemy.orm import sessionmaker
 
 from app import worker
 from app.core.daily_scheduler import _REGISTRY, registered_job_names
-from app.platform.models.user import User, UserStatus
+from app.platform.identity.models.user import User, UserStatus
 from app.sales.models.contract import SalesContract
 from app.sales.models.deal import SalesDeal
 from app.sales.models.offer import SalesOffer

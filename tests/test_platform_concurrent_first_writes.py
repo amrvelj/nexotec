@@ -29,13 +29,13 @@ from sqlalchemy import select, text
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.core.base import utcnow
-from app.platform.models.auth_token import AuthTokenKind
-from app.platform.models.credential import Credential
-from app.platform.models.dealership_auth_config import DealershipAuthConfig
-from app.platform.models.mfa import MfaTotp
-from app.platform.models.user import User, UserStatus
-from app.platform.models.user_preference import UserPreference
-from app.platform.services import auth_tokens, identity, mfa
+from app.platform.identity.models.auth_token import AuthTokenKind
+from app.platform.identity.models.credential import Credential
+from app.platform.identity.models.dealership_auth_config import DealershipAuthConfig
+from app.platform.identity.models.mfa import MfaTotp
+from app.platform.identity.models.user import User, UserStatus
+from app.platform.identity.models.user_preference import UserPreference
+from app.platform.identity.services import auth_tokens, identity, mfa
 from tests.identity_support import (
     STRONG_PASSWORD,
     PasswordLogin,

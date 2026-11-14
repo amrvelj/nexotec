@@ -14,19 +14,19 @@ from sqlalchemy import func, insert, select, text
 from app.core.outbox_model import OutboxMessage
 from app.core.uuid7 import uuid7
 from app.platform import consumers
-from app.platform.models.auth_event import AuthEventKind
-from app.platform.models.auth_session import AuthSession
-from app.platform.models.notification import (
+from app.platform.identity.models.auth_event import AuthEventKind
+from app.platform.identity.models.auth_session import AuthSession
+from app.platform.identity.models.notification import (
     Notification,
     NotificationEvent,
     NotificationFamily,
     NotificationTiming,
     PushSubscription,
 )
+from app.platform.identity.services import auth_events, notifications, push_subscriptions
 from app.platform.public import NotificationEventCode, NotificationSubject, UnknownNotificationEvent, notify
 from app.platform.reference.services import web_push
 from app.platform.reference.services.web_push import PushMessage, PushOutcome, PushTarget
-from app.platform.services import auth_events, notifications, push_subscriptions
 from tests.identity_support import (
     STRONG_PASSWORD,
     PasswordLogin,
@@ -728,7 +728,7 @@ def test_each_auth_event_owes_its_notification(client, db_session, kind, details
 
 
 def test_the_family_is_complete_for_every_platform_recovery_kind():
-    from app.platform.services.security_alerts import RECOVERY_ACTIONS
+    from app.platform.identity.services.security_alerts import RECOVERY_ACTIONS
 
     assert set(RECOVERY_ACTIONS) == {k.value for k in AuthEventKind if k.value.startswith("recovery_")} - {
         "recovery_code_used",

@@ -47,13 +47,13 @@ import app.ownership_registry  # noqa: F401 — registers every context's owners
 from app.core.auth import AccessRole
 from app.core.errors import BadRequestError
 from app.db import SessionLocal
-from app.platform.models.auth_session import AuthSession
-from app.platform.models.user import User, UserStatus
+from app.platform.identity.models.auth_session import AuthSession
+from app.platform.identity.models.user import User, UserStatus
+from app.platform.identity.schemas.user import UserUpdate
+from app.platform.identity.services import ownership
+from app.platform.identity.services import user as user_service
+from app.platform.identity.services import user_reads as user_reads_service
 from app.platform.organisation.models.dealership import Dealership
-from app.platform.schemas.user import UserUpdate
-from app.platform.services import ownership
-from app.platform.services import user as user_service
-from app.platform.services import user_reads as user_reads_service
 
 # The seed's own values (scripts/seed_staging_demo.py), repeated because a
 # script run as `python scripts/<name>.py` cannot import its neighbour as

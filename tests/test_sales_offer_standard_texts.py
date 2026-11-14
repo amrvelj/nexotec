@@ -13,6 +13,7 @@ from sqlalchemy import select
 from app.core.base import utcnow
 from app.core.errors import UnprocessableEntityError
 from app.core.i18n import SwissLanguage, format_date_ch
+from app.platform.identity.models.standard_text_delegation import StandardTextCategory
 from app.platform.models.standard_text import (
     StandardText,
     StandardTextAppliesTo,
@@ -20,7 +21,6 @@ from app.platform.models.standard_text import (
     StandardTextSlot,
     StandardTextSource,
 )
-from app.platform.models.standard_text_delegation import StandardTextCategory
 from app.platform.organisation.models.dealership import DealerGroup, Dealership, FranchiseType
 from app.platform.public import PLACEHOLDER_UNRESOLVED
 from app.platform.services.standard_text_seed import SEED_TEXTS

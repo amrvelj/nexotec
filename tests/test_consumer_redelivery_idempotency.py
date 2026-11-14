@@ -534,11 +534,11 @@ def _push_user(db_session, monkeypatch):
     """KAN-216: a user with one live Web Push subscription and a recording
     sender in place of the (unbuilt) VAPID adapter."""
 
-    from app.platform.models.auth_session import AuthSession
-    from app.platform.models.user import User, UserRole, UserStatus
+    from app.platform.identity.models.auth_session import AuthSession
+    from app.platform.identity.models.user import User, UserRole, UserStatus
+    from app.platform.identity.services import push_subscriptions
     from app.platform.reference.services import web_push
     from app.platform.reference.services.web_push import PushOutcome
-    from app.platform.services import push_subscriptions
 
     dealership = _dealership(db_session)
     user = User(
@@ -577,8 +577,8 @@ def _push_user(db_session, monkeypatch):
 def _notification_delivered(db_session, engine, monkeypatch):
     """A delivered security notification: its title and link are pushed."""
 
-    from app.platform.services import notifications
-    from app.platform.services.notification_catalogue import NotificationEventCode
+    from app.platform.identity.services import notifications
+    from app.platform.identity.services.notification_catalogue import NotificationEventCode
 
     user, sent = _push_user(db_session, monkeypatch)
     row = notifications.notify(
@@ -593,8 +593,8 @@ def _digest_released(db_session, engine, monkeypatch):
     """The day's digest, released by the producer itself: one pointer to the
     inbox is pushed."""
 
-    from app.platform.models.notification import Notification
-    from app.platform.services import notifications
+    from app.platform.identity.models.notification import Notification
+    from app.platform.identity.services import notifications
 
     user, sent = _push_user(db_session, monkeypatch)
     db_session.add(
@@ -615,13 +615,13 @@ def _connected_account_revoked(db_session, engine, monkeypatch):
     recorded once (the reference dropped, an audit row)."""
 
     from app.core.audit_model import AuditEvent
-    from app.platform.models.connected_account import (
+    from app.platform.identity.models.connected_account import (
         ConnectedAccountProvider,
         ConnectedAccountStatus,
         UserConnectedAccount,
     )
-    from app.platform.models.user import User, UserRole, UserStatus
-    from app.platform.services import connected_account
+    from app.platform.identity.models.user import User, UserRole, UserStatus
+    from app.platform.identity.services import connected_account
 
     dealership = _dealership(db_session)
     user = User(
@@ -693,8 +693,8 @@ def _connection_expiry_approaching(db_session, engine, monkeypatch):
     from app.integration.schemas.connection import ConnectionCreate
     from app.integration.services import connections as connection_service
     from app.integration.services import notifications as expiry_service
-    from app.platform.models.notification import Notification
-    from app.platform.models.user import User, UserRole, UserStatus
+    from app.platform.identity.models.notification import Notification
+    from app.platform.identity.models.user import User, UserRole, UserStatus
 
     dealership = _dealership(db_session)
     manager = User(

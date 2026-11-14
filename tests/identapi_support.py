@@ -24,7 +24,7 @@ from app.integration.models.connection import ConnectionEnvironment, Integration
 from app.integration.models.provider import IntegrationProvider
 from app.integration.schemas.connection import ConnectionCreate
 from app.integration.services import connections as connection_service
-from app.platform.models.user import User, UserRole, UserStatus
+from app.platform.identity.models.user import User, UserRole, UserStatus
 
 CLIENT_ID = "test-client-id-0001"
 CLIENT_SECRET = "test-client-secret-not-real"

@@ -5,8 +5,8 @@ last-active-manager rule counts active memberships only."""
 import uuid
 
 from app.core.auth import AccessRole
-from app.platform.models.dealership_membership import DealershipMembership
-from app.platform.services import user_reads as user_reads_service
+from app.platform.identity.models.dealership_membership import DealershipMembership
+from app.platform.identity.services import user_reads as user_reads_service
 from tests.membership_support import (
     audit_actions,
     bearer,

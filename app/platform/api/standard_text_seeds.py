@@ -25,8 +25,8 @@ from app.core.concurrency import require_if_match
 from app.core.idempotent_route import IdempotentRoute
 from app.core.permissions import require_read, require_write
 from app.db import get_db
+from app.platform.identity.models.standard_text_delegation import StandardTextCategory
 from app.platform.models.standard_text import StandardText
-from app.platform.models.standard_text_delegation import StandardTextCategory
 from app.platform.schemas.standard_text import (
     StandardTextSeedGroup,
     StandardTextSeedList,

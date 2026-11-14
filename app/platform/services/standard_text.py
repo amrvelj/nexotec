@@ -50,6 +50,8 @@ from app.core.errors import NotFoundError, UnprocessableEntityError
 from app.core.i18n import SwissLanguage
 from app.core.permissions import may_write
 from app.core.uuid7 import uuid7
+from app.platform.identity.models.standard_text_delegation import StandardTextCategory
+from app.platform.identity.services.text_delegation import holds_delegation
 from app.platform.models.standard_text import (
     StandardText,
     StandardTextAppliesTo,
@@ -57,7 +59,6 @@ from app.platform.models.standard_text import (
     StandardTextSlot,
     StandardTextSource,
 )
-from app.platform.models.standard_text_delegation import StandardTextCategory
 from app.platform.organisation.models.dealership import Dealership, Location
 from app.platform.organisation.services.dealership import get_dealership_or_404
 from app.platform.services.standard_text_placeholders import (
@@ -69,7 +70,6 @@ from app.platform.services.standard_text_placeholders import (
     validate_body,
 )
 from app.platform.services.standard_text_seed import SEED_TEXTS
-from app.platform.services.text_delegation import holds_delegation
 
 FALLBACK_LANGUAGE = SwissLanguage.DE
 

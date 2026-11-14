@@ -38,17 +38,17 @@ import uuid
 from sqlalchemy.orm import Session
 
 from app.core.outbox_model import OutboxMessage
-from app.platform.models.notification import Notification, NotificationFamily
-from app.platform.reference.services.web_push import PushMessage
-from app.platform.services import (
+from app.platform.identity.models.notification import Notification, NotificationFamily
+from app.platform.identity.services import (
     connected_account,
-    data_export,
     notification_catalogue,
     notifications,
     push_subscriptions,
     user_reads,
 )
-from app.platform.services.notification_catalogue import NotificationEventCode
+from app.platform.identity.services.notification_catalogue import NotificationEventCode
+from app.platform.reference.services.web_push import PushMessage
+from app.platform.services import data_export
 
 
 def handle_notification_delivered_message(db: Session, message: OutboxMessage) -> None:

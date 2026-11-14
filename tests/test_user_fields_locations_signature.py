@@ -355,7 +355,7 @@ def test_the_users_list_carries_the_users_own_settings_read_only_and_sorts_on_th
     read and sortable server-side; the manager's PATCH does not write them."""
 
     from app.core.i18n import SwissLanguage
-    from app.platform.models.user import User
+    from app.platform.identity.models.user import User
 
     dealership = create_dealership(client)
     create_user(client, dealership, firstName="Zoe", lastName="Zimmer")

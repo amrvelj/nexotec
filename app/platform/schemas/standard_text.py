@@ -7,13 +7,13 @@ from pydantic import Field, model_validator
 
 from app.core.i18n import SwissLanguage
 from app.core.schemas import CamelModel
+from app.platform.identity.models.standard_text_delegation import StandardTextCategory
 from app.platform.models.standard_text import (
     StandardTextAppliesTo,
     StandardTextScope,
     StandardTextSlot,
     StandardTextSource,
 )
-from app.platform.models.standard_text_delegation import StandardTextCategory
 from app.platform.reference.schemas.patch import refuse_null_on_not_null_fields
 
 _BODY_MAX = 20_000

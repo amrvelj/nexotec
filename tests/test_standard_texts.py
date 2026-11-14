@@ -14,6 +14,7 @@ from app.core.auth import AccessRole
 from app.core.base import utcnow
 from app.core.errors import UnprocessableEntityError
 from app.core.i18n import SwissLanguage
+from app.platform.identity.models.standard_text_delegation import StandardTextCategory
 from app.platform.models.standard_text import (
     StandardText,
     StandardTextAppliesTo,
@@ -21,7 +22,6 @@ from app.platform.models.standard_text import (
     StandardTextSlot,
     StandardTextSource,
 )
-from app.platform.models.standard_text_delegation import StandardTextCategory
 from app.platform.organisation.models.dealership import DealerGroup, Dealership, FranchiseType, Location
 from app.platform.public import PLACEHOLDER_UNRESOLVED, render_standard_text
 from app.platform.services import standard_text as service

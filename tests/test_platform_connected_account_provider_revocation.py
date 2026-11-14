@@ -38,10 +38,10 @@ from app.core.reconciliation import ReconciliationAlarm
 from app.core.reconciliation_model import ReconciliationOrphan
 from app.platform import public as platform_public
 from app.platform import reconciliation as platform_reconciliation
-from app.platform.models.connected_account import ConnectedAccountStatus, UserConnectedAccount
-from app.platform.models.user import User
+from app.platform.identity.models.connected_account import ConnectedAccountStatus, UserConnectedAccount
+from app.platform.identity.models.user import User
+from app.platform.identity.services import connected_account
 from app.platform.public import ConnectedAccountProvider, RevokedGrant, register_grant_revoker
-from app.platform.services import connected_account
 from app.worker import register_handlers
 from tests.identity_support import create_dealership, create_user, deactivate
 from tests.test_my_account import _as, _grant

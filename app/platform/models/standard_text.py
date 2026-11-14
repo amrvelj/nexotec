@@ -37,7 +37,7 @@ from app.core.enum_type import StoredEnum
 from app.core.i18n import SwissLanguage
 from app.core.types import GUID
 from app.db import Base
-from app.platform.models.standard_text_delegation import StandardTextCategory
+from app.platform.identity.models.standard_text_delegation import StandardTextCategory
 
 
 class StandardTextAppliesTo(str, enum.Enum):

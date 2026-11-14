@@ -11,8 +11,8 @@ import pytest
 from sqlalchemy import func, select
 
 from app.core.outbox_model import OutboxMessage
-from app.platform.models.auth_token import AuthToken
-from app.platform.models.user import User, UserStatus
+from app.platform.identity.models.auth_token import AuthToken
+from app.platform.identity.models.user import User, UserStatus
 from app.platform.organisation.models.dealership import DealerGroup, Dealership, DealershipStatus, Location
 from app.platform.organisation.models.dealership_bank_account import DealershipBankAccount
 from app.platform.organisation.models.dealership_settings import DealershipSettings

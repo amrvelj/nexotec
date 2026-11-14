@@ -21,8 +21,12 @@ from app.core.permissions import (
 from app.core.tenancy import require_tenant_match
 from app.db import get_db
 from app.platform.api.auth import client_ip
-from app.platform.models.dealership_auth_config import DealershipAuthConfig
-from app.platform.models.user import UserStatus
+from app.platform.identity.models.dealership_auth_config import DealershipAuthConfig
+from app.platform.identity.models.user import UserStatus
+from app.platform.identity.schemas.me import ConnectedAccountManagerListRead, ConnectedAccountManagerRead
+from app.platform.identity.services import auth_events, connected_account, identity, session_policy
+from app.platform.identity.services import user as user_service
+from app.platform.identity.services import user_reads as user_reads_service
 from app.platform.organisation.services import dealership as dealership_service
 from app.platform.reference.services.mailer import PlatformMailer, get_mailer
 from app.platform.schemas.auth import (
@@ -33,15 +37,6 @@ from app.platform.schemas.auth import (
     LoginStatusRead,
     SessionPolicyBounds,
 )
-from app.platform.schemas.me import ConnectedAccountManagerListRead, ConnectedAccountManagerRead
-from app.platform.services import (
-    auth_events,
-    connected_account,
-    identity,
-    session_policy,
-)
-from app.platform.services import user as user_service
-from app.platform.services import user_reads as user_reads_service
 
 router = APIRouter(tags=["dealerships"], route_class=IdempotentRoute)
 

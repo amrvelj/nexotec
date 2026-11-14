@@ -13,8 +13,8 @@ from sqlalchemy.orm import Session
 from app.core.auth import AccessRole, create_access_token
 from app.core.i18n import SwissLanguage
 from app.core.permissions import ModuleCode
+from app.platform.identity.models.user import User, UserStatus
 from app.platform.models.legal import LegalDocument, LegalDocumentType
-from app.platform.models.user import User, UserStatus
 from app.platform.organisation.models.branding_asset import BrandingAsset, BrandingAssetKind
 from app.platform.organisation.models.dealership import Dealership, DealershipStatus, Location
 from app.platform.organisation.models.dealership_bank_account import DealershipBankAccount, QrReferenceType
