@@ -93,6 +93,7 @@ from app.platform.daily_jobs import (
     run_daily_notification_digest,
     run_daily_notification_purge,
     run_daily_revoked_grant_repair,
+    run_daily_setup_checklist_regressions,
     run_daily_user_expiry,
 )
 from app.reconciliation_runner import run_all_daily
@@ -494,7 +495,7 @@ def register_ownership() -> None:
 
 
 def register_daily_jobs() -> None:
-    """Seventeen daily jobs, run in registration order once per day on this
+    """Eighteen daily jobs, run in registration order once per day on this
     process (app.core.daily_scheduler):
 
     1. ``integration.daily_jobs`` — ADR-025's expiry warnings, ADR-024's
@@ -563,12 +564,18 @@ def register_daily_jobs() -> None:
        an export's download stays seven days, then its file is deleted.
        No job deletes an offboarded Betrieb's archive (Anto, 2026-11-14):
        reconciliation reports one past its ten years; the deletion is manual.
-    16. ``valuation.provider_quotes.purge_unused`` — KAN-599 (Anto,
+    16. ``platform.setup_checklist.regressions`` — KAN-214 (D-A-21, FR-A-26):
+       a setup-checklist item that broke after activation (an IBAN deleted,
+       a location's hours removed) raises one ``administration``
+       notification to the Betrieb's managers per regression; an item
+       complete again closes it. Not a repair: the action the item blocks is
+       refused meanwhile by the module that runs it.
+    17. ``valuation.provider_quotes.purge_unused`` — KAN-599 (Anto,
        2026-11-13, option A): a provider quote no valuation references is
        deleted ten years after it was fetched, with an audit row; one a
        valuation references stays as long as the valuation
        (app.valuation.daily_jobs). Retention, not a repair.
-    17. ``vehicle.configurations.purge_unattached`` — KAN-270 (Anto,
+    18. ``vehicle.configurations.purge_unattached`` — KAN-270 (Anto,
        2026-11-03, option C): a configuration no host ever took is deleted
        30 days after it was created, with an audit row and
        ``vehicle.configuration.discarded``; one a host holds is stamped taken
@@ -597,9 +604,11 @@ def register_daily_jobs() -> None:
     register_daily_job("platform.connected_account.repair", run_daily_revoked_grant_repair)
     # 15. KAN-218 (Q1 A): an export's file goes seven days after it was produced.
     register_daily_job("platform.data_exports.expire", run_daily_data_export_expiry)
-    # 16. KAN-599: a provider quote no valuation references goes ten years after it was fetched.
+    # 16. KAN-214: one administration notification per checklist item broken after activation.
+    register_daily_job("platform.setup_checklist.regressions", run_daily_setup_checklist_regressions)
+    # 17. KAN-599: a provider quote no valuation references goes ten years after it was fetched.
     register_daily_job("valuation.provider_quotes.purge_unused", run_daily_unused_provider_quote_purge)
-    # 17. KAN-270 (registered last): a configuration no host ever took goes after 30 days.
+    # 18. KAN-270 (registered last): a configuration no host ever took goes after 30 days.
     register_daily_job("vehicle.configurations.purge_unattached", _purge_unattached_configurations)
 
 

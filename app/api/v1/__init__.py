@@ -35,6 +35,7 @@ from app.platform.api.me import router as me_router
 from app.platform.api.notifications import router as notifications_router
 from app.platform.api.onboarding import router as onboarding_router
 from app.platform.api.recovery import router as platform_recovery_router
+from app.platform.api.setup import router as setup_router
 from app.platform.api.standard_text_seeds import router as standard_text_seeds_router
 from app.platform.api.standard_texts import router as standard_texts_router
 from app.platform.api.user_preferences import router as user_preferences_router
@@ -65,6 +66,7 @@ api_v1_router.include_router(dealership_users_router)
 api_v1_router.include_router(dealership_memberships_router)
 api_v1_router.include_router(dealership_identity_router)
 api_v1_router.include_router(onboarding_router)
+api_v1_router.include_router(setup_router)
 api_v1_router.include_router(locations_router)
 api_v1_router.include_router(branding_router)
 api_v1_router.include_router(document_template_router)

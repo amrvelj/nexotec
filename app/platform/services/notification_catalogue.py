@@ -15,9 +15,11 @@ word for word (`tests/test_notification_catalogue.py`), and every `notify`
 call site in `app/` names a code declared here
 (`tests/architecture/test_notify_call_sites_use_registered_codes.py`).
 
-Families: only `security` ships in v1 (D-A-40). `administration` and
-`assignment` are defined so their events register against the same
-catalogue when their sources ship; none of their events exists yet.
+Families: `security` shipped first (D-A-40). `administration` gets its first
+event with KAN-214 — a setup-checklist item that broke after activation
+(`administration.checklist_item_regressed`, raised by platform's daily job).
+`assignment` is defined so its events register against the same catalogue
+when their sources ship; none exists yet.
 """
 
 import dataclasses
@@ -46,6 +48,8 @@ class NotificationEventCode(str, enum.Enum):
     CONNECTED_ACCOUNT_LINKED = "security.connected_account_linked"
     CONNECTED_ACCOUNT_REVOKED = "security.connected_account_revoked"
     PLATFORM_RECOVERY_ACTION = "security.platform_recovery_action"
+    # KAN-214 (D-A-21, FR-A-26): the administration family's first event.
+    CHECKLIST_ITEM_REGRESSED = "administration.checklist_item_regressed"
 
 
 @dataclasses.dataclass(frozen=True)
@@ -67,6 +71,20 @@ def _security(code: NotificationEventCode, key: str, push_title: dict[str, str])
         family=NotificationFamily.SECURITY,
         default_timing=NotificationTiming.IMMEDIATE,
         switchable=False,
+        title_key=f"notifications.events.{key}.title",
+        body_key=f"notifications.events.{key}.body",
+        push_title=push_title,
+    )
+
+
+def _administration(code: NotificationEventCode, key: str, push_title: dict[str, str]) -> NotificationEventSpec:
+    # The Betrieb's health for its managers: immediate by default, and the
+    # user may hold it for the digest or switch it off (FR-A-48).
+    return NotificationEventSpec(
+        code=code,
+        family=NotificationFamily.ADMINISTRATION,
+        default_timing=NotificationTiming.IMMEDIATE,
+        switchable=True,
         title_key=f"notifications.events.{key}.title",
         body_key=f"notifications.events.{key}.body",
         push_title=push_title,
@@ -192,6 +210,16 @@ CATALOGUE: tuple[NotificationEventSpec, ...] = (
             "fr": "Récupération par le support Nexotec",
             "it": "Recupero da parte del supporto Nexotec",
             "en": "Recovery by Nexotec support",
+        },
+    ),
+    _administration(
+        NotificationEventCode.CHECKLIST_ITEM_REGRESSED,
+        "checklistItemRegressed",
+        {
+            "de": "Ein Punkt der Einrichtung fehlt wieder",
+            "fr": "Un point de la configuration manque à nouveau",
+            "it": "Un punto della configurazione manca di nuovo",
+            "en": "A setup item is missing again",
         },
     ),
 )

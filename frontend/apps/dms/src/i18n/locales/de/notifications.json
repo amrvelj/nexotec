@@ -106,6 +106,10 @@
     "platformRecoveryAction": {
       "title": "Wiederherstellung durch den Nexotec-Support",
       "body": "Der Nexotec-Support hat an Ihrem Konto eine Wiederherstellung vorgenommen: {{action}}."
+    },
+    "checklistItemRegressed": {
+      "title": "Ein Punkt der Einrichtung fehlt wieder",
+      "body": "Ein Punkt der Einrichtungs-Checkliste ist nicht mehr erfüllt. Bis er erledigt ist, ist die Aktion gesperrt, die ihn braucht."
     }
   },
   "recoveryActions": {

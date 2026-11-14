@@ -37,6 +37,7 @@ from app.platform.models.dealership_auth_config import DealershipAuthConfig
 from app.platform.models.dealership_membership import DealershipMembership
 from app.platform.models.document_template import DocumentTemplate
 from app.platform.models.export_job import ExportJob
+from app.platform.models.legal import LegalAcceptance, LegalDocument
 from app.platform.models.mfa import MfaPasskey, MfaRecoveryCode, MfaTotp
 from app.platform.models.notification import (
     Notification,
@@ -44,6 +45,7 @@ from app.platform.models.notification import (
     PushSubscription,
     UserNotificationPreference,
 )
+from app.platform.models.setup_checklist import SetupChecklistRegression
 from app.platform.models.standard_text import StandardText
 from app.platform.models.standard_text_delegation import StandardTextDelegation
 from app.platform.models.user import User
@@ -57,7 +59,7 @@ from app.platform.organisation.models.dealership_settings import DealershipSetti
 from app.platform.organisation.models.holiday_calendar import Holiday, HolidayCalendar
 from app.platform.organisation.models.location_schedule import LocationClosure, LocationOpeningHours
 from app.platform.organisation.models.module_entitlement import ModuleEntitlement
-from app.platform.organisation.models.number_range import NumberRange
+from app.platform.organisation.models.number_range import NumberRange, NumberRangeConfirmation
 from app.platform.reference.models.reference_data import ReferenceList, ReferenceValue
 from app.platform.reference.models.ui_translation import MissingTranslation, UiTranslation, UiTranslationRevision
 from app.sales.models.contract import SalesContract
@@ -145,7 +147,9 @@ __all__ = [
     "InventoryCancelledContract",
     "InventorySalesContract",
     "InventorySalesContractBackfill",
+    "LegalAcceptance",
     "LegalBasis",
+    "LegalDocument",
     "Location",
     "LocationClosure",
     "LocationOpeningHours",
@@ -162,6 +166,7 @@ __all__ = [
     "Notification",
     "NotificationEvent",
     "NumberRange",
+    "NumberRangeConfirmation",
     "OutboxMessage",
     "PlateLookupCacheEntry",
     "ProcessedEvent",
@@ -179,6 +184,7 @@ __all__ = [
     "SalesNumberSequence",
     "SalesOffer",
     "SalesStockItemPurchase",
+    "SetupChecklistRegression",
     "StandardText",
     "StandardTextDelegation",
     "StockItem",

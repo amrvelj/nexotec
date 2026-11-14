@@ -29,6 +29,7 @@ from app.inventory.models.stock_item_publishing import (
     StockItemPublishing,
 )
 from app.inventory.schemas.publishing import BlockingCondition, ListingTextUpdate
+from app.platform.public import SetupBlockedAction, require_setup_item_for
 from app.vehicle.public import has_current_energy_rating
 
 _EVENT_PRODUCER = "inventory"
@@ -155,6 +156,10 @@ def update_listing_text(
 
 
 def publish(db: Session, *, item: StockItem, channel: MarketplaceChannel, actor_id: uuid.UUID | None) -> StockItemPublishing:
+    # KAN-214 (FR-A-26): a setup-checklist item marketplace publishing needs
+    # (a location with opening hours) refuses it, naming the item — 409
+    # `setup_checklist_item_missing`, checked before the listing's own rules.
+    require_setup_item_for(db, item.tenant_id, SetupBlockedAction.MARKETPLACE_PUBLISHING)
     conditions = compute_blocking_conditions(db, item)
     if conditions:
         raise ConflictError(

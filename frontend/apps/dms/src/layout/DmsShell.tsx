@@ -19,11 +19,13 @@ import {
   Languages,
   LayoutDashboard,
   LifeBuoy,
+  ListChecks,
   MapPin,
   Palette,
   FileImage,
   Plug,
   Receipt,
+  Scale,
   ShieldCheck,
   Store,
   Tags,
@@ -101,6 +103,10 @@ function buildNavGroups(t: (key: string) => string): NavGroupConfig[] {
       // have its own entry is now a section of this screen.
       label: t('shell.nav.administration'),
       items: [
+        // KAN-214 — Dealer Administration › Setup: the checklist and «Betrieb
+        // aktivieren» (D-A-21). The manager's at the API (`setup_checklist`);
+        // never role-hidden (A-RULE-7).
+        { label: t('shell.nav.setup'), href: '/administration/setup', icon: ListChecks, status: 'active' },
         // KAN-200 — Dealer Administration › Users. Manager-only at the API
         // (`dealership_users`); the entry is never role-hidden (A-RULE-7).
         // KAN-203 — Dealer Administration › Business (A-RULE-0: the one place
@@ -145,6 +151,9 @@ function buildNavGroups(t: (key: string) => string): NavGroupConfig[] {
         // KAN-218 — Platform Administration › Offboarding (FR-A-45). Staff-only
         // at the API; never role-hidden (A-RULE-7).
         { label: t('shell.nav.offboarding'), href: '/platform/offboarding', icon: Archive, status: 'active' },
+        // KAN-214 — Platform Administration › Legal documents (FR-A-39): the ToS
+        // and DPA versions. Staff-only at the API; never role-hidden (A-RULE-7).
+        { label: t('shell.nav.legalDocuments'), href: '/platform/legal-documents', icon: Scale, status: 'active' },
       ],
     },
   ]

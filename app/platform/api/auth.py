@@ -36,7 +36,7 @@ from app.platform.models.auth_event import AuthEventKind
 from app.platform.models.auth_session import AuthSession
 from app.platform.models.auth_token import AuthTokenKind
 from app.platform.models.user import User
-from app.platform.organisation.models.dealership import Dealership
+from app.platform.organisation.models.dealership import Dealership, DealershipStatus
 from app.platform.organisation.services import dealership as dealership_service
 from app.platform.organisation.services import entitlement as entitlement_service
 from app.platform.reference.services.mailer import PlatformMailer, get_mailer
@@ -63,8 +63,18 @@ from app.platform.schemas.auth import (
     TotpConfirmRequest,
     TotpEnrolmentRead,
 )
+from app.platform.schemas.setup import LegalAcceptanceDue, acceptance_due
 from app.platform.schemas.user import UserRead
-from app.platform.services import auth_events, auth_sessions, auth_tokens, identity, mfa, session_policy
+from app.platform.services import (
+    auth_events,
+    auth_sessions,
+    auth_tokens,
+    identity,
+    legal_documents,
+    mfa,
+    session_policy,
+    user_preference,
+)
 from app.platform.services import user as user_service
 from app.platform.services import user_reads as user_reads_service
 
@@ -244,7 +254,27 @@ def _login_response(
             roles=frozenset(AccessRole(role) for role in user.access_roles),
             is_dealer_manager=is_manager_here,
         ),
+        legal_acceptance_due=_legal_acceptance_due(
+            db, user=user, dealership=active_dealership, is_manager=is_manager_here
+        ),
     )
+
+
+def _legal_acceptance_due(
+    db: Session, *, user: User, dealership: Dealership, is_manager: bool
+) -> LegalAcceptanceDue | None:
+    """KAN-214 (FR-A-39, Q1 A): what the SPA prompts a manager of an active
+    Betrieb to accept at login. A Betrieb being set up accepts as part of
+    activation (the checklist screen); staff never accept for a dealer."""
+
+    if not is_manager or AccessRole.PLATFORM_ADMIN.value in user.access_roles:
+        return None
+    if dealership.status != DealershipStatus.ACTIVE:
+        return None
+    state = legal_documents.acceptance_state(db, dealership)
+    if not state.is_due:
+        return None
+    return acceptance_due(state, user_preference.ui_language_of(db, user_id=user.id))
 
 
 def _finish_login(

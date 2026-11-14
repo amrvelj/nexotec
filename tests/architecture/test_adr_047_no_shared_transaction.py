@@ -331,6 +331,9 @@ _READS = {
     # Builds a PDF from content Sales supplies; persists nothing.
     "app.platform.public.render_document",
     "app.platform.public.render_standard_text",  # KAN-208: resolves and renders a text, writes nothing
+    # KAN-214 (FR-A-26): derives the setup checklist and raises when an item the
+    # action needs is incomplete; a SELECT only, nothing written.
+    "app.platform.public.require_setup_item_for",
     "app.platform.public.ui_language_of",  # KAN-585: the enrolment's Accept-Language; a SELECT, no commit
     # KAN-146: Sales' storno consumer re-reads whether Stock holds the car as
     # bought now (delivery is unordered); a SELECT only.

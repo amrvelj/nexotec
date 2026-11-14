@@ -45,6 +45,8 @@ from app.platform.services.document_render import render_document
 from app.platform.services.group_labels import get_group_display_labels
 from app.platform.services.notification_catalogue import NotificationEventCode
 from app.platform.services.notifications import NotificationSubject, UnknownNotificationEvent, notify
+from app.platform.services.setup_checklist import BlockedAction as SetupBlockedAction
+from app.platform.services.setup_checklist import require_item_for as require_setup_item_for
 from app.platform.services.standard_text import RenderedStandardText, render_standard_text
 from app.platform.services.standard_text_placeholders import PLACEHOLDER_UNRESOLVED, Placeholder
 from app.platform.services.user_preference import ui_language_of
@@ -127,6 +129,7 @@ __all__ = [
     "PlatformExporter",
     "RenderedStandardText",
     "RevokedGrant",
+    "SetupBlockedAction",
     "SignatureBlock",
     "StandardTextAppliesTo",
     "StandardTextCategory",
@@ -155,6 +158,7 @@ __all__ = [
     "register_grant_revoker",
     "render_document",
     "render_standard_text",
+    "require_setup_item_for",
     "ui_language_of",
     "unregister_grant_revoker",
 ]

@@ -106,6 +106,10 @@
     "platformRecoveryAction": {
       "title": "Récupération par le support Nexotec",
       "body": "Le support Nexotec a effectué une récupération sur votre compte : {{action}}."
+    },
+    "checklistItemRegressed": {
+      "title": "Un point de la configuration manque à nouveau",
+      "body": "Un point de la liste de mise en service n'est plus rempli. Tant qu'il ne l'est pas, l'action qui en a besoin est bloquée."
     }
   },
   "recoveryActions": {

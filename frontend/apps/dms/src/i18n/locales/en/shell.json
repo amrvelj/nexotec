@@ -31,7 +31,9 @@
     "onboarding": "Onboard a business",
     "contactGroups": "Contact groups",
     "dataExport": "Data export",
-    "offboarding": "Offboard a business"
+    "offboarding": "Offboard a business",
+    "setup": "Setup",
+    "legalDocuments": "Legal documents"
   },
   "signOut": "Sign out",
   "environmentNotice": {

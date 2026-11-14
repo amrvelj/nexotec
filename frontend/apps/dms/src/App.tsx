@@ -40,6 +40,10 @@ const BrandingPage = lazyPage(() => import('./pages/BrandingPage'), 'BrandingPag
 const LetterheadPage = lazyPage(() => import('./pages/LetterheadPage'), 'LetterheadPage')
 const StandardTextsPage = lazyPage(() => import('./pages/StandardTextsPage'), 'StandardTextsPage')
 const NumberRangesPage = lazyPage(() => import('./pages/NumberRangesPage'), 'NumberRangesPage')
+const SetupChecklistPage = lazyPage(() => import('./pages/SetupChecklistPage'), 'SetupChecklistPage')
+const LegalAcceptancePage = lazyPage(() => import('./pages/LegalAcceptancePage'), 'LegalAcceptancePage')
+const SetupInProgressPage = lazyPage(() => import('./pages/SetupInProgressPage'), 'SetupInProgressPage')
+const PlatformLegalDocumentsPage = lazyPage(() => import('./pages/PlatformLegalDocumentsPage'), 'PlatformLegalDocumentsPage')
 const ContactGroupsPage = lazyPage(() => import('./pages/ContactGroupsPage'), 'ContactGroupsPage')
 const DataExportPage = lazyPage(() => import('./pages/DataExportPage'), 'DataExportPage')
 const PlatformOffboardingPage = lazyPage(() => import('./pages/PlatformOffboardingPage'), 'PlatformOffboardingPage')
@@ -121,6 +125,12 @@ export default function App() {
               {/* KAN-208 — Dealer Administration › Standard texts (any role reads; writes per category). */}
               <Route path="/administration/texts" element={<StandardTextsPage />} />
               <Route path="/administration/number-ranges" element={<NumberRangesPage />} />
+              {/* KAN-214 — the setup checklist and «Betrieb aktivieren» (D-A-21, FR-A-34),
+                  the re-acceptance of a new ToS / DPA version (FR-A-39), and what a
+                  colleague sees while the Betrieb is being set up. */}
+              <Route path="/administration/setup" element={<SetupChecklistPage />} />
+              <Route path="/administration/legal-acceptance" element={<LegalAcceptancePage />} />
+              <Route path="/setup-in-progress" element={<SetupInProgressPage />} />
               <Route path="/administration/contact-groups" element={<ContactGroupsPage />} />
               <Route path="/administration/export" element={<DataExportPage />} />
               <Route path="/administration/account-recovery" element={<AccountRecoveryPage />} />
@@ -129,6 +139,8 @@ export default function App() {
               {/* KAN-210 — Platform Administration › Onboarding (D-A-06, FR-A-24/25). */}
               <Route path="/platform/onboarding" element={<OnboardingPage />} />
               <Route path="/platform/offboarding" element={<PlatformOffboardingPage />} />
+              {/* KAN-214 — Platform Administration › Legal documents (FR-A-39). */}
+              <Route path="/platform/legal-documents" element={<PlatformLegalDocumentsPage />} />
               <Route path="/integrations" element={<IntegrationsPage />} />
               <Route path="/vehicles" element={<VehiclesListPage />} />
               <Route path="/vehicles/:id" element={<VehicleDetailPage />} />

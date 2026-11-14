@@ -75,4 +75,5 @@ def test_the_migrated_catalogue_is_the_declared_one(migrated_url):
     finally:
         engine.dispose()
     assert rows == _declared()
-    assert len(rows) == 12  # the security family of v1 (D-A-40)
+    # The security family of v1 (D-A-40) and the administration family's first event (KAN-214).
+    assert len(rows) == 13
