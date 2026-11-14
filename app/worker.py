@@ -55,6 +55,7 @@ from app.customer.public import (
 )
 from app.customer.services.vehicle_merge import handle_vehicle_merged_message
 from app.db import SessionLocal
+from app.export_registry import register_exporters
 from app.integration.daily_jobs import run_daily_integration_jobs
 from app.inventory.consumers import (
     handle_sales_contract_cancelled_message,
@@ -73,10 +74,13 @@ from app.inventory.public import referenced_configuration_ids as referenced_by_s
 from app.ownership_registry import register_ownership_providers
 from app.platform.consumers import (
     handle_connected_account_revoked_message,
+    handle_data_export_requested_message,
     handle_digest_released_message,
     handle_notification_delivered_message,
 )
 from app.platform.daily_jobs import (
+    run_daily_data_export_expiry,
+    run_daily_dealership_erasure,
     run_daily_notification_digest,
     run_daily_notification_purge,
     run_daily_revoked_grant_repair,
@@ -327,6 +331,13 @@ def register_handlers(transport: InProcessTransport) -> None:
         consumer_name="platform.connected_account_provider_revocation",
         handler=handle_connected_account_revoked_message,
     )
+    # KAN-218 (FR-A-44): the requested export's file is produced here, never
+    # in the request — staging runs no worker (ADR-081), so there it waits.
+    transport.register(
+        "platform.data_export.requested",
+        consumer_name="platform.data_export_production",
+        handler=handle_data_export_requested_message,
+    )
 
     if os.environ.get("DMS_OUTBOX_WORKER_CI_SMOKE_TEST_PROBE") == "1":
         _register_ci_smoke_test_probe(transport)
@@ -432,6 +443,13 @@ def _refresh_configuration_labels(db: Session) -> None:
     logger.info("inventory.configuration_labels: %d stock item(s) relabelled", changed)
 
 
+def register_exports() -> None:
+    """KAN-218: the export job and the deletion ask every context's exporter
+    through the registry, which the composition root fills."""
+
+    register_exporters()
+
+
 def register_ownership() -> None:
     """KAN-200: the expiry job hands a leaver's records over through the
     ownership registry, which the composition root fills."""
@@ -440,7 +458,7 @@ def register_ownership() -> None:
 
 
 def register_daily_jobs() -> None:
-    """Sixteen daily jobs, run in registration order once per day on this
+    """Eighteen daily jobs, run in registration order once per day on this
     process (app.core.daily_scheduler):
 
     1. ``integration.daily_jobs`` — ADR-025's expiry warnings, ADR-024's
@@ -505,12 +523,18 @@ def register_daily_jobs() -> None:
        is ended at the provider again (an outage longer than the outbox's
        retries, a grant revoked before its revoker was registered). A repair,
        so after reconciliation: the night's report names the grant first.
-    15. ``valuation.provider_quotes.purge_unused`` — KAN-599 (Anto,
+    15. ``platform.data_exports.expire`` — KAN-218 (Anto, 2026-11-13, Q1 A):
+       an export's download stays seven days, then its file is deleted.
+    16. ``platform.dealership_erasure`` — KAN-218 (Q3 A, FR-A-45): an
+       offboarded Betrieb's archive is deleted the day after its ten years
+       end, context by context, platform last, with a platform-level audit
+       row; a stopped run resumes. Retention, not a repair.
+    17. ``valuation.provider_quotes.purge_unused`` — KAN-599 (Anto,
        2026-11-13, option A): a provider quote no valuation references is
        deleted ten years after it was fetched, with an audit row; one a
        valuation references stays as long as the valuation
        (app.valuation.daily_jobs). Retention, not a repair.
-    16. ``vehicle.configurations.purge_unattached`` — KAN-270 (Anto,
+    18. ``vehicle.configurations.purge_unattached`` — KAN-270 (Anto,
        2026-11-03, option C): a configuration no host ever took is deleted
        30 days after it was created, with an audit row and
        ``vehicle.configuration.discarded``; one a host holds is stamped taken
@@ -537,9 +561,13 @@ def register_daily_jobs() -> None:
     register_daily_job("platform.notifications.purge", run_daily_notification_purge)
     # 14. KAN-559: a revoked grant still holding a reference is ended at the provider.
     register_daily_job("platform.connected_account.repair", run_daily_revoked_grant_repair)
-    # 15. KAN-599: a provider quote no valuation references goes ten years after it was fetched.
+    # 15./16. KAN-218 (Q1 A, Q3 A): an export's file goes seven days after it
+    #    was produced; an offboarded Betrieb's archive the day after its ten years.
+    register_daily_job("platform.data_exports.expire", run_daily_data_export_expiry)
+    register_daily_job("platform.dealership_erasure", run_daily_dealership_erasure)
+    # 17. KAN-599: a provider quote no valuation references goes ten years after it was fetched.
     register_daily_job("valuation.provider_quotes.purge_unused", run_daily_unused_provider_quote_purge)
-    # 16. KAN-270 (registered last): a configuration no host ever took goes after 30 days.
+    # 18. KAN-270 (registered last): a configuration no host ever took goes after 30 days.
     register_daily_job("vehicle.configurations.purge_unattached", _purge_unattached_configurations)
 
 
@@ -547,6 +575,7 @@ def run(*, max_iterations: int | None = None) -> None:
     transport = InProcessTransport(SessionLocal)
     register_handlers(transport)
     register_ownership()
+    register_exports()
     register_daily_jobs()
 
     iterations = 0

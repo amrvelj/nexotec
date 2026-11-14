@@ -16,7 +16,7 @@ from decimal import Decimal
 
 import psycopg
 import pytest
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine, insert, text
 from sqlalchemy.orm import Session
 
 from app.platform.models.dealership import DealerGroup, Dealership, FranchiseType
@@ -63,14 +63,19 @@ def _dealership(session: Session, name: str) -> uuid.UUID:
     group = DealerGroup(name=f"{name} group")
     session.add(group)
     session.flush()
-    dealership = Dealership(
-        dealer_group_id=group.id, legal_name=name, franchise_type=FranchiseType.INDEPENDENT,
-        address_street="Bahnhofstrasse", address_house_number="1", address_postal_code="8001",
-        address_locality="Zürich", address_canton="ZH", phone="+41441234567", uid=valid_uid(),
-    )
-    session.add(dealership)
-    session.flush()
-    return dealership.id
+    # A Core insert of the columns named here (and the ones with a Python
+    # default), not an ORM one: the ORM writes every column the model maps
+    # today, and the schema this test runs against is older (KAN-218 added
+    # columns the revision under test does not have).
+    return session.execute(
+        insert(Dealership.__table__)
+        .values(
+            dealer_group_id=group.id, legal_name=name, franchise_type=FranchiseType.INDEPENDENT,
+            address_street="Bahnhofstrasse", address_house_number="1", address_postal_code="8001",
+            address_locality="Zürich", address_canton="ZH", phone="+41441234567", uid=valid_uid(),
+        )
+        .returning(Dealership.__table__.c.id)
+    ).scalar_one()
 
 
 def test_the_footers_move_into_the_library_and_come_back_on_downgrade(scratch_url):

@@ -37,6 +37,7 @@ from app.sales.models.offer import SalesOffer
 from app.sales.services.configuration_reference import referenced_configuration_ids
 from app.sales.services.contract_status import ContractFacts, list_contract_facts
 from app.sales.services.customer_label import oldest_customer_label_age_seconds, refresh_customer_labels
+from app.sales.services.data_export import SalesExporter
 from app.sales.services.owner_label import oldest_owner_label_age_seconds, refresh_owner_labels
 from app.sales.services.ownership import SalesOwnershipProvider
 from app.sales.services.trade_in_seller import TradeInSeller, get_trade_in_seller
@@ -47,6 +48,7 @@ __all__ = [
     "ContractStatus",
     "ContractValuationCarry",
     "SalesContract",
+    "SalesExporter",
     "SalesOffer",
     "SalesOwnershipProvider",
     "TradeInSeller",

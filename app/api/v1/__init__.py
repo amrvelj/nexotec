@@ -26,6 +26,7 @@ from app.platform.api.auth import router as auth_router
 from app.platform.api.branding import router as branding_router
 from app.platform.api.configuration_copy import router as configuration_copy_router
 from app.platform.api.contact_groups import router as contact_groups_router
+from app.platform.api.data_exports import router as data_exports_router
 from app.platform.api.dealership_identity import router as dealership_identity_router
 from app.platform.api.dealership_memberships import router as dealership_memberships_router
 from app.platform.api.dealership_users import router as dealership_users_router
@@ -59,6 +60,7 @@ from app.vehicle.api.vehicle_mdm_detail import router as vehicle_mdm_detail_rout
 api_v1_router = APIRouter(prefix="/v1")
 api_v1_router.include_router(health_router)
 api_v1_router.include_router(dealerships_router)
+api_v1_router.include_router(data_exports_router)
 api_v1_router.include_router(dealership_users_router)
 api_v1_router.include_router(dealership_memberships_router)
 api_v1_router.include_router(dealership_identity_router)

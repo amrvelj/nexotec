@@ -1,0 +1,67 @@
+{
+  "title": "Datenexport",
+  "subtitle": "Ein vollständiger Export aller Daten Ihres Betriebs – jederzeit, in offenen Formaten.",
+  "request": "Export anfordern",
+  "requested": "Der Export wird erstellt. Er erscheint in der Liste, sobald er bereit ist.",
+  "acknowledged": "Sie haben den Erhalt des Exports bestätigt.",
+  "requestError": "Der Export konnte nicht angefordert werden.",
+  "acknowledgeError": "Der Erhalt konnte nicht bestätigt werden.",
+  "downloadError": "Der Export konnte nicht heruntergeladen werden.",
+  "loadError": "Die Exporte konnten nicht geladen werden.",
+  "readOnly": "Den Export fordert die Geschäftsführung an.",
+  "listLabel": "Exporte",
+  "window": "Ein fertiger Export lässt sich 7 Tage lang herunterladen; danach wird die Datei gelöscht. Ein neuer Export kann jederzeit angefordert werden.",
+  "acknowledgeHint": "Vor einer Kündigung bestätigen Sie den Erhalt des letzten Exports. Nexotec beendet den Betrieb nur mit einem bestätigten Export, der nach der letzten Änderung erstellt wurde.",
+  "contents": {
+    "title": "Was der Export enthält",
+    "records": "Alle Datensätze des Betriebs als CSV und JSON, je Bereich eine Datei, mit einer Beschreibung des Schemas",
+    "documents": "Jedes ausgestellte Dokument als PDF, mit Nummer und Datum",
+    "audit": "Das Änderungsprotokoll",
+    "files": "Die hochgeladenen Dateien: Logos, Fotos, Unterschriften"
+  },
+  "status": {
+    "requested": "In Arbeit",
+    "ready": "Bereit",
+    "failed": "Fehlgeschlagen",
+    "expired": "Abgelaufen"
+  },
+  "kind": {
+    "self_service": "Export des Betriebs",
+    "archive": "Archivexport"
+  },
+  "columns": {
+    "requestedAt": "Angefordert",
+    "kind": "Art",
+    "reason": "Begründung",
+    "status": "Status",
+    "producedAt": "Erstellt",
+    "downloadExpiresAt": "Download bis",
+    "size": "Grösse",
+    "acknowledgedAt": "Erhalt bestätigt"
+  },
+  "rowMenu": {
+    "download": "Herunterladen",
+    "acknowledge": "Erhalt bestätigen",
+    "alreadyAcknowledged": "Der Erhalt ist bereits bestätigt.",
+    "managersOwn": "Der eigene Export des Betriebs gehört seiner Geschäftsführung.",
+    "notReady": {
+      "requested": "Der Export wird noch erstellt.",
+      "failed": "Dieser Export ist fehlgeschlagen – fordern Sie einen neuen an.",
+      "expired": "Die Datei wurde nach 7 Tagen gelöscht."
+    }
+  },
+  "empty": {
+    "title": "Noch kein Export",
+    "description": "Ein angeforderter Export erscheint hier."
+  },
+  "refusals": {
+    "dealership_offboarded": "Dieser Betrieb ist beendet. Eine Kopie seines Archivs erstellt der Nexotec-Support.",
+    "export_requested": "Der Export wird noch erstellt.",
+    "export_failed": "Dieser Export ist fehlgeschlagen – fordern Sie einen neuen an.",
+    "export_expired": "Der Download dieses Exports ist abgelaufen und die Datei gelöscht. Fordern Sie einen neuen Export an.",
+    "export_file_missing": "Die Datei dieses Exports ist nicht mehr vorhanden. Fordern Sie einen neuen Export an.",
+    "export_not_own": "Bestätigt wird nur der eigene Export des Betriebs.",
+    "export_already_acknowledged": "Der Erhalt dieses Exports ist bereits bestätigt.",
+    "staff_use_archive_export": "Der Export des Betriebs gehört seiner Geschäftsführung. Nexotec erstellt einen Archivexport unter Plattform › Betrieb beenden."
+  }
+}

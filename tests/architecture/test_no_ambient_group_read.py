@@ -55,6 +55,13 @@ _ALLOWED_FILES = {
     _APP_ROOT / "customer" / "services" / "vehicle_party_reads.py",
     # The ADR-030 compliance layer built on top of tenancy.py's helper.
     _APP_ROOT / "customer" / "services" / "legal_basis.py",
+    # KAN-218 (FR-A-44/45, ADR-014): the export and the deletion of ONE
+    # Betrieb's customers — the group in the predicate is that Betrieb's own,
+    # handed in by platform (`ExportScope.group_id`), never another's. The
+    # export narrows it further to the Betrieb's relationship; the deletion
+    # takes the group's rows only once no sister still holds data. Never a
+    # dealer-facing read: the worker's export and the deletion job.
+    _APP_ROOT / "customer" / "services" / "data_export.py",
     # KAN-28 — ADR-055's group-readable stock roster. Since KAN-121 (rule
     # 2) its group predicate is platform's: the Betriebe of the caller's
     # own group while the group's read is enabled, as plain data

@@ -1348,6 +1348,82 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/dealerships/{dealership_id}/exports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Exports */
+        get: operations["list_exports_v1_dealerships__dealership_id__exports_get"];
+        put?: never;
+        /**
+         * Request Export
+         * @description FR-A-44: a full export of the Betrieb, produced by the worker; the
+         *     response is the requested job (202).
+         */
+        post: operations["request_export_v1_dealerships__dealership_id__exports_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/dealerships/{dealership_id}/exports/{export_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Export */
+        get: operations["get_export_v1_dealerships__dealership_id__exports__export_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/dealerships/{dealership_id}/exports/{export_id}/acknowledge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Acknowledge Export
+         * @description FR-A-45: the manager confirms the final export arrived.
+         */
+        post: operations["acknowledge_export_v1_dealerships__dealership_id__exports__export_id__acknowledge_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/dealerships/{dealership_id}/exports/{export_id}/download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Download Export */
+        get: operations["download_export_v1_dealerships__dealership_id__exports__export_id__download_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/dealerships/{dealership_id}/locations": {
         parameters: {
             query?: never;
@@ -3064,6 +3140,91 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/platform/dealerships/{dealership_id}/exports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Platform Exports
+         * @description Every export of the Betrieb — its manager's and staff's archive
+         *     exports — for the offboarding page.
+         */
+        get: operations["list_platform_exports_v1_platform_dealerships__dealership_id__exports_get"];
+        put?: never;
+        /**
+         * Request Archive Export
+         * @description Q2 B: an export from the archive for a former manager who asked
+         *     support — audited with the requester and the reason.
+         */
+        post: operations["request_archive_export_v1_platform_dealerships__dealership_id__exports_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/platform/dealerships/{dealership_id}/exports/{export_id}/download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Download Archive Export
+         * @description Staff hand an archive export over; only an archive export — the
+         *     manager's own stays the manager's.
+         */
+        get: operations["download_archive_export_v1_platform_dealerships__dealership_id__exports__export_id__download_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/platform/dealerships/{dealership_id}/offboard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Offboard Dealership
+         * @description FR-A-45: refused (409) without an export the manager acknowledged
+         *     and produced after the Betrieb's last write.
+         */
+        post: operations["offboard_dealership_v1_platform_dealerships__dealership_id__offboard_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/platform/dealerships/{dealership_id}/offboarding": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Offboarding */
+        get: operations["get_offboarding_v1_platform_dealerships__dealership_id__offboarding_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/platform/dealerships/{dealership_id}/recovery/grant-manager": {
         parameters: {
             query?: never;
@@ -4447,6 +4608,15 @@ export interface components {
          * @enum {string}
          */
         AgeingBucket: "green" | "amber" | "red";
+        /**
+         * ArchiveExportRequest
+         * @description Q2 B: staff produce an archive export for a former manager who asked
+         *     support — with the reason, which the audit row keeps.
+         */
+        ArchiveExportRequest: {
+            /** Reason */
+            reason: string;
+        };
         /** AttachValuationRequest */
         AttachValuationRequest: {
             /**
@@ -7506,6 +7676,7 @@ export interface components {
             oemAffiliations?: string[] | null;
             /** Phone */
             phone?: string | null;
+            /** @description Platform staff only: 'suspended' or back to 'active'. Activation and offboarding have their own procedures; a manager sending this field gets 422 status_not_patchable. */
             status?: components["schemas"]["DealershipStatus"] | null;
             /** Tradename */
             tradeName?: string | null;
@@ -7714,6 +7885,66 @@ export interface components {
             vehicleNumber: string;
             /** Vin */
             vin: string;
+        };
+        /**
+         * ExportJobKind
+         * @enum {string}
+         */
+        ExportJobKind: "self_service" | "archive";
+        /**
+         * ExportJobStatus
+         * @enum {string}
+         */
+        ExportJobStatus: "requested" | "ready" | "failed" | "expired";
+        /** ExportPage */
+        ExportPage: {
+            /** Items */
+            items: components["schemas"]["ExportRead"][];
+            /** Nextcursor */
+            nextCursor?: string | null;
+        };
+        /** ExportRead */
+        ExportRead: {
+            /** Acknowledgedat */
+            acknowledgedAt: string | null;
+            /** Acknowledgedby */
+            acknowledgedBy: string | null;
+            /** Bytesize */
+            byteSize: number | null;
+            /**
+             * Createdat
+             * Format: date-time
+             */
+            createdAt: string;
+            /**
+             * Dealershipid
+             * Format: uuid
+             */
+            dealershipId: string;
+            /** Downloadexpiresat */
+            downloadExpiresAt: string | null;
+            /** Expiredat */
+            expiredAt: string | null;
+            /** Failurereason */
+            failureReason: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            kind: components["schemas"]["ExportJobKind"];
+            /** Producedat */
+            producedAt: string | null;
+            /** Reason */
+            reason: string | null;
+            /**
+             * Requestedby
+             * Format: uuid
+             */
+            requestedBy: string;
+            status: components["schemas"]["ExportJobStatus"];
+            /** Version */
+            version: number;
         };
         /**
          * FinancingKind
@@ -8880,6 +9111,46 @@ export interface components {
          * @enum {string}
          */
         OdometerSource: "service_visit" | "sale" | "valuation" | "manual" | "import";
+        /** OffboardRequest */
+        OffboardRequest: {
+            /**
+             * Confirmation
+             * @description Must be true: offboarding deactivates every user and cannot be undone.
+             */
+            confirmation: boolean;
+            /** Reason */
+            reason?: string | null;
+        };
+        /**
+         * OffboardingRead
+         * @description Where a Betrieb stands on its way out (the platform offboarding page).
+         */
+        OffboardingRead: {
+            /** Acknowledgedexportid */
+            acknowledgedExportId: string | null;
+            /** Acknowledgedexportproducedat */
+            acknowledgedExportProducedAt: string | null;
+            /**
+             * Dealershipid
+             * Format: uuid
+             */
+            dealershipId: string;
+            /** Erasedat */
+            erasedAt: string | null;
+            /** Lastwriteat */
+            lastWriteAt: string | null;
+            /** Legalname */
+            legalName: string;
+            /** Offboardedat */
+            offboardedAt: string | null;
+            /** Refusal */
+            refusal: string | null;
+            /** Retentionuntil */
+            retentionUntil: string | null;
+            status: components["schemas"]["DealershipStatus"];
+            /** Version */
+            version: number;
+        };
         /** OfferCancelRequest */
         OfferCancelRequest: {
             /** Reason */
@@ -15613,6 +15884,192 @@ export interface operations {
             };
         };
     };
+    list_exports_v1_dealerships__dealership_id__exports_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                cursor?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExportPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    request_export_v1_dealerships__dealership_id__exports_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                dealership_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExportRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_export_v1_dealerships__dealership_id__exports__export_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                export_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExportRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    acknowledge_export_v1_dealerships__dealership_id__exports__export_id__acknowledge_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "If-Match"?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                export_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExportRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    download_export_v1_dealerships__dealership_id__exports__export_id__download_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                export_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_locations_v1_dealerships__dealership_id__locations_get: {
         parameters: {
             query?: {
@@ -20174,6 +20631,198 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DealerGroupOptionList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_platform_exports_v1_platform_dealerships__dealership_id__exports_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                cursor?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExportPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    request_archive_export_v1_platform_dealerships__dealership_id__exports_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                dealership_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ArchiveExportRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExportRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    download_archive_export_v1_platform_dealerships__dealership_id__exports__export_id__download_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                export_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    offboard_dealership_v1_platform_dealerships__dealership_id__offboard_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "If-Match"?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                dealership_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OffboardRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OffboardingRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_offboarding_v1_platform_dealerships__dealership_id__offboarding_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OffboardingRead"];
                 };
             };
             /** @description Validation Error */

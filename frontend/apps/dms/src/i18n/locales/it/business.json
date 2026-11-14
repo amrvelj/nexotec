@@ -232,5 +232,11 @@
       "other": "Questa voce non può essere ripresa.",
       "contact_group_inactive": "Nexotec ha ritirato questo gruppo di contatti."
     }
+  },
+  "statusRefusals": {
+    "status_not_patchable": "Lo stato di un'azienda non si modifica qui: attivazione e chiusura sono procedure a sé.",
+    "use_activation_procedure": "Un'azienda viene attivata con la procedura di attivazione, non con questa modifica.",
+    "use_offboarding_procedure": "Un'azienda viene chiusa con «Chiudere l'azienda», non con questa modifica.",
+    "status_transition_not_allowed": "Questo cambio di stato non è possibile qui."
   }
 }

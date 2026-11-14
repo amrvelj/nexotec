@@ -41,6 +41,7 @@ from app.platform.models.dealership_bank_account import DealershipBankAccount
 from app.platform.models.dealership_membership import DealershipMembership
 from app.platform.models.dealership_settings import DealershipSettings
 from app.platform.models.document_template import DocumentTemplate
+from app.platform.models.export_job import ExportJob
 from app.platform.models.holiday_calendar import Holiday, HolidayCalendar
 from app.platform.models.location_schedule import LocationClosure, LocationOpeningHours
 from app.platform.models.mfa import MfaPasskey, MfaRecoveryCode, MfaTotp
@@ -127,6 +128,7 @@ __all__ = [
     "DealershipMembership",
     "DealershipSettings",
     "DocumentTemplate",
+    "ExportJob",
     "Holiday",
     "HolidayCalendar",
     "IdempotencyRecord",

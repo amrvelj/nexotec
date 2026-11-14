@@ -28,7 +28,9 @@
     "standardTexts": "Standard texts",
     "numberRanges": "Number ranges",
     "onboarding": "Onboard a business",
-    "contactGroups": "Contact groups"
+    "contactGroups": "Contact groups",
+    "dataExport": "Data export",
+    "offboarding": "Offboard a business"
   },
   "signOut": "Sign out",
   "environmentNotice": {

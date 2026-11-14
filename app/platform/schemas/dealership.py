@@ -117,7 +117,14 @@ class DealershipUpdate(CamelModel):
     uid: SwissUid | None = None
     vat_number: SwissVatNumber | None = None
     vat_liable: bool | None = None
-    status: DealershipStatus | None = None
+    # KAN-712: platform staff's only — suspend a Betrieb or lift the
+    # suspension. A manager naming it is 422 `status_not_patchable`;
+    # activation and offboarding are procedures of their own.
+    status: DealershipStatus | None = Field(
+        default=None,
+        description="Platform staff only: 'suspended' or back to 'active'. Activation and offboarding have their own "
+        "procedures; a manager sending this field gets 422 status_not_patchable.",
+    )
     # WP-7 PR-3 (ADR-057) — "dealer-configurable dealer_settings.vat_rate,"
     # the one VAT figure in the whole system.
     vat_rate: Decimal | None = None

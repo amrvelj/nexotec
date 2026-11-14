@@ -83,6 +83,9 @@ _TOP_LEVEL: dict[str, int] = {
     "model_registry": _COMPOSITION_ROOT_RANK,
     "reconciliation_runner": _COMPOSITION_ROOT_RANK,
     "ownership_registry": _COMPOSITION_ROOT_RANK,
+    # KAN-218: names every context's exporter for app.core.export's registry,
+    # as ownership_registry names every ownership provider.
+    "export_registry": _COMPOSITION_ROOT_RANK,
 }
 
 # The upward imports that exist today, each with the ticket that removes it

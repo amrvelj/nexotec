@@ -47,6 +47,35 @@ const REASON_KEYS: Record<string, string> = {
   vehicle_party_exists: 'customerDetail.linkVehicleRefused.roleAlreadyHeld',
   vehicle_party_future_holder: 'customerDetail.linkVehicleRefused.futureHolder',
   vin_differs_from_configuration: 'valuationCreate.vinDiffersFromConfiguration',
+  // KAN-712 — the dealership PATCH's status rule (the Business screen sends no status).
+  status_not_patchable: 'business.statusRefusals.status_not_patchable',
+  status_transition_not_allowed: 'business.statusRefusals.status_transition_not_allowed',
+  use_activation_procedure: 'business.statusRefusals.use_activation_procedure',
+  use_offboarding_procedure: 'business.statusRefusals.use_offboarding_procedure',
+  // KAN-218 — the data export and offboarding.
+  ...Object.fromEntries(
+    [
+      'dealership_offboarded',
+      'export_already_acknowledged',
+      'export_expired',
+      'export_failed',
+      'export_file_missing',
+      'export_not_own',
+      'export_requested',
+      'staff_use_archive_export',
+    ].map((reason) => [reason, `dataExport.refusals.${reason}`]),
+  ),
+  ...Object.fromEntries(
+    [
+      'already_offboarded',
+      'archive_erased',
+      'dealership_not_offboarded',
+      'export_not_acknowledged',
+      'export_out_of_date',
+      'offboarding_confirmation_required',
+      'user_last_manager_of_sister',
+    ].map((reason) => [reason, `offboarding.refusals.${reason}`]),
+  ),
   ...Object.fromEntries(
     [
       'accept_invitation_required',

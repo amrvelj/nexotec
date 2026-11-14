@@ -29,6 +29,7 @@ from app.platform.models.dealership_bank_account import DealershipBankAccount
 from app.platform.models.dealership_membership import DealershipMembership
 from app.platform.models.dealership_settings import DealershipSettings
 from app.platform.models.document_template import DocumentTemplate
+from app.platform.models.export_job import ExportJob
 from app.platform.models.holiday_calendar import Holiday, HolidayCalendar
 from app.platform.models.location_schedule import LocationClosure
 from app.platform.models.module_entitlement import ModuleEntitlement
@@ -73,6 +74,7 @@ ACTOR_TABLES = (
     BrandingAsset,  # uploaded_by (KAN-205)
     NumberRange,  # created_by / updated_by (KAN-207; seeded rows carry none)
     DealershipContactGroup,  # created_by / updated_by: who switched it on (KAN-466)
+    ExportJob,  # created_by / updated_by: who requested the export (KAN-218)
 )
 
 # KAN-412 (FR-AU-24, rule 10): a revoked grant's provider end is recorded by

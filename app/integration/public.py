@@ -98,6 +98,7 @@ from app.integration.services.connection_refs import (
     get_entitlement,
 )
 from app.integration.services.connections import valuation_granted, vin_decode_granted
+from app.integration.services.data_export import IntegrationExporter
 from app.integration.services.gateway import (
     ConnectionDisabledError,
     UnknownProviderError,
@@ -118,6 +119,7 @@ __all__ = [
     "ConnectionStatus",
     "EnergyLabelData",
     "EntitlementState",
+    "IntegrationExporter",
     "MarketplaceAdapter",
     "MarketplaceListing",
     "MarketplaceListingError",

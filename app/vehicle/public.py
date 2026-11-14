@@ -23,6 +23,7 @@ from app.vehicle.models.spec_block import (
     spec_block_field_names,
 )
 from app.vehicle.models.vehicle_mdm import VehicleMdm
+from app.vehicle.services.data_export import VehicleExporter
 from app.vehicle.services.host_configuration import BUILD as CONFIGURATION_MODE_BUILD
 from app.vehicle.services.host_configuration import RECORD as CONFIGURATION_MODE_RECORD
 from app.vehicle.services.host_configuration import (
@@ -397,6 +398,7 @@ __all__ = [
     "ProviderValuationInput",
     "ResolvedVehicleMdm",
     "VehicleConfiguration",
+    "VehicleExporter",
     "VehicleMdm",
     "VehicleSummary",
     "apply_backfilled_holding",

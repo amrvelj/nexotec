@@ -1,0 +1,59 @@
+{
+  "title": "Chiudere l'azienda",
+  "intro": "Un'azienda viene chiusa solo quando la sua direzione ha confermato un'esportazione creata dopo l'ultima modifica. In seguito tutti gli utenti sono disattivati, i dati restano dieci anni nell'archivio e poi vengono eliminati.",
+  "forbidden": {
+    "title": "Solo per il personale Nexotec",
+    "body": "Questa pagina è riservata al team Nexotec, connesso con un secondo fattore."
+  },
+  "done": "L'azienda è chiusa. Tutti gli utenti sono disattivati.",
+  "offboardError": "Non è stato possibile chiudere l'azienda.",
+  "betrieb": "Azienda",
+  "betriebPlaceholder": "Scegliere l'azienda",
+  "noBetrieb": "Nessuna azienda trovata",
+  "status": {
+    "pending_onboarding": "In allestimento",
+    "active": "Attiva",
+    "suspended": "Sospesa",
+    "offboarded": "Chiusa"
+  },
+  "offboard": "Chiudere l'azienda",
+  "fields": {
+    "lastWriteAt": "Ultima modifica: {{when}}",
+    "acknowledgedExport": "Esportazione confermata creata: {{when}}",
+    "offboardedAt": "Chiusa il: {{when}}",
+    "retentionUntil": "Nell'archivio fino al: {{day}} compreso",
+    "erasedAt": "Eliminata il: {{when}}"
+  },
+  "notYet": "Non ancora possibile",
+  "refusal": {
+    "export_not_acknowledged": "La direzione non ha ancora confermato alcuna esportazione. La richiede in Amministrazione › Esportazione dei dati e ne conferma la ricezione.",
+    "export_out_of_date": "Dei dati sono stati modificati dopo l'esportazione confermata. La direzione crea una nuova esportazione e la conferma.",
+    "already_offboarded": "Questa azienda è già chiusa."
+  },
+  "archive": {
+    "title": "Esportazione dall'archivio",
+    "intro": "Dopo la chiusura non c'è più alcun accesso. Se la direzione precedente chiede una copia, create qui un'esportazione dall'archivio – con motivo, registrata.",
+    "reason": "Motivo",
+    "reasonPlaceholder": "Chi ha chiesto la copia, e quando?",
+    "request": "Crea l'esportazione dall'archivio",
+    "requested": "L'esportazione dall'archivio è in preparazione.",
+    "error": "Non è stato possibile richiedere l'esportazione dall'archivio."
+  },
+  "exportsLabel": "Esportazioni dell'azienda",
+  "confirm": {
+    "title": "Chiudere l'azienda?",
+    "body": "{{name}} sarà chiusa: tutti gli utenti vengono disattivati, nessuno può più accedere e i dati passano dieci anni nell'archivio. L'operazione è irreversibile.",
+    "reason": "Motivo (facoltativo)",
+    "check": "Ho capito che è definitivo.",
+    "submit": "Chiudere definitivamente"
+  },
+  "refusals": {
+    "dealership_not_offboarded": "Un'esportazione dall'archivio è possibile solo per un'azienda chiusa; un'azienda attiva esporta da sé.",
+    "archive_erased": "L'archivio di questa azienda è stato eliminato alla scadenza del periodo di conservazione.",
+    "already_offboarded": "Questa azienda è già chiusa.",
+    "export_not_acknowledged": "La direzione non ha ancora confermato alcuna esportazione.",
+    "export_out_of_date": "Dei dati sono stati modificati dopo l'esportazione confermata – la direzione esporta e conferma di nuovo.",
+    "offboarding_confirmation_required": "Confermate che la chiusura è definitiva.",
+    "user_last_manager_of_sister": "Un utente di questa azienda è l'ultimo gerente di un'altra azienda. Date prima a quell'azienda un'altra direzione."
+  }
+}
