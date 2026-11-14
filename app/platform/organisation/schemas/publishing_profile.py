@@ -12,7 +12,8 @@ import uuid
 from decimal import Decimal
 from typing import Literal
 
-from pydantic import Field, field_validator, model_validator
+from pydantic import ConfigDict, Field, field_validator, model_validator
+from pydantic.alias_generators import to_camel
 
 from app.core.auth import AccessRole
 from app.core.schemas import CamelModel
@@ -67,6 +68,11 @@ def _check_url(value: str | None) -> str | None:
 
 
 class _OverridableFields(CamelModel):
+    # A field the schema does not know is refused, not ignored: a legal
+    # notice sent for a location must not vanish silently (they are the
+    # Betrieb's alone).
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True, from_attributes=True, extra="forbid")
+
     short_description: LocalisedText | None = None
     long_description: LocalisedText | None = None
     warranty_text: LocalisedText | None = None

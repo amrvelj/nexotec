@@ -66,7 +66,7 @@ from app.platform.organisation.schemas.publishing_profile import (
     PublishingProfileUpdate,
 )
 
-logger = logging.getLogger("app.platform.organisation.services.publishing_profile")
+logger = logging.getLogger("app.platform.services.publishing_profile")
 
 _ENTITY = "publishing_profile"
 _ALL_LOCALISED = OVERRIDABLE_LOCALISED_FIELDS + BETRIEB_ONLY_LOCALISED_FIELDS

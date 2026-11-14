@@ -3,8 +3,10 @@ FR-A-04, FR-A-05, FR-A-27, A-RULE-2).
 
 Nested under /dealerships/{dealership_id} like every Business setting: the
 tenant comes from the token (`require_tenant_match`: another Betrieb's id is
-a 404). The router carries the `sales` entitlement gate (a Betrieb without
-Sales publishes nothing — 404 for everyone, staff included), any role reads
+a 404). No entitlement gate: like every Dealer Administration route it is
+master data of the Betrieb (`test_sales_routers_carry_entitlement_gate.py`
+keeps the gate to the licensed modules); the SPA offers the screen to a
+Betrieb holding `sales`, and only Stock — gated — publishes. Any role reads
 (`publishing_profile` read), the matrix's writers write (inventory and the
 manager, `publishing_profile` write).
 
@@ -22,7 +24,7 @@ from app.core.auth import Principal
 from app.core.concurrency import check_version, require_if_match
 from app.core.idempotent_route import IdempotentRoute
 from app.core.object_store import ObjectStore, get_object_store
-from app.core.permissions import ModuleCode, require_entitlement, require_read, require_write
+from app.core.permissions import require_read, require_write
 from app.core.tenancy import require_tenant_match
 from app.db import get_db
 from app.platform.organisation.models.branding_asset import PublishingImageKind
@@ -47,14 +49,10 @@ from app.platform.organisation.schemas.publishing_profile import (
     PublishingProfileUpdate,
 )
 from app.platform.organisation.services import dealership as dealership_service
-from app.platform.organisation.services import publishing_profile as service
+from app.platform.services import publishing_profile as service
 from app.platform.organisation.services.location import get_location_for_update_or_404, get_location_or_404
 
-router = APIRouter(
-    tags=["publishing-profile"],
-    route_class=IdempotentRoute,
-    dependencies=[Depends(require_entitlement(ModuleCode.SALES))],
-)
+router = APIRouter(tags=["publishing-profile"], route_class=IdempotentRoute)
 
 _FILE_HEADERS = {
     "Cache-Control": "private, no-store",
