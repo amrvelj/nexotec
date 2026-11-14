@@ -109,7 +109,7 @@
     },
     "integrationExpiring": {
       "title": "Une intégration arrive bientôt à échéance",
-      "body": "L'accès d'une intégration expire dans {{days}} jours. Renouvelez-le sous Administration › Intégrations pour que la connexion ne s'interrompe pas."
+      "body": "L'accès d'une intégration expire dans {{days, number}} jours. Renouvelez-le sous Administration › Intégrations pour que la connexion ne s'interrompe pas."
     }
   },
   "recoveryActions": {

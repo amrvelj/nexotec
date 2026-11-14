@@ -1,4 +1,4 @@
-import { Ban, Gauge, KeyRound, Play, RefreshCw, Trash2, Zap } from 'lucide-react'
+import { Ban, Gauge, KeyRound, MapPin, Play, RefreshCw, Trash2, Zap } from 'lucide-react'
 import type { RowMenuGroups } from '@nexotec/ui-kit'
 import type { IntegrationConnectionRead } from '../api/types'
 
@@ -8,18 +8,22 @@ export interface ConnectionRowMenuActions {
   onRotateSecret: () => void
   onToggleEnabled: () => void
   onDelete: () => void
+  /** KAN-222 — «Standort zuordnen»; offered only where the connection's accounts are per site. */
+  onBindLocation?: () => void
 }
 
 /**
- * The account-identifier of a connection, as its card and the delete
- * confirmation name it. auto-i-dat (KAN-488, ADR-111) is an OAuth 2.0 client:
- * its `clientId` is the identifier (never the secret, which `config` never
- * carries). Every other provider falls back to its plain `username`.
+ * The account at the provider, as the card and the delete confirmation name
+ * it (KAN-222, FR-A-20): the API's `accountIdentifier`, derived by each
+ * provider from the connection's non-secret configuration
+ * (`app/integration/services/account_identifier.py`). Missing → «Kennung
+ * fehlt», never a blank or a dash that reads as «no account».
  */
-export function connectionAccountIdentifier(connection: IntegrationConnectionRead): string {
-  const { clientId, username } = connection.config
-  if (typeof clientId === 'string' && clientId !== '') return clientId
-  return typeof username === 'string' && username !== '' ? username : '—'
+export function connectionAccountIdentifier(
+  t: (key: string) => string,
+  connection: Pick<IntegrationConnectionRead, 'accountIdentifier'>
+): string {
+  return connection.accountIdentifier ?? t('integrationsList.accountIdentifierMissing')
 }
 
 /**
@@ -54,7 +58,8 @@ export function settableSecretSlots(
  */
 export function buildConnectionRowMenu(
   t: (key: string, options?: Record<string, unknown>) => string,
-  connection: Pick<IntegrationConnectionRead, 'enabled' | 'secretSlots'>,
+  connection: Pick<IntegrationConnectionRead, 'enabled' | 'secretSlots'> &
+    Partial<Pick<IntegrationConnectionRead, 'locationBindable'>>,
   actions: ConnectionRowMenuActions,
   requiredSecretSlots?: readonly string[]
 ): RowMenuGroups {
@@ -72,6 +77,9 @@ export function buildConnectionRowMenu(
         disabled: !hasSettableSlot,
         disabledReason: !hasSettableSlot ? t('integrationsList.actions.rotateSecretDisabledReason') : undefined,
       },
+      ...(connection.locationBindable && actions.onBindLocation
+        ? [{ label: t('integrationsList.actions.bindLocation'), icon: <MapPin size={16} />, onClick: actions.onBindLocation }]
+        : []),
       ...(connection.enabled
         ? []
         : [{ label: t('integrationsList.actions.enable'), icon: <Play size={16} />, onClick: actions.onToggleEnabled }]),

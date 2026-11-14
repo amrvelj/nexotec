@@ -43,7 +43,9 @@ const NumberRangesPage = lazyPage(() => import('./pages/NumberRangesPage'), 'Num
 const ContactGroupsPage = lazyPage(() => import('./pages/ContactGroupsPage'), 'ContactGroupsPage')
 const DataExportPage = lazyPage(() => import('./pages/DataExportPage'), 'DataExportPage')
 const PlatformOffboardingPage = lazyPage(() => import('./pages/PlatformOffboardingPage'), 'PlatformOffboardingPage')
-const IntegrationsPage = lazyPage(() => import('./pages/IntegrationsPage'), 'IntegrationsPage')
+const AdministrationIntegrationsPage = lazyPage(() => import('./pages/IntegrationsPage'), 'AdministrationIntegrationsPage')
+const PlatformProvidersPage = lazyPage(() => import('./pages/IntegrationsPage'), 'PlatformProvidersPage')
+const IntegrationsRedirect = lazyPage(() => import('./pages/IntegrationsPage'), 'IntegrationsRedirect')
 const VehiclesListPage = lazyPage(() => import('./pages/VehiclesListPage'), 'VehiclesListPage')
 const VehicleDetailPage = lazyPage(() => import('./pages/VehicleDetailPage'), 'VehicleDetailPage')
 const StockListPage = lazyPage(() => import('./pages/StockListPage'), 'StockListPage')
@@ -129,7 +131,11 @@ export default function App() {
               {/* KAN-210 — Platform Administration › Onboarding (D-A-06, FR-A-24/25). */}
               <Route path="/platform/onboarding" element={<OnboardingPage />} />
               <Route path="/platform/offboarding" element={<PlatformOffboardingPage />} />
-              <Route path="/integrations" element={<IntegrationsPage />} />
+              {/* KAN-222: the dealer's integrations are a section of Dealer Administration
+                  (A-RULE-0), the platform's view is /platform/providers; the old path redirects. */}
+              <Route path="/administration/integrations" element={<AdministrationIntegrationsPage />} />
+              <Route path="/platform/providers" element={<PlatformProvidersPage />} />
+              <Route path="/integrations" element={<IntegrationsRedirect />} />
               <Route path="/vehicles" element={<VehiclesListPage />} />
               <Route path="/vehicles/:id" element={<VehicleDetailPage />} />
               {/* KAN-198 (D-A-04, D-A-10): stock, sales and valuations belong to the

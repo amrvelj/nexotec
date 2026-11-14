@@ -109,7 +109,7 @@
     },
     "integrationExpiring": {
       "title": "Eine Integration läuft bald ab",
-      "body": "Der Zugang einer Integration läuft in {{days}} Tagen ab. Erneuern Sie ihn unter Verwaltung › Integrationen, damit die Verbindung nicht unterbricht."
+      "body": "Der Zugang einer Integration läuft in {{days, number}} Tagen ab. Erneuern Sie ihn unter Verwaltung › Integrationen, damit die Verbindung nicht unterbricht."
     }
   },
   "recoveryActions": {

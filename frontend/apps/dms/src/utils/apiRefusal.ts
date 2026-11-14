@@ -270,6 +270,12 @@ const REASON_KEYS: Record<string, string> = {
       'secret_store_not_configured',
       // KAN-602 — a credential the connection's provider does not use is refused.
       'secret_slot_not_used_by_provider',
+      // KAN-222 — a connection bound to a location (FR-A-21), and the usage period (FR-A-23).
+      'location_binding_needs_tenant',
+      'location_binding_not_supported',
+      'unknown_location',
+      'usage_period_reversed',
+      'usage_period_too_long',
     ].map((reason) => [reason, `apiRefusal.reasons.${reason}`]),
   ),
 }

@@ -24,7 +24,7 @@ const PROVIDER = {
 function connection(slots: string[] = []): IntegrationConnectionRead {
   return {
     id: 'conn-1', providerId: 'prov-1', providerCode: 'auto_i_dat', displayName: 'auto-i-dat', environment: 'sandbox',
-    status: 'not_configured', enabled: true, config: { clientId: 'client-4711' }, lastVerifiedAt: null, lastError: null,
+    status: 'not_configured', enabled: true, config: { clientId: 'client-4711' }, accountIdentifier: 'client-4711', lastVerifiedAt: null, lastError: null,
     version: 3, secretSlots: slots.map((slot) => ({ slot, rotatedAt: null })),
   } as unknown as IntegrationConnectionRead
 }

@@ -109,7 +109,7 @@
     },
     "integrationExpiring": {
       "title": "Un'integrazione scade a breve",
-      "body": "L'accesso di un'integrazione scade tra {{days}} giorni. Lo rinnovi in Amministrazione › Integrazioni, così che il collegamento non si interrompa."
+      "body": "L'accesso di un'integrazione scade tra {{days, number}} giorni. Lo rinnovi in Amministrazione › Integrazioni, così che il collegamento non si interrompa."
     }
   },
   "recoveryActions": {

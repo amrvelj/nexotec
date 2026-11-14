@@ -16,7 +16,8 @@
     "provider": "Fournisseur",
     "environment": "Environnement",
     "accountIdentifier": "Compte",
-    "lastVerified": "Dernière vérification"
+    "lastVerified": "Dernière vérification",
+    "location": "Site"
   },
   "actions": {
     "test": "Tester la connexion",
@@ -27,7 +28,8 @@
     "disable": "Désactiver",
     "connect": "Connecter",
     "setSecret": "Définir le secret",
-    "delete": "Supprimer la connexion"
+    "delete": "Supprimer la connexion",
+    "bindLocation": "Attribuer un site"
   },
   "connectModal": {
     "title": "Connecter {{provider}}",
@@ -39,9 +41,15 @@
   },
   "usageModal": {
     "title": "Utilisation — {{name}}",
-    "calls": "Appels (30 derniers jours)",
-    "cost": "Unités de coût (30 derniers jours)",
-    "indicative": "Indicatif uniquement — Nexotec ne facture jamais en plus de votre propre contrat fournisseur."
+    "indicative": "Indicatif uniquement — compté par Nexotec, sous les noms de compteurs du fournisseur. La facturation suit le décompte du fournisseur selon votre propre contrat.",
+    "from": "Du",
+    "to": "Au",
+    "counter": "Compteur",
+    "count": "Requêtes",
+    "total": "Total",
+    "empty": "Aucune requête pendant cette période.",
+    "invalidPeriod": "La fin de la période précède son début.",
+    "loadError": "L'utilisation n'a pas pu être chargée."
   },
   "rotateModal": {
     "title": "Renouveler les secrets — {{name}}",
@@ -72,5 +80,13 @@
     "warning": "Les secrets enregistrés seront également supprimés. Cette action est irréversible.",
     "confirm": "Supprimer définitivement",
     "error": "La connexion n'a pas pu être supprimée."
+  },
+  "accountIdentifierMissing": "Identifiant manquant",
+  "locationWholeBusiness": "Toute l'entreprise",
+  "locationModal": {
+    "title": "Attribuer un site — {{name}}",
+    "field": "Site",
+    "fieldHint": "Le site auquel ce compte s'applique — par exemple le numéro de filiale d'un site chez AutoScout24. « Toute l'entreprise » s'il vaut pour tous les sites.",
+    "error": "Le site n'a pas pu être attribué."
   }
 }
