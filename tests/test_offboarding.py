@@ -177,7 +177,8 @@ def test_offboarding_sets_the_status_the_retention_date_and_deactivates_every_us
     assert response.status_code == 200, response.text
     body = response.json()
     assert body["status"] == "offboarded"
-    today = dt.datetime.fromisoformat(body["offboardedAt"]).date()
+    # The Swiss calendar day of the offboarding (the day reconciliation judges by).
+    today = dt.datetime.fromisoformat(body["offboardedAt"]).astimezone(ZoneInfo(get_settings().session_timezone)).date()
     assert body["retentionUntil"] == today.replace(year=today.year + 10).isoformat()
     users = db_session.scalars(select(User).where(User.tenant_id == uuid.UUID(dealership_id))).all()
     assert {user.id for user in users} == {uuid.UUID(manager["id"]), uuid.UUID(colleague["id"])}

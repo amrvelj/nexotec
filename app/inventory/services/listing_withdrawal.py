@@ -29,8 +29,12 @@ it raises rather than pretend, and states no fact: the outbox retries, then
 dead-letters and alerts (rule 10), naming no secret, and the connection keeps
 its credentials for the repair. A listing never delivered (no connection
 ever, or never transmitted) is unpublished without a feed. The empty feed also
-goes to every channel a feed of the Betrieb ever reached, live rows or not: an
-unpublish whose own feed never reached the marketplace is withdrawn too.
+goes to every channel holding a row whose last transmission reached the
+marketplace (`TRANSMITTED`), live or not: an unpublish whose own feed never
+arrived is withdrawn too. `transmission_status` is the last attempt's outcome,
+not a history: a row whose later deliveries all failed reads `FAILED` though an
+earlier feed may still be live — the unpublish path records no outcome of its
+own (KAN-718).
 
 Staging runs no worker (ADR-081): there the listings stay live until a
 worker runs.
@@ -87,15 +91,16 @@ def withdraw_live_listings(
         for item in db.scalars(select(StockItem).where(StockItem.id.in_({row.stock_item_id for row in rows})))
     }
 
-    # Beside the channels with a live row, every channel a feed of the
-    # Betrieb ever reached (a row TRANSMITTED, whatever its state now — an
-    # unpublish keeps its row's last transmission status): a listing
-    # unpublished here whose own empty feed never reached the marketplace
-    # (failed, dead-lettered) is still live there, and once the withdrawn fact
-    # disables the connection no replay could reach it. The empty feed is
-    # idempotent under full delivery. A channel nothing ever reached is left
-    # alone, so a connection that never transmitted (its setup unfinished)
-    # cannot hold the offboarding up.
+    # Beside the channels with a live row, every channel holding a row whose
+    # last transmission reached the marketplace (TRANSMITTED, whatever its
+    # state now — an unpublish keeps its row's last status): a listing
+    # unpublished here whose own empty feed never arrived (failed,
+    # dead-lettered) is still live there, and once the withdrawn fact disables
+    # the connection no replay could reach it. The empty feed is idempotent
+    # under full delivery. A channel with no such row is left alone, so a
+    # connection that never transmitted (its setup unfinished) cannot hold the
+    # offboarding up. Not covered: a row whose later deliveries all failed
+    # (FAILED) while an earlier feed is still live (KAN-718).
     channels = set(by_channel) | set(
         db.scalars(
             select(StockItemPublishing.channel)
