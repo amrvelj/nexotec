@@ -1641,9 +1641,10 @@ export interface paths {
         put?: never;
         /**
          * Confirm Number Ranges
-         * @description «Nummernkreise bestätigen»: the manager confirms the ranges as the
-         *     screen shows them. Completes the checklist item; freezes nothing (the
-         *     ranges freeze at activation, A-RULE-3). Audited.
+         * @description KAN-214 (D-A-21): «Nummernkreise bestätigen» — the manager confirms the
+         *     ranges as the screen shows them, which completes the setup checklist's
+         *     item. Freezes nothing (the ranges freeze at activation, A-RULE-3).
+         *     Audited. The manager's own act: 403 for a colleague and for staff.
          */
         post: operations["confirm_number_ranges_v1_dealerships__dealership_id__number_range_confirmations_post"];
         delete?: never;
@@ -9527,7 +9528,10 @@ export interface components {
             /** Reason */
             reason: string;
         };
-        /** NumberRangeConfirmationRead */
+        /**
+         * NumberRangeConfirmationRead
+         * @description KAN-214: one «Nummernkreise bestätigen».
+         */
         NumberRangeConfirmationRead: {
             /**
              * Confirmedat
