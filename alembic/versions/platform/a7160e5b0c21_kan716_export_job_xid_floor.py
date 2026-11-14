@@ -1,7 +1,7 @@
 """KAN-716: export_job.produced_xid_floor and produced_lookback_from — what the export's snapshot may miss
 
 Revision ID: a7160e5b0c21
-Revises: f348a218c4a4
+Revises: 876eb97be58e
 Create Date: 2026-11-14
 
 """
@@ -13,7 +13,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision: str = "a7160e5b0c21"
-down_revision: str | Sequence[str] | None = "f348a218c4a4"
+down_revision: str | Sequence[str] | None = "876eb97be58e"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

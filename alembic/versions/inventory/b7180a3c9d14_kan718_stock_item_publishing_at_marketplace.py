@@ -29,7 +29,7 @@ count listings never delivered at all; that trade is Anto's (KAN-718
 comment). Rows written after this migration record the case themselves.
 
 Revision ID: b7180a3c9d14
-Revises: 8e41c7a95b03
+Revises: 3702894ba351
 Create Date: 2026-11-14
 
 """
@@ -41,7 +41,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision: str = "b7180a3c9d14"
-down_revision: str | Sequence[str] | None = "8e41c7a95b03"
+down_revision: str | Sequence[str] | None = "3702894ba351"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
