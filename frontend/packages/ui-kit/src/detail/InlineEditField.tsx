@@ -88,6 +88,7 @@ export function InlineEditField({
   const insideGridCell = useInsideGridCell();
   const popoverRef = useRef<HTMLDivElement>(null);
   const reloadRef = useRef<HTMLButtonElement>(null);
+  const editorBoxRef = useRef<HTMLDivElement>(null);
 
   const startEdit = () => {
     if (disabled) return;
@@ -211,6 +212,14 @@ export function InlineEditField({
           } else if (e.key === "Tab" && !e.shiftKey && !inPopover && insideGridCell && reloadRef.current) {
             e.preventDefault();
             reloadRef.current.focus();
+          } else if (e.key === "Tab" && e.shiftKey && inPopover) {
+            // Back from «reload» to the editor, not to whatever precedes
+            // the portal at the end of the page (which would blur-save).
+            const field = editorBoxRef.current?.querySelector<HTMLElement>("input, textarea, select, [tabindex]");
+            if (field) {
+              e.preventDefault();
+              field.focus();
+            }
           }
         }}
         onBlur={(e) => {
@@ -237,7 +246,7 @@ export function InlineEditField({
             closeOnClickOutside={false}
           >
             <Popover.Target>
-              <div>{editor}</div>
+              <div ref={editorBoxRef}>{editor}</div>
             </Popover.Target>
             <Popover.Dropdown ref={popoverRef} p={6} style={{ maxWidth: 360, whiteSpace: "normal" }}>
               {error && refusal}

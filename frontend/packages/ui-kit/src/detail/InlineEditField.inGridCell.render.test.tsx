@@ -142,6 +142,24 @@ describe("InlineEditField inside a DataGrid cell (KAN-710)", () => {
     expect(onSave).toHaveBeenCalledTimes(1);
   });
 
+  it("Shift+Tab from «reload» returns to the editor without saving again", async () => {
+    const user = userEvent.setup();
+    const onSave = vi.fn(async () => {
+      throw new StaleVersion();
+    });
+    renderGrid({ onSave, onReload: vi.fn() });
+
+    const input = await refuseAnEdit(user);
+    const reload = await screen.findByRole("button", { name: "Recharger" });
+    await user.tab();
+    expect(reload).toHaveFocus();
+    await user.tab({ shift: true });
+
+    expect(input).toHaveFocus();
+    expect(onSave).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("alert")).toBeInTheDocument();
+  });
+
   it("outside a grid the refusal stays inline below the editor, as before", async () => {
     const user = userEvent.setup();
     render(
