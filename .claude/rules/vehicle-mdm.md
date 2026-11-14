@@ -47,7 +47,8 @@ re-verified against the code. -->
 # Vehicle master data (PRD-Vehicles)
 
 ## Identity
-- **VIN is mandatory in vehicle-mdm.** A pre-VIN car is a pipeline stock item in `inventory`
+- **VIN is mandatory in vehicle-mdm** — a pre-1981 car's chassis number aside: a record of its
+  own kind, unique with its make (KAN-535, `inventory-purchase.md`). A pre-VIN car is a pipeline stock item in `inventory`
   (ADR-045), promoted on VIN arrival by `inventory/services/pipeline.py::promote_and_flush`
   (idempotent per item; its one production caller is purchase booking, ADR-103).
 - **Another context turns a VIN into a record only through `vehicle.public.resolve_vehicle_mdm_by_vin`**
@@ -65,7 +66,7 @@ re-verified against the code. -->
   configuration only with a first registration before 1981-01-01 — on a configuration PATCH the
   stored VIN and date count for whichever the PATCH leaves out (else 422
   `chassis_number_requires_pre_1981_registration`); stored and printed normalised like a VIN — one
-  spelling per car — and **never** finds, creates or links a vehicle-mdm record
+  spelling per car — and **never** finds or links a vehicle-mdm record, created only by the booking
   (`is_chassis_number`). `scripts/repair_configuration_vins.py` (dry run unless `--commit`) cleans
   VINs stored before the rule, once per environment (a pre-1981 car stored in another spelling is
   KAN-502's open question). A valuation's stored VIN is never edited.

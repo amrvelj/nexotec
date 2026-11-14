@@ -182,7 +182,8 @@ gain a camelCase alias when their endpoint is next touched) · cursor pagination
   stay private to the legal entity. All writes require switching the active dealership.
 - **One administration surface (A-RULE-0):** every setting a dealership owns is configured in
   Dealer Administration. No module ships its own settings screen.
-- **Vehicle identity:** VIN is mandatory in vehicle-mdm; a licence plate is never an
+- **Vehicle identity:** VIN is mandatory in vehicle-mdm (pre-1981 chassis numbers aside,
+  KAN-535); a licence plate is never an
   identifier (details in `.claude/rules/vehicle-mdm.md`).
 - **VAT** (ADR-057): one price — gross, CHF incl. MwSt; no net line or VAT breakdown on
   screen, VAT is one line on the printed document only. **There is no `vatTreatment`** — no

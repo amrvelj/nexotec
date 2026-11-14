@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 from app.core.config import get_settings
 from app.core.pagination import SortPageParams, build_sorted_page, count_capped, paginate_query_sorted
 from app.core.validators import is_valid_vin, normalise_vin
-from app.vehicle.models.vehicle_mdm import VehicleMdm
+from app.vehicle.models.vehicle_mdm import VehicleIdentifierKind, VehicleMdm
 from app.vehicle.schemas.vehicle_mdm import VehiclePickerCandidate
 from app.vehicle.services.plate import resolve_plate
 
@@ -52,7 +52,9 @@ def resolve_identifier(db: Session, query: str, *, group_id: uuid.UUID) -> Searc
     # a VIN typed in lower case or pasted in groups is the same car.
     typed_vin = normalise_vin(q)
     if is_valid_vin(typed_vin):
-        vehicle = db.scalar(select(VehicleMdm).where(VehicleMdm.vin == typed_vin))
+        vehicle = db.scalar(
+            select(VehicleMdm).where(VehicleMdm.vin == typed_vin, VehicleMdm.identifier_kind == VehicleIdentifierKind.VIN)
+        )
         return SearchResolution(resolved=vehicle, picker_candidates=[])
 
     if _VEHICLE_NUMBER_RE.match(q):

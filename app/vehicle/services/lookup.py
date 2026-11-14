@@ -21,7 +21,7 @@ from sqlalchemy.orm import Session
 
 from app.core.validators import is_valid_vin, normalise_vin
 from app.vehicle.models.plate import VehiclePlate
-from app.vehicle.models.vehicle_mdm import VehicleMdm
+from app.vehicle.models.vehicle_mdm import VehicleIdentifierKind, VehicleMdm
 from app.vehicle.schemas.catalogue import CatalogueVariantPrice
 from app.vehicle.schemas.lookup import SharedVehicleIdentity
 from app.vehicle.schemas.spec_block import VehicleSpecBlockRead
@@ -57,7 +57,11 @@ def resolve_shared_identity(
         # never 422 — and does not fall through to another identifier.
         typed_vin = normalise_vin(vin)
         if is_valid_vin(typed_vin):
-            vehicle = db.scalar(select(VehicleMdm).where(VehicleMdm.vin == typed_vin))
+            vehicle = db.scalar(
+                select(VehicleMdm).where(
+                    VehicleMdm.vin == typed_vin, VehicleMdm.identifier_kind == VehicleIdentifierKind.VIN
+                )
+            )
     elif stammnummer:
         vehicle = db.scalar(select(VehicleMdm).where(VehicleMdm.stammnummer == stammnummer))
     elif vehicle_number:

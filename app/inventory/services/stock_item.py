@@ -150,14 +150,31 @@ def _item_in_stock_with_vin(
     db: Session, *, tenant_id: uuid.UUID, vin: str, excluding: uuid.UUID | None = None
 ) -> StockItem | None:
     """KAN-111: the dealership's item holding this VIN that has not left
-    stock — what `uq_stock_item_tenant_id_vin_in_stock` allows at most one
-    of. An item that left stock (invoiced, FR-I-12) does not count; a
+    stock — what `uq_stock_item_tenant_id_iso_vin_in_stock` allows at most
+    one of for an ISO VIN (KAN-535: a chassis number counts by its record,
+    `_item_in_stock_with_vehicle`). An item that left stock (invoiced, FR-I-12) does not count; a
     storno'd one still does (Anto, 2026-10-07), and so does a pipeline item
     created with its VIN (KAN-554). `excluding` leaves out the item being
     promoted, which holds its own VIN already when it was created with one."""
 
     query = select(StockItem).where(
         StockItem.tenant_id == tenant_id, StockItem.vin == vin, StockItem.left_stock_at.is_(None)
+    )
+    if excluding is not None:
+        query = query.where(StockItem.id != excluding)
+    return db.scalar(query)
+
+
+def _item_in_stock_with_vehicle(
+    db: Session, *, tenant_id: uuid.UUID, vehicle_id: uuid.UUID, excluding: uuid.UUID | None = None
+) -> StockItem | None:
+    """KAN-535: the dealership's item holding this vehicle-mdm record that has
+    not left stock — a pre-1981 car with a chassis number is in stock at most
+    once by its record (`uq_stock_item_tenant_id_chassis_vehicle_in_stock`),
+    since its number alone may be another make's car too."""
+
+    query = select(StockItem).where(
+        StockItem.tenant_id == tenant_id, StockItem.vehicle_id == vehicle_id, StockItem.left_stock_at.is_(None)
     )
     if excluding is not None:
         query = query.where(StockItem.id != excluding)

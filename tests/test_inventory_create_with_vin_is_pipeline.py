@@ -125,7 +125,7 @@ def test_a_create_with_a_vin_already_in_stock_is_409(client, db_session):
 
 
 def test_a_create_with_a_vin_another_pipeline_item_carries_is_409(client, db_session):
-    """The VIN is held from the create on: `uq_stock_item_tenant_id_vin_in_stock`
+    """The VIN is held from the create on: `uq_stock_item_tenant_id_iso_vin_in_stock`
     covers every item that has not left stock, a pipeline one included."""
 
     token = _token(client)

@@ -123,6 +123,26 @@ describe('RecordPurchaseDialog — a pipeline item is bought with its VIN (KAN-4
     expect((await screen.findByRole('alert')).textContent).toBe(i18n.t(key, params))
     expect(screen.queryByText(/English text/)).not.toBeInTheDocument()
   })
+  // KAN-535: a pre-1981 car is bought under its chassis number; what its
+  // configuration lacks is said in the UI language.
+  it.each([
+    ['chassis_number_requires_configuration', 'apiRefusal.reasons.chassis_number_requires_configuration'],
+    ['chassis_number_requires_make', 'apiRefusal.reasons.chassis_number_requires_make'],
+    ['chassis_number_requires_pre_1981_registration', 'common.chassisNumberNeedsPre1981'],
+  ])('says a %s refusal of a chassis number in Italian', async (reason, key) => {
+    await i18n.changeLanguage('it')
+    const refused = new ApiError(422, 'unprocessable_entity', 'English text for logs only.', { field: 'vin', reason })
+    const onSubmit = vi.fn().mockRejectedValue(refused)
+    renderWithProviders(<RecordPurchaseDialog opened requiresVin onClose={() => {}} onSubmit={onSubmit} />)
+
+    fillPurchase()
+    fireEvent.change(field('stockDetail.purchase.fields.vin'), { target: { value: '1130101234567' } })
+    fireEvent.click(submitButton())
+
+    expect((await screen.findByRole('alert')).textContent).toBe(i18n.t(key))
+    expect(onSubmit.mock.calls[0][0]).toMatchObject({ vin: '1130101234567' })
+    expect(screen.queryByText(/English text/)).not.toBeInTheDocument()
+  })
   it('names a malformed VIN by its rule — the route\'s schema 422 on `vin` — not as «some entries are invalid»', async () => {
     await i18n.changeLanguage('fr')
     // What POST …/purchase answers for `WVWZZZ1KZAW00446O` (NormalisedVin refuses it first).
