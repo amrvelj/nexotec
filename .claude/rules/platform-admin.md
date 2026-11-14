@@ -95,24 +95,24 @@ Decided rulings live in the PRD; built only where a bullet says so — check the
   (D-A-29; one exception, contact tags — Anto, 2026-10-26), Saldosteuersatz (D-A-27), customer logins (D-A-13), API clients (D-A-14), Zefix
   auto-fill, AI translations, training mode.
 
-## Data export and offboarding (KAN-218, in review)
+## Data export and offboarding (KAN-218)
 - The manager's export is a job (`export_job`; the worker writes the ZIP), downloadable 7 days via
   the authenticated GET (signed URL: KAN-402).
 - Staff offboard (`POST /v1/platform/dealerships/{id}/offboard`) only after an acknowledged export
   newer than the last write; the Betrieb's principals then get 404 (`session_guard.py`).
-  Archive exports are staff-only, with a reason. It then leaves every group read
+  Archive exports: staff only, with a reason. It then leaves every group read
   (`group_read_dealerships.py`, `group_labels.py`; Q2 A).
 - `platform.dealership.offboarded` (Q3 A): Stock withdraws live listings (empty feed first,
   `listing_withdrawal.py`), stating `inventory.dealership_listings.withdrawn`; Integration
   disables and revokes every connection, the `marketplace_publish` ones only on it.
-- **No automatic deletion** (Anto, 2026-11-14): past `retention_until` (offboarding + ten years)
-  reconciliation reports the Betrieb nightly (`dealership.archive_due_for_manual_deletion`); staff delete by hand.
+- **No automatic deletion** (Anto, 2026-11-14): past `retention_until` (offboarding + 10 years)
+  reconciliation reports it nightly (`dealership.archive_due_for_manual_deletion`); staff delete it.
 
 ## Contact groups (KAN-466) — built
 - Nexotec's list `contact_group` (reference data, staff-maintained); each Betrieb switches groups on at
-  `/administration/contact-groups` (`dealership_contact_group`, a row = on, none by default; matrix row
+  `/administration/contact-groups` (`dealership_contact_group`, a row = on, none by default; row
   `dealership_settings`); copied from a sister by the `contact_groups` subset (switches on, never off).
-  A group withdrawn by staff cannot be switched on. Guarded by `test_contact_group_setting_is_administrations.py`.
+  A group staff withdrew cannot be switched on. Guard: `test_contact_group_setting_is_administrations.py`.
 
 ## Business master data (D-A-22, D-A-25, D-A-27, FR-A-25) — built
 - `/administration/business` is the one screen for the Betrieb's own data: legal identity,
