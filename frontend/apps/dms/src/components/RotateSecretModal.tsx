@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { Button, Group, Modal, Stack, Text, TextInput } from '@mantine/core'
+import { Stack, Text, TextInput } from '@mantine/core'
+import { FormDialog } from '@nexotec/ui-kit'
 import { useTranslation } from 'react-i18next'
 import { api } from '../api/client'
 import type { IntegrationConnectionRead } from '../api/types'
@@ -80,12 +81,16 @@ export function RotateSecretModal({
   }
 
   return (
-    <Modal
+    <FormDialog
       opened
       onClose={onClose}
       title={t(nothingStored ? 'integrationsList.rotateModal.titleSet' : 'integrationsList.rotateModal.title', {
         name: connection.displayName,
       })}
+      onSubmit={submit}
+      submitLabel={t(nothingStored ? 'integrationsList.actions.setSecret' : 'integrationsList.actions.rotateSecret')}
+      cancelLabel={t('common.cancel')}
+      submitting={submitting}
     >
       <Stack gap="sm">
         {error && (
@@ -118,13 +123,7 @@ export function RotateSecretModal({
             }}
           />
         ))}
-        <Group justify="flex-end">
-          <Button variant="default" onClick={onClose}>{t('common.cancel')}</Button>
-          <Button onClick={() => void submit()} loading={submitting}>
-            {t(nothingStored ? 'integrationsList.actions.setSecret' : 'integrationsList.actions.rotateSecret')}
-          </Button>
-        </Group>
       </Stack>
-    </Modal>
+    </FormDialog>
   )
 }

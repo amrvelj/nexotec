@@ -1,8 +1,7 @@
 import { Checkbox, Group, Paper, ScrollArea, Stack, Text } from '@mantine/core'
 import { useTranslation } from 'react-i18next'
-import { Badge } from '@nexotec/ui-kit'
+import { Badge, DocumentText } from '@nexotec/ui-kit'
 import type { LegalDocumentRead } from '../../api/types'
-import { LegalText } from './LegalText'
 
 /**
  * KAN-214 (FR-A-39, D-A-34) — the documents the manager accepts, each
@@ -39,7 +38,7 @@ export function LegalDocumentsToAccept({
               </Group>
             </Group>
             <ScrollArea.Autosize mah={220} type="auto" aria-label={document.title}>
-              <LegalText markdown={document.bodyMarkdown} />
+              <DocumentText markdown={document.bodyMarkdown} />
             </ScrollArea.Autosize>
             <Checkbox
               checked={accepted[document.id] ?? false}
