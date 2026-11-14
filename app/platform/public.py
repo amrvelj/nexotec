@@ -19,11 +19,6 @@ from app.platform.organisation.services.dealership import (
 from app.platform.organisation.services.group_read_dealerships import DealershipRef, list_group_read_dealerships
 from app.platform.organisation.services.location import get_location_or_404
 from app.platform.organisation.services.number_range import allocate_number
-from app.platform.services.publishing_readiness import (
-    PublishingMissingItem,
-    publishing_profile_missing_items,
-    publishing_profile_ready,
-)
 from app.platform.reference.services.reference_data import get_active_reference_value_codes
 from app.platform.schemas.document_content import (
     Addressee,
@@ -50,6 +45,11 @@ from app.platform.services.document_render import render_document
 from app.platform.services.group_labels import get_group_display_labels
 from app.platform.services.notification_catalogue import NotificationEventCode
 from app.platform.services.notifications import NotificationSubject, UnknownNotificationEvent, notify
+from app.platform.services.publishing_readiness import (
+    PublishingMissingItem,
+    publishing_profile_missing_items,
+    publishing_profile_ready,
+)
 from app.platform.services.standard_text import RenderedStandardText, render_standard_text
 from app.platform.services.standard_text_placeholders import PLACEHOLDER_UNRESOLVED, Placeholder
 from app.platform.services.user_preference import ui_language_of

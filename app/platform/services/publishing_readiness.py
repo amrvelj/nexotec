@@ -7,8 +7,8 @@ from dataclasses import dataclass
 
 from sqlalchemy.orm import Session
 
-from app.platform.services import publishing_profile
 from app.platform.organisation.services.dealership import get_dealership_or_404
+from app.platform.services import publishing_profile
 
 
 @dataclass(frozen=True)

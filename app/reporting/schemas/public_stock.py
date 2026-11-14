@@ -2,6 +2,8 @@ import datetime as dt
 import uuid
 from decimal import Decimal
 
+from pydantic import Field
+
 from app.core.schemas import CamelModel
 
 
@@ -21,7 +23,7 @@ class PublicStockListingRead(CamelModel):
     body_style: str | None = None
     price_chf: Decimal | None = None
     reserved: bool = False
-    image_urls: list[str] = []
+    image_urls: list[str] = Field(default_factory=list)
 
 
 class PublicStockRead(CamelModel):

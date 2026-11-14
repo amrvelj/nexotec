@@ -15,7 +15,7 @@ whole screen — and answers the whole profile with the new version.
 """
 
 import uuid
-from typing import Literal
+from typing import Any, Literal
 
 from fastapi import APIRouter, Body, Depends, Query, Response
 from sqlalchemy.orm import Session
@@ -49,8 +49,8 @@ from app.platform.organisation.schemas.publishing_profile import (
     PublishingProfileUpdate,
 )
 from app.platform.organisation.services import dealership as dealership_service
-from app.platform.services import publishing_profile as service
 from app.platform.organisation.services.location import get_location_for_update_or_404, get_location_or_404
+from app.platform.services import publishing_profile as service
 
 router = APIRouter(tags=["publishing-profile"], route_class=IdempotentRoute)
 
@@ -64,17 +64,21 @@ _PREFIX = "/dealerships/{dealership_id}/publishing-profile"
 
 def _override_read(row: PublishingProfile) -> LocationOverrideRead:
     assert row.location_id is not None
-    return LocationOverrideRead(
-        location_id=row.location_id,
+    return LocationOverrideRead.model_validate({"location_id": row.location_id, **_overridable_values(row)})
+
+
+def _overridable_values(row: PublishingProfile) -> dict[str, Any]:
+    return {
         **{f: dict(getattr(row, f) or {}) for f in OVERRIDABLE_LOCALISED_FIELDS},
         **{f: getattr(row, f) for f in OVERRIDABLE_SCALAR_FIELDS},
-    )
+    }
 
 
 def profile_read(db: Session, dealership: Dealership) -> PublishingProfileRead:
     profile = service.read_profile(db, dealership.id)
-    return PublishingProfileRead(
-        dealership_id=dealership.id,
+    return PublishingProfileRead.model_validate(
+        dict(
+            dealership_id=dealership.id,
         trade_name=dealership.trade_name,
         website=dealership.website,
         website_domain=profile.website_domain,
@@ -119,8 +123,8 @@ def profile_read(db: Session, dealership: Dealership) -> PublishingProfileRead:
         ],
         version=profile.version,
         updated_at=profile.updated_at,
-        **{f: dict(getattr(profile, f) or {}) for f in OVERRIDABLE_LOCALISED_FIELDS},
-        **{f: getattr(profile, f) for f in OVERRIDABLE_SCALAR_FIELDS},
+        **_overridable_values(profile),
+        )
     )
 
 

@@ -96,6 +96,9 @@ from app.platform.daily_jobs import (
     run_daily_user_expiry,
 )
 from app.reconciliation_runner import run_all_daily
+from app.reporting.consumers import CONSUMER_NAME as REPORTING_PUBLIC_STOCK_CONSUMER
+from app.reporting.consumers import EVENT_TYPE as REPORTING_WEBSITE_LISTING_EVENT
+from app.reporting.consumers import handle_website_listing_changed_message
 from app.sales.consumers import (
     handle_customer_merged_message,
     handle_stock_item_added_message,
@@ -112,9 +115,6 @@ from app.sales.public import (
     refresh_owner_labels,
 )
 from app.sales.public import referenced_configuration_ids as referenced_by_offers_and_contracts
-from app.reporting.consumers import CONSUMER_NAME as REPORTING_PUBLIC_STOCK_CONSUMER
-from app.reporting.consumers import EVENT_TYPE as REPORTING_WEBSITE_LISTING_EVENT
-from app.reporting.consumers import handle_website_listing_changed_message
 from app.valuation.daily_jobs import run_daily_unused_provider_quote_purge
 from app.valuation.public import referenced_configuration_ids as referenced_by_valuations
 from app.vehicle.consumers import (

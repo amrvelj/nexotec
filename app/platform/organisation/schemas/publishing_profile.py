@@ -46,7 +46,7 @@ def clean_localised(value: LocalisedText | None, *, field: str) -> LocalisedText
         if language not in PROFILE_LANGUAGES:
             raise ValueError(f"'{language}' is not a language of the profile (de, fr, it, en).")
         if not isinstance(text, str):
-            raise ValueError("A localised text is a string.")
+            raise ValueError("A localised text is a string.")  # noqa: TRY004 — pydantic answers a ValueError with 422
         stripped = text.strip()
         if not stripped:
             continue
