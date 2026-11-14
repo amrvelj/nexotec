@@ -39,6 +39,15 @@ from app.platform.services.reference_data import get_active_reference_value_code
 # legal identity and the status were.
 _NOT_STORED = {"confirmation", "audit_note"}
 _TERMINAL_DEALERSHIP_STATUSES = {DealershipStatus.OFFBOARDED}
+# KAN-712: the one status change the PATCH still makes — platform staff
+# suspending a Betrieb and lifting the suspension (Platform Administration:
+# "create, suspend"). Activation (D-A-21, KAN-214) and offboarding (FR-A-45,
+# KAN-218's `POST /v1/platform/dealerships/{id}/offboard`) are procedures of
+# their own; a PATCH never makes them optional.
+_STAFF_STATUS_TRANSITIONS = {
+    (DealershipStatus.ACTIVE, DealershipStatus.SUSPENDED),
+    (DealershipStatus.SUSPENDED, DealershipStatus.ACTIVE),
+}
 _ADDRESS_FIELDS = ("street", "house_number", "postal_code", "locality", "canton", "country")
 _ADDRESS_BLOCKS = ("address", "correspondence_address", "billing_address")
 
@@ -291,8 +300,41 @@ def create_dealership(
     return dealership
 
 
+def _assert_status_change(
+    dealership: Dealership, new_status: DealershipStatus | None, *, actor_is_staff: bool
+) -> None:
+    """KAN-712: `status` in the PATCH is platform staff's, and only to
+    suspend or lift a suspension. A manager naming it at all is 422 — the
+    field is not theirs, even with the value it already has."""
+
+    if not actor_is_staff:
+        raise UnprocessableEntityError(
+            "The status of a Betrieb is not changed here: activation and offboarding are procedures of their own.",
+            details={"reason": "status_not_patchable", "field": "status"},
+        )
+    if new_status is None or new_status == dealership.status:
+        return
+    if dealership.status in _TERMINAL_DEALERSHIP_STATUSES:
+        raise ConflictError(
+            f"Dealership status '{dealership.status.value}' is terminal and cannot be changed.",
+            details={"currentStatus": dealership.status.value},
+        )
+    if (dealership.status, new_status) in _STAFF_STATUS_TRANSITIONS:
+        return
+    if new_status == DealershipStatus.OFFBOARDED:
+        reason, message = "use_offboarding_procedure", "A Betrieb is offboarded through the offboarding procedure."
+    elif new_status == DealershipStatus.ACTIVE and dealership.status == DealershipStatus.PENDING_ONBOARDING:
+        reason, message = "use_activation_procedure", "A Betrieb is activated through the activation procedure."
+    else:
+        reason, message = "status_transition_not_allowed", "This status change is not made here."
+    raise UnprocessableEntityError(
+        message,
+        details={"reason": reason, "currentStatus": dealership.status.value, "requestedStatus": new_status.value},
+    )
+
+
 def update_dealership(
-    db: Session, *, dealership: Dealership, data: DealershipUpdate, actor_id: uuid.UUID
+    db: Session, *, dealership: Dealership, data: DealershipUpdate, actor_id: uuid.UUID, actor_is_staff: bool = False
 ) -> Dealership:
     changes = data.model_dump(exclude_unset=True, exclude=set(_ADDRESS_BLOCKS) | _NOT_STORED)
 
@@ -330,13 +372,8 @@ def update_dealership(
             for licence in data.collective_vehicle_licences
         ]
 
-    if "status" in changes and changes["status"] is not None:
-        new_status = changes["status"]
-        if dealership.status in _TERMINAL_DEALERSHIP_STATUSES and new_status != dealership.status:
-            raise ConflictError(
-                f"Dealership status '{dealership.status.value}' is terminal and cannot be changed.",
-                details={"currentStatus": dealership.status.value},
-            )
+    if "status" in data.model_fields_set:
+        _assert_status_change(dealership, changes.get("status"), actor_is_staff=actor_is_staff)
 
     _assert_vat_number_matches_uid(
         changes.get("uid", dealership.uid),

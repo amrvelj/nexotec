@@ -26,7 +26,7 @@ from sqlalchemy.orm import Session
 
 from app.core.audit import list_tenant_audit_events
 from app.core.audit_schemas import AuditEventPage, AuditEventRead
-from app.core.auth import Principal, get_current_principal, require_access_role
+from app.core.auth import AccessRole, Principal, get_current_principal, require_access_role
 from app.core.concurrency import check_version, require_if_match
 from app.core.idempotent_route import IdempotentRoute
 from app.core.pagination import PageParams, page_params
@@ -102,7 +102,14 @@ def update_dealership(
         require_write("dealership_legal_identity")(principal)
     dealership = dealership_service.get_dealership_or_404(db, dealership_id)
     check_version(dealership.version, if_match, entity_name="Dealership")
-    dealership = dealership_service.update_dealership(db, dealership=dealership, data=body, actor_id=principal.user_id)
+    dealership = dealership_service.update_dealership(
+        db,
+        dealership=dealership,
+        data=body,
+        actor_id=principal.user_id,
+        # KAN-712: only staff may name `status`, and only to suspend.
+        actor_is_staff=AccessRole.PLATFORM_ADMIN in principal.roles,
+    )
     return DealershipRead.model_validate(dealership, from_attributes=True)
 
 
