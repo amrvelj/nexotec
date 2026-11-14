@@ -13,7 +13,7 @@ apply_finance_invoice_issued instead.
 
 import datetime as dt
 
-from sqlalchemy import String, cast, select
+from sqlalchemy import String, and_, cast, select
 from sqlalchemy.orm import Session, aliased
 
 from app.core.base import utcnow
@@ -23,7 +23,7 @@ from app.inventory.models.cancelled_contract import InventoryCancelledContract
 from app.inventory.models.sales_contract import InventorySalesContract
 from app.inventory.models.stock_item import StockItem
 from app.inventory.models.stock_item_ledger import StockItemLedger
-from app.inventory.models.stock_item_publishing import StockItemPublishing
+from app.inventory.models.stock_item_publishing import PublishingState, StockItemPublishing
 from app.platform.public import Dealership, Location, actor_reference_checks
 from app.sales.public import SalesContract
 from app.valuation.public import valuation_final_offer_differs, valuation_reference_check
@@ -40,6 +40,28 @@ ACTOR_TABLES = (StockItem, StockItemLedger, StockItemPublishing)
 
 # KAN-633: how long a host's `configuration_attached` fact may be in flight.
 _OUTBOX_LAG_GRACE = dt.timedelta(hours=1)
+
+
+def _unpublished_listing_still_at_marketplace() -> StateCheck:
+    """KAN-718 (rule 10): a listing the dealer unpublished that the last
+    feed the marketplace accepted still holds — under full delivery it is
+    live there, and a buyer may contact the Betrieb about a car it no longer
+    offers. Its empty feed was never delivered: no enabled connection, a
+    failed or dead-lettered delivery, or a feed refused because another
+    listing failed validation. An hour after the row last changed, so a
+    feed in flight is not a finding. Monitors, never repairs: the next feed
+    delivered for the channel clears it."""
+
+    return StateCheck(
+        label="stock_item_publishing unpublished but still held by the marketplace's last delivered feed",
+        source_model=StockItemPublishing,
+        source_row_id_column=StockItemPublishing.id,
+        where=lambda: and_(
+            StockItemPublishing.state != PublishingState.PUBLISHED,
+            StockItemPublishing.at_marketplace.is_(True),
+            StockItemPublishing.updated_at < utcnow() - _OUTBOX_LAG_GRACE,
+        ),
+    )
 
 
 def _names_an_untaken_configuration() -> StateCheck:
@@ -222,6 +244,7 @@ def _contract_missing_from_the_projection() -> StateCheck:
 
 CHECKS: list[ReferenceCheck | StateCheck] = [
     _names_an_untaken_configuration(),
+    _unpublished_listing_still_at_marketplace(),
     _vin_differs_from_its_vehicle(),
     _names_a_merged_vehicle(),
     _two_live_items_name_one_record(),

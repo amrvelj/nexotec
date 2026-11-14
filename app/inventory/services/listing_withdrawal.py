@@ -23,18 +23,16 @@ needs the marketplace connection, and Integration disables the connections
 Stock publishes through only on that fact (every other one on the offboarded
 fact itself): delivery is per consumer, at least once and unordered, so an
 order of registrations would not hold once Stock's first delivery failed.
-Should the withdrawal still find no enabled connection while a listing was
-delivered to the marketplace (`TRANSMITTED`) — the dealer had disabled it —
-it raises rather than pretend, and states no fact: the outbox retries, then
-dead-letters and alerts (rule 10), naming no secret, and the connection keeps
-its credentials for the repair. A listing never delivered (no connection
-ever, or never transmitted) is unpublished without a feed. The empty feed also
-goes to every channel holding a row whose last transmission reached the
-marketplace (`TRANSMITTED`), live or not: an unpublish whose own feed never
-arrived is withdrawn too. `transmission_status` is the last attempt's outcome,
-not a history: a row whose later deliveries all failed reads `FAILED` though an
-earlier feed may still be live — the unpublish path records no outcome of its
-own (KAN-718).
+Should the withdrawal still find no enabled connection while the marketplace
+holds a listing of the Betrieb (`at_marketplace`, KAN-718) — the dealer had
+disabled it — it raises rather than pretend, and states no fact: the outbox
+retries, then dead-letters and alerts (rule 10), naming no secret, and the
+connection keeps its credentials for the repair. A listing the marketplace
+does not hold (no connection ever, never delivered) is unpublished without a
+feed. The empty feed also goes to every channel whose marketplace holds a
+listing no longer published: an unpublish whose own feed never arrived is
+withdrawn too. The judgement is by what the last delivered feed held, never
+by `transmission_status`, which is only the last attempt's outcome.
 
 Staging runs no worker (ADR-081): there the listings stay live until a
 worker runs.
@@ -53,7 +51,6 @@ from app.inventory.models.stock_item_publishing import (
     MarketplaceChannel,
     PublishingState,
     StockItemPublishing,
-    TransmissionStatus,
 )
 from app.inventory.services import marketplace_transmission
 from app.inventory.services.publishing import record_unpublished
@@ -91,33 +88,30 @@ def withdraw_live_listings(
         for item in db.scalars(select(StockItem).where(StockItem.id.in_({row.stock_item_id for row in rows})))
     }
 
-    # Beside the channels with a live row, every channel holding a row whose
-    # last transmission reached the marketplace (TRANSMITTED, whatever its
-    # state now — an unpublish keeps its row's last status): a listing
-    # unpublished here whose own empty feed never arrived (failed,
-    # dead-lettered) is still live there, and once the withdrawn fact disables
-    # the connection no replay could reach it. The empty feed is idempotent
-    # under full delivery. A channel with no such row is left alone, so a
-    # connection that never transmitted (its setup unfinished) cannot hold the
-    # offboarding up. Not covered: a row whose later deliveries all failed
-    # (FAILED) while an earlier feed is still live (KAN-718).
-    channels = set(by_channel) | set(
+    # Beside the channels with a live row, every channel whose marketplace
+    # still holds a listing of the Betrieb (`at_marketplace`, KAN-718:
+    # whatever the row's state and its last attempt's outcome) — a listing
+    # unpublished here whose own empty feed never arrived (no connection,
+    # failed, dead-lettered), or one whose later deliveries all failed while
+    # an earlier feed is still live. Once the withdrawn fact disables the
+    # connection no replay could reach it. The empty feed is idempotent under
+    # full delivery. A channel holding nothing is left alone, so a connection
+    # that never delivered (its setup unfinished) cannot hold the offboarding up.
+    held = set(
         db.scalars(
             select(StockItemPublishing.channel)
-            .where(
-                StockItemPublishing.tenant_id == tenant_id,
-                StockItemPublishing.transmission_status == TransmissionStatus.TRANSMITTED,
-            )
+            .where(StockItemPublishing.tenant_id == tenant_id, StockItemPublishing.at_marketplace.is_(True))
             .distinct()
         ).all()
     )
+    channels = set(by_channel) | held
 
     blocked: list[str] = []
     withdrawn = 0
     for channel in sorted(channels, key=lambda c: c.value):
         channel_rows = by_channel.get(channel, [])
         delivered = marketplace_transmission.withdraw_feed(db, tenant_id=tenant_id, channel=channel)
-        if not delivered and any(row.transmission_status == TransmissionStatus.TRANSMITTED for row in channel_rows):
+        if not delivered and channel in held:
             blocked.append(channel.value)
             continue
         for row in channel_rows:

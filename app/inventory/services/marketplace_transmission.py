@@ -46,7 +46,7 @@ import uuid
 from decimal import Decimal
 from typing import cast
 
-from sqlalchemy import select
+from sqlalchemy import select, true
 from sqlalchemy.orm import Session
 
 from app.core.base import utcnow
@@ -130,7 +130,56 @@ def _mark(rows: list[StockItemPublishing], *, status: TransmissionStatus, error:
         row.last_attempted_at = now
 
 
+def _withdrawn_rows(db: Session, *, tenant_id: uuid.UUID, channel: MarketplaceChannel) -> list[StockItemPublishing]:
+    """KAN-718: the rows no longer published whose listing the marketplace
+    still holds — the feed being assembled withdraws them (full delivery:
+    what it omits is deleted there)."""
+
+    return list(
+        db.scalars(
+            select(StockItemPublishing).where(
+                StockItemPublishing.tenant_id == tenant_id,
+                StockItemPublishing.channel == channel,
+                StockItemPublishing.state != PublishingState.PUBLISHED,
+                StockItemPublishing.at_marketplace.is_(True),
+            )
+        ).all()
+    )
+
+
+def _mark_delivered(
+    db: Session, *, tenant_id: uuid.UUID, channel: MarketplaceChannel, delivered: list[StockItemPublishing], now
+) -> None:
+    """KAN-718: the marketplace accepted a feed holding exactly `delivered`:
+    those are at the marketplace, every other row of the Betrieb and
+    channel is not — a withdrawn one's unpublish has reached it."""
+
+    delivered_ids = {row.id for row in delivered}
+    for row in delivered:
+        row.at_marketplace = True
+    gone = db.scalars(
+        select(StockItemPublishing).where(
+            StockItemPublishing.tenant_id == tenant_id,
+            StockItemPublishing.channel == channel,
+            StockItemPublishing.at_marketplace.is_(True),
+            StockItemPublishing.id.not_in(delivered_ids) if delivered_ids else true(),
+        )
+    ).all()
+    for row in gone:
+        row.at_marketplace = False
+        row.transmission_status = TransmissionStatus.TRANSMITTED
+        row.last_transmission_error = None
+        row.last_attempted_at = now
+
+
 def assemble_and_transmit(db: Session, *, tenant_id: uuid.UUID, channel: MarketplaceChannel) -> None:
+    """The channel's whole feed — every listing published — delivered
+    (full delivery). KAN-718: a feed that cannot go out also leaves every
+    listing unpublished since the last delivered feed live at the
+    marketplace; those rows are marked FAILED too, never left reading as a
+    clean unpublish, and keep `at_marketplace` for inventory's
+    reconciliation and offboarding's withdrawal."""
+
     rows = list(
         db.scalars(
             select(StockItemPublishing).where(
@@ -140,6 +189,7 @@ def assemble_and_transmit(db: Session, *, tenant_id: uuid.UUID, channel: Marketp
             )
         ).all()
     )
+    withdrawn = _withdrawn_rows(db, tenant_id=tenant_id, channel=channel)
     now = utcnow()
 
     connection = get_enabled_connection(db, tenant_id=tenant_id, provider_code=channel.value)
@@ -151,7 +201,7 @@ def assemble_and_transmit(db: Session, *, tenant_id: uuid.UUID, channel: Marketp
         # channels until their own specifications are obtained. A
         # zero-row `rows` (nothing currently published) is a legitimate
         # no-op here, not an error — there is nothing to mark.
-        _mark(rows, status=TransmissionStatus.FAILED,
+        _mark([*rows, *withdrawn], status=TransmissionStatus.FAILED,
               error=f"No {channel.value} connection configured for this dealership.", now=now)
         db.commit()
         return
@@ -166,7 +216,7 @@ def assemble_and_transmit(db: Session, *, tenant_id: uuid.UUID, channel: Marketp
     try:
         adapter = cast(MarketplaceAdapter, resolve_adapter(db, connection))
     except _GATEWAY_REFUSAL_ERRORS as exc:
-        _mark(rows, status=TransmissionStatus.FAILED, error=str(exc), now=now)
+        _mark([*rows, *withdrawn], status=TransmissionStatus.FAILED, error=str(exc), now=now)
         db.commit()
         return
 
@@ -198,6 +248,9 @@ def assemble_and_transmit(db: Session, *, tenant_id: uuid.UUID, channel: Marketp
         _mark(failed_rows, status=TransmissionStatus.FAILED, error=None, now=now)
         for row in failed_rows:
             row.last_transmission_error = failure_messages[row.id]
+        # KAN-718: the refused feed was to withdraw these too; they stay live.
+        _mark(withdrawn, status=TransmissionStatus.FAILED,
+              error="The feed was not sent: another listing failed validation.", now=now)
         db.commit()
         return
 
@@ -219,11 +272,12 @@ def assemble_and_transmit(db: Session, *, tenant_id: uuid.UUID, channel: Marketp
         # (app/core/outbox_worker.py, MAX_ATTEMPTS=5) exists for — catching
         # it here and returning normally would tell consume_once nothing
         # went wrong, permanently skipping any retry.
-        _mark(rows, status=TransmissionStatus.FAILED, error=str(exc), now=now)
+        _mark([*rows, *withdrawn], status=TransmissionStatus.FAILED, error=str(exc), now=now)
         db.commit()
         raise
 
     _mark(rows, status=TransmissionStatus.TRANSMITTED, error=None, now=now)
+    _mark_delivered(db, tenant_id=tenant_id, channel=channel, delivered=rows, now=now)
     db.commit()
 
 
@@ -246,4 +300,6 @@ def withdraw_feed(db: Session, *, tenant_id: uuid.UUID, channel: MarketplaceChan
         return False
     with call_capability(db, connection=connection, capability=_CAPABILITY) as resolved_adapter:
         cast(MarketplaceAdapter, resolved_adapter).transmit_feed([])
+    # KAN-718: the empty feed was accepted — nothing of the Betrieb is left there.
+    _mark_delivered(db, tenant_id=tenant_id, channel=channel, delivered=[], now=utcnow())
     return True

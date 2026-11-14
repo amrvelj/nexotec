@@ -8,7 +8,8 @@ import datetime as dt
 import enum
 import uuid
 
-from sqlalchemy import ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import false as sa_false
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.base import PrimaryKeyMixin, TenantScopedMixin, TimestampMixin, VersionedMixin, utcnow
@@ -119,3 +120,13 @@ class StockItemPublishing(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, Ti
     )
     last_transmission_error: Mapped[str | None] = mapped_column(Text, nullable=True)
     last_attempted_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)
+    # KAN-718: the last feed the channel's marketplace accepted holds this
+    # listing — under full delivery it is live there, whatever `state` says,
+    # until a later delivered feed omits it. Set only by
+    # services/marketplace_transmission.py: true for every listing of a
+    # delivered feed, false for every other row of that Betrieb and channel
+    # (an empty feed included). `transmission_status` is the last attempt's
+    # outcome; this is what the marketplace holds.
+    at_marketplace: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=sa_false()
+    )
