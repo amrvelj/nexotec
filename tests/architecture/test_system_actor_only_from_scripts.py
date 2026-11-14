@@ -19,7 +19,7 @@ _APP_ROOT = _REPO_ROOT / "app"
 
 _SYSTEM_PATH_SERVICES = {"create_dealership", "create_user"}
 # Where the two services live: only there may a call hand the reason on.
-_SERVICE_FILES = {"app/platform/services/dealership.py", "app/platform/services/user.py"}
+_SERVICE_FILES = {"app/platform/organisation/services/dealership.py", "app/platform/services/user.py"}
 
 
 def _calls(tree: ast.AST):
@@ -77,9 +77,10 @@ def test_no_module_in_app_takes_the_system_path():
 def test_the_create_routes_pass_the_principals_id():
     # KAN-668: create_user's route moved to dealership_users.py; create_dealership's stayed.
     api = _APP_ROOT / "platform" / "api"
+    organisation_api = _APP_ROOT / "platform" / "organisation" / "api"
     actors = [
         ast.unparse(kw.value)
-        for source in ((api / "dealerships.py").read_text(), (api / "dealership_users.py").read_text())
+        for source in ((organisation_api / "dealerships.py").read_text(), (api / "dealership_users.py").read_text())
         for name, call in _calls(ast.parse(source))
         if name in _SYSTEM_PATH_SERVICES
         for kw in call.keywords
@@ -97,10 +98,10 @@ def test_matches_the_shapes_it_exists_to_stop():
     assert _offences("create_dealership(db, data=d, actor_id=principal.user_id)") == []
     # The services hand their own reason on; a caller elsewhere may not.
     forwarding = "def create_dealership(db, *, actor_id, system_reason=None):\n    f(system_reason=system_reason)"
-    assert _offences(forwarding, "app/platform/services/dealership.py") == []
+    assert _offences(forwarding, "app/platform/organisation/services/dealership.py") == []
     # … and only there: a route handler of the same name is judged like any caller.
     route = "def create_user(body, principal):\n    svc.create_user(db, actor_id=None, system_reason='api')"
-    assert _offences(route, "app/platform/api/dealerships.py") == [
+    assert _offences(route, "app/platform/organisation/api/dealerships.py") == [
         "2: create_user(system_reason=…)",
         "2: create_user(actor_id=None)",
     ]

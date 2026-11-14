@@ -41,8 +41,8 @@ from app.core.pagination import SortPageParams, build_sorted_page, paginate_quer
 from app.platform.models.auth_event import AuthEvent, AuthEventKind
 from app.platform.models.auth_session import AuthSession
 from app.platform.models.credential import Credential
-from app.platform.models.dealership import Dealership
 from app.platform.models.user import User, UserStatus
+from app.platform.organisation.models.dealership import Dealership
 from app.platform.reference.services.mailer import PlatformMailer
 from app.platform.services import auth_events, identity, mfa, security_notifications
 from app.platform.services import membership as membership_service

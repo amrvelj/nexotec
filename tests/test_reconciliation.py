@@ -27,7 +27,7 @@ from app.inventory.public import reserve_for_contract
 from app.inventory.schemas.stock_item import StockItemCreate
 from app.inventory.services.stock_item import create_stock_item
 from app.platform import reconciliation as platform_reconciliation
-from app.platform.models.dealership import Dealership
+from app.platform.organisation.models.dealership import Dealership
 from app.platform.reconciliation import ACTOR_TABLES
 from app.platform.services.actor_reference import ACTOR_COLUMNS
 from app.reconciliation_runner import MultiContextReconciliationAlarm, run_all

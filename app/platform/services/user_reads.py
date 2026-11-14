@@ -20,9 +20,9 @@ from app.core.errors import NotFoundError
 from app.core.pagination import SortPageParams, build_sorted_page, paginate_query_sorted
 from app.core.tenancy import get_or_404
 from app.platform.models.auth_token import AuthToken, AuthTokenKind
-from app.platform.models.dealership import Dealership
 from app.platform.models.dealership_membership import DealershipMembership
 from app.platform.models.user import User, UserStatus
+from app.platform.organisation.models.dealership import Dealership
 from app.platform.schemas.user import UserAdminRead
 from app.platform.services import user_location
 from app.platform.services.user_common import (

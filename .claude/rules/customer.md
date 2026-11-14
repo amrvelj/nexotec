@@ -7,6 +7,7 @@ paths:
   - "tests/test_legal_basis.py"
   - "tests/test_*preferred_channel*.py"
   - "frontend/apps/dms/src/pages/Customer*"
+  - "frontend/apps/dms/src/components/customer-detail/CustomerDetailContent*"
   - "frontend/apps/dms/src/pages/customerScreens*"
   - "frontend/apps/dms/src/components/Customer*"
   - "frontend/apps/dms/src/components/customerRowMenu*"
@@ -27,7 +28,7 @@ paths:
   - "frontend/apps/dms/src/components/customer-detail/commercial*"
   - "frontend/apps/dms/src/components/customer-detail/country*"
   - "frontend/apps/dms/src/customerOptions*"
-  - "frontend/apps/dms/src/utils/customer.ts"
+  - "frontend/apps/dms/src/shared/displayNames.ts"
   - "frontend/apps/dms/src/hooks/useAdvisorOptions.ts"
   - "frontend/packages/ui-kit/src/components/CustomerTypeBadge.tsx"
 ---

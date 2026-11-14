@@ -4,7 +4,7 @@ JWT, never a client-supplied one."""
 import uuid
 
 from app.core.auth import AccessRole, create_access_token
-from app.platform.models.dealership import DealerGroup
+from app.platform.organisation.models.dealership import DealerGroup
 
 
 def _token(group_id: uuid.UUID, role: AccessRole | None = None) -> str:

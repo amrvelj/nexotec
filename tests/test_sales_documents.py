@@ -10,7 +10,7 @@ import pytest
 from app.core.auth import AccessRole, create_access_token
 from app.core.errors import ConflictError
 from app.core.i18n import SwissLanguage
-from app.platform.models.dealership import DealerGroup, Dealership, FranchiseType
+from app.platform.organisation.models.dealership import DealerGroup, Dealership, FranchiseType
 from app.sales.models.contract import ContractStatus, SalesContract
 from app.sales.models.document import DocumentOwnerType
 from app.sales.models.offer import OfferStatus, SalesOffer

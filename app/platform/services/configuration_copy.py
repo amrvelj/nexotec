@@ -57,18 +57,18 @@ from app.core.auth import Principal
 from app.core.errors import AppError, ConflictError, NotFoundError
 from app.core.i18n import SwissLanguage
 from app.core.permissions import ModuleCode
-from app.platform.models.dealership import Dealership
 from app.platform.models.dealership_membership import DealershipMembership
 from app.platform.models.document_template import DocumentTemplate
-from app.platform.models.number_range import NumberRange, NumberRangeDocumentType
 from app.platform.models.standard_text import StandardText, StandardTextSource
 from app.platform.models.user import User
+from app.platform.organisation.models.dealership import Dealership
+from app.platform.organisation.models.number_range import NumberRange, NumberRangeDocumentType
+from app.platform.organisation.services import contact_group as contact_group_service
+from app.platform.organisation.services import number_range as number_range_service
+from app.platform.organisation.services.entitlement import list_active_modules
 from app.platform.schemas.document_template import DocumentTemplateUpdate
-from app.platform.services import contact_group as contact_group_service
 from app.platform.services import document_template as document_template_service
-from app.platform.services import number_range as number_range_service
 from app.platform.services import standard_text as standard_text_service
-from app.platform.services.entitlement import list_active_modules
 from app.platform.services.user import is_dealer_manager_in
 from app.platform.services.user_common import membership_is_active
 

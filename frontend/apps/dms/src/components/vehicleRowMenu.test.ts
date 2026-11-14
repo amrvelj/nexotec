@@ -12,6 +12,7 @@ function handlers(over: Partial<VehicleRowMenuHandlers> = {}): VehicleRowMenuHan
     onRecordPlate: vi.fn(),
     onCopyVin: vi.fn(),
     onRequestValuation: vi.fn(),
+    onMerge: vi.fn(),
     ...over,
   }
 }
@@ -54,11 +55,22 @@ describe('buildVehicleRowMenu (KAN-468; FR-V-16 amended, ADR-061)', () => {
   it('what is not built yet is shown disabled with its reason, never hidden', () => {
     const menu = buildVehicleRowMenu(t, handlers())
     const all = Object.values(menu.overflow).flatMap((g: RowMenuAction[] | undefined) => g ?? [])
-    for (const label of ['vehicleDetail.header.resync', 'vehicleDetail.header.merge']) {
-      const item = all.find((a) => a.label === label)!
-      expect(item.disabled).toBe(true)
-      expect(item.disabledReason).toBeTruthy()
-    }
+    const resync = all.find((a) => a.label === 'vehicleDetail.header.resync')!
+    expect(resync.disabled).toBe(true)
+    expect(resync.disabledReason).toBeTruthy()
+  })
+
+  it('«Zusammenführen mit…» runs its handler (KAN-524), and without the write right is not offered (KAN-430)', () => {
+    const h = handlers()
+    const merge = (menu: ReturnType<typeof buildVehicleRowMenu>) =>
+      (menu.overflow.destructive ?? []).find((a) => a.label === 'vehicleDetail.header.merge')!
+
+    const allowed = merge(buildVehicleRowMenu(t, h))
+    expect(allowed.disabled).toBeFalsy()
+    allowed.onClick()
+    expect(h.onMerge).toHaveBeenCalledOnce()
+
+    expect(merge(buildVehicleRowMenu(t, handlers({ onMerge: undefined })))).toBeUndefined()
   })
 
   it('a Betrieb without sales gets no valuation: no alternative, no overflow entry (KAN-198)', () => {

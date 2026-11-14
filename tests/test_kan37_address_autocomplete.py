@@ -21,8 +21,8 @@ import sqlalchemy as sa
 
 from app.core.auth import AccessRole
 from app.core.config import get_settings
-from app.platform.models.dealership import DealerGroup, Dealership, FranchiseType
-from app.platform.models.dealership_settings import DealershipSettings
+from app.platform.organisation.models.dealership import DealerGroup, Dealership, FranchiseType
+from app.platform.organisation.models.dealership_settings import DealershipSettings
 from tests.dealership_support import valid_uid
 from tests.test_dealership import _bearer, _create_dealership, _token
 

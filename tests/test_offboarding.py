@@ -23,9 +23,9 @@ from app.core.audit_model import AuditEvent
 from app.core.auth import AccessRole
 from app.core.config import get_settings
 from app.core.outbox_model import OutboxMessage
-from app.platform.models.dealership import Dealership, DealershipStatus
 from app.platform.models.dealership_membership import DealershipMembership
 from app.platform.models.user import User, UserStatus
+from app.platform.organisation.models.dealership import Dealership, DealershipStatus
 from app.platform.services.offboarding import retention_end, retention_until_for
 from tests.data_export_support import (
     betrieb_with_manager,

@@ -34,10 +34,11 @@ from app.core.auth import AccessRole
 from app.core.errors import UnprocessableEntityError
 from app.core.object_store import LocalDirectoryObjectStore, get_object_store
 from app.main import app as fastapi_app
-from app.platform.models.branding_asset import BrandingAsset
-from app.platform.models.dealership import Dealership
-from app.platform.services import brand_colors, document_render
-from app.platform.services.logo_validation import sanitise_svg, validate_logo
+from app.platform.organisation.models.branding_asset import BrandingAsset
+from app.platform.organisation.models.dealership import Dealership
+from app.platform.organisation.services import brand_colors
+from app.platform.organisation.services.logo_validation import sanitise_svg, validate_logo
+from app.platform.services import document_render
 from tests.test_dealership import _bearer, _create_dealership, _token
 
 _SCRIPT = Path(__file__).resolve().parent.parent / "scripts" / "migrate_logo_urls_to_branding_assets.py"

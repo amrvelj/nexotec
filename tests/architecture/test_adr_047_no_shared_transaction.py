@@ -222,6 +222,17 @@ _OWN_COMMIT_WRITES = {
         "app.vehicle.services.vin_correction.correct_vehicle_vin",
         "inventory: VIN correction on a car in stock, on Vehicle's own session; reversed as its compensation",
     ),
+    # KAN-524 (Anto, Q3 A): Stock's consumer of vehicle.vehicle_mdm.merged
+    # has the moved stock car's configuration take the survivor's VIN, on
+    # Vehicle's own session, before it writes its item; compare-and-set, so a
+    # redelivery writes nothing a second time. No compensation: a Stock write
+    # that fails is retried with the delivery and normally converges; one that
+    # cannot (a racing item took the VIN in that Betrieb) leaves the
+    # configuration ahead of the item, which KAN-557's nightly check reports.
+    "app.vehicle.public.follow_vehicle_merge_on_configuration": (
+        "app.vehicle.services.merge.follow_vehicle_merge_on_configuration",
+        "inventory: the merge consumer, on Vehicle's own session; a retried delivery converges",
+    ),
     # Sales' Save-and-copy gives a copied offer a configuration of its own
     # (FR-C-11, KAN-188), on a session of its own, and discards it again as
     # the compensation when the copy offer's write fails.
@@ -324,6 +335,16 @@ _READS = {
     # KAN-146: Sales' storno consumer re-reads whether Stock holds the car as
     # bought now (delivery is unordered); a SELECT only.
     "app.inventory.public.is_stock_item_purchased",
+    # KAN-123 step 3: what Sales', Customers' and Vehicle's nightly reconciliation
+    # checks against Stock's table, built by inventory so its mapped class never
+    # leaves it — builds a ReferenceCheck, a StateCheck or an EXISTS; reads nothing itself.
+    "app.inventory.public.held_stock_item_check",
+    "app.inventory.public.purchased_stock_item_check",
+    "app.inventory.public.stock_item_differs_from_holding",
+    "app.inventory.public.stock_item_exists",
+    "app.inventory.public.stock_item_prices_moved",
+    "app.inventory.public.stock_item_reference_check",
+    "app.inventory.public.stock_item_reservation_exists",
     "app.valuation.public.get_valuation_or_404",
     "app.valuation.public.list_valid_valuations_for_vehicle",
     # KAN-189: the trade-in finds a valuation by VIN when the car is not in the register; a SELECT only.
@@ -1047,7 +1068,7 @@ _SCRIPTS_REACHING_SEVERAL_CONTEXTS: dict[str, _ScriptReach] = {
         frozenset(
             {
                 "app.customer.models.customer",
-                "app.platform.models.dealership",
+                "app.platform.organisation.models.dealership",
             }
         ),
         commits=True,
@@ -1064,7 +1085,7 @@ _SCRIPTS_REACHING_SEVERAL_CONTEXTS: dict[str, _ScriptReach] = {
         frozenset(
             {
                 "app.customer.models.customer",
-                "app.platform.models.dealership",
+                "app.platform.organisation.models.dealership",
                 "app.platform.models.user",
                 "app.vehicle.models.catalogue",
                 "app.vehicle.models.provider",
@@ -1091,21 +1112,29 @@ def _context_internal_imports(path: Path, contexts: frozenset[str]) -> frozenset
     """The `app.<context>.<models|services>.<module>` modules a file imports,
     at module level or inside a function, by any of the three spellings
     (`from app.x.models.y import Z`, `from app.x.models import y`,
-    `import app.x.models.y`)."""
+    `import app.x.models.y`). A context's sub-package counts the same:
+    `app.platform.organisation.models.dealership` (KAN-635, ADR-163)."""
 
     found: set[str] = set()
 
+    def internals_at(parts: list[str]) -> int | None:
+        """The index of the `models`/`services` segment of an `app.<context>…` path, or None."""
+        if len(parts) < 3 or parts[0] != "app" or parts[1] not in contexts:
+            return None
+        return next((i for i in range(2, len(parts)) if parts[i] in _CONTEXT_INTERNALS), None)
+
     def record(module: str) -> None:
         parts = module.split(".")
-        if len(parts) >= 4 and parts[0] == "app" and parts[1] in contexts and parts[2] in _CONTEXT_INTERNALS:
-            found.add(".".join(parts[:4]))
+        at = internals_at(parts)
+        if at is not None and len(parts) > at + 1:
+            found.add(".".join(parts[: at + 2]))
 
     for node in ast.walk(_parse(path)):
         if isinstance(node, ast.ImportFrom):
             if node.level != 0 or node.module is None:
                 continue
             parts = node.module.split(".")
-            if len(parts) == 3 and parts[0] == "app" and parts[2] in _CONTEXT_INTERNALS:
+            if internals_at(parts) == len(parts) - 1:
                 for alias in node.names:
                     record(f"{node.module}.{alias.name}")
             else:
@@ -1275,4 +1304,26 @@ def test_self_test_a_function_level_import_is_seen(tmp_path: Path) -> None:
     assert _context_internal_imports(scripts / "two.py", _SCRIPT_FIXTURE_CONTEXTS) == {
         "app.sales.models.contract",
         "app.stock.models.item",
+    }
+
+
+def test_self_test_a_sub_package_import_is_seen(tmp_path: Path) -> None:
+    # KAN-635 (ADR-163): platform's code lives in sub-packages; an import of
+    # their internals counts by every spelling, as a flat context's does.
+    files = dict(_SCRIPT_FIXTURE)
+    files["two.py"] = _replace(
+        files["two.py"],
+        "def run(db):\n",
+        "def run(db):\n"
+        "    from app.stock.organisation.models.dealership import Dealership\n"
+        "    from app.stock.reference.services import mailer\n"
+        "    import app.stock.organisation.services.location\n"
+        "    from app.stock.organisation import public_helpers\n",
+    )
+    scripts = _write_scripts(tmp_path, files)
+    assert _context_internal_imports(scripts / "two.py", _SCRIPT_FIXTURE_CONTEXTS) == {
+        "app.sales.models.contract",
+        "app.stock.organisation.models.dealership",
+        "app.stock.organisation.services.location",
+        "app.stock.reference.services.mailer",
     }

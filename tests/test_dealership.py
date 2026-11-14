@@ -378,7 +378,7 @@ def test_offboarded_dealership_status_is_terminal(client, db_session):
     headers = _bearer(token)
     # KAN-712: the PATCH no longer offboards (the procedure does, KAN-218);
     # the row is put there directly to prove the status stays terminal.
-    from app.platform.models.dealership import Dealership, DealershipStatus
+    from app.platform.organisation.models.dealership import Dealership, DealershipStatus
 
     db_session.get(Dealership, uuid.UUID(body["id"])).status = DealershipStatus.OFFBOARDED
     db_session.commit()
@@ -471,7 +471,7 @@ def test_new_dealership_defaults_to_the_shipped_brand_colour_and_german(db_sessi
     matching the migration's own backfill for pre-existing rows.
     """
     from app.core.i18n import SwissLanguage
-    from app.platform.models.dealership import DealerGroup, Dealership, FranchiseType
+    from app.platform.organisation.models.dealership import DealerGroup, Dealership, FranchiseType
 
     group = DealerGroup(name="Garage AG group")
     db_session.add(group)
@@ -535,8 +535,8 @@ def test_get_dealership_default_correspondence_language_returns_each_dealerships
     dealership's own configured value, not a hardcoded one.
     """
     from app.core.i18n import SwissLanguage
-    from app.platform.models.dealership import DealerGroup, Dealership, FranchiseType
-    from app.platform.services.dealership import get_dealership_default_correspondence_language
+    from app.platform.organisation.models.dealership import DealerGroup, Dealership, FranchiseType
+    from app.platform.organisation.services.dealership import get_dealership_default_correspondence_language
 
     group = DealerGroup(name="Garage AG group")
     db_session.add(group)

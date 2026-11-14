@@ -22,7 +22,7 @@ from app.core.auth import AccessRole, create_access_token
 from app.core.errors import BadRequestError
 from app.core.pagination import SortCursorPosition, encode_sort_cursor
 from app.core.sorting import SortField, cursor_column_supported, decode_cursor_for_sort, parse_sort
-from app.platform.models.dealership import DealerGroup
+from app.platform.organisation.models.dealership import DealerGroup
 from app.vehicle.models.vehicle_mdm import CatalogueMatchStatus, VehicleMdm, VehicleStatus
 from tests.identity_support import platform_admin_headers
 from tests.token_support import dealer_group_of
@@ -323,7 +323,7 @@ def test_every_fixed_sort_declares_its_columns_nullability_truly():
     from app.platform.api.dealership_users import _DEFAULT_USER_SORT
     from app.platform.api.notifications import _INBOX_ORDER
     from app.platform.api.recovery import _DEFAULT_SORT
-    from app.platform.services.dealer_group_options import _BY_NAME
+    from app.platform.organisation.services.dealer_group_options import _BY_NAME
     from app.sales.api.contracts import _DEFAULT_CONTRACT_SORT
     from app.sales.api.deals import _DEFAULT_DEAL_SORT
     from app.sales.api.offers import _DEFAULT_OFFER_SORT

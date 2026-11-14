@@ -218,7 +218,7 @@ def test_payable_is_gross_price_minus_trade_in_value(db_session):
     from app.inventory.models.stock_item import StockItemCondition
     from app.inventory.schemas.stock_item import StockItemCreate
     from app.inventory.services.stock_item import create_stock_item
-    from app.platform.models.dealership import DealerGroup, Dealership, FranchiseType
+    from app.platform.organisation.models.dealership import DealerGroup, Dealership, FranchiseType
 
     group = DealerGroup(name="Garage AG group")
     db_session.add(group)

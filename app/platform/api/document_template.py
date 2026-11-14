@@ -19,10 +19,10 @@ from app.core.object_store import ObjectStore, get_object_store
 from app.core.permissions import require_read, require_write
 from app.core.tenancy import require_tenant_match
 from app.db import get_db
+from app.platform.organisation.services.dealership import get_dealership_or_404
 from app.platform.schemas.document_content import DocumentWatermark
 from app.platform.schemas.document_template import DocumentTemplateRead, DocumentTemplateUpdate
 from app.platform.services import document_template as document_template_service
-from app.platform.services.dealership import get_dealership_or_404
 from app.platform.services.document_render import render_document
 from app.platform.services.document_template_preview import PreviewDocument, sample_content
 

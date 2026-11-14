@@ -24,7 +24,7 @@ import app.model_registry  # noqa: F401 - every mapped table
 from app.core.export import exporters, read_rows
 from app.db import Base
 from app.export_registry import STUB_CONTEXTS
-from app.platform.models.dealership import Dealership
+from app.platform.organisation.models.dealership import Dealership
 from app.platform.services import data_export
 from tests.data_export_support import (
     betrieb_with_manager,

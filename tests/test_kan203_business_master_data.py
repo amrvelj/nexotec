@@ -28,9 +28,9 @@ import sqlalchemy as sa
 from sqlalchemy.exc import IntegrityError
 
 from app.core.auth import AccessRole
-from app.platform.models.dealership import DealerGroup, Dealership, FranchiseType
-from app.platform.models.dealership_bank_account import DealershipBankAccount
-from app.platform.models.dealership_settings import DealershipSettings
+from app.platform.organisation.models.dealership import DealerGroup, Dealership, FranchiseType
+from app.platform.organisation.models.dealership_bank_account import DealershipBankAccount
+from app.platform.organisation.models.dealership_settings import DealershipSettings
 from app.platform.reference_data_seed import BUSINESS_LISTS
 from tests.dealership_support import VALID_UID, seed_business_reference_lists, valid_uid
 from tests.test_dealership import VALID_ADDRESS, _bearer, _create_dealership, _token

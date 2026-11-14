@@ -4,7 +4,6 @@
     "failedToLoad": "Failed to load vehicle",
     "copyVin": "Copy VIN",
     "merge": "Merge into…",
-    "mergeDisabledReason": "Not yet available",
     "allocate": "Allocate to customer",
     "requestValuation": "Request valuation",
     "recordOdometer": "Record odometer reading",
@@ -111,5 +110,31 @@
   "specification": {
     "empty": "This business holds no configuration of this vehicle.",
     "loadError": "The specification could not be loaded."
+  },
+  "mergeDialog": {
+    "title": "Merge vehicle",
+    "intro": "Find the other record of the same vehicle as {{vehicleNumber}} — by VIN, vehicle number or licence plate.",
+    "searchLabel": "Other record",
+    "searchPlaceholder": "VIN, vehicle no. or licence plate",
+    "searchFailed": "The search failed. Please try again.",
+    "recordFailed": "The chosen record could not be loaded.",
+    "noMatches": "No other record found.",
+    "chooseDifferent": "← Choose a different record",
+    "swap": "Swap direction",
+    "goes": "Is dissolved",
+    "stays": "Stays",
+    "inYourStock": "In your business's stock: {{stockNumber}}",
+    "irreversibleTitle": "This cannot be undone",
+    "irreversibleBody": "{{goes}} is merged into {{stays}} for good. Licence plates, odometer readings, accessories and customer links move to {{stays}}, and so do stock cars, which take its VIN; where a business holds both in stock, the nightly check tells it. Every business shares both records: the merge applies to all of them.",
+    "typeToConfirm": "Type {{vehicleNumber}} to confirm",
+    "submit": "Merge for good",
+    "refused": {
+      "generic": "The vehicles could not be merged.",
+      "staleVersion": "One of the records has changed in the meantime. Please reload and compare again.",
+      "sameRecord": "A record cannot be merged with itself.",
+      "alreadyMerged": "One of the records has already been merged.",
+      "bothInStock": "Your business holds both records in stock ({{duplicate}} and {{survivor}}). Sell or cancel one of the stock cars first.",
+      "vinIntoChassisNumber": "A record with a VIN cannot be merged into one with a pre-1981 chassis number. «Swap direction» keeps the VIN record."
+    }
   }
 }

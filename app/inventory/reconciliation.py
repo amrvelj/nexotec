@@ -14,7 +14,7 @@ apply_finance_invoice_issued instead.
 import datetime as dt
 
 from sqlalchemy import String, cast, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, aliased
 
 from app.core.base import utcnow
 from app.core.reconciliation import ReconciliationRun, ReferenceCheck, StateCheck, run_reconciliation
@@ -110,6 +110,34 @@ def _names_a_merged_vehicle() -> StateCheck:
     )
 
 
+def _two_live_items_name_one_record() -> StateCheck:
+    """KAN-524 (Anto, Q4 A; rule 10): two stock items of one Betrieb that have
+    not left stock name one vehicle-mdm record. A merge is refused when the
+    merging user's own Betrieb holds a live item on each record, but another
+    Betrieb's double booking is never named (rule 7): the merge goes through,
+    Stock's consumer moves the item (keeping its VIN, which the other item
+    holds), and this check reports both rows to that Betrieb, whose manager
+    sells or cancels one. A pipeline item without a record is not counted."""
+
+    other = aliased(StockItem)
+    return StateCheck(
+        label="two live stock items of one Betrieb name one vehicle_mdm record",
+        source_model=StockItem,
+        source_row_id_column=StockItem.id,
+        where=lambda: StockItem.vehicle_id.is_not(None)
+        & StockItem.left_stock_at.is_(None)
+        & select(other.id)
+        .where(
+            other.tenant_id == StockItem.tenant_id,
+            other.vehicle_id == StockItem.vehicle_id,
+            other.id != StockItem.id,
+            other.left_stock_at.is_(None),
+        )
+        .correlate(StockItem)
+        .exists(),
+    )
+
+
 def _vin_differs_from_its_configuration() -> StateCheck:
     """KAN-557 (KAN-544): a bought car still in stock whose configuration
     names another VIN — the configurator edited it away from the car's
@@ -196,6 +224,7 @@ CHECKS: list[ReferenceCheck | StateCheck] = [
     _names_an_untaken_configuration(),
     _vin_differs_from_its_vehicle(),
     _names_a_merged_vehicle(),
+    _two_live_items_name_one_record(),
     _vin_differs_from_its_configuration(),
     _projection_differs_from_its_contract(),
     _contract_missing_from_the_projection(),

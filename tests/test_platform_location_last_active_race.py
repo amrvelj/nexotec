@@ -17,9 +17,9 @@ from sqlalchemy import select
 from sqlalchemy.orm import sessionmaker
 
 from app.core.errors import ConflictError
-from app.platform.models.dealership import Location
-from app.platform.schemas.location import LocationUpdate
-from app.platform.services import location as location_service
+from app.platform.organisation.models.dealership import Location
+from app.platform.organisation.schemas.location import LocationUpdate
+from app.platform.organisation.services import location as location_service
 from tests.test_customer_vehicle_party_close_rule import _postgres_only, _run, _wait_until_a_backend_waits_on_a_lock
 from tests.test_dealership import _create_dealership
 from tests.test_kan204_locations import _create, _list

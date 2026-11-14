@@ -35,14 +35,13 @@ from sqlalchemy import or_, select, text
 from sqlalchemy.orm import Session
 
 from app.core.audit import record_audit_event
-from app.core.base import utcnow
 from app.core.concurrency import check_version
 from app.core.config import get_settings
 from app.core.constants import CANTON_CODES
 from app.core.errors import ConflictError, NotFoundError, UnprocessableEntityError
 from app.core.export import ExportedTable, ExportScope, table_of
 from app.core.uuid7 import uuid7
-from app.vehicle.models.plate import DealerPlate, DealerPlateAssignment, VehiclePlate
+from app.vehicle.models.plate import VehiclePlate
 from app.vehicle.models.vehicle_mdm import VehicleMdm
 
 PLATE_ENTITY_TYPE = "vehicle_plate"
@@ -435,36 +434,6 @@ def list_plates_for_vehicle(db: Session, *, vehicle_id: uuid.UUID, group_id: uui
             .order_by(VehiclePlate.valid_from.desc())
         ).all()
     )
-
-
-def current_dealer_plate_assignment(db: Session, *, dealer_plate_id: uuid.UUID) -> DealerPlateAssignment | None:
-    return db.scalar(
-        select(DealerPlateAssignment).where(
-            DealerPlateAssignment.dealer_plate_id == dealer_plate_id, DealerPlateAssignment.valid_to.is_(None)
-        )
-    )
-
-
-def assign_dealer_plate(
-    db: Session, *, dealer_plate: DealerPlate, vehicle_id: uuid.UUID
-) -> DealerPlateAssignment:
-    """Moves a Händlerschild onto a new vehicle — closes whatever
-    assignment is current (if any) and opens a new one, same
-    close-then-open discipline as every other allocation table in this
-    project (ContactChannelMixin, and PR-9's party roles).
-    """
-
-    current = current_dealer_plate_assignment(db, dealer_plate_id=dealer_plate.id)
-    if current is not None:
-        current.valid_to = utcnow()
-
-    assignment = DealerPlateAssignment(
-        dealer_plate_id=dealer_plate.id, vehicle_id=vehicle_id, tenant_id=dealer_plate.tenant_id
-    )
-    db.add(assignment)
-    db.commit()
-    db.refresh(assignment)
-    return assignment
 
 
 def register_export_table() -> ExportedTable:

@@ -158,7 +158,7 @@
     "secret_slot_not_used_by_provider": "This provider does not use this credential — it was not saved.",
     "secret_store_not_configured": "No secure credential store is set up for this deployment — nothing was saved. This is not caused by what you entered: please tell Nexotec support.",
     "vehicle_not_changed": "The stock vehicle has not changed since the price was built.",
-    "vin_belongs_to_other_vehicle": "This VIN already belongs to vehicle {{vehicleNumber}} in the vehicle records. If it is the same car, Nexotec support merges the two.",
+    "vin_belongs_to_other_vehicle": "This VIN already belongs to vehicle {{vehicleNumber}} in the vehicle records. If it is the same car, merge the two there with «Merge into…».",
     "vin_correction_left_stock": "Not possible: the vehicle has left stock.",
     "vin_correction_needs_vehicle": "This vehicle has not been bought yet — its VIN is corrected in the configuration.",
     "vin_unchanged": "That is already this vehicle's VIN.",
@@ -173,7 +173,10 @@
     "customer_contact_group_exists": "A contact group in this change is already on the customer — the customer changed in the meantime. Reload it and try again.",
     "chassis_number_identity_fixed": "This vehicle is identified by its chassis number. It is corrected only on the stock vehicle with “Correct VIN”, so the stock vehicle, the vehicle record and the configuration carry the same number.",
     "chassis_number_requires_configuration": "A vehicle with a chassis number instead of a VIN is bought through its configuration: assign the configuration with the chassis number, make and first registration («Assign configuration»).",
-    "chassis_number_requires_make": "A vehicle with a chassis number is told apart by its make: enter the make in its configuration."
+    "chassis_number_requires_make": "A vehicle with a chassis number is told apart by its make: enter the make in its configuration.",
+    "vehicle_merge_same_record": "A record cannot be merged with itself.",
+    "vehicle_merge_both_in_stock": "Your business holds both records in stock ({{duplicate}} and {{survivor}}). Sell or cancel one of the stock cars first.",
+    "vehicle_merge_vin_into_chassis_number": "A record with a VIN cannot be merged into one with a pre-1981 chassis number. «Swap direction» keeps the VIN record."
   },
   "accessWindow": {
     "between": "valid from {{from}} to {{to}}",

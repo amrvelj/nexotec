@@ -129,7 +129,8 @@ describe('VinCorrectionDialog (KAN-557)', () => {
 
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveTextContent(
-      "Ce VIN est déjà celui du véhicule F-000042 dans la fiche véhicule. S'il s'agit du même véhicule, le support Nexotec fusionne les deux.",
+      // KAN-524: since Anto's Q1 B the dealer merges the two records themselves.
+      "Ce VIN est déjà celui du véhicule F-000042 dans la fiche véhicule. S'il s'agit du même véhicule, fusionnez les deux depuis la fiche avec «Fusionner avec…».",
     )
     expect(screen.queryByText(/Another vehicle-mdm record/)).toBeNull()
     expect(onCorrected).not.toHaveBeenCalled()

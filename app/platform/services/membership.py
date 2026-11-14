@@ -30,9 +30,9 @@ from app.core.audit import record_audit_event
 from app.core.auth import AccessRole
 from app.core.base import utcnow
 from app.core.errors import ConflictError, NotFoundError, UnprocessableEntityError
-from app.platform.models.dealership import Dealership
 from app.platform.models.dealership_membership import DealershipMembership
 from app.platform.models.user import User
+from app.platform.organisation.models.dealership import Dealership
 from app.platform.schemas.membership import MembershipCreate, MembershipRead
 from app.platform.services import user as user_service
 from app.platform.services import user_common as user_common_service

@@ -32,7 +32,7 @@ from sqlalchemy.orm import Session
 
 from app.core.outbox_model import OutboxMessage
 from app.inventory.models.stock_item_publishing import MarketplaceChannel
-from app.inventory.services import listing_withdrawal, marketplace_transmission
+from app.inventory.services import listing_withdrawal, marketplace_transmission, vehicle_merge
 from app.inventory.services.pipeline import handle_sales_contract_confirmed
 from app.inventory.services.reservation import record_contract_cancelled
 from app.inventory.services.sales_contract import apply_contract_message
@@ -102,3 +102,10 @@ def handle_dealership_offboarded_message(db: Session, message: OutboxMessage) ->
     listing_withdrawal.withdraw_live_listings(
         db, tenant_id=dealership_id, causation_id=message.id, correlation_id=message.correlation_id
     )
+
+
+def handle_vehicle_merged_message(db: Session, message: OutboxMessage) -> None:
+    """KAN-524: `vehicle.vehicle_mdm.merged` moves Stock's items onto the
+    survivor (`services/vehicle_merge.py`)."""
+
+    vehicle_merge.handle_vehicle_merged_message(db, message)

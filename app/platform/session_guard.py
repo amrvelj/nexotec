@@ -21,8 +21,8 @@ from app.core.errors import ForbiddenError, NotFoundError, UnauthorizedError
 from app.db import get_db
 from app.platform.models.auth_event import AuthEventKind
 from app.platform.models.auth_session import AuthSession
-from app.platform.models.dealership import Dealership, DealershipStatus
 from app.platform.models.dealership_auth_config import DealershipAuthConfig
+from app.platform.organisation.models.dealership import Dealership, DealershipStatus
 from app.platform.services import auth_events, auth_sessions, mfa
 
 _SESSION_ENDED = "Your session has ended — sign in again."

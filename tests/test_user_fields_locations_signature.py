@@ -10,7 +10,7 @@ import pytest
 from app.core.auth import AccessRole, create_access_token
 from app.core.object_store import LocalDirectoryObjectStore, get_object_store
 from app.main import app as fastapi_app
-from app.platform.models.dealership import Location
+from app.platform.organisation.models.dealership import Location
 from tests.identity_support import create_dealership, create_user, platform_admin_headers
 from tests.token_support import dealer_group_of
 

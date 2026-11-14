@@ -4,7 +4,6 @@
     "failedToLoad": "Impossibile caricare il veicolo",
     "copyVin": "Copia telaio",
     "merge": "Unisci con…",
-    "mergeDisabledReason": "Non ancora disponibile",
     "allocate": "Assegna a cliente",
     "requestValuation": "Richiedi una valutazione",
     "recordOdometer": "Registra il chilometraggio",
@@ -111,5 +110,31 @@
   "specification": {
     "empty": "Nessuna configurazione di questo veicolo in questa azienda.",
     "loadError": "Non è stato possibile caricare la specifica."
+  },
+  "mergeDialog": {
+    "title": "Unisci veicolo",
+    "intro": "Cercate l'altra scheda dello stesso veicolo di {{vehicleNumber}} — per VIN, numero veicolo o targa.",
+    "searchLabel": "Altra scheda",
+    "searchPlaceholder": "VIN, n. veicolo o targa",
+    "searchFailed": "La ricerca non è riuscita. Riprovate.",
+    "recordFailed": "Non è stato possibile caricare la scheda scelta.",
+    "noMatches": "Nessun'altra scheda trovata.",
+    "chooseDifferent": "← Scegli un'altra scheda",
+    "swap": "Inverti la direzione",
+    "goes": "Viene sciolta",
+    "stays": "Rimane",
+    "inYourStock": "Nel magazzino della vostra azienda: {{stockNumber}}",
+    "irreversibleTitle": "Questa azione è irreversibile",
+    "irreversibleBody": "{{goes}} viene unita definitivamente in {{stays}}. Targhe, chilometraggi, accessori e collegamenti ai clienti passano a {{stays}}, come pure i veicoli in magazzino, che ne assumono il VIN; se un'azienda ha entrambi in magazzino, il controllo notturno glielo segnala. Entrambe le schede sono condivise da tutte le aziende: l'unione vale per tutte.",
+    "typeToConfirm": "Digitate {{vehicleNumber}} per confermare",
+    "submit": "Unisci definitivamente",
+    "refused": {
+      "generic": "Non è stato possibile unire i veicoli.",
+      "staleVersion": "Una delle schede è stata modificata nel frattempo. Ricaricate e confrontate di nuovo.",
+      "sameRecord": "Una scheda non può essere unita a sé stessa.",
+      "alreadyMerged": "Una delle schede è già stata unita.",
+      "bothInStock": "La vostra azienda ha entrambe le schede in magazzino ({{duplicate}} e {{survivor}}). Vendete o annullate prima uno dei veicoli in magazzino.",
+      "vinIntoChassisNumber": "Una scheda con VIN non può essere unita a una con numero di telaio (prima del 1981). Con «Inverti la direzione» rimane la scheda con VIN."
+    }
   }
 }

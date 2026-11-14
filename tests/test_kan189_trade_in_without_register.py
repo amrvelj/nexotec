@@ -29,7 +29,7 @@ from app.inventory.schemas.purchase import RecordPurchaseRequest
 from app.inventory.schemas.stock_item import StockItemCreate
 from app.inventory.services.purchase import record_purchase
 from app.inventory.services.stock_item import create_stock_item
-from app.platform.models.dealership import Dealership
+from app.platform.organisation.models.dealership import Dealership
 from app.sales.services.contract import confirm_contract, create_contract
 from app.sales.services.offer import create_offer
 from app.sales.services.priced_deal import compute_containers

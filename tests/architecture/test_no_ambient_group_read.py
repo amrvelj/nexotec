@@ -21,7 +21,7 @@ accident of spelling, not by decision).
 An exact file allowlist, not a directory-level one: a directory exemption
 would let a second, unrelated function anywhere in one of these packages
 slip through unnoticed. Each entry's reason is inline below, and the
-group stock roster's (since KAN-121 in platform/services/group_read_dealerships.py,
+group stock roster's (since KAN-121 in platform/organisation/services/group_read_dealerships.py,
 before it in inventory/services/group_listing.py) is the one to read closely — it did NOT get folded
 into app.core.tenancy.get_group_read_or_404 as the ticket's own preferred
 option asked for, and that decision is explained where it's made.
@@ -74,17 +74,17 @@ _ALLOWED_FILES = {
     # own group first, then turns platform's None (read off, or no such
     # group) into its 404. Who may call it is confined by
     # test_group_read_dealerships_callers.py (Stock's group listing only).
-    _APP_ROOT / "platform" / "services" / "group_read_dealerships.py",
+    _APP_ROOT / "platform" / "organisation" / "services" / "group_read_dealerships.py",
     # Platform's OWN cross-group dealership listing — platform_admin
     # managing the entire multi-tenant system (require_access_role(),
-    # platform_admin-only, at app/platform/api/dealerships.py's
+    # platform_admin-only, at app/platform/organisation/api/dealerships.py's
     # list_dealerships route). Not the threat model this rule polices: no
     # dealer or sister group can reach this, only the SaaS operator's own
     # staff — the same already-accepted exception category as
     # ADR-014/030's "one narrow exception" note in CLAUDE.md, one level
     # up (a superuser role bypassing tenant scope entirely, not an
     # ambient relaxation of it for an ordinary dealer-facing read).
-    _APP_ROOT / "platform" / "services" / "dealership.py",
+    _APP_ROOT / "platform" / "organisation" / "services" / "dealership.py",
     # KAN-371, ADR-093: the History tab's names for a group-owned customer —
     # a Betrieb's and a user's name, never more. The caller's own Betrieb
     # always; a sister Betrieb and its users only while the group's read is
@@ -150,8 +150,8 @@ def test_no_ambient_group_filter_outside_the_sanctioned_files():
     assert not all_violations, (
         "Found a group-scoped filter predicate (group_id or dealer_group_id) outside "
         "the sanctioned files (app/core/tenancy.py, app/customer/services/customer.py, "
-        "app/customer/services/legal_basis.py, app/platform/services/group_read_dealerships.py, "
-        "app/platform/services/dealership.py, …; see _ALLOWED_FILES) — any other cross-group-boundary read "
+        "app/customer/services/legal_basis.py, app/platform/organisation/services/group_read_dealerships.py, "
+        "app/platform/organisation/services/dealership.py, …; see _ALLOWED_FILES) — any other cross-group-boundary read "
         "must go through app.core.tenancy.get_group_read_or_404, never an ambient "
         "filter written inline elsewhere:\n" + "\n".join(all_violations)
     )

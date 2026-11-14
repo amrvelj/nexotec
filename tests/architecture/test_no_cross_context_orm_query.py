@@ -312,7 +312,7 @@ class _Fake:
 
 
 _FOREIGN = {"Dealership": _Fake, "VehicleParty": _Fake, "p.Dealership": _Fake}
-_FOREIGN_OWNER = type("Owner", (), {"__module__": "app.platform.models.dealership"})
+_FOREIGN_OWNER = type("Owner", (), {"__module__": "app.platform.organisation.models.dealership"})
 
 
 def _fixture_problems(source: str, *, reconciliation: bool = False) -> list[str]:
@@ -371,7 +371,7 @@ def test_import_resolution_from_source_text():
     """`_foreign_models` itself, on source text: the module-alias forms resolve
     to platform's mapped class, and the gate then reports the query."""
 
-    from app.platform.models.dealership import Dealership
+    from app.platform.organisation.models.dealership import Dealership
 
     for source in (
         "from app.platform import public as p\nq = select(p.Dealership.id)\n",

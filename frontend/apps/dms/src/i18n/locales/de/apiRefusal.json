@@ -158,7 +158,7 @@
     "secret_slot_not_used_by_provider": "Dieser Anbieter verwendet diese Zugangsdaten nicht — sie wurden nicht gespeichert.",
     "secret_store_not_configured": "Für diese Installation ist kein sicherer Speicher für Zugangsdaten eingerichtet — nichts wurde gespeichert. Das liegt nicht an Ihrer Eingabe: Bitte den Nexotec-Support informieren.",
     "vehicle_not_changed": "Das Lagerfahrzeug wurde seit der Preisberechnung nicht geändert.",
-    "vin_belongs_to_other_vehicle": "Diese VIN trägt bereits das Fahrzeug {{vehicleNumber}} im Fahrzeugstamm. Ist es dasselbe Fahrzeug, führt der Nexotec-Support die beiden zusammen.",
+    "vin_belongs_to_other_vehicle": "Diese VIN trägt bereits das Fahrzeug {{vehicleNumber}} im Fahrzeugstamm. Ist es dasselbe Fahrzeug, führen Sie die beiden dort mit «Zusammenführen mit…» zusammen.",
     "vin_correction_left_stock": "Nicht möglich: Das Fahrzeug hat den Bestand verlassen.",
     "vin_correction_needs_vehicle": "Dieses Fahrzeug ist noch nicht eingekauft — die VIN wird in der Konfiguration korrigiert.",
     "vin_unchanged": "Das ist bereits die VIN dieses Fahrzeugs.",
@@ -173,7 +173,10 @@
     "customer_contact_group_exists": "Eine Kontaktgruppe dieser Änderung ist beim Kunden bereits gesetzt – der Kunde wurde in der Zwischenzeit geändert. Laden Sie ihn neu und versuchen Sie es erneut.",
     "chassis_number_identity_fixed": "Dieses Fahrzeug wird über seine Chassisnummer geführt. Sie wird nur am Lagerfahrzeug mit «VIN korrigieren» korrigiert, damit Lagerfahrzeug, Fahrzeugstamm und Konfiguration dieselbe Nummer tragen.",
     "chassis_number_requires_configuration": "Ein Fahrzeug mit Chassisnummer statt VIN wird über seine Konfiguration eingekauft: Ordnen Sie die Konfiguration mit Chassisnummer, Marke und Erstzulassung zu («Konfiguration zuordnen»).",
-    "chassis_number_requires_make": "Ein Fahrzeug mit Chassisnummer wird über seine Marke unterschieden: Erfassen Sie die Marke in seiner Konfiguration."
+    "chassis_number_requires_make": "Ein Fahrzeug mit Chassisnummer wird über seine Marke unterschieden: Erfassen Sie die Marke in seiner Konfiguration.",
+    "vehicle_merge_same_record": "Ein Datensatz kann nicht mit sich selbst zusammengeführt werden.",
+    "vehicle_merge_both_in_stock": "Ihr Betrieb führt beide Datensätze im Lager ({{duplicate}} und {{survivor}}). Verkaufen oder stornieren Sie zuerst eines der Lagerfahrzeuge.",
+    "vehicle_merge_vin_into_chassis_number": "Ein Datensatz mit VIN kann nicht in einen mit Chassisnummer (vor 1981) zusammengeführt werden. Mit «Richtung tauschen» bleibt der Datensatz mit VIN bestehen."
   },
   "accessWindow": {
     "between": "gültig vom {{from}} bis {{to}}",

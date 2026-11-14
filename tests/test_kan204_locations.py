@@ -28,11 +28,11 @@ import pytest
 
 from app.core.auth import AccessRole
 from app.core.constants import CANTON_CODES
-from app.platform.models.dealership import Location
-from app.platform.models.holiday_calendar import Holiday, HolidayCalendar, HolidayCondition, HolidayRule
-from app.platform.models.location_schedule import LocationOpeningHours
+from app.platform.organisation.models.dealership import Location
+from app.platform.organisation.models.holiday_calendar import Holiday, HolidayCalendar, HolidayCondition, HolidayRule
+from app.platform.organisation.models.location_schedule import LocationOpeningHours
+from app.platform.organisation.services import holidays as holiday_service
 from app.platform.reference_data_seed.holidays import CALENDARS, HOLIDAYS, SOURCE
-from app.platform.services import holidays as holiday_service
 from tests.test_dealership import _bearer, _create_dealership, _token
 
 _MIGRATION = Path(__file__).resolve().parent.parent / "alembic" / "versions" / "platform"

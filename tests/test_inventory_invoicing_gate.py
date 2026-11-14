@@ -17,7 +17,7 @@ from app.inventory.schemas.stock_item import StockItemCreate
 from app.inventory.services.invoicing_gate import apply_finance_invoice_issued
 from app.inventory.services.purchase import record_purchase
 from app.inventory.services.stock_item import create_stock_item, list_stock_items
-from app.platform.models.dealership import DealerGroup, Dealership, FranchiseType
+from app.platform.organisation.models.dealership import DealerGroup, Dealership, FranchiseType
 from tests.dealership_support import valid_uid
 
 

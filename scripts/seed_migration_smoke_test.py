@@ -70,7 +70,7 @@ from app.customer.models.customer import (
     PhoneType,
 )
 from app.db import SessionLocal
-from app.platform.models.dealership import DealerGroup, Dealership, DealershipStatus, FranchiseType
+from app.platform.organisation.models.dealership import DealerGroup, Dealership, DealershipStatus, FranchiseType
 
 _DEALER_ADDRESS = {
     "address_street": "Bahnhofstrasse",

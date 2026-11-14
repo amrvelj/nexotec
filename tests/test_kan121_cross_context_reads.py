@@ -4,7 +4,7 @@ count for vehicle's legacy-reference check went with the legacy table, KAN-79.)"
 
 import uuid
 
-from app.platform.models.dealership import DealerGroup, Dealership, FranchiseType
+from app.platform.organisation.models.dealership import DealerGroup, Dealership, FranchiseType
 from app.platform.public import DealershipRef, list_group_read_dealerships
 from tests.dealership_support import valid_uid
 

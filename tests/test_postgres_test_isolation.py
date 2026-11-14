@@ -21,7 +21,7 @@ from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import sessionmaker
 
 from app.db import Base
-from app.platform.models.dealership import DealerGroup
+from app.platform.organisation.models.dealership import DealerGroup
 from tests.demo_models import DemoBase
 
 # Every table the test schema holds: production plus the test-only models (KAN-332).

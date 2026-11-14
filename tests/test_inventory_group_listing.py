@@ -12,7 +12,7 @@ from app.inventory.schemas.group_listing import StockItemGroupRead
 from app.inventory.schemas.stock_item import StockItemCreate, StockItemRead
 from app.inventory.services.group_listing import list_group_stock_items as _list_group_stock_items
 from app.inventory.services.stock_item import create_stock_item
-from app.platform.models.dealership import DealerGroup, Dealership, FranchiseType
+from app.platform.organisation.models.dealership import DealerGroup, Dealership, FranchiseType
 from tests.dealership_support import valid_uid
 
 _DEFAULT_SORT = [SortField(api_name="updatedAt", column=StockItem.updated_at, direction="desc", nullable=False)]

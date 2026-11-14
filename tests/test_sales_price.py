@@ -8,9 +8,8 @@ invoicing, read from Sales' replica — KAN-100.)
 import uuid
 
 from app.inventory.models.stock_item import StockItemCondition
-from app.inventory.public import get_stock_item_or_404
 from app.inventory.schemas.stock_item import StockItemCreate
-from app.inventory.services.stock_item import create_stock_item
+from app.inventory.services.stock_item import create_stock_item, get_stock_item_or_404
 from app.sales.schemas.contract import ContractRead
 from app.sales.schemas.deal import DealRead
 from app.sales.schemas.offer import OfferRead
@@ -67,7 +66,7 @@ def test_dealership_vat_rate_is_the_one_vat_figure_in_the_system():
     anywhere Sales could reach — a single dealer-configurable rate, never
     a per-deal attribute."""
 
-    from app.platform.models.dealership import Dealership
+    from app.platform.organisation.models.dealership import Dealership
 
     column_names = Dealership.__table__.columns.keys()
     assert "vat_rate" in column_names

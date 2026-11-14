@@ -34,8 +34,8 @@ from app.customer.models.customer import (
     CustomerPhone,
 )
 from app.db import SessionLocal
-from app.platform.models.dealership import Dealership
 from app.platform.models.user import User
+from app.platform.organisation.models.dealership import Dealership
 from app.vehicle.models.catalogue import ModelVariant, TypeApproval, VariantTypeApproval
 from app.vehicle.models.provider import ProviderCodeMap
 

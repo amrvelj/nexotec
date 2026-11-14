@@ -31,7 +31,7 @@ from app.customer.models.customer import (
 from app.customer.models.legal_basis import LegalBasis
 from app.customer.models.stock_item_booking import StockItemBooking
 from app.customer.models.vehicle_party import VehicleParty
-from app.inventory.public import StockItem
+from app.inventory.public import stock_item_reference_check
 from app.platform.public import DealerGroup, Dealership, User, actor_reference_checks
 from app.vehicle.public import VehicleMdm
 
@@ -53,13 +53,11 @@ CHECKS: list[ReferenceCheck | StateCheck] = [
     # KAN-632 — the bookings this context learnt from Stock's purchase and
     # storno events (the trade-in consumers' record): each names a stock
     # item of a Betrieb that exists. Read across by design (ADR-107).
-    ReferenceCheck(
+    stock_item_reference_check(
         label="customer_stock_item_booking.stock_item_id -> stock_item.id",
         source_model=StockItemBooking,
         source_row_id_column=StockItemBooking.event_id,
         source_fk_column=StockItemBooking.stock_item_id,
-        target_model=StockItem,
-        target_id_column=StockItem.id,
     ),
     ReferenceCheck(
         label="customer_stock_item_booking.tenant_id -> dealership.id",

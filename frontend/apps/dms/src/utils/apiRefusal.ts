@@ -238,6 +238,10 @@ const REASON_KEYS: Record<string, string> = {
       // KAN-536 — a trade-in is bought under the VIN its contract holds.
       'trade_in_vin_differs',
       'vehicle_merge_in_progress',
+      // KAN-524 — merging two vehicle records (FR-V-12).
+      'vehicle_merge_same_record',
+      'vehicle_merge_both_in_stock',
+      'vehicle_merge_vin_into_chassis_number',
       // KAN-680 — a vehicle merge's kept copy stays as history.
       'vehicle_merged_party_row',
       // KAN-557 — «VIN korrigieren».
@@ -325,6 +329,10 @@ const REASON_PARAMS: Record<string, (details: Details, t: TFunction) => Record<s
   vin_already_in_stock: (d) => ({ stockNumber: String(d.stockNumber ?? '—') }),
   // KAN-667: the caller's own Betrieb's stock car that holds the record.
   vin_change_needs_vin_correction: (d) => ({ stockNumber: String(d.stockNumber ?? '—') }),
+  vehicle_merge_both_in_stock: (d) => ({
+    duplicate: String(d.duplicateStockNumber ?? '—'),
+    survivor: String(d.survivorStockNumber ?? '—'),
+  }),
   // KAN-557: the vehicle-mdm record that already carries the VIN.
   vin_belongs_to_other_vehicle: (d) => ({ vehicleNumber: String(d.vehicleNumber ?? '—') }),
   // KAN-583: the future holder in the way — who, in which role, from when

@@ -9,8 +9,8 @@ import uuid
 from sqlalchemy import and_, select
 from sqlalchemy.orm import Session
 
-from app.platform.models.dealership import DealerGroup, Dealership, DealershipStatus
 from app.platform.models.user import User
+from app.platform.organisation.models.dealership import DealerGroup, Dealership, DealershipStatus
 
 
 def get_group_display_labels(

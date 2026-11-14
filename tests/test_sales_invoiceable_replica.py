@@ -34,7 +34,7 @@ from app.inventory.schemas.purchase import RecordPurchaseRequest
 from app.inventory.schemas.stock_item import StockItemCreate
 from app.inventory.services.purchase import record_purchase
 from app.inventory.services.stock_item import create_stock_item
-from app.platform.models.dealership import DealerGroup, Dealership, FranchiseType
+from app.platform.organisation.models.dealership import DealerGroup, Dealership, FranchiseType
 from app.sales.consumers import handle_stock_item_purchased_message
 from app.sales.models.contract import ContractStatus, SalesContract
 from app.sales.models.stock_item_purchase import SalesStockItemPurchase

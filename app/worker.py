@@ -71,6 +71,9 @@ from app.inventory.consumers import (
     handle_stock_item_published_message,
     handle_stock_item_unpublished_message,
 )
+from app.inventory.consumers import (
+    handle_vehicle_merged_message as move_stock_items_on_vehicle_merged,
+)
 from app.inventory.daily_jobs import run_daily_reservation_sweep
 from app.inventory.public import (
     SALES_CONTRACT_PROJECTION_CONSUMERS,
@@ -300,6 +303,13 @@ def register_handlers(transport: InProcessTransport) -> None:
         "vehicle.vehicle_mdm.merged",
         consumer_name="customer.vehicle_parties_on_vehicle_merged",
         handler=handle_vehicle_merged_message,
+    )
+    # KAN-524 (Anto, Q2 A, Q3 A) — the same fact moves Stock's items onto the
+    # survivor, a car in stock taking its VIN (and its configuration's).
+    transport.register(
+        "vehicle.vehicle_mdm.merged",
+        consumer_name="inventory.stock_items_on_vehicle_merged",
+        handler=move_stock_items_on_vehicle_merged,
     )
     # KAN-270 — a host took a configuration: vehicle stamps it taken, so the
     # daily purge of configurations no host ever took keeps it for good.

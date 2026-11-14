@@ -18,10 +18,10 @@ from app.core.audit_model import AuditEvent
 from app.core.auth import AccessRole, create_access_token
 from app.core.errors import ConflictError, UnprocessableEntityError
 from app.core.permissions import ModuleCode
-from app.platform.models.dealership import DealerGroup, Dealership, FranchiseType, Location
-from app.platform.models.module_entitlement import ModuleEntitlement
-from app.platform.models.number_range import NumberRange, NumberRangeDocumentType
-from app.platform.services import number_range as service
+from app.platform.organisation.models.dealership import DealerGroup, Dealership, FranchiseType, Location
+from app.platform.organisation.models.module_entitlement import ModuleEntitlement
+from app.platform.organisation.models.number_range import NumberRange, NumberRangeDocumentType
+from app.platform.organisation.services import number_range as service
 from app.sales.models.deal import SalesNumberSequence
 from app.sales.services.offer import create_offer
 from tests.dealership_support import valid_uid

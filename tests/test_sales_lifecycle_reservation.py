@@ -25,7 +25,7 @@ from app.customer.services.customer import create_customer, set_credit_block, up
 from app.inventory.models.stock_item import ReservationState, StockItemCondition
 from app.inventory.schemas.stock_item import StockItemCreate
 from app.inventory.services.stock_item import create_stock_item, get_stock_item_or_404
-from app.platform.models.dealership import DealerGroup, Dealership, FranchiseType
+from app.platform.organisation.models.dealership import DealerGroup, Dealership, FranchiseType
 from app.sales.models.contract import ContractStatus
 from app.sales.models.offer import OfferStatus
 from app.sales.schemas.offer import OfferUpdate

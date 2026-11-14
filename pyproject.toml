@@ -52,7 +52,7 @@ dependencies = [
     # KAN-205: the logo upload reads a PNG's size and checks its chunks with
     # Pillow — the decoder WeasyPrint itself prints raster images with, so a
     # PNG it accepts is one the renderer can print. It arrived only through
-    # weasyprint; declared because app/platform/services/logo_validation.py
+    # weasyprint; declared because app/platform/organisation/services/logo_validation.py
     # now imports it. No new package: the SVG sanitiser there is the
     # standard library's expat and ElementTree.
     "pillow>=11.0,<14",
@@ -218,6 +218,7 @@ forbidden_modules = [
     "app.platform.consumers",
     "app.platform.daily_jobs",
     "app.platform.models",
+    "app.platform.organisation",
     "app.platform.reconciliation",
     "app.platform.reference",
     "app.platform.reference_data_seed",

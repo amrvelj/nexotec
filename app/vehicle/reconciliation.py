@@ -16,7 +16,11 @@ from sqlalchemy.orm import Session
 
 from app.core.base import utcnow
 from app.core.reconciliation import ReconciliationRun, ReferenceCheck, StateCheck, run_reconciliation
-from app.inventory.public import StockItem
+from app.inventory.public import (
+    held_stock_item_check,
+    stock_item_differs_from_holding,
+    stock_item_reference_check,
+)
 from app.platform.public import DealerGroup, Dealership, actor_reference_checks
 from app.vehicle.models.catalogue import (
     Brand,
@@ -110,16 +114,13 @@ def _stock_holding_differs_from_its_stock_item() -> StateCheck:
         label="vehicle_stock_holding differs from its stock_item",
         source_model=VehicleStockHolding,
         source_row_id_column=VehicleStockHolding.id,
-        where=lambda: select(StockItem.id)
-        .where(
-            StockItem.id == VehicleStockHolding.stock_item_id,
-            StockItem.updated_at < utcnow() - _OUTBOX_LAG_GRACE,
-            (StockItem.tenant_id != VehicleStockHolding.tenant_id)
-            | (StockItem.left_stock_at.is_(None) != VehicleStockHolding.left_stock_at.is_(None))
-            | (StockItem.left_stock_at.is_(None) & StockItem.vehicle_id.is_distinct_from(VehicleStockHolding.vehicle_id)),
-        )
-        .correlate(VehicleStockHolding)
-        .exists(),
+        where=lambda: stock_item_differs_from_holding(
+            VehicleStockHolding.stock_item_id,
+            tenant_id=VehicleStockHolding.tenant_id,
+            left_stock_at=VehicleStockHolding.left_stock_at,
+            vehicle_id=VehicleStockHolding.vehicle_id,
+            changed_before=utcnow() - _OUTBOX_LAG_GRACE,
+        ).correlate(VehicleStockHolding),
     )
 
 
@@ -130,21 +131,14 @@ def _held_stock_item_missing_from_the_projection() -> StateCheck:
     not run since the deploy. Its VIN could be changed on the Vehicle 360
     alone. The finding names the stock item."""
 
-    return StateCheck(
+    return held_stock_item_check(
         label="stock item holding a record missing from vehicle_stock_holding",
-        source_model=StockItem,
-        source_row_id_column=StockItem.id,
-        where=lambda: StockItem.vehicle_id.is_not(None)
-        & StockItem.left_stock_at.is_(None)
-        & (StockItem.updated_at < utcnow() - _OUTBOX_LAG_GRACE)
-        & ~select(VehicleStockHolding.id)
-        .where(
-            VehicleStockHolding.stock_item_id == StockItem.id,
-            VehicleStockHolding.tenant_id == StockItem.tenant_id,
+        grace=_OUTBOX_LAG_GRACE,
+        holding=lambda stock_item_id, tenant_id: select(VehicleStockHolding.id).where(
+            VehicleStockHolding.stock_item_id == stock_item_id,
+            VehicleStockHolding.tenant_id == tenant_id,
             VehicleStockHolding.vehicle_id.is_not(None),
-        )
-        .correlate(StockItem)
-        .exists(),
+        ),
     )
 
 
@@ -152,13 +146,11 @@ CHECKS: list[ReferenceCheck | StateCheck] = [
     # --- KAN-667: Vehicle's projection of the records a Betrieb holds in stock.
     _stock_holding_differs_from_its_stock_item(),
     _held_stock_item_missing_from_the_projection(),
-    ReferenceCheck(
+    stock_item_reference_check(
         label="vehicle_stock_holding.stock_item_id -> stock_item.id",
         source_model=VehicleStockHolding,
         source_row_id_column=VehicleStockHolding.id,
         source_fk_column=VehicleStockHolding.stock_item_id,
-        target_model=StockItem,
-        target_id_column=StockItem.id,
     ),
     ReferenceCheck(
         label="vehicle_stock_holding.tenant_id -> dealership.id",

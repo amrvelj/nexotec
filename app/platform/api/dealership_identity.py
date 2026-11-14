@@ -23,6 +23,7 @@ from app.db import get_db
 from app.platform.api.auth import client_ip
 from app.platform.models.dealership_auth_config import DealershipAuthConfig
 from app.platform.models.user import UserStatus
+from app.platform.organisation.services import dealership as dealership_service
 from app.platform.reference.services.mailer import PlatformMailer, get_mailer
 from app.platform.schemas.auth import (
     AuthConfigRead,
@@ -39,7 +40,6 @@ from app.platform.services import (
     identity,
     session_policy,
 )
-from app.platform.services import dealership as dealership_service
 from app.platform.services import user as user_service
 from app.platform.services import user_reads as user_reads_service
 

@@ -27,7 +27,7 @@ from app.inventory.services.invoicing_gate import apply_finance_invoice_issued
 from app.inventory.services.pipeline import handle_sales_contract_confirmed, promote_to_vehicle_mdm
 from app.inventory.services.purchase import record_purchase
 from app.inventory.services.stock_item import create_stock_item
-from app.platform.models.dealership import DealerGroup, Dealership, FranchiseType
+from app.platform.organisation.models.dealership import DealerGroup, Dealership, FranchiseType
 from app.vehicle.public import create_or_get_vehicle_mdm
 from tests.configuration_test_support import stock_configuration_id
 from tests.dealership_support import valid_uid

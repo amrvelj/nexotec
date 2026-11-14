@@ -41,9 +41,9 @@ from app.core.nul_guard import NUL
 from app.platform.models.auth_event import AuthEventKind
 from app.platform.models.auth_token import AuthTokenKind
 from app.platform.models.credential import Credential
-from app.platform.models.dealership import Dealership
 from app.platform.models.dealership_auth_config import AuthMethod, DealershipAuthConfig
 from app.platform.models.user import User, UserStatus
+from app.platform.organisation.models.dealership import Dealership
 from app.platform.reference.services.mailer import Mail, MailDeliveryError, PlatformMailer
 from app.platform.services import auth_events, auth_sessions, auth_tokens, mail_texts, password_hashing
 from app.platform.services import user_preference as preference_service

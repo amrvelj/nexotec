@@ -13,9 +13,9 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.errors import UnprocessableEntityError
-from app.platform.models.dealership import Dealership
 from app.platform.models.user import User
 from app.platform.models.user_preference import UserPreference
+from app.platform.organisation.models.dealership import Dealership
 
 # UI/UX Core Principles § User-Level Preference Persistence: "64 KB per
 # scope, enforced server-side with 422."

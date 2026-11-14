@@ -1,7 +1,7 @@
 /**
  * KAN-205 — the brand colours' contrast, while the manager picks: WCAG 2.x
  * AA for normal text, 4.5:1. The API judges the same three pairs on every
- * save and returns its verdict (`app/platform/services/brand_colors.py`);
+ * save and returns its verdict (`app/platform/organisation/services/brand_colors.py`);
  * this is the same formula, so the verdict on screen before the save is the
  * one the save returns. Both sides share their test vectors.
  */

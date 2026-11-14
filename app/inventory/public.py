@@ -34,9 +34,17 @@ the legacy transaction import re-runs it only then. A SELECT only, a bool.
 `list_held_vehicle_records` (KAN-667) is the backfill of Vehicle's projection
 of the records a Betrieb holds in stock (scripts/backfill_vehicle_stock_holding.py):
 every item with a record that has not left stock, plain data, a SELECT only.
+
+No mapped class leaves this module (KAN-123 step 3, ADR-162). What Sales',
+Customers' and Vehicle's nightly reconciliation checks against Stock's
+`stock_item` table is built here (`stock_item_reference_check`,
+`stock_item_exists`, `stock_item_reservation_exists`, `stock_item_prices_moved`,
+`stock_item_differs_from_holding`, `purchased_stock_item_check`,
+`held_stock_item_check`; services/reconciliation_targets.py) and confined to
+the reconciliation modules by an architecture test.
 """
 
-from app.inventory.models.stock_item import LifecycleStatus, ReservationState, StockItem, StockItemCondition
+from app.inventory.models.stock_item import LifecycleStatus, ReservationState, StockItemCondition
 from app.inventory.ownership import InventoryOwnershipProvider
 from app.inventory.services.configuration_label import (
     oldest_configuration_label_age_seconds,
@@ -46,10 +54,19 @@ from app.inventory.services.configuration_reference import referenced_configurat
 from app.inventory.services.data_export import InventoryExporter
 from app.inventory.services.group_listing import get_stock_items_for_vehicles
 from app.inventory.services.pricing import get_stock_item_pricing
+from app.inventory.services.reconciliation_targets import (
+    held_stock_item_check,
+    purchased_stock_item_check,
+    stock_item_differs_from_holding,
+    stock_item_exists,
+    stock_item_prices_moved,
+    stock_item_reference_check,
+    stock_item_reservation_exists,
+)
 from app.inventory.services.reservation import release, reserve, reserve_for_contract
 from app.inventory.services.sales_contract import CONSUMERS as SALES_CONTRACT_PROJECTION_CONSUMERS
 from app.inventory.services.sales_contract import apply_backfilled_contract, backfill_recorded, record_backfill
-from app.inventory.services.stock_item import get_stock_item_or_404, get_stock_numbers, is_stock_item_purchased
+from app.inventory.services.stock_item import get_stock_numbers, is_stock_item_purchased
 from app.inventory.services.valuation import set_valuation_ref
 from app.inventory.services.vehicle_link import HeldVehicleRecord, get_stock_item_vehicle, list_held_vehicle_records
 
@@ -60,18 +77,18 @@ __all__ = [
     "InventoryOwnershipProvider",
     "LifecycleStatus",
     "ReservationState",
-    "StockItem",
     "StockItemCondition",
     "apply_backfilled_contract",
     "backfill_recorded",
-    "get_stock_item_or_404",
     "get_stock_item_pricing",
     "get_stock_item_vehicle",
     "get_stock_items_for_vehicles",
     "get_stock_numbers",
+    "held_stock_item_check",
     "is_stock_item_purchased",
     "list_held_vehicle_records",
     "oldest_configuration_label_age_seconds",
+    "purchased_stock_item_check",
     "record_backfill",
     "referenced_configuration_ids",
     "refresh_configuration_labels",
@@ -79,4 +96,9 @@ __all__ = [
     "reserve",
     "reserve_for_contract",
     "set_valuation_ref",
+    "stock_item_differs_from_holding",
+    "stock_item_exists",
+    "stock_item_prices_moved",
+    "stock_item_reference_check",
+    "stock_item_reservation_exists",
 ]

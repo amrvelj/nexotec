@@ -25,13 +25,13 @@ from app.core.object_store import ObjectStore, get_object_store
 from app.core.permissions import require_read, require_write
 from app.core.tenancy import require_tenant_match
 from app.db import get_db
-from app.platform.models.branding_asset import BrandingAssetKind
-from app.platform.schemas.branding import BrandingRead, BrandingUpdate
+from app.platform.organisation.models.branding_asset import BrandingAssetKind
+from app.platform.organisation.schemas.branding import BrandingRead, BrandingUpdate
+from app.platform.organisation.services import branding as branding_service
+from app.platform.organisation.services import dealership as dealership_service
+from app.platform.organisation.services.location import get_location_or_404
 from app.platform.schemas.document_content import ContentDefinition
-from app.platform.services import branding as branding_service
-from app.platform.services import dealership as dealership_service
 from app.platform.services.document_render import render_document
-from app.platform.services.location import get_location_or_404
 
 router = APIRouter(tags=["branding"], route_class=IdempotentRoute)
 

@@ -28,11 +28,9 @@ _SESSION_NAMES = {"db", "session", "own"}
 _WRITE_CALLS = {"add", "add_all", "delete", "merge", "flush", "commit"}
 
 # function name -> why it has no production caller yet, and its ticket.
-NO_CALLER_YET = {
-    "assign_dealer_plate": "KAN-524: Händlerschild assignment (ADR-039's dealer-plate class) has no screen or API "
-    "yet; KAN-467 leaves the dealer-plate model alone by its own do-not-touch",
-    "merge_vehicles": "KAN-524: FR-V-12's merge has no screen yet — the Vehicle 360 overflow shows it disabled "
-    "with its reason (vehicleRowMenu.tsx)",
+NO_CALLER_YET: dict[str, str] = {
+    # Empty since KAN-524: the merge has its endpoint (FR-V-12) and the
+    # Händlerschild assignment was removed until it is specified (Anto).
 }
 
 

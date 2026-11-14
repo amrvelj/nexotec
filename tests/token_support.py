@@ -25,7 +25,7 @@ import uuid
 from sqlalchemy import select
 from sqlalchemy.engine import Engine
 
-from app.platform.models.dealership import Dealership
+from app.platform.organisation.models.dealership import Dealership
 
 _ENGINE: list[Engine] = []
 _GROUPS: dict[uuid.UUID, uuid.UUID] = {}

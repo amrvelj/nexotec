@@ -205,7 +205,7 @@ def test_a_user_who_never_chose_gets_mail_in_the_betriebs_language(client, mailb
     user_preference.ui_language_of)."""
 
     from app.core.i18n import SwissLanguage
-    from app.platform.models.dealership import Dealership
+    from app.platform.organisation.models.dealership import Dealership
 
     dealership = create_dealership(client)
     anna = create_user(client, dealership)

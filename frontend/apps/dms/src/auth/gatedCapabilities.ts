@@ -25,5 +25,6 @@ export const GATED_CAPABILITIES = [
   'stock_vin_correction',
   'ui_translations',
   'valuation_use_reversal',
+  'vehicle_mdm',
 ] as const
 export type GatedCapability = (typeof GATED_CAPABILITIES)[number]

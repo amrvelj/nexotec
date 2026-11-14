@@ -2840,7 +2840,7 @@ export interface paths {
         put?: never;
         /**
          * Correct Vin
-         * @description KAN-557 «VIN korrigieren» (ADR-116): corrects the VIN of a car this Betrieb bought — on the stock item, its vehicle-mdm record and its configuration together, each audited with the reason. Vehicle is asked first (its own transaction); a refusal there writes nothing here. 409 `vin_already_in_stock`, `vin_belongs_to_other_vehicle` (another record carries the VIN: merged by platform staff), `vin_correction_left_stock`, `vin_correction_needs_vehicle` (a car never bought: correct its configuration), `vehicle_vin_changed`, `vehicle_merged`; 422 `vin_unchanged`, `configuration_vin_differs`.
+         * @description KAN-557 «VIN korrigieren» (ADR-116): corrects the VIN of a car this Betrieb bought — on the stock item, its vehicle-mdm record and its configuration together, each audited with the reason. Vehicle is asked first (its own transaction); a refusal there writes nothing here. 409 `vin_already_in_stock`, `vin_belongs_to_other_vehicle` (another record carries the VIN: one car, merged with «Merge into…»), `vin_correction_left_stock`, `vin_correction_needs_vehicle` (a car never bought: correct its configuration), `vehicle_vin_changed`, `vehicle_merged`; 422 `vin_unchanged`, `configuration_vin_differs`.
          */
         post: operations["correct_vin_v1_inventory_stock_items__stock_item_id__vin_correction_post"];
         delete?: never;
@@ -4496,6 +4496,30 @@ export interface paths {
         get: operations["get_vehicle_configuration_v1_vehicle_mdm__vehicle_id__configuration_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/vehicle-mdm/{vehicle_id}/merge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Merge Vehicle
+         * @description KAN-524 (FR-V-12): «Zusammenführen mit…» — the record in the path is
+         *     merged into `survivorId` for good; there is no unmerge, and every Betrieb
+         *     shares both records. Any user who may edit vehicles may do it (Anto, Q1 B).
+         *     Answers the survivor. Refusals: `services/merge.py::merge_vehicle_records`.
+         *     Customers' party rows and Stock's items follow when the fact is consumed.
+         */
+        post: operations["merge_vehicle_v1_vehicle_mdm__vehicle_id__merge_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -12037,6 +12061,21 @@ export interface components {
             version: number;
             /** Vin */
             vin: string;
+        };
+        /**
+         * VehicleMdmMerge
+         * @description KAN-524 (FR-V-12): fold the record in the path into `survivorId`, for
+         *     good. If-Match carries the duplicate's version; `survivorVersion` the
+         *     survivor's, so neither record changed since the user compared them.
+         */
+        VehicleMdmMerge: {
+            /**
+             * Survivorid
+             * Format: uuid
+             */
+            survivorId: string;
+            /** Survivorversion */
+            survivorVersion: number;
         };
         /** VehicleMdmPage */
         VehicleMdmPage: {
@@ -23954,6 +23993,48 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ConfigurationRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    merge_vehicle_v1_vehicle_mdm__vehicle_id__merge_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+                authorization?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                vehicle_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VehicleMdmMerge"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VehicleMdmDetailRead"];
                 };
             };
             /** @description Validation Error */

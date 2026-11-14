@@ -17,7 +17,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.errors import ConflictError
-from app.platform.models.dealership import DealerGroup
+from app.platform.organisation.models.dealership import DealerGroup
 from app.vehicle.models.vehicle_mdm import VehicleMdm
 from app.vehicle.public import ResolvedVehicleMdm, create_or_get_vehicle_mdm, resolve_vehicle_mdm_by_vin
 from app.vehicle.services import vehicle_mdm as vehicle_mdm_service

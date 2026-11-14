@@ -8,7 +8,8 @@ Fed by two facts Stock publishes through the outbox (`CONSUMERS`, registered
 in app/worker.py) and by the backfill (`apply_backfilled_holding`) for items
 older than the consumers. Every write is a merge that is order-free and
 idempotent: the record, the stock number and the moment the item left stock
-are each set once, so a redelivered or overtaken fact changes nothing
+are each set once (only a vehicle merge moves the record, KAN-524), so a
+redelivered or overtaken fact changes nothing
 (models/stock_holding.py says why these two facts are the whole lifecycle).
 
 **Only the caller's own Betrieb counts** (rule 7). Every read names the
@@ -32,6 +33,7 @@ environment after the deploy), and the nightly check «stock item missing from
 vehicle_stock_holding» names every car it has not covered.
 """
 
+import dataclasses
 import datetime as dt
 import uuid
 from dataclasses import dataclass
@@ -91,6 +93,13 @@ def apply_stock_holding_fact(db: Session, fact: StockHoldingFact, *, observed_at
     locked, so two workers applying two facts of one item at once serialise
     on the row instead of one failing on the unique constraint."""
 
+    from app.vehicle.services.merge import resolve_merged_id
+
+    if fact.vehicle_id is not None:
+        # KAN-524: a fact Stock wrote before a merge it had not seen names the
+        # duplicate; the hold belongs to the car, which lives on the survivor
+        # now — as the merge moved the rows already held.
+        fact = dataclasses.replace(fact, vehicle_id=resolve_merged_id(db, fact.vehicle_id))
     insert = postgresql_insert if db.get_bind().dialect.name == "postgresql" else sqlite_insert
     now = utcnow()
     inserted = db.execute(
@@ -176,11 +185,12 @@ def held_stock_item(db: Session, *, tenant_id: uuid.UUID | None, vehicle_id: uui
     other Betrieb's item is ever read. A fact for an item the projection
     already knows has left stock never counts.
 
-    KAN-706 (ADR-160 amended): a hold names the record as Stock booked it and is
-    set once, so an item booked on a record merged since still names the
-    duplicate. One physical car: a hold on any record merged into `vehicle_id`
-    (`records_living_on`, chains included) counts for it, so the survivor's
-    VIN change is refused as the duplicate's would have been."""
+    KAN-706 (ADR-160 amended): the merge re-points the holds it finds and a
+    later fact lands on the live record (KAN-524), but an unapplied fact in the
+    outbox still names the record Stock booked. One physical car: a hold or a
+    fact on any record merged into `vehicle_id` (`records_living_on`, chains
+    included) counts for it, so the survivor's VIN change is refused as the
+    duplicate's would have been."""
 
     if tenant_id is None:
         return None

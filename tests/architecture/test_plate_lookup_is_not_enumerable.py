@@ -21,14 +21,11 @@ from app.vehicle.services import plate as plate_service
 from tests.route_walk import api_routes, path_segments
 
 # Functions in this module that legitimately don't take a bare plate+canton
-# pair — they operate on a specific dealer plate (a different, tenant-owned
-# asset), on the already-created row itself, or on a known VEHICLE id
+# pair — they operate on the already-created row itself, or on a known VEHICLE id
 # (WP-5 PR-9's Vehicle 360 Plates tab: "this car's own history", the
 # targeted lookup from the other direction — not an open-ended query over
 # every Kontrollschild).
 _NOT_PLATE_LOOKUP_FUNCTIONS = {
-    "current_dealer_plate_assignment",
-    "assign_dealer_plate",
     "list_plates_for_vehicle",
     # KAN-467: one assignment by its own id, of a known vehicle, in the
     # caller's group — the Plates tab's «beenden» target, never a search.
