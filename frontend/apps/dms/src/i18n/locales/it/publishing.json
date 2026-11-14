@@ -110,8 +110,8 @@
     "ready": "Tutto il necessario è inserito. I veicoli possono andare sul sito.",
     "notReady": "Prima che un veicolo possa andare sul sito, manca ancora:",
     "openLocation": "Aprire la sede",
-    "carsOnWebsite_one": "{{count}} veicolo è sul sito.",
-    "carsOnWebsite_other": "{{count}} veicoli sono sul sito.",
+    "carsOnWebsite_one": "{{count, number}} veicolo è sul sito.",
+    "carsOnWebsite_other": "{{count, number}} veicoli sono sul sito.",
     "defaultNote": "I dati richiesti dal sito sono un'impostazione di Nexotec ancora da confermare."
   },
   "refusals": {

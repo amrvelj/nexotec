@@ -35,8 +35,10 @@ export function WebsiteListingCard({ stockItemId, canPublish }: { stockItemId: s
   const data = listing.data
   if (!data) return null
   const conditions = data.blockingConditions ?? []
-  const profileItems = conditions.filter((c) => c.code)
-  const carItems = conditions.filter((c) => !c.code)
+  // The car's own conditions are the tab's banner below; the card names the
+  // publishing profile's, in the dealer's words (`message` carries only the
+  // location's name there).
+  const profileItems = conditions.filter((c) => c.code).map(({ code, message: locationName }) => ({ code, locationName }))
   return (
     <OverviewCard title={t('stockDetail.publishing.website.title')}>
       <Stack gap="xs">
@@ -45,16 +47,11 @@ export function WebsiteListingCard({ stockItemId, canPublish }: { stockItemId: s
             {data.isListed ? t('stockDetail.publishing.website.listed') : t('stockDetail.publishing.website.notListed')}
           </Badge>
         </Group>
-        {!data.isListed && conditions.length > 0 && (
+        {!data.isListed && profileItems.length > 0 && (
           <List size="sm" spacing={2}>
-            {carItems.map((c) => (
-              <List.Item key={`car-${c.field}`}>
-                {c.field}: {c.message}
-              </List.Item>
-            ))}
-            {profileItems.map((c) => (
-              <List.Item key={`profile-${c.code}-${c.message}`}>
-                {t(`publishingValidation.${c.code}`, { location: c.message })}
+            {profileItems.map((item) => (
+              <List.Item key={`${item.code}-${item.locationName}`}>
+                {t(`publishingValidation.${item.code}`, { location: item.locationName })}
               </List.Item>
             ))}
           </List>

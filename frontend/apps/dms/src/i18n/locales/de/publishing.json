@@ -110,8 +110,8 @@
     "ready": "Alles Nötige ist erfasst. Fahrzeuge können auf die Website.",
     "notReady": "Bevor ein Fahrzeug auf die Website kann, fehlt noch:",
     "openLocation": "Standort öffnen",
-    "carsOnWebsite_one": "{{count}} Fahrzeug ist auf der Website.",
-    "carsOnWebsite_other": "{{count}} Fahrzeuge sind auf der Website.",
+    "carsOnWebsite_one": "{{count, number}} Fahrzeug ist auf der Website.",
+    "carsOnWebsite_other": "{{count, number}} Fahrzeuge sind auf der Website.",
     "defaultNote": "Welche Angaben die Website verlangt, ist eine Vorgabe von Nexotec, die noch bestätigt wird."
   },
   "refusals": {

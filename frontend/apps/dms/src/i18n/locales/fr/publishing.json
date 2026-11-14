@@ -110,8 +110,8 @@
     "ready": "Tout le nécessaire est saisi. Les véhicules peuvent être publiés sur le site.",
     "notReady": "Avant qu'un véhicule puisse être publié sur le site, il manque encore :",
     "openLocation": "Ouvrir le site",
-    "carsOnWebsite_one": "{{count}} véhicule est sur le site.",
-    "carsOnWebsite_other": "{{count}} véhicules sont sur le site.",
+    "carsOnWebsite_one": "{{count, number}} véhicule est sur le site.",
+    "carsOnWebsite_other": "{{count, number}} véhicules sont sur le site.",
     "defaultNote": "Les données exigées par le site sont une valeur par défaut de Nexotec encore à confirmer."
   },
   "refusals": {

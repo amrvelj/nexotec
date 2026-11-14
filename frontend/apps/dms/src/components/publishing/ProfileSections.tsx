@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useState } from 'react'
+import { useEffect, useId, useState } from 'react'
 import { Alert, Anchor, NumberInput, Stack, Switch, Text, TextInput } from '@mantine/core'
 import { useMutation } from '@tanstack/react-query'
 import { Banknote, Globe, Scale, Tag } from 'lucide-react'
@@ -271,7 +271,6 @@ export function FinancingSection({ profile, target, override, canWrite, onWritte
   const { t } = useTranslation()
   const fields = ['financingTermMonths', ...FINANCING_MONEY, ...FINANCING_RATES, 'financingProvider']
   const s = useSectionSave(profile, target, fields, savedValues(profile, override), onWritten)
-  const rateLabel = useMemo(() => (field: string) => t(`publishing.fields.${field}`), [t])
   return (
     <SectionCard
       title={t('publishing.sections.financing')}
@@ -306,19 +305,26 @@ export function FinancingSection({ profile, target, override, canWrite, onWritte
             onChange={(v) => s.set(field, v === '' ? null : String(v))}
           />
         ))}
-        {FINANCING_RATES.map((field) => (
-          <NumberInput
-            key={field}
-            label={rateLabel(field)}
-            suffix=" %"
-            decimalScale={3}
-            value={money(s.draft[field])}
-            readOnly={!canWrite}
-            min={0}
-            max={30}
-            onChange={(v) => s.set(field, v === '' ? null : String(v))}
-          />
-        ))}
+        <NumberInput
+          label={t('publishing.fields.financingNominalRatePct')}
+          suffix=" %"
+          decimalScale={3}
+          value={money(s.draft.financingNominalRatePct)}
+          readOnly={!canWrite}
+          min={0}
+          max={30}
+          onChange={(v) => s.set('financingNominalRatePct', v === '' ? null : String(v))}
+        />
+        <NumberInput
+          label={t('publishing.fields.financingEffectiveRatePct')}
+          suffix=" %"
+          decimalScale={3}
+          value={money(s.draft.financingEffectiveRatePct)}
+          readOnly={!canWrite}
+          min={0}
+          max={30}
+          onChange={(v) => s.set('financingEffectiveRatePct', v === '' ? null : String(v))}
+        />
         <TextInput
           label={t('publishing.fields.financingProvider')}
           value={(s.draft.financingProvider as string | null) ?? ''}

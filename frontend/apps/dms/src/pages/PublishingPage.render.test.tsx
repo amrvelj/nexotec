@@ -154,7 +154,7 @@ describe('PublishingPage (KAN-225)', () => {
 })
 
 describe('WebsiteListingCard (KAN-225)', () => {
-  it('lists what refuses the car and links to the Publishing screen', async () => {
+  it('lists what the publishing profile lacks and links to the Publishing screen', async () => {
     installFakeBackend([
       {
         method: 'GET',
@@ -174,7 +174,7 @@ describe('WebsiteListingCard (KAN-225)', () => {
     ])
     renderWithProviders(<WebsiteListingCard stockItemId="si-1" canPublish />)
     expect(await screen.findByText('Nicht auf der Website')).toBeInTheDocument()
-    expect(screen.getByText('Preis: Kein Effektivpreis hinterlegt.')).toBeInTheDocument()
+    expect(screen.queryByText(/Kein Effektivpreis/)).not.toBeInTheDocument() // the tab's banner names it
     expect(screen.getByText('Das Impressum in der Korrespondenzsprache des Betriebs')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Angaben unter Veröffentlichung ergänzen' })).toHaveAttribute('href', '/administration/publishing')
     expect(screen.getByRole('button', { name: 'Auf die Website stellen' })).toBeDisabled()

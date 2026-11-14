@@ -5,7 +5,7 @@ import { radius, semantic, spacing } from '@nexotec/ui-kit'
 import type { BlockingCondition } from '../../api/types'
 
 // The marketplace fields the API names a blocking condition by
-// (inventory/services/publishing.py). The API's sentence is German only, so
+// (inventory/services/listing_conditions.py, KAN-225). The API's sentence is German only, so
 // the screen says it from the field, in the UI language (KAN-437); a field
 // added there without a sentence here is the generic one.
 const BLOCKING_FIELDS = new Set(['Lagerstatus', 'Bilder', 'Preis', 'Aussenfarbe', 'Aufbau', 'Kilometer', 'InvSetzJahr', 'Energieetikette'])

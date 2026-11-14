@@ -110,8 +110,8 @@
     "ready": "Everything needed is in place. Vehicles can go on the website.",
     "notReady": "Before a vehicle can go on the website, this is still missing:",
     "openLocation": "Open location",
-    "carsOnWebsite_one": "{{count}} vehicle is on the website.",
-    "carsOnWebsite_other": "{{count}} vehicles are on the website.",
+    "carsOnWebsite_one": "{{count, number}} vehicle is on the website.",
+    "carsOnWebsite_other": "{{count, number}} vehicles are on the website.",
     "defaultNote": "Which details the website requires is a Nexotec default still to be confirmed."
   },
   "refusals": {
