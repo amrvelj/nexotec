@@ -37,13 +37,20 @@ const BusinessPage = lazyPage(() => import('./pages/BusinessPage'), 'BusinessPag
 const LocationsListPage = lazyPage(() => import('./pages/LocationsListPage'), 'LocationsListPage')
 const LocationDetailPage = lazyPage(() => import('./pages/LocationDetailPage'), 'LocationDetailPage')
 const BrandingPage = lazyPage(() => import('./pages/BrandingPage'), 'BrandingPage')
+const PublishingPage = lazyPage(() => import('./pages/PublishingPage'), 'PublishingPage')
 const LetterheadPage = lazyPage(() => import('./pages/LetterheadPage'), 'LetterheadPage')
 const StandardTextsPage = lazyPage(() => import('./pages/StandardTextsPage'), 'StandardTextsPage')
 const NumberRangesPage = lazyPage(() => import('./pages/NumberRangesPage'), 'NumberRangesPage')
+const SetupChecklistPage = lazyPage(() => import('./pages/SetupChecklistPage'), 'SetupChecklistPage')
+const LegalAcceptancePage = lazyPage(() => import('./pages/LegalAcceptancePage'), 'LegalAcceptancePage')
+const SetupInProgressPage = lazyPage(() => import('./pages/SetupInProgressPage'), 'SetupInProgressPage')
+const PlatformLegalDocumentsPage = lazyPage(() => import('./pages/PlatformLegalDocumentsPage'), 'PlatformLegalDocumentsPage')
 const ContactGroupsPage = lazyPage(() => import('./pages/ContactGroupsPage'), 'ContactGroupsPage')
 const DataExportPage = lazyPage(() => import('./pages/DataExportPage'), 'DataExportPage')
 const PlatformOffboardingPage = lazyPage(() => import('./pages/PlatformOffboardingPage'), 'PlatformOffboardingPage')
-const IntegrationsPage = lazyPage(() => import('./pages/IntegrationsPage'), 'IntegrationsPage')
+const AdministrationIntegrationsPage = lazyPage(() => import('./pages/IntegrationsPage'), 'AdministrationIntegrationsPage')
+const PlatformProvidersPage = lazyPage(() => import('./pages/IntegrationsPage'), 'PlatformProvidersPage')
+const IntegrationsRedirect = lazyPage(() => import('./pages/IntegrationsPage'), 'IntegrationsRedirect')
 const VehiclesListPage = lazyPage(() => import('./pages/VehiclesListPage'), 'VehiclesListPage')
 const VehicleDetailPage = lazyPage(() => import('./pages/VehicleDetailPage'), 'VehicleDetailPage')
 const StockListPage = lazyPage(() => import('./pages/StockListPage'), 'StockListPage')
@@ -117,10 +124,17 @@ export default function App() {
               <Route path="/administration/locations" element={<LocationsListPage />} />
               <Route path="/administration/locations/:locationId" element={<LocationDetailPage />} />
               <Route path="/administration/branding" element={<BrandingPage />} />
+              <Route path="/administration/publishing" element={<PublishingPage />} />
               <Route path="/administration/letterhead" element={<LetterheadPage />} />
               {/* KAN-208 — Dealer Administration › Standard texts (any role reads; writes per category). */}
               <Route path="/administration/texts" element={<StandardTextsPage />} />
               <Route path="/administration/number-ranges" element={<NumberRangesPage />} />
+              {/* KAN-214 — the setup checklist and «Betrieb aktivieren» (D-A-21, FR-A-34),
+                  the re-acceptance of a new ToS / DPA version (FR-A-39), and what a
+                  colleague sees while the Betrieb is being set up. */}
+              <Route path="/administration/setup" element={<SetupChecklistPage />} />
+              <Route path="/administration/legal-acceptance" element={<LegalAcceptancePage />} />
+              <Route path="/setup-in-progress" element={<SetupInProgressPage />} />
               <Route path="/administration/contact-groups" element={<ContactGroupsPage />} />
               <Route path="/administration/export" element={<DataExportPage />} />
               <Route path="/administration/account-recovery" element={<AccountRecoveryPage />} />
@@ -129,7 +143,13 @@ export default function App() {
               {/* KAN-210 — Platform Administration › Onboarding (D-A-06, FR-A-24/25). */}
               <Route path="/platform/onboarding" element={<OnboardingPage />} />
               <Route path="/platform/offboarding" element={<PlatformOffboardingPage />} />
-              <Route path="/integrations" element={<IntegrationsPage />} />
+              {/* KAN-214 — Platform Administration › Legal documents (FR-A-39). */}
+              <Route path="/platform/legal-documents" element={<PlatformLegalDocumentsPage />} />
+              {/* KAN-222: the dealer's integrations are a section of Dealer Administration
+                  (A-RULE-0), the platform's view is /platform/providers; the old path redirects. */}
+              <Route path="/administration/integrations" element={<AdministrationIntegrationsPage />} />
+              <Route path="/platform/providers" element={<PlatformProvidersPage />} />
+              <Route path="/integrations" element={<IntegrationsRedirect />} />
               <Route path="/vehicles" element={<VehiclesListPage />} />
               <Route path="/vehicles/:id" element={<VehicleDetailPage />} />
               {/* KAN-198 (D-A-04, D-A-10): stock, sales and valuations belong to the

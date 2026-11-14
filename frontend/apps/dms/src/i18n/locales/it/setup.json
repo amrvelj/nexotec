@@ -1,0 +1,131 @@
+{
+  "title": "Configurazione",
+  "subtitle": "Ciò di cui la sua azienda ha bisogno prima di lavorare. Ogni punto è derivato dai suoi dati – lo completi nella schermata collegata.",
+  "pendingNotice": "La sua azienda è in fase di configurazione. Fino all'attivazione sono accessibili solo l'amministrazione e «Il mio account».",
+  "activeNotice": "La sua azienda è attiva. Se in seguito un punto manca di nuovo, è bloccata solo l'azione che ne ha bisogno.",
+  "loadError": "Non è stato possibile caricare la configurazione.",
+  "complete": "Completato",
+  "missing": "Aperto",
+  "open": "Apri",
+  "itemsTitle": "Lista di controllo",
+  "items": {
+    "branding": {
+      "title": "Logo e colore del marchio",
+      "description": "Il logo principale è caricato e il colore del marchio impostato."
+    },
+    "vat_and_rounding": {
+      "title": "IVA e arrotondamento",
+      "description": "Aliquota IVA (e numero IVA se assoggettati) e l'arrotondamento dei contanti."
+    },
+    "bank_account": {
+      "title": "Conto bancario",
+      "description": "Un conto IBAN o QR-IBAN verificato è scelto come conto predefinito."
+    },
+    "number_ranges": {
+      "title": "Serie numeriche confermate",
+      "description": "Ha verificato e confermato le serie numeriche. Si bloccano all'attivazione."
+    },
+    "location_opening_hours": {
+      "title": "Sede con orari di apertura",
+      "description": "Almeno una sede attiva ha orari di apertura."
+    },
+    "users": {
+      "title": "Utenti invitati",
+      "description": "Almeno un gerente è attivo – in un'azienda di una persona basta lei."
+    },
+    "publishing_profile": {
+      "title": "Profilo di pubblicazione",
+      "description": "Descrizione, note legali e inoltro dei lead."
+    }
+  },
+  "blocks": {
+    "activation": "Blocca l'attivazione",
+    "invoice_issue": "Se manca dopo l'attivazione, le fatture sono bloccate",
+    "numbered_document": "Se manca dopo l'attivazione, i documenti numerati sono bloccati",
+    "marketplace_publishing": "Se manca dopo l'attivazione, la pubblicazione sui portali è bloccata"
+  },
+  "legal": {
+    "title": "Condizioni d'uso e trattamento dei dati",
+    "intro": "Con l'attivazione accetta la versione attuale di entrambi i documenti a nome dell'azienda.",
+    "due": "Da accettare",
+    "accepted": "Entrambi i documenti sono accettati.",
+    "unavailable": "I documenti non sono ancora pubblicati. Contatti il supporto Nexotec.",
+    "notFinal": "L'attivazione attende le versioni definitive dei documenti (versione 1.0).",
+    "draft": "Bozza",
+    "version": "Versione {{version}}"
+  },
+  "activate": {
+    "button": "Attivare l'azienda",
+    "incomplete": "Completi prima tutti i punti della lista di controllo.",
+    "title": "Attivare l'azienda",
+    "intro": "Legga i due documenti e li accetti a nome dell'azienda.",
+    "accept": "Ho letto «{{title}}» (versione {{version}}) e lo accetto a nome dell'azienda.",
+    "freezeWarning": "Con l'attivazione tutte le serie numeriche si bloccano. In seguito le modifica solo il supporto Nexotec, con una motivazione.",
+    "submit": "Attivare ora",
+    "error": "Non è stato possibile attivare l'azienda.",
+    "documentsError": "Non è stato possibile caricare i documenti."
+  },
+  "inProgress": {
+    "title": "L'azienda è in fase di configurazione",
+    "body": "La sua azienda è in fase di configurazione. Non appena la direzione l'avrà attivata, tutte le aree saranno disponibili.",
+    "account": "Apri il mio account"
+  },
+  "acceptance": {
+    "title": "Nuova versione dei testi legali",
+    "intro": "C'è una nuova versione delle condizioni d'uso o del contratto di trattamento dei dati. La legga e la accetti a nome dell'azienda.",
+    "dueBy": "La accetti entro il {{date}}. In seguito i gerenti accedono solo a questa schermata; i suoi colleghi continuano a lavorare.",
+    "held": "Il termine è scaduto. Finché non accetta, è accessibile solo questa schermata.",
+    "submit": "Accettare",
+    "error": "Non è stato possibile salvare l'accettazione.",
+    "done": "Grazie – la versione attuale è accettata.",
+    "promptTitle": "Nuovi testi legali da accettare",
+    "readNow": "Leggi ora",
+    "later": "Più tardi"
+  },
+  "documentTypes": {
+    "tos": "Condizioni d'uso",
+    "dpa": "Contratto di trattamento dei dati"
+  },
+  "platform": {
+    "title": "Testi legali",
+    "subtitle": "Condizioni d'uso e contratto di trattamento dei dati, con versioni per lingua. Una versione pubblicata non viene mai modificata – una correzione è una nuova versione.",
+    "loadError": "Non è stato possibile caricare i testi legali.",
+    "empty": "Nessuna versione pubblicata.",
+    "columns": {
+      "documentType": "Documento",
+      "version": "Versione",
+      "language": "Lingua",
+      "effectiveDate": "Valido dal",
+      "grace": "Termine (giorni)",
+      "title": "Titolo"
+    },
+    "publish": {
+      "button": "Pubblicare una nuova versione",
+      "title": "Pubblicare una nuova versione",
+      "documentType": "Documento",
+      "version": "Versione",
+      "versionHint": "Da uno a tre numeri separati da un punto, p. es. 1.0. Sotto 1.0 una versione è una bozza.",
+      "language": "Lingua",
+      "effectiveDate": "Valido dal",
+      "documentTitle": "Titolo",
+      "body": "Testo (Markdown)",
+      "grace": "Termine per l'accettazione (giorni)",
+      "submit": "Pubblicare",
+      "error": "Non è stato possibile pubblicare la versione."
+    }
+  },
+  "refusals": {
+    "dealership_not_pending": "Questa azienda è già attiva.",
+    "legal_acceptance_missing": "Accetti prima la versione attuale delle condizioni d'uso e del contratto di trattamento dei dati.",
+    "legal_document_empty": "Un testo legale ha bisogno di un titolo e di un testo.",
+    "legal_document_not_current": "Si può accettare solo la versione attuale di un documento. Ricarichi la pagina.",
+    "legal_document_version_exists": "Questa versione esiste già in questa lingua.",
+    "legal_document_version_invalid": "Una versione è composta da uno a tre numeri separati da un punto, p. es. 1.0.",
+    "legal_document_version_not_newer": "Una nuova versione deve essere superiore alla più recente pubblicata.",
+    "legal_documents_not_final": "L'attivazione attende le versioni definitive dei testi legali (versione 1.0).",
+    "legal_documents_unavailable": "I testi legali non sono ancora pubblicati.",
+    "manager_only": "Lo fa un gerente di questa azienda.",
+    "setup_checklist_incomplete": "La lista di controllo non è ancora completa.",
+    "setup_checklist_item_missing": "Manca un punto della configurazione: «{{item}}». Lo completi in Amministrazione › Configurazione."
+  }
+}

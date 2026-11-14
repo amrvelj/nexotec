@@ -67,7 +67,7 @@ export function DeleteConnectionModal({
           {t('integrationsList.deleteModal.body', {
             provider: providerName,
             environment: t(`integrationEnums.environment.${connection.environment}`, connection.environment),
-            account: connectionAccountIdentifier(connection),
+            account: connectionAccountIdentifier(t, connection),
           })}
         </Text>
         <Text size="sm" fw={600}>{t('integrationsList.deleteModal.warning')}</Text>

@@ -100,8 +100,24 @@ async function getBlobUrl(path: string): Promise<string> {
 /** KAN-200 — the one upload today (a user's signature image): the body is
  * the file itself with its own Content-Type, never JSON, never base64. */
 async function putBinary<T>(path: string, body: Blob, contentType: string, extraHeaders?: HeadersInit): Promise<T> {
+  return sendBinary<T>('PUT', path, body, contentType, extraHeaders)
+}
+
+/** KAN-225 — the same, for an upload that adds a file to a list (a
+ * publishing photo): POST, the file itself as the body. */
+async function postBinary<T>(path: string, body: Blob, contentType: string, extraHeaders?: HeadersInit): Promise<T> {
+  return sendBinary<T>('POST', path, body, contentType, extraHeaders)
+}
+
+async function sendBinary<T>(
+  method: 'PUT' | 'POST',
+  path: string,
+  body: Blob,
+  contentType: string,
+  extraHeaders?: HeadersInit,
+): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
-    method: 'PUT',
+    method,
     body,
     credentials: 'include',
     headers: { 'Content-Type': contentType, ...extraHeaders },
@@ -118,6 +134,7 @@ export const api = {
   get: <T>(path: string, extraHeaders?: HeadersInit) => request<T>(path, extraHeaders ? { headers: extraHeaders } : {}),
   getBlobUrl,
   putBinary,
+  postBinary,
   post: <T>(path: string, body?: unknown, extraHeaders?: HeadersInit) =>
     request<T>(path, { method: 'POST', body: body ? JSON.stringify(body) : undefined, headers: extraHeaders }),
   patch: <T>(path: string, body: unknown, extraHeaders?: HeadersInit) =>

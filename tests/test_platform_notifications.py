@@ -264,7 +264,9 @@ def test_preferences_list_every_family_with_the_platform_default(client, login):
         "hasEvents": True,
         "version": 0,
     }
-    assert items["administration"]["switchable"] is True and items["administration"]["hasEvents"] is False
+    # The administration family's events: KAN-222 (an integration nearing its expiry), KAN-214 (a checklist item).
+    assert items["administration"]["switchable"] is True and items["administration"]["hasEvents"] is True
+    assert items["assignment"]["hasEvents"] is False
 
 
 def test_the_security_family_cannot_be_changed(client, login):

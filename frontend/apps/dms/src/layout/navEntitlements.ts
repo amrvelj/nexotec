@@ -10,6 +10,8 @@ const NAV_MODULE_BY_HREF: Record<string, string> = {
   '/sales': 'sales',
   '/valuations': 'sales',
   '/stock': 'sales',
+  // KAN-225: the publishing profile feeds the website, which only lists stock.
+  '/administration/publishing': 'sales',
   '/aftersales': 'aftersales',
   '/parts': 'parts',
   '/finance': 'finance',

@@ -1,5 +1,6 @@
 """Stock's export declaration (KAN-218; FR-A-44): the Betrieb's stock items,
-their ledger (the Wagenbuch), options, media references and publishing, and
+their ledger (the Wagenbuch), options, media references and publishing (the
+marketplaces and, KAN-225, the Betrieb's own website), and
 Stock's own copies of Sales' contracts. Every table is the Betrieb's
 (`tenant_id`).
 """
@@ -13,6 +14,7 @@ from app.inventory.models.stock_item import StockItem, StockNumberSequence
 from app.inventory.models.stock_item_ledger import StockItemLedger
 from app.inventory.models.stock_item_option import StockItemOption
 from app.inventory.models.stock_item_publishing import StockItemMedia, StockItemPublishing
+from app.inventory.models.website_listing import StockItemWebsiteListing
 
 
 def _tenant(model) -> ExportedTable:
@@ -33,6 +35,7 @@ class InventoryExporter(TableExporter):
                 StockItemOption,
                 StockItemMedia,
                 StockItemPublishing,
+                StockItemWebsiteListing,
                 InventorySalesContract,
                 InventoryCancelledContract,
             )

@@ -23,7 +23,7 @@ from app.platform.models.auth_event import AuthEventKind
 from app.platform.models.auth_session import AuthSession
 from app.platform.models.dealership_auth_config import DealershipAuthConfig
 from app.platform.organisation.models.dealership import Dealership, DealershipStatus
-from app.platform.services import auth_events, auth_sessions, mfa
+from app.platform.services import auth_events, auth_sessions, legal_documents, mfa
 
 _SESSION_ENDED = "Your session has ended — sign in again."
 _ENROL_FIRST = "Enrol a second factor before anything else — your business requires one."
@@ -132,6 +132,77 @@ def enforce_live_session(request: Request, db: Session = Depends(get_db)) -> Non
             raise UnauthorizedError(_SESSION_ENDED)
     if not _enrolment_path(path, claims) and _enrolment_owed(db, claims, row):
         raise ForbiddenError(_ENROL_FIRST, details={"mfaEnrolmentRequired": True})
+    enforce_activation_and_legal_acceptance(request, db, claims)
+
+
+# --- KAN-214: the activation gate and the legal hold -------------------------------------------
+
+# D-A-21: a Betrieb being set up reaches Dealer Administration and My account
+# and nothing else. Both are platform's API, plus the Betrieb's integration
+# connections (FR-A-19: Integrations is a section of the panel). Judged by
+# the module of the route's endpoint, so a new module's router is gated the
+# day it is added — nothing to remember.
+_ADMINISTRATION_MODULE_PREFIXES = (
+    "app.platform.",
+    "app.integration.api.connections",
+    "app.integration.api.providers",
+)
+_ACCEPT_FIRST = "Accept the current Terms of Service and Data Processing Agreement first."
+# What a manager held by the legal hold may still reach (FR-A-39, Q1 A).
+_LEGAL_HOLD_PATHS = ("/v1/auth/", "/v1/me", "/v1/legal-documents", "/v1/i18n/")
+
+
+def _administration_route(request: Request) -> bool:
+    endpoint = request.scope.get("endpoint")
+    module = getattr(endpoint, "__module__", "") or ""
+    return module.startswith(_ADMINISTRATION_MODULE_PREFIXES)
+
+
+def _legal_hold_path(path: str, tenant_id: str) -> bool:
+    return path.startswith(_LEGAL_HOLD_PATHS) or path == f"/v1/dealerships/{tenant_id}/legal-acceptances"
+
+
+def enforce_activation_and_legal_acceptance(request: Request, db: Session, claims: dict) -> None:
+    """KAN-214, judged for a live session like the enrolment gate above (a
+    token without `sid` — a test token, bootstrap — is left to the route;
+    every production token has one, `_mint_session`):
+
+    - **Activation gate (D-A-21).** While the session's Betrieb is
+      `pending_onboarding`, every route outside Dealer Administration and My
+      account answers 404 — nothing confirms the module exists, as the
+      entitlement gate does. The SPA shows the manager the checklist and
+      everyone else «Betrieb wird eingerichtet».
+    - **Legal hold (FR-A-39; Anto, 2026-11-13, Q1 A).** In an active Betrieb
+      whose grace for a new ToS or DPA version has passed, a manager reaches
+      only the acceptance (403 `details.legalAcceptanceRequired`, like the
+      enrolment gate: the user and the resource are known). Colleagues keep
+      working; before the grace ends nobody is held — the SPA prompts the
+      manager at every login.
+
+    Platform staff are never gated: they set the Betrieb up with its
+    manager. Signing out stays possible (the session guard returned before)."""
+
+    path = request.url.path
+    if not path.startswith("/v1/") or AccessRole.PLATFORM_ADMIN.value in (claims.get("roles") or ()):
+        return
+    try:
+        tenant_id = uuid.UUID(str(claims.get("tenant_id")))
+    except ValueError:
+        return
+    dealership = db.get(Dealership, tenant_id)
+    if dealership is None:
+        return
+    if dealership.status == DealershipStatus.PENDING_ONBOARDING:
+        if not _administration_route(request):
+            raise NotFoundError("Not found.")
+        return
+    if (
+        dealership.status == DealershipStatus.ACTIVE
+        and claims.get("is_dealer_manager")
+        and not _legal_hold_path(path, str(tenant_id))
+        and legal_documents.acceptance_state(db, dealership).held
+    ):
+        raise ForbiddenError(_ACCEPT_FIRST, details={"legalAcceptanceRequired": True})
 
 
 def enforce_open_dealership(request: Request, db: Session = Depends(get_db)) -> None:

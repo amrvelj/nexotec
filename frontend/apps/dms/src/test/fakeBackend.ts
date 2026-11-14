@@ -82,7 +82,7 @@ const DEFAULT_USER = {
   updatedAt: '2026-01-01T00:00:00Z',
 }
 
-const DEFAULT_DEALERSHIP = { id: 'dealership-1', legalName: 'Test Motors AG' }
+const DEFAULT_DEALERSHIP = { id: 'dealership-1', legalName: 'Test Motors AG', status: 'active' }
 
 // KAN-198: the default session is licensed for every module, so existing
 // screen tests see every nav entry; a test about a workshop shadows /auth/me.

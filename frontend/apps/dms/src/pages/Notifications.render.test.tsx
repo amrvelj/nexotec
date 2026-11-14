@@ -79,6 +79,34 @@ describe('the inbox (KAN-216)', () => {
     expect(screen.getByText('Benachrichtigungen bleiben 90 Tage erhalten.')).toBeInTheDocument()
   })
 
+  it('names the regressed checklist item and the expiring provider (KAN-214, KAN-222)', async () => {
+    const regressed = notification({
+      id: 'n-3',
+      eventCode: 'administration.checklist_item_regressed',
+      family: 'administration',
+      titleKey: 'notifications.events.checklistItemRegressed.title',
+      bodyKey: 'notifications.events.checklistItemRegressed.body',
+      params: { item: 'bank_account' },
+      link: '/administration/bank-accounts',
+    })
+    const expiring = notification({
+      id: 'n-4',
+      eventCode: 'administration.integration_expiring',
+      family: 'administration',
+      titleKey: 'notifications.events.integrationExpiring.title',
+      bodyKey: 'notifications.events.integrationExpiring.body',
+      params: { days: 14, provider: 'AutoScout24' },
+      link: '/administration/integrations',
+    })
+    renderInbox([
+      { method: 'GET', match: /\/me\/notifications$/, handler: () => ({ items: [regressed, expiring], nextCursor: null }) },
+    ])
+    expect(
+      await screen.findByText(/Der Punkt «Bankkonto» der Einrichtungs-Checkliste ist nicht mehr erfüllt\./),
+    ).toBeInTheDocument()
+    expect(screen.getByText(/Der Zugang für AutoScout24 läuft in 14 Tagen ab\./)).toBeInTheDocument()
+  })
+
   it('marks one read, one unread again, and all read', async () => {
     const user = userEvent.setup()
     const backend = renderInbox([

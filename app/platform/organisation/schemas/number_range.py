@@ -1,6 +1,7 @@
 """KAN-207 — the Number ranges screen's API shapes."""
 
 import datetime as dt
+import uuid
 
 from pydantic import Field
 
@@ -29,6 +30,9 @@ class NumberRangeList(CamelModel):
     items: list[NumberRangeRead]
     # Whether this caller may change a frozen range (platform staff).
     may_change_frozen: bool
+    # KAN-214: when the manager last confirmed the ranges («Nummernkreise
+    # bestätigen», the setup checklist's item); null = never.
+    confirmed_at: dt.datetime | None = None
 
 
 class NumberRangeUpdate(CamelModel):
@@ -50,3 +54,10 @@ class NumberRangePreviewRequest(CamelModel):
 
 class NumberRangePreviewRead(CamelModel):
     next_number: str
+
+
+class NumberRangeConfirmationRead(CamelModel):
+    """KAN-214: one «Nummernkreise bestätigen»."""
+
+    confirmed_at: dt.datetime
+    confirmed_by: uuid.UUID

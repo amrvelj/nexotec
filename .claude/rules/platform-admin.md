@@ -64,9 +64,16 @@ Decided rulings live in the PRD; built only where a bullet says so — check the
   entitlements, the first manager invited, one `platform.dealership.onboarded` row — 409 `uid_already_onboarded`;
   texts, template and MFA-on come from the platform defaults. Screen: `/platform/onboarding` (five steps).
   `POST /v1/dealerships` is deprecated in OpenAPI.
-- **Activation gate (D-A-21):** `pending_onboarding` until every applicable checklist item is done
-  and the manager accepted the current ToS and DPA (D-A-34); until then only Dealer Administration
-  and My account. Not enforced yet, and no route activates: the procedure is KAN-214.
+- **Activation gate (D-A-21) — built (KAN-214):** `pending_onboarding` until every applicable
+  item of the derived checklist (`services/setup_checklist.py`, no stored ticks) is done and the
+  manager accepted the current ToS and DPA (D-A-34); `POST /v1/dealerships/{id}/activation`
+  freezes the ranges, sets `active` + `activated_at` and publishes `platform.dealership.activated`.
+  Until then `session_guard` 404s every non-administration route. After activation a missing item
+  blocks only its own action (`platform.public.require_setup_item_for`) and the nightly job raises
+  `administration.checklist_item_regressed` — never for a Betrieb the migration set active
+  (`activated_at` null). Production never asks for or activates on a draft (< 1.0) ToS/DPA.
+- **Publishing profile — built (KAN-225):** `services/publishing_profile`, `/administration/publishing`;
+  the public stock projection is `reporting`'s (ADR-174, ADR-175).
 - **`status` is staff's, `active` ↔ `suspended` only** (KAN-712, ADR-165): a manager naming it is
   422 `status_not_patchable`; activation and offboarding are procedures (`use_*_procedure`).
 - **Mail (D-A-28):** platform mail is always Nexotec's sender (`platform-identity.md`);

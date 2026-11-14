@@ -18,6 +18,8 @@ here that reads nothing itself — the reconciliation run executes it:
   effective or list price differs from the frozen (and the accepted) prices.
 - `stock_item_differs_from_holding` — Vehicle's projection row disagrees with
   the stock item it mirrors.
+- `website_listing_exists` / `listed_on_website_check` (KAN-225) — the
+  public stock projection (reporting) against Stock's website listings.
 - `purchased_stock_item_check` / `held_stock_item_check` — StateChecks whose
   rows are stock items: purchased with no replica, holding a record with no
   projection row. The caller supplies its own side of the question as a
@@ -41,6 +43,7 @@ from sqlalchemy.orm import DeclarativeBase, InstrumentedAttribute
 from app.core.base import utcnow
 from app.core.reconciliation import ReferenceCheck, StateCheck
 from app.inventory.models.stock_item import StockItem
+from app.inventory.models.website_listing import StockItemWebsiteListing
 
 _Column = ColumnElement[Any] | InstrumentedAttribute[Any]
 
@@ -188,4 +191,37 @@ def held_stock_item_check(*, label: str, grace: dt.timedelta, holding: _Counterp
         & StockItem.left_stock_at.is_(None)
         & (StockItem.updated_at < utcnow() - grace)
         & ~holding(StockItem.id, StockItem.tenant_id).correlate(StockItem).exists(),
+    )
+
+
+def website_listing_exists(stock_item_id: _Column, *, tenant_id: _Column) -> Exists:
+    """KAN-225: the stock item is on its Betrieb's website in Stock's own
+    record (`stock_item_website_listing.is_listed`)."""
+
+    return (
+        select(StockItemWebsiteListing.id)
+        .where(
+            StockItemWebsiteListing.stock_item_id == stock_item_id,
+            StockItemWebsiteListing.tenant_id == tenant_id,
+            StockItemWebsiteListing.is_listed.is_(True),
+        )
+        .exists()
+    )
+
+
+def listed_on_website_check(*, label: str, grace: dt.timedelta, projection: _Counterpart) -> StateCheck:
+    """KAN-225: a stock item Stock lists on its Betrieb's website, the
+    listing last changed more than `grace` ago, for which
+    `projection(stock_item_id, tenant_id)` — the caller's select over its
+    own table — finds no row. The finding names the website listing."""
+
+    return StateCheck(
+        label=label,
+        source_model=StockItemWebsiteListing,
+        source_row_id_column=StockItemWebsiteListing.id,
+        where=lambda: StockItemWebsiteListing.is_listed.is_(True)
+        & (StockItemWebsiteListing.updated_at < utcnow() - grace)
+        & ~projection(StockItemWebsiteListing.stock_item_id, StockItemWebsiteListing.tenant_id)
+        .correlate(StockItemWebsiteListing)
+        .exists(),
     )

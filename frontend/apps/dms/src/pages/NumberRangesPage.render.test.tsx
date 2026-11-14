@@ -4,7 +4,7 @@ import { cleanup, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import i18n from '../i18n'
 import { renderWithProviders } from '../test/renderWithProviders'
-import { installFakeBackend, status, type FakeRequest, type FakeRoute } from '../test/fakeBackend'
+import { ALL_ENTITLEMENTS, ALL_GATED_CAPABILITIES, installFakeBackend, status, type FakeRequest, type FakeRoute } from '../test/fakeBackend'
 import { NumberRangesPage } from './NumberRangesPage'
 
 // KAN-207 — Dealer Administration › Number ranges: one row per document type
@@ -192,5 +192,54 @@ describe('NumberRangesPage (KAN-207)', () => {
     await user.click(within(dialog).getByRole('button', { name: i18n.t('common.save') }))
     await waitFor(() => expect(backend.callsTo(/\/number-ranges\/offer$/, 'PATCH')).toHaveLength(1))
     expect(backend.callsTo(/\/number-ranges\/offer$/, 'PATCH')[0]!.body).toMatchObject({ yearlyReset: true })
+  })
+
+  // KAN-214 (D-A-21): «Nummernkreise bestätigen» completes the checklist item
+  // and freezes nothing; only the manager is offered it.
+  it('the manager confirms the ranges, and the screen says when', async () => {
+    const user = userEvent.setup()
+    let confirmedAt: string | null = null
+    const backend = installFakeBackend([
+      {
+        method: 'GET',
+        match: /\/auth\/me$/,
+        handler: () => ({
+          user: { id: 'u-1', firstName: 'A', lastName: 'B', email: 'a@b.ch', role: 'sales', accessRoles: ['sales'], isDealerManager: true },
+          activeDealership: { id: 'dealership-1', legalName: 'Test Motors AG', status: 'pending_onboarding' },
+          memberships: [],
+          entitlements: ALL_ENTITLEMENTS,
+          writableCapabilities: ALL_GATED_CAPABILITIES,
+          isActiveDealershipManager: true,
+        }),
+      },
+      {
+        method: 'GET',
+        match: /^\/dealerships\/dealership-1\/number-ranges$/,
+        handler: () => ({ items: [range()], mayChangeFrozen: false, confirmedAt }),
+      },
+      {
+        method: 'POST',
+        match: /\/number-range-confirmations$/,
+        handler: () => {
+          confirmedAt = '2026-11-14T09:30:00Z'
+          return status(201, { confirmedAt, confirmedBy: 'u-1' })
+        },
+      },
+    ])
+    renderWithProviders(<NumberRangesPage />, { route: '/administration/number-ranges' })
+
+    expect(await screen.findByText(i18n.t('numberRanges.confirm.notConfirmed'))).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: i18n.t('numberRanges.confirm.button') }))
+    await waitFor(() => expect(backend.callsTo(/\/number-range-confirmations$/, 'POST')).toHaveLength(1))
+    const confirmedPrefix = i18n.t('numberRanges.confirm.confirmedAt', { date: '§' }).split('§')[0]
+    expect(await screen.findByText((text) => text.startsWith(confirmedPrefix))).toBeInTheDocument()
+    expect(screen.queryByText(i18n.t('numberRanges.confirm.notConfirmed'))).not.toBeInTheDocument()
+  })
+
+  it('a colleague is not offered the confirmation', async () => {
+    install()
+    renderWithProviders(<NumberRangesPage />, { route: '/administration/number-ranges' })
+    await screen.findByRole('table', { name: i18n.t('numberRanges.title') })
+    expect(screen.queryByRole('button', { name: i18n.t('numberRanges.confirm.button') })).not.toBeInTheDocument()
   })
 })

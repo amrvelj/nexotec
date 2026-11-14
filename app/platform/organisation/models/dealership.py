@@ -252,6 +252,16 @@ class Dealership(PrimaryKeyMixin, VersionedMixin, TimestampMixin, Base):
     offboarded_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)
     retention_until: Mapped[dt.date | None] = mapped_column(Date, nullable=True)
 
+    # KAN-214 (FR-A-34, D-A-21): «Betrieb aktivieren» — the manager's explicit,
+    # audited step from `pending_onboarding` to `active` on a complete
+    # checklist (services/activation.py). NULL for a Betrieb that has not
+    # been activated, and for every Betrieb that was already trading when
+    # the gate shipped (KAN-214's migration set those `active` directly).
+    activated_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)
+    activated_by: Mapped[uuid.UUID | None] = mapped_column(
+        GUID(), nullable=True, comment="The manager who activated the Betrieb (platform user)."
+    )
+
     @property
     def address(self) -> dict[str, str]:
         """Read-side convenience: flat address_* columns as a nested dict

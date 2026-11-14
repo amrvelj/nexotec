@@ -29,7 +29,13 @@ from app.platform.models.auth_token import AuthToken
 from app.platform.models.credential import Credential
 from app.platform.models.dealership_auth_config import DealershipAuthConfig
 from app.platform.models.user import User, UserRole, UserStatus
-from app.platform.organisation.models.dealership import DealerGroup, Dealership, FranchiseType, Location
+from app.platform.organisation.models.dealership import (
+    DealerGroup,
+    Dealership,
+    DealershipStatus,
+    FranchiseType,
+    Location,
+)
 from app.platform.organisation.models.module_entitlement import ModuleEntitlement
 from app.platform.organisation.schemas.dealership import DealershipAddress, DealershipCreate
 from app.platform.organisation.services import dealership as dealership_service
@@ -99,6 +105,21 @@ def test_first_run_creates_the_demo_dealership_and_user_who_can_sign_in(seed, db
     assert response.json()["mfaRequired"] is False
     assert response.json()["session"]["mfaEnrolmentRequired"] is False
     assert _login(client, OTHER_PASSWORD).status_code == 401
+
+
+def test_the_demo_betrieb_is_left_trading_so_its_sessions_reach_the_modules(seed, db_session, client):
+    """KAN-214 review finding: a new Betrieb starts pending_onboarding and the
+    gate 404s its module routes; the demo Betrieb every environment signs in
+    with is left active (trading, never activated through the checklist)."""
+
+    seed()
+    dealership = db_session.scalar(select(Dealership).where(Dealership.legal_name == seed_staging_demo.DEMO_LEGAL_NAME))
+    assert dealership.status == DealershipStatus.ACTIVE
+    assert dealership.activated_at is None
+    response = _login(client, PASSWORD)
+    assert response.status_code == 200, response.text
+    cookie = response.cookies.get("dms_session")
+    assert client.get("/v1/customers", headers={"Cookie": f"dms_session={cookie}"}).status_code == 200
 
 
 def _demo_user(db_session) -> User:

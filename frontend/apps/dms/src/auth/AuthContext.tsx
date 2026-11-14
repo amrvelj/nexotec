@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
 import { api, ApiError, onUnauthorized } from '../api/client'
-import type { DealershipMembershipSummary, LoginResponse, LoginStepResponse, UserRead } from '../api/types'
+import type { DealershipMembershipSummary, LegalAcceptanceDue, LoginResponse, LoginStepResponse, UserRead } from '../api/types'
 
 interface AuthContextValue {
   user: UserRead | null
@@ -19,6 +19,14 @@ interface AuthContextValue {
   /** KAN-196 (D-A-36): this session was minted without a second factor
    * while one is required — `ProtectedRoute` sends the user to enrolment. */
   mfaEnrolmentRequired: boolean
+  /** KAN-214 (FR-A-39): for a manager of the active Betrieb, the ToS / DPA
+   * versions it has not accepted — the prompt at login, and with `held` the
+   * only screen left. Null for everyone else. Presentation only. */
+  legalAcceptanceDue: LegalAcceptanceDue | null
+  /** KAN-214: the manager closed this session's acceptance prompt ("Später");
+   * it comes back at the next sign-in, never while `held`. */
+  legalPromptDismissed: boolean
+  dismissLegalPrompt: () => void
   loading: boolean
   /** KAN-196: the first step of a sign-in. Resolves with either the session
    * (already applied here) or the MFA step the caller has to complete. */
@@ -46,6 +54,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [writableCapabilities, setWritableCapabilities] = useState<string[]>([])
   const [isActiveDealershipManager, setIsActiveDealershipManager] = useState(false)
   const [mfaEnrolmentRequired, setMfaEnrolmentRequired] = useState(false)
+  const [legalAcceptanceDue, setLegalAcceptanceDue] = useState<LegalAcceptanceDue | null>(null)
+  const [legalPromptDismissed, setLegalPromptDismissed] = useState(false)
   const [loading, setLoading] = useState(true)
 
   const applySession = useCallback((res: LoginResponse) => {
@@ -56,6 +66,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setWritableCapabilities(res.writableCapabilities ?? [])
     setIsActiveDealershipManager(res.isActiveDealershipManager ?? false)
     setMfaEnrolmentRequired(res.mfaEnrolmentRequired ?? false)
+    setLegalAcceptanceDue(res.legalAcceptanceDue ?? null)
   }, [])
 
   const clearSession = useCallback(() => {
@@ -66,6 +77,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsActiveDealershipManager(false)
     setWritableCapabilities([])
     setMfaEnrolmentRequired(false)
+    setLegalAcceptanceDue(null)
+    setLegalPromptDismissed(false)
   }, [])
 
   // KAN-237 — a 401 from any API call ends the client session; with no
@@ -86,6 +99,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = useCallback(
     async (email: string, password: string) => {
       const step = await api.post<LoginStepResponse>('/auth/login', { email, password })
+      // A new sign-in prompts again (FR-A-39: «at every login»).
+      setLegalPromptDismissed(false)
       if (step.session) applySession(step.session)
       return step
     },
@@ -134,6 +149,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         writableCapabilities,
         isActiveDealershipManager,
         mfaEnrolmentRequired,
+        legalAcceptanceDue,
+        legalPromptDismissed,
+        dismissLegalPrompt: () => setLegalPromptDismissed(true),
         loading,
         login,
         completeLogin: applySession,

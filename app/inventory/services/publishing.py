@@ -20,7 +20,7 @@ from app.core.base import utcnow
 from app.core.errors import BadRequestError, ConflictError
 from app.core.outbox import OutboxEvent
 from app.core.outbox import publish as publish_event
-from app.inventory.models.stock_item import LifecycleStatus, StockItem, StockItemCondition
+from app.inventory.models.stock_item import StockItem
 from app.inventory.models.stock_item_publishing import (
     MAX_ADDITIONAL_MEDIA,
     MarketplaceChannel,
@@ -28,56 +28,14 @@ from app.inventory.models.stock_item_publishing import (
     StockItemMedia,
     StockItemPublishing,
 )
-from app.inventory.schemas.publishing import BlockingCondition, ListingTextUpdate
-from app.vehicle.public import has_current_energy_rating
+from app.inventory.schemas.publishing import ListingTextUpdate
+from app.inventory.services import website_listing
+from app.inventory.services.listing_conditions import compute_blocking_conditions
+from app.platform.public import SetupBlockedAction, require_setup_item_for
 
 _EVENT_PRODUCER = "inventory"
-_NEW_CAR_ENERGY_LABEL_ODOMETER_THRESHOLD_KM = 2000
 
-
-def compute_blocking_conditions(db: Session, item: StockItem) -> list[BlockingCondition]:
-    conditions: list[BlockingCondition] = []
-
-    if item.lifecycle_status == LifecycleStatus.PIPELINE:
-        conditions.append(
-            BlockingCondition(field="Lagerstatus", message="Eine Werksbestellung steht noch nicht am Lager.")
-        )
-
-    media_count = db.scalar(select(StockItemMedia.id).where(StockItemMedia.stock_item_id == item.id).limit(1))
-    if media_count is None:
-        conditions.append(BlockingCondition(field="Bilder", message="Keine eigenen Fotografien vorhanden."))
-
-    if item.effective_price is None:
-        conditions.append(BlockingCondition(field="Preis", message="Kein Effektivpreis hinterlegt."))
-
-    if not item.exterior_colour:
-        conditions.append(BlockingCondition(field="Aussenfarbe", message="Keine Farbe hinterlegt."))
-
-    if not item.body_style:
-        conditions.append(BlockingCondition(field="Aufbau", message="Keine Karosserieform hinterlegt."))
-
-    if item.odometer_km is None:
-        conditions.append(BlockingCondition(field="Kilometer", message="Kein Kilometerstand hinterlegt."))
-
-    # AS24i's own carve-out (Schnittstellenbeschrieb v34 p8): a NEW car
-    # ships InvSetzJahr from its model year instead, since it may not have
-    # been registered yet — so this only blocks a used/demo/Tageszulassung
-    # item, which the spec's own wording requires a real date for.
-    if item.condition != StockItemCondition.NEW and item.first_registration_date is None:
-        conditions.append(BlockingCondition(field="InvSetzJahr", message="Keine Erstzulassung hinterlegt."))
-
-    if (
-        item.condition == StockItemCondition.NEW
-        and item.odometer_km is not None
-        and item.odometer_km < _NEW_CAR_ENERGY_LABEL_ODOMETER_THRESHOLD_KM
-        and item.vehicle_id is not None
-        and not has_current_energy_rating(db, item.vehicle_id)
-    ):
-        conditions.append(
-            BlockingCondition(field="Energieetikette", message="Energieetikette fehlt für Neuwagen unter 2000 km.")
-        )
-
-    return conditions
+__all__ = ["compute_blocking_conditions"]  # moved to listing_conditions (KAN-225); its callers name it here
 
 
 _UNIQUE_CHANNEL_ROW_CONSTRAINT = "uq_stock_item_publishing_stock_item_id_channel"
@@ -155,6 +113,10 @@ def update_listing_text(
 
 
 def publish(db: Session, *, item: StockItem, channel: MarketplaceChannel, actor_id: uuid.UUID | None) -> StockItemPublishing:
+    # KAN-214 (FR-A-26): a setup-checklist item marketplace publishing needs
+    # (a location with opening hours) refuses it, naming the item — 409
+    # `setup_checklist_item_missing`, checked before the listing's own rules.
+    require_setup_item_for(db, item.tenant_id, SetupBlockedAction.MARKETPLACE_PUBLISHING)
     conditions = compute_blocking_conditions(db, item)
     if conditions:
         raise ConflictError(
@@ -258,6 +220,7 @@ def add_media(db: Session, *, item: StockItem, url: str) -> StockItemMedia:
     next_position = len(existing) + 1
     media = StockItemMedia(tenant_id=item.tenant_id, stock_item_id=item.id, position=next_position, url=url)
     db.add(media)
+    website_listing.restate_if_listed(db, item)  # KAN-225: the website shows the photos
     db.commit()
     db.refresh(media)
     return media
@@ -279,6 +242,7 @@ def reorder_media(db: Session, *, item: StockItem, ordered_media_ids: list[uuid.
     db.flush()
     for new_position, media_id in enumerate(ordered_media_ids, start=1):
         existing[media_id].position = new_position
+    website_listing.restate_if_listed(db, item)
     db.commit()
     return list_media(db, tenant_id=item.tenant_id, stock_item_id=item.id)
 
@@ -294,4 +258,5 @@ def remove_media(db: Session, *, item: StockItem, media_id: uuid.UUID) -> None:
     for m in list_media(db, tenant_id=item.tenant_id, stock_item_id=item.id):
         if m.position > removed_position:
             m.position -= 1
+    website_listing.restate_if_listed(db, item)
     db.commit()

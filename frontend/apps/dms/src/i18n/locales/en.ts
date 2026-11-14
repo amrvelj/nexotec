@@ -35,11 +35,14 @@ import ns_offerDetail from './en/offerDetail.json'
 import ns_offerWorkspace from './en/offerWorkspace.json'
 import ns_onboarding from './en/onboarding.json'
 import ns_providerCaptions from './en/providerCaptions.json'
+import ns_publishing from './en/publishing.json'
+import ns_publishingValidation from './en/publishingValidation.json'
 import ns_recovery from './en/recovery.json'
 import ns_referenceData from './en/referenceData.json'
 import ns_salesDocuments from './en/salesDocuments.json'
 import ns_salesEnums from './en/salesEnums.json'
 import ns_salesList from './en/salesList.json'
+import ns_setup from './en/setup.json'
 import ns_shell from './en/shell.json'
 import ns_standardTexts from './en/standardTexts.json'
 import ns_stockDetail from './en/stockDetail.json'
@@ -93,11 +96,14 @@ const bundle = {
   offerWorkspace: ns_offerWorkspace,
   onboarding: ns_onboarding,
   providerCaptions: ns_providerCaptions,
+  publishing: ns_publishing,
+  publishingValidation: ns_publishingValidation,
   recovery: ns_recovery,
   referenceData: ns_referenceData,
   salesDocuments: ns_salesDocuments,
   salesEnums: ns_salesEnums,
   salesList: ns_salesList,
+  setup: ns_setup,
   shell: ns_shell,
   standardTexts: ns_standardTexts,
   stockDetail: ns_stockDetail,

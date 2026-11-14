@@ -16,7 +16,8 @@
     "provider": "Anbieter",
     "environment": "Umgebung",
     "accountIdentifier": "Konto",
-    "lastVerified": "Zuletzt geprüft"
+    "lastVerified": "Zuletzt geprüft",
+    "location": "Standort"
   },
   "actions": {
     "test": "Verbindung testen",
@@ -27,7 +28,8 @@
     "disable": "Deaktivieren",
     "connect": "Verbinden",
     "setSecret": "Secret setzen",
-    "delete": "Verbindung löschen"
+    "delete": "Verbindung löschen",
+    "bindLocation": "Standort zuordnen"
   },
   "connectModal": {
     "title": "{{provider}} verbinden",
@@ -39,9 +41,15 @@
   },
   "usageModal": {
     "title": "Nutzung — {{name}}",
-    "calls": "Aufrufe (letzte 30 Tage)",
-    "cost": "Kosteneinheiten (letzte 30 Tage)",
-    "indicative": "Nur indikativ — Nexotec verrechnet nie zusätzlich zu Ihrem eigenen Anbietervertrag."
+    "indicative": "Nur indikativ — von Nexotec gezählt, unter den Zählernamen des Anbieters. Abgerechnet wird nach der Zählung des Anbieters gemäss Ihrem eigenen Vertrag.",
+    "from": "Von",
+    "to": "Bis",
+    "counter": "Zähler",
+    "count": "Anfragen",
+    "total": "Total",
+    "empty": "Keine Anfragen in diesem Zeitraum.",
+    "invalidPeriod": "Das Ende des Zeitraums liegt vor seinem Beginn.",
+    "loadError": "Die Nutzung konnte nicht geladen werden."
   },
   "rotateModal": {
     "title": "Secrets erneuern — {{name}}",
@@ -72,5 +80,13 @@
     "warning": "Die gespeicherten Secrets werden ebenfalls gelöscht. Diese Aktion kann nicht rückgängig gemacht werden.",
     "confirm": "Endgültig löschen",
     "error": "Die Verbindung konnte nicht gelöscht werden."
+  },
+  "accountIdentifierMissing": "Kennung fehlt",
+  "locationWholeBusiness": "Ganzer Betrieb",
+  "locationModal": {
+    "title": "Standort zuordnen — {{name}}",
+    "field": "Standort",
+    "fieldHint": "Der Standort, für den dieses Konto gilt — zum Beispiel die Filialnummer eines Standorts bei AutoScout24. «Ganzer Betrieb», wenn es für alle Standorte gilt.",
+    "error": "Der Standort konnte nicht zugeordnet werden."
   }
 }

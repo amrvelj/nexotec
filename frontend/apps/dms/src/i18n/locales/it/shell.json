@@ -25,13 +25,17 @@
     "translations": "Traduzioni",
     "locations": "Sedi",
     "branding": "Logo e colori",
+    "publishing": "Pubblicazione",
     "letterhead": "Intestazione e modello",
     "standardTexts": "Testi standard",
     "numberRanges": "Serie di numeri",
     "onboarding": "Integrare un'azienda",
     "contactGroups": "Gruppi di contatti",
     "dataExport": "Esportazione dei dati",
-    "offboarding": "Chiudere l'azienda"
+    "offboarding": "Chiudere l'azienda",
+    "providers": "Fornitori",
+    "setup": "Configurazione",
+    "legalDocuments": "Testi legali"
   },
   "signOut": "Disconnetti",
   "environmentNotice": {

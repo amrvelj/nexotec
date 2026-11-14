@@ -1043,6 +1043,31 @@ export interface paths {
         patch: operations["update_dealership_v1_dealerships__dealership_id__patch"];
         trace?: never;
     };
+    "/v1/dealerships/{dealership_id}/activation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Activate Dealership
+         * @description «Betrieb aktivieren» (FR-A-34): the manager, on a complete checklist
+         *     and the current ToS and DPA accepted. Freezes every number range, sets
+         *     `active`, audits and publishes `platform.dealership.activated` — one
+         *     transaction. 409 with `details.reason` when anything is missing
+         *     (`services/activation.py`). The session's own claims are unchanged: the
+         *     gate reads the status from the database on every request.
+         */
+        post: operations["activate_dealership_v1_dealerships__dealership_id__activation_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/dealerships/{dealership_id}/address-autocomplete": {
         parameters: {
             query?: never;
@@ -1479,6 +1504,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/dealerships/{dealership_id}/legal-acceptances": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Legal Acceptances */
+        get: operations["list_legal_acceptances_v1_dealerships__dealership_id__legal_acceptances_get"];
+        put?: never;
+        /**
+         * Accept Legal Document
+         * @description The manager accepts the current version of the ToS or the DPA for the
+         *     Betrieb (D-A-34): an append-only record with the user, the time, the
+         *     address and the browser. 409 `legal_document_not_current` for any other
+         *     version. Accepting it again returns the first record.
+         */
+        post: operations["accept_legal_document_v1_dealerships__dealership_id__legal_acceptances_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/dealerships/{dealership_id}/locations": {
         parameters: {
             query?: never;
@@ -1581,6 +1630,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/dealerships/{dealership_id}/number-range-confirmations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm Number Ranges
+         * @description KAN-214 (D-A-21): «Nummernkreise bestätigen» — the manager confirms the
+         *     ranges as the screen shows them, which completes the setup checklist's
+         *     item. Freezes nothing (the ranges freeze at activation, A-RULE-3).
+         *     Audited. The manager's own act: 403 for a colleague and for staff.
+         */
+        post: operations["confirm_number_ranges_v1_dealerships__dealership_id__number_range_confirmations_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/dealerships/{dealership_id}/number-range-previews": {
         parameters: {
             query?: never;
@@ -1642,6 +1714,218 @@ export interface paths {
         patch: operations["update_number_range_v1_dealerships__dealership_id__number_ranges__document_type__patch"];
         trace?: never;
     };
+    "/v1/dealerships/{dealership_id}/public-stock": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Public Stock */
+        get: operations["get_public_stock_v1_dealerships__dealership_id__public_stock_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/dealerships/{dealership_id}/publishing-profile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Publishing Profile */
+        get: operations["get_publishing_profile_v1_dealerships__dealership_id__publishing_profile_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Publishing Profile */
+        patch: operations["update_publishing_profile_v1_dealerships__dealership_id__publishing_profile_patch"];
+        trace?: never;
+    };
+    "/v1/dealerships/{dealership_id}/publishing-profile/agb": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Agb Document */
+        get: operations["get_agb_document_v1_dealerships__dealership_id__publishing_profile_agb_get"];
+        /** Put Agb Document */
+        put: operations["put_agb_document_v1_dealerships__dealership_id__publishing_profile_agb_put"];
+        post?: never;
+        /** Delete Agb Document */
+        delete: operations["delete_agb_document_v1_dealerships__dealership_id__publishing_profile_agb_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/dealerships/{dealership_id}/publishing-profile/effective": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Effective Profile
+         * @description What a channel publishes for the site: its override over the Betrieb.
+         */
+        get: operations["get_effective_profile_v1_dealerships__dealership_id__publishing_profile_effective_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/dealerships/{dealership_id}/publishing-profile/images/{image_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Publishing Image */
+        get: operations["get_publishing_image_v1_dealerships__dealership_id__publishing_profile_images__image_id__get"];
+        put?: never;
+        post?: never;
+        /** Delete Publishing Image */
+        delete: operations["delete_publishing_image_v1_dealerships__dealership_id__publishing_profile_images__image_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/dealerships/{dealership_id}/publishing-profile/images/{image_id}/primary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Set Primary Publishing Image */
+        post: operations["set_primary_publishing_image_v1_dealerships__dealership_id__publishing_profile_images__image_id__primary_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/dealerships/{dealership_id}/publishing-profile/locations/{location_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create Location Override
+         * @description Switches the site's override on (the screen's toggle). Idempotency-Key
+         *     is honoured; switching on an override that exists answers it unchanged.
+         */
+        post: operations["create_location_override_v1_dealerships__dealership_id__publishing_profile_locations__location_id__post"];
+        /**
+         * Delete Location Override
+         * @description Switches the site's override off: it inherits everything again.
+         */
+        delete: operations["delete_location_override_v1_dealerships__dealership_id__publishing_profile_locations__location_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update Location Override */
+        patch: operations["update_location_override_v1_dealerships__dealership_id__publishing_profile_locations__location_id__patch"];
+        trace?: never;
+    };
+    "/v1/dealerships/{dealership_id}/publishing-profile/locations/{location_id}/images/{kind}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add Publishing Image */
+        post: operations["add_publishing_image_v1_dealerships__dealership_id__publishing_profile_locations__location_id__images__kind__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/dealerships/{dealership_id}/publishing-profile/locations/{location_id}/images/{kind}/order": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Reorder Publishing Images */
+        put: operations["reorder_publishing_images_v1_dealerships__dealership_id__publishing_profile_locations__location_id__images__kind__order_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/dealerships/{dealership_id}/publishing-profile/locations/{location_id}/lead-routing": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set Lead Routing
+         * @description Replaces the site's lead routing. Its lead e-mail is the location's
+         *     own column (the Locations master data): saved here, it moves the
+         *     location's version too.
+         */
+        put: operations["set_lead_routing_v1_dealerships__dealership_id__publishing_profile_locations__location_id__lead_routing_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/dealerships/{dealership_id}/publishing-profile/validation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Validate Publishing Profile
+         * @description FR-A-05: what the channel needs that the profile lacks, as stable
+         *     codes the SPA renders in the dealer's words.
+         */
+        get: operations["validate_publishing_profile_v1_dealerships__dealership_id__publishing_profile_validation_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/dealerships/{dealership_id}/settings": {
         parameters: {
             query?: never;
@@ -1662,6 +1946,28 @@ export interface paths {
         head?: never;
         /** Update Dealership Settings */
         patch: operations["update_dealership_settings_v1_dealerships__dealership_id__settings_patch"];
+        trace?: never;
+    };
+    "/v1/dealerships/{dealership_id}/setup-checklist": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Setup Checklist
+         * @description The Betrieb's checklist, derived on read (D-A-21): the items that apply
+         *     to its entitlements, each complete or not, what it blocks and where to
+         *     fix it — the manager's first screen until activation.
+         */
+        get: operations["get_setup_checklist_v1_dealerships__dealership_id__setup_checklist_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/v1/dealerships/{dealership_id}/standard-text-previews": {
@@ -2383,7 +2689,12 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get Connection Usage */
+        /**
+         * Get Connection Usage
+         * @description KAN-222 (FR-A-23): «Nutzung anzeigen» — the period's requests per
+         *     provider counter, `?from=YYYY-MM-DD&to=YYYY-MM-DD` (both inclusive, Swiss
+         *     calendar days; the trailing 30 days by default, a year at most).
+         */
         get: operations["get_connection_usage_v1_integrations_connections__connection_id__usage_get"];
         put?: never;
         post?: never;
@@ -2849,6 +3160,103 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/inventory/stock-items/{stock_item_id}/website-listing": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Website Listing
+         * @description Whether the car is on the Betrieb's website, and what would refuse
+         *     it there — the publishing profile's missing items included (FR-A-05).
+         */
+        get: operations["get_website_listing_v1_inventory_stock_items__stock_item_id__website_listing_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/inventory/stock-items/{stock_item_id}/website-listing/publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Publish To Website */
+        post: operations["publish_to_website_v1_inventory_stock_items__stock_item_id__website_listing_publish_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/inventory/stock-items/{stock_item_id}/website-listing/unpublish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Unpublish From Website
+         * @description Takes the car off the website. Nothing is deleted at a third party, so
+         *     no confirmation is asked (unlike a marketplace's full delivery).
+         */
+        post: operations["unpublish_from_website_v1_inventory_stock_items__stock_item_id__website_listing_unpublish_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/legal-documents/current": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Current Legal Documents
+         * @description The current ToS and DPA, in `language` when published in it (else
+         *     German, else the first language published).
+         */
+        get: operations["get_current_legal_documents_v1_legal_documents_current_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/legal-documents/{document_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Legal Document */
+        get: operations["get_legal_document_v1_legal_documents__document_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/me": {
         parameters: {
             query?: never;
@@ -3296,6 +3704,29 @@ export interface paths {
          *     version, like the manager's own `PUT …/manager-flag`.
          */
         post: operations["grant_manager_v1_platform_dealerships__dealership_id__recovery_grant_manager_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/platform/legal-documents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Legal Documents */
+        get: operations["list_legal_documents_v1_platform_legal_documents_get"];
+        put?: never;
+        /**
+         * Publish Legal Document
+         * @description Publish a version of the ToS or the DPA in one language (FR-A-39).
+         *     Staff with a second factor in the session. Versions only move forward;
+         *     a published text is never edited.
+         */
+        post: operations["publish_legal_document_v1_platform_legal_documents_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4646,6 +5077,19 @@ export interface components {
          * @enum {string}
          */
         AccessRole: "platform_admin" | "sales" | "aftersales" | "parts" | "inventory" | "finance" | "technician" | "auditor";
+        /** ActivationRead */
+        ActivationRead: {
+            /** Activatedat */
+            activatedAt: string | null;
+            /**
+             * Dealershipid
+             * Format: uuid
+             */
+            dealershipId: string;
+            status: components["schemas"]["DealershipStatus"];
+            /** Version */
+            version: number;
+        };
         /** AddMediaRequest */
         AddMediaRequest: {
             /** Url */
@@ -4679,6 +5123,16 @@ export interface components {
          * @enum {string}
          */
         AddressWindow: "left" | "right";
+        /** AgbDocumentRead */
+        AgbDocumentRead: {
+            /** Bytesize */
+            byteSize: number;
+            /**
+             * Uploadedat
+             * Format: date-time
+             */
+            uploadedAt: string;
+        };
         /**
          * AgeingBucket
          * @description WP-7 PR-7. Fixed, NOT dealer-configurable — "a configurable
@@ -4936,6 +5390,8 @@ export interface components {
          *     internal name) — computed and named before send, per ADR-062.
          */
         BlockingCondition: {
+            /** Code */
+            code?: string | null;
             /** Field */
             field: string;
             /** Message */
@@ -4988,11 +5444,6 @@ export interface components {
             displayName?: string | null;
         };
         /**
-         * BrandingAssetKind
-         * @enum {string}
-         */
-        BrandingAssetKind: "primary" | "mono_dark" | "favicon";
-        /**
          * BrandingAssetRead
          * @description One logo variant. `source` says which file a reader is served:
          *     `own` (this variant's file), `primary` (no file of its own, so the
@@ -5005,7 +5456,7 @@ export interface components {
             byteSize?: number | null;
             /** Height */
             height?: number | null;
-            kind: components["schemas"]["BrandingAssetKind"];
+            kind: components["schemas"]["LogoKind"];
             /** Mimetype */
             mimeType?: string | null;
             /**
@@ -6161,6 +6612,8 @@ export interface components {
         };
         /** ConnectionRead */
         ConnectionRead: {
+            /** Accountidentifier */
+            accountIdentifier: string | null;
             /** Config */
             config: {
                 [key: string]: unknown;
@@ -6188,6 +6641,12 @@ export interface components {
             lastError: string | null;
             /** Lastverifiedat */
             lastVerifiedAt: string | null;
+            /** Locationbindable */
+            locationBindable: boolean;
+            /** Locationid */
+            locationId: string | null;
+            /** Locationlabel */
+            locationLabel: string | null;
             /** Providercode */
             providerCode: string;
             /**
@@ -6231,6 +6690,8 @@ export interface components {
             displayName?: string | null;
             /** Expiresat */
             expiresAt?: string | null;
+            /** Locationid */
+            locationId?: string | null;
         };
         /**
          * ConsentScope
@@ -6540,6 +7001,11 @@ export interface components {
          * @enum {string}
          */
         CopySubset: "standard_texts" | "document_template" | "number_ranges" | "contact_groups";
+        /** CurrentLegalDocuments */
+        CurrentLegalDocuments: {
+            /** Items */
+            items: components["schemas"]["LegalDocumentRead"][];
+        };
         /** CustomerAddressCreate */
         CustomerAddressCreate: {
             /**
@@ -7571,6 +8037,7 @@ export interface components {
             id: string;
             /** Legalname */
             legalName: string;
+            status: components["schemas"]["DealershipStatus"];
         };
         /**
          * DealershipOverrideAddress
@@ -7916,6 +8383,87 @@ export interface components {
             logoSize?: components["schemas"]["LogoSize"] | null;
             /** Pagenumbers */
             pageNumbers?: boolean | null;
+        };
+        /**
+         * EffectiveProfileRead
+         * @description What a channel publishes for a site: the override over the Betrieb.
+         */
+        EffectiveProfileRead: {
+            /** Agburl */
+            agbUrl: string | null;
+            /**
+             * Dealershipid
+             * Format: uuid
+             */
+            dealershipId: string;
+            /** Deliveryfeechf */
+            deliveryFeeChf: string | null;
+            /** Financingdownpaymentchf */
+            financingDownPaymentChf: string | null;
+            /** Financingeffectiveratepct */
+            financingEffectiveRatePct: string | null;
+            /** Financingnominalratepct */
+            financingNominalRatePct: string | null;
+            /** Financingprovider */
+            financingProvider: string | null;
+            /** Financingresidualvaluechf */
+            financingResidualValueChf: string | null;
+            /** Financingtermmonths */
+            financingTermMonths: number | null;
+            /** Hasagbdocument */
+            hasAgbDocument: boolean;
+            /** Impressum */
+            impressum: {
+                [key: string]: string;
+            };
+            /** Ispublished */
+            isPublished: boolean;
+            /** Locationid */
+            locationId: string | null;
+            /** Longdescription */
+            longDescription: {
+                [key: string]: string;
+            };
+            /** Mfkstatement */
+            mfkStatement: {
+                [key: string]: string;
+            };
+            /** Pricedisplaywording */
+            priceDisplayWording: {
+                [key: string]: string;
+            };
+            /** Privacynotice */
+            privacyNotice: {
+                [key: string]: string;
+            };
+            /** Shortdescription */
+            shortDescription: {
+                [key: string]: string;
+            };
+            /** Socialprofiles */
+            socialProfiles: {
+                [key: string]: string;
+            };
+            /** Standardequipmentblurb */
+            standardEquipmentBlurb: {
+                [key: string]: string;
+            };
+            /** Tradeinpromotiontext */
+            tradeInPromotionText: {
+                [key: string]: string;
+            };
+            /** Tradename */
+            tradeName: string | null;
+            /** Warrantytext */
+            warrantyText: {
+                [key: string]: string;
+            };
+            /** Websitedomain */
+            websiteDomain: string | null;
+            /** Withdrawalwording */
+            withdrawalWording: {
+                [key: string]: string;
+            };
         };
         /**
          * EmailType
@@ -8273,6 +8821,11 @@ export interface components {
          * @enum {string}
          */
         IdentifierKind: "vin" | "kontrollschild" | "stammnummer" | "typenschein" | "werkscode";
+        /** ImageOrderUpdate */
+        ImageOrderUpdate: {
+            /** Imageids */
+            imageIds: string[];
+        };
         /** InvitationAccept */
         InvitationAccept: {
             /** Password */
@@ -8288,6 +8841,40 @@ export interface components {
          * @enum {string}
          */
         Language: "de" | "fr" | "it" | "en";
+        /** LeadRoutingRead */
+        LeadRoutingRead: {
+            /** Createstask */
+            createsTask: boolean;
+            /** Leademail */
+            leadEmail: string | null;
+            /** Leadphone */
+            leadPhone: string | null;
+            /**
+             * Locationid
+             * Format: uuid
+             */
+            locationId: string;
+            /** Locationname */
+            locationName: string;
+            recipientRole: components["schemas"]["AccessRole"] | null;
+            /** Recipientuserid */
+            recipientUserId: string | null;
+        };
+        /** LeadRoutingUpdate */
+        LeadRoutingUpdate: {
+            /**
+             * Createstask
+             * @default false
+             */
+            createsTask?: boolean;
+            /** Leademail */
+            leadEmail?: string | null;
+            /** Leadphone */
+            leadPhone?: string | null;
+            recipientRole?: components["schemas"]["AccessRole"] | null;
+            /** Recipientuserid */
+            recipientUserId?: string | null;
+        };
         /**
          * LedgerCategory
          * @enum {string}
@@ -8334,6 +8921,64 @@ export interface components {
              */
             stockItemId: string;
         };
+        /**
+         * LegalAcceptanceDue
+         * @description The current versions the Betrieb has not accepted (FR-A-39).
+         */
+        LegalAcceptanceDue: {
+            /** Documents */
+            documents: components["schemas"]["LegalDocumentSummary"][];
+            /**
+             * Dueby
+             * @description The last day of grace; after it the managers are held.
+             */
+            dueBy: string | null;
+            /**
+             * Held
+             * @description The grace has passed: a manager reaches only the acceptance screen.
+             */
+            held: boolean;
+        };
+        /** LegalAcceptanceList */
+        LegalAcceptanceList: {
+            /** Items */
+            items: components["schemas"]["LegalAcceptanceRead"][];
+        };
+        /** LegalAcceptanceRead */
+        LegalAcceptanceRead: {
+            /**
+             * Acceptedat
+             * Format: date-time
+             */
+            acceptedAt: string;
+            documentType: components["schemas"]["LegalDocumentType"];
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            language: components["schemas"]["SwissLanguage"];
+            /**
+             * Legaldocumentid
+             * Format: uuid
+             */
+            legalDocumentId: string;
+            /**
+             * Userid
+             * Format: uuid
+             */
+            userId: string;
+            /** Version */
+            version: string;
+        };
+        /** LegalAcceptanceRequest */
+        LegalAcceptanceRequest: {
+            /**
+             * Legaldocumentid
+             * Format: uuid
+             */
+            legalDocumentId: string;
+        };
         /** LegalBasisCreate */
         LegalBasisCreate: {
             /** Basis */
@@ -8374,6 +9019,94 @@ export interface components {
             /** Withdrawnat */
             withdrawnAt: string | null;
         };
+        /** LegalDocumentList */
+        LegalDocumentList: {
+            /** Items */
+            items: components["schemas"]["LegalDocumentRead"][];
+        };
+        /** LegalDocumentPublish */
+        LegalDocumentPublish: {
+            /**
+             * Acceptancegracedays
+             * @default 30
+             */
+            acceptanceGraceDays?: number;
+            /** Bodymarkdown */
+            bodyMarkdown: string;
+            documentType: components["schemas"]["LegalDocumentType"];
+            /**
+             * Effectivedate
+             * Format: date
+             */
+            effectiveDate: string;
+            language: components["schemas"]["SwissLanguage"];
+            /** Title */
+            title: string;
+            /** Version */
+            version: string;
+        };
+        /** LegalDocumentRead */
+        LegalDocumentRead: {
+            /** Acceptancegracedays */
+            acceptanceGraceDays: number;
+            /** Bodymarkdown */
+            bodyMarkdown: string;
+            documentType: components["schemas"]["LegalDocumentType"];
+            /**
+             * Draft
+             * @description Below version 1.0 — a draft for counsel (production does not activate on it).
+             */
+            draft: boolean;
+            /**
+             * Effectivedate
+             * Format: date
+             */
+            effectiveDate: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            language: components["schemas"]["SwissLanguage"];
+            /**
+             * Publishedat
+             * Format: date-time
+             */
+            publishedAt: string;
+            /** Title */
+            title: string;
+            /** Version */
+            version: string;
+        };
+        /** LegalDocumentSummary */
+        LegalDocumentSummary: {
+            documentType: components["schemas"]["LegalDocumentType"];
+            /**
+             * Draft
+             * @description Below version 1.0 — a draft for counsel (production does not activate on it).
+             */
+            draft: boolean;
+            /**
+             * Effectivedate
+             * Format: date
+             */
+            effectiveDate: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            language: components["schemas"]["SwissLanguage"];
+            /** Title */
+            title: string;
+            /** Version */
+            version: string;
+        };
+        /**
+         * LegalDocumentType
+         * @enum {string}
+         */
+        LegalDocumentType: "tos" | "dpa";
         /**
          * LegalForm
          * @description Fixed Swiss legal-entity taxonomy (Customer PRD) — hardcoded, not
@@ -8587,6 +9320,105 @@ export interface components {
             /** Width */
             width?: number | null;
         };
+        /** LocationOverrideRead */
+        LocationOverrideRead: {
+            /** Deliveryfeechf */
+            deliveryFeeChf: string | null;
+            /** Financingdownpaymentchf */
+            financingDownPaymentChf: string | null;
+            /** Financingeffectiveratepct */
+            financingEffectiveRatePct: string | null;
+            /** Financingnominalratepct */
+            financingNominalRatePct: string | null;
+            /** Financingprovider */
+            financingProvider: string | null;
+            /** Financingresidualvaluechf */
+            financingResidualValueChf: string | null;
+            /** Financingtermmonths */
+            financingTermMonths: number | null;
+            /**
+             * Locationid
+             * Format: uuid
+             */
+            locationId: string;
+            /** Longdescription */
+            longDescription: {
+                [key: string]: string;
+            };
+            /** Mfkstatement */
+            mfkStatement: {
+                [key: string]: string;
+            };
+            /** Pricedisplaywording */
+            priceDisplayWording: {
+                [key: string]: string;
+            };
+            /** Shortdescription */
+            shortDescription: {
+                [key: string]: string;
+            };
+            /** Standardequipmentblurb */
+            standardEquipmentBlurb: {
+                [key: string]: string;
+            };
+            /** Tradeinpromotiontext */
+            tradeInPromotionText: {
+                [key: string]: string;
+            };
+            /** Warrantytext */
+            warrantyText: {
+                [key: string]: string;
+            };
+        };
+        /**
+         * LocationOverrideUpdate
+         * @description A location's override, partial. A null (or an empty map) inherits the
+         *     Betrieb's value again.
+         */
+        LocationOverrideUpdate: {
+            /** Deliveryfeechf */
+            deliveryFeeChf?: number | string | null;
+            /** Financingdownpaymentchf */
+            financingDownPaymentChf?: number | string | null;
+            /** Financingeffectiveratepct */
+            financingEffectiveRatePct?: number | string | null;
+            /** Financingnominalratepct */
+            financingNominalRatePct?: number | string | null;
+            /** Financingprovider */
+            financingProvider?: string | null;
+            /** Financingresidualvaluechf */
+            financingResidualValueChf?: number | string | null;
+            /** Financingtermmonths */
+            financingTermMonths?: number | null;
+            /** Longdescription */
+            longDescription?: {
+                [key: string]: string;
+            } | null;
+            /** Mfkstatement */
+            mfkStatement?: {
+                [key: string]: string;
+            } | null;
+            /** Pricedisplaywording */
+            priceDisplayWording?: {
+                [key: string]: string;
+            } | null;
+            /** Shortdescription */
+            shortDescription?: {
+                [key: string]: string;
+            } | null;
+            /** Standardequipmentblurb */
+            standardEquipmentBlurb?: {
+                [key: string]: string;
+            } | null;
+            /** Tradeinpromotiontext */
+            tradeInPromotionText?: {
+                [key: string]: string;
+            } | null;
+            /** Warrantytext */
+            warrantyText?: {
+                [key: string]: string;
+            } | null;
+        };
         /**
          * LocationRead
          * @description A site of the Betrieb. `bankAccountOverrideId` is filled only for the
@@ -8754,6 +9586,7 @@ export interface components {
              * @default false
              */
             isActiveDealershipManager?: boolean;
+            legalAcceptanceDue?: components["schemas"]["LegalAcceptanceDue"] | null;
             /** Memberships */
             memberships: components["schemas"]["DealershipMembershipSummary"][];
             /**
@@ -8800,6 +9633,13 @@ export interface components {
             mfaRequired?: boolean;
             session?: components["schemas"]["LoginResponse"] | null;
         };
+        /**
+         * LogoKind
+         * @description The logo variants — what the Branding screen's routes take. The
+         *     imagery kinds are the publishing profile's (its own routes).
+         * @enum {string}
+         */
+        LogoKind: "primary" | "mono_dark" | "favicon";
         /**
          * LogoSize
          * @description The logo's maximum printed width — 30 / 40 / 50 mm — at 20 mm high at
@@ -9027,6 +9867,25 @@ export interface components {
             /** Code */
             code: string;
         };
+        /**
+         * MissingItemRead
+         * @description One thing the channel needs that the profile lacks. `code` is stable
+         *     — the SPA renders it in the dealer's words (`publishingValidation.<code>`)
+         *     — and `section` names where to fix it.
+         */
+        MissingItemRead: {
+            /** Code */
+            code: string;
+            /** Locationid */
+            locationId?: string | null;
+            /** Locationname */
+            locationName?: string | null;
+            /**
+             * Section
+             * @enum {string}
+             */
+            section: "identity" | "legal" | "leadRouting" | "imagery" | "listingDefaults";
+        };
         /** MissingTranslationPage */
         MissingTranslationPage: {
             /** Items */
@@ -9193,6 +10052,22 @@ export interface components {
             reason: string;
         };
         /**
+         * NumberRangeConfirmationRead
+         * @description KAN-214: one «Nummernkreise bestätigen».
+         */
+        NumberRangeConfirmationRead: {
+            /**
+             * Confirmedat
+             * Format: date-time
+             */
+            confirmedAt: string;
+            /**
+             * Confirmedby
+             * Format: uuid
+             */
+            confirmedBy: string;
+        };
+        /**
          * NumberRangeDocumentType
          * @description The eleven document types the PRD's table names. Customer numbers stay
          *     per group (`customer_number_sequence`) and are not here.
@@ -9201,6 +10076,8 @@ export interface components {
         NumberRangeDocumentType: "offer" | "order_confirmation" | "sales_contract" | "purchase_contract" | "invoice" | "credit_note" | "dunning" | "service_order" | "parts_order" | "workshop_job" | "stock_number";
         /** NumberRangeList */
         NumberRangeList: {
+            /** Confirmedat */
+            confirmedAt?: string | null;
             /** Items */
             items: components["schemas"]["NumberRangeRead"][];
             /** Maychangefrozen */
@@ -9969,6 +10846,18 @@ export interface components {
          * @enum {string}
          */
         PreviewDocument: "offer" | "invoice";
+        /** ProfileValidationRead */
+        ProfileValidationRead: {
+            /**
+             * Channel
+             * @constant
+             */
+            channel: "website";
+            /** Missing */
+            missing: components["schemas"]["MissingItemRead"][];
+            /** Ready */
+            ready: boolean;
+        };
         /** ProviderCreate */
         ProviderCreate: {
             /** Authtype */
@@ -10137,6 +11026,254 @@ export interface components {
             requiredConfigKeys?: string[] | null;
             /** Supportssandbox */
             supportsSandbox?: boolean | null;
+        };
+        /**
+         * PublicStockListingRead
+         * @description One car as the Betrieb's website shows it — the allow-listed fields
+         *     only (ADR-029).
+         */
+        PublicStockListingRead: {
+            /** Bodystyle */
+            bodyStyle?: string | null;
+            /** Condition */
+            condition?: string | null;
+            /** Exteriorcolour */
+            exteriorColour?: string | null;
+            /** Firstregistrationdate */
+            firstRegistrationDate?: string | null;
+            /** Imageurls */
+            imageUrls?: string[];
+            /** Locationid */
+            locationId: string | null;
+            /** Odometerkm */
+            odometerKm?: number | null;
+            /** Pricechf */
+            priceChf?: string | null;
+            /** Publishedat */
+            publishedAt: string | null;
+            /**
+             * Reserved
+             * @default false
+             */
+            reserved?: boolean;
+            /**
+             * Stockitemid
+             * Format: uuid
+             */
+            stockItemId: string;
+            /** Stocknumber */
+            stockNumber?: string | null;
+            /** Vehiclelabel */
+            vehicleLabel?: string | null;
+        };
+        /** PublicStockRead */
+        PublicStockRead: {
+            /**
+             * Dealershipid
+             * Format: uuid
+             */
+            dealershipId: string;
+            /** Items */
+            items: components["schemas"]["PublicStockListingRead"][];
+            /** Total */
+            total: number;
+        };
+        /**
+         * PublishingImageKind
+         * @enum {string}
+         */
+        PublishingImageKind: "premises" | "team" | "hero";
+        /** PublishingImageRead */
+        PublishingImageRead: {
+            /** Bytesize */
+            byteSize: number;
+            /** Height */
+            height: number | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Isprimary */
+            isPrimary: boolean;
+            kind: components["schemas"]["PublishingImageKind"];
+            /**
+             * Locationid
+             * Format: uuid
+             */
+            locationId: string;
+            /** Mimetype */
+            mimeType: string;
+            /** Position */
+            position: number;
+            /**
+             * Uploadedat
+             * Format: date-time
+             */
+            uploadedAt: string;
+            /** Width */
+            width: number | null;
+        };
+        /** PublishingProfileRead */
+        PublishingProfileRead: {
+            agbDocument: components["schemas"]["AgbDocumentRead"] | null;
+            /** Agburl */
+            agbUrl: string | null;
+            /**
+             * Dealershipid
+             * Format: uuid
+             */
+            dealershipId: string;
+            /** Deliveryfeechf */
+            deliveryFeeChf: string | null;
+            /** Financingdownpaymentchf */
+            financingDownPaymentChf: string | null;
+            /** Financingeffectiveratepct */
+            financingEffectiveRatePct: string | null;
+            /** Financingnominalratepct */
+            financingNominalRatePct: string | null;
+            /** Financingprovider */
+            financingProvider: string | null;
+            /** Financingresidualvaluechf */
+            financingResidualValueChf: string | null;
+            /** Financingtermmonths */
+            financingTermMonths: number | null;
+            /** Images */
+            images: components["schemas"]["PublishingImageRead"][];
+            /** Impressum */
+            impressum: {
+                [key: string]: string;
+            };
+            /** Ispublished */
+            isPublished: boolean;
+            /** Leadrouting */
+            leadRouting: components["schemas"]["LeadRoutingRead"][];
+            /** Locationoverrides */
+            locationOverrides: components["schemas"]["LocationOverrideRead"][];
+            /** Longdescription */
+            longDescription: {
+                [key: string]: string;
+            };
+            /** Mfkstatement */
+            mfkStatement: {
+                [key: string]: string;
+            };
+            /** Pricedisplaywording */
+            priceDisplayWording: {
+                [key: string]: string;
+            };
+            /** Privacynotice */
+            privacyNotice: {
+                [key: string]: string;
+            };
+            /** Shortdescription */
+            shortDescription: {
+                [key: string]: string;
+            };
+            /** Socialprofiles */
+            socialProfiles: {
+                [key: string]: string;
+            };
+            /** Standardequipmentblurb */
+            standardEquipmentBlurb: {
+                [key: string]: string;
+            };
+            /** Tradeinpromotiontext */
+            tradeInPromotionText: {
+                [key: string]: string;
+            };
+            /** Tradename */
+            tradeName: string | null;
+            /**
+             * Updatedat
+             * Format: date-time
+             */
+            updatedAt: string;
+            /** Version */
+            version: number;
+            /** Warrantytext */
+            warrantyText: {
+                [key: string]: string;
+            };
+            /** Website */
+            website: string | null;
+            /** Websitedomain */
+            websiteDomain: string | null;
+            /** Withdrawalwording */
+            withdrawalWording: {
+                [key: string]: string;
+            };
+        };
+        /**
+         * PublishingProfileUpdate
+         * @description The Betrieb's profile, partial. A localised field named with `{}` (or
+         *     null) clears it.
+         */
+        PublishingProfileUpdate: {
+            /** Agburl */
+            agbUrl?: string | null;
+            /** Deliveryfeechf */
+            deliveryFeeChf?: number | string | null;
+            /** Financingdownpaymentchf */
+            financingDownPaymentChf?: number | string | null;
+            /** Financingeffectiveratepct */
+            financingEffectiveRatePct?: number | string | null;
+            /** Financingnominalratepct */
+            financingNominalRatePct?: number | string | null;
+            /** Financingprovider */
+            financingProvider?: string | null;
+            /** Financingresidualvaluechf */
+            financingResidualValueChf?: number | string | null;
+            /** Financingtermmonths */
+            financingTermMonths?: number | null;
+            /** Impressum */
+            impressum?: {
+                [key: string]: string;
+            } | null;
+            /** Ispublished */
+            isPublished?: boolean | null;
+            /** Longdescription */
+            longDescription?: {
+                [key: string]: string;
+            } | null;
+            /** Mfkstatement */
+            mfkStatement?: {
+                [key: string]: string;
+            } | null;
+            /** Pricedisplaywording */
+            priceDisplayWording?: {
+                [key: string]: string;
+            } | null;
+            /** Privacynotice */
+            privacyNotice?: {
+                [key: string]: string;
+            } | null;
+            /** Shortdescription */
+            shortDescription?: {
+                [key: string]: string;
+            } | null;
+            /** Socialprofiles */
+            socialProfiles?: {
+                [key: string]: string;
+            } | null;
+            /** Standardequipmentblurb */
+            standardEquipmentBlurb?: {
+                [key: string]: string;
+            } | null;
+            /** Tradeinpromotiontext */
+            tradeInPromotionText?: {
+                [key: string]: string;
+            } | null;
+            /** Warrantytext */
+            warrantyText?: {
+                [key: string]: string;
+            } | null;
+            /** Websitedomain */
+            websiteDomain?: string | null;
+            /** Withdrawalwording */
+            withdrawalWording?: {
+                [key: string]: string;
+            } | null;
         };
         /** PublishingRead */
         PublishingRead: {
@@ -10642,6 +11779,57 @@ export interface components {
             basePrice: number | string;
             /** Options */
             options: components["schemas"]["OptionInput"][];
+        };
+        /** SetupChecklistItemRead */
+        SetupChecklistItemRead: {
+            /**
+             * Blocks
+             * @description What an incomplete item refuses once the Betrieb is active; null = activation only.
+             */
+            blocks: string | null;
+            /**
+             * Code
+             * @description The item: branding, vat_and_rounding, bank_account, number_ranges, …
+             */
+            code: string;
+            /** Complete */
+            complete: boolean;
+            /**
+             * Link
+             * @description The SPA path that completes the item.
+             */
+            link: string;
+        };
+        /** SetupChecklistRead */
+        SetupChecklistRead: {
+            /** Complete */
+            complete: boolean;
+            /**
+             * Dealershipid
+             * Format: uuid
+             */
+            dealershipId: string;
+            /** Items */
+            items: components["schemas"]["SetupChecklistItemRead"][];
+            legalAcceptance: components["schemas"]["LegalAcceptanceDue"];
+            /**
+             * Legaldocumentsfinal
+             * @description False in production while a current version is a draft: activation is refused.
+             */
+            legalDocumentsFinal: boolean;
+            /**
+             * Mayactivate
+             * @description Every item complete, both documents accepted, and the texts final enough.
+             */
+            mayActivate: boolean;
+            /** Numberrangesconfirmedat */
+            numberRangesConfirmedAt: string | null;
+            status: components["schemas"]["DealershipStatus"];
+            /**
+             * Version
+             * @description The dealership's version — If-Match for the activation.
+             */
+            version: number;
         };
         /**
          * SharedVehicleIdentity
@@ -11375,20 +12563,43 @@ export interface components {
             count: number;
         };
         /**
+         * UsageCounterRead
+         * @description One of the provider's own counters, named verbatim (FR-A-23).
+         */
+        UsageCounterRead: {
+            /** Count */
+            count: number;
+            /** Counter */
+            counter: string;
+        };
+        /**
          * UsageRead
-         * @description PR-7 — indicative only (I-2/I-3): Nexotec never bills on top of a
-         *     provider's own contract, so this is never a billing artifact.
+         * @description KAN-222 (FR-A-23) — the connection's requests in a period, per
+         *     provider counter. Counts only, never a CHF amount (Anto, 2026-11-14,
+         *     Q1 A: prices are in each Betrieb's own contract). Indicative only
+         *     (I-2/I-3): Nexotec never bills on top of a provider's own contract.
+         *     `periodFrom`/`periodTo` are calendar days in Swiss time, both inclusive.
          */
         UsageRead: {
-            /** Callsthisperiod */
-            callsThisPeriod: number;
-            /** Costunitsthisperiod */
-            costUnitsThisPeriod: string | null;
+            /** Counters */
+            counters: components["schemas"]["UsageCounterRead"][];
             /**
              * Indicative
              * @default true
              */
             indicative?: boolean;
+            /**
+             * Periodfrom
+             * Format: date
+             */
+            periodFrom: string;
+            /**
+             * Periodto
+             * Format: date
+             */
+            periodTo: string;
+            /** Totalcalls */
+            totalCalls: number;
         };
         /** UserAdminRead */
         UserAdminRead: {
@@ -12606,6 +13817,24 @@ export interface components {
             id: string;
             /** Stocknumber */
             stockNumber: string;
+        };
+        /** WebsiteListingRead */
+        WebsiteListingRead: {
+            /** Blockingconditions */
+            blockingConditions?: components["schemas"]["BlockingCondition"][];
+            /** Islisted */
+            isListed: boolean;
+            /** Listedat */
+            listedAt: string | null;
+            /**
+             * Stockitemid
+             * Format: uuid
+             */
+            stockItemId: string;
+            /** Unlistedat */
+            unlistedAt: string | null;
+            /** Version */
+            version: number;
         };
     };
     responses: never;
@@ -15174,6 +16403,44 @@ export interface operations {
             };
         };
     };
+    activate_dealership_v1_dealerships__dealership_id__activation_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+                authorization?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                dealership_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActivationRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_address_autocomplete_config_v1_dealerships__dealership_id__address_autocomplete_get: {
         parameters: {
             query?: never;
@@ -15628,7 +16895,7 @@ export interface operations {
             };
             path: {
                 dealership_id: string;
-                kind: components["schemas"]["BrandingAssetKind"];
+                kind: components["schemas"]["LogoKind"];
             };
             cookie?: {
                 dms_session?: string | null;
@@ -15665,7 +16932,7 @@ export interface operations {
             };
             path: {
                 dealership_id: string;
-                kind: components["schemas"]["BrandingAssetKind"];
+                kind: components["schemas"]["LogoKind"];
             };
             cookie?: {
                 dms_session?: string | null;
@@ -15706,7 +16973,7 @@ export interface operations {
             };
             path: {
                 dealership_id: string;
-                kind: components["schemas"]["BrandingAssetKind"];
+                kind: components["schemas"]["LogoKind"];
             };
             cookie?: {
                 dms_session?: string | null;
@@ -16410,6 +17677,82 @@ export interface operations {
             };
         };
     };
+    list_legal_acceptances_v1_dealerships__dealership_id__legal_acceptances_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LegalAcceptanceList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    accept_legal_document_v1_dealerships__dealership_id__legal_acceptances_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                dealership_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LegalAcceptanceRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LegalAcceptanceRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_locations_v1_dealerships__dealership_id__locations_get: {
         parameters: {
             query?: {
@@ -16799,6 +18142,43 @@ export interface operations {
             };
         };
     };
+    confirm_number_ranges_v1_dealerships__dealership_id__number_range_confirmations_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                dealership_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NumberRangeConfirmationRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     preview_number_range_v1_dealerships__dealership_id__number_range_previews_post: {
         parameters: {
             query?: never;
@@ -16916,6 +18296,663 @@ export interface operations {
             };
         };
     };
+    get_public_stock_v1_dealerships__dealership_id__public_stock_get: {
+        parameters: {
+            query?: {
+                locationId?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicStockRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_publishing_profile_v1_dealerships__dealership_id__publishing_profile_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublishingProfileRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_publishing_profile_v1_dealerships__dealership_id__publishing_profile_patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PublishingProfileUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublishingProfileRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_agb_document_v1_dealerships__dealership_id__publishing_profile_agb_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_agb_document_v1_dealerships__dealership_id__publishing_profile_agb_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/pdf": string;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublishingProfileRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_agb_document_v1_dealerships__dealership_id__publishing_profile_agb_delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublishingProfileRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_effective_profile_v1_dealerships__dealership_id__publishing_profile_effective_get: {
+        parameters: {
+            query?: {
+                locationId?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EffectiveProfileRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_publishing_image_v1_dealerships__dealership_id__publishing_profile_images__image_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                image_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_publishing_image_v1_dealerships__dealership_id__publishing_profile_images__image_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                image_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublishingProfileRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_primary_publishing_image_v1_dealerships__dealership_id__publishing_profile_images__image_id__primary_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+                authorization?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                image_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublishingProfileRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_location_override_v1_dealerships__dealership_id__publishing_profile_locations__location_id__post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+                authorization?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                location_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["LocationOverrideUpdate"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublishingProfileRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_location_override_v1_dealerships__dealership_id__publishing_profile_locations__location_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                location_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublishingProfileRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_location_override_v1_dealerships__dealership_id__publishing_profile_locations__location_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                location_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LocationOverrideUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublishingProfileRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_publishing_image_v1_dealerships__dealership_id__publishing_profile_locations__location_id__images__kind__post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+                authorization?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                location_id: string;
+                kind: components["schemas"]["PublishingImageKind"];
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "image/jpeg": string;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublishingProfileRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reorder_publishing_images_v1_dealerships__dealership_id__publishing_profile_locations__location_id__images__kind__order_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                location_id: string;
+                kind: components["schemas"]["PublishingImageKind"];
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ImageOrderUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublishingProfileRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_lead_routing_v1_dealerships__dealership_id__publishing_profile_locations__location_id__lead_routing_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                location_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LeadRoutingUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublishingProfileRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    validate_publishing_profile_v1_dealerships__dealership_id__publishing_profile_validation_get: {
+        parameters: {
+            query?: {
+                channel?: "website";
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfileValidationRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_dealership_settings_v1_dealerships__dealership_id__settings_get: {
         parameters: {
             query?: never;
@@ -16978,6 +19015,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DealershipSettingsRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_setup_checklist_v1_dealerships__dealership_id__setup_checklist_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SetupChecklistRead"];
                 };
             };
             /** @description Validation Error */
@@ -18851,7 +20923,10 @@ export interface operations {
     };
     get_connection_usage_v1_integrations_connections__connection_id__usage_get: {
         parameters: {
-            query?: never;
+            query?: {
+                from?: string | null;
+                to?: string | null;
+            };
             header?: {
                 authorization?: string | null;
             };
@@ -20133,6 +22208,187 @@ export interface operations {
             };
         };
     };
+    get_website_listing_v1_inventory_stock_items__stock_item_id__website_listing_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                stock_item_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebsiteListingRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    publish_to_website_v1_inventory_stock_items__stock_item_id__website_listing_publish_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "If-Match"?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                stock_item_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebsiteListingRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    unpublish_from_website_v1_inventory_stock_items__stock_item_id__website_listing_unpublish_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "If-Match"?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                stock_item_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebsiteListingRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_current_legal_documents_v1_legal_documents_current_get: {
+        parameters: {
+            query?: {
+                language?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CurrentLegalDocuments"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_legal_document_v1_legal_documents__document_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                document_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LegalDocumentRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_me_v1_me_get: {
         parameters: {
             query?: never;
@@ -21205,6 +23461,78 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RecoveryResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_legal_documents_v1_platform_legal_documents_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LegalDocumentList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    publish_legal_document_v1_platform_legal_documents_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LegalDocumentPublish"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LegalDocumentRead"];
                 };
             };
             /** @description Validation Error */

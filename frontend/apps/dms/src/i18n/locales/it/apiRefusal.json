@@ -176,7 +176,12 @@
     "chassis_number_requires_make": "Un veicolo con numero di telaio si distingue per la marca: inserisca la marca nella sua configurazione.",
     "vehicle_merge_same_record": "Una scheda non può essere unita a sé stessa.",
     "vehicle_merge_both_in_stock": "La vostra azienda ha entrambe le schede in magazzino ({{duplicate}} e {{survivor}}). Vendete o annullate prima uno dei veicoli in magazzino.",
-    "vehicle_merge_vin_into_chassis_number": "Una scheda con VIN non può essere unita a una con numero di telaio (prima del 1981). Con «Inverti la direzione» rimane la scheda con VIN."
+    "vehicle_merge_vin_into_chassis_number": "Una scheda con VIN non può essere unita a una con numero di telaio (prima del 1981). Con «Inverti la direzione» rimane la scheda con VIN.",
+    "location_binding_needs_tenant": "Un collegamento a livello di piattaforma non appartiene a nessuna sede.",
+    "location_binding_not_supported": "Questo collegamento vale per tutta l'azienda e non viene assegnato a una sede.",
+    "unknown_location": "Questa sede non appartiene alla sua azienda.",
+    "usage_period_reversed": "La fine del periodo precede il suo inizio.",
+    "usage_period_too_long": "Un periodo copre al massimo un anno."
   },
   "accessWindow": {
     "between": "valido dal {{from}} al {{to}}",

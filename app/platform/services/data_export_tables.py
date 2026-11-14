@@ -18,6 +18,7 @@ from app.platform.models.dealership_auth_config import DealershipAuthConfig
 from app.platform.models.dealership_membership import DealershipMembership
 from app.platform.models.document_template import DocumentTemplate
 from app.platform.models.export_job import ExportJob
+from app.platform.models.legal import LegalAcceptance, LegalDocument
 from app.platform.models.mfa import MfaPasskey, MfaRecoveryCode, MfaTotp
 from app.platform.models.notification import (
     Notification,
@@ -25,19 +26,21 @@ from app.platform.models.notification import (
     PushSubscription,
     UserNotificationPreference,
 )
+from app.platform.models.setup_checklist import SetupChecklistRegression
 from app.platform.models.standard_text import StandardText
 from app.platform.models.standard_text_delegation import StandardTextDelegation
 from app.platform.models.user import User
 from app.platform.models.user_location import UserLocation
 from app.platform.models.user_preference import UserPreference
-from app.platform.organisation.models.branding_asset import BrandingAsset
+from app.platform.organisation.models.branding_asset import IMAGERY_KINDS, BrandingAsset
 from app.platform.organisation.models.dealership import DealerGroup, Dealership, Location
 from app.platform.organisation.models.dealership_bank_account import DealershipBankAccount
 from app.platform.organisation.models.dealership_settings import DealershipSettings
 from app.platform.organisation.models.holiday_calendar import Holiday, HolidayCalendar
 from app.platform.organisation.models.location_schedule import LocationClosure, LocationOpeningHours
 from app.platform.organisation.models.module_entitlement import ModuleEntitlement
-from app.platform.organisation.models.number_range import NumberRange
+from app.platform.organisation.models.number_range import NumberRange, NumberRangeConfirmation
+from app.platform.organisation.models.publishing_profile import LocationLeadRouting, PublishingProfile
 from app.platform.organisation.services import contact_group
 from app.platform.reference.models.reference_data import ReferenceList, ReferenceValue
 from app.platform.reference.models.ui_translation import MissingTranslation, UiTranslation, UiTranslationRevision
@@ -114,8 +117,23 @@ class PlatformExporter(TableExporter):
             contact_group.export_table(),
             ExportedTable(table=table_of(DocumentTemplate), scope=_by_dealership(table_of(DocumentTemplate))),
             ExportedTable(table=table_of(BrandingAsset), scope=_by_dealership(table_of(BrandingAsset))),
+            ExportedTable(table=table_of(PublishingProfile), scope=_by_dealership(table_of(PublishingProfile))),
+            ExportedTable(table=table_of(LocationLeadRouting), scope=_by_dealership(table_of(LocationLeadRouting))),
             ExportedTable(table=table_of(ModuleEntitlement), scope=_by_dealership(table_of(ModuleEntitlement))),
             ExportedTable(table=table_of(NumberRange), scope=_by_dealership(table_of(NumberRange), "tenant_id")),
+            # KAN-214: the manager's confirmations of the ranges and the Betrieb's
+            # acceptances of the ToS / DPA — its own records (the legal basis, A-1).
+            ExportedTable(
+                table=table_of(NumberRangeConfirmation), scope=_by_dealership(table_of(NumberRangeConfirmation))
+            ),
+            ExportedTable(table=table_of(LegalAcceptance), scope=_by_dealership(table_of(LegalAcceptance))),
+            ExportedTable(
+                table=table_of(SetupChecklistRegression),
+                scope=_by_dealership(table_of(SetupChecklistRegression)),
+                in_archive=False,
+                exclusion_reason="The daily job's notification ledger; the checklist itself is derived.",
+                marks_write=False,
+            ),
             ExportedTable(table=table_of(StandardText), scope=_by_dealership(table_of(StandardText))),
             ExportedTable(
                 table=table_of(StandardTextDelegation), scope=_by_dealership(table_of(StandardTextDelegation))
@@ -175,6 +193,7 @@ class PlatformExporter(TableExporter):
             ReferenceList.__tablename__: platform_reference,
             ReferenceValue.__tablename__: platform_reference,
             NotificationEvent.__tablename__: "Nexotec's catalogue of notification kinds.",
+            LegalDocument.__tablename__: "Nexotec's own Terms of Service and DPA, the same for every Betrieb.",
             UiTranslation.__tablename__: "Nexotec's interface texts.",
             UiTranslationRevision.__tablename__: "Nexotec's interface texts.",
             MissingTranslation.__tablename__: "Nexotec's interface texts.",
@@ -190,13 +209,25 @@ class PlatformExporter(TableExporter):
         )
         for asset in assets:
             stored = store.get(asset.object_key)
+            if stored is None:
+                continue
+            if asset.kind in IMAGERY_KINDS:
+                # KAN-225: several photos per site and kind, so each by its id.
+                path = f"files/publishing/locations/{asset.location_id}/{asset.kind.value}/{asset.id}"
+            elif asset.location_id is None:
+                path = f"files/branding/{asset.kind.value}"
+            else:
+                path = f"files/branding/locations/{asset.location_id}/{asset.kind.value}"
+            yield ExportFile(path=path, content_type=stored.content_type, data=stored.data)
+        profile = db.scalar(
+            select(PublishingProfile).where(
+                PublishingProfile.dealership_id == scope.dealership_id, PublishingProfile.location_id.is_(None)
+            )
+        )
+        if profile is not None and profile.agb_object_key is not None:
+            stored = store.get(profile.agb_object_key)
             if stored is not None:
-                folder = (
-                    "files/branding" if asset.location_id is None else f"files/branding/locations/{asset.location_id}"
-                )
-                yield ExportFile(
-                    path=f"{folder}/{asset.kind.value}", content_type=stored.content_type, data=stored.data
-                )
+                yield ExportFile(path="files/publishing/agb.pdf", content_type="application/pdf", data=stored.data)
         for user in db.scalars(select(User).where(User.tenant_id == scope.dealership_id).order_by(User.id)):
             for kind, key in (("photo", user.photo_ref), ("signature", user.signature_image_ref)):
                 if key is None:

@@ -39,7 +39,7 @@ from app.core.config import get_settings
 from app.core.errors import ConflictError, UnprocessableEntityError
 from app.core.permissions import ModuleCode
 from app.platform.organisation.models.dealership import Location
-from app.platform.organisation.models.number_range import NumberRange, NumberRangeDocumentType
+from app.platform.organisation.models.number_range import NumberRange, NumberRangeConfirmation, NumberRangeDocumentType
 
 ENTITY_TYPE = "number_range"
 MAX_NUMBER_LENGTH = 16
@@ -470,3 +470,31 @@ def allocate_number(
         )
     db.flush()
     return AllocatedNumber(number=number, counter=counter)
+
+
+def confirm_ranges(db: Session, *, dealership_id: uuid.UUID, actor_id: uuid.UUID) -> NumberRangeConfirmation:
+    """KAN-214: «Nummernkreise bestätigen» — one `number_range_confirmation`
+    row and its audit row. Freezes nothing. Never commits."""
+
+    row = NumberRangeConfirmation(dealership_id=dealership_id, confirmed_by=actor_id)
+    db.add(row)
+    db.flush()
+    record_audit_event(
+        db,
+        entity_type="dealership",
+        entity_id=dealership_id,
+        tenant_id=dealership_id,
+        action="number_ranges_confirmed",
+        actor_id=actor_id,
+        after={"confirmedAt": row.confirmed_at.isoformat()},
+    )
+    return row
+
+
+def latest_confirmation(db: Session, dealership_id: uuid.UUID) -> NumberRangeConfirmation | None:
+    return db.scalar(
+        select(NumberRangeConfirmation)
+        .where(NumberRangeConfirmation.dealership_id == dealership_id)
+        .order_by(NumberRangeConfirmation.confirmed_at.desc())
+        .limit(1)
+    )

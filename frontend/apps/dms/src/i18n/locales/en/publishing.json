@@ -1,0 +1,126 @@
+{
+  "title": "Publishing",
+  "subtitle": "What your website shows: public identity, legal notices, listing defaults and, per location, enquiries and photos.",
+  "loadError": "The publishing profile could not be loaded.",
+  "saveFailed": "The details could not be saved.",
+  "inheritsPlaceholder": "Taken from the business: {{text}}",
+  "languages": {
+    "de": "German",
+    "fr": "French",
+    "it": "Italian",
+    "en": "English"
+  },
+  "scope": {
+    "label": "Details for",
+    "betrieb": "Whole business",
+    "overrideToggle": "Own details for this location",
+    "inherits": "This location takes its description, listing defaults and financing example from the business."
+  },
+  "sections": {
+    "identity": "Public identity",
+    "legal": "Legal notices",
+    "listingDefaults": "Listing defaults",
+    "financing": "Financing example",
+    "leadRouting": "Enquiries",
+    "imagery": "Photos"
+  },
+  "identity": {
+    "tradeName": "Public name: {{name}}",
+    "noTradeName": "no trade name entered",
+    "editInBusiness": "Change under Business",
+    "websiteDomain": "Website domain",
+    "websiteDomainHint": "The address at which Nexotec serves your website, e.g. garage-muster.ch.",
+    "isPublished": "Website published",
+    "isPublishedHint": "Switched off, the website shows nothing, even with vehicles listed on it."
+  },
+  "fields": {
+    "shortDescription": "Short description",
+    "longDescription": "Long description",
+    "impressum": "Imprint",
+    "privacyNotice": "Privacy notice",
+    "withdrawalWording": "Right-of-withdrawal wording",
+    "agbUrl": "Terms and conditions (page address)",
+    "warrantyText": "Warranty text",
+    "mfkStatement": "MFK and inspection statement",
+    "deliveryFeeChf": "Delivery and transfer fee",
+    "priceDisplayWording": "Wording next to the price",
+    "standardEquipmentBlurb": "Standard equipment text",
+    "tradeInPromotionText": "Trade-in promotion text",
+    "financingTermMonths": "Term (months)",
+    "financingDownPaymentChf": "Down payment",
+    "financingResidualValueChf": "Residual value",
+    "financingNominalRatePct": "Nominal annual rate",
+    "financingEffectiveRatePct": "Effective annual rate",
+    "financingProvider": "Financing provider"
+  },
+  "social": {
+    "facebook": "Facebook",
+    "instagram": "Instagram",
+    "linkedin": "LinkedIn",
+    "youtube": "YouTube",
+    "tiktok": "TikTok"
+  },
+  "legal": {
+    "hint": "Applies to the whole business — the legal notices always name the legal entity, never a location."
+  },
+  "agb": {
+    "label": "Terms and conditions as PDF",
+    "none": "No file yet",
+    "present": "PDF uploaded on {{date}} · {{size}} KB",
+    "open": "Open",
+    "choose": "Choose PDF",
+    "upload": "Upload",
+    "remove": "Remove",
+    "failed": "The terms could not be saved."
+  },
+  "listing": {
+    "deliveryFeeHint": "Amount incl. VAT, as it appears in the listing."
+  },
+  "financing": {
+    "pendingTitle": "Wording pending legal review (A-6)",
+    "pendingLegalReview": "Advertising a financed price is subject to the Consumer Credit Act. The details are saved but published only once the wording is legally confirmed."
+  },
+  "leadRouting": {
+    "hint": "Where enquiries about this location's vehicles go.",
+    "leadEmail": "Enquiry e-mail",
+    "leadPhone": "Enquiry phone",
+    "createsTask": "An enquiry also creates a task in the DMS",
+    "recipientRole": "Recipient",
+    "recipientRoleHint": "Who receives the enquiry. Empty: the business's managers."
+  },
+  "imagery": {
+    "hint": "JPEG or PNG, at least 800 px on the long edge. The starred photo shows first.",
+    "kinds": {
+      "premises": "Premises",
+      "team": "Team",
+      "hero": "Hero image"
+    },
+    "none": "No photos yet",
+    "primary": "First photo",
+    "choose": "Choose photo",
+    "upload": "Upload",
+    "moveUp": "Move up",
+    "moveDown": "Move down",
+    "makePrimary": "Show first",
+    "remove": "Remove",
+    "failed": "The photo could not be saved."
+  },
+  "validation": {
+    "title": "Ready for the website?",
+    "ready": "Everything needed is in place. Vehicles can go on the website.",
+    "notReady": "Before a vehicle can go on the website, this is still missing:",
+    "openLocation": "Open location",
+    "carsOnWebsite_one": "{{count, number}} vehicle is on the website.",
+    "carsOnWebsite_other": "{{count, number}} vehicles are on the website.",
+    "defaultNote": "Which details the website requires is a Nexotec default still to be confirmed."
+  },
+  "refusals": {
+    "agb_not_a_pdf": "The terms must be a PDF file.",
+    "agb_too_large": "The PDF is too large — at most 10 MB.",
+    "image_not_an_image": "The photo must be a JPEG or PNG file.",
+    "image_too_large": "The photo is too large — at most 10 MB.",
+    "image_too_small": "The photo is too small — at least 800 px on the long edge.",
+    "image_unreadable": "The image file is damaged.",
+    "lead_recipient_not_a_user": "The recipient must be an active user of your business."
+  }
+}

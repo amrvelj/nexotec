@@ -32,6 +32,8 @@ export function useUnreadNotificationCount(enabled: boolean) {
 function interpolation(t: TFunction, notification: NotificationRead): Record<string, string | number | boolean> {
   const params: Record<string, string | number | boolean> = { ...notification.params }
   if (typeof params.action === 'string') params.action = t(`notifications.recoveryActions.${params.action}`)
+  // KAN-214: a regressed checklist item names the item by its checklist title.
+  if (typeof params.item === 'string') params.item = t(`setup.items.${params.item}.title`)
   return params
 }
 

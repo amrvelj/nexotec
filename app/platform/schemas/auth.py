@@ -5,6 +5,8 @@ from pydantic import Field
 
 from app.core.permissions import ModuleCode
 from app.core.schemas import CamelModel
+from app.platform.organisation.models.dealership import DealershipStatus
+from app.platform.schemas.setup import LegalAcceptanceDue
 from app.platform.schemas.user import UserRead
 
 
@@ -16,6 +18,10 @@ class DealershipMembershipSummary(CamelModel):
 
     id: uuid.UUID
     legal_name: str
+    # KAN-214 (D-A-21): `pending_onboarding` until «Betrieb aktivieren» — the
+    # SPA then shows the manager the checklist and everyone else «Betrieb wird
+    # eingerichtet». Presentation only: the gate is the server's.
+    status: DealershipStatus
 
 
 class LoginResponse(CamelModel):
@@ -52,6 +58,11 @@ class LoginResponse(CamelModel):
     # home dealership's. The SPA gates «Neu laden» on it; the server's check stays
     # the authority.
     is_active_dealership_manager: bool = False
+    # KAN-214 (FR-A-39): for a manager of the active Betrieb, the current ToS /
+    # DPA versions it has not accepted — the SPA prompts at every login until
+    # `dueBy`, then (`held`) shows only the acceptance screen. Null for anyone
+    # else, and when nothing is due.
+    legal_acceptance_due: LegalAcceptanceDue | None = None
     writable_capabilities: list[str] = Field(
         default_factory=list,
         description=(
