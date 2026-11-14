@@ -11,6 +11,7 @@ import ns_business from './it/business.json'
 import ns_catalogueBrowse from './it/catalogueBrowse.json'
 import ns_common from './it/common.json'
 import ns_configurator from './it/configurator.json'
+import ns_contactGroups from './it/contactGroups.json'
 import ns_contractDetail from './it/contractDetail.json'
 import ns_creditBlockDialog from './it/creditBlockDialog.json'
 import ns_customerCreate from './it/customerCreate.json'
@@ -65,6 +66,7 @@ const bundle = {
   catalogueBrowse: ns_catalogueBrowse,
   common: ns_common,
   configurator: ns_configurator,
+  contactGroups: ns_contactGroups,
   contractDetail: ns_contractDetail,
   creditBlockDialog: ns_creditBlockDialog,
   customerCreate: ns_customerCreate,

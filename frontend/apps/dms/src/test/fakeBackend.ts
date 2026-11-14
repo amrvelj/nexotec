@@ -141,6 +141,9 @@ const INFRA_ROUTES: FakeRoute[] = [
   // matched on pathname like every other route, the host is in `req.url`).
   { method: 'GET', match: /\/dealerships\/[^/]+\/address-autocomplete$/, handler: () => ({ enabled: false, browserKey: null }) },
   { method: 'PUT', match: /\/me\/preferences\//, handler: () => ({ ok: true }) },
+  // KAN-466 — the customer screens name contact groups through the Betrieb's
+  // list; none by default. A test about them shadows this route.
+  { method: 'GET', match: /\/dealerships\/[^/]+\/contact-groups$/, handler: () => ({ items: [] }) },
   // KAN-216 — the shell's bell asks for the unread count; none by default.
   { method: 'GET', match: /\/me\/notifications\/unread-count$/, handler: () => ({ count: 0 }) },
   {

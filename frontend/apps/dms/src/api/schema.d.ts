@@ -1244,6 +1244,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/dealerships/{dealership_id}/contact-groups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Contact Groups */
+        get: operations["list_contact_groups_v1_dealerships__dealership_id__contact_groups_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/dealerships/{dealership_id}/contact-groups/{value_code}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Set Contact Group */
+        put: operations["set_contact_group_v1_dealerships__dealership_id__contact_groups__value_code__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/dealerships/{dealership_id}/copy-configuration": {
         parameters: {
             query?: never;
@@ -5964,6 +5998,41 @@ export interface components {
          * @enum {string}
          */
         ConsentSource: "form" | "counter" | "web" | "phone";
+        /** ContactGroupList */
+        ContactGroupList: {
+            /** Items */
+            items: components["schemas"]["ContactGroupRead"][];
+        };
+        /**
+         * ContactGroupRead
+         * @description One group of the platform list `contact_group`, as this Betrieb sees
+         *     it. `active` is the platform's (staff deactivate a value on the Reference
+         *     data screen); `enabled` is this Betrieb's switch, never true for an
+         *     inactive value.
+         */
+        ContactGroupRead: {
+            /** Active */
+            active: boolean;
+            /** Enabled */
+            enabled: boolean;
+            /** Labelde */
+            labelDe: string;
+            /** Labelen */
+            labelEn: string;
+            /** Labelfr */
+            labelFr: string;
+            /** Labelit */
+            labelIt: string;
+            /** Sortorder */
+            sortOrder: number;
+            /** Valuecode */
+            valueCode: string;
+        };
+        /** ContactGroupSwitch */
+        ContactGroupSwitch: {
+            /** Enabled */
+            enabled: boolean;
+        };
         /** ContractCancelRequest */
         ContractCancelRequest: {
             /** Reason */
@@ -6213,7 +6282,7 @@ export interface components {
          * CopySubset
          * @enum {string}
          */
-        CopySubset: "standard_texts" | "document_template" | "number_ranges";
+        CopySubset: "standard_texts" | "document_template" | "number_ranges" | "contact_groups";
         /** CustomerAddressCreate */
         CustomerAddressCreate: {
             /**
@@ -6383,6 +6452,8 @@ export interface components {
             birthDate?: string | null;
             /** Companyname */
             companyName?: string | null;
+            /** Contactgroups */
+            contactGroups?: string[];
             /** Creditlimit */
             creditLimit?: number | string | null;
             /** Customersince */
@@ -6784,6 +6855,8 @@ export interface components {
             birthDate: string | null;
             /** Companyname */
             companyName: string | null;
+            /** Contactgroups */
+            contactGroups?: string[];
             /**
              * Createdat
              * Format: date-time
@@ -6907,6 +6980,8 @@ export interface components {
             birthDate?: string | null;
             /** Companyname */
             companyName?: string | null;
+            /** Contactgroups */
+            contactGroups?: string[] | null;
             /** Creditlimit */
             creditLimit?: number | string | null;
             /** Customersince */
@@ -13320,6 +13395,10 @@ export interface operations {
                 advisorUserIdNot?: string | null;
                 /** @description KAN-476: customers that have an advisor — «ist nicht Nicht zugewiesen». */
                 assigned?: boolean;
+                /** @description KAN-466: customers carrying this contact group (a code of the platform list contact_group). */
+                contactGroup?: string | null;
+                /** @description KAN-466: customers not carrying this contact group (customers with none included). */
+                contactGroupNot?: string | null;
                 /** @description e.g. 'lastName:asc,updatedAt:desc' */
                 sort?: string | null;
                 limit?: number;
@@ -15220,6 +15299,81 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_contact_groups_v1_dealerships__dealership_id__contact_groups_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContactGroupList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_contact_group_v1_dealerships__dealership_id__contact_groups__value_code__put: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                value_code: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ContactGroupSwitch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContactGroupRead"];
                 };
             };
             /** @description Validation Error */

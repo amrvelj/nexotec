@@ -27,7 +27,8 @@
     "branding": "Logo et couleurs",
     "standardTexts": "Textes standard",
     "numberRanges": "Plages de numéros",
-    "onboarding": "Intégrer une entreprise"
+    "onboarding": "Intégrer une entreprise",
+    "contactGroups": "Groupes de contacts"
   },
   "signOut": "Se déconnecter",
   "environmentNotice": {

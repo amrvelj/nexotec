@@ -291,6 +291,9 @@ _READS = {
     # reconciliation runs; reads nothing itself.
     "app.platform.public.actor_reference_checks",
     "app.platform.public.get_active_reference_value_codes",
+    # KAN-466: which contact groups the acting Betrieb may set — its switch rows and the
+    # platform list, a SELECT only.
+    "app.platform.public.contact_group_codes",
     # KAN-200/KAN-410: who may own an open record in a Betrieb (a seller, an
     # advisor) — the user row and their memberships, a SELECT only.
     "app.platform.public.get_active_user_acting_in",

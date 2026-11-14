@@ -27,7 +27,8 @@
     "branding": "Logo und Farben",
     "standardTexts": "Standardtexte",
     "numberRanges": "Nummernkreise",
-    "onboarding": "Betrieb aufnehmen"
+    "onboarding": "Betrieb aufnehmen",
+    "contactGroups": "Kontaktgruppen"
   },
   "signOut": "Abmelden",
   "environmentNotice": {

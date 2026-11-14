@@ -35,6 +35,7 @@ import { useIdempotencyKey } from '../hooks/useIdempotencyKey'
 import { useSavedViews } from '../hooks/useSavedViews'
 import { useCountryOptions } from '../hooks/useCountryOptions'
 import { useAdvisorOptions } from '../hooks/useAdvisorOptions'
+import { useContactGroups } from '../hooks/useContactGroups'
 import { api, ApiError } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import { buildCustomerRowMenu } from '../components/customerRowMenu'
@@ -119,6 +120,11 @@ export function CustomersListPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const { options: countryOptions } = useCountryOptions()
   const { options: advisorOptions } = useAdvisorOptions()
+  const contactGroups = useContactGroups()
+  const contactGroupOptions = useMemo(
+    () => contactGroups.items.map((item) => ({ value: item.valueCode, label: contactGroups.label(item.valueCode) })),
+    [contactGroups],
+  )
 
   // ISO 3166-1 alpha-2 -> localised country name, for the `nationality`
   // and `addressCountry` columns. Falls back to the raw code while the
@@ -329,6 +335,25 @@ export function CustomersListPage() {
           exportValue: (row) => row.advisorLabel ?? '',
         },
       },
+      // KAN-466 — the contact groups, filterable through the shared mapper
+      // (`contactGroup` / `contactGroupNot`). The filter offers every group
+      // the platform list has: a customer may carry one this Betrieb has not
+      // switched on (a sister Betrieb's).
+      {
+        id: 'contactGroups',
+        header: t('customersList.columns.contactGroups'),
+        cell: ({ row }) => {
+          const codes = row.original.contactGroups ?? []
+          return codes.length > 0 ? codes.map(contactGroups.label).join(', ') : '—'
+        },
+        meta: {
+          // Available, hidden by default: the default cells are the UI spec's
+          // ratified set (ADR-060); the user adds it from the Columns panel.
+          defaultVisible: false,
+          filter: { type: 'select', param: 'contactGroup', options: contactGroupOptions, conditions: ['is', 'isNot'] },
+          exportValue: (row) => (row.contactGroups ?? []).map(contactGroups.label).join(', '),
+        },
+      },
       {
         id: 'tags',
         header: t('customersList.columns.tags'),
@@ -484,7 +509,7 @@ export function CustomersListPage() {
       },
       text('duplicateOfCustomerId', t('customersList.columns.duplicateOf'), (row) => row.duplicateOfCustomerId, { mono: true }),
     ]
-  }, [t, locale, countryLabel, advisorOptions])
+  }, [t, locale, countryLabel, advisorOptions, contactGroups, contactGroupOptions])
 
   const columnRegistry: ColumnRegistryEntry[] = useMemo(
     () =>

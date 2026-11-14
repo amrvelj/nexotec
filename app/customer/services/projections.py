@@ -20,6 +20,7 @@ from app.customer.models.customer import (
 from app.customer.schemas.customer import (
     CustomerAddressRead,
 )
+from app.customer.services.contact_groups import contact_groups_by_customer
 from app.customer.services.customer_common import _is_usable_row
 
 _EMPTY_PROJECTIONS: dict[str, Any] = {
@@ -30,6 +31,7 @@ _EMPTY_PROJECTIONS: dict[str, Any] = {
     "email_secondary": None,
     "address": None,
     "tags": [],
+    "contact_groups": [],
 }
 
 
@@ -123,6 +125,8 @@ def compute_customer_projections_batch(db: Session, customer_ids: list[uuid.UUID
     for row in db.scalars(select(CustomerTag).where(CustomerTag.customer_id.in_(customer_ids))).all():
         tags_by_customer.setdefault(row.customer_id, []).append(row.tag)
 
+    contact_groups = contact_groups_by_customer(db, customer_ids)
+
     def _primary_of_type(rows: list[Any], type_column: str, type_value: Any) -> Any | None:
         of_type = [r for r in rows if getattr(r, type_column) == type_value]
         return next((r for r in of_type if r.is_primary), of_type[0] if of_type else None)
@@ -148,5 +152,6 @@ def compute_customer_projections_batch(db: Session, customer_ids: list[uuid.UUID
             "email_secondary": email_secondary_row.email_address if email_secondary_row else None,
             "address": CustomerAddressRead.model_validate(address_domicile) if address_domicile else None,
             "tags": sorted(tags_by_customer.get(customer_id, [])),
+            "contact_groups": contact_groups.get(customer_id, []),
         }
     return result

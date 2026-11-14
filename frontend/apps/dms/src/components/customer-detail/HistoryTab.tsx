@@ -71,6 +71,7 @@ const OVERVIEW_FIELD_LABEL: Record<string, string> = {
   website: 'customerDetail.overview.fields.website',
   newsletter: 'customerDetail.overview.fields.newsletter',
   tags: 'customerDetail.overview.fields.tags',
+  contactGroups: 'customerDetail.overview.fields.contactGroups',
   notes: 'customerDetail.overview.fields.notes',
   customerNumber: 'customerDetail.overview.fields.customerNumber',
   addressStreet: 'customerDetail.overview.addressForm.street',
@@ -122,6 +123,8 @@ const HISTORY_FIELDS = new Set([
   'externalIdsDropped',
   'tagsRepointed',
   'tagsDropped',
+  'contactGroupsRepointed',
+  'contactGroupsDropped',
 ])
 
 // A field this tab does not know yet is shown under its key exactly as
@@ -199,6 +202,7 @@ interface ValueContext {
   locale: string
   idLabels: Record<string, string>
   countryLabels: Record<string, string>
+  contactGroupLabel?: (code: string) => string
 }
 
 // Fields that hold an ISO country code from the `country` reference list.
@@ -225,10 +229,14 @@ function formatValue(
   entityType: string,
   key: string,
   v: unknown,
-  { t, exists, locale, idLabels, countryLabels }: ValueContext,
+  { t, exists, locale, idLabels, countryLabels, contactGroupLabel }: ValueContext,
 ): string {
   if (v === null || v === undefined) return '—'
   if (typeof v === 'boolean') return v ? t('common.yes') : t('common.no')
+  // KAN-466: contact groups are reference codes — read as their labels.
+  if (Array.isArray(v) && camelKey(key) === 'contactGroups' && contactGroupLabel) {
+    return v.length === 0 ? '—' : v.map((code) => contactGroupLabel(String(code))).join(', ')
+  }
   // KAN-371: a list of ids (the customers or party rows a merge moved) reads
   // as their names, an id nothing names as the translated marker.
   if (Array.isArray(v) && REFERENCE_KEYS.has(camelKey(key)) && v.every((item) => typeof item === 'string')) {
@@ -292,16 +300,18 @@ function HistoryEvent({
   locale,
   idLabels,
   countryLabels,
+  contactGroupLabel,
 }: {
   event: AuditEventRead
   isYou: boolean
   locale: string
   idLabels: Record<string, string>
   countryLabels: Record<string, string>
+  contactGroupLabel?: (code: string) => string
 }) {
   const { t, i18n } = useTranslation()
   const changes = diff(event.before, event.after)
-  const ctx: ValueContext = { t, exists: (key) => i18n.exists(key), locale, idLabels, countryLabels }
+  const ctx: ValueContext = { t, exists: (key) => i18n.exists(key), locale, idLabels, countryLabels, contactGroupLabel }
   // KAN-371: the acting user by name where the History endpoint could name them.
   const actor = isYou
     ? t('customerDetail.history.you')
@@ -349,6 +359,7 @@ export function HistoryTab({
   locale,
   idLabels = {},
   countryLabels = {},
+  contactGroupLabel,
 }: {
   events: AuditEventRead[]
   loading: boolean
@@ -360,6 +371,8 @@ export function HistoryTab({
   // ISO country code → its name in the UI language (the `country` reference
   // list, as the Overview renders nationality and address country).
   countryLabels?: Record<string, string>
+  // KAN-466 — a contact-group code → its label in the UI language.
+  contactGroupLabel?: (code: string) => string
 }) {
   const { t } = useTranslation()
   const { user } = useAuth()
@@ -392,7 +405,7 @@ export function HistoryTab({
   return (
     <div>
       {sorted.map((event) => (
-        <HistoryEvent key={event.id} event={event} isYou={event.actorId === user?.id} locale={locale} idLabels={idLabels} countryLabels={countryLabels} />
+        <HistoryEvent key={event.id} event={event} isYou={event.actorId === user?.id} locale={locale} idLabels={idLabels} countryLabels={countryLabels} contactGroupLabel={contactGroupLabel} />
       ))}
     </div>
   )

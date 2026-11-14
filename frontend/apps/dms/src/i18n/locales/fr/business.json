@@ -182,19 +182,21 @@
   },
   "copyConfiguration": {
     "title": "Reprendre la configuration de …",
-    "intro": "Reprenez une seule fois les textes standard, les en-têtes du modèle de document et les modèles des plages de numéros d'une autre entreprise que vous gérez également. Les copies appartiennent ensuite à cette entreprise ; les modifications ultérieures dans l'autre entreprise n'ont pas d'effet ici.",
+    "intro": "Reprenez une seule fois les textes standard, les en-têtes du modèle de document, les modèles des plages de numéros et les groupes de contacts d'une autre entreprise que vous gérez également. Les copies appartiennent ensuite à cette entreprise ; les modifications ultérieures dans l'autre entreprise n'ont pas d'effet ici.",
     "source": "Entreprise d'origine",
     "sourcePlaceholder": "Choisir une entreprise",
     "subsets": "Éléments repris",
     "subset": {
       "standard_texts": "Textes standard",
       "document_template": "Modèle de document (en-têtes)",
-      "number_ranges": "Modèles des plages de numéros"
+      "number_ranges": "Modèles des plages de numéros",
+      "contact_groups": "Groupes de contacts"
     },
     "subsetHint": {
       "standard_texts": "Les textes propres et adaptés de l'entreprise, sans les variantes par site. Un texte que cette entreprise possède déjà est écrasé. L'approbation des modèles WhatsApp n'est jamais reprise ; un modèle écrasé doit être soumis à nouveau.",
       "document_template": "L'en-tête des documents, par langue. Si l'autre entreprise n'en a pas dans une langue, celui d'ici reste inchangé.",
-      "number_ranges": "Modèle, valeur de départ et redémarrage annuel des modules que cette entreprise utilise. Les compteurs ne sont jamais repris ; une plage qui a déjà attribué un numéro reste inchangée."
+      "number_ranges": "Modèle, valeur de départ et redémarrage annuel des modules que cette entreprise utilise. Les compteurs ne sont jamais repris ; une plage qui a déjà attribué un numéro reste inchangée.",
+      "contact_groups": "Les groupes de contacts que l’autre entreprise utilise sont activés ici. Aucun groupe n’est désactivé."
     },
     "preview": "Afficher l'aperçu",
     "previewTitle": "Aperçu : reprise depuis {{source}}",
@@ -227,7 +229,8 @@
       "standard_text_placeholder_invalid": "Le texte contient un espace réservé qui n'est plus valable.",
       "standard_text_seed_language_missing": "Le modèle de ce texte n'existe plus dans cette langue.",
       "whatsapp_approval_reset": "Le modèle WhatsApp doit être soumis à nouveau pour approbation.",
-      "other": "Cet élément ne peut pas être repris."
+      "other": "Cet élément ne peut pas être repris.",
+      "contact_group_inactive": "Nexotec a retiré ce groupe de contacts."
     }
   }
 }

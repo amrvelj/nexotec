@@ -285,6 +285,18 @@ def list_customers(
         description="KAN-476: customers this user does not advise (unassigned ones included).",
     ),
     assigned: bool = Query(default=False, description="KAN-476: customers that have an advisor — «ist nicht Nicht zugewiesen»."),
+    contact_group: str | None = Query(
+        default=None,
+        alias="contactGroup",
+        max_length=64,
+        description="KAN-466: customers carrying this contact group (a code of the platform list contact_group).",
+    ),
+    contact_group_not: str | None = Query(
+        default=None,
+        alias="contactGroupNot",
+        max_length=64,
+        description="KAN-466: customers not carrying this contact group (customers with none included).",
+    ),
     sort: str | None = Query(default=None, description="e.g. 'lastName:asc,updatedAt:desc'"),
     limit: int = Query(default=settings.pagination_default_limit, ge=1, le=settings.pagination_max_limit),
     cursor: str | None = Query(default=None),
@@ -317,6 +329,8 @@ def list_customers(
         canton_not=canton_not,
         advisor_user_id_not=advisor_user_id_not,
         assigned=assigned,
+        contact_group=contact_group,
+        contact_group_not=contact_group_not,
     )
     projections_by_id = projections_service.compute_customer_projections_batch(db, [c.id for c in rows])
     items = [

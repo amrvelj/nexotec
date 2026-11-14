@@ -63,7 +63,8 @@
       "website": "Site web",
       "newsletter": "Newsletter",
       "tags": "Étiquettes",
-      "notes": "Notes"
+      "notes": "Notes",
+      "contactGroups": "Groupes de contacts"
     },
     "notSet": "Non renseigné",
     "addressRequiredForContract": "Aucune adresse enregistrée — requise avant de pouvoir confirmer un contrat.",
@@ -242,7 +243,9 @@
       "externalIdsRepointed": "ID externes transférés",
       "externalIdsDropped": "ID externes écartés",
       "tagsRepointed": "Étiquettes transférées",
-      "tagsDropped": "Étiquettes écartées"
+      "tagsDropped": "Étiquettes écartées",
+      "contactGroupsRepointed": "Groupes de contacts transférés",
+      "contactGroupsDropped": "Groupes de contacts écartés"
     }
   },
   "linkVehicle": {

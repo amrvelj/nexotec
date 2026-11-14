@@ -165,7 +165,12 @@
     "vehicle_vin_changed": "Il VIN nell'anagrafica veicolo è stato modificato nel frattempo. Ricaricate e riprovate.",
     "vehicle_merged": "Il veicolo è stato unito a un altro nell'anagrafica veicolo. Ricaricate.",
     "provider_has_no_captions": "Questo fornitore non ha un vocabolario da recuperare.",
-    "vin_change_needs_vin_correction": "Questo veicolo è in stock nella sua azienda come {{stockNumber}}. Il suo VIN si modifica lì con «Correggere il VIN», affinché veicolo in stock, anagrafica veicolo e configurazione portino lo stesso VIN."
+    "vin_change_needs_vin_correction": "Questo veicolo è in stock nella sua azienda come {{stockNumber}}. Il suo VIN si modifica lì con «Correggere il VIN», affinché veicolo in stock, anagrafica veicolo e configurazione portino lo stesso VIN.",
+    "contact_group_inactive": "Nexotec ha ritirato questo gruppo di contatti; non può essere attivato.",
+    "contact_group_unknown": "Questo gruppo di contatti non esiste.",
+    "contact_group_not_enabled": "Questo gruppo di contatti non è attivo nella vostra azienda. La direzione lo attiva in Amministrazione › Gruppi di contatti.",
+    "contact_group_read_only": "Questo gruppo di contatti non è attivo nella vostra azienda e qui non può essere tolto.",
+    "customer_contact_group_exists": "Un gruppo di contatti di questa modifica è già presente sul cliente: il cliente è stato modificato nel frattempo. Ricaricalo e riprova."
   },
   "accessWindow": {
     "between": "valido dal {{from}} al {{to}}",

@@ -165,7 +165,12 @@
     "vehicle_vin_changed": "Die VIN im Fahrzeugstamm wurde inzwischen geändert. Bitte neu laden und erneut versuchen.",
     "vehicle_merged": "Das Fahrzeug wurde im Fahrzeugstamm mit einem anderen zusammengeführt. Bitte neu laden.",
     "provider_has_no_captions": "Dieser Anbieter hat kein Vokabular, das geholt werden kann.",
-    "vin_change_needs_vin_correction": "Dieses Fahrzeug steht als {{stockNumber}} im Lager Ihres Betriebs. Seine VIN wird dort mit «VIN korrigieren» geändert, damit Lagerfahrzeug, Fahrzeugstamm und Konfiguration dieselbe VIN tragen."
+    "vin_change_needs_vin_correction": "Dieses Fahrzeug steht als {{stockNumber}} im Lager Ihres Betriebs. Seine VIN wird dort mit «VIN korrigieren» geändert, damit Lagerfahrzeug, Fahrzeugstamm und Konfiguration dieselbe VIN tragen.",
+    "contact_group_inactive": "Diese Kontaktgruppe hat Nexotec eingestellt; sie kann nicht eingeschaltet werden.",
+    "contact_group_unknown": "Diese Kontaktgruppe gibt es nicht.",
+    "contact_group_not_enabled": "Diese Kontaktgruppe ist in Ihrem Betrieb nicht eingeschaltet. Die Geschäftsführung schaltet sie unter Verwaltung › Kontaktgruppen ein.",
+    "contact_group_read_only": "Diese Kontaktgruppe ist in Ihrem Betrieb nicht eingeschaltet und kann hier nicht entfernt werden.",
+    "customer_contact_group_exists": "Eine Kontaktgruppe dieser Änderung ist beim Kunden bereits gesetzt – der Kunde wurde in der Zwischenzeit geändert. Laden Sie ihn neu und versuchen Sie es erneut."
   },
   "accessWindow": {
     "between": "gültig vom {{from}} bis {{to}}",

@@ -20,6 +20,7 @@ from app.core.reconciliation import ReconciliationRun, ReferenceCheck, StateChec
 from app.customer.models.customer import (
     Customer,
     CustomerAddress,
+    CustomerContactGroup,
     CustomerEmail,
     CustomerExternalId,
     CustomerLifecycleStatus,
@@ -45,6 +46,7 @@ _BOOKING_EVENT_TYPES = ("inventory.stock_item.purchased", "inventory.stock_item.
 # user, or be null (KAN-243; see app.platform.public.actor_reference_checks).
 ACTOR_TABLES = (
     Customer, CustomerPhone, CustomerEmail, CustomerAddress, CustomerExternalId, CustomerTag, LegalBasis, VehicleParty,
+    CustomerContactGroup,  # KAN-466
 )
 
 CHECKS: list[ReferenceCheck | StateCheck] = [

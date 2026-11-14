@@ -1,0 +1,26 @@
+{
+  "title": "Kontaktgruppen",
+  "subtitle": "Mit welchen Gruppen Ihr Betrieb Kontakte einordnet. Die Liste pflegt Nexotec; Sie schalten die Gruppen ein, die Sie verwenden.",
+  "offNotice": "Eine ausgeschaltete Gruppe bleibt bei den Kontakten, die sie schon tragen. Sie wird nicht mehr angeboten und lässt sich bei ihnen hier nicht mehr entfernen.",
+  "readOnly": "Nur die Geschäftsführung kann Kontaktgruppen ein- und ausschalten.",
+  "loadError": "Die Kontaktgruppen konnten nicht geladen werden.",
+  "saveError": "Die Änderung konnte nicht gespeichert werden.",
+  "columns": {
+    "group": "Gruppe",
+    "status": "Status",
+    "enabled": "Im Betrieb verwendet"
+  },
+  "status": {
+    "on": "Eingeschaltet",
+    "off": "Ausgeschaltet",
+    "inactive": "Von Nexotec eingestellt"
+  },
+  "switchLabel": "{{group}} verwenden",
+  "field": {
+    "label": "Kontaktgruppen",
+    "placeholder": "Gruppe wählen",
+    "noneOffered": "In diesem Betrieb ist keine Kontaktgruppe eingeschaltet.",
+    "readOnlyHint": "In diesem Betrieb nicht eingeschaltet – hier nicht änderbar.",
+    "unknown": "Unbekannte Gruppe ({{code}})"
+  }
+}

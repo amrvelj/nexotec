@@ -28,6 +28,7 @@ from app.platform.services.connected_account import (
     register_grant_revoker,
     unregister_grant_revoker,
 )
+from app.platform.services.contact_group import ContactGroupCodes, contact_group_codes
 from app.platform.services.dealership import (
     enable_group_read,
     get_dealer_group_or_404,
@@ -99,6 +100,7 @@ __all__ = [
     "PLACEHOLDER_UNRESOLVED",
     "Addressee",
     "ConnectedAccountProvider",
+    "ContactGroupCodes",
     "ContentDefinition",
     "DealerGroup",
     "DealerGroupRead",
@@ -127,6 +129,7 @@ __all__ = [
     "UserDisplayLabel",
     "actor_reference_checks",
     "allocate_number",
+    "contact_group_codes",
     "enable_group_read",
     "get_active_reference_value_codes",
     "get_active_user_acting_in",

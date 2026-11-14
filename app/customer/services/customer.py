@@ -43,6 +43,7 @@ from app.customer.schemas.customer import (
     CustomerCreate,
     CustomerUpdate,
 )
+from app.customer.services import contact_groups as contact_groups_service
 from app.customer.services.contact_channels import _consent_create_kwargs
 from app.customer.services.customer_common import (
     _EVENT_PRODUCER,
@@ -398,6 +399,10 @@ def create_customer(
     db.flush()
     _add_contacts(db, customer, data)
     _replace_customer_tags(db, customer, data.tags, actor_id=actor_id)
+    contact_groups_service.check_contact_group_change(
+        db, dealership_id=dealership_id, current=set(), wanted=set(data.contact_groups)
+    )
+    contact_groups_service.replace_customer_contact_groups(db, customer, data.contact_groups, actor_id=actor_id)
     try:
         db.flush()
     except IntegrityError as exc:
@@ -411,6 +416,7 @@ def create_customer(
 
     after = {field: _redact(field, getattr(customer, field)) for field in _AUDITED_FIELDS}
     after["tags"] = sorted(data.tags)
+    after[contact_groups_service.AUDIT_FIELD] = sorted(data.contact_groups)
     record_audit_event(
         db,
         entity_type="customer",
@@ -485,6 +491,19 @@ def update_customer(
             after["tags"] = new_tags
             _replace_customer_tags(db, customer, new_tags, actor_id=actor_id)
 
+    # KAN-466: contact groups, full replace like tags; what the acting
+    # Betrieb may not set is read-only from here (services/contact_groups.py).
+    if "contact_groups" in changes:
+        new_groups = sorted(changes.pop("contact_groups"))
+        current_groups = contact_groups_service.customer_contact_groups(db, customer.id)
+        if new_groups != current_groups:
+            contact_groups_service.check_contact_group_change(
+                db, dealership_id=dealership_id, current=set(current_groups), wanted=set(new_groups)
+            )
+            before[contact_groups_service.AUDIT_FIELD] = current_groups
+            after[contact_groups_service.AUDIT_FIELD] = new_groups
+            contact_groups_service.replace_customer_contact_groups(db, customer, new_groups, actor_id=actor_id)
+
     for field, value in changes.items():
         current = getattr(customer, field)
         if current == value:
@@ -510,7 +529,16 @@ def update_customer(
         db.flush()
     except IntegrityError as exc:
         db.rollback()
-        if _violated_constraint(exc) != "uq_customer_tag_customer_id_tag":
+        violated = _violated_constraint(exc)
+        if violated == "uq_customer_contact_group_customer_id_value_code":
+            # The same race as a tag's (KAN-390): a merge moved a duplicate's
+            # group onto this customer while the PATCH waited.
+            raise ConflictError(
+                "A contact group in this change is already on the customer: it changed in the meantime (a customer"
+                " may have been merged into it). Reload it and try again.",
+                details={"reason": "customer_contact_group_exists"},
+            ) from exc
+        if violated != "uq_customer_tag_customer_id_tag":
             raise ConflictError("This change conflicts with an existing record.") from exc
         raise ConflictError(
             "A tag in this change is already on the customer: it changed in the meantime (a customer may have"

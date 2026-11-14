@@ -14,10 +14,11 @@ import type {
 } from '../../api/types'
 import { useAuth } from '../../auth/AuthContext'
 import { businessRefusalText } from '../../businessOptions'
+import { useContactGroups } from '../../hooks/useContactGroups'
 import { useFieldHint } from '../../hooks/useFieldHint'
 import { SectionCard } from './SectionCard'
 
-const SUBSETS: ConfigurationCopySubset[] = ['standard_texts', 'document_template', 'number_ranges']
+const SUBSETS: ConfigurationCopySubset[] = ['standard_texts', 'document_template', 'number_ranges', 'contact_groups']
 const OUTCOME_TONE: Record<ConfigurationCopyItem['outcome'], BadgeTone> = {
   created: 'success',
   overwritten: 'warning',
@@ -25,6 +26,7 @@ const OUTCOME_TONE: Record<ConfigurationCopyItem['outcome'], BadgeTone> = {
   skipped: 'destructive',
 }
 const KNOWN_REASONS = new Set([
+  'contact_group_inactive',
   'default_replaced',
   'number_range_frozen',
   'number_pattern_location_code_missing',
@@ -248,9 +250,16 @@ function ItemLabel({ item }: { item: ConfigurationCopyItem }) {
     )
   }
   if (item.subset === 'document_template') return <Text fz="sm">{t('business.copyConfiguration.headerNotes')}</Text>
+  if (item.subset === 'contact_groups') return <ContactGroupLabel code={item.key} />
   return (
     <Text fz="sm">
       {item.label} {item.language && <LanguageBadge language={item.language} />}
     </Text>
   )
+}
+
+/** KAN-466: a copied contact group by its label in the UI language. */
+function ContactGroupLabel({ code }: { code: string }) {
+  const { label } = useContactGroups()
+  return <Text fz="sm">{label(code)}</Text>
 }

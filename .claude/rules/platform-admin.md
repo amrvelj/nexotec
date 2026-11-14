@@ -90,8 +90,14 @@ Decided rulings live in the PRD; built only where a bullet says so — check the
 - **Customer messaging (D-A-41):** one platform send dialog for e-mail, SMS, WhatsApp; the Betrieb
   brings its own SMS/WhatsApp provider; consent lives on the customer.
 - **Not in v1, by ruling:** policy limits (D-A-18), external users (D-A-20), custom fields and tags
-  (D-A-29), Saldosteuersatz (D-A-27), customer logins (D-A-13), API clients (D-A-14), Zefix
+  (D-A-29; one exception, contact tags — Anto, 2026-10-26), Saldosteuersatz (D-A-27), customer logins (D-A-13), API clients (D-A-14), Zefix
   auto-fill, AI translations, training mode.
+
+## Contact groups (KAN-466) — built
+- Nexotec's list `contact_group` (reference data, staff-maintained); each Betrieb switches groups on at
+  `/administration/contact-groups` (`dealership_contact_group`, a row = on, none by default; matrix row
+  `dealership_settings`); copied from a sister by the `contact_groups` subset (switches on, never off).
+  A group withdrawn by staff cannot be switched on. Guarded by `test_contact_group_setting_is_administrations.py`.
 
 ## Business master data (D-A-22, D-A-25, D-A-27, FR-A-25) — built
 - `/administration/business` is the one screen for the Betrieb's own data: legal identity,

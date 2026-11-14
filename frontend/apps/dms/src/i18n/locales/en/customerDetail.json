@@ -63,7 +63,8 @@
       "website": "Website",
       "newsletter": "Newsletter",
       "tags": "Tags",
-      "notes": "Notes"
+      "notes": "Notes",
+      "contactGroups": "Contact groups"
     },
     "notSet": "Not set",
     "addressRequiredForContract": "No address on file — needed before a contract can be confirmed.",
@@ -242,7 +243,9 @@
       "externalIdsRepointed": "External IDs moved",
       "externalIdsDropped": "External IDs dropped",
       "tagsRepointed": "Tags moved",
-      "tagsDropped": "Tags dropped"
+      "tagsDropped": "Tags dropped",
+      "contactGroupsRepointed": "Contact groups moved",
+      "contactGroupsDropped": "Contact groups dropped"
     }
   },
   "linkVehicle": {

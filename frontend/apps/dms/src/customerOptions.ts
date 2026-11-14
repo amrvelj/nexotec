@@ -319,6 +319,9 @@ export function applyCustomerFilters(params: URLSearchParams, predicates: Filter
       if (paramName === 'advisorUserId') {
         if (predicate.value === UNASSIGNED_ADVISOR) params.set('assigned', 'true')
         else params.set('advisorUserIdNot', predicate.value)
+      } else if (paramName === 'contactGroup') {
+        // KAN-466: camelCase like `advisorUserId`.
+        params.set('contactGroupNot', predicate.value)
       } else params.set(`${paramName}_not`, predicate.value)
     }
   }

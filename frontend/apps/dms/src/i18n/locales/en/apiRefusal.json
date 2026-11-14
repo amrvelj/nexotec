@@ -165,7 +165,12 @@
     "vehicle_vin_changed": "The VIN in the vehicle record has changed meanwhile. Please reload and try again.",
     "vehicle_merged": "The vehicle was merged with another in the vehicle records. Please reload.",
     "provider_has_no_captions": "This provider has no vocabulary to fetch.",
-    "vin_change_needs_vin_correction": "This vehicle is in your business's stock as {{stockNumber}}. Its VIN is changed there with “Correct VIN”, so the stock vehicle, the vehicle record and the configuration carry the same VIN."
+    "vin_change_needs_vin_correction": "This vehicle is in your business's stock as {{stockNumber}}. Its VIN is changed there with “Correct VIN”, so the stock vehicle, the vehicle record and the configuration carry the same VIN.",
+    "contact_group_inactive": "Nexotec has withdrawn this contact group; it cannot be switched on.",
+    "contact_group_unknown": "This contact group does not exist.",
+    "contact_group_not_enabled": "This contact group is not switched on in your business. The management switches it on under Administration › Contact groups.",
+    "contact_group_read_only": "This contact group is not switched on in your business and cannot be removed here.",
+    "customer_contact_group_exists": "A contact group in this change is already on the customer — the customer changed in the meantime. Reload it and try again."
   },
   "accessWindow": {
     "between": "valid from {{from}} to {{to}}",

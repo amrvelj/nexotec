@@ -63,7 +63,8 @@
       "website": "Website",
       "newsletter": "Newsletter",
       "tags": "Tags",
-      "notes": "Notizen"
+      "notes": "Notizen",
+      "contactGroups": "Kontaktgruppen"
     },
     "notSet": "Nicht angegeben",
     "addressRequiredForContract": "Keine Adresse hinterlegt — vor einem Vertragsabschluss erforderlich.",
@@ -242,7 +243,9 @@
       "externalIdsRepointed": "Externe IDs übertragen",
       "externalIdsDropped": "Externe IDs verworfen",
       "tagsRepointed": "Tags übertragen",
-      "tagsDropped": "Tags verworfen"
+      "tagsDropped": "Tags verworfen",
+      "contactGroupsRepointed": "Kontaktgruppen übertragen",
+      "contactGroupsDropped": "Kontaktgruppen verworfen"
     }
   },
   "linkVehicle": {

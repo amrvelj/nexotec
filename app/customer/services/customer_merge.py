@@ -26,6 +26,7 @@ from app.customer.models.customer import (
     CustomerTag,
 )
 from app.customer.models.vehicle_party import VehicleParty, VehiclePartyRole
+from app.customer.services import contact_groups as contact_groups_service
 from app.customer.services.customer_common import (
     _CONTACT_TYPE_COLUMN,
     _EVENT_PRODUCER,
@@ -438,6 +439,9 @@ def merge_customer(
         db, duplicate_id=customer.id, target_id=target.id
     )
     tags_repointed, tags_dropped = _repoint_customer_tags(db, duplicate_id=customer.id, target_id=target.id)
+    contact_groups_repointed, contact_groups_dropped = contact_groups_service.repoint_contact_groups(
+        db, duplicate_id=customer.id, target_id=target.id
+    )
     earlier_merges_repointed, party_copies_repointed = _repoint_earlier_merges(
         db, duplicate_id=customer.id, target_id=target.id, actor_id=actor_id, group_id=customer.group_id
     )
@@ -472,6 +476,8 @@ def merge_customer(
             "externalIdsDropped": external_ids_dropped,
             "tagsRepointed": tags_repointed,
             "tagsDropped": tags_dropped,
+            "contactGroupsRepointed": contact_groups_repointed,
+            "contactGroupsDropped": contact_groups_dropped,
             # KAN-383: customers merged into this duplicate earlier now name the survivor.
             "earlierMergesRepointedIds": [str(customer_id) for customer_id in earlier_merges_repointed],
             # KAN-392: the vehicle-link copies those earlier merges kept, now naming the survivor.

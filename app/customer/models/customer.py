@@ -624,3 +624,34 @@ class CustomerTag(PrimaryKeyMixin, TimestampMixin, Base):
     )
     customer_id: Mapped[uuid.UUID] = mapped_column(GUID(), ForeignKey("customer.id"), nullable=False, index=True)
     tag: Mapped[str] = mapped_column(String(60), nullable=False)
+
+
+class CustomerContactGroup(PrimaryKeyMixin, TimestampMixin, Base):
+    """A contact group on a customer (KAN-466; Anto, 2026-10-26): Privat,
+    Gewerbe, Flotte, Händler, … — values of the platform reference list
+    `contact_group`, **not** free text (that is `CustomerTag`). A customer may
+    carry several. Which codes may be set is the acting Betrieb's choice in
+    Dealer Administration (`platform.public.contact_group_codes`); a code
+    that Betrieb has not switched on — switched off since, or set by a sister
+    Betrieb of the group — stays on the customer and is kept by every write
+    from there.
+
+    `value_code` names the platform's reference value by its code, like every
+    reference value a record carries; no FK across contexts (rule 2).
+    `group_id` is denormalised from Customer.group_id, as on `customer_tag`.
+    """
+
+    __tablename__ = "customer_contact_group"
+    __table_args__ = (
+        UniqueConstraint("customer_id", "value_code", name="uq_customer_contact_group_customer_id_value_code"),
+    )
+
+    group_id: Mapped[uuid.UUID] = mapped_column(
+        GUID(), nullable=False, index=True, comment="Owned by the platform context (DealerGroup). No DB-level FK."
+    )
+    customer_id: Mapped[uuid.UUID] = mapped_column(GUID(), ForeignKey("customer.id"), nullable=False, index=True)
+    value_code: Mapped[str] = mapped_column(
+        String(64),
+        nullable=False,
+        comment="Owned by the platform context (reference list contact_group, by value_code). No DB-level FK.",
+    )

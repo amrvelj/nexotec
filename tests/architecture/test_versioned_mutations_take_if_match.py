@@ -33,6 +33,7 @@ from app.integration.models.secret_ref import IntegrationSecretRef
 from app.inventory.models.stock_item_publishing import StockItemMedia
 from app.main import app
 from app.platform.models.auth_session import AuthSession
+from app.platform.models.contact_group import DealershipContactGroup
 from app.platform.models.mfa import MfaPasskey, MfaTotp
 from app.platform.models.notification import Notification, PushSubscription
 from app.platform.models.user_preference import UserPreference
@@ -121,6 +122,11 @@ POST_WITHOUT_IF_MATCH = {
 
 # (method, path) -> (the model the route writes, why it takes no If-Match).
 UNVERSIONED = {
+    ("PUT", "/v1/dealerships/{dealership_id}/contact-groups/{value_code}"): (
+        DealershipContactGroup,
+        "a Betrieb's contact-group switch (KAN-466): the row exists or it does not, and the same state twice "
+        "changes nothing",
+    ),
     ("DELETE", "/v1/vehicle-mdm/{vehicle_id}/accessories/{accessory_id}"): (VehicleAccessory, "an accessory row"),
     ("PATCH", "/v1/customers/{customer_id}/phones/{phone_id}"): (CustomerPhone, "a contact channel row (ADR-067)"),
     ("DELETE", "/v1/customers/{customer_id}/phones/{phone_id}"): (CustomerPhone, "a contact channel row (ADR-067)"),

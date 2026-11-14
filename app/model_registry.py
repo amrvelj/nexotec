@@ -10,7 +10,7 @@ from app.core.idempotency_model import IdempotencyRecord
 from app.core.outbox_model import OutboxMessage
 from app.core.processed_event_model import ProcessedEvent
 from app.core.reconciliation_model import ReconciliationOrphan, ReconciliationRun
-from app.customer.models.customer import Customer, CustomerAddress, CustomerTag
+from app.customer.models.customer import Customer, CustomerAddress, CustomerContactGroup, CustomerTag
 from app.customer.models.legal_basis import LegalBasis
 from app.customer.models.stock_item_booking import StockItemBooking
 from app.customer.models.vehicle_party import VehicleParty
@@ -33,6 +33,7 @@ from app.platform.models.auth_session import AuthSession
 from app.platform.models.auth_token import AuthToken
 from app.platform.models.branding_asset import BrandingAsset
 from app.platform.models.connected_account import UserConnectedAccount
+from app.platform.models.contact_group import DealershipContactGroup
 from app.platform.models.credential import Credential
 from app.platform.models.dealership import DealerGroup, Dealership, Location
 from app.platform.models.dealership_auth_config import DealershipAuthConfig
@@ -113,6 +114,7 @@ __all__ = [
     "Credential",
     "Customer",
     "CustomerAddress",
+    "CustomerContactGroup",
     "CustomerTag",
     "DailyJobRun",
     "DealerGroup",
@@ -121,6 +123,7 @@ __all__ = [
     "Dealership",
     "DealershipAuthConfig",
     "DealershipBankAccount",
+    "DealershipContactGroup",
     "DealershipMembership",
     "DealershipSettings",
     "DocumentTemplate",

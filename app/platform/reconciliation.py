@@ -21,6 +21,7 @@ from app.platform.models.auth_event import AuthEvent
 from app.platform.models.auth_token import AuthToken
 from app.platform.models.branding_asset import BrandingAsset
 from app.platform.models.connected_account import ConnectedAccountStatus, UserConnectedAccount
+from app.platform.models.contact_group import DealershipContactGroup
 from app.platform.models.credential import Credential
 from app.platform.models.dealership import DealerGroup, Dealership, Location
 from app.platform.models.dealership_auth_config import DealershipAuthConfig
@@ -71,6 +72,7 @@ ACTOR_TABLES = (
     LocationClosure,  # created_by / updated_by (KAN-204)
     BrandingAsset,  # uploaded_by (KAN-205)
     NumberRange,  # created_by / updated_by (KAN-207; seeded rows carry none)
+    DealershipContactGroup,  # created_by / updated_by: who switched it on (KAN-466)
 )
 
 # KAN-412 (FR-AU-24, rule 10): a revoked grant's provider end is recorded by
