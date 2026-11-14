@@ -28,14 +28,14 @@ The ruling, as built:
 ADR-066 is untouched: a valuation is never edited; a quote is written once
 and only ever deleted whole.
 
-**Residual race, accepted:** a valuation created on a ten-year-old unused
-quote in the very moment the job deletes it. The job locks each quote
-(`FOR UPDATE SKIP LOCKED` — a create in flight holds the row's key-share
-lock through the foreign key, so its quote is skipped) and then re-reads the
-references in a fresh statement, so a valuation committed before the lock is
-seen and its quote kept. A create that reaches the quote after the lock waits
-for the job's commit and then fails on the foreign key: the request fails,
-nothing inconsistent is stored, and the advisor fetches a new quote.
+**The race with a valuation create** (KAN-703): the create reads its quote
+`FOR KEY SHARE` (`provider_quote.lock_quote_for_reference_or_404`) and holds
+the lock to its commit; the job locks each quote `FOR UPDATE SKIP LOCKED`, so
+a quote a create holds is skipped, and then re-reads the references in a fresh
+statement, so a valuation committed before the lock is seen and its quote
+kept. A create that reaches a quote the job holds waits for the job's commit
+and finds no row: the 404 any vanished quote gets (the advisor fetches a new
+one), never a foreign-key failure at the insert; nothing is stored.
 """
 
 import dataclasses

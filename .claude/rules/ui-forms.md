@@ -53,6 +53,7 @@ by KAN-615 (2026-11-13); forms are listed by file pattern until the frontend has
 - **Inline edit:** the kit's `InlineEditField` takes a required `describeError` and, beside an
   `onReload`, a `reloadLabel` — the app's `useInlineEditRefusal()`; only a stale If-Match 409
   (`isStaleVersion`) offers the reload. `RepeatableRowGroup` without a `describeError` shows its
-  `genericError` label. A refusal's text follows `ui-i18n.md`.
+  `genericError` label. A refusal's text follows `ui-i18n.md`. Inside a kit `DataGrid` cell the
+  refusal and reload open in a popover outside the clipping cell (ADR-164, KAN-710) — no caller code.
 - A CHF input is the kit's `ChfInput` (or `chfInlineEditor()` inside an `InlineEditField`), never a
   bare `NumberInput` (`ui-formats.md`).
