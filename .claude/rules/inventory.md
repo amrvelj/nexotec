@@ -97,6 +97,8 @@ verified against main@73baf3f (2026-10-25). -->
   ERROR and is retried the next night.
 - **Marketplaces are three** (ADR-062): AutoScout24 (AS24i v34.0, which drives the canonical field
   mapping), Carmarket, Autolina. **Full delivery:** an object no longer transmitted is **deleted**
-  there with its statistics and URL, so unpublishing is a confirmed destructive action. Only
+  there with its statistics and URL, so unpublishing is a confirmed destructive action.
+  `at_marketplace` is what the last delivered feed holds; `transmission_status` only the last
+  attempt — judge «still live there» by the former (ADR-062 as amended, `test_kan718_*`). Only
   AutoScout24 transmits; Carmarket and Autolina have no provider specification (KAN-72).
 - Stock numbers are allocated per dealership inside the caller's transaction.

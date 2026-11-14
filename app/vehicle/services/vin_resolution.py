@@ -16,10 +16,14 @@ customer import cycle that once made this necessary is gone since KAN-634
 import dataclasses
 import datetime as dt
 import uuid
+from typing import TYPE_CHECKING
 
 from sqlalchemy.orm import Session
 
 from app.core.errors import ConflictError
+
+if TYPE_CHECKING:
+    from app.vehicle.models.vehicle_mdm import VehicleMdm
 
 
 @dataclasses.dataclass(frozen=True)
@@ -39,6 +43,30 @@ def _lost_the_insert_race(exc: ConflictError, vin: str) -> bool:
 
     details = exc.details or {}
     return "reason" not in details and details.get("vin") == vin
+
+
+def _refuse_a_merged_record(own: Session, vehicle: "VehicleMdm") -> None:
+    """KAN-723 (ADR-160, KAN-524 amendment): a value that resolves to a
+    merged duplicate names a dead record — the merge made one record of the
+    car, and the duplicate keeps its (usually mistyped) identifier. Linking
+    the survivor under the duplicate's VIN would leave the caller's row with
+    a VIN its record does not carry; so the write is refused, nothing
+    created, naming the record the car lives on and the VIN it carries."""
+
+    from app.vehicle.services.vehicle_mdm import live_vehicle_mdm
+
+    if vehicle.merged_into_vehicle_id is None:
+        return
+    live = live_vehicle_mdm(own, vehicle)
+    raise ConflictError(
+        f"VIN {vehicle.vin} names a vehicle record merged into {live.vehicle_number} (VIN {live.vin}).",
+        details={
+            "reason": "vin_names_merged_vehicle",
+            "vin": live.vin,
+            "vehicleNumber": live.vehicle_number,
+            "vehicleId": str(live.id),
+        },
+    )
 
 
 def resolve_vehicle_mdm_by_vin(
@@ -85,6 +113,7 @@ def resolve_vehicle_mdm_by_vin(
             vehicle, _created = create_or_get_vehicle_mdm(
                 own, vin=vin, catalogue_variant_id=catalogue_variant_id, actor_id=actor_id
             )
+        _refuse_a_merged_record(own, vehicle)
         return ResolvedVehicleMdm(id=vehicle.id, vin=vehicle.vin)
 
 
@@ -128,6 +157,7 @@ def resolve_vehicle_mdm_by_chassis_number(
             own, chassis_number=chassis_number, make=make, first_registration_date=first_registration_date,
             actor_id=actor_id,
         )
+        _refuse_a_merged_record(own, vehicle)
         return ResolvedVehicleMdm(id=vehicle.id, vin=vehicle.vin)
 
     with Session(bind=db.get_bind(), autoflush=False, expire_on_commit=False) as own:

@@ -2,6 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { QueryClient } from '@tanstack/react-query'
 import { renderWithProviders } from '../test/renderWithProviders'
 import { installFakeBackend, type FakeRoute } from '../test/fakeBackend'
 import { LetterheadPage } from './LetterheadPage'
@@ -124,6 +125,27 @@ describe('LetterheadPage (KAN-206)', () => {
     expect(patch.headers.get('If-Match')).toBe('4')
     await waitFor(() => expect(previewCalls(backend)).toHaveLength(2))
     expect(await letterhead.findByRole('status')).toHaveTextContent('Gespeichert')
+  })
+
+  it('renders the preview afresh on coming back, after other screens changed what it prints (KAN-719)', async () => {
+    // The app's own client (main.tsx: library defaults), shared across the
+    // two visits as the shell shares it — not the test's gcTime-0 client.
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const backend = installFakeBackend(routes())
+    const first = renderWithProviders(<LetterheadPage />, { route: '/administration/letterhead', queryClient })
+    expect(await screen.findByTitle('Vorschau')).toHaveAttribute('src', 'blob:fake-1')
+    await waitFor(() => expect(previewCalls(backend)).toHaveLength(1))
+
+    // The manager leaves for the Business screen (its e-mail, website or a
+    // location's address block change there; template and branding keep
+    // their versions) and comes back.
+    first.unmount()
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:fake-1')
+    renderWithProviders(<LetterheadPage />, { route: '/administration/letterhead', queryClient })
+
+    await waitFor(() => expect(previewCalls(backend)).toHaveLength(2))
+    expect(await screen.findByTitle('Vorschau')).toHaveAttribute('src', 'blob:fake-2')
+    queryClient.clear()
   })
 
   it('moves and drops a footer column', async () => {

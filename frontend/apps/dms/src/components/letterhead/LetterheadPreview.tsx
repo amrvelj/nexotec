@@ -29,6 +29,14 @@ interface Props {
  * renderer), for the Betrieb or one of its locations. Keyed by the
  * template's and the branding's versions, so every saved change renders it
  * again.
+ *
+ * KAN-719: the renderer also prints what other screens edit — the Betrieb's
+ * master data (e-mail, website, addresses), a location's address block, the
+ * default bank account. The cache entry lives only while this screen shows
+ * it (`gcTime: 0`) and every mount fetches it again (`refetchOnMount`), so
+ * coming back to the screen always renders afresh and
+ * never shows a PDF those edits made stale — nor a blob: URL the unmount
+ * already revoked.
  */
 export function LetterheadPreview({
   dealershipId,
@@ -49,6 +57,8 @@ export function LetterheadPreview({
     queryFn: () => api.getBlobUrl(`/dealerships/${dealershipId}/document-template/preview?${params.toString()}`),
     enabled: allowed && dealershipId !== '',
     staleTime: Infinity,
+    gcTime: 0,
+    refetchOnMount: 'always',
   })
   // The previous render's blob: URL goes once a newer one replaces it.
   useEffect(() => {

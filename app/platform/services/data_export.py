@@ -26,9 +26,11 @@ export never makes it out of date.
 import dataclasses
 import datetime as dt
 import logging
+import tempfile
 import uuid
+from collections.abc import Sequence
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session
 
 from app.core import outbox
@@ -223,17 +225,79 @@ def _object_key(job: ExportJob) -> str:
     return f"dealerships/{job.dealership_id}/exports/{job.id}.zip"
 
 
-def _snapshot_session(db: Session) -> tuple[Session, dt.datetime]:
+# KAN-716: how far before the oldest writing transaction the look-back
+# reaches — stamps taken early, clock skew between the application and the
+# database (see `_snapshot_session`).
+LOOKBACK_MARGIN = dt.timedelta(days=1)
+
+
+_XID_MASK = (1 << 32) - 1
+
+
+def xid_floor(next_xid: int, open_xids: Sequence[int]) -> int:
+    """KAN-716: the oldest of `open_xids` (32-bit ids, as `pg_stat_activity`
+    shows them) as a 64-bit id, judged against `next_xid` (64-bit, read in
+    the same statement); `next_xid` itself when none is open. Each open id
+    is its distance below the next one, modulo 2^32; an id taken after the
+    next one was read reads as "not below" and is left out."""
+
+    below = [(next_xid - xid) & _XID_MASK for xid in open_xids]
+    return next_xid - max([distance for distance in below if distance < 1 << 31], default=0)
+
+
+@dataclasses.dataclass(frozen=True)
+class _Snapshot:
+    session: Session
+    produced_at: dt.datetime
+    # KAN-716: Postgres only (None on SQLite).
+    xid_floor: int | None = None
+    lookback_from: dt.datetime | None = None
+
+
+def _snapshot_session(db: Session) -> _Snapshot:
     """A session of its own on one consistent snapshot (REPEATABLE READ on
-    Postgres), and the snapshot's start: the export's `produced_at`."""
+    Postgres) and the snapshot's start — the export's `produced_at`.
+
+    KAN-716: first, on a connection of its own, a probe of this database's
+    open transactions that hold an id. The floor is the oldest such id, else
+    the next id to be assigned: a transaction still open when the snapshot
+    begins either held an id at the probe (at or above the floor) or takes
+    one later (above every id at the probe), and a savepoint's id is above
+    its parent's. Only this database is asked — a snapshot's own xmin counts
+    every database of the cluster, so another's long transaction would hold
+    it back. The look-back is the earliest start of those transactions, less
+    `LOOKBACK_MARGIN`: a stamp is the application's clock, taken before its
+    row reaches the database (sometimes earlier: a service takes `now` once
+    and writes it later), and the clocks may skew. The look-back costs no
+    precision; it only keeps old rows, whose 32-bit ids may have wrapped or
+    been frozen, out of the id test. `pg_stat_activity` shows every role's
+    `backend_xid` but hides another role's `xact_start` from an unprivileged
+    one, so such a transaction counts for the floor and not for the
+    look-back; no other role writes a Betrieb's rows. Prepared (two-phase)
+    transactions are not listed; nothing prepares one."""
 
     engine = db.get_bind().engine
-    if engine.dialect.name == "postgresql":
-        snapshot = Session(bind=engine.execution_options(isolation_level="REPEATABLE READ"))
-        # The first statement takes the snapshot; now() is its transaction's start.
-        produced_at = snapshot.scalar(select(func.now())) or utcnow()
-        return snapshot, produced_at
-    return Session(bind=engine), utcnow()
+    if engine.dialect.name != "postgresql":
+        return _Snapshot(session=Session(bind=engine), produced_at=utcnow())
+    with engine.connect() as probe:
+        read_at, oldest_open, next_xid, open_xids = probe.execute(
+            text(
+                "SELECT clock_timestamp(), min(a.xact_start), n.next_xid,"
+                " coalesce(array_agg(a.backend_xid::text::bigint)"
+                " FILTER (WHERE a.backend_xid IS NOT NULL), '{}')"
+                " FROM (SELECT pg_snapshot_xmax(pg_current_snapshot())::text::bigint AS next_xid) n"
+                " LEFT JOIN pg_stat_activity a ON a.datname = current_database()"
+                " AND a.backend_xid IS NOT NULL AND a.pid <> pg_backend_pid()"
+                " GROUP BY n.next_xid"
+            )
+        ).one()
+        probe.rollback()
+    floor = xid_floor(next_xid, open_xids)
+    snapshot = Session(bind=engine.execution_options(isolation_level="REPEATABLE READ"))
+    # The first statement takes the snapshot; now() is its transaction's start.
+    produced_at = snapshot.scalar(select(func.now())) or utcnow()
+    lookback = (min(read_at, oldest_open) if oldest_open is not None else read_at) - LOOKBACK_MARGIN
+    return _Snapshot(session=snapshot, produced_at=produced_at, xid_floor=floor, lookback_from=lookback)
 
 
 def produce(db: Session, *, export_id: uuid.UUID, store: ObjectStore | None = None) -> ExportJob | None:
@@ -246,26 +310,32 @@ def produce(db: Session, *, export_id: uuid.UUID, store: ObjectStore | None = No
     if job is None or job.status != ExportJobStatus.REQUESTED:
         return job
     store = store or get_object_store()
-    snapshot, produced_at = _snapshot_session(db)
+    taken = _snapshot_session(db)
+    snapshot, produced_at = taken.session, taken.produced_at
     try:
         dealership_row = snapshot.get(Dealership, job.dealership_id)
         if dealership_row is None:
             raise LookupError("the export's Betrieb is gone")
         scope = _with_references(snapshot, scope_for(snapshot, dealership_row))
-        archive = write_archive(
-            snapshot,
-            scope=scope,
-            produced_at=produced_at,
-            header={
-                "exportId": job.id,
-                "kind": job.kind.value,
-                "dealershipId": dealership_row.id,
-                "legalName": dealership_row.legal_name,
-                "uid": dealership_row.uid,
-            },
-        )
+        # KAN-715: the archive goes to a temporary file on disk, then to the
+        # store in chunks — never the whole ZIP in the worker's memory.
         key = _object_key(job)
-        store.put(key, archive.data, content_type=CONTENT_TYPE)
+        with tempfile.TemporaryFile(prefix="nexotec-export-") as spool:
+            archive = write_archive(
+                snapshot,
+                target=spool,
+                scope=scope,
+                produced_at=produced_at,
+                header={
+                    "exportId": job.id,
+                    "kind": job.kind.value,
+                    "dealershipId": dealership_row.id,
+                    "legalName": dealership_row.legal_name,
+                    "uid": dealership_row.uid,
+                },
+            )
+            spool.seek(0)
+            store.put_file(key, spool, content_type=CONTENT_TYPE)
     except Exception:
         logger.exception("data export %s could not be produced", job.id, extra={"exportId": str(job.id)})
         job.status = ExportJobStatus.FAILED
@@ -278,8 +348,10 @@ def produce(db: Session, *, export_id: uuid.UUID, store: ObjectStore | None = No
         snapshot.close()
     job.status = ExportJobStatus.READY
     job.produced_at = produced_at
+    job.produced_xid_floor = taken.xid_floor
+    job.produced_lookback_from = taken.lookback_from
     job.object_key = key
-    job.byte_size = len(archive.data)
+    job.byte_size = archive.byte_size
     job.download_expires_at = utcnow() + DOWNLOAD_WINDOW
     job.version += 1
     _audit(

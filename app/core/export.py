@@ -29,6 +29,7 @@ writing (a sign-in, a session) says `marks_write=False`.
 """
 
 import base64
+import contextlib
 import csv
 import dataclasses
 import datetime as dt
@@ -39,9 +40,10 @@ import json
 import uuid
 import zipfile
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
-from typing import Any, Protocol, cast
+from typing import Any, BinaryIO, Protocol, cast
 
-from sqlalchemy import ColumnElement, Table, func, select
+from sqlalchemy import ColumnElement, Table, func, literal, select, text
+from sqlalchemy.dialects import postgresql
 from sqlalchemy.orm import Session
 
 FORMAT_VERSION = 1
@@ -144,6 +146,46 @@ class Exporter(Protocol):
 
     def last_write_at(self, db: Session, scope: ExportScope) -> dt.datetime | None: ...
 
+    def wrote_outside_snapshot(self, db: Session, scope: ExportScope, xid_floor: int, since: dt.datetime) -> bool:
+        """KAN-716: a write `last_write_at` counts, stamped at or after
+        `since` (the export's look-back), whose writer id is at or above
+        `xid_floor` (`written_at_or_after_xid`) — one the export's snapshot
+        may not see."""
+        ...
+
+
+def written_at_or_after_xid(table: Table, xid_floor: int) -> ColumnElement[bool]:
+    """KAN-716: the row's last writer (`xmin`) is a transaction id at or
+    above `xid_floor` (a 64-bit id: the oldest id of a transaction open just
+    before the export's snapshot, `data_export._snapshot_session`) — a
+    transaction still running when the snapshot began, a subtransaction of
+    one (its id is above its parent's), or a later one. Conservative: one
+    in that range that committed just before the snapshot counts too.
+    Postgres only.
+
+    The 32-bit `xmin` is compared modulo 2^32, which is exact for an id
+    within 2^31 of the floor — the caller asks only about rows stamped since
+    the look-back (`ExportJob.produced_lookback_from`), never about a row old
+    enough to have wrapped or been frozen. Ids below 3 (bootstrap, frozen)
+    are never at or above it."""
+
+    own = f"{_PG_IDENTIFIERS.quote(table.name)}.xmin::text::bigint"
+    clause = text(f"({own} >= 3 AND (({own} - :kan716_floor) & 4294967295) < 2147483648)").bindparams(
+        kan716_floor=xid_floor & 0xFFFFFFFF
+    )
+    return cast(ColumnElement[bool], clause)
+
+
+_PG_IDENTIFIERS = postgresql.dialect().identifier_preparer
+
+
+def write_stamp(table: Table):
+    """The column a table's last write is read from: `updated_at`, else
+    `created_at`; None for a table with neither."""
+
+    stamp = table.c.get("updated_at")
+    return stamp if stamp is not None else table.c.get("created_at")
+
 
 class TableExporter:
     """The common shape: a context lists its tables; reading and the last
@@ -172,15 +214,28 @@ class TableExporter:
         for spec in self.exported_tables():
             if not spec.marks_write or not spec.in_archive:
                 continue
-            stamp = spec.table.c.get("updated_at")
-            if stamp is None:
-                stamp = spec.table.c.get("created_at")
+            stamp = write_stamp(spec.table)
             if stamp is None:
                 continue
             value = db.scalar(select(func.max(stamp)).where(spec.scope(scope)))
             if value is not None and (latest is None or value > latest):
                 latest = value
         return latest
+
+    def wrote_outside_snapshot(self, db: Session, scope: ExportScope, xid_floor: int, since: dt.datetime) -> bool:
+        for spec in self.exported_tables():
+            stamp = write_stamp(spec.table)
+            if not spec.marks_write or not spec.in_archive or stamp is None:
+                continue
+            found = db.scalar(
+                select(literal(1))
+                .select_from(spec.table)
+                .where(spec.scope(scope), stamp >= since, written_at_or_after_xid(spec.table, xid_floor))
+                .limit(1)
+            )
+            if found is not None:
+                return True
+        return False
 
 
 class StubExporter(TableExporter):
@@ -254,31 +309,71 @@ def _column_type(column) -> str:
         return type(column.type).__name__
 
 
-def read_rows(db: Session, spec: ExportedTable, scope: ExportScope) -> tuple[list[str], list[dict[str, Any]]]:
+# KAN-715: rows are fetched from the database in batches of this many
+# (a server-side cursor on Postgres), never one whole table in a list.
+ROW_BATCH = 1000
+# The archive entries are written in chunks of this many bytes at most.
+_COPY_CHUNK = 1024 * 1024
+
+
+def read_rows(db: Session, spec: ExportedTable, scope: ExportScope) -> tuple[list[str], Iterator[dict[str, Any]]]:
+    """The column names and the Betrieb's rows of one table, oldest first —
+    streamed in batches of `ROW_BATCH` (KAN-715): a large table is never
+    held whole. Read the rows inside the caller's one snapshot (ADR-166);
+    iterating twice reads the same rows."""
+
     columns = [column for column in spec.table.c if column.name not in spec.omit_columns]
     order = [spec.table.c[name] for name in ("created_at", "id") if name in spec.table.c]
-    statement = select(*columns).where(spec.scope(scope)).order_by(*order)
-    rows = [dict(row._mapping) for row in db.execute(statement)]
-    return [column.name for column in columns], rows
+    statement = (
+        select(*columns).where(spec.scope(scope)).order_by(*order).execution_options(yield_per=ROW_BATCH)
+    )
+
+    def rows() -> Iterator[dict[str, Any]]:
+        for row in db.execute(statement):
+            yield dict(row._mapping)
+
+    return [column.name for column in columns], rows()
 
 
 @dataclasses.dataclass(frozen=True)
 class ArchiveSummary:
-    data: bytes
+    byte_size: int
     row_counts: dict[str, int]
     document_count: int
     file_count: int
 
 
-def _entities(
-    db: Session, scope: ExportScope, registered: Sequence[Exporter]
-) -> Iterator[tuple[Exporter, ExportedTable, list[str], list[dict]]]:
+def _write_csv(archive: "_UniqueEntries", name: str, names: list[str], rows: Iterable[Mapping[str, Any]]) -> int:
+    count = 0
+    with archive.open_text(name) as text:
+        writer = csv.writer(text, lineterminator="\n")
+        writer.writerow(names)
+        for row in rows:
+            writer.writerow([_csv_cell(row[column]) for column in names])
+            count += 1
+    return count
+
+
+def _write_json(archive: "_UniqueEntries", name: str, names: list[str], rows: Iterable[Mapping[str, Any]]) -> None:
+    """The rows as one JSON array, written row by row — the same text
+    `json.dumps(rows, ensure_ascii=False, indent=1)` gives, never built
+    whole."""
+
+    with archive.open_text(name) as text:
+        first = True
+        for row in rows:
+            item = json.dumps({column: plain(row[column]) for column in names}, ensure_ascii=False, indent=1)
+            text.write("[\n" if first else ",\n")
+            text.write("\n".join(" " + line for line in item.split("\n")))
+            first = False
+        text.write("[]" if first else "\n]")
+
+
+def _entities(registered: Sequence[Exporter]) -> Iterator[tuple[Exporter, ExportedTable]]:
     for exporter in registered:
         for spec in exporter.exported_tables():
-            if not spec.in_archive:
-                continue
-            names, rows = read_rows(db, spec, scope)
-            yield exporter, spec, names, rows
+            if spec.in_archive:
+                yield exporter, spec
 
 
 class DuplicateArchiveEntry(ValueError):
@@ -294,11 +389,31 @@ class _UniqueEntries:
         self._archive = archive
         self._names: set[str] = set()
 
-    def writestr(self, name: str, data: str | bytes) -> None:
+    def _claim(self, name: str) -> None:
         if name in self._names:
             raise DuplicateArchiveEntry(f"The export would hold {name!r} twice.")
         self._names.add(name)
-        self._archive.writestr(name, data)
+
+    def writestr(self, name: str, data: str | bytes) -> None:
+        self._claim(name)
+        # zip64 for an entry that may pass 2 GiB (KAN-715: nothing caps a file's size).
+        with self._archive.open(name, "w", force_zip64=True) as entry:
+            payload = data.encode("utf-8") if isinstance(data, str) else data
+            for start in range(0, len(payload), _COPY_CHUNK):
+                entry.write(payload[start : start + _COPY_CHUNK])
+
+    @contextlib.contextmanager
+    def open_text(self, name: str) -> Iterator[io.TextIOWrapper]:
+        """One entry written as UTF-8 text while it is produced (KAN-715)."""
+
+        self._claim(name)
+        with self._archive.open(name, "w", force_zip64=True) as entry:
+            text = io.TextIOWrapper(entry, encoding="utf-8", newline="")
+            try:
+                yield text
+            finally:
+                text.flush()
+                text.detach()
 
 
 def write_archive(
@@ -307,6 +422,7 @@ def write_archive(
     scope: ExportScope,
     produced_at: dt.datetime,
     header: Mapping[str, Any],
+    target: BinaryIO,
     registered: Sequence[Exporter] | None = None,
 ) -> ArchiveSummary:
     """The export package (FR-A-44): per entity `data/{context}/{table}.csv`
@@ -314,36 +430,35 @@ def write_archive(
     numbers and dates, every uploaded file under `files/`, and `schema.json`
     describing each entity's columns and what was left out and why. A ZIP:
     open formats inside an open container. A name written twice is refused
-    (`DuplicateArchiveEntry`), so the production fails, never loses a file."""
+    (`DuplicateArchiveEntry`), so the production fails, never loses a file.
+
+    KAN-715: the ZIP is written into `target` — the caller's temporary file —
+    entry by entry, and each table's rows are read in batches twice (once
+    for the CSV, once for the JSON, both in the caller's one snapshot), so
+    neither the archive nor a whole table is ever held in memory."""
 
     exporters_ = list(registered if registered is not None else exporters())
-    buffer = io.BytesIO()
     schema_entities: list[dict[str, Any]] = []
     excluded: list[dict[str, str]] = []
     row_counts: dict[str, int] = {}
     document_index: list[dict[str, Any]] = []
     file_index: list[dict[str, Any]] = []
-    with zipfile.ZipFile(buffer, "w", compression=zipfile.ZIP_DEFLATED) as zipped:
+    start = target.tell()
+    with zipfile.ZipFile(target, "w", compression=zipfile.ZIP_DEFLATED, allowZip64=True) as zipped:
         archive = _UniqueEntries(zipped)
-        for exporter, spec, names, rows in _entities(db, scope, exporters_):
+        for exporter, spec in _entities(exporters_):
             base = f"data/{exporter.context}/{spec.name}"
-            text = io.StringIO()
-            writer = csv.writer(text, lineterminator="\n")
-            writer.writerow(names)
-            for row in rows:
-                writer.writerow([_csv_cell(row[name]) for name in names])
-            archive.writestr(f"{base}.csv", text.getvalue())
-            archive.writestr(
-                f"{base}.json",
-                json.dumps([{name: plain(row[name]) for name in names} for row in rows], ensure_ascii=False, indent=1),
-            )
-            row_counts[spec.name] = len(rows)
+            names, rows = read_rows(db, spec, scope)
+            count = _write_csv(archive, f"{base}.csv", names, rows)
+            _names, rows = read_rows(db, spec, scope)
+            _write_json(archive, f"{base}.json", names, rows)
+            row_counts[spec.name] = count
             schema_entities.append(
                 {
                     "context": exporter.context,
                     "entity": spec.name,
                     "files": [f"{base}.csv", f"{base}.json"],
-                    "rows": len(rows),
+                    "rows": count,
                     "columns": [
                         {
                             "name": column.name,
@@ -399,6 +514,10 @@ def write_archive(
                 indent=1,
             ),
         )
+    target.flush()
     return ArchiveSummary(
-        data=buffer.getvalue(), row_counts=row_counts, document_count=len(document_index), file_count=len(file_index)
+        byte_size=target.tell() - start,
+        row_counts=row_counts,
+        document_count=len(document_index),
+        file_count=len(file_index),
     )

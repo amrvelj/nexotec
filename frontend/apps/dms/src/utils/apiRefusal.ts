@@ -277,6 +277,8 @@ const REASON_KEYS: Record<string, string> = {
       'vehicle_merged',
       'vehicle_vin_changed',
       'vin_belongs_to_other_vehicle',
+      // KAN-723 — a VIN a merged duplicate still carries.
+      'vin_names_merged_vehicle',
       'vin_correction_left_stock',
       'vin_correction_needs_vehicle',
       'vin_unchanged',
@@ -372,6 +374,8 @@ const REASON_PARAMS: Record<string, (details: Details, t: TFunction) => Record<s
   }),
   // KAN-557: the vehicle-mdm record that already carries the VIN.
   vin_belongs_to_other_vehicle: (d) => ({ vehicleNumber: String(d.vehicleNumber ?? '—') }),
+  // KAN-723: the record the car lives on since the merge, and its VIN.
+  vin_names_merged_vehicle: (d) => ({ vehicleNumber: String(d.vehicleNumber ?? '—'), vin: String(d.vin ?? '—') }),
   // KAN-583: the future holder in the way — who, in which role, from when
   // (a timestamp, as a day in the user's locale).
   vehicle_party_future_holder: (d, t) => ({

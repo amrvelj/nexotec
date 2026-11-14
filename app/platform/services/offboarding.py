@@ -116,7 +116,30 @@ def readiness(db: Session, dealership: Dealership) -> OffboardingReadiness:
     assert export.produced_at is not None  # the query selects only produced exports
     if last is not None and last >= export.produced_at:
         return OffboardingReadiness(last, export, "export_out_of_date")
+    if db.get_bind().dialect.name == "postgresql":
+        # KAN-716: an export produced before its floor was recorded cannot
+        # show that it holds a write in flight at its snapshot — out of
+        # date; a fresh export answers it.
+        if export.produced_xid_floor is None or export.produced_lookback_from is None:
+            return OffboardingReadiness(last, export, "export_out_of_date")
+        if wrote_outside_snapshot(db, dealership, export.produced_xid_floor, export.produced_lookback_from):
+            return OffboardingReadiness(last, export, "export_out_of_date")
     return OffboardingReadiness(last, export, None)
+
+
+def wrote_outside_snapshot(db: Session, dealership: Dealership, xid_floor: int, since: dt.datetime) -> bool:
+    """KAN-716 (FR-A-45): a write of the Betrieb the export's snapshot may
+    not see. A transaction begun before the snapshot and committed after it
+    stamps its rows with its own, earlier time, so `last_write_at` alone
+    passes them: a row stamped since the look-back whose writer's id is at
+    or above the export's id floor refuses (`export.written_at_or_after_xid`
+    — savepoint writes included). Conservative: a write committed just
+    before the snapshot while an older transaction was still open refuses
+    too, and a fresh export answers it. Postgres only — an export carries a
+    snapshot only there."""
+
+    scope = scope_for(db, dealership)
+    return any(exporter.wrote_outside_snapshot(db, scope, xid_floor, since) for exporter in exporters())
 
 
 def _home_users(db: Session, dealership_id: uuid.UUID) -> list[User]:

@@ -60,7 +60,7 @@ from app.vehicle.schemas.configuration import (
     ConfigurationUpdate,
 )
 from app.vehicle.services.reference_codes import validate_reference_codes
-from app.vehicle.services.vehicle_mdm import get_vehicle_mdm_by_vin
+from app.vehicle.services.vehicle_mdm import get_vehicle_mdm_by_vin, live_vehicle_mdm
 
 _EVENT_PRODUCER = "vehicle.configuration"
 _ENTITY_TYPE = "vehicle_configuration"
@@ -298,6 +298,8 @@ def _link_vehicle_if_vin_resolves(db: Session, config: VehicleConfiguration) -> 
 
     # KAN-353: a pre-1981 chassis number never finds a vehicle-mdm record.
     vehicle = get_vehicle_mdm_by_vin(db, config.vin) if config.vin and not is_chassis_number(config.vin) else None
+    # KAN-723 (ADR-160): a merged duplicate's VIN links the car it lives on.
+    vehicle = live_vehicle_mdm(db, vehicle) if vehicle is not None else None
     if vehicle is None:
         config.vehicle_id = None
         config.vehicle_label = None

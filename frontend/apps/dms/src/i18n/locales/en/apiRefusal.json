@@ -159,6 +159,7 @@
     "secret_store_not_configured": "No secure credential store is set up for this deployment — nothing was saved. This is not caused by what you entered: please tell Nexotec support.",
     "vehicle_not_changed": "The stock vehicle has not changed since the price was built.",
     "vin_belongs_to_other_vehicle": "This VIN already belongs to vehicle {{vehicleNumber}} in the vehicle records. If it is the same car, merge the two there with «Merge into…».",
+    "vin_names_merged_vehicle": "This VIN belongs to a vehicle record that was merged into {{vehicleNumber}}. The vehicle carries the VIN {{vin}}.",
     "vin_correction_left_stock": "Not possible: the vehicle has left stock.",
     "vin_correction_needs_vehicle": "This vehicle has not been bought yet — its VIN is corrected in the configuration.",
     "vin_unchanged": "That is already this vehicle's VIN.",
