@@ -158,7 +158,7 @@
     "secret_slot_not_used_by_provider": "Ce fournisseur n’utilise pas cet identifiant — il n’a pas été enregistré.",
     "secret_store_not_configured": "Aucun stockage sécurisé des identifiants n'est configuré pour cette installation — rien n'a été enregistré. Votre saisie n'est pas en cause : veuillez informer le support Nexotec.",
     "vehicle_not_changed": "Le véhicule en stock n'a pas été modifié depuis le calcul du prix.",
-    "vin_belongs_to_other_vehicle": "Ce VIN est déjà celui du véhicule {{vehicleNumber}} dans la fiche véhicule. S'il s'agit du même véhicule, le support Nexotec fusionne les deux.",
+    "vin_belongs_to_other_vehicle": "Ce VIN est déjà celui du véhicule {{vehicleNumber}} dans la fiche véhicule. S'il s'agit du même véhicule, fusionnez les deux depuis la fiche avec «Fusionner avec…».",
     "vin_correction_left_stock": "Impossible : le véhicule a quitté le stock.",
     "vin_correction_needs_vehicle": "Ce véhicule n'est pas encore acheté — le VIN se corrige dans la configuration.",
     "vin_unchanged": "C'est déjà le VIN de ce véhicule.",
@@ -173,7 +173,9 @@
     "customer_contact_group_exists": "Un groupe de contacts de cette modification figure déjà chez le client — il a été modifié entre-temps. Rechargez-le et réessayez.",
     "chassis_number_identity_fixed": "Ce véhicule est identifié par son numéro de châssis. Il se corrige uniquement sur le véhicule en stock avec «Corriger le VIN», pour que le véhicule en stock, la fiche véhicule et la configuration portent le même numéro.",
     "chassis_number_requires_configuration": "Un véhicule avec un numéro de châssis au lieu d'un VIN est acheté via sa configuration : attribuez la configuration avec le numéro de châssis, la marque et la première mise en circulation («Attribuer une configuration»).",
-    "chassis_number_requires_make": "Un véhicule avec un numéro de châssis se distingue par sa marque : saisissez la marque dans sa configuration."
+    "chassis_number_requires_make": "Un véhicule avec un numéro de châssis se distingue par sa marque : saisissez la marque dans sa configuration.",
+    "vehicle_merge_same_record": "Une fiche ne peut pas être fusionnée avec elle-même.",
+    "vehicle_merge_both_in_stock": "Votre entreprise a les deux fiches en stock ({{duplicate}} et {{survivor}}). Vendez ou annulez d'abord l'un des véhicules en stock."
   },
   "accessWindow": {
     "between": "valable du {{from}} au {{to}}",

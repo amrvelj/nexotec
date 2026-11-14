@@ -126,7 +126,7 @@ def correct_vehicle_vin(
     into another (409 `vehicle_merged`); it no longer carries `old_vin`
     (409 `vehicle_vin_changed`); `new_vin` already names another record
     (409 `vin_belongs_to_other_vehicle` with its `vehicleNumber`: the two
-    records are one car and are merged by platform staff, FR-V-12); a VIN
+    records are one car, merged with «Zusammenführen mit…», FR-V-12); a VIN
     record is given a chassis number (422 `invalid_vin`); the configuration
     is not the tenant's (404), names a third VIN (422
     `configuration_vin_differs`) or, given a chassis number, is not first
@@ -359,6 +359,6 @@ def _correct_record(
 
 def _belongs_to_other_vehicle(vin: str, vehicle_number: str) -> ConflictError:
     return ConflictError(
-        f"VIN {vin} already belongs to vehicle {vehicle_number}; the two records are one car and are merged by platform staff.",
+        f"VIN {vin} already belongs to vehicle {vehicle_number}; the two records are one car: merge them with «Merge into…» on the Vehicle 360.",
         details={"reason": "vin_belongs_to_other_vehicle", "vehicleNumber": vehicle_number},
     )

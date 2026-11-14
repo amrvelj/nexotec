@@ -158,7 +158,7 @@
     "secret_slot_not_used_by_provider": "Questo fornitore non utilizza questa credenziale — non è stata salvata.",
     "secret_store_not_configured": "Per questa installazione non è configurato alcun archivio sicuro per le credenziali — non è stato salvato nulla. Non dipende dai dati inseriti: informare il supporto Nexotec.",
     "vehicle_not_changed": "Il veicolo in stock non è stato modificato dal calcolo del prezzo.",
-    "vin_belongs_to_other_vehicle": "Questo VIN è già del veicolo {{vehicleNumber}} nell'anagrafica veicolo. Se è lo stesso veicolo, il supporto Nexotec unisce i due.",
+    "vin_belongs_to_other_vehicle": "Questo VIN è già del veicolo {{vehicleNumber}} nell'anagrafica veicolo. Se è lo stesso veicolo, unite i due dalla scheda con «Unisci con…».",
     "vin_correction_left_stock": "Non possibile: il veicolo ha lasciato lo stock.",
     "vin_correction_needs_vehicle": "Questo veicolo non è ancora acquistato — il VIN si corregge nella configurazione.",
     "vin_unchanged": "È già il VIN di questo veicolo.",
@@ -173,7 +173,9 @@
     "customer_contact_group_exists": "Un gruppo di contatti di questa modifica è già presente sul cliente: il cliente è stato modificato nel frattempo. Ricaricalo e riprova.",
     "chassis_number_identity_fixed": "Questo veicolo è identificato dal suo numero di telaio. Si corregge solo sul veicolo in stock con «Correggere il VIN», affinché veicolo in stock, anagrafica veicolo e configurazione portino lo stesso numero.",
     "chassis_number_requires_configuration": "Un veicolo con un numero di telaio al posto del VIN viene acquistato tramite la sua configurazione: assegni la configurazione con numero di telaio, marca e prima immatricolazione («Assegna configurazione»).",
-    "chassis_number_requires_make": "Un veicolo con numero di telaio si distingue per la marca: inserisca la marca nella sua configurazione."
+    "chassis_number_requires_make": "Un veicolo con numero di telaio si distingue per la marca: inserisca la marca nella sua configurazione.",
+    "vehicle_merge_same_record": "Una scheda non può essere unita a sé stessa.",
+    "vehicle_merge_both_in_stock": "La vostra azienda ha entrambe le schede in magazzino ({{duplicate}} e {{survivor}}). Vendete o annullate prima uno dei veicoli in magazzino."
   },
   "accessWindow": {
     "between": "valido dal {{from}} al {{to}}",
