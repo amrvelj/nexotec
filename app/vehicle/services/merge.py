@@ -50,6 +50,8 @@ def merge_vehicle_records(
     Both rows are locked in id order before anything is read from them, so two
     merges of one pair (or of A→B and B→A) serialise instead of crossing. Then,
     nothing written: the same record twice (422 `vehicle_merge_same_record`);
+    a VIN record and a chassis-number record (422
+    `vehicle_merge_identifier_kinds_differ`, KAN-535);
     either version stale (409, If-Match for the duplicate, `survivorVersion`
     for the survivor); either already merged (409 `vehicle_merged`, naming the
     record it lives on); a live stock item of the caller's own Betrieb on each
@@ -78,6 +80,15 @@ def merge_vehicle_records(
     survivor = get_vehicle_mdm_or_404(db, survivor_id) if survivor_id not in rows else rows[survivor_id]
     check_version(duplicate.version, duplicate_version, entity_name="VehicleMdm")
     check_version(survivor.version, survivor_version, entity_name="VehicleMdm")
+    if duplicate.identifier_kind != survivor.identifier_kind:
+        # KAN-535 (Anto, 2026-11-14, option B): a car bought under a VIN takes
+        # no chassis number, and a chassis number becomes a VIN only through
+        # «VIN korrigieren» on the stock car. A merge across the two kinds would
+        # hand one of them the other's identifier through Stock's consumer.
+        raise UnprocessableEntityError(
+            "A VIN record and a pre-1981 chassis-number record cannot be merged.",
+            details={"field": "survivorId", "reason": "vehicle_merge_identifier_kinds_differ"},
+        )
     for record in (duplicate, survivor):
         if record.merged_into_vehicle_id is not None:
             raise ConflictError(

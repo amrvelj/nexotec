@@ -128,13 +128,13 @@
     "irreversibleBody": "{{goes}} viene unita definitivamente in {{stays}}. Targhe, chilometraggi, accessori, collegamenti ai clienti e veicoli in magazzino passano a {{stays}}; un veicolo in magazzino ne assume il VIN. Entrambe le schede sono condivise da tutte le aziende: l'unione vale per tutte.",
     "typeToConfirm": "Digitate {{vehicleNumber}} per confermare",
     "submit": "Unisci definitivamente",
-    "submitting": "Unione in corso…",
     "refused": {
       "generic": "Non è stato possibile unire i veicoli.",
       "staleVersion": "Una delle schede è stata modificata nel frattempo. Ricaricate e confrontate di nuovo.",
       "sameRecord": "Una scheda non può essere unita a sé stessa.",
       "alreadyMerged": "Una delle schede è già stata unita.",
-      "bothInStock": "La vostra azienda ha entrambe le schede in magazzino ({{duplicate}} e {{survivor}}). Vendete o annullate prima uno dei veicoli in magazzino."
+      "bothInStock": "La vostra azienda ha entrambe le schede in magazzino ({{duplicate}} e {{survivor}}). Vendete o annullate prima uno dei veicoli in magazzino.",
+      "identifierKindsDiffer": "Una scheda con VIN e una con numero di telaio (prima del 1981) non possono essere unite."
     }
   }
 }

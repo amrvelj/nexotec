@@ -319,3 +319,77 @@ def test_a_vin_assigned_fact_applied_after_the_merge_lands_on_the_survivor(db_se
 
     holding = db_session.scalars(select(VehicleStockHolding).where(VehicleStockHolding.stock_item_id == item.id)).one()
     assert holding.vehicle_id == survivor.id
+
+
+# --- pre-1981 chassis-number records (KAN-535) -------------------------------------
+
+
+def _oldtimers_of_one_betrieb(client, db_session):
+    """One Betrieb buys two pre-1981 cars of one make under two chassis numbers: two records."""
+
+    from tests.test_inventory_purchase_promotes import _token as _betrieb_token
+    from tests.test_kan535_chassis_number_purchase import _oldtimer, _purchase
+
+    token = _betrieb_token(client)
+    first = _purchase(client, token, _oldtimer(client, db_session, token, vin="1130101234567"), vin="1130101234567").json()
+    second = _purchase(client, token, _oldtimer(client, db_session, token, vin="1130101234568"), vin="1130101234568").json()
+    return token, first, second
+
+
+def test_a_vin_record_and_a_chassis_number_record_are_never_merged(client, db_session):
+    _token_of_betrieb, chassis_item, _second = _oldtimers_of_one_betrieb(client, db_session)
+    vin_record = _record(db_session, SURVIVOR_VIN)
+    caller = _token(_make_dealership(db_session).id)
+    chassis_record_id = uuid.UUID(chassis_item["vehicleId"])
+
+    into_chassis = _merge(client, caller, db_session, vin_record.id, chassis_record_id)
+    into_vin = _merge(client, caller, db_session, chassis_record_id, vin_record.id)
+
+    for refused in (into_chassis, into_vin):
+        assert refused.status_code == 422, refused.text
+        assert refused.json()["error"]["details"]["reason"] == "vehicle_merge_identifier_kinds_differ"
+    assert _merge_events(db_session) == 0
+
+
+def test_another_betriebs_two_chassis_number_cars_never_block_the_merge_consumer(client, db_session, engine):
+    _token_of_betrieb, on_duplicate, on_survivor = _oldtimers_of_one_betrieb(client, db_session)
+    duplicate_id, survivor_id = uuid.UUID(on_duplicate["vehicleId"]), uuid.UUID(on_survivor["vehicleId"])
+    caller = _token(_make_dealership(db_session).id)
+
+    response = _merge(client, caller, db_session, duplicate_id, survivor_id)
+    assert response.status_code == 200, response.text
+    _deliver_merged(engine, db_session, duplicate_id)
+
+    # One live chassis-number car per record and Betrieb is an index: the item stays
+    # where it was (no dead letter), and the nightly KAN-706 check names it.
+    message = db_session.scalars(
+        select(OutboxMessage).where(OutboxMessage.event_type == MERGED_EVENT, OutboxMessage.aggregate_id == duplicate_id)
+    ).one()
+    from app.core.processed_event_model import ProcessedEvent
+
+    assert db_session.scalar(
+        select(func.count()).select_from(ProcessedEvent).where(
+            ProcessedEvent.event_id == message.id, ProcessedEvent.consumer_name == CONSUMER
+        )
+    ) == 1
+    assert db_session.get(StockItem, uuid.UUID(on_duplicate["id"])).vehicle_id == duplicate_id
+    assert db_session.get(StockItem, uuid.UUID(on_survivor["id"])).vehicle_id == survivor_id
+
+
+def test_a_stock_car_that_takes_the_survivors_vin_publishes_stocks_vin_fact(client, db_session, engine):
+    item, tenant_id = _bought_with_configuration(client, db_session)
+    duplicate_id = uuid.UUID(item["vehicleId"])
+    survivor = _record(db_session, SURVIVOR_VIN)
+    assert _merge(client, _token(tenant_id), db_session, duplicate_id, survivor.id).status_code == 200
+
+    _deliver_merged(engine, db_session, duplicate_id)
+
+    [fact] = db_session.scalars(
+        select(OutboxMessage).where(
+            OutboxMessage.event_type == "inventory.stock_item.vin_corrected",
+            OutboxMessage.aggregate_id == uuid.UUID(item["id"]),
+        )
+    ).all()
+    assert fact.payload["vin"] == SURVIVOR_VIN
+    assert fact.payload["vehicleId"] == str(survivor.id)
+    assert fact.payload["correctedBy"] is None

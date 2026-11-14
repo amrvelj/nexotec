@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
-import { ArrowLeftRight, Search, TriangleAlert } from 'lucide-react'
-import { Group, Loader, Modal, Stack, Text, TextInput, UnstyledButton } from '@mantine/core'
+import { ArrowLeftRight, TriangleAlert } from 'lucide-react'
+import { Group, Loader, Stack, Text, TextInput, UnstyledButton } from '@mantine/core'
 import { useDebouncedValue } from '@mantine/hooks'
 import { useTranslation } from 'react-i18next'
-import { purple, semantic, slate, white } from '@nexotec/ui-kit'
+import { FormDialog, Picker, purple, semantic } from '@nexotec/ui-kit'
 import { api, ApiError } from '../../api/client'
 import { useIdempotencyKey } from '../../hooks/useIdempotencyKey'
 import { toSwissLocale, type SupportedLanguage } from '../../i18n'
@@ -148,6 +148,8 @@ export function MergeVehicleDialog({ opened, onClose, vehicle, onMerged }: Merge
         return t('vehicleDetail.mergeDialog.refused.sameRecord')
       case 'vehicle_merged':
         return t('vehicleDetail.mergeDialog.refused.alreadyMerged')
+      case 'vehicle_merge_identifier_kinds_differ':
+        return t('vehicleDetail.mergeDialog.refused.identifierKindsDiffer')
       case 'vehicle_merge_both_in_stock':
         return t('vehicleDetail.mergeDialog.refused.bothInStock', {
           duplicate: String(details.duplicateStockNumber ?? '—'),
@@ -179,53 +181,51 @@ export function MergeVehicleDialog({ opened, onClose, vehicle, onMerged }: Merge
     }
   }
 
+  const searched = debouncedQuery.trim().length >= 3
+
   return (
-    <Modal opened={opened} onClose={onClose} title={t('vehicleDetail.mergeDialog.title')} size="lg">
+    <FormDialog
+      opened={opened}
+      onClose={onClose}
+      title={t('vehicleDetail.mergeDialog.title')}
+      size="lg"
+      destructive
+      onSubmit={submit}
+      submitLabel={t('vehicleDetail.mergeDialog.submit')}
+      cancelLabel={t('common.cancel')}
+      submitting={submitting}
+      submitDisabled={!confirmed}
+    >
       {!other ? (
         <Stack gap="sm">
           <Text size="sm" c="dimmed">
             {t('vehicleDetail.mergeDialog.intro', { vehicleNumber: vehicle.vehicleNumber })}
           </Text>
-          <TextInput
-            leftSection={<Search size={16} />}
-            label={t('vehicleDetail.mergeDialog.searchLabel')}
+          <Picker
+            rows={results.map((c) => ({ id: c.id, identifier: c.vin, label: c.vehicleNumber }))}
+            query={query}
+            onQueryChange={setQuery}
+            onSelect={(row) => {
+              const candidate = results.find((c) => c.id === row.id)
+              if (candidate) void pick(candidate)
+            }}
+            loading={searching}
+            inputLabel={t('vehicleDetail.mergeDialog.searchLabel')}
             placeholder={t('vehicleDetail.mergeDialog.searchPlaceholder')}
-            value={query}
-            onChange={(e) => setQuery(e.currentTarget.value)}
+            emptyLabel={searched ? t('vehicleDetail.mergeDialog.noMatches') : ''}
             autoFocus
           />
-          {(searching || loadingOther) && <Loader size="sm" mx="auto" my="sm" />}
-          <Stack gap={4}>
-            {results.map((c) => (
-              <UnstyledButton
-                key={c.id}
-                onClick={() => void pick(c)}
-                style={{ display: 'flex', flexDirection: 'column', padding: '8px 10px', borderRadius: 8, border: `1px solid ${slate[2]}` }}
-              >
-                <Text size="sm" fw={600}>
-                  {c.vin}
-                </Text>
-                <Text size="xs" c="dimmed">
-                  {c.vehicleNumber}
-                </Text>
-              </UnstyledButton>
-            ))}
-            {!searching && searchFailed && (
-              <Text size="sm" c={semantic.destructive.text} ta="center" py="sm" role="alert">
-                {t('vehicleDetail.mergeDialog.searchFailed')}
-              </Text>
-            )}
-            {otherFailed && (
-              <Text size="sm" c={semantic.destructive.text} ta="center" py="sm" role="alert">
-                {t('vehicleDetail.mergeDialog.recordFailed')}
-              </Text>
-            )}
-            {!searching && !searchFailed && debouncedQuery.trim().length >= 3 && results.length === 0 && (
-              <Text size="sm" c="dimmed" ta="center" py="sm">
-                {t('vehicleDetail.mergeDialog.noMatches')}
-              </Text>
-            )}
-          </Stack>
+          {loadingOther && <Loader size="sm" mx="auto" my="sm" />}
+          {!searching && searchFailed && (
+            <Text size="sm" c={semantic.destructive.text} ta="center" py="sm" role="alert">
+              {t('vehicleDetail.mergeDialog.searchFailed')}
+            </Text>
+          )}
+          {otherFailed && (
+            <Text size="sm" c={semantic.destructive.text} ta="center" py="sm" role="alert">
+              {t('vehicleDetail.mergeDialog.recordFailed')}
+            </Text>
+          )}
         </Stack>
       ) : (
         <Stack gap="md">
@@ -277,32 +277,9 @@ export function MergeVehicleDialog({ opened, onClose, vehicle, onMerged }: Merge
               {error}
             </Text>
           )}
-
-          <Group justify="flex-end">
-            <UnstyledButton onClick={onClose} style={{ fontSize: 14, fontWeight: 600, color: slate[6], padding: '8px 14px' }}>
-              {t('common.cancel')}
-            </UnstyledButton>
-            <button
-              type="button"
-              disabled={!confirmed || submitting}
-              onClick={() => void submit()}
-              style={{
-                fontSize: 14,
-                fontWeight: 600,
-                color: white,
-                backgroundColor: confirmed ? semantic.destructive.text : slate[3],
-                border: 'none',
-                borderRadius: 8,
-                padding: '8px 16px',
-                cursor: confirmed && !submitting ? 'pointer' : 'not-allowed',
-              }}
-            >
-              {submitting ? t('vehicleDetail.mergeDialog.submitting') : t('vehicleDetail.mergeDialog.submit')}
-            </button>
-          </Group>
         </Stack>
       )}
-    </Modal>
+    </FormDialog>
   )
 }
 

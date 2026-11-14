@@ -225,7 +225,10 @@ _OWN_COMMIT_WRITES = {
     # KAN-524 (Anto, Q3 A): Stock's consumer of vehicle.vehicle_mdm.merged
     # has the moved stock car's configuration take the survivor's VIN, on
     # Vehicle's own session, before it writes its item; compare-and-set, so a
-    # redelivery writes nothing a second time (no compensation needed).
+    # redelivery writes nothing a second time. No compensation: a Stock write
+    # that fails is retried with the delivery and normally converges; one that
+    # cannot (a racing item took the VIN in that Betrieb) leaves the
+    # configuration ahead of the item, which KAN-557's nightly check reports.
     "app.vehicle.public.follow_vehicle_merge_on_configuration": (
         "app.vehicle.services.merge.follow_vehicle_merge_on_configuration",
         "inventory: the merge consumer, on Vehicle's own session; a retried delivery converges",

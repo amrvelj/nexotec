@@ -20,6 +20,7 @@ KAN-672, KAN-673, KAN-680, KAN-706; ADR-131, ADR-160. -->
   `POST /v1/vehicle-mdm/{duplicate}/merge` (`survivorId`, `survivorVersion`; If-Match the duplicate's;
   «Zusammenführen mit…», `MergeVehicleDialog`: compare, type the vehicle number that goes). Both rows
   locked in id order; refused with nothing written: the same record (422 `vehicle_merge_same_record`),
+  a VIN record with a chassis-number one (422 `vehicle_merge_identifier_kinds_differ`, KAN-535),
   a stale version, either merged (409 `vehicle_merged`), a live item of the **caller's** Betrieb on
   each (409 `vehicle_merge_both_in_stock`, both stock numbers; another Betrieb's never refuses — Q4 A).
   It changes no summary field and never calls customer or Stock (ADR-131): in its own transaction it
@@ -30,7 +31,9 @@ KAN-672, KAN-673, KAN-680, KAN-706; ADR-131, ADR-160. -->
   live record; one in stock takes its VIN, its configuration first on Vehicle's session
   (`follow_vehicle_merge_on_configuration`, audited `vin_corrected_by_merge`) — unless its Betrieb
   already holds the survivor live: it keeps its VIN and inventory reports «two live stock items of one
-  Betrieb name one vehicle_mdm record». No Händlerschild assignment is written (removed until specified). Customer's
+  Betrieb name one vehicle_mdm record» (a chassis-number car stays on the duplicate: one per record
+  and Betrieb is an index; KAN-706's check names it); one that took a VIN publishes
+  `inventory.stock_item.vin_corrected`. No Händlerschild assignment is written (removed until specified). Customer's
   `customer.vehicle_parties_on_vehicle_merged` (`app/customer/services/vehicle_merge.py`, KAN-634)
   then moves every party row naming the duplicate (every group's, open or closed) onto the survivor,
   followed to the live record via `vehicle.public.resolve_merged_vehicle_id` (delivery is unordered),

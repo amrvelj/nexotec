@@ -61,7 +61,8 @@ Money is `CHF 12'500.00` through the kit's `ChfInput`, a date-only value renders
 
 A module with a folder, `src/modules/<module>/`, keeps every screen, component, hook and helper of
 its own there, never in `src/pages/`, `components/` or `hooks/`; other code reaches it only through
-its `index.ts` (the router's lazy pages and tests excepted; `architecture/module-boundaries.test.ts`).
+its `index.ts` (the router's lazy pages and tests excepted; `architecture/module-boundaries.test.ts`),
+which never names one of its own `pages/`; what the shell or several modules use is in `src/shared/`.
 
 ## Evidence and API types
 

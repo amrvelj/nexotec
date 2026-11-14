@@ -128,13 +128,13 @@
     "irreversibleBody": "{{goes}} wird endgültig in {{stays}} zusammengeführt. Kontrollschilder, Kilometerstände, Zubehör, Kundenzuordnungen und Lagerfahrzeuge gehen auf {{stays}} über; ein Lagerfahrzeug übernimmt dessen VIN. Beide Datensätze werden von allen Betrieben geteilt: die Zusammenführung gilt für alle.",
     "typeToConfirm": "Zur Bestätigung {{vehicleNumber}} eingeben",
     "submit": "Endgültig zusammenführen",
-    "submitting": "Wird zusammengeführt…",
     "refused": {
       "generic": "Die Fahrzeuge konnten nicht zusammengeführt werden.",
       "staleVersion": "Einer der Datensätze wurde inzwischen geändert. Bitte neu laden und erneut vergleichen.",
       "sameRecord": "Ein Datensatz kann nicht mit sich selbst zusammengeführt werden.",
       "alreadyMerged": "Einer der Datensätze wurde bereits zusammengeführt.",
-      "bothInStock": "Ihr Betrieb führt beide Datensätze im Lager ({{duplicate}} und {{survivor}}). Verkaufen oder stornieren Sie zuerst eines der Lagerfahrzeuge."
+      "bothInStock": "Ihr Betrieb führt beide Datensätze im Lager ({{duplicate}} und {{survivor}}). Verkaufen oder stornieren Sie zuerst eines der Lagerfahrzeuge.",
+      "identifierKindsDiffer": "Ein Datensatz mit VIN und einer mit Chassisnummer (vor 1981) können nicht zusammengeführt werden."
     }
   }
 }

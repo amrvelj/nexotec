@@ -55,7 +55,7 @@ Last verified against main@73baf3f (2026-10-25); the projection lines with KAN-6
 - **Vehicle's projection of the records a Betrieb holds in stock** (KAN-667, ADR-160; ADR-131: no call
   into Stock): `vehicle_stock_holding` (vehicle migration `01f4dda679ea`), fed by
   `inventory.pipeline_vehicle.vin_assigned` (with `stockNumber`) and `inventory.stock_item.sold`
-  (`vehicle.stock_holding_on_*`, `vehicle/services/stock_holding.py`); a set-once, order-free merge; a
+  (`vehicle.stock_holding_on_*`, `vehicle/services/stock_holding.py`); a set-once, order-free merge (a vehicle merge re-points `vehicle_id`, KAN-524); a
   storno keeps the hold. The identity PATCH and the detail read count it plus unapplied `vin_assigned`
   facts (outbox first), on the record and every record merged into it (KAN-706). Inventory reports a stock
   item naming a merged record an hour after the merge. Reconciliation reports a differing row, a held item missing, dangling references.

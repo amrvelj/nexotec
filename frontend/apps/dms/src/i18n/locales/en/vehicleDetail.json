@@ -128,13 +128,13 @@
     "irreversibleBody": "{{goes}} is merged into {{stays}} for good. Licence plates, odometer readings, accessories, customer links and stock cars move to {{stays}}; a stock car takes its VIN. Every business shares both records: the merge applies to all of them.",
     "typeToConfirm": "Type {{vehicleNumber}} to confirm",
     "submit": "Merge for good",
-    "submitting": "Merging…",
     "refused": {
       "generic": "The vehicles could not be merged.",
       "staleVersion": "One of the records has changed in the meantime. Please reload and compare again.",
       "sameRecord": "A record cannot be merged with itself.",
       "alreadyMerged": "One of the records has already been merged.",
-      "bothInStock": "Your business holds both records in stock ({{duplicate}} and {{survivor}}). Sell or cancel one of the stock cars first."
+      "bothInStock": "Your business holds both records in stock ({{duplicate}} and {{survivor}}). Sell or cancel one of the stock cars first.",
+      "identifierKindsDiffer": "A record with a VIN and one with a pre-1981 chassis number cannot be merged."
     }
   }
 }

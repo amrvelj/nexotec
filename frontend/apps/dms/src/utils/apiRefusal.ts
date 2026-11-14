@@ -241,6 +241,7 @@ const REASON_KEYS: Record<string, string> = {
       // KAN-524 — merging two vehicle records (FR-V-12).
       'vehicle_merge_same_record',
       'vehicle_merge_both_in_stock',
+      'vehicle_merge_identifier_kinds_differ',
       // KAN-680 — a vehicle merge's kept copy stays as history.
       'vehicle_merged_party_row',
       // KAN-557 — «VIN korrigieren».

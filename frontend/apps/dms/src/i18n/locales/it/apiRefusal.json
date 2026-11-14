@@ -175,7 +175,8 @@
     "chassis_number_requires_configuration": "Un veicolo con un numero di telaio al posto del VIN viene acquistato tramite la sua configurazione: assegni la configurazione con numero di telaio, marca e prima immatricolazione («Assegna configurazione»).",
     "chassis_number_requires_make": "Un veicolo con numero di telaio si distingue per la marca: inserisca la marca nella sua configurazione.",
     "vehicle_merge_same_record": "Una scheda non può essere unita a sé stessa.",
-    "vehicle_merge_both_in_stock": "La vostra azienda ha entrambe le schede in magazzino ({{duplicate}} e {{survivor}}). Vendete o annullate prima uno dei veicoli in magazzino."
+    "vehicle_merge_both_in_stock": "La vostra azienda ha entrambe le schede in magazzino ({{duplicate}} e {{survivor}}). Vendete o annullate prima uno dei veicoli in magazzino.",
+    "vehicle_merge_identifier_kinds_differ": "Una scheda con VIN e una con numero di telaio (prima del 1981) non possono essere unite."
   },
   "accessWindow": {
     "between": "valido dal {{from}} al {{to}}",

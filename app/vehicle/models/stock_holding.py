@@ -21,7 +21,10 @@ nightly reconciliation compares the two, rule 10).
 
 Delivery is at-least-once and unordered, so every write is a merge that gives
 the same row whatever order the facts arrive in: `vehicle_id`, the stock
-number and `left_stock_at` are each set once and never cleared.
+number and `left_stock_at` are each set once and never cleared. One writer
+moves `vehicle_id`: a vehicle merge re-points the duplicate's rows onto the
+survivor (KAN-524, `services/merge.py`), as it does plates; a fact applied
+after the merge is stored on the live record.
 """
 
 import datetime as dt

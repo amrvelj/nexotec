@@ -25,7 +25,7 @@ in the CTO workspace.
 
 **Issue #2: Dealership + User bootstrap** — the first business entities:
 
-- `Dealership` (`app/platform/models/dealership.py`, renamed from `Dealer` in
+- `Dealership` (`app/platform/organisation/models/dealership.py`, renamed from `Dealer` in
   WP-3): the tenant root, Swiss address, canton validation, the public,
   checksum-validated, unique `uid` (KAN-197, D-A-22 — it replaced the
   encrypted `tax_id`). WP-3 adds
@@ -35,7 +35,7 @@ in the CTO workspace.
 - `User` (`app/platform/models/user.py`): tenant-scoped, first FK relationship
   in the schema (`user.tenant_id → dealership.id`), globally-unique email
 - `POST /v1/dealerships` (platform-admin only), `POST /v1/dealerships/{id}/users`,
-  full CRUD + audit-log endpoints — see `app/platform/api/dealerships.py`
+  full CRUD + audit-log endpoints — see `app/platform/organisation/api/dealerships.py`
 - Legal identity (legal name, uid, VAT) and status (Dealership) and
   role/access_role/status (User) changes are audit-logged; `offboarded` and
   `terminated` are terminal states
