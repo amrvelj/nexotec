@@ -10,9 +10,9 @@ from sqlalchemy.orm import Session
 
 from app.core.auth import Principal, get_current_principal
 from app.core.config import get_settings
-from app.core.pagination import SortPageParams, decode_sort_cursor
+from app.core.pagination import SortPageParams
 from app.core.permissions import ModuleCode, require_entitlement
-from app.core.sorting import SortField, parse_sort
+from app.core.sorting import SortField, decode_cursor_for_sort, parse_sort
 from app.db import get_db
 from app.sales.models.deal import SalesDeal
 from app.sales.schemas.deal import DealPage, DealRead
@@ -57,7 +57,7 @@ def list_deals(
 ):
     sort_fields = parse_sort(sort, allowed=DEAL_SORT_FIELDS) or _DEFAULT_DEAL_SORT
     params = SortPageParams(
-        limit=limit, cursor=decode_sort_cursor(cursor) if cursor else None, sort_fields=sort_fields
+        limit=limit, cursor=decode_cursor_for_sort(cursor, sort_fields), sort_fields=sort_fields
     )
     rows, next_cursor, total, total_is_estimate = deal_service.list_deals(
         db,

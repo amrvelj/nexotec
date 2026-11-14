@@ -15,9 +15,9 @@ from sqlalchemy.orm import Session
 
 from app.core.auth import AccessRole, Principal, get_current_principal
 from app.core.config import get_settings
-from app.core.pagination import SortPageParams, decode_sort_cursor
+from app.core.pagination import SortPageParams
 from app.core.permissions import ModuleCode, require_entitlement
-from app.core.sorting import SortField, parse_sort
+from app.core.sorting import SortField, decode_cursor_for_sort, parse_sort
 from app.db import get_db
 from app.inventory.api.stock_items import STOCK_ITEM_SORT_FIELDS
 from app.inventory.models.stock_item import StockItem
@@ -48,11 +48,8 @@ def _group_page_params(
     limit: int = Query(default=settings.pagination_default_limit, ge=1, le=settings.pagination_max_limit),
     cursor: str | None = Query(default=None),
 ) -> SortPageParams:
-    return SortPageParams(
-        limit=limit,
-        cursor=decode_sort_cursor(cursor) if cursor else None,
-        sort_fields=parse_sort(sort, allowed=STOCK_ITEM_SORT_FIELDS) or _DEFAULT_GROUP_STOCK_SORT,
-    )
+    sort_fields = parse_sort(sort, allowed=STOCK_ITEM_SORT_FIELDS) or _DEFAULT_GROUP_STOCK_SORT
+    return SortPageParams(limit=limit, cursor=decode_cursor_for_sort(cursor, sort_fields), sort_fields=sort_fields)
 
 
 # KAN-565 (ADR-055 «the dealership as a filter»): «Betrieb ist» / «ist nicht»

@@ -23,8 +23,8 @@ from app.core.concurrency import check_version, require_if_match
 from app.core.config import get_settings
 from app.core.errors import BadRequestError, ForbiddenError, NotFoundError
 from app.core.idempotent_route import IdempotentRoute
-from app.core.pagination import SortPageParams, decode_sort_cursor
-from app.core.sorting import SortField, parse_sort
+from app.core.pagination import SortPageParams
+from app.core.sorting import SortField, decode_cursor_for_sort, parse_sort
 from app.db import get_db
 from app.platform.api.auth import client_ip
 from app.platform.models.auth_event import AuthEvent
@@ -119,7 +119,7 @@ def search_users(
     if dealership_id is not None:
         dealership_service.get_dealership_or_404(db, dealership_id)
     sort_fields = parse_sort(sort, allowed=RECOVERY_SORT_FIELDS) or _DEFAULT_SORT
-    params = SortPageParams(limit=limit, cursor=decode_sort_cursor(cursor) if cursor else None, sort_fields=sort_fields)
+    params = SortPageParams(limit=limit, cursor=decode_cursor_for_sort(cursor, sort_fields), sort_fields=sort_fields)
     users, next_cursor = recovery.search_users(
         db, email=email if email and email.strip() else None, dealership_id=dealership_id, params=params
     )

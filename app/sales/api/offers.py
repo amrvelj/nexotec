@@ -10,9 +10,9 @@ from app.core.auth import Principal, get_current_principal
 from app.core.concurrency import check_version, require_if_match
 from app.core.config import get_settings
 from app.core.idempotent_route import IdempotentRoute
-from app.core.pagination import SortPageParams, decode_sort_cursor
+from app.core.pagination import SortPageParams
 from app.core.permissions import ModuleCode, require_entitlement, require_write
-from app.core.sorting import SortField, parse_sort
+from app.core.sorting import SortField, decode_cursor_for_sort, parse_sort
 from app.db import get_db
 from app.sales.models.offer import SalesOffer
 from app.sales.schemas.line_item import LineItemPage, LineItemRead, LineItemsReplaceRequest
@@ -94,7 +94,7 @@ def list_offers(
 ):
     sort_fields = parse_sort(sort, allowed=OFFER_SORT_FIELDS) or _DEFAULT_OFFER_SORT
     params = SortPageParams(
-        limit=limit, cursor=decode_sort_cursor(cursor) if cursor else None, sort_fields=sort_fields
+        limit=limit, cursor=decode_cursor_for_sort(cursor, sort_fields), sort_fields=sort_fields
     )
     rows, next_cursor, total, total_is_estimate = offer_service.list_offers(
         db, tenant_id=principal.tenant_id, customer_id=customer_id, params=params
