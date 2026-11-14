@@ -29,6 +29,7 @@ writing (a sign-in, a session) says `marks_write=False`.
 """
 
 import base64
+import contextlib
 import csv
 import dataclasses
 import datetime as dt
@@ -39,7 +40,7 @@ import json
 import uuid
 import zipfile
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
-from typing import Any, Protocol, cast
+from typing import Any, BinaryIO, Protocol, cast
 
 from sqlalchemy import ColumnElement, Table, func, select
 from sqlalchemy.orm import Session
@@ -254,31 +255,71 @@ def _column_type(column) -> str:
         return type(column.type).__name__
 
 
-def read_rows(db: Session, spec: ExportedTable, scope: ExportScope) -> tuple[list[str], list[dict[str, Any]]]:
+# KAN-715: rows are fetched from the database in batches of this many
+# (a server-side cursor on Postgres), never one whole table in a list.
+ROW_BATCH = 1000
+# The archive entries are written in chunks of this many bytes at most.
+_COPY_CHUNK = 1024 * 1024
+
+
+def read_rows(db: Session, spec: ExportedTable, scope: ExportScope) -> tuple[list[str], Iterator[dict[str, Any]]]:
+    """The column names and the Betrieb's rows of one table, oldest first —
+    streamed in batches of `ROW_BATCH` (KAN-715): a large table is never
+    held whole. Read the rows inside the caller's one snapshot (ADR-166);
+    iterating twice reads the same rows."""
+
     columns = [column for column in spec.table.c if column.name not in spec.omit_columns]
     order = [spec.table.c[name] for name in ("created_at", "id") if name in spec.table.c]
-    statement = select(*columns).where(spec.scope(scope)).order_by(*order)
-    rows = [dict(row._mapping) for row in db.execute(statement)]
-    return [column.name for column in columns], rows
+    statement = (
+        select(*columns).where(spec.scope(scope)).order_by(*order).execution_options(yield_per=ROW_BATCH)
+    )
+
+    def rows() -> Iterator[dict[str, Any]]:
+        for row in db.execute(statement):
+            yield dict(row._mapping)
+
+    return [column.name for column in columns], rows()
 
 
 @dataclasses.dataclass(frozen=True)
 class ArchiveSummary:
-    data: bytes
+    byte_size: int
     row_counts: dict[str, int]
     document_count: int
     file_count: int
 
 
-def _entities(
-    db: Session, scope: ExportScope, registered: Sequence[Exporter]
-) -> Iterator[tuple[Exporter, ExportedTable, list[str], list[dict]]]:
+def _write_csv(archive: "_UniqueEntries", name: str, names: list[str], rows: Iterable[Mapping[str, Any]]) -> int:
+    count = 0
+    with archive.open_text(name) as text:
+        writer = csv.writer(text, lineterminator="\n")
+        writer.writerow(names)
+        for row in rows:
+            writer.writerow([_csv_cell(row[column]) for column in names])
+            count += 1
+    return count
+
+
+def _write_json(archive: "_UniqueEntries", name: str, names: list[str], rows: Iterable[Mapping[str, Any]]) -> None:
+    """The rows as one JSON array, written row by row — the same text
+    `json.dumps(rows, ensure_ascii=False, indent=1)` gives, never built
+    whole."""
+
+    with archive.open_text(name) as text:
+        first = True
+        for row in rows:
+            item = json.dumps({column: plain(row[column]) for column in names}, ensure_ascii=False, indent=1)
+            text.write("[\n" if first else ",\n")
+            text.write("\n".join(" " + line for line in item.split("\n")))
+            first = False
+        text.write("[]" if first else "\n]")
+
+
+def _entities(registered: Sequence[Exporter]) -> Iterator[tuple[Exporter, ExportedTable]]:
     for exporter in registered:
         for spec in exporter.exported_tables():
-            if not spec.in_archive:
-                continue
-            names, rows = read_rows(db, spec, scope)
-            yield exporter, spec, names, rows
+            if spec.in_archive:
+                yield exporter, spec
 
 
 class DuplicateArchiveEntry(ValueError):
@@ -294,11 +335,31 @@ class _UniqueEntries:
         self._archive = archive
         self._names: set[str] = set()
 
-    def writestr(self, name: str, data: str | bytes) -> None:
+    def _claim(self, name: str) -> None:
         if name in self._names:
             raise DuplicateArchiveEntry(f"The export would hold {name!r} twice.")
         self._names.add(name)
-        self._archive.writestr(name, data)
+
+    def writestr(self, name: str, data: str | bytes) -> None:
+        self._claim(name)
+        # zip64 for an entry that may pass 2 GiB (KAN-715: nothing caps a file's size).
+        with self._archive.open(name, "w", force_zip64=True) as entry:
+            payload = data.encode("utf-8") if isinstance(data, str) else data
+            for start in range(0, len(payload), _COPY_CHUNK):
+                entry.write(payload[start : start + _COPY_CHUNK])
+
+    @contextlib.contextmanager
+    def open_text(self, name: str) -> Iterator[io.TextIOWrapper]:
+        """One entry written as UTF-8 text while it is produced (KAN-715)."""
+
+        self._claim(name)
+        with self._archive.open(name, "w", force_zip64=True) as entry:
+            text = io.TextIOWrapper(entry, encoding="utf-8", newline="")
+            try:
+                yield text
+            finally:
+                text.flush()
+                text.detach()
 
 
 def write_archive(
@@ -307,6 +368,7 @@ def write_archive(
     scope: ExportScope,
     produced_at: dt.datetime,
     header: Mapping[str, Any],
+    target: BinaryIO,
     registered: Sequence[Exporter] | None = None,
 ) -> ArchiveSummary:
     """The export package (FR-A-44): per entity `data/{context}/{table}.csv`
@@ -314,36 +376,35 @@ def write_archive(
     numbers and dates, every uploaded file under `files/`, and `schema.json`
     describing each entity's columns and what was left out and why. A ZIP:
     open formats inside an open container. A name written twice is refused
-    (`DuplicateArchiveEntry`), so the production fails, never loses a file."""
+    (`DuplicateArchiveEntry`), so the production fails, never loses a file.
+
+    KAN-715: the ZIP is written into `target` — the caller's temporary file —
+    entry by entry, and each table's rows are read in batches twice (once
+    for the CSV, once for the JSON, both in the caller's one snapshot), so
+    neither the archive nor a whole table is ever held in memory."""
 
     exporters_ = list(registered if registered is not None else exporters())
-    buffer = io.BytesIO()
     schema_entities: list[dict[str, Any]] = []
     excluded: list[dict[str, str]] = []
     row_counts: dict[str, int] = {}
     document_index: list[dict[str, Any]] = []
     file_index: list[dict[str, Any]] = []
-    with zipfile.ZipFile(buffer, "w", compression=zipfile.ZIP_DEFLATED) as zipped:
+    start = target.tell()
+    with zipfile.ZipFile(target, "w", compression=zipfile.ZIP_DEFLATED, allowZip64=True) as zipped:
         archive = _UniqueEntries(zipped)
-        for exporter, spec, names, rows in _entities(db, scope, exporters_):
+        for exporter, spec in _entities(exporters_):
             base = f"data/{exporter.context}/{spec.name}"
-            text = io.StringIO()
-            writer = csv.writer(text, lineterminator="\n")
-            writer.writerow(names)
-            for row in rows:
-                writer.writerow([_csv_cell(row[name]) for name in names])
-            archive.writestr(f"{base}.csv", text.getvalue())
-            archive.writestr(
-                f"{base}.json",
-                json.dumps([{name: plain(row[name]) for name in names} for row in rows], ensure_ascii=False, indent=1),
-            )
-            row_counts[spec.name] = len(rows)
+            names, rows = read_rows(db, spec, scope)
+            count = _write_csv(archive, f"{base}.csv", names, rows)
+            _names, rows = read_rows(db, spec, scope)
+            _write_json(archive, f"{base}.json", names, rows)
+            row_counts[spec.name] = count
             schema_entities.append(
                 {
                     "context": exporter.context,
                     "entity": spec.name,
                     "files": [f"{base}.csv", f"{base}.json"],
-                    "rows": len(rows),
+                    "rows": count,
                     "columns": [
                         {
                             "name": column.name,
@@ -399,6 +460,10 @@ def write_archive(
                 indent=1,
             ),
         )
+    target.flush()
     return ArchiveSummary(
-        data=buffer.getvalue(), row_counts=row_counts, document_count=len(document_index), file_count=len(file_index)
+        byte_size=target.tell() - start,
+        row_counts=row_counts,
+        document_count=len(document_index),
+        file_count=len(file_index),
     )

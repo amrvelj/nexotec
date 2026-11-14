@@ -26,6 +26,7 @@ export never makes it out of date.
 import dataclasses
 import datetime as dt
 import logging
+import tempfile
 import uuid
 
 from sqlalchemy import func, select
@@ -252,20 +253,25 @@ def produce(db: Session, *, export_id: uuid.UUID, store: ObjectStore | None = No
         if dealership_row is None:
             raise LookupError("the export's Betrieb is gone")
         scope = _with_references(snapshot, scope_for(snapshot, dealership_row))
-        archive = write_archive(
-            snapshot,
-            scope=scope,
-            produced_at=produced_at,
-            header={
-                "exportId": job.id,
-                "kind": job.kind.value,
-                "dealershipId": dealership_row.id,
-                "legalName": dealership_row.legal_name,
-                "uid": dealership_row.uid,
-            },
-        )
+        # KAN-715: the archive goes to a temporary file on disk, then to the
+        # store in chunks — never the whole ZIP in the worker's memory.
         key = _object_key(job)
-        store.put(key, archive.data, content_type=CONTENT_TYPE)
+        with tempfile.TemporaryFile(prefix="nexotec-export-") as spool:
+            archive = write_archive(
+                snapshot,
+                target=spool,
+                scope=scope,
+                produced_at=produced_at,
+                header={
+                    "exportId": job.id,
+                    "kind": job.kind.value,
+                    "dealershipId": dealership_row.id,
+                    "legalName": dealership_row.legal_name,
+                    "uid": dealership_row.uid,
+                },
+            )
+            spool.seek(0)
+            store.put_file(key, spool, content_type=CONTENT_TYPE)
     except Exception:
         logger.exception("data export %s could not be produced", job.id, extra={"exportId": str(job.id)})
         job.status = ExportJobStatus.FAILED
@@ -279,7 +285,7 @@ def produce(db: Session, *, export_id: uuid.UUID, store: ObjectStore | None = No
     job.status = ExportJobStatus.READY
     job.produced_at = produced_at
     job.object_key = key
-    job.byte_size = len(archive.data)
+    job.byte_size = archive.byte_size
     job.download_expires_at = utcnow() + DOWNLOAD_WINDOW
     job.version += 1
     _audit(

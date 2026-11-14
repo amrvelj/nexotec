@@ -11,6 +11,7 @@ Group-owned customers come for the requesting Betrieb's own relationship only
 """
 
 import datetime as dt
+import io
 import json
 import uuid
 
@@ -332,7 +333,9 @@ def test_the_archive_never_holds_one_name_twice(db_session):
 
     scope = ExportScope(dealership_id=uuid.uuid4(), group_id=uuid.uuid4())
     with pytest.raises(DuplicateArchiveEntry, match="files/branding/primary"):
-        write_archive(db_session, scope=scope, produced_at=utcnow(), header={}, registered=[_TwoLogos()])
+        write_archive(
+            db_session, scope=scope, produced_at=utcnow(), header={}, target=io.BytesIO(), registered=[_TwoLogos()]
+        )
 
 
 def test_secrets_never_leave_the_database(client, export_store, engine):

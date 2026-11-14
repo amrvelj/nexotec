@@ -16,14 +16,16 @@ ticket's rule).
 import dataclasses
 import logging
 import re
+import shutil
 from pathlib import Path
-from typing import Protocol
+from typing import BinaryIO, Protocol
 
 from app.core.config import get_settings
 from app.core.deployment_environment import DeploymentEnvironment, current_deployment_environment
 
 logger = logging.getLogger("app.core.object_store")
 
+_COPY_CHUNK = 1024 * 1024
 _KEY = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._/-]{0,254}$")
 
 
@@ -45,6 +47,12 @@ class StoredObject:
 
 class ObjectStore(Protocol):
     def put(self, key: str, data: bytes, *, content_type: str) -> None: ...
+
+    def put_file(self, key: str, source: BinaryIO, *, content_type: str) -> None:
+        """`source` (an open binary file, read from its current position to
+        its end) stored in chunks — never read whole into memory (KAN-715:
+        a Betrieb's export archive). Replaces whatever the key held."""
+        ...
 
     def get(self, key: str) -> StoredObject | None: ...
 
@@ -72,6 +80,15 @@ class LocalDirectoryObjectStore:
         path.parent.mkdir(parents=True, exist_ok=True)
         tmp = path.with_name(path.name + ".tmp")
         tmp.write_bytes(data)
+        tmp.replace(path)
+        path.with_name(path.name + ".meta").write_text(content_type, encoding="utf-8")
+
+    def put_file(self, key: str, source: BinaryIO, *, content_type: str) -> None:
+        path = self._path(key)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        tmp = path.with_name(path.name + ".tmp")
+        with tmp.open("wb") as written:
+            shutil.copyfileobj(source, written, _COPY_CHUNK)
         tmp.replace(path)
         path.with_name(path.name + ".meta").write_text(content_type, encoding="utf-8")
 
