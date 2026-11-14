@@ -17,10 +17,10 @@ from sqlalchemy import func, select
 
 from app.platform.api import dealership_identity, dealership_memberships, dealership_users
 from app.platform.models.dealership_membership import DealershipMembership
-from app.platform.models.module_entitlement import ModuleEntitlement
 from app.platform.models.standard_text_delegation import StandardTextDelegation
+from app.platform.organisation.models.module_entitlement import ModuleEntitlement
+from app.platform.organisation.services import entitlement as entitlement_service
 from app.platform.services import auth_sessions
-from app.platform.services import entitlement as entitlement_service
 from app.platform.services import membership as membership_service
 from app.platform.services import text_delegation as text_delegation_service
 from tests.membership_support import create_dealership, create_user, grant, if_match, platform_admin

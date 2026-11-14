@@ -31,6 +31,7 @@ from app.core.permissions import require_read, require_write
 from app.core.tenancy import require_tenant_match
 from app.db import get_db
 from app.platform.models.export_job import ExportJob, ExportJobKind
+from app.platform.organisation.services import dealership as dealership_service
 from app.platform.schemas.data_export import (
     ArchiveExportRequest,
     ExportPage,
@@ -39,7 +40,6 @@ from app.platform.schemas.data_export import (
     OffboardRequest,
 )
 from app.platform.services import data_export as export_service
-from app.platform.services import dealership as dealership_service
 from app.platform.services import offboarding as offboarding_service
 
 router = APIRouter(tags=["data-export"], route_class=IdempotentRoute)

@@ -13,7 +13,7 @@ from app.core.auth import AccessRole, Principal
 from app.inventory.models.stock_item import StockItemCondition
 from app.inventory.public import get_stock_items_for_vehicles
 from app.inventory.schemas.stock_item import StockItemCreate
-from app.platform.models.dealership import DealerGroup
+from app.platform.organisation.models.dealership import DealerGroup
 from tests.stock_support import create_in_stock_item
 from tests.test_sales_lifecycle_reservation import _dealership
 

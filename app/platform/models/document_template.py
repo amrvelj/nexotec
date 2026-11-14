@@ -5,7 +5,7 @@ module's content — "invoice and contract wording" in ADR-044's own words.
 One row per dealership, not one per document type — the brief describes
 "shared header and footer" as a single mechanism, and Dealership itself
 already carries the true letterhead facts (legal name, address, phone,
-logo, brand colour — see app.platform.models.dealership). This table adds
+logo, brand colour — see app.platform.organisation.models.dealership). This table adds
 only what doesn't already exist anywhere: the editable header-note/footer-
 text boilerplate, in all four languages. Since KAN-208 only the header note
 is left here; document wording lives in the standard-text library

@@ -29,6 +29,7 @@ from app.db import get_db
 from app.platform.api.auth import client_ip
 from app.platform.models.auth_event import AuthEvent
 from app.platform.models.user import User
+from app.platform.organisation.services import dealership as dealership_service
 from app.platform.reference.services.mailer import PlatformMailer, get_mailer
 from app.platform.schemas.recovery import (
     ChangeEmailRequest,
@@ -38,7 +39,6 @@ from app.platform.schemas.recovery import (
     RecoveryUserList,
     RecoveryUserRead,
 )
-from app.platform.services import dealership as dealership_service
 from app.platform.services import recovery
 
 settings = get_settings()

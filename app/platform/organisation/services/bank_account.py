@@ -22,9 +22,9 @@ from sqlalchemy.orm import Session
 
 from app.core.audit import record_audit_event
 from app.core.errors import ConflictError, NotFoundError, UnprocessableEntityError
-from app.platform.models.dealership_bank_account import DealershipBankAccount, QrReferenceType
-from app.platform.schemas.bank_account import BankAccountCreate, BankAccountUpdate
-from app.platform.services.dealership import get_dealership_for_update_or_404
+from app.platform.organisation.models.dealership_bank_account import DealershipBankAccount, QrReferenceType
+from app.platform.organisation.schemas.bank_account import BankAccountCreate, BankAccountUpdate
+from app.platform.organisation.services.dealership import get_dealership_for_update_or_404
 
 _ENTITY = "dealership_bank_account"
 _FIELDS = (
@@ -217,7 +217,7 @@ def update_account(
 def delete_account(db: Session, *, account: DealershipBankAccount, actor_id: uuid.UUID) -> None:
     # KAN-204: a location's bank-account override names this row; deleting it
     # would silently send that site's invoices to the default account.
-    from app.platform.services.location import location_ids_using_bank_account
+    from app.platform.organisation.services.location import location_ids_using_bank_account
 
     if location_ids_using_bank_account(db, account_id=account.id):
         raise ConflictError(

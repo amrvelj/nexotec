@@ -48,8 +48,8 @@ from app.core.auth import AccessRole
 from app.core.errors import BadRequestError
 from app.db import SessionLocal
 from app.platform.models.auth_session import AuthSession
-from app.platform.models.dealership import Dealership
 from app.platform.models.user import User, UserStatus
+from app.platform.organisation.models.dealership import Dealership
 from app.platform.schemas.user import UserUpdate
 from app.platform.services import ownership
 from app.platform.services import user as user_service

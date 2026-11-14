@@ -33,10 +33,10 @@ from app.integration.models.secret_ref import IntegrationSecretRef
 from app.inventory.models.stock_item_publishing import StockItemMedia
 from app.main import app
 from app.platform.models.auth_session import AuthSession
-from app.platform.models.contact_group import DealershipContactGroup
 from app.platform.models.mfa import MfaPasskey, MfaTotp
 from app.platform.models.notification import Notification, PushSubscription
 from app.platform.models.user_preference import UserPreference
+from app.platform.organisation.models.contact_group import DealershipContactGroup
 from app.vehicle.models.vehicle_history import VehicleAccessory
 from tests.route_walk import api_routes
 

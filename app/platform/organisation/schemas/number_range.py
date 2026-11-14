@@ -6,7 +6,7 @@ from pydantic import Field
 
 from app.core.permissions import ModuleCode
 from app.core.schemas import CamelModel
-from app.platform.models.number_range import NumberRangeDocumentType
+from app.platform.organisation.models.number_range import NumberRangeDocumentType
 
 
 class NumberRangeRead(CamelModel):

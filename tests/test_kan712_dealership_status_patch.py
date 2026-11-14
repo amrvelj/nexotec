@@ -10,9 +10,9 @@ import uuid
 import pytest
 
 from app.core.errors import UnprocessableEntityError
-from app.platform.models.dealership import Dealership, DealershipStatus
-from app.platform.schemas.dealership import DealershipUpdate
-from app.platform.services import dealership as dealership_service
+from app.platform.organisation.models.dealership import Dealership, DealershipStatus
+from app.platform.organisation.schemas.dealership import DealershipUpdate
+from app.platform.organisation.services import dealership as dealership_service
 from tests.identity_support import platform_admin_headers
 from tests.membership_support import bearer, create_dealership, token
 

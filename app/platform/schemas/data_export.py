@@ -6,8 +6,8 @@ import uuid
 from pydantic import Field
 
 from app.core.schemas import CamelModel
-from app.platform.models.dealership import DealershipStatus
 from app.platform.models.export_job import ExportJobKind, ExportJobStatus
+from app.platform.organisation.models.dealership import DealershipStatus
 
 
 class ExportRead(CamelModel):

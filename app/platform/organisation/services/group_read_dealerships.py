@@ -15,7 +15,7 @@ from dataclasses import dataclass
 from sqlalchemy import and_, select
 from sqlalchemy.orm import Session
 
-from app.platform.models.dealership import DealerGroup, Dealership, DealershipStatus
+from app.platform.organisation.models.dealership import DealerGroup, Dealership, DealershipStatus
 
 
 @dataclass(frozen=True)

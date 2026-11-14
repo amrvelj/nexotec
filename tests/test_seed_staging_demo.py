@@ -27,13 +27,13 @@ from app.platform.models.auth_event import AuthEvent
 from app.platform.models.auth_session import AuthSession
 from app.platform.models.auth_token import AuthToken
 from app.platform.models.credential import Credential
-from app.platform.models.dealership import DealerGroup, Dealership, FranchiseType, Location
 from app.platform.models.dealership_auth_config import DealershipAuthConfig
-from app.platform.models.module_entitlement import ModuleEntitlement
 from app.platform.models.user import User, UserRole, UserStatus
-from app.platform.schemas.dealership import DealershipAddress, DealershipCreate
+from app.platform.organisation.models.dealership import DealerGroup, Dealership, FranchiseType, Location
+from app.platform.organisation.models.module_entitlement import ModuleEntitlement
+from app.platform.organisation.schemas.dealership import DealershipAddress, DealershipCreate
+from app.platform.organisation.services import dealership as dealership_service
 from app.platform.schemas.user import UserCreate
-from app.platform.services import dealership as dealership_service
 from app.platform.services import user as user_service
 from scripts import retire_staging_shared_demo_user, seed_staging_demo
 from tests.identity_support import (

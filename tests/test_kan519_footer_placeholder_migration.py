@@ -21,8 +21,8 @@ from sqlalchemy import bindparam, create_engine, insert, text
 from sqlalchemy.orm import Session
 
 from app.core.errors import UnprocessableEntityError
-from app.platform.models.dealership import DealerGroup, Dealership, FranchiseType
 from app.platform.models.standard_text import StandardTextAppliesTo, StandardTextCategory
+from app.platform.organisation.models.dealership import DealerGroup, Dealership, FranchiseType
 from app.platform.services.standard_text_placeholders import render_body, target_for
 from app.sales.models.contract import ContractStatus, SalesContract
 from app.sales.models.offer import OfferStatus, SalesOffer

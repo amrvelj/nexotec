@@ -32,10 +32,10 @@ from app.core.idempotent_route import IdempotentRoute
 from app.core.permissions import require_banking_read, require_read, require_write
 from app.core.tenancy import require_tenant_match
 from app.db import get_db
-from app.platform.models.dealership import Location
-from app.platform.models.holiday_calendar import Holiday, HolidayCalendar
-from app.platform.models.location_schedule import LocationOpeningHours
-from app.platform.schemas.location import (
+from app.platform.organisation.models.dealership import Location
+from app.platform.organisation.models.holiday_calendar import Holiday, HolidayCalendar
+from app.platform.organisation.models.location_schedule import LocationOpeningHours
+from app.platform.organisation.schemas.location import (
     ClosureCreate,
     ClosureList,
     ClosureRead,
@@ -53,9 +53,9 @@ from app.platform.schemas.location import (
     OpeningHoursRow,
     OpeningHoursUpdate,
 )
-from app.platform.services import dealership as dealership_service
-from app.platform.services import holidays as holiday_service
-from app.platform.services import location as location_service
+from app.platform.organisation.services import dealership as dealership_service
+from app.platform.organisation.services import holidays as holiday_service
+from app.platform.organisation.services import location as location_service
 
 router = APIRouter(tags=["locations"], route_class=IdempotentRoute)
 

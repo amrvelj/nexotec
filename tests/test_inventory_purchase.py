@@ -14,7 +14,7 @@ from app.inventory.schemas.stock_item import StockItemCreate, StockItemRead, Sto
 from app.inventory.services.pipeline import promote_to_vehicle_mdm
 from app.inventory.services.purchase import override_notional_input_tax, record_purchase
 from app.inventory.services.stock_item import create_stock_item
-from app.platform.models.dealership import DealerGroup, Dealership, FranchiseType
+from app.platform.organisation.models.dealership import DealerGroup, Dealership, FranchiseType
 from tests.dealership_support import valid_uid
 
 

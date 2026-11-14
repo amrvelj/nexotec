@@ -50,8 +50,8 @@ from sqlalchemy.orm import Session
 import app.model_registry  # noqa: F401  registers every table on Base.metadata
 from app.core.i18n import SwissLanguage
 from app.db import Base
-from app.platform.models.dealership import DealerGroup, Dealership, FranchiseType
 from app.platform.models.document_template import DocumentTemplate
+from app.platform.organisation.models.dealership import DealerGroup, Dealership, FranchiseType
 from app.platform.schemas.document_content import (
     Addressee,
     ContentDefinition,

@@ -12,9 +12,9 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.errors import UnprocessableEntityError
-from app.platform.models.dealership import Location
 from app.platform.models.user import User
 from app.platform.models.user_location import UserLocation
+from app.platform.organisation.models.dealership import Location
 
 # "Field not sent" for the PATCH's two location fields (None is a value: no primary).
 UNSET: object = object()

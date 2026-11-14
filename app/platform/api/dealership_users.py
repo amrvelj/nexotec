@@ -31,6 +31,7 @@ from app.core.tenancy import require_tenant_match
 from app.db import get_db, get_session_factory
 from app.platform.api.auth import client_ip
 from app.platform.models.user import User, UserStatus
+from app.platform.organisation.services import dealership as dealership_service
 from app.platform.reference.services.mailer import PlatformMailer, get_mailer
 from app.platform.schemas.user import (
     OwnedGroupRead,
@@ -44,7 +45,6 @@ from app.platform.schemas.user import (
     UserPage,
     UserUpdate,
 )
-from app.platform.services import dealership as dealership_service
 from app.platform.services import (
     identity,
     photo,

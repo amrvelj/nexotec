@@ -18,7 +18,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.errors import NotFoundError, UnprocessableEntityError
-from app.platform.models.holiday_calendar import Holiday, HolidayCalendar, HolidayCondition, HolidayRule
+from app.platform.organisation.models.holiday_calendar import Holiday, HolidayCalendar, HolidayCondition, HolidayRule
 
 MIN_YEAR = 1900
 MAX_YEAR = 2200

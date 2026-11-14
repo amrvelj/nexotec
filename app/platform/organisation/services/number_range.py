@@ -38,8 +38,8 @@ from app.core.base import utcnow
 from app.core.config import get_settings
 from app.core.errors import ConflictError, UnprocessableEntityError
 from app.core.permissions import ModuleCode
-from app.platform.models.dealership import Location
-from app.platform.models.number_range import NumberRange, NumberRangeDocumentType
+from app.platform.organisation.models.dealership import Location
+from app.platform.organisation.models.number_range import NumberRange, NumberRangeDocumentType
 
 ENTITY_TYPE = "number_range"
 MAX_NUMBER_LENGTH = 16

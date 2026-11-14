@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 from app.core.audit import record_audit_event
 from app.core.base import utcnow
 from app.core.config import get_settings
-from app.platform.models.dealership_settings import (
+from app.platform.organisation.models.dealership_settings import (
     SHIPPED_ADDRESS_AUTOCOMPLETE_ENABLED,
     SHIPPED_CASH_ROUNDING,
     SHIPPED_CURRENCY,
@@ -25,7 +25,7 @@ from app.platform.models.dealership_settings import (
     DealershipSettings,
     PeriodLockPolicy,
 )
-from app.platform.schemas.dealership_settings import DealershipSettingsUpdate
+from app.platform.organisation.schemas.dealership_settings import DealershipSettingsUpdate
 
 _FIELDS = (
     "currency",

@@ -14,9 +14,9 @@ from sqlalchemy.orm import sessionmaker
 from app.core.audit_model import AuditEvent
 from app.core.auth import AccessRole
 from app.core.permissions import ModuleCode
-from app.platform.models.module_entitlement import ModuleEntitlement
-from app.platform.models.number_range import NumberRange, NumberRangeDocumentType
 from app.platform.models.standard_text import StandardText
+from app.platform.organisation.models.module_entitlement import ModuleEntitlement
+from app.platform.organisation.models.number_range import NumberRange, NumberRangeDocumentType
 from app.platform.services import configuration_copy as copy_service
 from tests.membership_support import bearer, create_dealership, create_user, grant, platform_admin, token
 from tests.postgres_only import ROW_LOCKS
@@ -533,7 +533,7 @@ def test_a_refused_pattern_leaves_no_seeded_range_row(client, engine, standard_t
         session.close()
     # The source's sites have a code; the target's have none, so the target
     # cannot take a pattern printing {location_code}.
-    from app.platform.models.dealership import Location
+    from app.platform.organisation.models.dealership import Location
 
     session = sessionmaker(bind=engine)()
     try:

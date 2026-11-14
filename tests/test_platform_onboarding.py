@@ -12,12 +12,12 @@ from sqlalchemy import func, select
 
 from app.core.outbox_model import OutboxMessage
 from app.platform.models.auth_token import AuthToken
-from app.platform.models.dealership import DealerGroup, Dealership, DealershipStatus, Location
-from app.platform.models.dealership_bank_account import DealershipBankAccount
-from app.platform.models.dealership_settings import DealershipSettings
-from app.platform.models.module_entitlement import ModuleEntitlement
-from app.platform.models.number_range import NumberRange
 from app.platform.models.user import User, UserStatus
+from app.platform.organisation.models.dealership import DealerGroup, Dealership, DealershipStatus, Location
+from app.platform.organisation.models.dealership_bank_account import DealershipBankAccount
+from app.platform.organisation.models.dealership_settings import DealershipSettings
+from app.platform.organisation.models.module_entitlement import ModuleEntitlement
+from app.platform.organisation.models.number_range import NumberRange
 from tests.dealership_support import seed_business_reference_lists, valid_uid
 from tests.identity_support import PasswordLogin, cookie_headers, create_dealership, create_user, platform_admin_headers
 from tests.postgres_only import NON_ASCII_CASE_FOLDING
@@ -172,7 +172,7 @@ def test_a_uid_already_onboarded_is_409_and_writes_nothing(client, mailbox, db_s
 
 
 def test_a_failing_seed_leaves_nothing_behind(client, mailbox, db_session, monkeypatch):
-    from app.platform.services import number_range
+    from app.platform.organisation.services import number_range
 
     def broken(*args, **kwargs):
         raise RuntimeError("seed failed")

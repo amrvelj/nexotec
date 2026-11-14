@@ -19,7 +19,7 @@ _APP_ROOT = _REPO_ROOT / "app"
 
 _SYSTEM_PATH_SERVICES = {"create_dealership", "create_user"}
 # Where the two services live: only there may a call hand the reason on.
-_SERVICE_FILES = {"app/platform/services/dealership.py", "app/platform/services/user.py"}
+_SERVICE_FILES = {"app/platform/organisation/services/dealership.py", "app/platform/services/user.py"}
 
 
 def _calls(tree: ast.AST):
@@ -97,10 +97,10 @@ def test_matches_the_shapes_it_exists_to_stop():
     assert _offences("create_dealership(db, data=d, actor_id=principal.user_id)") == []
     # The services hand their own reason on; a caller elsewhere may not.
     forwarding = "def create_dealership(db, *, actor_id, system_reason=None):\n    f(system_reason=system_reason)"
-    assert _offences(forwarding, "app/platform/services/dealership.py") == []
+    assert _offences(forwarding, "app/platform/organisation/services/dealership.py") == []
     # … and only there: a route handler of the same name is judged like any caller.
     route = "def create_user(body, principal):\n    svc.create_user(db, actor_id=None, system_reason='api')"
-    assert _offences(route, "app/platform/api/dealerships.py") == [
+    assert _offences(route, "app/platform/organisation/api/dealerships.py") == [
         "2: create_user(system_reason=…)",
         "2: create_user(actor_id=None)",
     ]

@@ -35,9 +35,9 @@ from app.core.errors import NotFoundError
 from app.core.i18n import SwissLanguage
 from app.core.object_store import ObjectStore, StoredObject, get_object_store
 from app.core.uuid7 import uuid7
-from app.platform.models.branding_asset import BrandingAsset, BrandingAssetKind
-from app.platform.models.dealership import Dealership, Location
-from app.platform.schemas.branding import (
+from app.platform.organisation.models.branding_asset import BrandingAsset, BrandingAssetKind
+from app.platform.organisation.models.dealership import Dealership, Location
+from app.platform.organisation.schemas.branding import (
     BrandingAssetRead,
     BrandingPlacements,
     BrandingRead,
@@ -46,10 +46,10 @@ from app.platform.schemas.branding import (
     ContrastPairRead,
     LocationLogoRead,
 )
-from app.platform.services.brand_colors import HEX_COLOR, judge_brand_colors
-from app.platform.services.logo_validation import validate_logo
+from app.platform.organisation.services.brand_colors import HEX_COLOR, judge_brand_colors
+from app.platform.organisation.services.logo_validation import validate_logo
 
-logger = logging.getLogger("app.platform.services.branding")
+logger = logging.getLogger("app.platform.organisation.services.branding")
 
 _ENTITY = "dealership"
 DEFAULT_BRAND_PRIMARY_COLOR = "#7C3AED"  # the column default (purple[6])

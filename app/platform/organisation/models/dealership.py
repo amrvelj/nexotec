@@ -78,7 +78,7 @@ class DealerGroup(PrimaryKeyMixin, VersionedMixin, TimestampMixin, Base):
 
     # ADR-030 (2): the group-read path is behind this flag, platform_admin-
     # only to flip, and only once a legal_basis row exists for the group at
-    # all (app.platform.services.dealership.enable_group_read's own
+    # all (app.platform.organisation.services.dealership.enable_group_read's own
     # precondition — a fail-fast admin UX check, NOT the actual security
     # boundary; the read helper re-checks a LIVE basis per customer on every
     # call regardless of this flag, since a basis can be withdrawn after the
@@ -255,7 +255,7 @@ class Dealership(PrimaryKeyMixin, VersionedMixin, TimestampMixin, Base):
     @property
     def address(self) -> dict[str, str]:
         """Read-side convenience: flat address_* columns as a nested dict
-        matching app.platform.schemas.dealership.DealershipAddress. Writes go
+        matching app.platform.organisation.schemas.dealership.DealershipAddress. Writes go
         through the service layer, which unpacks the nested schema back into
         columns.
         """

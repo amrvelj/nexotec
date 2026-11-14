@@ -40,18 +40,18 @@ from app.core.audit import record_audit_event
 from app.core.constants import CANTON_CODES
 from app.core.errors import ConflictError, NotFoundError, UnprocessableEntityError
 from app.core.validators import validate_postal_code_for_country
-from app.platform.models.dealership import Dealership, Location
-from app.platform.models.dealership_bank_account import DealershipBankAccount
-from app.platform.models.location_schedule import LocationClosure, LocationDepartment, LocationOpeningHours
-from app.platform.schemas.location import (
+from app.platform.organisation.models.dealership import Dealership, Location
+from app.platform.organisation.models.dealership_bank_account import DealershipBankAccount
+from app.platform.organisation.models.location_schedule import LocationClosure, LocationDepartment, LocationOpeningHours
+from app.platform.organisation.schemas.location import (
     ClosureCreate,
     ClosureUpdate,
     LocationCreate,
     LocationUpdate,
     OpeningHoursUpdate,
 )
-from app.platform.services import holidays as holiday_service
-from app.platform.services.dealership import get_dealership_for_update_or_404
+from app.platform.organisation.services import holidays as holiday_service
+from app.platform.organisation.services.dealership import get_dealership_for_update_or_404
 
 _ENTITY = "location"
 _HOURS_ENTITY = "location_opening_hours"

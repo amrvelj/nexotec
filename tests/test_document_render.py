@@ -14,8 +14,8 @@ import pytest
 
 from app.core.errors import NotFoundError
 from app.core.i18n import SwissLanguage
-from app.platform.models.dealership import DealerGroup, Dealership, FranchiseType, Location
 from app.platform.models.document_template import DocumentTemplate
+from app.platform.organisation.models.dealership import DealerGroup, Dealership, FranchiseType, Location
 from app.platform.schemas.document_content import (
     Addressee,
     ContentDefinition,

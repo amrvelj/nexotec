@@ -44,10 +44,10 @@ from app.core.config import get_settings
 from app.core.errors import BadRequestError, ConflictError
 from app.core.export import exporters
 from app.core.outbox import OutboxEvent, publish
-from app.platform.models.dealership import Dealership, DealershipStatus
 from app.platform.models.dealership_membership import DealershipMembership
 from app.platform.models.export_job import ExportJob, ExportJobKind
 from app.platform.models.user import User, UserStatus
+from app.platform.organisation.models.dealership import Dealership, DealershipStatus
 from app.platform.services import connected_account, text_delegation
 from app.platform.services import user as user_service
 from app.platform.services.data_export import scope_for

@@ -1057,7 +1057,7 @@ _SCRIPTS_REACHING_SEVERAL_CONTEXTS: dict[str, _ScriptReach] = {
         frozenset(
             {
                 "app.customer.models.customer",
-                "app.platform.models.dealership",
+                "app.platform.organisation.models.dealership",
             }
         ),
         commits=True,
@@ -1074,7 +1074,7 @@ _SCRIPTS_REACHING_SEVERAL_CONTEXTS: dict[str, _ScriptReach] = {
         frozenset(
             {
                 "app.customer.models.customer",
-                "app.platform.models.dealership",
+                "app.platform.organisation.models.dealership",
                 "app.platform.models.user",
                 "app.vehicle.models.catalogue",
                 "app.vehicle.models.provider",

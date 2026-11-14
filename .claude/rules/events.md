@@ -7,6 +7,7 @@ paths:
   - "app/worker.py"
   - "app/reconciliation_runner.py"
   - "app/*/services/**"
+  - "app/platform/*/services/**"
   - "app/*/consumers.py"
   - "app/**/*consumer*.py"
   - "app/**/*reconciliation*.py"

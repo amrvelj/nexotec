@@ -17,21 +17,21 @@ from app.core.audit import record_audit_event
 from app.core.errors import BadRequestError, ConflictError, NotFoundError, UnprocessableEntityError
 from app.core.i18n import SwissLanguage
 from app.core.pagination import PageParams, build_page, paginate_query
-from app.platform.models.dealership import (
+from app.platform.organisation.models.dealership import (
     LEGAL_IDENTITY_FIELDS,
     DealerGroup,
     Dealership,
     DealershipStatus,
 )
-from app.platform.reference.services.reference_data import get_active_reference_value_codes
-from app.platform.reference.services.system_writes import system_write_reason
-from app.platform.reference_data_seed import ASSOCIATION_MEMBERSHIP_LIST_CODE, LEGAL_FORM_LIST_CODE
-from app.platform.schemas.dealership import (
+from app.platform.organisation.schemas.dealership import (
     DealershipAddress,
     DealershipCreate,
     DealershipOverrideAddress,
     DealershipUpdate,
 )
+from app.platform.reference.services.reference_data import get_active_reference_value_codes
+from app.platform.reference.services.system_writes import system_write_reason
+from app.platform.reference_data_seed import ASSOCIATION_MEMBERSHIP_LIST_CODE, LEGAL_FORM_LIST_CODE
 
 # KAN-203 (enforcement rule 7: every administrative write with before and
 # after): every changed column is audited, the address blocks as a whole.
@@ -272,16 +272,16 @@ def create_dealership(
         raise _uid_conflict(data.uid) from exc
     # KAN-203 (FR-A-25): the fiscal defaults exist before anyone opens the
     # Business screen — the shipped values, nothing commercial.
-    from app.platform.services.dealership_settings import new_settings
+    from app.platform.organisation.services.dealership_settings import new_settings
 
     db.add(new_settings(dealership.id, actor_id))
     # KAN-204 (FR-A-03): a Betrieb always has an active location — the first
     # one is its registered seat, made with it.
-    from app.platform.services.location import new_first_location
+    from app.platform.organisation.services.location import new_first_location
 
     new_first_location(db, dealership=dealership, actor_id=actor_id, system_reason=audit_reason)
     # KAN-207 (D-A-17): its number ranges, with the neutral seeds, unfrozen.
-    from app.platform.services.number_range import seed_number_ranges
+    from app.platform.organisation.services.number_range import seed_number_ranges
 
     seed_number_ranges(db, dealership_id=dealership.id, actor_id=actor_id)
 

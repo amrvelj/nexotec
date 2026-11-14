@@ -155,7 +155,7 @@ def test_without_a_preference_the_enrollment_sends_the_home_betriebs_language(db
     user starts in their home Betrieb's default correspondence language."""
 
     from app.core.i18n import SwissLanguage
-    from app.platform.models.dealership import DealerGroup, Dealership, FranchiseType
+    from app.platform.organisation.models.dealership import DealerGroup, Dealership, FranchiseType
     from tests.dealership_support import valid_uid
 
     group = DealerGroup(name="Gruppo Ticino")

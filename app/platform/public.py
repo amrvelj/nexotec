@@ -3,13 +3,23 @@ contract allows `app.<other-context>` to import `app.platform.public`, never
 `app.platform.models` / `app.platform.services` / `app.platform.api` directly.
 """
 
-from app.platform.models.dealership import DealerGroup, Dealership, Location
-from app.platform.models.number_range import NumberRangeDocumentType
 from app.platform.models.standard_text import StandardTextAppliesTo, StandardTextSlot
 from app.platform.models.standard_text_delegation import StandardTextCategory
 from app.platform.models.user import User
+from app.platform.organisation.models.dealership import DealerGroup, Dealership, Location
+from app.platform.organisation.models.number_range import NumberRangeDocumentType
+from app.platform.organisation.schemas.dealership import DealerGroupRead
+from app.platform.organisation.services.contact_group import ContactGroupCodes, contact_group_codes
+from app.platform.organisation.services.dealership import (
+    enable_group_read,
+    get_dealer_group_or_404,
+    get_dealership_default_correspondence_language,
+    get_dealership_or_404,
+)
+from app.platform.organisation.services.group_read_dealerships import DealershipRef, list_group_read_dealerships
+from app.platform.organisation.services.location import get_location_or_404
+from app.platform.organisation.services.number_range import allocate_number
 from app.platform.reference.services.reference_data import get_active_reference_value_codes
-from app.platform.schemas.dealership import DealerGroupRead
 from app.platform.schemas.document_content import (
     Addressee,
     ContentDefinition,
@@ -30,21 +40,11 @@ from app.platform.services.connected_account import (
     register_grant_revoker,
     unregister_grant_revoker,
 )
-from app.platform.services.contact_group import ContactGroupCodes, contact_group_codes
 from app.platform.services.data_export_tables import PlatformExporter
-from app.platform.services.dealership import (
-    enable_group_read,
-    get_dealer_group_or_404,
-    get_dealership_default_correspondence_language,
-    get_dealership_or_404,
-)
 from app.platform.services.document_render import render_document
 from app.platform.services.group_labels import get_group_display_labels
-from app.platform.services.group_read_dealerships import DealershipRef, list_group_read_dealerships
-from app.platform.services.location import get_location_or_404
 from app.platform.services.notification_catalogue import NotificationEventCode
 from app.platform.services.notifications import NotificationSubject, UnknownNotificationEvent, notify
-from app.platform.services.number_range import allocate_number
 from app.platform.services.standard_text import RenderedStandardText, render_standard_text
 from app.platform.services.standard_text_placeholders import PLACEHOLDER_UNRESOLVED, Placeholder
 from app.platform.services.user_preference import ui_language_of

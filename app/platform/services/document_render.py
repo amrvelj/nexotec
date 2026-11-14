@@ -47,8 +47,6 @@ from weasyprint.urls import URLFetcher
 
 from app.core.i18n import SwissLanguage, format_currency_chf
 from app.core.object_store import ObjectStore, StoredObject, get_object_store
-from app.platform.models.dealership import Dealership, Location
-from app.platform.models.dealership_bank_account import DealershipBankAccount
 from app.platform.models.document_template import (
     DEFAULT_FOOTER_COLUMNS,
     AddressWindow,
@@ -56,6 +54,11 @@ from app.platform.models.document_template import (
     HeaderLayout,
     LogoSize,
 )
+from app.platform.organisation.models.dealership import Dealership, Location
+from app.platform.organisation.models.dealership_bank_account import DealershipBankAccount
+from app.platform.organisation.services.branding import document_header_logo
+from app.platform.organisation.services.dealership import get_dealership_or_404
+from app.platform.organisation.services.location import get_location_or_404
 from app.platform.schemas.document_content import (
     Addressee,
     ContentDefinition,
@@ -67,10 +70,7 @@ from app.platform.schemas.document_content import (
     SignatureBlock,
 )
 from app.platform.services import document_letterhead as letterhead
-from app.platform.services.branding import document_header_logo
-from app.platform.services.dealership import get_dealership_or_404
 from app.platform.services.document_template import get_document_template
-from app.platform.services.location import get_location_or_404
 from app.platform.services.user_reads import get_user_acting_in
 
 # --- print tokens, copied from frontend/packages/ui-kit/src/tokens.ts ------

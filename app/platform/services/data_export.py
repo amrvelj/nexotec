@@ -38,9 +38,9 @@ from app.core.errors import ConflictError, NotFoundError
 from app.core.export import ExportScope, exporters, write_archive
 from app.core.object_store import ObjectStore, get_object_store
 from app.core.pagination import PageParams, build_page, paginate_query
-from app.platform.models.dealership import Dealership, DealershipStatus
 from app.platform.models.export_job import ExportJob, ExportJobKind, ExportJobStatus
-from app.platform.services import dealership as dealership_service
+from app.platform.organisation.models.dealership import Dealership, DealershipStatus
+from app.platform.organisation.services import dealership as dealership_service
 
 logger = logging.getLogger(__name__)
 

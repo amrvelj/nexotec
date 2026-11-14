@@ -35,7 +35,7 @@ from app.inventory.models.stock_item import ReservationState, StockItem, StockIt
 from app.inventory.schemas.stock_item import StockItemCreate
 from app.inventory.services.pipeline import handle_sales_contract_confirmed
 from app.inventory.services.stock_item import create_stock_item
-from app.platform.models.dealership import DealerGroup, Dealership, FranchiseType
+from app.platform.organisation.models.dealership import DealerGroup, Dealership, FranchiseType
 from app.sales.schemas.offer import OfferUpdate
 from app.sales.services.contract import cancel_contract, confirm_contract, create_contract
 from app.sales.services.offer import create_offer, update_offer

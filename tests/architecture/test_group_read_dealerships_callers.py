@@ -65,7 +65,7 @@ def test_the_guard_reports_an_unruled_caller():
     assert _unruled_callers({
         "app/sales/services/offer.py": uses,
         "app/customer/api/customers.py": uses,
-        "app/platform/services/group_read_dealerships.py": f"def {_NAME}(): ...\n",
+        "app/platform/organisation/services/group_read_dealerships.py": f"def {_NAME}(): ...\n",
         "app/inventory/services/group_listing.py": uses,
         "app/sales/services/untouched.py": "x = 1\n",
     }) == ["app/customer/api/customers.py", "app/sales/services/offer.py"]

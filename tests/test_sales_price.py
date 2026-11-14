@@ -66,7 +66,7 @@ def test_dealership_vat_rate_is_the_one_vat_figure_in_the_system():
     anywhere Sales could reach — a single dealer-configurable rate, never
     a per-deal attribute."""
 
-    from app.platform.models.dealership import Dealership
+    from app.platform.organisation.models.dealership import Dealership
 
     column_names = Dealership.__table__.columns.keys()
     assert "vat_rate" in column_names

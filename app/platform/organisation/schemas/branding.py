@@ -10,9 +10,9 @@ from typing import Literal
 from pydantic import Field, field_validator, model_validator
 
 from app.core.schemas import CamelModel
-from app.platform.models.branding_asset import BrandingAssetKind
+from app.platform.organisation.models.branding_asset import BrandingAssetKind
+from app.platform.organisation.services.brand_colors import HEX_COLOR, WCAG_AA_NORMAL_TEXT, ContrastPairName
 from app.platform.reference.schemas.patch import refuse_null_on_not_null_fields
-from app.platform.services.brand_colors import HEX_COLOR, WCAG_AA_NORMAL_TEXT, ContrastPairName
 
 
 def _hex(value: str | None) -> str | None:

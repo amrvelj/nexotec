@@ -33,15 +33,15 @@ from sqlalchemy.orm import Session
 from app.core.auth import AccessRole
 from app.core.errors import ConflictError
 from app.core.outbox import OutboxEvent, publish
-from app.platform.models.dealership import Dealership, Location
 from app.platform.models.user import User
+from app.platform.organisation.models.dealership import Dealership, Location
+from app.platform.organisation.schemas.dealership import DealershipCreate
+from app.platform.organisation.services import dealership as dealership_service
+from app.platform.organisation.services import entitlement as entitlement_service
 from app.platform.reference.services.mailer import PlatformMailer
 from app.platform.reference_data_seed import LEGAL_FORM_LIST_CODE
-from app.platform.schemas.dealership import DealershipCreate
 from app.platform.schemas.onboarding import OnboardingRequest
 from app.platform.schemas.user import UserCreate
-from app.platform.services import dealership as dealership_service
-from app.platform.services import entitlement as entitlement_service
 from app.platform.services import identity
 from app.platform.services import user as user_service
 

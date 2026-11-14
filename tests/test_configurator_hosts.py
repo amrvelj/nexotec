@@ -25,7 +25,7 @@ from app.inventory.consumers import handle_sales_contract_confirmed_message
 from app.inventory.models.stock_item import LifecycleStatus, StockItem, StockItemCondition
 from app.inventory.schemas.stock_item import StockItemCreate
 from app.inventory.services.stock_item import create_stock_item, list_stock_items
-from app.platform.models.dealership import DealerGroup, Dealership, FranchiseType
+from app.platform.organisation.models.dealership import DealerGroup, Dealership, FranchiseType
 from app.platform.schemas.document_content import LineItemsBlock
 from app.sales.models.line_item import LineItemKind, SalesLineItem
 from app.sales.reconciliation import CHECKS as SALES_CHECKS

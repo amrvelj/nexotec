@@ -65,7 +65,7 @@ def test_the_guard_reports_an_import_that_reaches_up():
     # Red before green on synthetic sources.
     assert _upward_imports({
         "app/platform/reference/services/a.py": "from app.platform.services.user import get_user\n",
-        "app/platform/reference/services/b.py": "import app.platform.models.dealership\n",
+        "app/platform/reference/services/b.py": "import app.platform.organisation.models.dealership\n",
         "app/platform/reference/services/c.py": "from app.platform.public import notify\n",
         "app/platform/reference/services/ok.py": (
             "from app.platform.reference.services import mailer\n"
@@ -75,7 +75,7 @@ def test_the_guard_reports_an_import_that_reaches_up():
     }) == [
         "app/platform/reference/services/a.py -> app.platform.services.user",
         "app/platform/reference/services/a.py -> app.platform.services.user.get_user",
-        "app/platform/reference/services/b.py -> app.platform.models.dealership",
+        "app/platform/reference/services/b.py -> app.platform.organisation.models.dealership",
         "app/platform/reference/services/c.py -> app.platform.public",
         "app/platform/reference/services/c.py -> app.platform.public.notify",
     ]

@@ -21,8 +21,8 @@ from sqlalchemy.orm import Session
 from app.core.audit import record_audit_event
 from app.core.errors import NotFoundError, UnprocessableEntityError
 from app.core.export import ExportedTable, ExportScope, table_of
-from app.platform.models.contact_group import CONTACT_GROUP_LIST_CODE, DealershipContactGroup
-from app.platform.models.dealership import Dealership
+from app.platform.organisation.models.contact_group import CONTACT_GROUP_LIST_CODE, DealershipContactGroup
+from app.platform.organisation.models.dealership import Dealership
 from app.platform.reference.models.reference_data import ReferenceList, ReferenceValue
 
 # The initial set, Anto's ruling of 2026-10-26, as the seed migration

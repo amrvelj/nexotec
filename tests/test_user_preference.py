@@ -202,7 +202,7 @@ def test_unauthenticated_request_is_rejected(client):
 
 def _betrieb_speaks(db_session, dealer_id: str, language: str) -> None:
     from app.core.i18n import SwissLanguage
-    from app.platform.models.dealership import Dealership
+    from app.platform.organisation.models.dealership import Dealership
 
     db_session.get(Dealership, uuid.UUID(dealer_id)).default_correspondence_language = SwissLanguage(language)
     db_session.commit()

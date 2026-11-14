@@ -15,9 +15,9 @@ from pydantic import BeforeValidator, EmailStr, Field, field_validator, model_va
 
 from app.core.schemas import CamelModel
 from app.core.validators import E164Phone
-from app.platform.models.dealership import LocationType
-from app.platform.models.holiday_calendar import HolidayCondition, HolidayRule
-from app.platform.models.location_schedule import LocationDepartment
+from app.platform.organisation.models.dealership import LocationType
+from app.platform.organisation.models.holiday_calendar import HolidayCondition, HolidayRule
+from app.platform.organisation.models.location_schedule import LocationDepartment
 from app.platform.reference.schemas.patch import refuse_null_on_not_null_fields
 
 # "ZH-NORD": capitals, digits and hyphens, starting with a letter or digit.

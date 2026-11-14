@@ -9,7 +9,7 @@ from sqlalchemy import event
 from app.core.auth import AccessRole, create_access_token
 from app.inventory.models.stock_item import StockItemCondition
 from app.inventory.schemas.stock_item import StockItemCreate
-from app.platform.models.dealership import DealerGroup, Dealership
+from app.platform.organisation.models.dealership import DealerGroup, Dealership
 from tests.dealership_support import valid_uid
 from tests.stock_support import create_in_stock_item
 from tests.token_support import dealer_group_of

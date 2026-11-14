@@ -18,7 +18,7 @@ from app.inventory.schemas.stock_item import StockItemCreate
 from app.inventory.services.pricing import set_options
 from app.inventory.services.purchase import record_purchase
 from app.inventory.services.stock_item import create_stock_item
-from app.platform.models.dealership import DealerGroup, Dealership, FranchiseType
+from app.platform.organisation.models.dealership import DealerGroup, Dealership, FranchiseType
 from app.sales.models.line_item import LineItemKind, SalesLineItem
 from app.sales.models.offer import OfferStatus
 from app.sales.schemas.line_item import LineItemAccessoryInput, LineItemFactoryOptionPatch, LineItemsReplaceRequest

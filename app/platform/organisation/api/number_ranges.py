@@ -22,17 +22,17 @@ from app.core.idempotent_route import IdempotentRoute
 from app.core.permissions import ModuleCode, require_read, require_write
 from app.core.tenancy import require_tenant_match
 from app.db import get_db
-from app.platform.models.number_range import NumberRange, NumberRangeDocumentType
-from app.platform.schemas.number_range import (
+from app.platform.organisation.models.number_range import NumberRange, NumberRangeDocumentType
+from app.platform.organisation.schemas.number_range import (
     NumberRangeList,
     NumberRangePreviewRead,
     NumberRangePreviewRequest,
     NumberRangeRead,
     NumberRangeUpdate,
 )
-from app.platform.services import number_range as number_range_service
-from app.platform.services.dealership import get_dealership_or_404
-from app.platform.services.entitlement import list_active_modules
+from app.platform.organisation.services import number_range as number_range_service
+from app.platform.organisation.services.dealership import get_dealership_or_404
+from app.platform.organisation.services.entitlement import list_active_modules
 
 router = APIRouter(tags=["number-ranges"], route_class=IdempotentRoute)
 

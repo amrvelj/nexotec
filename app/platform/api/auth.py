@@ -35,8 +35,10 @@ from app.db import get_db
 from app.platform.models.auth_event import AuthEventKind
 from app.platform.models.auth_session import AuthSession
 from app.platform.models.auth_token import AuthTokenKind
-from app.platform.models.dealership import Dealership
 from app.platform.models.user import User
+from app.platform.organisation.models.dealership import Dealership
+from app.platform.organisation.services import dealership as dealership_service
+from app.platform.organisation.services import entitlement as entitlement_service
 from app.platform.reference.services.mailer import PlatformMailer, get_mailer
 from app.platform.schemas.auth import (
     DealershipMembershipSummary,
@@ -63,8 +65,6 @@ from app.platform.schemas.auth import (
 )
 from app.platform.schemas.user import UserRead
 from app.platform.services import auth_events, auth_sessions, auth_tokens, identity, mfa, session_policy
-from app.platform.services import dealership as dealership_service
-from app.platform.services import entitlement as entitlement_service
 from app.platform.services import user as user_service
 from app.platform.services import user_reads as user_reads_service
 

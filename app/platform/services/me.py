@@ -10,8 +10,8 @@ from sqlalchemy.orm import Session
 
 from app.core.audit import record_audit_event
 from app.platform.models.user import User
+from app.platform.organisation.services import dealership as dealership_service
 from app.platform.schemas.me import MeRead, MeUpdate
-from app.platform.services import dealership as dealership_service
 
 # Recorded with their values: what documents and colleagues see of the user.
 _AUDITED_WITH_VALUES = {"first_name", "last_name", "correspondence_language"}

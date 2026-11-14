@@ -12,7 +12,7 @@ from app.inventory.models.stock_item import AgeingBucket, StockItemCondition
 from app.inventory.schemas.stock_item import StockItemCreate, StockItemRead
 from app.inventory.services.pipeline import promote_to_vehicle_mdm
 from app.inventory.services.stock_item import compute_ageing_bucket, create_stock_item
-from app.platform.schemas.dealership import DealershipRead
+from app.platform.organisation.schemas.dealership import DealershipRead
 
 
 def test_ageing_bucket_is_none_while_pipeline(db_session):

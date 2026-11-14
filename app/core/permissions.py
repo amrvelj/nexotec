@@ -313,7 +313,7 @@ def require_banking_write():
 
 # Reads a dealership's current `entitlements_version`, or None when no such
 # dealership exists. Registered by platform at import time
-# (app.platform.services.entitlement): core never imports a bounded context,
+# (app.platform.organisation.services.entitlement): core never imports a bounded context,
 # so the one piece of platform state the gate needs arrives as a callback.
 EntitlementVersionReader = Callable[[Session, uuid.UUID], int | None]
 _entitlement_version_reader: EntitlementVersionReader | None = None

@@ -25,7 +25,7 @@ from app.inventory.models.cancelled_contract import InventoryCancelledContract
 from app.inventory.models.stock_item import ReservationState, StockItem
 from app.inventory.services.reservation import release_and_flush
 from app.inventory.services.reservation_backfill import BackfillOutcome, backfill_manual_configuration_reservations
-from app.platform.models.dealership import DealerGroup, Dealership, FranchiseType
+from app.platform.organisation.models.dealership import DealerGroup, Dealership, FranchiseType
 from app.sales.schemas.offer import OfferUpdate
 from app.sales.services.contract import cancel_contract, confirm_contract, create_contract
 from app.sales.services.offer import create_offer, update_offer

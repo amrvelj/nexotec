@@ -8,9 +8,9 @@ from app.core.auth import AccessRole
 from app.core.permissions import ModuleCode
 from app.core.schemas import CamelModel
 from app.core.validators import E164Phone, SwissUid
-from app.platform.models.dealership import FranchiseType
 from app.platform.models.user import UserRole
-from app.platform.schemas.dealership import DealershipAddress
+from app.platform.organisation.models.dealership import FranchiseType
+from app.platform.organisation.schemas.dealership import DealershipAddress
 
 
 class OnboardingGroup(CamelModel):

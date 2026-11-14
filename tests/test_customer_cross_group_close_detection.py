@@ -21,7 +21,7 @@ from app.core.base import utcnow
 from app.core.outbox_model import OutboxMessage
 from app.customer.models.customer import Customer, CustomerType, Language
 from app.customer.reconciliation import StampCategory, find_cross_group_vehicle_party_closes
-from app.platform.models.dealership import DealerGroup, Dealership, FranchiseType
+from app.platform.organisation.models.dealership import DealerGroup, Dealership, FranchiseType
 from tests.dealership_support import valid_uid
 
 _POSTGRES_ONLY = pytest.mark.skipif(

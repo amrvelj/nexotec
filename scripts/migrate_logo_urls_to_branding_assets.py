@@ -52,10 +52,10 @@ from sqlalchemy.orm import Session
 from app.core.errors import UnprocessableEntityError
 from app.core.object_store import ObjectStore, get_object_store
 from app.db import SessionLocal
-from app.platform.models.branding_asset import BrandingAssetKind
-from app.platform.models.dealership import Dealership
-from app.platform.services import branding
-from app.platform.services.logo_validation import MAX_BYTES, validate_logo
+from app.platform.organisation.models.branding_asset import BrandingAssetKind
+from app.platform.organisation.models.dealership import Dealership
+from app.platform.organisation.services import branding
+from app.platform.organisation.services.logo_validation import MAX_BYTES, validate_logo
 
 REASON = "KAN-205: logo_url moved into the object store by scripts/migrate_logo_urls_to_branding_assets.py"
 

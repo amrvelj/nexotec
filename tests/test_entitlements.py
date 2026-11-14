@@ -8,8 +8,8 @@ from sqlalchemy import select
 
 from app.core.auth import AccessRole, create_access_token
 from app.core.permissions import ModuleCode
-from app.platform.models.dealership import Dealership
-from app.platform.models.module_entitlement import ModuleEntitlement
+from app.platform.organisation.models.dealership import Dealership
+from app.platform.organisation.models.module_entitlement import ModuleEntitlement
 from tests.dealership_support import valid_uid
 from tests.token_support import dealer_group_of
 

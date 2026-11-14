@@ -2,7 +2,7 @@
 never a module's own settings screen.
 
 Which contact groups a Betrieb uses is configured in one place: the platform
-router `app.platform.api.contact_groups` (`/v1/dealerships/{id}/contact-groups`,
+router `app.platform.organisation.api.contact_groups` (`/v1/dealerships/{id}/contact-groups`,
 the «Kontaktgruppen» screen). Customers only read which codes they may set
 (`platform.public.contact_group_codes`). The test that would have caught a
 module-owned setting:
@@ -22,8 +22,8 @@ from app.main import app
 from tests.route_walk import api_routes
 
 APP = pathlib.Path(__file__).resolve().parents[2] / "app"
-_SETTING_MODULE = "app.platform.api.contact_groups"
-_SWITCH_WRITERS = {"app/platform/models/contact_group.py", "app/platform/services/contact_group.py"}
+_SETTING_MODULE = "app.platform.organisation.api.contact_groups"
+_SWITCH_WRITERS = {"app/platform/organisation/models/contact_group.py", "app/platform/organisation/services/contact_group.py"}
 # Composition roots and monitors that name every table without writing it.
 _REGISTRIES = {"app/model_registry.py", "app/platform/reconciliation.py"}
 

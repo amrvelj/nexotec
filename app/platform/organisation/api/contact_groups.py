@@ -24,10 +24,10 @@ from app.core.idempotent_route import IdempotentRoute
 from app.core.permissions import require_read, require_write
 from app.core.tenancy import require_tenant_match
 from app.db import get_db
-from app.platform.schemas.contact_group import ContactGroupList, ContactGroupRead, ContactGroupSwitch
-from app.platform.services import contact_group as contact_group_service
-from app.platform.services.contact_group import ContactGroupOption
-from app.platform.services.dealership import get_dealership_or_404
+from app.platform.organisation.schemas.contact_group import ContactGroupList, ContactGroupRead, ContactGroupSwitch
+from app.platform.organisation.services import contact_group as contact_group_service
+from app.platform.organisation.services.contact_group import ContactGroupOption
+from app.platform.organisation.services.dealership import get_dealership_or_404
 
 router = APIRouter(tags=["contact-groups"], route_class=IdempotentRoute)
 

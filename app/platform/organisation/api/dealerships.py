@@ -39,19 +39,29 @@ from app.core.permissions import (
 )
 from app.core.tenancy import require_tenant_match
 from app.db import get_db
-from app.platform.models.dealership import DealershipStatus
-from app.platform.schemas.bank_account import BankAccountCreate, BankAccountList, BankAccountRead, BankAccountUpdate
-from app.platform.schemas.dealership import DealershipCreate, DealershipPage, DealershipRead, DealershipUpdate
-from app.platform.schemas.dealership_settings import (
+from app.platform.organisation.models.dealership import DealershipStatus
+from app.platform.organisation.schemas.bank_account import (
+    BankAccountCreate,
+    BankAccountList,
+    BankAccountRead,
+    BankAccountUpdate,
+)
+from app.platform.organisation.schemas.dealership import (
+    DealershipCreate,
+    DealershipPage,
+    DealershipRead,
+    DealershipUpdate,
+)
+from app.platform.organisation.schemas.dealership_settings import (
     AddressAutocompleteConfigRead,
     DealershipSettingsRead,
     DealershipSettingsUpdate,
 )
-from app.platform.schemas.entitlement import EntitlementsRead, EntitlementsUpdate
-from app.platform.services import bank_account as bank_account_service
-from app.platform.services import dealership as dealership_service
-from app.platform.services import dealership_settings as settings_service
-from app.platform.services import entitlement as entitlement_service
+from app.platform.organisation.schemas.entitlement import EntitlementsRead, EntitlementsUpdate
+from app.platform.organisation.services import bank_account as bank_account_service
+from app.platform.organisation.services import dealership as dealership_service
+from app.platform.organisation.services import dealership_settings as settings_service
+from app.platform.organisation.services import entitlement as entitlement_service
 
 router = APIRouter(tags=["dealerships"], route_class=IdempotentRoute)
 

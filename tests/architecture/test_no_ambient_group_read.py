@@ -77,7 +77,7 @@ _ALLOWED_FILES = {
     _APP_ROOT / "platform" / "services" / "group_read_dealerships.py",
     # Platform's OWN cross-group dealership listing — platform_admin
     # managing the entire multi-tenant system (require_access_role(),
-    # platform_admin-only, at app/platform/api/dealerships.py's
+    # platform_admin-only, at app/platform/organisation/api/dealerships.py's
     # list_dealerships route). Not the threat model this rule polices: no
     # dealer or sister group can reach this, only the SaaS operator's own
     # staff — the same already-accepted exception category as
@@ -150,8 +150,8 @@ def test_no_ambient_group_filter_outside_the_sanctioned_files():
     assert not all_violations, (
         "Found a group-scoped filter predicate (group_id or dealer_group_id) outside "
         "the sanctioned files (app/core/tenancy.py, app/customer/services/customer.py, "
-        "app/customer/services/legal_basis.py, app/platform/services/group_read_dealerships.py, "
-        "app/platform/services/dealership.py, …; see _ALLOWED_FILES) — any other cross-group-boundary read "
+        "app/customer/services/legal_basis.py, app/platform/organisation/services/group_read_dealerships.py, "
+        "app/platform/organisation/services/dealership.py, …; see _ALLOWED_FILES) — any other cross-group-boundary read "
         "must go through app.core.tenancy.get_group_read_or_404, never an ambient "
         "filter written inline elsewhere:\n" + "\n".join(all_violations)
     )

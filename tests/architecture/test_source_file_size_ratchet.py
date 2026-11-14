@@ -44,7 +44,7 @@ OVER_LIMIT: dict[str, tuple[int, str]] = {}
 # path whose entry has left OVER_LIMIT — the baseline is history, not a to-do.
 _FROZEN_BASELINE: frozenset[str] = frozenset(
     {
-        "app/platform/api/dealerships.py",
+        "app/platform/organisation/api/dealerships.py",
         "app/platform/services/user.py",
         "app/vehicle/services/identification.py",
         "frontend/apps/dms/src/components/configurator/ConfiguratorOverlay.tsx",

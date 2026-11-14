@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 
 from app.core.pagination import SortPageParams, build_sorted_page, paginate_query_sorted
 from app.core.sorting import SortField, decode_cursor_for_sort
-from app.platform.models.dealership import DealerGroup
+from app.platform.organisation.models.dealership import DealerGroup
 
 _BY_NAME = [SortField(api_name="name", column=DealerGroup.name, direction="asc", nullable=False)]
 

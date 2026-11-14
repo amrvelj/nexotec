@@ -28,9 +28,9 @@ import re
 from collections.abc import Sequence
 
 from app.core.i18n import SwissLanguage
-from app.platform.models.dealership import Dealership
-from app.platform.models.dealership_bank_account import DealershipBankAccount
 from app.platform.models.document_template import AddressWindow, FooterColumn, LogoSize
+from app.platform.organisation.models.dealership import Dealership
+from app.platform.organisation.models.dealership_bank_account import DealershipBankAccount
 
 # --- the page -----------------------------------------------------------------
 

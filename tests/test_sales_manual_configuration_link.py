@@ -25,7 +25,7 @@ from app.inventory.models.stock_item import StockItem
 from app.inventory.schemas.purchase import RecordPurchaseRequest
 from app.inventory.services.pipeline import promote_to_vehicle_mdm
 from app.inventory.services.purchase import record_purchase
-from app.platform.models.dealership import DealerGroup, Dealership, FranchiseType
+from app.platform.organisation.models.dealership import DealerGroup, Dealership, FranchiseType
 from app.sales.consumers import handle_stock_item_added_message, handle_stock_item_purchased_message
 from app.sales.schemas.offer import OfferUpdate
 from app.sales.services.contract import confirm_contract, create_contract, request_invoice

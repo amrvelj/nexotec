@@ -1,7 +1,7 @@
 """Bank accounts of a Betrieb (KAN-203, D-A-27). The IBAN types validate the
 ISO 7064 check on save and tell a QR-IBAN (IID 30000–31999) from a plain
 one; which reference goes with which is the service's rule
-(app.platform.services.bank_account.assert_qr_consistent), because a PATCH
+(app.platform.organisation.services.bank_account.assert_qr_consistent), because a PATCH
 only sees the fields it carries.
 """
 
@@ -12,7 +12,7 @@ from pydantic import Field, model_validator
 
 from app.core.schemas import CamelModel
 from app.core.validators import PlainIban, QrIban
-from app.platform.models.dealership_bank_account import QrReferenceType
+from app.platform.organisation.models.dealership_bank_account import QrReferenceType
 from app.platform.reference.schemas.patch import refuse_null_on_not_null_fields
 
 # ISO 9362 BIC: 8 or 11 characters, upper case.

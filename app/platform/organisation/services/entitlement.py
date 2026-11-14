@@ -18,8 +18,8 @@ from sqlalchemy.orm import Session
 from app.core.audit import record_audit_event
 from app.core.base import utcnow
 from app.core.permissions import ModuleCode, set_entitlement_version_reader
-from app.platform.models.dealership import Dealership
-from app.platform.models.module_entitlement import ModuleEntitlement
+from app.platform.organisation.models.dealership import Dealership
+from app.platform.organisation.models.module_entitlement import ModuleEntitlement
 
 
 def _rows(db: Session, dealership_id: uuid.UUID) -> list[ModuleEntitlement]:

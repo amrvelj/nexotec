@@ -19,7 +19,7 @@ import pytest
 from sqlalchemy import create_engine, insert, text
 from sqlalchemy.orm import Session
 
-from app.platform.models.dealership import DealerGroup, Dealership, FranchiseType
+from app.platform.organisation.models.dealership import DealerGroup, Dealership, FranchiseType
 from app.sales.models.contract import ContractStatus, SalesContract
 from app.sales.models.offer import OfferStatus, SalesOffer
 from app.sales.services.document import generate_contract_document, generate_offer_document
