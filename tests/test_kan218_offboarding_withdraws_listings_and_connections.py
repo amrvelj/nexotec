@@ -376,3 +376,38 @@ def test_an_unpublish_whose_feed_never_reached_the_marketplace_is_withdrawn_too(
 
     assert adapter.transmitted[sent_before:] == [[]]
     assert len(_withdrawn_messages(db_session, leaving.id)) == 1
+
+
+def test_a_channel_no_feed_ever_reached_is_left_alone(db_session, monkeypatch):
+    """A listing published and unpublished again before any feed went out,
+    on a connection that cannot transmit (its setup unfinished): nothing of
+    the Betrieb ever reached the marketplace, so no empty feed is sent and
+    the offboarding is not held up — the connection's refusal would
+    otherwise dead-letter it."""
+
+    from app.inventory.models.stock_item import StockItem
+    from app.inventory.services.publishing import record_unpublished
+
+    failing = FakeMarketplaceAdapter(to_error=True)
+    _register_fake(monkeypatch, failing)
+    provider = _make_provider(db_session)
+    dealership = _dealership(db_session)
+    connection = _make_connection(db_session, provider, tenant_id=dealership.id)
+    connection.status = ConnectionStatus.CONNECTED
+    db_session.commit()
+    item = _make_ready_item(db_session, dealership.id, vin="WVWZZZ1KZAW218108")
+    publish(db_session, item=item, channel=_AS24, actor_id=uuid.uuid4())
+    record_unpublished(db_session, item=db_session.get(StockItem, item.id), channel=_AS24, actor_id=uuid.uuid4())
+    db_session.commit()
+    (row,) = db_session.scalars(select(StockItemPublishing).where(StockItemPublishing.tenant_id == dealership.id)).all()
+    assert row.state == PublishingState.NOT_PUBLISHED and row.transmission_status != TransmissionStatus.TRANSMITTED
+
+    assert (
+        withdraw_live_listings(
+            db_session, tenant_id=dealership.id, causation_id=uuid.uuid4(), correlation_id=uuid.uuid4()
+        )
+        == 0
+    )
+
+    assert failing.transmitted == []
+    assert len(_withdrawn_messages(db_session, dealership.id)) == 1

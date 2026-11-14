@@ -33,12 +33,14 @@ original — nothing here touches the period lock or the gapless numbering.
 import dataclasses
 import datetime as dt
 import uuid
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.audit import record_audit_event
 from app.core.base import utcnow
+from app.core.config import get_settings
 from app.core.errors import BadRequestError, ConflictError
 from app.core.export import exporters
 from app.core.outbox import OutboxEvent, publish
@@ -66,6 +68,14 @@ def retention_end(offboarded_on: dt.date) -> dt.date:
         return offboarded_on.replace(year=offboarded_on.year + RETENTION_YEARS)
     except ValueError:
         return dt.date(offboarded_on.year + RETENTION_YEARS, 3, 1)
+
+
+def retention_until_for(offboarded_at: dt.datetime) -> dt.date:
+    """`retention_end` of the Swiss calendar day of `offboarded_at` — the day
+    the nightly reconciliation judges by (`platform/reconciliation.py`), so
+    an offboarding just after Swiss midnight is not dated a day early."""
+
+    return retention_end(offboarded_at.astimezone(ZoneInfo(get_settings().session_timezone)).date())
 
 
 def last_write_at(db: Session, dealership: Dealership) -> dt.datetime | None:
@@ -245,7 +255,7 @@ def offboard(db: Session, *, dealership: Dealership, actor_id: uuid.UUID, reason
     before_status = dealership.status.value
     dealership.status = DealershipStatus.OFFBOARDED
     dealership.offboarded_at = now
-    dealership.retention_until = retention_end(now.date())
+    dealership.retention_until = retention_until_for(now)
     dealership.updated_by = actor_id
     dealership.version += 1
     record_audit_event(

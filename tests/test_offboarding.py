@@ -26,7 +26,7 @@ from app.core.outbox_model import OutboxMessage
 from app.platform.models.dealership import Dealership, DealershipStatus
 from app.platform.models.dealership_membership import DealershipMembership
 from app.platform.models.user import User, UserStatus
-from app.platform.services.offboarding import retention_end
+from app.platform.services.offboarding import retention_end, retention_until_for
 from tests.data_export_support import (
     betrieb_with_manager,
     export_store_fixture,  # noqa: F401 - registers the export_store fixture
@@ -370,3 +370,11 @@ def test_the_offboarding_state_for_the_platform_page(client, export_store, engin
     assert ready["lastWriteAt"] < ready["acknowledgedExportProducedAt"]
     assert db_session.get(Dealership, uuid.UUID(dealership_id)).status != DealershipStatus.OFFBOARDED
     assert get_export(client, dealership_id, export["id"], headers)["acknowledgedAt"] is not None
+
+
+def test_the_retention_date_is_taken_on_the_swiss_calendar_day():
+    """Offboarded at 00:30 Swiss time (23:30 UTC the day before): the archive
+    keeps ten full Swiss years, as the nightly report judges them."""
+
+    just_after_swiss_midnight = dt.datetime(2026, 11, 13, 23, 30, tzinfo=dt.UTC)
+    assert retention_until_for(just_after_swiss_midnight) == dt.date(2036, 11, 14)
