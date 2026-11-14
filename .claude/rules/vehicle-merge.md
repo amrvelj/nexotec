@@ -55,3 +55,6 @@ KAN-672, KAN-673, KAN-680, KAN-706; ADR-131, ADR-160. -->
   take the locks of every record of the merge chain and read and write the customer's rows on all of them —
   new rows on the live record, a row still on the duplicate where it stands, for the party move to carry
   (KAN-706, ADR-160 amended). Customer's reconciliation reports any other party row naming a merged vehicle.
+- **A merged duplicate's VIN never links the dead record** (ADR-160 as amended, KAN-723): a
+  configuration's VIN and the trade-in/valuation match follow the merge (`live_vehicle_mdm`); the
+  purchase booking is 409 `vin_names_merged_vehicle` with the survivor's number and VIN.

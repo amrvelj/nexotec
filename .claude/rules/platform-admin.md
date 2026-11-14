@@ -81,8 +81,11 @@ Decided rulings live in the PRD; built only where a bullet says so — check the
 ## Data export and offboarding (KAN-218)
 - The manager's export is a job (`export_job`; the worker writes the ZIP), downloadable 7 days via
   the authenticated GET (signed URL: KAN-402).
+- The archive streams (ADR-166 as amended): a temp file, rows in batches, `ObjectStore.put_file`;
+  never `bytes` of the whole ZIP (`test_kan715_export_streams.py`).
 - Staff offboard (`POST /v1/platform/dealerships/{id}/offboard`) only after an acknowledged export
-  newer than the last write; the Betrieb's principals then get 404 (`session_guard.py`).
+  newer than the last write and whose recorded snapshot sees every write (`produced_snapshot`,
+  `xmin`; KAN-716); the Betrieb's principals then get 404 (`session_guard.py`).
   Archive exports: staff only, with a reason. It then leaves every group read
   (`group_read_dealerships.py`, `group_labels.py`; Q2 A).
 - `platform.dealership.offboarded` (Q3 A): Stock withdraws live listings (empty feed first,
