@@ -85,6 +85,7 @@ from app.inventory.public import referenced_configuration_ids as referenced_by_s
 from app.ownership_registry import register_ownership_providers
 from app.platform.consumers import (
     handle_connected_account_revoked_message,
+    handle_connection_expiry_approaching_message,
     handle_data_export_requested_message,
     handle_digest_released_message,
     handle_notification_delivered_message,
@@ -354,6 +355,15 @@ def register_handlers(transport: InProcessTransport) -> None:
         "platform.data_export.requested",
         consumer_name="platform.data_export_production",
         handler=handle_data_export_requested_message,
+    )
+    # KAN-222 (FR-A-22): integration's fact that a connection nears its
+    # expiry becomes its Betrieb's managers' `administration` notification —
+    # platform raises it on its own session; integration never calls notify
+    # (ADR-047).
+    transport.register(
+        "integration.connection.expiry_approaching",
+        consumer_name="platform.administration_notification_on_connection_expiry",
+        handler=handle_connection_expiry_approaching_message,
     )
     # KAN-218 (Anto, 2026-11-14, Q3 A): an offboarded Betrieb's live listings
     # are withdrawn and its connections disabled, each context on its own

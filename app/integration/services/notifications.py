@@ -2,9 +2,13 @@
 
 - Expiry warnings fire at exactly T-30/T-14/T-7 — never "at or before",
   which would double-fire on every day past a threshold once a job that
-  missed a day catches up. Each is an in-app record plus an email to
-  every ACTIVE dealer manager on the connection's own tenant (platform-
-  scope connections have no dealer to notify and are skipped).
+  missed a day catches up. Each is this context's record row plus the fact
+  `integration.connection.expiry_approaching` on the outbox, committed
+  together (rule 4); platform's consumer raises the `administration`
+  notification to the Betrieb's managers in the app (KAN-222, FR-A-22,
+  D-A-40: staff notifications are in-app and push, never e-mail). This
+  context never calls `platform.public.notify` (rule 12, ADR-047).
+  Platform-scope connections have no dealer to notify and are skipped.
 - Break-glass access (api/call_payloads.py) notifies the dealer's manager
   every single time, with no daily batching — this is the one kind never
   deduplicated by day, since a second real access on the same day is a
@@ -26,13 +30,24 @@ import uuid
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core import outbox
 from app.core.base import utcnow
 from app.core.notifications import Notification, get_notification_sender
 from app.integration.models.connection import IntegrationConnection
 from app.integration.models.notification import IntegrationNotification, NotificationKind
+from app.integration.models.provider import IntegrationProvider
 from app.platform.public import list_dealer_manager_emails
 
 EXPIRY_WARNING_THRESHOLDS_DAYS = (30, 14, 7)
+
+# KAN-222: the fact platform turns into the managers' `administration`
+# notification (`app/platform/consumers.py`).
+EXPIRY_APPROACHING_EVENT = "integration.connection.expiry_approaching"
+PRODUCER = "integration"
+
+# What the record row names as its recipient: the managers are resolved by
+# platform's consumer, not here.
+_ADMINISTRATION_RECIPIENT = "administration notification"
 
 # Placeholder — which real inbox "Nexotec support" resolves to is a
 # genuine follow-on decision (see app/core/notifications.py's own
@@ -94,16 +109,50 @@ def check_and_send_expiry_warnings(db: Session, *, today: dt.date | None = None)
             continue
         if _expiry_warning_already_sent(db, connection_id=connection.id, threshold_days=days_remaining, sent_date=today):
             continue
-        summary = f"Connection '{connection.display_name}' expires in {days_remaining} day(s)."
-        recipients = list_dealer_manager_emails(db, dealership_id=connection.tenant_id)
-        sent.append(
-            _send_and_record(
-                db, connection=connection, tenant_id=connection.tenant_id, kind=NotificationKind.EXPIRY_WARNING,
-                threshold_days=days_remaining, sent_date=today, subject="Integration expiring soon", summary=summary,
-                recipients=recipients,
-            )
-        )
+        sent.append(_record_expiry_approaching(db, connection=connection, days_remaining=days_remaining, today=today))
     return sent
+
+
+def _record_expiry_approaching(
+    db: Session, *, connection: IntegrationConnection, days_remaining: int, today: dt.date
+) -> IntegrationNotification:
+    """The warning's record and its fact, in one local transaction (rule 4).
+    The payload names ids, the provider's code and the threshold only — the
+    consumer reads nothing else and renders the text in each manager's
+    language."""
+
+    assert connection.tenant_id is not None  # platform-scope rows were skipped
+    provider_code = db.scalar(select(IntegrationProvider.provider_code).where(IntegrationProvider.id == connection.provider_id))
+    row = IntegrationNotification(
+        connection_id=connection.id,
+        tenant_id=connection.tenant_id,
+        kind=NotificationKind.EXPIRY_WARNING,
+        threshold_days=days_remaining,
+        sent_date=today,
+        recipient=_ADMINISTRATION_RECIPIENT,
+        summary=f"Connection '{connection.display_name}' expires in {days_remaining} day(s).",
+    )
+    db.add(row)
+    db.flush()
+    outbox.publish(
+        db,
+        outbox.OutboxEvent(
+            event_type=EXPIRY_APPROACHING_EVENT,
+            tenant_id=connection.tenant_id,
+            producer=PRODUCER,
+            aggregate_type="integration_connection",
+            aggregate_id=connection.id,
+            payload={
+                "connectionId": str(connection.id),
+                "dealershipId": str(connection.tenant_id),
+                "providerCode": provider_code,
+                "thresholdDays": days_remaining,
+                "expiresAt": connection.expires_at.isoformat() if connection.expires_at is not None else None,
+            },
+        ),
+    )
+    db.commit()
+    return row
 
 
 def notify_break_glass_access(

@@ -5,8 +5,10 @@ connection whose `expires_at` sits at T-29 today never gets a duplicate
 T-30 warning it already sent yesterday, and a job that runs twice in one
 day (a restart mid-cycle) never double-sends either.
 
-`kind` distinguishes an expiry warning (in-app + email to the dealer's
-own manager, per tenant, at T-30/14/7) from a break-glass access
+`kind` distinguishes an expiry warning (per tenant, at T-30/14/7; since
+KAN-222 the row and the fact `integration.connection.expiry_approaching`
+commit together and platform raises the managers' in-app `administration`
+notification — no e-mail) from a break-glass access
 notification (also to the dealer's manager, one per access, no batching)
 from the daily aggregated support digest (to Nexotec support, one row
 per day regardless of how many warnings/alarms it bundles — "never

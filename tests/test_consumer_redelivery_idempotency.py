@@ -667,6 +667,50 @@ def _data_export_requested(db_session, engine, monkeypatch):
     return _message(db_session, data_export.REQUESTED_EVENT, job.id), produced
 
 
+def _connection_expiry_approaching(db_session, engine, monkeypatch):
+    """KAN-222 — integration's fact from the real producer (the daily expiry
+    check at T-7): platform raises the manager's `administration`
+    notification once."""
+
+    from app.integration.models.connection import IntegrationConnection
+    from app.integration.models.provider import IntegrationProvider
+    from app.integration.schemas.connection import ConnectionCreate
+    from app.integration.services import connections as connection_service
+    from app.integration.services import notifications as expiry_service
+    from app.platform.models.notification import Notification
+    from app.platform.models.user import User, UserRole, UserStatus
+
+    dealership = _dealership(db_session)
+    manager = User(
+        tenant_id=dealership.id, first_name="Ada", last_name="Manager", email=f"mgr-{uuid.uuid4().hex[:8]}@example.ch",
+        role=UserRole.SALES, access_roles=[], is_dealer_manager=True, status=UserStatus.ACTIVE,
+        auth_identity_id=str(uuid.uuid4()),
+    )
+    provider = IntegrationProvider(
+        provider_code="auto_i_dat_mock", category="vehicle_data", display_name="Demo", auth_type="none",
+        required_secret_slots=[], capability_codes=["ident_basis"],
+    )
+    db_session.add_all([manager, provider])
+    db_session.commit()
+    connection = connection_service.create_connection(
+        db_session, tenant_id=dealership.id,
+        data=ConnectionCreate(provider_id=provider.id, display_name="Demo", environment="sandbox"),
+        actor_id=None,
+    )
+    today = dt.date(2026, 11, 14)
+    row = db_session.get(IntegrationConnection, connection.id)
+    row.expires_at = dt.datetime.combine(today + dt.timedelta(days=7), dt.time(12), tzinfo=dt.UTC)
+    db_session.commit()
+    assert len(expiry_service.check_and_send_expiry_warnings(db_session, today=today)) == 1
+
+    def raised(db: Session) -> int:
+        return db.scalar(
+            select(func.count()).select_from(Notification).where(Notification.subject_id == connection.id)
+        )
+
+    return _message(db_session, expiry_service.EXPIRY_APPROACHING_EVENT, connection.id), raised
+
+
 def _offboarded_betrieb(db_session, monkeypatch):
     """KAN-218 — an offboarded Betrieb with one delivered AutoScout24 listing
     and its connection, and the real producer's `platform.dealership.offboarded` row."""
@@ -876,6 +920,7 @@ def _stock_holding_on_sold(db_session, engine, monkeypatch):
 _FIXTURES: dict[str, Fixture] = {
     "platform.connected_account_provider_revocation": _connected_account_revoked,
     "platform.data_export_production": _data_export_requested,
+    "platform.administration_notification_on_connection_expiry": _connection_expiry_approaching,
     "inventory.listings_withdrawn_on_offboarded": _listings_withdrawn_on_offboarded,
     "integration.connections_disabled_on_offboarded": _connections_disabled_on_offboarded,
     "integration.marketplace_connections_disabled_on_withdrawn": _marketplace_connections_disabled_on_withdrawn,

@@ -21,6 +21,14 @@ register_handlers` lists them:
   written into the object store; a redelivery finds the export no longer
   `requested` and does nothing.
 
+- `integration.connection.expiry_approaching` ->
+  `platform.administration_notification_on_connection_expiry`
+  (`handle_connection_expiry_approaching_message`, KAN-222, FR-A-22): one
+  `administration.integration_expiring` notification to each active manager
+  of the Betrieb. Integration states the fact and calls nothing here
+  (ADR-047); the inbox rows commit with the processed-event row, so a
+  redelivery raises nothing twice.
+
 A push is a pointer, never the record (FR-A-50), and never an e-mail
 (D-A-40).
 """
@@ -32,12 +40,14 @@ from sqlalchemy.orm import Session
 from app.core.outbox_model import OutboxMessage
 from app.platform.models.notification import Notification, NotificationFamily
 from app.platform.reference.services.web_push import PushMessage
+from app.platform.services.notification_catalogue import NotificationEventCode
 from app.platform.services import (
     connected_account,
     data_export,
     notification_catalogue,
     notifications,
     push_subscriptions,
+    user_reads,
 )
 
 
@@ -80,6 +90,28 @@ def handle_connected_account_revoked_message(db: Session, message: OutboxMessage
     revoker's exception is left to propagate — that is the retry."""
 
     connected_account.end_at_provider(db, account_id=uuid.UUID(message.payload["connectedAccountId"]))
+
+
+def handle_connection_expiry_approaching_message(db: Session, message: OutboxMessage) -> None:
+    """KAN-222: integration's fact that a connection expires in T-30/14/7
+    days becomes the managers' `administration` notification. The payload is
+    trusted for ids, the provider code and the threshold only."""
+
+    dealership_id = uuid.UUID(message.payload["dealershipId"])
+    if message.tenant_id is not None and message.tenant_id != dealership_id:
+        raise ValueError(f"{message.event_type} message {message.id} names two Betriebe.")
+    connection_id = uuid.UUID(message.payload["connectionId"])
+    for user_id in user_reads.list_dealer_manager_ids(db, dealership_id=dealership_id):
+        notifications.notify(
+            db,
+            NotificationEventCode.INTEGRATION_EXPIRING,
+            user_id=user_id,
+            subject=notifications.NotificationSubject(
+                type="integration_connection", id=connection_id, link="/administration/integrations"
+            ),
+            dealership_id=dealership_id,
+            params={"days": int(message.payload["thresholdDays"])},
+        )
 
 
 def handle_data_export_requested_message(db: Session, message: OutboxMessage) -> None:

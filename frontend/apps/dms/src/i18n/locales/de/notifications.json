@@ -106,6 +106,10 @@
     "platformRecoveryAction": {
       "title": "Wiederherstellung durch den Nexotec-Support",
       "body": "Der Nexotec-Support hat an Ihrem Konto eine Wiederherstellung vorgenommen: {{action}}."
+    },
+    "integrationExpiring": {
+      "title": "Eine Integration läuft bald ab",
+      "body": "Der Zugang einer Integration läuft in {{days}} Tagen ab. Erneuern Sie ihn unter Verwaltung › Integrationen, damit die Verbindung nicht unterbricht."
     }
   },
   "recoveryActions": {

@@ -26,7 +26,6 @@ from app.integration.schemas.connection import ConnectionCreate, ConnectionUpdat
 from app.integration.services import providers as provider_service
 from app.integration.services import secrets_backend
 from app.integration.services.secrets_backend import SecretsBackendNotConfigured
-from app.platform.public import get_location_or_404
 
 _ENTITY_TYPE = "integration_connection"
 
@@ -316,6 +315,13 @@ def _bind_location(
                 f"A {provider.display_name} connection serves the whole Betrieb and is not bound to a location.",
                 details={"reason": "location_binding_not_supported", "category": provider.category},
             )
+        # Imported here, not at module scope: this module loads with the
+        # adapters whenever `app.integration` is imported (its `__init__`
+        # registers them), and platform's public door must not load with it
+        # (tests/architecture/test_no_cross_context_orm_query.py; the identAPI
+        # adapter's `_acting_user` does the same).
+        from app.platform.public import get_location_or_404
+
         try:
             location = get_location_or_404(db, dealership_id=connection.tenant_id, location_id=location_id)
         except NotFoundError:

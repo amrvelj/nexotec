@@ -106,6 +106,10 @@
     "platformRecoveryAction": {
       "title": "Recovery by Nexotec support",
       "body": "Nexotec support carried out a recovery on your account: {{action}}."
+    },
+    "integrationExpiring": {
+      "title": "An integration expires soon",
+      "body": "An integration's access expires in {{days}} days. Renew it under Administration › Integrations so the connection is not interrupted."
     }
   },
   "recoveryActions": {
