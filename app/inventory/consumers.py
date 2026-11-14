@@ -21,7 +21,9 @@ and `consumer_name` of each:
 - `platform.dealership.offboarded` -> `inventory.listings_withdrawn_on_offboarded`
   (`handle_dealership_offboarded_message`, KAN-218): every live marketplace
   listing of the offboarded Betrieb withdrawn — an empty feed through the
-  gateway, then the listings unpublished (app.inventory.services.listing_withdrawal).
+  gateway, then the listings unpublished and `inventory.dealership_listings.withdrawn`
+  stated, on which Integration disables the marketplace connections
+  (app.inventory.services.listing_withdrawal).
 """
 
 import uuid
@@ -91,9 +93,12 @@ def handle_sales_contract_fact_message(db: Session, message: OutboxMessage) -> N
 def handle_dealership_offboarded_message(db: Session, message: OutboxMessage) -> None:
     """KAN-218 (Anto, 2026-11-14, Q3 A): platform's fact that a Betrieb was
     offboarded; Stock withdraws its live listings on this consumer's own
-    session, committed by the harness with the processed-event row."""
+    session and states `inventory.dealership_listings.withdrawn`, committed by
+    the harness with the processed-event row."""
 
     dealership_id = uuid.UUID(message.payload["dealershipId"])
     if message.tenant_id is not None and message.tenant_id != dealership_id:
         raise ValueError(f"platform.dealership.offboarded message {message.id} names two Betriebe.")
-    listing_withdrawal.withdraw_live_listings(db, tenant_id=dealership_id)
+    listing_withdrawal.withdraw_live_listings(
+        db, tenant_id=dealership_id, causation_id=message.id, correlation_id=message.correlation_id
+    )

@@ -113,6 +113,29 @@ def _has(db: Session, sentinel: str) -> bool:
     return column in {col["name"] for col in inspect(db.get_bind()).get_columns(table)}
 
 
+def _live_columns_table(db: Session, model: type) -> sa.Table | None:
+    """`None` while the live table holds every column `model` maps (the ORM
+    class then addresses it directly); otherwise a table of only the live
+    columns, with the class's own types and Python-side defaults, so a raw
+    insert names nothing main's schema lacks (KAN-206 `email`/`website`,
+    KAN-218 `offboarded_at`/`retention_until` on `dealership`). The values are
+    the class's; a column the class no longer maps is the older branches'.
+    """
+
+    mapped = model.__table__  # type: ignore[attr-defined]
+    live = {col["name"] for col in inspect(db.get_bind()).get_columns(mapped.name)}
+    if {column.name for column in mapped.columns} <= live:
+        return None
+    columns = []
+    for column in mapped.columns:
+        if column.name not in live:
+            continue
+        default = column.default
+        python_default = default.arg if default is not None and (default.is_scalar or default.is_callable) else None
+        columns.append(sa.Column(column.name, column.type, default=python_default))
+    return sa.Table(mapped.name, sa.MetaData(), *columns)
+
+
 def _seed_user(db: Session, *, tenant_id: uuid.UUID) -> uuid.UUID:
     """Raw insert, not the ORM User(...) constructor — see this module's
     own docstring for why. Returns the new row's id.
@@ -241,6 +264,32 @@ def _seed_dealer_and_group_new_schema(db: Session) -> tuple[uuid.UUID, uuid.UUID
                     version=1,
                     created_at=utcnow(),
                     updated_at=utcnow(),
+                )
+            )
+        db.flush()
+        return dealership_id, group.id
+
+    if _has(db, "dealership_has_kan197_columns") and (live := _live_columns_table(db, Dealership)) is not None:
+        # main's shape after KAN-205 but before this branch's own dealership
+        # columns: the class's values, through the live columns only.
+        invalid_group = DealerGroup(name="Migration Smoke Test Invalid UID Group")
+        db.add(invalid_group)
+        db.flush()
+        dealership_id = uuid7()
+        for row_id, group_id, legal_name, uid in (
+            (dealership_id, group.id, "Migration Smoke Test AG", SMOKE_TEST_UID),
+            (uuid7(), invalid_group.id, SMOKE_TEST_INVALID_UID_LEGAL_NAME, None),
+        ):
+            db.execute(
+                live.insert().values(
+                    id=row_id,
+                    dealer_group_id=group_id,
+                    legal_name=legal_name,
+                    franchise_type=FranchiseType.INDEPENDENT,
+                    status=DealershipStatus.ACTIVE,
+                    phone="+41441234567",
+                    uid=uid,
+                    **_DEALER_ADDRESS,
                 )
             )
         db.flush()

@@ -56,6 +56,9 @@ from app.customer.public import (
 from app.customer.services.vehicle_merge import handle_vehicle_merged_message
 from app.db import SessionLocal
 from app.export_registry import register_exporters
+from app.integration.consumers import (
+    handle_dealership_listings_withdrawn_message as disable_marketplace_connections_on_listings_withdrawn,
+)
 from app.integration.consumers import handle_dealership_offboarded_message as disable_connections_on_offboarded
 from app.integration.daily_jobs import run_daily_integration_jobs
 from app.inventory.consumers import (
@@ -343,9 +346,9 @@ def register_handlers(transport: InProcessTransport) -> None:
     )
     # KAN-218 (Anto, 2026-11-14, Q3 A): an offboarded Betrieb's live listings
     # are withdrawn and its connections disabled, each context on its own
-    # session (ADR-131, rule 12). Stock first: the transport delivers in
-    # registration order, and Stock's empty feed needs the marketplace
-    # connection Integration then disables (app.inventory.services.listing_withdrawal).
+    # session (ADR-131, rule 12). Facts, not registration order (delivery is
+    # per consumer and unordered): Integration disables the connections Stock
+    # publishes through only on Stock's fact that it has withdrawn through them.
     transport.register(
         "platform.dealership.offboarded",
         consumer_name="inventory.listings_withdrawn_on_offboarded",
@@ -355,6 +358,11 @@ def register_handlers(transport: InProcessTransport) -> None:
         "platform.dealership.offboarded",
         consumer_name="integration.connections_disabled_on_offboarded",
         handler=disable_connections_on_offboarded,
+    )
+    transport.register(
+        "inventory.dealership_listings.withdrawn",
+        consumer_name="integration.marketplace_connections_disabled_on_withdrawn",
+        handler=disable_marketplace_connections_on_listings_withdrawn,
     )
 
     if os.environ.get("DMS_OUTBOX_WORKER_CI_SMOKE_TEST_PROBE") == "1":

@@ -14,6 +14,7 @@ import datetime as dt
 import json
 import uuid
 
+import pytest
 from sqlalchemy import select
 from sqlalchemy.orm import sessionmaker
 
@@ -279,6 +280,59 @@ def test_the_audit_log_and_the_uploaded_files_are_in_it(client, export_store, en
     assert any(row["entity_type"] == "dealership" and row["action"] == "create" for row in audit)
     assert archive.read("files/branding/primary") == logo
     assert json.loads(archive.read("files/index.json"))[0]["file"] == "files/branding/primary"
+
+
+def test_a_location_logo_and_the_betriebs_logo_of_the_same_kind_are_both_in_it(client, export_store, engine):
+    """KAN-206 gave each site its own `primary` logo beside the Betrieb's: both
+    leave under their own names, with their own bytes, each listed once."""
+
+    from tests.test_branding import _SVG, _png
+
+    dealership_id, _, headers = betrieb_with_manager(client)
+    betrieb_logo = _png(800, 300)
+    upload = client.put(
+        f"/v1/dealerships/{dealership_id}/branding/assets/primary",
+        content=betrieb_logo,
+        headers={**headers, "Content-Type": "image/png", "If-Match": "1"},
+    )
+    assert upload.status_code == 200, upload.text
+    (location,) = client.get(f"/v1/dealerships/{dealership_id}/locations", headers=headers).json()["items"]
+    site = client.put(
+        f"/v1/dealerships/{dealership_id}/branding/locations/{location['id']}/logo",
+        content=_SVG,
+        headers={**headers, "Content-Type": "image/svg+xml", "If-Match": str(upload.json()["version"])},
+    )
+    assert site.status_code == 200, site.text
+    # The SVG is stored as sanitised; the export carries what is stored.
+    site_logo = client.get(f"/v1/dealerships/{dealership_id}/branding/locations/{location['id']}/logo", headers=headers)
+    assert site_logo.status_code == 200 and site_logo.content.startswith(b"<?xml")
+    job = request_export(client, dealership_id, headers)
+    produce(engine, job["id"])
+
+    archive = download(client, dealership_id, job["id"], headers)
+
+    location_path = f"files/branding/locations/{location['id']}/primary"
+    assert archive.read("files/branding/primary") == betrieb_logo
+    assert archive.read(location_path) == site_logo.content
+    names = archive.namelist()
+    assert len(names) == len(set(names))
+    listed = [entry["file"] for entry in json.loads(archive.read("files/index.json"))]
+    assert sorted(listed) == sorted({"files/branding/primary", location_path})
+
+
+def test_the_archive_never_holds_one_name_twice(db_session):
+    from app.core.export import DuplicateArchiveEntry, ExportFile, ExportScope, TableExporter, write_archive
+
+    class _TwoLogos(TableExporter):
+        context = "probe"
+
+        def files(self, db, scope):
+            yield ExportFile(path="files/branding/primary", content_type="image/png", data=b"one")
+            yield ExportFile(path="files/branding/primary", content_type="image/png", data=b"two")
+
+    scope = ExportScope(dealership_id=uuid.uuid4(), group_id=uuid.uuid4())
+    with pytest.raises(DuplicateArchiveEntry, match="files/branding/primary"):
+        write_archive(db_session, scope=scope, produced_at=utcnow(), header={}, registered=[_TwoLogos()])
 
 
 def test_secrets_never_leave_the_database(client, export_store, engine):

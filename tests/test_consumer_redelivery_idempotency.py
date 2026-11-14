@@ -670,21 +670,55 @@ def _listings_withdrawn_on_offboarded(db_session, engine, monkeypatch):
     return message, lambda db: len(adapter.transmitted)
 
 
-def _connections_disabled_on_offboarded(db_session, engine, monkeypatch):
-    """Integration disables the connection: one `disable` audit row."""
-
+def _disable_audits(connection_id: uuid.UUID) -> Measure:
     from app.core.audit_model import AuditEvent
-
-    message, _adapter, connection = _offboarded_betrieb(db_session, monkeypatch)
 
     def disabled(db: Session) -> int:
         return db.scalar(
             select(func.count())
             .select_from(AuditEvent)
-            .where(AuditEvent.entity_id == connection.id, AuditEvent.action == "disable")
+            .where(AuditEvent.entity_id == connection_id, AuditEvent.action == "disable")
         )
 
-    return message, disabled
+    return disabled
+
+
+def _connections_disabled_on_offboarded(db_session, engine, monkeypatch):
+    """Integration disables a connection Stock does not publish through (the
+    demo vehicle-data provider's): one `disable` audit row."""
+
+    from app.integration.models.provider import IntegrationProvider
+    from app.integration.schemas.connection import ConnectionCreate
+    from app.integration.services import connections as connection_service
+
+    message, _adapter, _marketplace = _offboarded_betrieb(db_session, monkeypatch)
+    provider = IntegrationProvider(
+        provider_code="auto_i_dat_mock", category="vehicle_data", display_name="Demo", auth_type="none",
+        required_secret_slots=[], capability_codes=["ident_basis"],
+    )
+    db_session.add(provider)
+    db_session.commit()
+    connection = connection_service.create_connection(
+        db_session, tenant_id=message.tenant_id,
+        data=ConnectionCreate(provider_id=provider.id, display_name="Demo", environment="sandbox"),
+        actor_id=uuid.uuid4(),
+    )
+    return message, _disable_audits(connection.id)
+
+
+def _marketplace_connections_disabled_on_withdrawn(db_session, engine, monkeypatch):
+    """KAN-218 — Stock's withdrawn fact from the real producer (its consumer of
+    the offboarded fact): Integration disables the marketplace connection,
+    one `disable` audit row."""
+
+    from app.inventory.consumers import handle_dealership_offboarded_message
+
+    offboarded, _adapter, connection = _offboarded_betrieb(db_session, monkeypatch)
+    handle_dealership_offboarded_message(db_session, offboarded)
+    db_session.commit()
+    return _message(db_session, "inventory.dealership_listings.withdrawn", offboarded.tenant_id), _disable_audits(
+        connection.id
+    )
 
 
 def _configuration_taken(event_type: str, take) -> Fixture:
@@ -819,6 +853,7 @@ _FIXTURES: dict[str, Fixture] = {
     "platform.data_export_production": _data_export_requested,
     "inventory.listings_withdrawn_on_offboarded": _listings_withdrawn_on_offboarded,
     "integration.connections_disabled_on_offboarded": _connections_disabled_on_offboarded,
+    "integration.marketplace_connections_disabled_on_withdrawn": _marketplace_connections_disabled_on_withdrawn,
     "inventory.sales_contract_confirmed": _contract_confirmed,
     "inventory.sales_contract_cancelled": _contract_cancelled,
     "inventory.sales_contract_projection_on_created": _contract_projection(

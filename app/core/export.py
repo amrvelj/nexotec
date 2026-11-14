@@ -281,6 +281,26 @@ def _entities(
             yield exporter, spec, names, rows
 
 
+class DuplicateArchiveEntry(ValueError):
+    """Two entries of one export share a name: a ZIP keeps both, and every
+    reader opens one of them, so the other would be lost."""
+
+
+class _UniqueEntries:
+    """The archive's one writer: refuses a name it has written already
+    (KAN-218, Q4 A — a location's logo once overwrote the Betrieb's)."""
+
+    def __init__(self, archive: zipfile.ZipFile) -> None:
+        self._archive = archive
+        self._names: set[str] = set()
+
+    def writestr(self, name: str, data: str | bytes) -> None:
+        if name in self._names:
+            raise DuplicateArchiveEntry(f"The export would hold {name!r} twice.")
+        self._names.add(name)
+        self._archive.writestr(name, data)
+
+
 def write_archive(
     db: Session,
     *,
@@ -293,7 +313,8 @@ def write_archive(
     and `.json`, every issued document under `documents/` with an index of
     numbers and dates, every uploaded file under `files/`, and `schema.json`
     describing each entity's columns and what was left out and why. A ZIP:
-    open formats inside an open container."""
+    open formats inside an open container. A name written twice is refused
+    (`DuplicateArchiveEntry`), so the production fails, never loses a file."""
 
     exporters_ = list(registered if registered is not None else exporters())
     buffer = io.BytesIO()
@@ -302,7 +323,8 @@ def write_archive(
     row_counts: dict[str, int] = {}
     document_index: list[dict[str, Any]] = []
     file_index: list[dict[str, Any]] = []
-    with zipfile.ZipFile(buffer, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+    with zipfile.ZipFile(buffer, "w", compression=zipfile.ZIP_DEFLATED) as zipped:
+        archive = _UniqueEntries(zipped)
         for exporter, spec, names, rows in _entities(db, scope, exporters_):
             base = f"data/{exporter.context}/{spec.name}"
             text = io.StringIO()

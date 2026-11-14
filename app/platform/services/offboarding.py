@@ -17,9 +17,10 @@ former manager's copy of the archive is staff's archive export.
 
 The fact is how the higher contexts end what the Betrieb still has live
 (Anto, 2026-11-14, Q3 A): Stock withdraws every live marketplace listing and
-Integration disables every connection, each in its own consumer committing its
-own work (rule 12, ADR-047) — platform is the lowest layer and calls neither
-(ADR-131). Staging runs no worker (ADR-081): there the listings and
+Integration disables every connection (those Stock publishes through only on
+Stock's own fact that it has withdrawn), each in its own consumer committing
+its own work (rule 12, ADR-047) — platform is the lowest layer and calls
+neither (ADR-131). Staging runs no worker (ADR-081): there the listings and
 connections stay until a worker runs.
 
 Nothing deletes automatically (Anto, 2026-11-14). Once `retention_until` has

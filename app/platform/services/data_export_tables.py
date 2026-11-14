@@ -181,11 +181,20 @@ class PlatformExporter(TableExporter):
 
     def files(self, db: Session, scope: ExportScope) -> Iterable[ExportFile]:
         store = self.store
-        for asset in db.scalars(select(BrandingAsset).where(BrandingAsset.dealership_id == scope.dealership_id)):
+        # KAN-206: one row per kind for the Betrieb and one per kind for each
+        # location — a site's logo leaves under its location, never over the
+        # Betrieb's own.
+        assets = db.scalars(
+            select(BrandingAsset).where(BrandingAsset.dealership_id == scope.dealership_id).order_by(BrandingAsset.id)
+        )
+        for asset in assets:
             stored = store.get(asset.object_key)
             if stored is not None:
+                folder = (
+                    "files/branding" if asset.location_id is None else f"files/branding/locations/{asset.location_id}"
+                )
                 yield ExportFile(
-                    path=f"files/branding/{asset.kind.value}", content_type=stored.content_type, data=stored.data
+                    path=f"{folder}/{asset.kind.value}", content_type=stored.content_type, data=stored.data
                 )
         for user in db.scalars(select(User).where(User.tenant_id == scope.dealership_id).order_by(User.id)):
             for kind, key in (("photo", user.photo_ref), ("signature", user.signature_image_ref)):

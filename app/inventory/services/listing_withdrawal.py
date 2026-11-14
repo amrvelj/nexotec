@@ -16,14 +16,19 @@ and the `inventory.stock_item.unpublished` fact, whose transmission consumer
 later finds nothing left to send). A failed delivery raises before any row
 changes, so the retry finds the listings still live and delivers again.
 
-The empty feed needs the connection, which Integration's own consumer of the
-same fact disables. `app/worker.py` registers Stock's consumer first, and the
-in-process transport delivers a message to its consumers in that order. Should
-the withdrawal still find no enabled connection while a listing was delivered
-to the marketplace (`TRANSMITTED`) — Stock failed on the first delivery and
-Integration did not — it raises rather than pretend: the outbox retries, then
-dead-letters and alerts (rule 10), naming no secret. A listing never delivered
-(no connection ever, or never transmitted) is unpublished without a feed.
+When every channel is done, Stock states the fact
+`inventory.dealership_listings.withdrawn` (`WITHDRAWN_EVENT_TYPE`) in the same
+transaction — always, also when there was nothing to withdraw. The empty feed
+needs the marketplace connection, and Integration disables the connections
+Stock publishes through only on that fact (every other one on the offboarded
+fact itself): delivery is per consumer, at least once and unordered, so an
+order of registrations would not hold once Stock's first delivery failed.
+Should the withdrawal still find no enabled connection while a listing was
+delivered to the marketplace (`TRANSMITTED`) — the dealer had disabled it —
+it raises rather than pretend, and states no fact: the outbox retries, then
+dead-letters and alerts (rule 10), naming no secret, and the connection keeps
+its credentials for the repair. A listing never delivered (no connection
+ever, or never transmitted) is unpublished without a feed.
 
 Staging runs no worker (ADR-081): there the listings stay live until a
 worker runs.
@@ -35,6 +40,8 @@ from collections import defaultdict
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.outbox import OutboxEvent
+from app.core.outbox import publish as publish_event
 from app.inventory.models.stock_item import StockItem
 from app.inventory.models.stock_item_publishing import (
     MarketplaceChannel,
@@ -45,15 +52,22 @@ from app.inventory.models.stock_item_publishing import (
 from app.inventory.services import marketplace_transmission
 from app.inventory.services.publishing import record_unpublished
 
+# KAN-218: payload dealershipId, listingsWithdrawn; the cause is the envelope's
+# causationId (the offboarded fact) and its correlationId.
+WITHDRAWN_EVENT_TYPE = "inventory.dealership_listings.withdrawn"
+
 
 class ListingWithdrawalBlocked(RuntimeError):
     """A channel still holds a delivered feed of the Betrieb and no enabled
     connection can withdraw it."""
 
 
-def withdraw_live_listings(db: Session, *, tenant_id: uuid.UUID) -> int:
+def withdraw_live_listings(
+    db: Session, *, tenant_id: uuid.UUID, causation_id: uuid.UUID, correlation_id: uuid.UUID
+) -> int:
     """Every live listing of `tenant_id` unpublished, its marketplaces sent
-    an empty feed first. Returns the listings withdrawn. Never commits."""
+    an empty feed first, then the withdrawn fact caused by `causation_id`.
+    Returns the listings withdrawn. Never commits."""
 
     rows = list(
         db.scalars(
@@ -86,4 +100,17 @@ def withdraw_live_listings(db: Session, *, tenant_id: uuid.UUID) -> int:
         raise ListingWithdrawalBlocked(
             f"Betrieb {tenant_id}: no enabled connection to withdraw its delivered feed on {', '.join(blocked)}."
         )
+    publish_event(
+        db,
+        OutboxEvent(
+            event_type=WITHDRAWN_EVENT_TYPE,
+            tenant_id=tenant_id,
+            producer="inventory",
+            aggregate_type="dealership_listings",
+            aggregate_id=tenant_id,
+            payload={"dealershipId": str(tenant_id), "listingsWithdrawn": withdrawn},
+            causation_id=causation_id,
+            correlation_id=correlation_id,
+        ),
+    )
     return withdrawn
