@@ -75,6 +75,10 @@ function renderGrid(opts: { onSave: (raw: string) => Promise<void>; onReload: ()
         labels={FR_DATA_GRID_LABELS}
         emptyState={{ icon: null, title: "", description: "" }}
       />
+      {/* A page always goes on after the grid; without this the browser's
+          own Shift+Tab from the portal at the end would land on the editor
+          and the test could not fail (re-review finding A). */}
+      <button type="button">Après la grille</button>
     </MantineProvider>,
   );
 }
@@ -158,6 +162,83 @@ describe("InlineEditField inside a DataGrid cell (KAN-710)", () => {
     expect(input).toHaveFocus();
     expect(onSave).toHaveBeenCalledTimes(1);
     expect(screen.getByRole("alert")).toBeInTheDocument();
+  });
+
+  it("names the popover by its refusal", async () => {
+    const user = userEvent.setup();
+    renderGrid({
+      onSave: async () => {
+        throw new StaleVersion();
+      },
+      onReload: vi.fn(),
+    });
+
+    await refuseAnEdit(user);
+
+    expect(await screen.findByRole("dialog", { name: "Cet enregistrement a été modifié entre-temps." })).toBeInTheDocument();
+  });
+
+  it("Tab between the fields of a compound editor stays the browser's; from the last one it reaches «reload»", async () => {
+    const user = userEvent.setup();
+    const columns: GridColumnDef<Row>[] = [
+      {
+        id: "label",
+        header: "Libellé",
+        cell: ({ row }) => (
+          <InlineEditField
+            value={row.original.label}
+            emptyLabel="Non renseigné"
+            onSave={async () => {
+              throw new StaleVersion();
+            }}
+            describeError={() => "Cet enregistrement a été modifié entre-temps."}
+            isConflict={() => true}
+            onReload={vi.fn()}
+            reloadLabel="Recharger"
+            renderEditor={({ value, onChange }) => (
+              <span>
+                <input aria-label="premier" value={value} onChange={(e) => onChange(e.currentTarget.value)} autoFocus />
+                <input aria-label="second" defaultValue="" />
+              </span>
+            )}
+          />
+        ),
+      },
+    ];
+    render(
+      <MantineProvider theme={testTheme}>
+        <DataGrid<Row>
+          columns={columns}
+          rows={[{ id: "petrol", label: "Benzin" }]}
+          getRowId={(r) => r.id}
+          sort={[]}
+          onSortChange={() => {}}
+          density="default"
+          loading={false}
+          fetchingNextPage={false}
+          hasNextPage={false}
+          onLoadMore={() => {}}
+          total={1}
+          totalIsEstimate={false}
+          isFiltered={false}
+          labels={FR_DATA_GRID_LABELS}
+          emptyState={{ icon: null, title: "", description: "" }}
+        />
+        <button type="button">Après la grille</button>
+      </MantineProvider>,
+    );
+
+    await user.click(screen.getByText("Benzin"));
+    await user.type(screen.getByLabelText("premier"), " x{Enter}");
+    const reload = await screen.findByRole("button", { name: "Recharger" });
+    screen.getByLabelText("premier").focus();
+
+    await user.tab();
+    expect(screen.getByLabelText("second")).toHaveFocus();
+    await user.tab();
+    expect(reload).toHaveFocus();
+    await user.tab({ shift: true });
+    expect(screen.getByLabelText("second")).toHaveFocus();
   });
 
   it("outside a grid the refusal stays inline below the editor, as before", async () => {

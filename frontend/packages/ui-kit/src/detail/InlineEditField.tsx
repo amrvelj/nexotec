@@ -1,4 +1,4 @@
-import { useRef, useState, type ReactNode } from "react";
+import { useId, useRef, useState, type ReactNode } from "react";
 import { Pencil } from "lucide-react";
 import { Popover, TextInput } from "@mantine/core";
 import { useInsideGridCell } from "../datagrid/cellContainment";
@@ -89,6 +89,9 @@ export function InlineEditField({
   const popoverRef = useRef<HTMLDivElement>(null);
   const reloadRef = useRef<HTMLButtonElement>(null);
   const editorBoxRef = useRef<HTMLDivElement>(null);
+  // The editor field focus left for «reload», so Shift+Tab returns to it.
+  const leftFieldRef = useRef<HTMLElement | null>(null);
+  const refusalTextId = useId();
 
   const startEdit = () => {
     if (disabled) return;
@@ -167,7 +170,7 @@ export function InlineEditField({
           flexWrap: "wrap",
         }}
       >
-        <span>{error.text}</span>
+        <span id={refusalTextId}>{error.text}</span>
         {error.conflict && onReload && (
           <button
             ref={reloadRef}
@@ -210,15 +213,22 @@ export function InlineEditField({
             e.preventDefault();
             cancel();
           } else if (e.key === "Tab" && !e.shiftKey && !inPopover && insideGridCell && reloadRef.current) {
+            // Only from the editor's last field: Tab between the fields of
+            // a compound editor stays the browser's.
+            const fields = editorFields(editorBoxRef.current);
+            if (fields.length > 0 && fields[fields.length - 1] !== e.target) return;
             e.preventDefault();
+            leftFieldRef.current = e.target as HTMLElement;
             reloadRef.current.focus();
           } else if (e.key === "Tab" && e.shiftKey && inPopover) {
-            // Back from «reload» to the editor, not to whatever precedes
-            // the portal at the end of the page (which would blur-save).
-            const field = editorBoxRef.current?.querySelector<HTMLElement>("input, textarea, select, [tabindex]");
-            if (field) {
+            // Back from «reload» to the field it was reached from, not to
+            // whatever precedes the portal at the end of the page (which
+            // would blur-save).
+            const fields = editorFields(editorBoxRef.current);
+            const back = leftFieldRef.current && fields.includes(leftFieldRef.current) ? leftFieldRef.current : fields[fields.length - 1];
+            if (back) {
               e.preventDefault();
-              field.focus();
+              back.focus();
             }
           }
         }}
@@ -248,7 +258,7 @@ export function InlineEditField({
             <Popover.Target>
               <div ref={editorBoxRef}>{editor}</div>
             </Popover.Target>
-            <Popover.Dropdown ref={popoverRef} p={6} style={{ maxWidth: 360, whiteSpace: "normal" }}>
+            <Popover.Dropdown ref={popoverRef} aria-labelledby={refusalTextId} p={6} style={{ maxWidth: 360, whiteSpace: "normal" }}>
               {error && refusal}
             </Popover.Dropdown>
           </Popover>
@@ -282,4 +292,12 @@ export function InlineEditField({
       {hovering && !disabled && <Pencil size={14} color={purple[6]} aria-hidden="true" />}
     </span>
   );
+}
+
+/** KAN-710 — the fields of an editor a keyboard user can Tab to, in order. */
+function editorFields(box: HTMLElement | null): HTMLElement[] {
+  if (!box) return [];
+  return Array.from(
+    box.querySelectorAll<HTMLElement>("input, textarea, select, button, [tabindex]"),
+  ).filter((el) => el.tabIndex >= 0 && !el.hasAttribute("disabled"));
 }
