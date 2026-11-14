@@ -161,6 +161,7 @@ def test_expiry_warning_is_a_fact_on_the_outbox_never_an_email(db_session):
             "connectionId": str(connection.id),
             "dealershipId": str(tenant_id),
             "providerCode": "auto_i_dat_mock",
+            "providerName": "auto-i-dat (mock)",
             "thresholdDays": 7,
             "expiresAt": connection.expires_at.isoformat(),
         }

@@ -111,7 +111,7 @@ Lowest layer first (ADR-131); peers: parts and inventory, aftersales and sales.
 | `sales` | offers and contracts, pricing build-up, trade-ins, the offer workspace, documents |
 | `aftersales` | *(stub)* service orders, appointments, labour, technicians |
 | `finance` | *(stub)* invoicing and payment matching — **not a ledger** (ADR-037) |
-| `reporting` | *(stub)* projections from events |
+| `reporting` | projections from events — the public stock projection (KAN-225, ADR-175); otherwise a stub |
 | `compliance` | *(stub)* audit, revDSG, retention |
 
 Stubs keep every context in the contract: never delete one or put its concerns elsewhere.

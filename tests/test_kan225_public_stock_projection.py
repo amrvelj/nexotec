@@ -62,6 +62,29 @@ _FORBIDDEN_FRAGMENTS = (
     "invoice",
     "base",
     "listprice",
+    "discount",
+    "commission",
+    "rabatt",
+    "provision",
+    "internal",
+    "note",
+    "dealer",
+)
+
+# The list itself, frozen: a field joins the public website only by changing
+# this literal on purpose (ADR-029; the two constants are compared with each
+# other below, which alone would let both grow together).
+_PUBLIC_FIELDS_FROZEN = (
+    "stockNumber",
+    "vehicleLabel",
+    "condition",
+    "firstRegistrationDate",
+    "odometerKm",
+    "exteriorColour",
+    "bodyStyle",
+    "priceChf",
+    "reserved",
+    "imageUrls",
 )
 
 
@@ -90,6 +113,11 @@ def _listed(db_session, dealership_id):
 
 def test_stock_and_the_projection_name_the_same_public_fields():
     assert set(website_listing.WEBSITE_LISTING_FIELDS) == PUBLIC_STOCK_FIELDS
+
+
+def test_the_public_fields_are_exactly_the_frozen_list():
+    assert website_listing.WEBSITE_LISTING_FIELDS == _PUBLIC_FIELDS_FROZEN
+    assert PUBLIC_STOCK_FIELDS == frozenset(_PUBLIC_FIELDS_FROZEN)
 
 
 @pytest.mark.parametrize("field", sorted(PUBLIC_STOCK_FIELDS))
@@ -139,7 +167,12 @@ def test_an_incomplete_profile_refuses_the_website_naming_each_item(db_session):
     with pytest.raises(ConflictError) as refused:
         website_listing.list_on_website(db_session, item=item, actor_id=uuid.uuid4())
     codes = [c["code"] for c in refused.value.details["blockingConditions"]]
-    assert codes == ["website_domain_missing", "short_description_missing", "impressum_missing", "privacy_notice_missing"]
+    assert codes == [
+        "website_domain_missing",
+        "short_description_missing",
+        "impressum_missing",
+        "privacy_notice_missing",
+    ]
     assert _statements(db_session, item.id) == []
 
 
@@ -306,7 +339,9 @@ def test_the_projection_read(client, db_session):
     item = ready_item(db_session, dealership)
     website_listing.list_on_website(db_session, item=item, actor_id=uuid.uuid4())
     _deliver_all(db_session, item.id)
-    response = client.get(f"/v1/dealerships/{dealership.id}/public-stock", headers=_headers(dealership.id, AccessRole.SALES))
+    response = client.get(
+        f"/v1/dealerships/{dealership.id}/public-stock", headers=_headers(dealership.id, AccessRole.SALES)
+    )
     assert response.status_code == 200, response.text
     body = response.json()
     assert body["total"] == 1
@@ -350,3 +385,66 @@ def test_a_projection_row_stock_does_not_list_is_reported(db_session):
     stored.updated_at = dt.datetime.now(dt.UTC) - dt.timedelta(hours=2)
     db_session.commit()
     assert [found for found, _ in _findings(db_session, "does not list")] == [stored.id]
+
+
+# --- keyed by dealership and location (review finding) ----------------------------------------
+
+
+def _statement(stock_item_id, *, revision: int, location_id, price: str = "19900.00") -> dict:
+    return {
+        "stockItemId": str(stock_item_id),
+        "listed": True,
+        "revision": revision,
+        "locationId": str(location_id) if location_id is not None else None,
+        "listedAt": dt.datetime.now(dt.UTC).isoformat(),
+        "listing": {"priceChf": price},
+    }
+
+
+def test_the_projection_is_keyed_by_location_and_follows_a_car_that_moves(db_session):
+    dealership = _make_dealership(db_session)
+    north, south = uuid.uuid4(), uuid.uuid4()
+    car_a, car_b = uuid.uuid4(), uuid.uuid4()
+    apply_listing_changed(db_session, tenant_id=dealership.id, payload=_statement(car_a, revision=1, location_id=north))
+    apply_listing_changed(db_session, tenant_id=dealership.id, payload=_statement(car_b, revision=1, location_id=south))
+    db_session.commit()
+
+    assert {i.stock_item_id for i in list_public_stock(db_session, dealership_id=dealership.id, location_id=north)} == {
+        car_a
+    }
+    assert {i.stock_item_id for i in list_public_stock(db_session, dealership_id=dealership.id, location_id=south)} == {
+        car_b
+    }
+    assert len(_listed(db_session, dealership.id)) == 2
+
+    # Car A moves to the south site: the restatement re-keys its row.
+    apply_listing_changed(db_session, tenant_id=dealership.id, payload=_statement(car_a, revision=2, location_id=south))
+    db_session.commit()
+    assert list_public_stock(db_session, dealership_id=dealership.id, location_id=north) == []
+    assert {i.stock_item_id for i in list_public_stock(db_session, dealership_id=dealership.id, location_id=south)} == {
+        car_a,
+        car_b,
+    }
+
+    # An older statement arriving late changes nothing.
+    apply_listing_changed(db_session, tenant_id=dealership.id, payload=_statement(car_a, revision=1, location_id=north))
+    db_session.commit()
+    assert list_public_stock(db_session, dealership_id=dealership.id, location_id=north) == []
+
+
+def test_the_public_stock_endpoint_filters_by_location(client, db_session):
+    dealership = _make_dealership(db_session)
+    north, south = uuid.uuid4(), uuid.uuid4()
+    car_a, car_b = uuid.uuid4(), uuid.uuid4()
+    apply_listing_changed(db_session, tenant_id=dealership.id, payload=_statement(car_a, revision=1, location_id=north))
+    apply_listing_changed(db_session, tenant_id=dealership.id, payload=_statement(car_b, revision=1, location_id=south))
+    db_session.commit()
+    response = client.get(
+        f"/v1/dealerships/{dealership.id}/public-stock",
+        params={"locationId": str(north)},
+        headers=_bearer(_token(tenant_id=dealership.id)),
+    )
+    assert response.status_code == 200, response.text
+    body = response.json()
+    items = body["items"] if isinstance(body, dict) else body
+    assert [item["stockItemId"] for item in items] == [str(car_a)]
