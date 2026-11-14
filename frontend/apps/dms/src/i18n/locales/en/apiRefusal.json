@@ -171,7 +171,7 @@
     "contact_group_not_enabled": "This contact group is not switched on in your business. The management switches it on under Administration › Contact groups.",
     "contact_group_read_only": "This contact group is not switched on in your business and cannot be removed here.",
     "customer_contact_group_exists": "A contact group in this change is already on the customer — the customer changed in the meantime. Reload it and try again.",
-    "chassis_number_identity_fixed": "This vehicle is identified by its chassis number, which cannot be changed here.",
+    "chassis_number_identity_fixed": "This vehicle is identified by its chassis number. It is corrected only on the stock vehicle with “Correct VIN”, so the stock vehicle, the vehicle record and the configuration carry the same number.",
     "chassis_number_requires_configuration": "A vehicle with a chassis number instead of a VIN is bought through its configuration: assign the configuration with the chassis number, make and first registration («Assign configuration»).",
     "chassis_number_requires_make": "A vehicle with a chassis number is told apart by its make: enter the make in its configuration."
   },

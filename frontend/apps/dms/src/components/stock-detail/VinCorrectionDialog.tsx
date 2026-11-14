@@ -4,10 +4,11 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { FormDialog } from '@nexotec/ui-kit'
 import { api } from '../../api/client'
+import { useFieldHint } from '../../hooks/useFieldHint'
 import { useIdempotencyKey } from '../../hooks/useIdempotencyKey'
 import type { StockItemRead } from '../../api/types'
 import { apiRefusalText } from '../../utils/apiRefusal'
-import { normalisedVin } from '../../utils/vin'
+import { isChassisNumber, normalisedVin, normalisedVinOrChassisNumber } from '../../utils/vin'
 
 /** The API's limit on the reason (`StockItemVinCorrectionRequest.reason`). */
 const REASON_MAX = 500
@@ -35,12 +36,17 @@ interface VinCorrectionDialogProps {
  * record). A refusal (another record carries the VIN, it is already in stock,
  * a stale version …) is said in the UI language.
  *
+ * KAN-535: on a pre-1981 car bought under its chassis number (its `vin` is no
+ * VIN) the dialog speaks of the chassis number and takes another one, or the
+ * car's real VIN, in the API's one spelling (`normalisedVinOrChassisNumber`).
+ *
  * On success the stock item's cache takes the answer, and the configuration
  * and the vehicle-mdm record the correction also rewrote are read again —
  * so every host (the stock detail, the configurator) gets the same refresh.
  */
 export function VinCorrectionDialog({ opened, onClose, item, initialVin = '', onCorrected }: VinCorrectionDialogProps) {
   const { t } = useTranslation()
+  const hint = useFieldHint()
   const queryClient = useQueryClient()
   const [vin, setVin] = useState(initialVin)
   const [vinError, setVinError] = useState<string | null>(null)
@@ -62,15 +68,22 @@ export function VinCorrectionDialog({ opened, onClose, item, initialVin = '', on
     }
   }, [opened, initialVin, idempotency])
 
+  // KAN-535 (Anto, 2026-11-14, option B): a pre-1981 car bought under its
+  // chassis number has that number corrected here — another chassis number,
+  // or its real 17-character VIN (which makes it a car with a VIN). A car
+  // bought under a VIN keeps a VIN.
+  const chassisCar = isChassisNumber(item.vin)
+  const normalise = chassisCar ? normalisedVinOrChassisNumber : normalisedVin
+
   const submit = async () => {
-    const newVin = normalisedVin(vin)
+    const newVin = normalise(vin)
     const vinProblem =
       vin.trim() === ''
-        ? t('stockDetail.vinCorrection.newVinRequired')
+        ? t(chassisCar ? 'stockDetail.vinCorrection.newChassisNumberRequired' : 'stockDetail.vinCorrection.newVinRequired')
         : newVin === null
-          ? t('common.invalidVin')
+          ? t(chassisCar ? 'stockDetail.vinCorrection.invalidChassisNumber' : 'common.invalidVin')
           : newVin === item.vin
-            ? t('apiRefusal.reasons.vin_unchanged')
+            ? t(chassisCar ? 'stockDetail.vinCorrection.chassisNumberUnchanged' : 'apiRefusal.reasons.vin_unchanged')
             : null
     const reasonProblem = reason.trim() === '' ? t('stockDetail.vinCorrection.reasonRequired') : null
     setVinError(vinProblem)
@@ -114,10 +127,14 @@ export function VinCorrectionDialog({ opened, onClose, item, initialVin = '', on
       submitting={submitting}
     >
       <Stack gap="sm">
-        <Text size="sm">{t('stockDetail.vinCorrection.body', { stockNumber: item.stockNumber })}</Text>
+        <Text size="sm">
+          {t(chassisCar ? 'stockDetail.vinCorrection.chassisBody' : 'stockDetail.vinCorrection.body', {
+            stockNumber: item.stockNumber,
+          })}
+        </Text>
         <Group gap="xs">
           <Text size="sm" c="dimmed">
-            {t('stockDetail.vinCorrection.currentVin')}
+            {t(chassisCar ? 'stockDetail.vinCorrection.currentChassisNumber' : 'stockDetail.vinCorrection.currentVin')}
           </Text>
           {/* UI/UX Specification, Typography: mono is mandatory for identifiers. */}
           <Text size="sm" ff="monospace">
@@ -125,14 +142,16 @@ export function VinCorrectionDialog({ opened, onClose, item, initialVin = '', on
           </Text>
         </Group>
         <TextInput
-          label={t('stockDetail.vinCorrection.newVinLabel')}
+          {...(chassisCar
+            ? hint(t('stockDetail.vinCorrection.newChassisNumberLabel'), t('stockDetail.vinCorrection.chassisNumberHint'))
+            : { label: t('stockDetail.vinCorrection.newVinLabel') })}
           value={vin}
           onChange={(e) => {
             setVin(e.currentTarget.value)
             if (vinError) setVinError(null)
           }}
           onBlur={() => {
-            const normalised = normalisedVin(vin)
+            const normalised = normalise(vin)
             if (normalised) setVin(normalised)
           }}
           error={vinError}

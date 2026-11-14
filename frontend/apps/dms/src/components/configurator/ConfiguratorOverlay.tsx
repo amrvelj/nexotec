@@ -54,7 +54,7 @@ import type { ConfiguratorOverlayProps } from './configuratorOverlayProps'
 import { useCodedFieldValues, useReferenceLabels } from './useConfiguratorReferenceData'
 import { LABEL_FIELD, resolveLanguage } from '../../hooks/useReferenceValueOptions'
 import { useIdempotencyKey } from '../../hooks/useIdempotencyKey'
-import { normalisedVin, vinRefusalKey } from '../../utils/vin'
+import { isChassisNumber, normalisedVin, normalisedVinOrChassisNumber, vinRefusalKey } from '../../utils/vin'
 import { useFieldHint } from '../../hooks/useFieldHint'
 import {
   CODED_FIELDS,
@@ -307,16 +307,19 @@ export function ConfiguratorOverlay({
     const vinOwner = hostOwnsVin && configurationId !== null ? hostOwnsVin : null
     let vinForHost: string | null = null
     if (vinOwner && !vinOwner.readOnlyReason) {
-      const unchanged = draft.vin === (savedVin ?? '') || normalisedVin(draft.vin) === (savedVin ?? null)
+      // KAN-535: a pre-1981 car bought under its chassis number takes a
+      // corrected chassis number (or its real VIN) through the host too.
+      const normaliseForHost = isChassisNumber(savedVin) ? normalisedVinOrChassisNumber : normalisedVin
+      const unchanged = draft.vin === (savedVin ?? '') || normaliseForHost(draft.vin) === (savedVin ?? null)
       if (draft.vin.trim() === '' && savedVin) {
         setVinError(vinOwner.clearRefused)
         setSection('specification') // where the field is
         return
       }
       if (!unchanged && draft.vin.trim() !== '') {
-        vinForHost = normalisedVin(draft.vin)
+        vinForHost = normaliseForHost(draft.vin)
         if (vinForHost === null) {
-          setVinError(t('common.invalidVin'))
+          setVinError(t(isChassisNumber(savedVin) ? 'stockDetail.vinCorrection.invalidChassisNumber' : 'common.invalidVin'))
           setSection('specification')
           return
         }

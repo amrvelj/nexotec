@@ -332,6 +332,8 @@ _READS = {
     "app.vehicle.public.get_configuration_for_host",
     # KAN-535: promotion asks whether a pre-1981 car already has its record before it writes; a SELECT only.
     "app.vehicle.public.find_vehicle_mdm_by_chassis_number",
+    # KAN-535: «VIN korrigieren» asks which record a corrected chassis number would collide with; a SELECT only.
+    "app.vehicle.public.find_vehicle_mdm_carrying_corrected_vin",
     # KAN-534: Stock's nightly refresh reads its configurations' labels; a SELECT only.
     "app.vehicle.public.get_configuration_labels",
     # KAN-552: the valuation's provider quote reads the car's FzKey, OptKeys and connection; a SELECT only.

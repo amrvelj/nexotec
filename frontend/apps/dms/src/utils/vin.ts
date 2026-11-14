@@ -14,6 +14,28 @@ export function normalisedVin(input: string): string | null {
   return VIN_PATTERN.test(compact) ? compact : null
 }
 
+/** KAN-353's chassis-number shape (`_CHASSIS_NUMBER_RE`): 1–17 letters and digits, I, O and Q included. */
+const CHASSIS_NUMBER_PATTERN = /^[A-Z0-9]{1,17}$/
+
+/**
+ * KAN-535: a stored value that is no VIN — a pre-1981 car's chassis number
+ * (`app.core.validators.is_chassis_number`). A stock car bought under one has
+ * it as its `vin`.
+ */
+export function isChassisNumber(value: string | null | undefined): boolean {
+  return Boolean(value) && !VIN_PATTERN.test(value as string)
+}
+
+/**
+ * The value the API would store for `input` where it takes a VIN or a
+ * pre-1981 car's chassis number (`NormalisedVinOrChassisNumber`) — the same
+ * one spelling — or null when it would refuse its shape.
+ */
+export function normalisedVinOrChassisNumber(input: string): string | null {
+  const compact = input.replace(/\s/g, '').toUpperCase()
+  return CHASSIS_NUMBER_PATTERN.test(compact) ? compact : null
+}
+
 /**
  * KAN-351: 17 letters and digits the API would refuse as a VIN — O typed for
  * 0, say. The configurator's find phase does not keep it as the VIN

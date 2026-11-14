@@ -52,7 +52,8 @@ Moved out of inventory.md by KAN-615 (2026-11-13). Last verified against main@73
   `chassis_number`, unique by the number and `chassis_make_key` (the make, case, spaces, hyphens and
   accents ignored; `uq_vehicle_mdm_chassis_number_make`; a VIN is unique among VIN records,
   `uq_vehicle_mdm_vin`; a CHECK holds the pre-1981 date). Never found by its number alone (lookup,
-  search, `match_vehicle`); the identity PATCH and «VIN korrigieren» do not change its number or
-  move its registration past 1980 (422 `chassis_number_identity_fixed`). Stock counts an ISO VIN
+  search, `match_vehicle`); the identity PATCH does not change its number (422
+  `chassis_number_identity_fixed`) or move its registration past 1980 — «VIN korrigieren» corrects
+  the number (Anto, 2026-11-14, `inventory-vin-correction.md`). Stock counts an ISO VIN
   once per Betrieb (`uq_stock_item_tenant_id_iso_vin_in_stock`) and a chassis-number car once by its
   record (`uq_stock_item_tenant_id_chassis_vehicle_in_stock`): two makes may share a number.

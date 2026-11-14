@@ -42,6 +42,7 @@ from app.vehicle.services.stock_holding import CONSUMERS as STOCK_HOLDING_CONSUM
 from app.vehicle.services.stock_holding import apply_backfilled_holding
 from app.vehicle.services.vin_correction import VIN_CORRECTED_EVENT, CorrectedVehicleVin
 from app.vehicle.services.vin_correction import correct_vehicle_vin as _correct_vehicle_vin
+from app.vehicle.services.vin_correction import find_other_record_carrying as _find_other_record_carrying
 from app.vehicle.services.vin_resolution import ResolvedVehicleMdm
 from app.vehicle.services.vin_resolution import (
     find_vehicle_mdm_by_chassis_number as _find_vehicle_mdm_by_chassis_number,
@@ -379,6 +380,7 @@ def correct_vehicle_vin(
     compensation: bool = False,
     include_record: bool = True,
     relink_configuration_only: bool = False,
+    restore_chassis_make_key: str | None = None,
 ) -> CorrectedVehicleVin:
     """KAN-557 (ADR-116 (2)-(3)): Stock's «VIN korrigieren» asks Vehicle,
     which owns the VIN, to rewrite the record's VIN from `old_vin` to
@@ -394,7 +396,16 @@ def correct_vehicle_vin(
     `compensation=True`, and only what changed — `include_record=False` and
     no `configuration_id` leave either alone. Refusals: 404, 409 `vehicle_merged`,
     `vehicle_vin_changed`, `vin_belongs_to_other_vehicle`, 422
-    `configuration_vin_differs` — each with nothing written."""
+    `configuration_vin_differs`, `invalid_vin` (a chassis number on a VIN
+    record), `chassis_number_requires_pre_1981_registration` — each with
+    nothing written.
+
+    KAN-535 (Anto, 2026-11-14, option B): a pre-1981 car's chassis-number
+    record is corrected the same way — it keeps its make and first
+    registration, and collides only with a record of the same make; a real
+    VIN makes it a VIN record, and the answer's `previous_chassis_make_key`
+    is what that conversion's compensation passes back as
+    `restore_chassis_make_key`."""
 
     return _correct_vehicle_vin(
         db,
@@ -408,7 +419,22 @@ def correct_vehicle_vin(
         compensation=compensation,
         include_record=include_record,
         relink_configuration_only=relink_configuration_only,
+        restore_chassis_make_key=restore_chassis_make_key,
     )
+
+
+def find_vehicle_mdm_carrying_corrected_vin(
+    db: Session, *, vehicle_id: uuid.UUID, new_vin: str
+) -> ResolvedVehicleMdm | None:
+    """KAN-535: another vehicle-mdm record that already carries `new_vin`
+    the way this record would carry it once corrected — a VIN by itself, a
+    pre-1981 car's chassis number together with this record's make (the
+    number alone may be another make's car). A read that writes nothing;
+    Stock asks it before «VIN korrigieren» touches anything, so a car its
+    stock already holds is refused naming that stock item."""
+
+    other = _find_other_record_carrying(db, vehicle_id=vehicle_id, new_vin=new_vin)
+    return ResolvedVehicleMdm(id=other.id, vin=other.vin) if other is not None else None
 
 
 def run_daily_plate_lookup_purge(db: Session) -> None:
@@ -449,6 +475,7 @@ __all__ = [
     "create_or_get_vehicle_mdm",
     "discard_configuration_copy",
     "find_vehicle_mdm_by_chassis_number",
+    "find_vehicle_mdm_carrying_corrected_vin",
     "get_configuration_for_host",
     "get_configuration_labels",
     "get_provider_valuation_input",
