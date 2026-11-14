@@ -116,12 +116,14 @@ def readiness(db: Session, dealership: Dealership) -> OffboardingReadiness:
     assert export.produced_at is not None  # the query selects only produced exports
     if last is not None and last >= export.produced_at:
         return OffboardingReadiness(last, export, "export_out_of_date")
-    if (
-        export.produced_xid_floor is not None
-        and export.produced_lookback_from is not None
-        and wrote_outside_snapshot(db, dealership, export.produced_xid_floor, export.produced_lookback_from)
-    ):
-        return OffboardingReadiness(last, export, "export_out_of_date")
+    if db.get_bind().dialect.name == "postgresql":
+        # KAN-716: an export produced before its floor was recorded cannot
+        # show that it holds a write in flight at its snapshot — out of
+        # date; a fresh export answers it.
+        if export.produced_xid_floor is None or export.produced_lookback_from is None:
+            return OffboardingReadiness(last, export, "export_out_of_date")
+        if wrote_outside_snapshot(db, dealership, export.produced_xid_floor, export.produced_lookback_from):
+            return OffboardingReadiness(last, export, "export_out_of_date")
     return OffboardingReadiness(last, export, None)
 
 

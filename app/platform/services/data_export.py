@@ -28,6 +28,7 @@ import datetime as dt
 import logging
 import tempfile
 import uuid
+from collections.abc import Sequence
 
 from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session
@@ -227,10 +228,21 @@ def _object_key(job: ExportJob) -> str:
 # KAN-716: how far before the oldest writing transaction the look-back
 # reaches — stamps taken early, clock skew between the application and the
 # database (see `_snapshot_session`).
-LOOKBACK_MARGIN = dt.timedelta(hours=1)
+LOOKBACK_MARGIN = dt.timedelta(days=1)
 
 
 _XID_MASK = (1 << 32) - 1
+
+
+def xid_floor(next_xid: int, open_xids: Sequence[int]) -> int:
+    """KAN-716: the oldest of `open_xids` (32-bit ids, as `pg_stat_activity`
+    shows them) as a 64-bit id, judged against `next_xid` (64-bit, read in
+    the same statement); `next_xid` itself when none is open. Each open id
+    is its distance below the next one, modulo 2^32; an id taken after the
+    next one was read reads as "not below" and is left out."""
+
+    below = [(next_xid - xid) & _XID_MASK for xid in open_xids]
+    return next_xid - max([distance for distance in below if distance < 1 << 31], default=0)
 
 
 @dataclasses.dataclass(frozen=True)
@@ -258,8 +270,11 @@ def _snapshot_session(db: Session) -> _Snapshot:
     row reaches the database (sometimes earlier: a service takes `now` once
     and writes it later), and the clocks may skew. The look-back costs no
     precision; it only keeps old rows, whose 32-bit ids may have wrapped or
-    been frozen, out of the id test. Transactions of another database role
-    are not listed to this one; none writes a Betrieb's rows."""
+    been frozen, out of the id test. `pg_stat_activity` shows every role's
+    `backend_xid` but hides another role's `xact_start` from an unprivileged
+    one, so such a transaction counts for the floor and not for the
+    look-back; no other role writes a Betrieb's rows. Prepared (two-phase)
+    transactions are not listed; nothing prepares one."""
 
     engine = db.get_bind().engine
     if engine.dialect.name != "postgresql":
@@ -277,10 +292,7 @@ def _snapshot_session(db: Session) -> _Snapshot:
             )
         ).one()
         probe.rollback()
-    # Each open id as its distance below the next one (32-bit ids, modulo
-    # 2^32); an id taken after the next one was read reads as "not below".
-    below = [(next_xid - xid) & _XID_MASK for xid in open_xids]
-    floor = next_xid - max([d for d in below if d < 1 << 31], default=0)
+    floor = xid_floor(next_xid, open_xids)
     snapshot = Session(bind=engine.execution_options(isolation_level="REPEATABLE READ"))
     # The first statement takes the snapshot; now() is its transaction's start.
     produced_at = snapshot.scalar(select(func.now())) or utcnow()

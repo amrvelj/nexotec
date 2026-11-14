@@ -68,7 +68,8 @@ class ExportJob(PrimaryKeyMixin, VersionedMixin, TimestampMixin, Base):
     # begun before the snapshot and committed after stamps its rows before
     # `produced_at`, yet they are not in the file; offboarding refuses on a row
     # stamped since the look-back whose writer id is at or above the floor.
-    # NULL on SQLite and for older exports.
+    # NULL on SQLite; NULL on Postgres (an export produced before KAN-716)
+    # makes offboarding call the export out of date.
     produced_xid_floor: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     produced_lookback_from: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)
     object_key: Mapped[str | None] = mapped_column(String(255), nullable=True)
