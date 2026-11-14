@@ -22,6 +22,7 @@ from app.core.pagination import SortPageParams, decode_sort_cursor
 from app.core.sorting import SortField
 from app.db import get_db
 from app.platform.models.notification import Notification, NotificationEvent, NotificationFamily
+from app.platform.reference.services import web_push
 from app.platform.schemas.notification import (
     MarkAllReadResult,
     NotificationPage,
@@ -35,7 +36,7 @@ from app.platform.schemas.notification import (
     PushSubscriptionRead,
     UnreadCountRead,
 )
-from app.platform.services import notifications, push_subscriptions, web_push
+from app.platform.services import notifications, push_subscriptions
 
 settings = get_settings()
 router = APIRouter(tags=["notifications"], route_class=IdempotentRoute)

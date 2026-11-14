@@ -35,6 +35,7 @@ from app.core.errors import ConflictError
 from app.core.outbox import OutboxEvent, publish
 from app.platform.models.dealership import Dealership, Location
 from app.platform.models.user import User
+from app.platform.reference.services.mailer import PlatformMailer
 from app.platform.reference_data_seed import LEGAL_FORM_LIST_CODE
 from app.platform.schemas.dealership import DealershipCreate
 from app.platform.schemas.onboarding import OnboardingRequest
@@ -43,7 +44,6 @@ from app.platform.services import dealership as dealership_service
 from app.platform.services import entitlement as entitlement_service
 from app.platform.services import identity
 from app.platform.services import user as user_service
-from app.platform.services.mailer import PlatformMailer
 
 EVENT_TYPE = "platform.dealership.onboarded"
 

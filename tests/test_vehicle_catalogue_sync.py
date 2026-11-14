@@ -20,7 +20,7 @@ from app.integration.models.connection import ConnectionEnvironment
 from app.integration.models.provider import IntegrationProvider
 from app.integration.schemas.connection import ConnectionCreate
 from app.integration.services import connections as connection_service
-from app.platform.models.reference_data import ReferenceList, ReferenceValue
+from app.platform.reference.models.reference_data import ReferenceList, ReferenceValue
 from app.vehicle.models.catalogue import Brand, ModelGroup, ModelVariant, VariantOption, VariantOptionEquipmentFeature
 from app.vehicle.models.catalogue_mirror import ColourCache, ImageRef, TyreSpecCache
 from app.vehicle.models.provider import MappingGap, ProviderCodeMap, VariantOptionProviderCode, VariantProviderCode

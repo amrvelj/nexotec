@@ -19,7 +19,7 @@ from alembic.operations import Operations
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.platform.models.reference_data import ReferenceList, ReferenceValue
+from app.platform.reference.models.reference_data import ReferenceList, ReferenceValue
 from app.vehicle.models.provider import MappingGap, ProviderCodeMap
 from app.vehicle.services import catalogue_admin, catalogue_sync
 from app.vehicle.services.provider import resolve_provider_code

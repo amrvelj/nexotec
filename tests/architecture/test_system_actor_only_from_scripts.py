@@ -2,7 +2,7 @@
 into a create service is for seeds and scripts only.
 
 `create_dealership` and `create_user` accept `actor_id=None` with a
-`system_reason` (`app.platform.services.actor_reference.system_write_reason`):
+`system_reason` (`app.platform.reference.services.system_writes.system_write_reason`):
 the rows and the `create` audit row then carry no actor, and the reason names
 the system that wrote them. An API call must never take that path — a request
 always has a person behind it, and the audit row names them. So nothing in

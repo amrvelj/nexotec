@@ -26,8 +26,8 @@ from sqlalchemy.orm import Session
 
 from app.core.outbox_model import OutboxMessage
 from app.platform.models.notification import Notification, NotificationFamily
+from app.platform.reference.services.web_push import PushMessage
 from app.platform.services import connected_account, notification_catalogue, notifications, push_subscriptions
-from app.platform.services.web_push import PushMessage
 
 
 def handle_notification_delivered_message(db: Session, message: OutboxMessage) -> None:

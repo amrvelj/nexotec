@@ -11,7 +11,7 @@ from pydantic import Field, field_validator, model_validator
 
 from app.core.schemas import CamelModel
 from app.platform.models.branding_asset import BrandingAssetKind
-from app.platform.schemas.patch import refuse_null_on_not_null_fields
+from app.platform.reference.schemas.patch import refuse_null_on_not_null_fields
 from app.platform.services.brand_colors import HEX_COLOR, WCAG_AA_NORMAL_TEXT, ContrastPairName
 
 

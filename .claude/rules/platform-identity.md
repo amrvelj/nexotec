@@ -15,7 +15,7 @@ paths:
   - "app/platform/services/mfa.py"
   - "app/platform/services/password_*.py"
   - "app/platform/services/recovery.py"
-  - "app/platform/services/mailer.py"
+  - "app/platform/reference/services/mailer.py"
   - "app/platform/services/mail_texts.py"
   - "app/platform/services/connected_account.py"
   - "app/platform/models/auth_*.py"

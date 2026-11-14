@@ -43,10 +43,10 @@ from app.platform.models.auth_session import AuthSession
 from app.platform.models.credential import Credential
 from app.platform.models.dealership import Dealership
 from app.platform.models.user import User, UserStatus
+from app.platform.reference.services.mailer import PlatformMailer
 from app.platform.services import auth_events, identity, mfa, security_notifications
 from app.platform.services import membership as membership_service
 from app.platform.services import user as user_service
-from app.platform.services.mailer import PlatformMailer
 
 # The audit trail and the auth stream show at most this much of a reason.
 REASON_MAX_LENGTH = 500

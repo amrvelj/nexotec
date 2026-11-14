@@ -4,7 +4,7 @@ import pytest
 
 from app.core.auth import AccessRole, create_access_token
 from app.core.permissions import CAPABILITY_MATRIX, may_write
-from app.platform.models.reference_data import ReferenceList
+from app.platform.reference.models.reference_data import ReferenceList
 
 
 def _token(

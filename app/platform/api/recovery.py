@@ -29,6 +29,7 @@ from app.db import get_db
 from app.platform.api.auth import client_ip
 from app.platform.models.auth_event import AuthEvent
 from app.platform.models.user import User
+from app.platform.reference.services.mailer import PlatformMailer, get_mailer
 from app.platform.schemas.recovery import (
     ChangeEmailRequest,
     GrantManagerRequest,
@@ -39,7 +40,6 @@ from app.platform.schemas.recovery import (
 )
 from app.platform.services import dealership as dealership_service
 from app.platform.services import recovery
-from app.platform.services.mailer import PlatformMailer, get_mailer
 
 settings = get_settings()
 router = APIRouter(tags=["platform-recovery"], route_class=IdempotentRoute)

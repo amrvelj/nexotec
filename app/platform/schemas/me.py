@@ -16,7 +16,7 @@ from app.platform.models.connected_account import (
     ConnectedAccountRevokedReason,
     ConnectedAccountStatus,
 )
-from app.platform.schemas.patch import refuse_null_on_not_null_fields
+from app.platform.reference.schemas.patch import refuse_null_on_not_null_fields
 
 
 class MeRead(CamelModel):

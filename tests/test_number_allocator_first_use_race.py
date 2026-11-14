@@ -122,7 +122,7 @@ def test_the_callers_own_integrity_error_is_not_swallowed_on_first_use(engine, n
     and turned into a PendingRollbackError (a 500)."""
 
     from app.core.uuid7 import uuid7
-    from app.platform.models.reference_data import ReferenceList
+    from app.platform.reference.models.reference_data import ReferenceList
 
     allocate, _ = ALLOCATORS[name]
     factory = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)

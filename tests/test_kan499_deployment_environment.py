@@ -101,7 +101,7 @@ def test_the_object_store_runs_outside_production(monkeypatch, tmp_path, name):
 
 
 def test_the_logging_mailer_runs_in_development(monkeypatch):
-    from app.platform.services import mailer
+    from app.platform.reference.services import mailer
 
     settings = get_settings()
     monkeypatch.setattr(settings, "environment", "development")
@@ -115,7 +115,7 @@ def test_the_logging_mailer_is_refused_on_every_other_value(monkeypatch, name):
     """`test` too, as before KAN-499 (KAN-397: only development keeps the
     logging sender); a value that does not parse is refused like production."""
 
-    from app.platform.services import mailer
+    from app.platform.reference.services import mailer
 
     settings = get_settings()
     monkeypatch.setattr(settings, "environment", name)

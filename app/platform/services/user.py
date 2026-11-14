@@ -22,9 +22,9 @@ from app.platform.models.auth_event import AuthEventKind
 from app.platform.models.credential import Credential
 from app.platform.models.dealership_membership import DealershipMembership
 from app.platform.models.user import EmploymentStatus, User, UserStatus
+from app.platform.reference.services.system_writes import system_write_reason
 from app.platform.schemas.user import UserCreate, UserUpdate
 from app.platform.services import auth_events, auth_sessions, connected_account, text_delegation, user_location
-from app.platform.services.actor_reference import system_write_reason
 from app.platform.services.user_common import _ACTIVE_USER_STATUSES, _TERMINAL_USER_STATUSES, membership_is_active
 from app.platform.services.user_reads import list_membership_dealership_ids
 
@@ -266,7 +266,7 @@ def create_user(
     the user and the invitation exist together or not at all (FR-A-09).
 
     `actor_id=None` with a `system_reason` is the system path for seeds and
-    scripts only (KAN-345, `actor_reference.system_write_reason`)."""
+    scripts only (KAN-345, `reference.services.system_writes.system_write_reason`)."""
 
     audit_reason = system_write_reason(actor_id, system_reason)
     _assert_may_create_with_roles(roles=data.access_roles, actor_roles=actor_roles)

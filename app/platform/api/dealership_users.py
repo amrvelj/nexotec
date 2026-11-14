@@ -31,6 +31,7 @@ from app.core.tenancy import require_tenant_match
 from app.db import get_db, get_session_factory
 from app.platform.api.auth import client_ip
 from app.platform.models.user import User, UserStatus
+from app.platform.reference.services.mailer import PlatformMailer, get_mailer
 from app.platform.schemas.user import (
     OwnedGroupRead,
     OwnershipRead,
@@ -52,7 +53,6 @@ from app.platform.services import (
 from app.platform.services import ownership as ownership_service
 from app.platform.services import user as user_service
 from app.platform.services import user_reads as user_reads_service
-from app.platform.services.mailer import PlatformMailer, get_mailer
 
 settings = get_settings()
 router = APIRouter(tags=["dealerships"], route_class=IdempotentRoute)

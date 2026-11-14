@@ -4,7 +4,7 @@ import uuid
 from pydantic import Field, model_validator
 
 from app.core.schemas import CamelModel
-from app.platform.schemas.patch import refuse_null_on_not_null_fields
+from app.platform.reference.schemas.patch import refuse_null_on_not_null_fields
 
 
 class ReferenceValueCreate(CamelModel):

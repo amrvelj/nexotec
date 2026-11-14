@@ -250,7 +250,7 @@ def test_the_old_create_route_is_deprecated_in_openapi(client):
 
 def test_the_result_says_whether_the_invitation_went_out(client, db_session):
     from app.main import app as fastapi_app
-    from app.platform.services.mailer import MailDeliveryError, get_mailer
+    from app.platform.reference.services.mailer import MailDeliveryError, get_mailer
 
     class RefusingMailer:
         def send(self, mail) -> None:

@@ -36,7 +36,7 @@ def seed_business_reference_lists(db_session) -> None:
     from the same rows the migration seeds — per test, not autouse: only the
     Business screen's writes need them."""
 
-    from app.platform.models.reference_data import ReferenceList, ReferenceValue
+    from app.platform.reference.models.reference_data import ReferenceList, ReferenceValue
     from app.platform.reference_data_seed import BUSINESS_LISTS
 
     for list_code, rows in BUSINESS_LISTS.items():
