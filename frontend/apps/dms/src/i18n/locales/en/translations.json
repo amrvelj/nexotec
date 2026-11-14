@@ -61,6 +61,7 @@
     "title": "Reported missing keys",
     "subtitle": "Keys a browser found neither here nor in the shipped strings and showed as the warning marker.",
     "empty": "No missing keys reported.",
+    "latestOnly": "Only the {{limit}} most recently reported keys are shown; a sort orders only these.",
     "columns": {
       "key": "Key",
       "language": "Language",

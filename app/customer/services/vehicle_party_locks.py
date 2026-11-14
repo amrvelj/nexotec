@@ -17,7 +17,7 @@ from app.customer.models.customer import (
 )
 from app.customer.models.vehicle_party import VehicleParty, VehiclePartyRole
 from app.customer.services.vehicle_party_labels import _write_vehicle_labels
-from app.vehicle.public import resolve_merged_vehicle_id
+from app.vehicle.public import merged_vehicle_chain, resolve_merged_vehicle_id
 
 
 def _lock_role_rows(db: Session, *, vehicle_id: uuid.UUID, role: VehiclePartyRole, group_id: uuid.UUID) -> None:
@@ -34,7 +34,12 @@ def _lock_role_rows(db: Session, *, vehicle_id: uuid.UUID, role: VehiclePartyRol
 
 
 def _lock_rows_of_roles(
-    db: Session, *, vehicle_id: uuid.UUID, roles: Iterable[VehiclePartyRole], group_id: uuid.UUID
+    db: Session,
+    *,
+    vehicle_id: uuid.UUID | None = None,
+    vehicle_ids: Iterable[uuid.UUID] = (),
+    roles: Iterable[VehiclePartyRole],
+    group_id: uuid.UUID,
 ) -> None:
     """`_lock_role_rows` for a writer of several roles at once (KAN-663: the
     trade-in purchase and its storno write owner and keeper): every row of
@@ -42,13 +47,16 @@ def _lock_rows_of_roles(
     them role by role would take a newer keeper row before an older owner row,
     out of the order the label refresh (KAN-186) and the nightly refresh take
     them. Taken after the roles' advisory locks and the customer row, as an
-    allocation takes its rows."""
+    allocation takes its rows. `vehicle_ids` locks several records' rows in
+    the same one statement (KAN-706: the records of a merge chain whose party
+    move may not have run yet)."""
 
+    ids = [*([vehicle_id] if vehicle_id is not None else []), *vehicle_ids]
     db.execute(
         select(VehicleParty.id)
         .join(Customer, Customer.id == VehicleParty.customer_id)
         .where(
-            VehicleParty.vehicle_id == vehicle_id,
+            VehicleParty.vehicle_id.in_(ids),
             VehicleParty.role.in_(list(roles)),
             Customer.group_id == group_id,
         )
@@ -166,6 +174,44 @@ def _lock_live_vehicle_roles_in_group(
         for role in roles:
             if not _try_lock_vehicle_role_in_group(db, vehicle_id=live, role=role, group_id=group_id):
                 raise _vehicle_merge_in_progress()
+
+
+def _lock_merge_chain_roles_in_group(
+    db: Session, *, vehicle_id: uuid.UUID, roles: Iterable[VehiclePartyRole], group_id: uuid.UUID
+) -> tuple[uuid.UUID, ...]:
+    """KAN-706: the (vehicle, role, group) locks of every record from
+    `vehicle_id` to the one it lives on (`vehicle.public.merged_vehicle_chain`),
+    and that chain, the live record last. For a writer that must read the
+    customer's rows wherever they are: Vehicle commits a merge first and
+    customer moves the party rows later (`vehicle_merge.py`, retried on
+    `VehiclePartyRoleBusyError`), so a fact consumed in between still finds its
+    rows on the duplicate. Holding the locks of both records keeps that move
+    out until this commits, so either order gives the same history.
+
+    Waited for in the order a merge's move takes them (by vehicle, then role:
+    `vehicle_merge._take_role_locks`), so the two never deadlock; after a merge
+    committed during the wait, the records the chain gained are only tried —
+    busy is 409 `vehicle_merge_in_progress`, as in
+    `_lock_live_vehicle_roles_in_group`. A record never merged gives itself
+    alone: the ordinary writer's one lock."""
+
+    roles = tuple(roles)
+    chain = merged_vehicle_chain(db, vehicle_id)
+    for record_id, role in sorted(
+        ((record_id, role) for record_id in chain for role in roles), key=lambda pair: (str(pair[0]), pair[1].value)
+    ):
+        _lock_vehicle_role_in_group(db, vehicle_id=record_id, role=role, group_id=group_id)
+    held = set(chain)
+    while True:
+        now_chain = merged_vehicle_chain(db, vehicle_id)
+        gained = [record_id for record_id in now_chain if record_id not in held]
+        if not gained:
+            return now_chain
+        for record_id in gained:
+            for role in roles:
+                if not _try_lock_vehicle_role_in_group(db, vehicle_id=record_id, role=role, group_id=group_id):
+                    raise _vehicle_merge_in_progress()
+        held |= set(gained)
 
 
 def _lock_party_vehicle_role(db: Session, *, party: VehicleParty, group_id: uuid.UUID) -> uuid.UUID:

@@ -20,7 +20,7 @@ from app.core.observability import (
 )
 from app.export_registry import register_exporters
 from app.ownership_registry import register_ownership_providers
-from app.platform.services.mailer import get_mailer
+from app.platform.reference.services.mailer import get_mailer
 from app.platform.session_guard import enforce_live_session, enforce_open_dealership
 
 configure_logging()

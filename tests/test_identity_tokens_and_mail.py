@@ -20,8 +20,8 @@ from app.platform.models.auth_event import AuthEvent, AuthEventKind
 from app.platform.models.auth_token import AuthToken, AuthTokenKind
 from app.platform.models.credential import Credential
 from app.platform.models.user import User, UserStatus
+from app.platform.reference.services.mailer import MailDeliveryError, get_mailer
 from app.platform.services import auth_tokens, mail_texts, password_policy
-from app.platform.services.mailer import MailDeliveryError, get_mailer
 from tests.conftest import fastapi_app
 from tests.identity_support import (
     STRONG_PASSWORD,
@@ -392,7 +392,7 @@ def test_the_logging_sender_is_refused_in_every_deployed_environment(monkeypatch
     invitation links in the log, so staging is refused like production — and
     so is any environment name not yet thought of."""
 
-    from app.platform.services import mailer
+    from app.platform.reference.services import mailer
 
     settings = get_settings()
     monkeypatch.setattr(settings, "environment", environment)
@@ -434,7 +434,7 @@ def test_the_smtp_sender_verifies_the_server_before_it_logs_in(monkeypatch):
 
     import ssl
 
-    from app.platform.services import mailer
+    from app.platform.reference.services import mailer
 
     calls: list[tuple] = []
 
@@ -475,7 +475,7 @@ def test_the_smtp_sender_verifies_the_server_before_it_logs_in(monkeypatch):
 
 
 def test_the_logging_sender_stays_for_local_runs_ci_and_tests(monkeypatch):
-    from app.platform.services import mailer
+    from app.platform.reference.services import mailer
 
     settings = get_settings()
     monkeypatch.setattr(settings, "environment", "development")

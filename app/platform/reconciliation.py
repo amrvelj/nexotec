@@ -37,11 +37,11 @@ from app.platform.models.holiday_calendar import Holiday, HolidayCalendar
 from app.platform.models.location_schedule import LocationClosure
 from app.platform.models.module_entitlement import ModuleEntitlement
 from app.platform.models.number_range import NumberRange
-from app.platform.models.reference_data import ReferenceList, ReferenceValue
 from app.platform.models.standard_text import StandardText
 from app.platform.models.standard_text_delegation import StandardTextDelegation
-from app.platform.models.ui_translation import UiTranslation
 from app.platform.models.user import User
+from app.platform.reference.models.reference_data import ReferenceList, ReferenceValue
+from app.platform.reference.models.ui_translation import UiTranslation
 from app.platform.services.actor_reference import actor_reference_checks
 
 CONTEXT = "platform"

@@ -498,8 +498,9 @@ def _push_user(db_session, monkeypatch):
 
     from app.platform.models.auth_session import AuthSession
     from app.platform.models.user import User, UserRole, UserStatus
-    from app.platform.services import push_subscriptions, web_push
-    from app.platform.services.web_push import PushOutcome
+    from app.platform.reference.services import web_push
+    from app.platform.reference.services.web_push import PushOutcome
+    from app.platform.services import push_subscriptions
 
     dealership = _dealership(db_session)
     user = User(

@@ -46,6 +46,7 @@ from app.core.outbox_model import OutboxMessage, OutboxStatus
 from app.core.processed_event_model import ProcessedEvent
 from app.core.uuid7 import uuid7
 from app.vehicle.models.stock_holding import VehicleStockHolding
+from app.vehicle.services.merge_chain import records_living_on
 
 VIN_ASSIGNED = "inventory.pipeline_vehicle.vin_assigned"
 SOLD = "inventory.stock_item.sold"
@@ -173,10 +174,17 @@ def held_stock_item(db: Session, *, tenant_id: uuid.UUID | None, vehicle_id: uui
     that holds `vehicle_id`: held by the projection, or assigned by Stock in a
     fact the consumer has not applied yet (module docstring); else None. No
     other Betrieb's item is ever read. A fact for an item the projection
-    already knows has left stock never counts."""
+    already knows has left stock never counts.
+
+    KAN-706 (ADR-160 amended): a hold names the record as Stock booked it and is
+    set once, so an item booked on a record merged since still names the
+    duplicate. One physical car: a hold on any record merged into `vehicle_id`
+    (`records_living_on`, chains included) counts for it, so the survivor's
+    VIN change is refused as the duplicate's would have been."""
 
     if tenant_id is None:
         return None
+    vehicle_ids = records_living_on(db, vehicle_id)
 
     # Outbox first, projection second — the order is the safety (module
     # docstring): a fact applied between the two reads is either still in
@@ -196,7 +204,7 @@ def held_stock_item(db: Session, *, tenant_id: uuid.UUID | None, vehicle_id: uui
             OutboxMessage.event_type == VIN_ASSIGNED,
             OutboxMessage.tenant_id == tenant_id,
             OutboxMessage.status != OutboxStatus.PUBLISHED,
-            OutboxMessage.payload["vehicleId"].as_string() == str(vehicle_id),
+            OutboxMessage.payload["vehicleId"].as_string().in_([str(record_id) for record_id in vehicle_ids]),
             ~applied,
             ~left.exists(),
         )
@@ -208,7 +216,7 @@ def held_stock_item(db: Session, *, tenant_id: uuid.UUID | None, vehicle_id: uui
         select(VehicleStockHolding.stock_item_id, VehicleStockHolding.stock_number)
         .where(
             VehicleStockHolding.tenant_id == tenant_id,
-            VehicleStockHolding.vehicle_id == vehicle_id,
+            VehicleStockHolding.vehicle_id.in_(vehicle_ids),
             VehicleStockHolding.left_stock_at.is_(None),
         )
         .order_by(VehicleStockHolding.created_at)

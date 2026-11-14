@@ -41,7 +41,7 @@ from app.core.i18n import SwissLanguage
 from app.core.idempotent_route import IdempotentRoute
 from app.core.permissions import require_read, require_write
 from app.db import get_db
-from app.platform.schemas.ui_translation import (
+from app.platform.reference.schemas.ui_translation import (
     KEY_PATH_PATTERN,
     MissingTranslationPage,
     MissingTranslationRead,
@@ -54,7 +54,7 @@ from app.platform.schemas.ui_translation import (
     UiTranslationPublish,
     UiTranslationRead,
 )
-from app.platform.services import ui_translation as service
+from app.platform.reference.services import ui_translation as service
 
 settings = get_settings()
 router = APIRouter(tags=["ui-translations"], route_class=IdempotentRoute)

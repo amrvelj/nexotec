@@ -68,13 +68,13 @@ from app.platform.models.dealership_auth_config import DealershipAuthConfig
 from app.platform.models.dealership_settings import DealershipSettings
 from app.platform.models.number_range import NumberRange
 from app.platform.models.user import User, UserRole, UserStatus
+from app.platform.reference.services.mailer import PlatformMailer, get_mailer
 from app.platform.schemas.dealership import DealershipAddress, DealershipCreate
 from app.platform.schemas.user import UserCreate
 from app.platform.services import dealership as dealership_service
 from app.platform.services import entitlement as entitlement_service
 from app.platform.services import identity, password_hashing
 from app.platform.services import user as user_service
-from app.platform.services.mailer import PlatformMailer, get_mailer
 from app.platform.services.password_policy import validate_new_password
 
 DEMO_LEGAL_NAME = "Demo Garage AG"

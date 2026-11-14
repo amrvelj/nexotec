@@ -15,6 +15,7 @@ from app.core.config import get_settings
 from app.core.idempotent_route import IdempotentRoute
 from app.db import get_db
 from app.platform.api.auth import client_ip
+from app.platform.reference.services.mailer import PlatformMailer, get_mailer
 from app.platform.schemas.onboarding import (
     DealerGroupOption,
     DealerGroupOptionList,
@@ -23,7 +24,6 @@ from app.platform.schemas.onboarding import (
 )
 from app.platform.services import dealer_group_options
 from app.platform.services import onboarding as onboarding_service
-from app.platform.services.mailer import PlatformMailer, get_mailer
 
 router = APIRouter(tags=["platform-onboarding"], route_class=IdempotentRoute)
 

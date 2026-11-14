@@ -24,8 +24,9 @@ from app.platform.models.notification import (
     PushSubscription,
 )
 from app.platform.public import NotificationEventCode, NotificationSubject, UnknownNotificationEvent, notify
-from app.platform.services import auth_events, notifications, push_subscriptions, web_push
-from app.platform.services.web_push import PushMessage, PushOutcome, PushTarget
+from app.platform.reference.services import web_push
+from app.platform.reference.services.web_push import PushMessage, PushOutcome, PushTarget
+from app.platform.services import auth_events, notifications, push_subscriptions
 from tests.identity_support import (
     STRONG_PASSWORD,
     PasswordLogin,

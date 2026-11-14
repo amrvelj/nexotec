@@ -9,17 +9,19 @@ import { formatCurrencyChf, formatNumber } from '../../utils/format'
 import {
   ActionBar,
   ColumnConfigPanel,
-  defaultColumnLayout,
-  DataGrid,
-  OverviewShellRegion,
-  SelectionBar,
-  ViewsAndFilters,
-  offeredPredicates,
   type ColumnRegistryEntry,
+  DataGrid,
+  defaultColumnLayout,
   type FilterPredicate,
   type GridColumnDef,
+  offeredPredicates,
+  OverviewShellRegion,
   type SavedView,
+  SelectionBar,
   type SortSpec,
+  sortSpecFromQueryParam,
+  sortSpecToQueryParam,
+  ViewsAndFilters,
 } from '@nexotec/ui-kit'
 import { useUiPreferencesContext } from '../../hooks/UiPreferencesContext'
 import { useGridPreferences } from '../../hooks/useGridPreferences'
@@ -60,20 +62,6 @@ const SORTABLE_FIELDS = new Set(['kw', 'displacementCcm', 'co2Gkm', 'doors', 'se
 // window focus and none while fresh, so a page the user already saw costs no
 // second billed request (ADR-112 (4)).
 const PROVIDER_QUERY = { staleTime: 5 * 60 * 1000, refetchOnWindowFocus: false } as const
-
-function parseSortParam(raw: string): SortSpec[] {
-  return raw
-    .split(',')
-    .map((part): SortSpec | null => {
-      const [field, direction] = part.split(':')
-      return field ? { field, direction: direction === 'desc' ? 'desc' : 'asc' } : null
-    })
-    .filter((s): s is SortSpec => s !== null)
-}
-
-function serializeSort(sort: SortSpec[]): string {
-  return sort.map((s) => `${s.field}:${s.direction}`).join(',')
-}
 
 function parseFiltersParam(raw: string): FilterPredicate[] {
   try {
@@ -181,7 +169,7 @@ export function CatalogueBrowseGrid({ mode, onSelectVariant }: CatalogueBrowseGr
   const vehicleKind = searchParams.get('kind') || DEFAULT_VEHICLE_KIND
   const brand = searchParams.get('brand') || null
   const modelGroupKey = searchParams.get('modelGroup') || null
-  const sort = (searchParams.get('sort') ? parseSortParam(searchParams.get('sort')!) : gridPrefs.sort).filter((s) => SORTABLE_FIELDS.has(s.field))
+  const sort = (searchParams.get('sort') ? sortSpecFromQueryParam(searchParams.get('sort')) : gridPrefs.sort).filter((s) => SORTABLE_FIELDS.has(s.field))
   // KAN-458: a predicate from the URL or a saved view that this grid does
   // not offer is neither sent nor shown as an active filter.
   const predicates = narrowCataloguePredicates(searchParams.get('filters') ? parseFiltersParam(searchParams.get('filters')!) : [])
@@ -202,7 +190,7 @@ export function CatalogueBrowseGrid({ mode, onSelectVariant }: CatalogueBrowseGr
 
   const setSort = (next: SortSpec[]) => {
     gridPrefs.setSort(next)
-    updateUrl({ sort: next.length > 0 ? serializeSort(next) : null })
+    updateUrl({ sort: sortSpecToQueryParam(next) ?? null })
   }
   const setPredicates = (next: FilterPredicate[]) => {
     updateUrl({ filters: next.length > 0 ? JSON.stringify(next) : null })
@@ -264,7 +252,7 @@ export function CatalogueBrowseGrid({ mode, onSelectVariant }: CatalogueBrowseGr
     ...PROVIDER_QUERY,
   })
 
-  const sortParam = sort.length > 0 ? serializeSort(sort) : undefined
+  const sortParam = sortSpecToQueryParam(sort)
   const variantsQuery = useInfiniteQuery({
     queryKey: ['catalogue-variants', vehicleKind, brand, modelGroupKey, debouncedQuery, sortParam, predicates],
     queryFn: async ({ pageParam }: { pageParam: string | null }) => {

@@ -1,5 +1,5 @@
 """Master-data admin endpoints (WP-5 PR-8, FR-V-11) — platform_admin only,
-same gate as app.platform.api.reference_data's own write endpoints. Brands
+same gate as app.platform.reference.api.reference_data's own write endpoints. Brands
 aren't reference-data-shaped (no per-language label, too high-cardinality)
 so they get their own small CRUD surface here rather than being folded
 into reference_data's.

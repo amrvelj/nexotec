@@ -18,7 +18,7 @@ from app.core.validators import E164Phone
 from app.platform.models.dealership import LocationType
 from app.platform.models.holiday_calendar import HolidayCondition, HolidayRule
 from app.platform.models.location_schedule import LocationDepartment
-from app.platform.schemas.patch import refuse_null_on_not_null_fields
+from app.platform.reference.schemas.patch import refuse_null_on_not_null_fields
 
 # "ZH-NORD": capitals, digits and hyphens, starting with a letter or digit.
 LOCATION_CODE_PATTERN = r"^[A-Z0-9][A-Z0-9-]{0,19}$"

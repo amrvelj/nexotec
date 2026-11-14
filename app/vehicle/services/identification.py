@@ -123,7 +123,7 @@ def _identify_vin(db: Session, *, tenant_id: uuid.UUID, actor_id: uuid.UUID | No
             kind=kind, match_method=method, outcome=IdentificationOutcome.NONE, observed=observed,
             notes=[IdentificationNote.NO_PROVIDER_CONNECTION],
         )
-    if not vin_decode_granted(db, connection_id=connection[0].id):
+    if not vin_decode_granted(db, connection=connection[0]):
         return IdentificationResult(
             kind=kind, match_method=method, outcome=IdentificationOutcome.NONE, observed=observed,
             notes=[IdentificationNote.VIN_DECODE_NOT_ENTITLED],

@@ -25,7 +25,7 @@ import pytest
 from sqlalchemy import func, select
 
 from app.core.auth import AccessRole, create_access_token
-from app.platform.models.reference_data import ReferenceList, ReferenceValue
+from app.platform.reference.models.reference_data import ReferenceList, ReferenceValue
 from app.vehicle.models.catalogue import Brand, ModelGroup, ModelVariant
 from app.vehicle.models.configuration import VehicleConfiguration
 from tests.configuration_test_support import MANUAL_CODED_JSON

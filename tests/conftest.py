@@ -161,7 +161,7 @@ def mailbox(client):
     the list every mail lands in (tests/identity_support.py reads the
     invitation and reset links out of it)."""
 
-    from app.platform.services.mailer import get_mailer
+    from app.platform.reference.services.mailer import get_mailer
     from tests.identity_support import RecordingMailer
 
     recorder = RecordingMailer()
@@ -413,7 +413,7 @@ def _seed_country_reference_list(engine):
 
     from app.core.base import utcnow
     from app.core.uuid7 import uuid7
-    from app.platform.models.reference_data import ReferenceList, ReferenceValue
+    from app.platform.reference.models.reference_data import ReferenceList, ReferenceValue
     from app.platform.reference_data_seed import load_country_seed
 
     now = utcnow()

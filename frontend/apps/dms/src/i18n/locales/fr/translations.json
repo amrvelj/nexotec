@@ -61,6 +61,7 @@
     "title": "Clés manquantes signalées",
     "subtitle": "Clés qu'un navigateur n'a trouvées ni ici ni dans les textes livrés et qu'il a affichées comme marque d'avertissement.",
     "empty": "Aucune clé manquante signalée.",
+    "latestOnly": "Seules les {{limit}} clés signalées le plus récemment sont affichées ; un tri n'ordonne que celles-ci.",
     "columns": {
       "key": "Clé",
       "language": "Langue",

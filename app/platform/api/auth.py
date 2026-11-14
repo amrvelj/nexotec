@@ -37,6 +37,7 @@ from app.platform.models.auth_session import AuthSession
 from app.platform.models.auth_token import AuthTokenKind
 from app.platform.models.dealership import Dealership
 from app.platform.models.user import User
+from app.platform.reference.services.mailer import PlatformMailer, get_mailer
 from app.platform.schemas.auth import (
     DealershipMembershipSummary,
     InvitationAccept,
@@ -66,7 +67,6 @@ from app.platform.services import dealership as dealership_service
 from app.platform.services import entitlement as entitlement_service
 from app.platform.services import user as user_service
 from app.platform.services import user_reads as user_reads_service
-from app.platform.services.mailer import PlatformMailer, get_mailer
 
 # The front door sets or clears the session cookie on `Response`, which the
 # idempotency route class cannot replay; its POSTs are the exemptions Anto

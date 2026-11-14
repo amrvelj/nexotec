@@ -76,7 +76,7 @@ def _connected(db_session, monkeypatch, fake: FakeAutoi):
 
 
 def _seed_energy_labels(db_session) -> None:
-    from app.platform.models.reference_data import ReferenceList, ReferenceValue
+    from app.platform.reference.models.reference_data import ReferenceList, ReferenceValue
 
     if db_session.scalar(select(ReferenceList).where(ReferenceList.list_code == "energy_efficiency_category")):
         return
@@ -551,7 +551,7 @@ def test_a_resolved_option_group_gap_fills_the_options_it_left_flat_at_once(db_s
     """KAN-75's rule for options (review round 2): the raw group code stays on
     the row, and the admin's resolve reaches every Betrieb's options."""
 
-    from app.platform.models.reference_data import ReferenceList, ReferenceValue
+    from app.platform.reference.models.reference_data import ReferenceList, ReferenceValue
     from app.vehicle.services import catalogue_admin
 
     s, variant = _connected(db_session, monkeypatch, FakeAutoi(api_bodies=fix.detail_bodies()))

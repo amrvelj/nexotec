@@ -13,7 +13,7 @@ from pydantic import Field, model_validator
 from app.core.schemas import CamelModel
 from app.core.validators import PlainIban, QrIban
 from app.platform.models.dealership_bank_account import QrReferenceType
-from app.platform.schemas.patch import refuse_null_on_not_null_fields
+from app.platform.reference.schemas.patch import refuse_null_on_not_null_fields
 
 # ISO 9362 BIC: 8 or 11 characters, upper case.
 _BIC_PATTERN = r"^[A-Z]{6}[A-Z0-9]{2}([A-Z0-9]{3})?$"

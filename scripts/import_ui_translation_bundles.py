@@ -37,7 +37,7 @@ from sqlalchemy.orm import Session
 
 from app.core.i18n import SwissLanguage
 from app.db import SessionLocal
-from app.platform.services.ui_translation import ImportReport, import_bundles
+from app.platform.reference.services.ui_translation import ImportReport, import_bundles
 
 DEFAULT_BUNDLES_DIR = Path(__file__).resolve().parents[1] / "frontend" / "apps" / "dms" / "src" / "i18n" / "locales"
 

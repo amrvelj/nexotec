@@ -162,7 +162,7 @@ def _provider(db: Session, *, tenant_id: uuid.UUID) -> _Provider:
     if found is None:
         return _Provider(CatalogueBrowseState.NOT_CONFIGURED, None, None)
     connection, provider_code = found
-    entitlement = get_entitlement(db, connection_id=connection.id, capability_code=_ENTITLEMENT)
+    entitlement = get_entitlement(db, connection=connection, capability_code=_ENTITLEMENT)
     if entitlement is not None and not entitlement.granted:
         return _Provider(CatalogueBrowseState.NOT_IN_CONTRACT, None, provider_code)
     return _Provider(CatalogueBrowseState.OK, connection, provider_code)

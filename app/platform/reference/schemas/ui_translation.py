@@ -9,7 +9,7 @@ from pydantic import Field
 
 from app.core.i18n import SwissLanguage
 from app.core.schemas import CamelModel
-from app.platform.models.ui_translation import UiTranslationSource
+from app.platform.reference.models.ui_translation import UiTranslationSource
 
 # A dotted i18next key path the SPA can ask for: letters, digits, `_` and `-`
 # segments. Anything else is not a key and is refused, never stored.

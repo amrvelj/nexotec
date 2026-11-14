@@ -23,7 +23,7 @@ from app.core.errors import NotFoundError, UnprocessableEntityError
 from app.core.export import ExportedTable, ExportScope, table_of
 from app.platform.models.contact_group import CONTACT_GROUP_LIST_CODE, DealershipContactGroup
 from app.platform.models.dealership import Dealership
-from app.platform.models.reference_data import ReferenceList, ReferenceValue
+from app.platform.reference.models.reference_data import ReferenceList, ReferenceValue
 
 # The initial set, Anto's ruling of 2026-10-26, as the seed migration
 # (platform d72281c678c0) inserts it: (value_code, de, fr, it, en). The

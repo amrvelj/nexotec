@@ -53,13 +53,13 @@ from app.platform.models.notification import (
     UserNotificationPreference,
 )
 from app.platform.models.number_range import NumberRange
-from app.platform.models.reference_data import ReferenceList, ReferenceValue
 from app.platform.models.standard_text import StandardText
 from app.platform.models.standard_text_delegation import StandardTextDelegation
-from app.platform.models.ui_translation import MissingTranslation, UiTranslation, UiTranslationRevision
 from app.platform.models.user import User
 from app.platform.models.user_location import UserLocation
 from app.platform.models.user_preference import UserPreference
+from app.platform.reference.models.reference_data import ReferenceList, ReferenceValue
+from app.platform.reference.models.ui_translation import MissingTranslation, UiTranslation, UiTranslationRevision
 from app.sales.models.contract import SalesContract
 from app.sales.models.deal import SalesDeal, SalesNumberSequence
 from app.sales.models.document import SalesDocument

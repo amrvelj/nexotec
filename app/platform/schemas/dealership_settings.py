@@ -12,7 +12,7 @@ from pydantic import Field, field_validator, model_validator
 
 from app.core.schemas import CamelModel
 from app.platform.models.dealership_settings import ChartOfAccountsVariant, PeriodLockPolicy
-from app.platform.schemas.patch import refuse_null_on_not_null_fields
+from app.platform.reference.schemas.patch import refuse_null_on_not_null_fields
 
 _CURRENCY_RE = re.compile(r"^[A-Z]{3}$")
 _FISCAL_START_RE = re.compile(r"^(\d{2})-(\d{2})$")

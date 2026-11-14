@@ -13,8 +13,8 @@ from sqlalchemy import func, select
 
 from app.core.auth import AccessRole, create_access_token
 from app.platform.models.dealership import DealerGroup, Dealership
-from app.platform.models.reference_data import ReferenceList, ReferenceValue
 from app.platform.models.user import User
+from app.platform.reference.models.reference_data import ReferenceList, ReferenceValue
 from tests.dealership_support import valid_uid
 from tests.token_support import dealer_group_of
 

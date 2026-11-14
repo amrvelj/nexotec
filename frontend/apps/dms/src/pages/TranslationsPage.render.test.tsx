@@ -311,4 +311,41 @@ describe('TranslationsPage (KAN-209)', () => {
     // The keys' own grid is not sorted by the log's parameter.
     expect(within(screen.getByRole('table', { name: 'UI-Texte' })).getByRole('columnheader', { name: 'Deutsch' })).toHaveAttribute('aria-sort', 'none')
   })
+
+  // KAN-709: the log is read in one page of the latest reports (no cursor), so
+  // a browser sort orders only that page — the card says so when it is full.
+  function missingReports(count: number) {
+    return Array.from({ length: count }, (_, index) => ({
+      key: `kan709.key${String(index).padStart(3, '0')}`,
+      language: 'de',
+      reportCount: index + 1,
+      firstReportedAt: '2026-11-01T08:00:00Z',
+      lastReportedAt: '2026-11-02T08:00:00Z',
+    }))
+  }
+
+  it('asks for the latest 100 reports and says a sort covers only them when the page is full', async () => {
+    const backend = install([
+      { method: 'GET', match: /^\/platform\/ui-translations\/missing$/, handler: () => ({ items: missingReports(100) }) },
+    ])
+    renderPage('/platform/translations?missingSort=count:desc')
+
+    expect(
+      await screen.findByText('Gezeigt werden nur die 100 zuletzt gemeldeten Schlüssel; eine Sortierung ordnet nur diese.'),
+    ).toBeInTheDocument()
+    const asked = backend.calls.filter((call) => call.pathname === '/platform/ui-translations/missing')
+    expect(asked.length).toBeGreaterThan(0)
+    expect(asked.every((call) => call.params.get('limit') === '100')).toBe(true)
+  })
+
+  it('says nothing more when the log fits in the page', async () => {
+    install([
+      { method: 'GET', match: /^\/platform\/ui-translations\/missing$/, handler: () => ({ items: missingReports(99) }) },
+    ])
+    renderPage('/platform/translations')
+
+    const log = await screen.findByRole('table', { name: 'Fehlende Schlüssel' })
+    await within(log).findByText('kan709.key000')
+    expect(screen.queryByTestId('missing-latest-only')).not.toBeInTheDocument()
+  })
 })

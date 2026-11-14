@@ -27,7 +27,10 @@ No mapped class leaves through this door (KAN-123): `get_enabled_connection`
 answers a `ConnectionRef` (the connection's id and its Betrieb), which
 `call_capability` and `resolve_adapter` take back, refusing a row of another
 Betrieb like a deleted one, and the registry's rows stay inside this context
-(`services/connection_refs.py`). `ConnectionStatus` is an enum, not a row.
+(`services/connection_refs.py`). The licence reads (`get_entitlement`,
+`vin_decode_granted`, `valuation_granted`) take the reference too and answer for
+another Betrieb's or a platform-wide connection exactly as for an unknown one
+(KAN-711). `ConnectionStatus` is an enum, not a row.
 
 `resolve_adapter` (KAN-27) is `call_capability` without the call-log/
 circuit-breaker side effects — for a caller whose use of the adapter
@@ -96,8 +99,10 @@ from app.integration.services.connection_refs import (
     EntitlementState,
     get_enabled_connection,
     get_entitlement,
+    valuation_granted,
+    vin_decode_granted,
 )
-from app.integration.services.connections import MARKETPLACE_PUBLISH_CAPABILITY, valuation_granted, vin_decode_granted
+from app.integration.services.connections import MARKETPLACE_PUBLISH_CAPABILITY
 from app.integration.services.data_export import IntegrationExporter
 from app.integration.services.gateway import (
     ConnectionDisabledError,

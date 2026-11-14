@@ -36,6 +36,7 @@ from app.vehicle.services.host_configuration import (
 )
 from app.vehicle.services.merge import MERGED_EVENT as VEHICLE_MERGED_EVENT
 from app.vehicle.services.merge import resolve_merged_id as _resolve_merged_id
+from app.vehicle.services.merge_chain import merged_vehicle_chain
 from app.vehicle.services.plate import PlateRecordingCheck, PlateVersionRef
 from app.vehicle.services.plate_lookup_cache import purge_expired_plate_lookups
 from app.vehicle.services.stock_holding import CONSUMERS as STOCK_HOLDING_CONSUMERS
@@ -484,6 +485,7 @@ __all__ = [
     "get_vehicle_summaries",
     "has_current_energy_rating",
     "match_vehicle",
+    "merged_vehicle_chain",
     "resolve_merged_vehicle_id",
     "resolve_vehicle_mdm_by_chassis_number",
     "resolve_vehicle_mdm_by_vin",

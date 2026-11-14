@@ -10,7 +10,7 @@ import pytest
 from sqlalchemy import func, select
 
 from app.core.audit_model import AuditEvent
-from app.platform.models.reference_data import ReferenceList
+from app.platform.reference.models.reference_data import ReferenceList
 from app.vehicle.models.provider import MappingGap, ProviderCodeMap
 from app.vehicle.services import catalogue_admin
 from scripts.seed_demo_provider_code_map import (

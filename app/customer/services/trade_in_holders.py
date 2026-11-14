@@ -20,7 +20,7 @@ from app.customer.services.customer_common import _EVENT_PRODUCER
 from app.customer.services.vehicle_party import _close_vehicle_party, _open_holders_in_group, _vehicle_party_payload
 from app.customer.services.vehicle_party_labels import _write_vehicle_labels
 from app.customer.services.vehicle_party_locks import (
-    _lock_live_vehicle_roles_in_group,
+    _lock_merge_chain_roles_in_group,
     _lock_rows_of_roles,
     _refuse_merged_customer,
 )
@@ -54,7 +54,13 @@ def record_former_holder_on_purchase(
     extended over it (the unique key allows no second row with that start).
     A merge's kept copy (a customer merge's or a vehicle merge's) is never
     moved. A vehicle record merged since the booking is followed to the one
-    it lives on, under that record's locks (KAN-680). Written rows are history, so they
+    it lives on, under that record's locks (KAN-680), and the customer's rows
+    are read on every record of the chain, under all their locks (KAN-706):
+    the merge's party move may not have run yet, so a row still on the
+    duplicate is closed or extended where it is (the move then carries it), and
+    the history fills only what no row on any of them covers — the same
+    history whichever of the two is consumed first. New rows are written on
+    the live record. Written rows are history, so they
     close nobody else (KAN-148/KAN-370: a row ended in the past is not a
     holder). Taken under
     the allocation's locks, and refused for a merged customer the same way
@@ -73,20 +79,22 @@ def record_former_holder_on_purchase(
     # deadlocks against a merge of this customer.
     roles = sorted((VehiclePartyRole.OWNER, VehiclePartyRole.KEEPER), key=lambda role: role.value)
     # KAN-680: the event names the car as Stock booked it; a record merged
-    # since is followed to the one it lives on, under that record's locks
-    # (KAN-673), so the rows never land on the duplicate.
-    vehicle_id = _lock_live_vehicle_roles_in_group(db, vehicle_id=vehicle_id, roles=roles, group_id=group_id)
+    # since is followed to the one it lives on (KAN-673), so new rows never
+    # land on the duplicate. KAN-706: under the locks of every record of the
+    # chain, whose rows are all read — the merge's party move may still be due.
+    chain = _lock_merge_chain_roles_in_group(db, vehicle_id=vehicle_id, roles=roles, group_id=group_id)
+    vehicle_id = chain[-1]
     _refuse_merged_customer(db, customer_id)
     # KAN-663: both roles' rows in id order, in one statement, before any is
     # written — never the keeper rows and then the owner rows.
-    _lock_rows_of_roles(db, vehicle_id=vehicle_id, roles=roles, group_id=group_id)
+    _lock_rows_of_roles(db, vehicle_ids=chain, roles=roles, group_id=group_id)
     written: list[VehicleParty] = []
     for role in roles:
         own_rows = list(
             db.scalars(
                 select(VehicleParty)
                 .where(
-                    VehicleParty.vehicle_id == vehicle_id,
+                    VehicleParty.vehicle_id.in_(chain),
                     VehicleParty.customer_id == customer_id,
                     VehicleParty.role == role,
                     VehicleParty.merged_into_customer_id.is_(None),
@@ -114,53 +122,40 @@ def record_former_holder_on_purchase(
         # closed history row, so a row ending (or starting) inside the period
         # is met, never overlapped and never left with a gap beside it.
         mine = (
-            VehicleParty.vehicle_id == vehicle_id,
+            VehicleParty.vehicle_id.in_(chain),
             VehicleParty.customer_id == customer_id,
             VehicleParty.role == role,
             VehicleParty.merged_into_customer_id.is_(None),
             VehicleParty.merged_into_vehicle_id.is_(None),
         )
-        same_start = db.scalars(
-            select(VehicleParty)
-            .where(
-                VehicleParty.vehicle_id == vehicle_id,
-                VehicleParty.customer_id == customer_id,
-                VehicleParty.role == role,
-                VehicleParty.effective_from == held_from,
-            )
-            .with_for_update()
-        ).first()
-        if same_start is not None:
+        # KAN-706: one row per record of the chain may start here (the
+        # unique key is per record); each is the customer's, and the move
+        # keeps the duplicate's as a copy once both are on one record.
+        same_start = _rows_starting_at(db, chain=chain, customer_id=customer_id, role=role, start=held_from)
+        if same_start:
             # A merge's kept copy is never moved (KAN-177); it keeps standing
             # for the period, as before.
-            if same_start.merged_into_customer_id is not None or same_start.merged_into_vehicle_id is not None:
+            if any(_is_kept_copy(row) for row in same_start):
                 continue
             next_start = db.scalar(
                 select(func.min(VehicleParty.effective_from)).where(
                     *mine, VehicleParty.effective_from > held_from, VehicleParty.effective_from < ended_at
                 )
             )
-            _extend_to_purchase(
-                db, party=same_start, ended_at=next_start or ended_at, actor_id=actor_id, group_id=group_id
-            )
-        for gap_from, gap_to in _uncovered(db, mine=mine, held_from=held_from, ended_at=ended_at):
-            taken = db.scalars(
-                select(VehicleParty)
-                .where(
-                    VehicleParty.vehicle_id == vehicle_id,
-                    VehicleParty.customer_id == customer_id,
-                    VehicleParty.role == role,
-                    VehicleParty.effective_from == gap_from,
+            for row in same_start:
+                _extend_to_purchase(
+                    db, party=row, ended_at=next_start or ended_at, actor_id=actor_id, group_id=group_id
                 )
-                .with_for_update()
-            ).first()
-            if taken is not None:
+        for gap_from, gap_to in _uncovered(db, mine=mine, held_from=held_from, ended_at=ended_at):
+            taken = _rows_starting_at(db, chain=chain, customer_id=customer_id, role=role, start=gap_from)
+            if taken:
                 # uq_vehicle_party_scope allows no second row with this start.
                 # An own row starting there is an empty one (a plan closed at
                 # its own start, KAN-664): it is extended over the stretch, as
                 # case 1 extends its row. A merge's kept copy stands for it.
-                if taken.merged_into_customer_id is None and taken.merged_into_vehicle_id is None:
-                    _extend_to_purchase(db, party=taken, ended_at=gap_to, actor_id=actor_id, group_id=group_id)
+                for row in taken:
+                    if not _is_kept_copy(row):
+                        _extend_to_purchase(db, party=row, ended_at=gap_to, actor_id=actor_id, group_id=group_id)
                 continue
             written.append(
                 _write_history_row(
@@ -170,6 +165,30 @@ def record_former_holder_on_purchase(
             )
     db.flush()
     return written
+
+
+def _rows_starting_at(
+    db: Session, *, chain: tuple[uuid.UUID, ...], customer_id: uuid.UUID, role: VehiclePartyRole, start: dt.datetime
+) -> list[VehicleParty]:
+    """The customer's rows of `role` starting at `start` on any record of the
+    chain, locked, in chain order — at most one per record
+    (`uq_vehicle_party_scope`)."""
+
+    rows = db.scalars(
+        select(VehicleParty)
+        .where(
+            VehicleParty.vehicle_id.in_(chain),
+            VehicleParty.customer_id == customer_id,
+            VehicleParty.role == role,
+            VehicleParty.effective_from == start,
+        )
+        .with_for_update()
+    ).all()
+    return sorted(rows, key=lambda row: chain.index(row.vehicle_id))
+
+
+def _is_kept_copy(party: VehicleParty) -> bool:
+    return party.merged_into_customer_id is not None or party.merged_into_vehicle_id is not None
 
 
 def _uncovered(
@@ -318,7 +337,10 @@ def reopen_former_holder_after_storno(
     copy a merge kept (`merged_into_customer_id`, or a vehicle merge's
     `merged_into_vehicle_id`) is never reopened, and a vehicle record merged
     since is followed to the one it lives on, where the merge moved the row
-    the purchase closed (KAN-680).
+    the purchase closed (KAN-680). Until that move has run, the row is still
+    on the duplicate: every record of the chain is read, under all their
+    locks (KAN-706), and the row is reopened where it is — the move then
+    carries it — so either order reopens the same row.
 
     Audited as `vehicle_party_update` with reason `trade_in_returned_to_customer`
     and published as `customer.vehicle_party.linked`, as a reopen by PATCH is
@@ -327,18 +349,19 @@ def reopen_former_holder_after_storno(
 
     roles = sorted((VehiclePartyRole.OWNER, VehiclePartyRole.KEEPER), key=lambda role: role.value)
     # KAN-680: the event names the car as Stock booked it; a record merged
-    # since is followed to the one it lives on, under that record's locks
-    # (KAN-673), so the rows never land on the duplicate.
-    vehicle_id = _lock_live_vehicle_roles_in_group(db, vehicle_id=vehicle_id, roles=roles, group_id=group_id)
+    # since is followed to the one it lives on (KAN-673). KAN-706: under the
+    # locks of every record of the chain, whose rows are all read — the
+    # merge's party move may still be due.
+    chain = _lock_merge_chain_roles_in_group(db, vehicle_id=vehicle_id, roles=roles, group_id=group_id)
     _refuse_merged_customer(db, customer_id)
     # KAN-663: both roles' rows in id order, in one statement — never this
     # customer's row and then the role's older holders.
-    _lock_rows_of_roles(db, vehicle_id=vehicle_id, roles=roles, group_id=group_id)
+    _lock_rows_of_roles(db, vehicle_ids=chain, roles=roles, group_id=group_id)
     now = utcnow()
     reopened: list[VehicleParty] = []
     for role in roles:
         mine = (
-            VehicleParty.vehicle_id == vehicle_id,
+            VehicleParty.vehicle_id.in_(chain),
             VehicleParty.customer_id == customer_id,
             VehicleParty.role == role,
             VehicleParty.merged_into_customer_id.is_(None),
@@ -377,7 +400,7 @@ def reopen_former_holder_after_storno(
             select(VehicleParty.id)
             .join(Customer, Customer.id == VehicleParty.customer_id)
             .where(
-                VehicleParty.vehicle_id == vehicle_id,
+                VehicleParty.vehicle_id.in_(chain),
                 VehicleParty.role == role,
                 Customer.group_id == group_id,
                 VehicleParty.id != party.id,
@@ -389,7 +412,13 @@ def reopen_former_holder_after_storno(
             )
             .limit(1)
         )
-        others = _open_holders_in_group(db, vehicle_id=vehicle_id, role=role, group_id=group_id, excluding=party.id)
+        others = [
+            other
+            for record_id in chain
+            for other in _open_holders_in_group(
+                db, vehicle_id=record_id, role=role, group_id=group_id, excluding=party.id
+            )
+        ]
         if newer_row is not None or any(other.effective_from > closed_until for other in others):
             continue
         for other in others:

@@ -16,6 +16,12 @@ import { SUPPORTED_LANGUAGES, toSwissLocale, type SupportedLanguage } from '../.
 
 const GRID_KEY = 'platform.translations.missing'
 
+/** KAN-709 — the one page the log is read in: the endpoint answers the latest
+ * reports first and has no cursor (KAN-209), so the card asks for exactly this
+ * many and says so whenever the answer is full: a browser sort then orders
+ * only these, not the whole log. */
+export const MISSING_LOG_LIMIT = 100
+
 /** KAN-209 — the `missing_translation` log (FR-A-30: "reported, never
  * rendered blank"): keys a browser rendered as the loud marker.
  *
@@ -34,7 +40,7 @@ export function MissingTranslationsCard() {
   const [sort, setSort] = useSortInUrl(gridPrefs, 'missingSort')
   const missing = useQuery({
     queryKey: ['ui-translations', 'missing'],
-    queryFn: () => api.get<MissingTranslationPage>('/platform/ui-translations/missing'),
+    queryFn: () => api.get<MissingTranslationPage>(`/platform/ui-translations/missing?limit=${MISSING_LOG_LIMIT}`),
   })
   const locale = toSwissLocale((SUPPORTED_LANGUAGES as readonly string[]).includes(i18n.language) ? (i18n.language as SupportedLanguage) : 'de')
   const items = useMemo(() => missing.data?.items ?? [], [missing.data])
@@ -90,6 +96,11 @@ export function MissingTranslationsCard() {
           </Stack>
           <ColumnConfigPanel registry={columnRegistry} layout={columnLayout} onLayoutChange={gridPrefs.setColumnLayout} labels={columnPanelLabels} />
         </Group>
+        {items.length >= MISSING_LOG_LIMIT && (
+          <Text size="sm" c={slate[5]} data-testid="missing-latest-only">
+            {t('translations.missing.latestOnly', { limit: MISSING_LOG_LIMIT })}
+          </Text>
+        )}
         {missing.data && items.length === 0 && (
           <Text size="sm" c={slate[5]}>
             {t('translations.missing.empty')}

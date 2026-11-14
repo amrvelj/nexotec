@@ -19,7 +19,7 @@ from app.core.base import utcnow
 from app.core.uuid7 import uuid7
 from app.customer.models.customer import CustomerContactGroup
 from app.platform.models.contact_group import DealershipContactGroup
-from app.platform.models.reference_data import ReferenceList, ReferenceValue
+from app.platform.reference.models.reference_data import ReferenceList, ReferenceValue
 from app.platform.services.contact_group import SEEDED_CONTACT_GROUPS
 from tests.membership_support import bearer, create_dealership, create_user, grant, platform_admin, token
 

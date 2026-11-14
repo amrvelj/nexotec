@@ -20,13 +20,13 @@ from app.core.concurrency import check_version, require_if_match
 from app.core.idempotent_route import IdempotentRoute
 from app.core.pagination import PageParams, page_params
 from app.db import get_db
-from app.platform.schemas.reference_data import (
+from app.platform.reference.schemas.reference_data import (
     ReferenceValueCreate,
     ReferenceValuePage,
     ReferenceValueRead,
     ReferenceValueUpdate,
 )
-from app.platform.services import reference_data as reference_data_service
+from app.platform.reference.services import reference_data as reference_data_service
 
 router = APIRouter(tags=["reference-data"], route_class=IdempotentRoute)
 

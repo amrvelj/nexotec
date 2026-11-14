@@ -18,14 +18,14 @@ NOTIFICATION_MODULES = (
     "app.platform.services.notifications",
     "app.platform.services.notification_catalogue",
     "app.platform.services.push_subscriptions",
-    "app.platform.services.web_push",
+    "app.platform.reference.services.web_push",
     "app.platform.services.security_alerts",
     "app.platform.consumers",
     "app.platform.api.notifications",
     "app.platform.models.notification",
     "app.platform.schemas.notification",
 )
-MAIL_PORT = ("app.platform.services.mailer", "app.platform.services.mail_texts", "smtplib", "email")
+MAIL_PORT = ("app.platform.reference.services.mailer", "app.platform.services.mail_texts", "smtplib", "email")
 
 
 def _path_of(module: str) -> Path | None:

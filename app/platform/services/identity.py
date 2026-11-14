@@ -44,9 +44,9 @@ from app.platform.models.credential import Credential
 from app.platform.models.dealership import Dealership
 from app.platform.models.dealership_auth_config import AuthMethod, DealershipAuthConfig
 from app.platform.models.user import User, UserStatus
+from app.platform.reference.services.mailer import Mail, MailDeliveryError, PlatformMailer
 from app.platform.services import auth_events, auth_sessions, auth_tokens, mail_texts, password_hashing
 from app.platform.services import user_preference as preference_service
-from app.platform.services.mailer import Mail, MailDeliveryError, PlatformMailer
 from app.platform.services.password_policy import validate_new_password
 
 logger = logging.getLogger(__name__)

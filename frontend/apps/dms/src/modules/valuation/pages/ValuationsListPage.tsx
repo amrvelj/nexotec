@@ -8,15 +8,17 @@ import { useTranslation } from 'react-i18next'
 import {
   ActionBar,
   ColumnConfigPanel,
-  defaultColumnLayout,
+  type ColumnRegistryEntry,
   DataGrid,
+  defaultColumnLayout,
+  type GridColumnDef,
   OverviewShellRegion,
+  type SortSpec,
+  sortSpecFromQueryParam,
+  sortSpecToQueryParam,
+  useSetBreadcrumb,
   ValuationStatusBadge,
   ViewsAndFilters,
-  useSetBreadcrumb,
-  type ColumnRegistryEntry,
-  type GridColumnDef,
-  type SortSpec,
 } from '@nexotec/ui-kit'
 import { api } from '../../../api/client'
 import { buildValuationRowMenu } from '../components/valuationRowMenu'
@@ -47,21 +49,6 @@ const DEFAULT_SORT: SortSpec[] = [{ field: 'createdAt', direction: 'desc' }]
 // Confirmed live: Alle / Gültig / Läuft ab / Abgelaufen / Ohne Kunde / Meine.
 type Chip = 'all' | 'valid' | 'expiring_soon' | 'expired' | 'unattached' | 'mine'
 
-function serializeSort(sort: SortSpec[]): string {
-  return sort.map((s) => `${s.field}:${s.direction}`).join(',')
-}
-
-function parseSortParam(raw: string): SortSpec[] {
-  return raw
-    .split(',')
-    .map((part): SortSpec | null => {
-      const [field, direction] = part.split(':')
-      if (!field) return null
-      return { field, direction: direction === 'asc' ? 'asc' : 'desc' }
-    })
-    .filter((s): s is SortSpec => s !== null)
-}
-
 function vehicleLabel(row: ValuationRead): string {
   return [row.vehicleMake, row.vehicleModel, row.vehicleTrim].filter(Boolean).join(' ') || row.vehicleVin || '—'
 }
@@ -87,7 +74,7 @@ export function ValuationsListPage() {
   const savedViews = useSavedViews(GRID_KEY)
   const [searchParams, setSearchParams] = useSearchParams()
 
-  const sort = searchParams.get('sort') ? parseSortParam(searchParams.get('sort')!) : gridPrefs.sort
+  const sort = searchParams.get('sort') ? sortSpecFromQueryParam(searchParams.get('sort')) : gridPrefs.sort
   const chip = (searchParams.get('chip') as Chip | null) ?? 'all'
 
   const updateUrl = (patch: Record<string, string | null>) => {
@@ -106,7 +93,7 @@ export function ValuationsListPage() {
 
   const setSort = (next: SortSpec[]) => {
     gridPrefs.setSort(next)
-    updateUrl({ sort: next.length > 0 ? serializeSort(next) : null })
+    updateUrl({ sort: sortSpecToQueryParam(next) ?? null })
   }
 
   const [query, setQuery] = useState(() => searchParams.get('q') ?? '')
@@ -118,7 +105,7 @@ export function ValuationsListPage() {
 
   const [appliedViewId, setAppliedViewId] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
-  const sortParam = sort.length > 0 ? sort.map((s) => `${s.field}:${s.direction}`).join(',') : undefined
+  const sortParam = sortSpecToQueryParam(sort)
 
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading, isError, refetch, isRefetching } =
     useInfiniteQuery({

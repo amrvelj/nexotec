@@ -9,14 +9,16 @@ import {
   ActionBar,
   Badge,
   ColumnConfigPanel,
-  DataGrid,
-  OverviewShellRegion,
-  ViewsAndFilters,
-  defaultColumnLayout,
-  useSetBreadcrumb,
   type ColumnRegistryEntry,
+  DataGrid,
+  defaultColumnLayout,
   type GridColumnDef,
+  OverviewShellRegion,
   type SortSpec,
+  sortSpecFromQueryParam,
+  sortSpecToQueryParam,
+  useSetBreadcrumb,
+  ViewsAndFilters,
 } from '@nexotec/ui-kit'
 import { api, ApiError } from '../api/client'
 import type { LocationList, OwnershipTransfersRead, UserAdminRead, UserDeactivatedRead, UserPage, UserStatus, UserUpdate } from '../api/types'
@@ -54,20 +56,6 @@ const DEFAULT_SORT: SortSpec[] = [
   { field: 'firstName', direction: 'asc' },
 ]
 
-function serializeSort(sort: SortSpec[]): string {
-  return sort.map((s) => `${s.field}:${s.direction}`).join(',')
-}
-
-function parseSortParam(raw: string): SortSpec[] {
-  return raw
-    .split(',')
-    .filter(Boolean)
-    .map((part) => {
-      const [field, direction] = part.split(':')
-      return { field, direction: direction === 'desc' ? 'desc' : 'asc' } as SortSpec
-    })
-}
-
 type Chip = 'all' | UserStatus
 
 /**
@@ -97,8 +85,8 @@ export function UsersListPage() {
   const chip = (searchParams.get('status') as Chip | null) ?? 'all'
   // ADR-056: the sort is part of the shareable URL; the grid preference is
   // the fallback when the URL carries none.
-  const sort = searchParams.get('sort') ? parseSortParam(searchParams.get('sort')!) : gridPrefs.sort
-  const sortParam = sort.length > 0 ? serializeSort(sort) : undefined
+  const sort = searchParams.get('sort') ? sortSpecFromQueryParam(searchParams.get('sort')) : gridPrefs.sort
+  const sortParam = sortSpecToQueryParam(sort)
 
   const updateUrl = (patch: Record<string, string | null>) => {
     setSearchParams(
@@ -116,7 +104,7 @@ export function UsersListPage() {
 
   const setSort = (next: SortSpec[]) => {
     gridPrefs.setSort(next)
-    updateUrl({ sort: next.length > 0 ? serializeSort(next) : null })
+    updateUrl({ sort: sortSpecToQueryParam(next) ?? null })
   }
 
   const [query, setQuery] = useState(() => searchParams.get('q') ?? '')

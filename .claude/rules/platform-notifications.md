@@ -1,21 +1,21 @@
 ---
 paths:
   - "app/platform/api/notifications.py"
-  - "app/platform/api/ui_translations.py"
+  - "app/platform/reference/api/ui_translations.py"
   - "app/platform/api/user_preferences.py"
   - "app/platform/services/notification*.py"
   - "app/platform/services/push_subscriptions.py"
-  - "app/platform/services/web_push.py"
+  - "app/platform/reference/services/web_push.py"
   - "app/platform/services/security_*.py"
-  - "app/platform/services/ui_translation.py"
+  - "app/platform/reference/services/ui_translation.py"
   - "app/platform/services/user_preference.py"
   - "app/platform/models/notification.py"
-  - "app/platform/models/ui_translation.py"
+  - "app/platform/reference/models/ui_translation.py"
   - "app/platform/models/user_preference.py"
   - "app/platform/consumers.py"
   - "app/platform/daily_jobs.py"
   - "app/platform/schemas/notification.py"
-  - "app/platform/schemas/ui_translation.py"
+  - "app/platform/reference/schemas/ui_translation.py"
   - "app/platform/schemas/user_preference.py"
   - "frontend/apps/dms/src/layout/DmsShell.tsx"
   - "tests/test_*notification*.py"
@@ -76,7 +76,7 @@ KAN-614 (2026-11-10) to the invariants; platform.md was verified against main@73
 ## UI strings at runtime (FR-A-30…32) — built
 - `ui_translation`: namespace = a bundle's top-level object, key = the dotted path below it,
   language, `value`, `seed_value`, `source` (`bundle_seed` / `platform`), version;
-  `services/ui_translation.py` is its one writer. `scripts/import_ui_translation_bundles.py` seeds
+  `reference/services/ui_translation.py` is its one writer. `scripts/import_ui_translation_bundles.py` seeds
   `bundle_seed` rows from the bundles (dry run by default; a script, not a migration — the bundles
   live in the frontend tree and keep changing).
 - **Only `platform` values are served:** `GET /v1/i18n/{language}` is unauthenticated (the sign-in

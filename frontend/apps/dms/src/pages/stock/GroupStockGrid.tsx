@@ -5,15 +5,16 @@ import { useTranslation } from 'react-i18next'
 import {
   ActionBar,
   ColumnConfigPanel,
-  DataGrid,
-  OverviewShellRegion,
-  ViewsAndFilters,
-  defaultColumnLayout,
-  offeredPredicates,
   type ColumnRegistryEntry,
+  DataGrid,
+  defaultColumnLayout,
   type FilterPredicate,
+  offeredPredicates,
+  OverviewShellRegion,
   type SavedView,
   type SortSpec,
+  sortSpecToQueryParam,
+  ViewsAndFilters,
 } from '@nexotec/ui-kit'
 import { useUiPreferencesContext } from '../../hooks/UiPreferencesContext'
 import { useGridPreferences } from '../../hooks/useGridPreferences'
@@ -24,7 +25,6 @@ import { useColumnPanelLabels } from '../../hooks/useColumnPanelLabels'
 import { api } from '../../api/client'
 import { toSwissLocale, type SupportedLanguage } from '../../i18n'
 import { buildStockGroupColumns } from './columns/stockGroupColumns'
-import { serializeSort } from '../../utils/sortParam'
 import type { GroupStockDealershipList, StockItemGroupPage } from '../../api/types'
 import { useActionBarLabels } from '../../hooks/useActionBarLabels'
 import { useDataGridLabels } from '../../hooks/useDataGridLabels'
@@ -85,7 +85,7 @@ export function GroupStockGrid({
   const savedViews = useSavedViews(GROUP_GRID_KEY)
   const [appliedViewId, setAppliedViewId] = useState<string | null>(null)
 
-  const sortParam = sort.length > 0 ? serializeSort(sort) : undefined
+  const sortParam = sortSpecToQueryParam(sort)
 
   // KAN-565: the Betriebe the filter offers — the listing's own roster.
   const dealershipsQuery = useQuery({

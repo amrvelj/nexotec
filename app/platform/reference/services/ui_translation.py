@@ -30,7 +30,7 @@ from app.core.config import get_settings
 from app.core.errors import BadRequestError, NotFoundError, UnprocessableEntityError
 from app.core.i18n import SwissLanguage
 from app.core.pagination import count_capped
-from app.platform.models.ui_translation import (
+from app.platform.reference.models.ui_translation import (
     MissingTranslation,
     UiTranslation,
     UiTranslationRevision,
