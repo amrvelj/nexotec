@@ -108,13 +108,13 @@ from app.integration.services.connection_refs import (
 )
 from app.integration.services.connections import MARKETPLACE_PUBLISH_CAPABILITY
 from app.integration.services.data_export import IntegrationExporter
-from app.integration.services.location_labels import oldest_location_label_age_seconds, refresh_location_labels
 from app.integration.services.gateway import (
     ConnectionDisabledError,
     UnknownProviderError,
     call_capability,
     resolve_adapter,
 )
+from app.integration.services.location_labels import oldest_location_label_age_seconds, refresh_location_labels
 from app.integration.services.resilience import CircuitOpenError
 
 __all__ = [

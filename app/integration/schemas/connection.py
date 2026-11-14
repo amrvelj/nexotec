@@ -6,7 +6,6 @@ can ever produce a response shape that echoes one back — there is no
 
 import datetime as dt
 import uuid
-from decimal import Decimal
 
 from pydantic import Field
 
@@ -103,13 +102,25 @@ class DeleteConnectionRequest(CamelModel):
     confirm: bool = False
 
 
+class UsageCounterRead(CamelModel):
+    """One of the provider's own counters, named verbatim (FR-A-23)."""
+
+    counter: str
+    count: int
+
+
 class UsageRead(CamelModel):
-    """PR-7 — indicative only (I-2/I-3): Nexotec never bills on top of a
-    provider's own contract, so this is never a billing artifact.
+    """KAN-222 (FR-A-23) — the connection's requests in a period, per
+    provider counter. Counts only, never a CHF amount (Anto, 2026-11-14,
+    Q1 A: prices are in each Betrieb's own contract). Indicative only
+    (I-2/I-3): Nexotec never bills on top of a provider's own contract.
+    `periodFrom`/`periodTo` are calendar days in Swiss time, both inclusive.
     """
 
-    calls_this_period: int
-    cost_units_this_period: Decimal | None
+    period_from: dt.date
+    period_to: dt.date
+    total_calls: int
+    counters: list[UsageCounterRead]
     indicative: bool = True
 
 

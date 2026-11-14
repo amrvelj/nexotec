@@ -8,6 +8,7 @@ and is the only caller who may see across tenants or create a
 platform-scoped connection.
 """
 
+import datetime as dt
 import uuid
 
 from fastapi import APIRouter, Depends, Query
@@ -33,12 +34,13 @@ from app.integration.schemas.connection import (
     EntitlementRead,
     SecretSlotRead,
     SecretWriteRequest,
+    UsageCounterRead,
     UsageRead,
 )
 from app.integration.services import connections as connection_service
-from app.integration.services.account_identifier import account_identifier
 from app.integration.services import gateway
 from app.integration.services import providers as provider_service
+from app.integration.services.account_identifier import account_identifier
 
 router = APIRouter(tags=["integrations"], route_class=IdempotentRoute)
 settings = get_settings()
@@ -138,13 +140,25 @@ def get_connection(
 @router.get("/integrations/connections/{connection_id}/usage", response_model=UsageRead)
 def get_connection_usage(
     connection_id: uuid.UUID,
+    period_from: dt.date | None = Query(default=None, alias="from"),
+    period_to: dt.date | None = Query(default=None, alias="to"),
     principal: Principal = Depends(require_read("integration_connections")),
     db: Session = Depends(get_db),
 ):
+    """KAN-222 (FR-A-23): «Nutzung anzeigen» — the period's requests per
+    provider counter, `?from=YYYY-MM-DD&to=YYYY-MM-DD` (both inclusive, Swiss
+    calendar days; the trailing 30 days by default, a year at most)."""
+
     tenant_id = None if _is_platform_admin(principal) else principal.tenant_id
     connection = connection_service.get_connection_or_404(db, tenant_id=tenant_id, connection_id=connection_id)
-    calls, cost_units = connection_service.get_usage(db, connection=connection)
-    return UsageRead(calls_this_period=calls, cost_units_this_period=cost_units)
+    start, end = connection_service.usage_period(period_from, period_to)
+    usage = connection_service.get_usage(db, connection=connection, period_from=start, period_to=end)
+    return UsageRead(
+        period_from=usage.period_from,
+        period_to=usage.period_to,
+        total_calls=usage.total,
+        counters=[UsageCounterRead(counter=c.counter, count=c.count) for c in usage.counters],
+    )
 
 
 @router.post("/integrations/connections", response_model=ConnectionRead, status_code=201)

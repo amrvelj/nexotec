@@ -1,10 +1,13 @@
-"""WP-6 PR-7: the usage-aggregation endpoint (dealer-facing "View usage").
+"""WP-6 PR-7, KAN-222: the usage endpoint (dealer-facing «Nutzung anzeigen»), per provider
+counter and period.
 The fleet-wide catalogue sync-status endpoint it once tested beside it was
 retired by KAN-497 (Anto, 2026-10-31, option A) with the full catalogue
 download it reported on (KAN-485); the test at the end pins that it is gone.
 """
 
+import datetime as dt
 import uuid
+from zoneinfo import ZoneInfo
 
 from app.core.auth import AccessRole, create_access_token
 from app.integration.models.call_log import CallStatus, IntegrationCallLog
@@ -48,43 +51,98 @@ def _bearer(token: str) -> dict[str, str]:
 # --- usage -------------------------------------------------------------------
 
 
-def test_usage_endpoint_reports_zero_with_no_calls(client, db_session):
+def _connection(db_session, tenant_id):
     provider = _make_provider(db_session)
-    tenant_id = uuid.uuid4()
-    connection = connection_service.create_connection(
+    return connection_service.create_connection(
         db_session, tenant_id=tenant_id,
         data=ConnectionCreate(provider_id=provider.id, display_name="auto-i-dat", environment=ConnectionEnvironment.SANDBOX),
         actor_id=uuid.uuid4(),
     )
-    token = _token(tenant_id)
 
-    response = client.get(f"/v1/integrations/connections/{connection.id}/usage", headers=_bearer(token))
+
+def _log(db_session, connection, operation: str, *, at: dt.datetime | None = None, status=CallStatus.SUCCESS):
+    row = IntegrationCallLog(
+        connection_id=connection.id, tenant_id=connection.tenant_id, capability=operation,
+        status=status, duration_ms=5, correlation_id=uuid.uuid4(),
+    )
+    if at is not None:
+        row.created_at = at
+    db_session.add(row)
+    db_session.commit()
+
+
+def test_usage_endpoint_reports_zero_with_no_calls(client, db_session):
+    tenant_id = uuid.uuid4()
+    connection = _connection(db_session, tenant_id)
+
+    response = client.get(f"/v1/integrations/connections/{connection.id}/usage", headers=_bearer(_token(tenant_id)))
     assert response.status_code == 200, response.text
     body = response.json()
-    assert body["callsThisPeriod"] == 0
+    assert body["totalCalls"] == 0 and body["counters"] == []
     assert body["indicative"] is True
+    today = dt.datetime.now(ZoneInfo("Europe/Zurich")).date()
+    assert body["periodTo"] == today.isoformat()
+    assert body["periodFrom"] == (today - dt.timedelta(days=29)).isoformat()
 
 
-def test_usage_endpoint_counts_recent_calls(client, db_session):
-    provider = _make_provider(db_session)
+def test_usage_counts_requests_per_provider_counter_verbatim(client, db_session):
+    """KAN-222 (FR-A-23): the provider's own counter names, counted — a
+    failed request is a request the provider counted too."""
+
     tenant_id = uuid.uuid4()
-    connection = connection_service.create_connection(
-        db_session, tenant_id=tenant_id,
-        data=ConnectionCreate(provider_id=provider.id, display_name="auto-i-dat", environment=ConnectionEnvironment.SANDBOX),
-        actor_id=uuid.uuid4(),
-    )
+    connection = _connection(db_session, tenant_id)
     for _ in range(3):
-        db_session.add(
-            IntegrationCallLog(
-                connection_id=connection.id, tenant_id=tenant_id, capability="vehicle_data",
-                status=CallStatus.SUCCESS, duration_ms=5, correlation_id=uuid.uuid4(),
-            )
-        )
-    db_session.commit()
-    token = _token(tenant_id)
+        _log(db_session, connection, "caption_code")
+    _log(db_session, connection, "oauth_token")
+    _log(db_session, connection, "FtpUpload", status=CallStatus.ERROR)
 
-    response = client.get(f"/v1/integrations/connections/{connection.id}/usage", headers=_bearer(token))
-    assert response.json()["callsThisPeriod"] == 3
+    body = client.get(f"/v1/integrations/connections/{connection.id}/usage", headers=_bearer(_token(tenant_id))).json()
+
+    assert body["totalCalls"] == 5
+    assert body["counters"] == [
+        {"counter": "caption_code", "count": 3},
+        {"counter": "FtpUpload", "count": 1},
+        {"counter": "oauth_token", "count": 1},
+    ]
+    assert "cost" not in str(body).lower() and "chf" not in str(body).lower()  # Q1 A: counts only
+
+
+def test_usage_honours_the_period_in_swiss_calendar_days(client, db_session):
+    tenant_id = uuid.uuid4()
+    connection = _connection(db_session, tenant_id)
+    zurich = ZoneInfo("Europe/Zurich")
+    # 2026-03-01 00:30 in Zurich is still 2026-02-28 in UTC: it belongs to March.
+    _log(db_session, connection, "caption_code", at=dt.datetime(2026, 3, 1, 0, 30, tzinfo=zurich))
+    _log(db_session, connection, "caption_code", at=dt.datetime(2026, 2, 28, 23, 30, tzinfo=zurich))
+    _log(db_session, connection, "caption_code", at=dt.datetime(2026, 4, 1, 0, 0, tzinfo=zurich))
+
+    body = client.get(
+        f"/v1/integrations/connections/{connection.id}/usage?from=2026-03-01&to=2026-03-31",
+        headers=_bearer(_token(tenant_id)),
+    ).json()
+
+    assert body["periodFrom"] == "2026-03-01" and body["periodTo"] == "2026-03-31"
+    assert body["totalCalls"] == 1
+
+
+def test_usage_refuses_a_reversed_or_overlong_period(client, db_session):
+    tenant_id = uuid.uuid4()
+    connection = _connection(db_session, tenant_id)
+    url = f"/v1/integrations/connections/{connection.id}/usage"
+
+    reversed_ = client.get(f"{url}?from=2026-03-31&to=2026-03-01", headers=_bearer(_token(tenant_id)))
+    too_long = client.get(f"{url}?from=2025-01-01&to=2026-03-01", headers=_bearer(_token(tenant_id)))
+
+    assert reversed_.status_code == 422 and reversed_.json()["error"]["details"]["reason"] == "usage_period_reversed"
+    assert too_long.status_code == 422 and too_long.json()["error"]["details"]["reason"] == "usage_period_too_long"
+
+
+def test_usage_of_another_betriebs_connection_is_a_404(client, db_session):
+    connection = _connection(db_session, uuid.uuid4())
+
+    response = client.get(f"/v1/integrations/connections/{connection.id}/usage", headers=_bearer(_token(uuid.uuid4())))
+
+    assert response.status_code == 404
 
 
 def test_usage_endpoint_requires_manager_flag(client, db_session):
