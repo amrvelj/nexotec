@@ -11,6 +11,7 @@ On Postgres, with two sessions.
 
 import uuid
 
+from sqlalchemy import text
 from sqlalchemy.orm import sessionmaker
 
 from app.platform.models.export_job import ExportJob
@@ -80,5 +81,32 @@ def test_a_write_after_the_export_is_still_refused(client, export_store, engine)
         writer.commit()
     finally:
         writer.close()
+
+    assert _reason(_offboard(client, dealership_id)) == "export_out_of_date"
+
+
+def test_a_write_inside_a_savepoint_of_a_transaction_in_flight_is_seen_too(client, export_store, engine, db_session):
+    """The review's case: the row's writer is a subtransaction id, which a
+    snapshot never lists — and another transaction committed before the
+    snapshot, so the id lies inside the snapshot's range."""
+
+    dealership_id, _, headers = betrieb_with_manager(client)
+    writer = sessionmaker(bind=engine, expire_on_commit=False)()
+    other = sessionmaker(bind=engine, expire_on_commit=False)()
+    try:
+        writer.execute(text("SELECT pg_current_xact_id()"))  # the outer transaction holds an id
+        with writer.begin_nested():
+            writer.get(Dealership, uuid.UUID(dealership_id)).trade_name = "Im Savepoint geschrieben"
+            writer.flush()
+        # Another transaction, begun later, commits before the snapshot.
+        other.execute(text("SELECT pg_current_xact_id()"))
+        other.commit()
+
+        exported_and_acknowledged(client, engine, dealership_id, headers)
+
+        writer.commit()
+    finally:
+        writer.close()
+        other.close()
 
     assert _reason(_offboard(client, dealership_id)) == "export_out_of_date"

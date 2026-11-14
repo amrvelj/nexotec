@@ -13,7 +13,7 @@ apply_finance_invoice_issued instead.
 
 import datetime as dt
 
-from sqlalchemy import String, and_, cast, select
+from sqlalchemy import String, and_, cast, or_, select
 from sqlalchemy.orm import Session, aliased
 
 from app.core.base import utcnow
@@ -23,7 +23,7 @@ from app.inventory.models.cancelled_contract import InventoryCancelledContract
 from app.inventory.models.sales_contract import InventorySalesContract
 from app.inventory.models.stock_item import StockItem
 from app.inventory.models.stock_item_ledger import StockItemLedger
-from app.inventory.models.stock_item_publishing import PublishingState, StockItemPublishing
+from app.inventory.models.stock_item_publishing import PublishingState, StockItemPublishing, TransmissionStatus
 from app.platform.public import Dealership, Location, actor_reference_checks
 from app.sales.public import SalesContract
 from app.valuation.public import valuation_final_offer_differs, valuation_reference_check
@@ -48,9 +48,11 @@ def _unpublished_listing_still_at_marketplace() -> StateCheck:
     live there, and a buyer may contact the Betrieb about a car it no longer
     offers. Its empty feed was never delivered: no enabled connection, a
     failed or dead-lettered delivery, or a feed refused because another
-    listing failed validation. An hour after the row last changed, so a
-    feed in flight is not a finding. Monitors, never repairs: the next feed
-    delivered for the channel clears it."""
+    listing failed validation. A row whose last attempt failed is a finding
+    at once — a later failed attempt moves `updated_at`, so an hour's grace
+    on it could hide the row for good; one not yet attempted an hour after
+    it last changed, so a feed in flight is not a finding. Monitors, never
+    repairs: the next feed delivered for the channel clears it."""
 
     return StateCheck(
         label="stock_item_publishing unpublished but still held by the marketplace's last delivered feed",
@@ -59,7 +61,10 @@ def _unpublished_listing_still_at_marketplace() -> StateCheck:
         where=lambda: and_(
             StockItemPublishing.state != PublishingState.PUBLISHED,
             StockItemPublishing.at_marketplace.is_(True),
-            StockItemPublishing.updated_at < utcnow() - _OUTBOX_LAG_GRACE,
+            or_(
+                StockItemPublishing.transmission_status == TransmissionStatus.FAILED,
+                StockItemPublishing.updated_at < utcnow() - _OUTBOX_LAG_GRACE,
+            ),
         ),
     )
 

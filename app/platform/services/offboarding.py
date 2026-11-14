@@ -116,21 +116,28 @@ def readiness(db: Session, dealership: Dealership) -> OffboardingReadiness:
     assert export.produced_at is not None  # the query selects only produced exports
     if last is not None and last >= export.produced_at:
         return OffboardingReadiness(last, export, "export_out_of_date")
-    if export.produced_snapshot is not None and wrote_outside_snapshot(db, dealership, export.produced_snapshot):
+    if (
+        export.produced_snapshot is not None
+        and export.produced_lookback_from is not None
+        and wrote_outside_snapshot(db, dealership, export.produced_snapshot, export.produced_lookback_from)
+    ):
         return OffboardingReadiness(last, export, "export_out_of_date")
     return OffboardingReadiness(last, export, None)
 
 
-def wrote_outside_snapshot(db: Session, dealership: Dealership, snapshot: str) -> bool:
-    """KAN-716 (FR-A-45): a write of the Betrieb the export's snapshot does
+def wrote_outside_snapshot(db: Session, dealership: Dealership, snapshot: str, since: dt.datetime) -> bool:
+    """KAN-716 (FR-A-45): a write of the Betrieb the export's snapshot may
     not see. A transaction begun before the snapshot and committed after it
     stamps its rows with its own, earlier time, so `last_write_at` alone
-    passes them; each row's writer (`xmin`) is judged against the recorded
-    snapshot instead. Postgres only — an export carries a snapshot only
-    there."""
+    passes them: a row stamped since the look-back whose writer's id is at
+    or after the snapshot's xmin refuses (`export.written_since_snapshot_xmin`
+    — savepoint writes included). Conservative: a write committed just
+    before the snapshot while an older transaction was still open refuses
+    too, and a fresh export answers it. Postgres only — an export carries a
+    snapshot only there."""
 
     scope = scope_for(db, dealership)
-    return any(exporter.wrote_outside_snapshot(db, scope, snapshot) for exporter in exporters())
+    return any(exporter.wrote_outside_snapshot(db, scope, snapshot, since) for exporter in exporters())
 
 
 def _home_users(db: Session, dealership_id: uuid.UUID) -> list[User]:

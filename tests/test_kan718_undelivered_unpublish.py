@@ -91,15 +91,29 @@ def test_an_unpublish_with_the_connection_disabled_is_recorded_as_not_delivered(
     assert adapter.transmitted[sent_before:] == []
 
 
-def test_reconciliation_reports_the_unpublished_listing_still_live_after_an_hour(db_session, monkeypatch):
+def test_reconciliation_reports_an_unpublished_listing_whose_feed_failed_at_once(db_session, monkeypatch):
     _register_fake(monkeypatch, FakeMarketplaceAdapter())
     leaving, connection = _live_betrieb(db_session, _make_provider(db_session), vins=["WVWZZZ1KZAW718003"])
     connection_service.disable_connection(db_session, connection=connection, actor_id=uuid.uuid4())
     _unpublish_and_transmit(db_session, leaving.id)
     row_id = _row(db_session, leaving.id).id
 
-    assert _findings(db_session, age=dt.timedelta(0)) == set()  # a feed in flight is not a finding
-    assert _findings(db_session) == {(STILL_LIVE, row_id)}
+    # A failed attempt is a finding at once: each later failed attempt moves
+    # updated_at, so a grace on it could hide the row for good.
+    assert _findings(db_session, age=dt.timedelta(0)) == {(STILL_LIVE, row_id)}
+
+
+def test_reconciliation_reports_an_unpublish_never_attempted_only_after_an_hour(db_session, monkeypatch):
+    """Unpublished, its transmission consumer not run yet (in flight)."""
+
+    _register_fake(monkeypatch, FakeMarketplaceAdapter())
+    leaving, _connection = _live_betrieb(db_session, _make_provider(db_session), vins=["WVWZZZ1KZAW718007"])
+    row = _row(db_session, leaving.id)
+    record_unpublished(db_session, item=db_session.get(StockItem, row.stock_item_id), channel=_AS24, actor_id=uuid.uuid4())
+    db_session.commit()
+
+    assert _findings(db_session, age=dt.timedelta(0)) == set()
+    assert _findings(db_session) == {(STILL_LIVE, row.id)}
 
 
 def test_offboarding_refuses_while_the_undelivered_unpublish_is_live_and_no_connection_can_withdraw_it(

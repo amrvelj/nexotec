@@ -29,7 +29,7 @@ import logging
 import tempfile
 import uuid
 
-from sqlalchemy import Text, func, select
+from sqlalchemy import Text, func, select, text
 from sqlalchemy.orm import Session
 
 from app.core import outbox
@@ -224,21 +224,45 @@ def _object_key(job: ExportJob) -> str:
     return f"dealerships/{job.dealership_id}/exports/{job.id}.zip"
 
 
-def _snapshot_session(db: Session) -> tuple[Session, dt.datetime, str | None]:
+@dataclasses.dataclass(frozen=True)
+class _Snapshot:
+    session: Session
+    produced_at: dt.datetime
+    # KAN-716: Postgres only (None on SQLite).
+    text: str | None = None
+    lookback_from: dt.datetime | None = None
+
+
+def _snapshot_session(db: Session) -> _Snapshot:
     """A session of its own on one consistent snapshot (REPEATABLE READ on
-    Postgres), the snapshot's start — the export's `produced_at` — and the
-    snapshot itself (`pg_current_snapshot()` as text; KAN-716: which
-    transactions' writes it sees, so offboarding can tell a write in flight
-    when it began). SQLite has no snapshot to record: None."""
+    Postgres), the snapshot's start — the export's `produced_at` — and, for
+    KAN-716, the snapshot itself (`pg_current_snapshot()` as text) and the
+    look-back: the earliest start of any transaction open just before it,
+    read first on a connection of its own. A transaction still open when the
+    snapshot begins either was open then (its start is the look-back or
+    later) or began after that read — so every row it writes is stamped at
+    or after the look-back. Stamps are the application's clock and the
+    look-back the database's; the timestamp check before KAN-716 relied on
+    the same agreement. Transactions of another database role are not
+    listed to this one; none writes a Betrieb's rows."""
 
     engine = db.get_bind().engine
-    if engine.dialect.name == "postgresql":
-        snapshot = Session(bind=engine.execution_options(isolation_level="REPEATABLE READ"))
-        # The first statement takes the snapshot; now() is its transaction's
-        # start, and pg_current_snapshot() is that same snapshot.
-        row = snapshot.execute(select(func.now(), func.pg_current_snapshot().cast(Text))).one()
-        return snapshot, row[0] or utcnow(), row[1]
-    return Session(bind=engine), utcnow(), None
+    if engine.dialect.name != "postgresql":
+        return _Snapshot(session=Session(bind=engine), produced_at=utcnow())
+    with engine.connect() as probe:
+        read_at, oldest_open = probe.execute(
+            text(
+                "SELECT clock_timestamp(), min(xact_start) FROM pg_stat_activity"
+                " WHERE xact_start IS NOT NULL AND pid <> pg_backend_pid()"
+            )
+        ).one()
+        probe.rollback()
+    snapshot = Session(bind=engine.execution_options(isolation_level="REPEATABLE READ"))
+    # The first statement takes the snapshot; now() is its transaction's
+    # start, and pg_current_snapshot() is that same snapshot.
+    produced_at, snapshot_text = snapshot.execute(select(func.now(), func.pg_current_snapshot().cast(Text))).one()
+    lookback = min(read_at, oldest_open) if oldest_open is not None else read_at
+    return _Snapshot(session=snapshot, produced_at=produced_at or utcnow(), text=snapshot_text, lookback_from=lookback)
 
 
 def produce(db: Session, *, export_id: uuid.UUID, store: ObjectStore | None = None) -> ExportJob | None:
@@ -251,7 +275,8 @@ def produce(db: Session, *, export_id: uuid.UUID, store: ObjectStore | None = No
     if job is None or job.status != ExportJobStatus.REQUESTED:
         return job
     store = store or get_object_store()
-    snapshot, produced_at, produced_snapshot = _snapshot_session(db)
+    taken = _snapshot_session(db)
+    snapshot, produced_at = taken.session, taken.produced_at
     try:
         dealership_row = snapshot.get(Dealership, job.dealership_id)
         if dealership_row is None:
@@ -288,7 +313,8 @@ def produce(db: Session, *, export_id: uuid.UUID, store: ObjectStore | None = No
         snapshot.close()
     job.status = ExportJobStatus.READY
     job.produced_at = produced_at
-    job.produced_snapshot = produced_snapshot
+    job.produced_snapshot = taken.text
+    job.produced_lookback_from = taken.lookback_from
     job.object_key = key
     job.byte_size = archive.byte_size
     job.download_expires_at = utcnow() + DOWNLOAD_WINDOW

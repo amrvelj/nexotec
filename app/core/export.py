@@ -43,6 +43,7 @@ from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from typing import Any, BinaryIO, Protocol, cast
 
 from sqlalchemy import ColumnElement, Table, func, literal, select, text
+from sqlalchemy.dialects import postgresql
 from sqlalchemy.orm import Session
 
 FORMAT_VERSION = 1
@@ -145,34 +146,45 @@ class Exporter(Protocol):
 
     def last_write_at(self, db: Session, scope: ExportScope) -> dt.datetime | None: ...
 
-    def wrote_outside_snapshot(self, db: Session, scope: ExportScope, snapshot: str) -> bool:
-        """KAN-716: a row `last_write_at` counts whose writer the export's
-        Postgres snapshot (`pg_current_snapshot()` as text) does not see — a
-        transaction in flight when the snapshot began, or a later one."""
+    def wrote_outside_snapshot(self, db: Session, scope: ExportScope, snapshot: str, since: dt.datetime) -> bool:
+        """KAN-716: a write `last_write_at` counts, stamped at or after
+        `since` (the look-back: the earliest start of a transaction open
+        just before the snapshot), whose writer the export's snapshot
+        (`pg_current_snapshot()` as text) may not see
+        (`written_since_snapshot_xmin`)."""
         ...
 
 
-def outside_snapshot(table: Table, snapshot: str) -> ColumnElement[bool]:
-    """KAN-716: the row's last writer (its `xmin`) is not visible in
-    `snapshot` — committed after it began, or still running. Postgres only.
+def written_since_snapshot_xmin(table: Table, snapshot: str) -> ColumnElement[bool]:
+    """KAN-716: the row's last writer (`xmin`) is a transaction id at or
+    after the snapshot's xmin — a transaction still running when the
+    snapshot began (or a subtransaction of one: its id is higher than its
+    parent's), or a later one. Conservative: a transaction in that range
+    that committed just before the snapshot counts too. Postgres only.
 
-    `xmin` is a 32-bit transaction id; it is widened to the 64-bit id
-    `pg_visible_in_snapshot` takes against the snapshot's own xmin (an id
-    within 2^31 of it is in its epoch or a neighbouring one — anything older
-    is frozen long before, autovacuum's freeze age being far below 2^31).
-    The ids below 3 (bootstrap, frozen) are visible to every snapshot."""
+    The 32-bit `xmin` is compared modulo 2^32, which is exact for an id
+    within 2^31 of the snapshot's — the caller asks only about rows stamped
+    since the look-back (`ExportJob.produced_lookback_from`), so never about
+    a row old enough to have wrapped or been frozen. Ids below 3 (bootstrap,
+    frozen) are never at or after it."""
 
-    reference = "pg_snapshot_xmin(CAST(:kan716_snapshot AS pg_snapshot))::text::bigint"
-    own = f"{table.name}.xmin::text::bigint"
-    widened = (
-        f"(({reference} & ~4294967295::bigint) | {own})"
-        f" + CASE WHEN (({reference} & ~4294967295::bigint) | {own}) > {reference} + 2147483648 THEN -4294967296"
-        f" WHEN (({reference} & ~4294967295::bigint) | {own}) < {reference} - 2147483648 THEN 4294967296 ELSE 0 END"
+    own = f"{_PG_IDENTIFIERS.quote(table.name)}.xmin::text::bigint"
+    reference = "(pg_snapshot_xmin(CAST(:kan716_snapshot AS pg_snapshot))::text::bigint & 4294967295)"
+    clause = text(f"({own} >= 3 AND (({own} - {reference}) & 4294967295) < 2147483648)").bindparams(
+        kan716_snapshot=snapshot
     )
-    clause = text(
-        f"NOT ({own} < 3 OR pg_visible_in_snapshot(({widened})::text::xid8, CAST(:kan716_snapshot AS pg_snapshot)))"
-    ).bindparams(kan716_snapshot=snapshot)
     return cast(ColumnElement[bool], clause)
+
+
+_PG_IDENTIFIERS = postgresql.dialect().identifier_preparer
+
+
+def write_stamp(table: Table):
+    """The column a table's last write is read from: `updated_at`, else
+    `created_at`; None for a table with neither."""
+
+    stamp = table.c.get("updated_at")
+    return stamp if stamp is not None else table.c.get("created_at")
 
 
 class TableExporter:
@@ -202,9 +214,7 @@ class TableExporter:
         for spec in self.exported_tables():
             if not spec.marks_write or not spec.in_archive:
                 continue
-            stamp = spec.table.c.get("updated_at")
-            if stamp is None:
-                stamp = spec.table.c.get("created_at")
+            stamp = write_stamp(spec.table)
             if stamp is None:
                 continue
             value = db.scalar(select(func.max(stamp)).where(spec.scope(scope)))
@@ -212,12 +222,16 @@ class TableExporter:
                 latest = value
         return latest
 
-    def wrote_outside_snapshot(self, db: Session, scope: ExportScope, snapshot: str) -> bool:
+    def wrote_outside_snapshot(self, db: Session, scope: ExportScope, snapshot: str, since: dt.datetime) -> bool:
         for spec in self.exported_tables():
-            if not spec.marks_write or not spec.in_archive:
+            stamp = write_stamp(spec.table)
+            if not spec.marks_write or not spec.in_archive or stamp is None:
                 continue
             found = db.scalar(
-                select(literal(1)).select_from(spec.table).where(spec.scope(scope), outside_snapshot(spec.table, snapshot)).limit(1)
+                select(literal(1))
+                .select_from(spec.table)
+                .where(spec.scope(scope), stamp >= since, written_since_snapshot_xmin(spec.table, snapshot))
+                .limit(1)
             )
             if found is not None:
                 return True

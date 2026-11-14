@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 
 from app.core.audit_model import AuditEvent
 from app.core.daily_scheduler_model import DailyJobRun
-from app.core.export import ExportedTable, ExportScope, TableExporter, outside_snapshot, table_of
+from app.core.export import ExportedTable, ExportScope, TableExporter, table_of, written_since_snapshot_xmin
 from app.core.idempotency_model import IdempotencyRecord
 from app.core.outbox_model import OutboxMessage
 from app.core.processed_event_model import ProcessedEvent
@@ -64,11 +64,18 @@ class CoreExporter(TableExporter):
 
         return db.scalar(select(func.max(AuditEvent.created_at)).where(*_audited_writes(scope)))
 
-    def wrote_outside_snapshot(self, db: Session, scope: ExportScope, snapshot: str) -> bool:
-        """KAN-716: an audited write the export's snapshot does not see."""
+    def wrote_outside_snapshot(self, db: Session, scope: ExportScope, snapshot: str, since: dt.datetime) -> bool:
+        """KAN-716: an audited write the export's snapshot may not see."""
 
         found = db.scalar(
-            select(literal(1)).select_from(_audit).where(*_audited_writes(scope), outside_snapshot(_audit, snapshot)).limit(1)
+            select(literal(1))
+            .select_from(_audit)
+            .where(
+                *_audited_writes(scope),
+                AuditEvent.created_at >= since,
+                written_since_snapshot_xmin(_audit, snapshot),
+            )
+            .limit(1)
         )
         return found is not None
 
