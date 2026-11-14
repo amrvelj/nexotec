@@ -1068,6 +1068,13 @@ def test_no_hard_delete_endpoint_exists_for_fk_target_entities(client):
         # seed; audited with the row's values. A seed, the one row another
         # row points at (`overridden_from_id`), is never reachable here.
         "/v1/dealerships/{dealership_id}/standard-texts/{category}/{text_id}",
+        # KAN-225: a location's publishing override (the publishing_profile
+        # child row, never an FK target — the site then inherits again), a
+        # publishing photo (a branding_asset child row and its file) and the
+        # AGB file (columns of the profile row, which stays). All audited.
+        "/v1/dealerships/{dealership_id}/publishing-profile/locations/{location_id}",
+        "/v1/dealerships/{dealership_id}/publishing-profile/images/{image_id}",
+        "/v1/dealerships/{dealership_id}/publishing-profile/agb",
         "/v1/customers/{customer_id}/phones/{phone_id}",
         "/v1/customers/{customer_id}/emails/{email_id}",
         "/v1/customers/{customer_id}/addresses/{address_id}",
