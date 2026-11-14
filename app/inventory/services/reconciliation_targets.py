@@ -19,7 +19,9 @@ here that reads nothing itself — the reconciliation run executes it:
 - `stock_item_differs_from_holding` — Vehicle's projection row disagrees with
   the stock item it mirrors.
 - `website_listing_exists` / `listed_on_website_check` (KAN-225) — the
-  public stock projection (reporting) against Stock's website listings.
+  public stock projection (reporting) against Stock's website listings;
+  `website_listing_revision_ahead` (KAN-726) — Stock has stated a later
+  revision of the listing than the projection row holds.
 - `purchased_stock_item_check` / `held_stock_item_check` — StateChecks whose
   rows are stock items: purchased with no replica, holding a record with no
   projection row. The caller supplies its own side of the question as a
@@ -224,4 +226,24 @@ def listed_on_website_check(*, label: str, grace: dt.timedelta, projection: _Cou
         & ~projection(StockItemWebsiteListing.stock_item_id, StockItemWebsiteListing.tenant_id)
         .correlate(StockItemWebsiteListing)
         .exists(),
+    )
+
+
+def website_listing_revision_ahead(
+    stock_item_id: _Column, *, tenant_id: _Column, revision: _Column, changed_before: dt.datetime
+) -> Exists:
+    """KAN-726: Stock's website listing for the stock item, last changed
+    before `changed_before` (its statement is no longer in flight), has
+    stated a later `revision` than the projection's — the projection shows
+    an older statement, whatever `is_listed` says on either side."""
+
+    return (
+        select(StockItemWebsiteListing.id)
+        .where(
+            StockItemWebsiteListing.stock_item_id == stock_item_id,
+            StockItemWebsiteListing.tenant_id == tenant_id,
+            StockItemWebsiteListing.revision > revision,
+            StockItemWebsiteListing.updated_at < changed_before,
+        )
+        .exists()
     )

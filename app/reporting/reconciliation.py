@@ -7,6 +7,10 @@ on its next change, and a dead-lettered statement alerts on its own).
   there (or never did), unchanged for an hour;
 - a stock item Stock lists on the website with no projection row showing it,
   its listing unchanged for an hour (the statement was not consumed);
+- a projection row on an older revision than Stock has stated for its
+  listing, the listing unchanged for an hour (KAN-726: a later statement was
+  lost or dead-lettered, so the website shows stale public fields while both
+  sides may say «listed»);
 - every projection row names a Betrieb that exists.
 """
 
@@ -17,7 +21,7 @@ from sqlalchemy.orm import Session
 
 from app.core.base import utcnow
 from app.core.reconciliation import ReconciliationRun, ReferenceCheck, StateCheck, run_reconciliation
-from app.inventory.public import listed_on_website_check, website_listing_exists
+from app.inventory.public import listed_on_website_check, website_listing_exists, website_listing_revision_ahead
 from app.platform.public import Dealership
 from app.reporting.models.public_stock_listing import PublicStockListing
 
@@ -45,6 +49,17 @@ CHECKS: list[ReferenceCheck | StateCheck] = [
             PublicStockListing.tenant_id == tenant_id,
             PublicStockListing.is_listed.is_(True),
         ),
+    ),
+    StateCheck(
+        label="public_stock_listing behind the revision Stock stated for its listing",
+        source_model=PublicStockListing,
+        source_row_id_column=PublicStockListing.id,
+        where=lambda: website_listing_revision_ahead(
+            PublicStockListing.stock_item_id,
+            tenant_id=PublicStockListing.tenant_id,
+            revision=PublicStockListing.revision,
+            changed_before=utcnow() - _OUTBOX_LAG_GRACE,
+        ).correlate(PublicStockListing),
     ),
     ReferenceCheck(
         label="public_stock_listing.tenant_id -> dealership.id",
