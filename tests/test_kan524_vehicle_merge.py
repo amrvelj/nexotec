@@ -336,19 +336,37 @@ def _oldtimers_of_one_betrieb(client, db_session):
     return token, first, second
 
 
-def test_a_vin_record_and_a_chassis_number_record_are_never_merged(client, db_session):
+def test_a_vin_record_is_never_merged_into_a_chassis_number_record(client, db_session):
+    """KAN-535 (Anto, option B): a car bought under a VIN takes no chassis number."""
+
     _token_of_betrieb, chassis_item, _second = _oldtimers_of_one_betrieb(client, db_session)
     vin_record = _record(db_session, SURVIVOR_VIN)
     caller = _token(_make_dealership(db_session).id)
+
+    refused = _merge(client, caller, db_session, vin_record.id, uuid.UUID(chassis_item["vehicleId"]))
+
+    assert refused.status_code == 422, refused.text
+    assert refused.json()["error"]["details"]["reason"] == "vehicle_merge_vin_into_chassis_number"
+    assert _merge_events(db_session) == 0
+
+
+def test_a_chassis_number_record_merged_into_a_vin_record_gives_its_stock_car_the_vin(client, db_session, engine):
+    """The reverse is allowed (a chassis number may become a real VIN, KAN-535),
+    with no «VIN korrigieren» right (Anto, Q3 A) — the way out «VIN korrigieren»'s
+    vin_belongs_to_other_vehicle refusal names."""
+
+    token_of_betrieb, chassis_item, _second = _oldtimers_of_one_betrieb(client, db_session)
+    vin_record = _record(db_session, SURVIVOR_VIN)
     chassis_record_id = uuid.UUID(chassis_item["vehicleId"])
 
-    into_chassis = _merge(client, caller, db_session, vin_record.id, chassis_record_id)
-    into_vin = _merge(client, caller, db_session, chassis_record_id, vin_record.id)
+    response = _merge(client, token_of_betrieb, db_session, chassis_record_id, vin_record.id)
+    assert response.status_code == 200, response.text
+    _deliver_merged(engine, db_session, chassis_record_id)
 
-    for refused in (into_chassis, into_vin):
-        assert refused.status_code == 422, refused.text
-        assert refused.json()["error"]["details"]["reason"] == "vehicle_merge_identifier_kinds_differ"
-    assert _merge_events(db_session) == 0
+    stored = db_session.get(StockItem, uuid.UUID(chassis_item["id"]))
+    configuration = db_session.get(VehicleConfiguration, stored.configuration_id)
+    assert (stored.vehicle_id, stored.vin) == (vin_record.id, SURVIVOR_VIN)
+    assert (configuration.vin, configuration.vehicle_id) == (SURVIVOR_VIN, vin_record.id)
 
 
 def test_another_betriebs_two_chassis_number_cars_never_block_the_merge_consumer(client, db_session, engine):
@@ -374,6 +392,16 @@ def test_another_betriebs_two_chassis_number_cars_never_block_the_merge_consumer
     ) == 1
     assert db_session.get(StockItem, uuid.UUID(on_duplicate["id"])).vehicle_id == duplicate_id
     assert db_session.get(StockItem, uuid.UUID(on_survivor["id"])).vehicle_id == survivor_id
+    # An hour on, the nightly check names the car left on the merged record (KAN-706).
+    import datetime as dt
+
+    from app.core.base import utcnow
+
+    db_session.get(VehicleMdm, duplicate_id).updated_at = utcnow() - dt.timedelta(hours=2)
+    db_session.commit()
+    assert ("stock_item.vehicle_id names a merged vehicle_mdm record", uuid.UUID(on_duplicate["id"])) in (
+        _inventory_findings(db_session)
+    )
 
 
 def test_a_stock_car_that_takes_the_survivors_vin_publishes_stocks_vin_fact(client, db_session, engine):

@@ -125,7 +125,7 @@
     "stays": "Stays",
     "inYourStock": "In your business's stock: {{stockNumber}}",
     "irreversibleTitle": "This cannot be undone",
-    "irreversibleBody": "{{goes}} is merged into {{stays}} for good. Licence plates, odometer readings, accessories, customer links and stock cars move to {{stays}}; a stock car takes its VIN. Every business shares both records: the merge applies to all of them.",
+    "irreversibleBody": "{{goes}} is merged into {{stays}} for good. Licence plates, odometer readings, accessories and customer links move to {{stays}}, and so do stock cars, which take its VIN; where a business holds both in stock, the nightly check tells it. Every business shares both records: the merge applies to all of them.",
     "typeToConfirm": "Type {{vehicleNumber}} to confirm",
     "submit": "Merge for good",
     "refused": {
@@ -134,7 +134,7 @@
       "sameRecord": "A record cannot be merged with itself.",
       "alreadyMerged": "One of the records has already been merged.",
       "bothInStock": "Your business holds both records in stock ({{duplicate}} and {{survivor}}). Sell or cancel one of the stock cars first.",
-      "identifierKindsDiffer": "A record with a VIN and one with a pre-1981 chassis number cannot be merged."
+      "vinIntoChassisNumber": "A record with a VIN cannot be merged into one with a pre-1981 chassis number. «Swap direction» keeps the VIN record."
     }
   }
 }

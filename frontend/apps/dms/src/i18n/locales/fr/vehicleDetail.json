@@ -125,7 +125,7 @@
     "stays": "Est conservée",
     "inYourStock": "Dans le stock de votre entreprise : {{stockNumber}}",
     "irreversibleTitle": "Cette action est irréversible",
-    "irreversibleBody": "{{goes}} sera fusionnée définitivement dans {{stays}}. Plaques, kilométrages, accessoires, liens clients et véhicules en stock passent sur {{stays}} ; un véhicule en stock en reprend le VIN. Les deux fiches sont partagées par toutes les entreprises : la fusion vaut pour toutes.",
+    "irreversibleBody": "{{goes}} sera fusionnée définitivement dans {{stays}}. Plaques, kilométrages, accessoires et liens clients passent sur {{stays}}, de même que les véhicules en stock, qui en reprennent le VIN ; si une entreprise a les deux en stock, le contrôle nocturne le lui signale. Les deux fiches sont partagées par toutes les entreprises : la fusion vaut pour toutes.",
     "typeToConfirm": "Saisissez {{vehicleNumber}} pour confirmer",
     "submit": "Fusionner définitivement",
     "refused": {
@@ -134,7 +134,7 @@
       "sameRecord": "Une fiche ne peut pas être fusionnée avec elle-même.",
       "alreadyMerged": "L'une des fiches a déjà été fusionnée.",
       "bothInStock": "Votre entreprise a les deux fiches en stock ({{duplicate}} et {{survivor}}). Vendez ou annulez d'abord l'un des véhicules en stock.",
-      "identifierKindsDiffer": "Une fiche avec VIN et une fiche avec numéro de châssis (avant 1981) ne peuvent pas être fusionnées."
+      "vinIntoChassisNumber": "Une fiche avec VIN ne peut pas être fusionnée dans une fiche avec numéro de châssis (avant 1981). Avec «Inverser le sens», la fiche avec VIN est conservée."
     }
   }
 }

@@ -20,7 +20,7 @@ KAN-672, KAN-673, KAN-680, KAN-706; ADR-131, ADR-160. -->
   `POST /v1/vehicle-mdm/{duplicate}/merge` (`survivorId`, `survivorVersion`; If-Match the duplicate's;
   «Zusammenführen mit…», `MergeVehicleDialog`: compare, type the vehicle number that goes). Both rows
   locked in id order; refused with nothing written: the same record (422 `vehicle_merge_same_record`),
-  a VIN record with a chassis-number one (422 `vehicle_merge_identifier_kinds_differ`, KAN-535),
+  a VIN record into a chassis-number one (422 `vehicle_merge_vin_into_chassis_number`, KAN-535; the reverse is allowed),
   a stale version, either merged (409 `vehicle_merged`), a live item of the **caller's** Betrieb on
   each (409 `vehicle_merge_both_in_stock`, both stock numbers; another Betrieb's never refuses — Q4 A).
   It changes no summary field and never calls customer or Stock (ADR-131): in its own transaction it

@@ -32,8 +32,9 @@ def merged_vehicle_chain(db: Session, vehicle_id: uuid.UUID) -> tuple[uuid.UUID,
 def records_living_on(db: Session, vehicle_id: uuid.UUID) -> tuple[uuid.UUID, ...]:
     """KAN-706 — `vehicle_id` and every record merged into it, directly or
     through a chain (B and A for C, when A was merged into B and B into C).
-    What Vehicle's own projections keyed by a record set once — the stock
-    holding (ADR-160) — count for the live record. Read-only."""
+    What Vehicle's own projections keyed by a record — the stock holding
+    (ADR-160), whose unapplied outbox facts still name the record Stock booked
+    — count for the live record. Read-only."""
 
     found: list[uuid.UUID] = [vehicle_id]
     frontier = [vehicle_id]

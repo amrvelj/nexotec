@@ -176,7 +176,7 @@
     "chassis_number_requires_make": "A vehicle with a chassis number is told apart by its make: enter the make in its configuration.",
     "vehicle_merge_same_record": "A record cannot be merged with itself.",
     "vehicle_merge_both_in_stock": "Your business holds both records in stock ({{duplicate}} and {{survivor}}). Sell or cancel one of the stock cars first.",
-    "vehicle_merge_identifier_kinds_differ": "A record with a VIN and one with a pre-1981 chassis number cannot be merged."
+    "vehicle_merge_vin_into_chassis_number": "A record with a VIN cannot be merged into one with a pre-1981 chassis number. «Swap direction» keeps the VIN record."
   },
   "accessWindow": {
     "between": "valid from {{from}} to {{to}}",

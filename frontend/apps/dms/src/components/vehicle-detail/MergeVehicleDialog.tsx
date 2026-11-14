@@ -148,8 +148,8 @@ export function MergeVehicleDialog({ opened, onClose, vehicle, onMerged }: Merge
         return t('vehicleDetail.mergeDialog.refused.sameRecord')
       case 'vehicle_merged':
         return t('vehicleDetail.mergeDialog.refused.alreadyMerged')
-      case 'vehicle_merge_identifier_kinds_differ':
-        return t('vehicleDetail.mergeDialog.refused.identifierKindsDiffer')
+      case 'vehicle_merge_vin_into_chassis_number':
+        return t('vehicleDetail.mergeDialog.refused.vinIntoChassisNumber')
       case 'vehicle_merge_both_in_stock':
         return t('vehicleDetail.mergeDialog.refused.bothInStock', {
           duplicate: String(details.duplicateStockNumber ?? '—'),

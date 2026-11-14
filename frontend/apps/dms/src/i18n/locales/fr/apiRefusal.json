@@ -176,7 +176,7 @@
     "chassis_number_requires_make": "Un véhicule avec un numéro de châssis se distingue par sa marque : saisissez la marque dans sa configuration.",
     "vehicle_merge_same_record": "Une fiche ne peut pas être fusionnée avec elle-même.",
     "vehicle_merge_both_in_stock": "Votre entreprise a les deux fiches en stock ({{duplicate}} et {{survivor}}). Vendez ou annulez d'abord l'un des véhicules en stock.",
-    "vehicle_merge_identifier_kinds_differ": "Une fiche avec VIN et une fiche avec numéro de châssis (avant 1981) ne peuvent pas être fusionnées."
+    "vehicle_merge_vin_into_chassis_number": "Une fiche avec VIN ne peut pas être fusionnée dans une fiche avec numéro de châssis (avant 1981). Avec «Inverser le sens», la fiche avec VIN est conservée."
   },
   "accessWindow": {
     "between": "valable du {{from}} au {{to}}",

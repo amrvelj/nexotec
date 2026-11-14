@@ -8,7 +8,8 @@ Vehicle keeps here, one row per stock item, fed by Stock's own facts through
 the outbox (`app.vehicle.services.stock_holding`):
 
 - `inventory.pipeline_vehicle.vin_assigned` — promotion gave the item its
-  vehicle-mdm record (`vehicleId`). An item's record is set once and kept
+  vehicle-mdm record (`vehicleId`). An item's record is set once (a vehicle merge
+  moves it to the survivor, KAN-524) and kept
   through «Einkauf stornieren» (the stornoed car keeps its VIN and record and
   still binds them, KAN-146) and «VIN korrigieren» (the same record, its VIN
   rewritten): from here on the item holds the record.

@@ -135,6 +135,23 @@ describe('MergeVehicleDialog — the merge (KAN-524)', () => {
   })
 })
 
+describe('MergeVehicleDialog — a VIN record never folds into a chassis-number one (KAN-535)', () => {
+  it('says so in the user’s language and names the way out', async () => {
+    await i18n.changeLanguage('it')
+    const user = userEvent.setup()
+    install({ refuse: { reason: 'vehicle_merge_vin_into_chassis_number', field: 'survivorId' } })
+    renderWithProviders(<MergeVehicleDialog opened onClose={() => {}} vehicle={OPEN} onMerged={() => {}} />)
+
+    await pickOther(user)
+    await user.type(screen.getByLabelText(i18n.t('vehicleDetail.mergeDialog.typeToConfirm', { vehicleNumber: 'F-000101' })), 'F-000101')
+    await user.click(submitButton())
+
+    const shown = await screen.findByRole('alert')
+    expect(shown.textContent).toBe(i18n.t('vehicleDetail.mergeDialog.refused.vinIntoChassisNumber'))
+    expect(shown.textContent).toContain(i18n.t('vehicleDetail.mergeDialog.swap'))
+  })
+})
+
 describe('MergeVehicleDialog — every string is translated', () => {
   const english = Object.values(en.vehicleDetail.mergeDialog).filter((v): v is string => typeof v === 'string')
   for (const lng of ['de', 'fr', 'it'] as const) {

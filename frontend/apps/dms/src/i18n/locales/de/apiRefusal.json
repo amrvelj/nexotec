@@ -176,7 +176,7 @@
     "chassis_number_requires_make": "Ein Fahrzeug mit Chassisnummer wird über seine Marke unterschieden: Erfassen Sie die Marke in seiner Konfiguration.",
     "vehicle_merge_same_record": "Ein Datensatz kann nicht mit sich selbst zusammengeführt werden.",
     "vehicle_merge_both_in_stock": "Ihr Betrieb führt beide Datensätze im Lager ({{duplicate}} und {{survivor}}). Verkaufen oder stornieren Sie zuerst eines der Lagerfahrzeuge.",
-    "vehicle_merge_identifier_kinds_differ": "Ein Datensatz mit VIN und einer mit Chassisnummer (vor 1981) können nicht zusammengeführt werden."
+    "vehicle_merge_vin_into_chassis_number": "Ein Datensatz mit VIN kann nicht in einen mit Chassisnummer (vor 1981) zusammengeführt werden. Mit «Richtung tauschen» bleibt der Datensatz mit VIN bestehen."
   },
   "accessWindow": {
     "between": "gültig vom {{from}} bis {{to}}",
