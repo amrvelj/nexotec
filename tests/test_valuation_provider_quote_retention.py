@@ -11,6 +11,8 @@ provider, as KAN-552's own tests do.
 
 import datetime as dt
 import logging
+import threading
+import time
 import uuid
 from decimal import Decimal
 
@@ -244,6 +246,78 @@ def test_a_quote_a_valuation_create_is_holding_is_skipped(engine, db_session):
 
     assert _exists(db_session, held) and not _exists(db_session, free)
     assert purge_unused_quotes(db_session, now=NOW).purged == 1  # the next night
+
+
+def _wait_until_a_backend_waits_on_a_lock(engine, *, seconds: float = 10.0) -> None:
+    deadline = time.monotonic() + seconds
+    with engine.connect() as watcher:
+        while time.monotonic() < deadline:
+            waiting = watcher.execute(
+                text(
+                    "SELECT count(*) FROM pg_stat_activity "
+                    "WHERE datname = current_database() AND wait_event_type = 'Lock'"
+                )
+            ).scalar_one()
+            if waiting:
+                return
+            watcher.rollback()
+            time.sleep(0.05)
+    raise AssertionError("the valuation create never waited for the purge's lock")
+
+
+@ROW_LOCKS
+def test_a_valuation_created_on_a_quote_the_purge_is_deleting_is_refused_not_a_500(client, engine, db_session):
+    """KAN-703 — the race KAN-599 left open: the job has locked and deleted an
+    unused ten-year-old quote, not yet committed, when a `POST /v1/valuations`
+    names it. Before the fix the create read the quote (the delete was not
+    committed), built the valuation, and its insert failed on the foreign key
+    once the job committed: an unhandled IntegrityError, a 500. Now the create
+    reads the quote `FOR KEY SHARE`, waits for the job, finds the quote gone
+    and answers the 404 any vanished quote gets; nothing is stored."""
+
+    tenant_id = _connected(db_session)
+    configuration_id = _provider_configuration(db_session, tenant_id)
+    quote = _quote(client, tenant_id, configuration_id).json()
+    quote_id = uuid.UUID(quote["id"])
+    ten_years_ago = retention_cutoff(utcnow()) - dt.timedelta(days=1)
+    db_session.execute(
+        update(ValuationProviderQuote)
+        .where(ValuationProviderQuote.id == quote_id)
+        .values(fetched_at=ten_years_ago, created_at=ten_years_ago)
+    )
+    db_session.commit()
+
+    job_db = sessionmaker(bind=engine)()
+    outcome: dict[str, object] = {}
+    try:
+        # The job's own statements: lock the unreferenced quote, delete it.
+        job_db.execute(
+            text("SELECT id FROM valuation_provider_quote WHERE id = :id FOR UPDATE SKIP LOCKED"), {"id": quote_id}
+        )
+        job_db.execute(text("DELETE FROM valuation_provider_quote WHERE id = :id"), {"id": quote_id})
+
+        def _create() -> None:
+            try:
+                outcome["response"] = _valuation(client, tenant_id, configuration_id, providerQuoteId=quote["id"])
+            except IntegrityError as exc:  # the unfixed create raises it out of the TestClient
+                outcome["error"] = exc
+
+        creator = threading.Thread(target=_create)
+        creator.start()
+        _wait_until_a_backend_waits_on_a_lock(engine)
+        job_db.commit()
+        creator.join(timeout=15)
+        assert not creator.is_alive(), "the valuation create hung"
+    finally:
+        job_db.rollback()
+        job_db.close()
+
+    assert "error" not in outcome, f"the create failed unhandled: {outcome.get('error')!r}"
+    response = outcome["response"]
+    assert response.status_code == 404, response.text
+    assert response.json()["error"]["code"] == "not_found"
+    db_session.expire_all()
+    assert db_session.scalar(select(func.count()).select_from(Valuation).where(Valuation.tenant_id == tenant_id)) == 0
 
 
 # --- no maximum age (Anto, 2026-11-11) ------------------------------------------
