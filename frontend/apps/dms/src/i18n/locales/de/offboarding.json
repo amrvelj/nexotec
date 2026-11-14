@@ -1,6 +1,6 @@
 {
   "title": "Betrieb beenden",
-  "intro": "Ein Betrieb wird erst beendet, wenn seine Geschäftsführung einen Export bestätigt hat, der nach der letzten Änderung erstellt wurde. Danach sind alle Benutzer deaktiviert, die Daten bleiben zehn Jahre im Archiv und werden dann gelöscht.",
+  "intro": "Ein Betrieb wird erst beendet, wenn seine Geschäftsführung einen Export bestätigt hat, der nach der letzten Änderung erstellt wurde. Danach sind alle Benutzer deaktiviert, die Inserate auf Marktplätzen zurückgezogen und die Anbindungen deaktiviert. Die Daten bleiben zehn Jahre im Archiv; danach löscht sie Nexotec von Hand.",
   "forbidden": {
     "title": "Nur für Nexotec-Mitarbeitende",
     "body": "Diese Seite ist dem Nexotec-Team vorbehalten, angemeldet mit zweitem Faktor."
@@ -21,8 +21,7 @@
     "lastWriteAt": "Letzte Änderung: {{when}}",
     "acknowledgedExport": "Bestätigter Export erstellt: {{when}}",
     "offboardedAt": "Beendet am: {{when}}",
-    "retentionUntil": "Im Archiv bis und mit: {{day}}",
-    "erasedAt": "Gelöscht am: {{when}}"
+    "retentionUntil": "Im Archiv bis und mit: {{day}}"
   },
   "notYet": "Noch nicht möglich",
   "refusal": {
@@ -42,14 +41,13 @@
   "exportsLabel": "Exporte des Betriebs",
   "confirm": {
     "title": "Betrieb beenden?",
-    "body": "{{name}} wird beendet: Alle Benutzer werden deaktiviert, niemand kann sich mehr anmelden, und die Daten gehen für zehn Jahre ins Archiv. Das lässt sich nicht rückgängig machen.",
+    "body": "{{name}} wird beendet: Alle Benutzer werden deaktiviert, niemand kann sich mehr anmelden, die Inserate werden zurückgezogen, die Anbindungen deaktiviert, und die Daten gehen für zehn Jahre ins Archiv. Das lässt sich nicht rückgängig machen.",
     "reason": "Begründung (optional)",
     "check": "Ich habe verstanden, dass dies endgültig ist.",
     "submit": "Endgültig beenden"
   },
   "refusals": {
     "dealership_not_offboarded": "Ein Archivexport ist nur für einen beendeten Betrieb möglich; ein aktiver Betrieb exportiert selbst.",
-    "archive_erased": "Das Archiv dieses Betriebs wurde nach Ablauf der Aufbewahrungsfrist gelöscht.",
     "already_offboarded": "Dieser Betrieb ist bereits beendet.",
     "export_not_acknowledged": "Die Geschäftsführung hat noch keinen Export bestätigt.",
     "export_out_of_date": "Seit dem bestätigten Export wurden Daten geändert – die Geschäftsführung exportiert und bestätigt erneut.",

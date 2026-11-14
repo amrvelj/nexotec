@@ -39,8 +39,7 @@ _NOT_PLATE_LOOKUP_FUNCTIONS = {
     # it reads no row at all.
     "swiss_today",
     # KAN-218: declares the register for the export (left out of it, ADR-039)
-    # and for the deletion of a group's register after its last Betrieb's
-    # retention — it reads no row and hands out no plate.
+    # — it reads no row and hands out no plate.
     "register_export_table",
 }
 

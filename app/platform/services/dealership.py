@@ -195,10 +195,10 @@ def list_dealerships_by_ids(db: Session, dealership_ids) -> list[Dealership]:
 
 
 def list_group_dealerships(db: Session, *, dealer_group_id: uuid.UUID) -> list[Dealership]:
-    """KAN-218: every Betrieb of one dealer group, for the export and the
-    deletion job — platform's own listing (staff and the jobs only, never a
-    dealer-facing read): whether the group holds this one Betrieb only, and
-    whether a sister still holds data when one is deleted (ADR-014)."""
+    """KAN-218: every Betrieb of one dealer group, offboarded ones included,
+    for the export — platform's own listing (staff and the jobs only, never a
+    dealer-facing read): whether the group holds this one Betrieb only
+    (ADR-014)."""
 
     return list(db.scalars(select(Dealership).where(Dealership.dealer_group_id == dealer_group_id)).all())
 

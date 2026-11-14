@@ -34,7 +34,6 @@ function state(overrides: Record<string, unknown> = {}) {
     version: 7,
     offboardedAt: null,
     retentionUntil: null,
-    erasedAt: null,
     lastWriteAt: '2026-11-10T08:00:00Z',
     acknowledgedExportId: 'exp-1',
     acknowledgedExportProducedAt: '2026-11-11T08:00:00Z',

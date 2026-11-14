@@ -97,24 +97,18 @@ def request_export(
     reason: str | None = None,
 ) -> ExportJob:
     """The manager's own export of a Betrieb that is not offboarded, or
-    staff's archive export of one that is and is not yet erased (Q2 B)."""
+    staff's archive export of one that is (Q2 B)."""
 
     if kind == ExportJobKind.SELF_SERVICE and dealership.status == DealershipStatus.OFFBOARDED:
         raise ConflictError(
             "This Betrieb is offboarded: its archive is exported by Nexotec support.",
             details={"reason": "dealership_offboarded"},
         )
-    if kind == ExportJobKind.ARCHIVE:
-        if dealership.status != DealershipStatus.OFFBOARDED:
-            raise ConflictError(
-                "An archive export is for an offboarded Betrieb; a live Betrieb's manager exports it.",
-                details={"reason": "dealership_not_offboarded"},
-            )
-        if dealership.erased_at is not None:
-            raise ConflictError(
-                "This Betrieb's archive has been deleted after its retention period.",
-                details={"reason": "archive_erased"},
-            )
+    if kind == ExportJobKind.ARCHIVE and dealership.status != DealershipStatus.OFFBOARDED:
+        raise ConflictError(
+            "An archive export is for an offboarded Betrieb; a live Betrieb's manager exports it.",
+            details={"reason": "dealership_not_offboarded"},
+        )
     job = ExportJob(
         dealership_id=dealership.id,
         kind=kind,

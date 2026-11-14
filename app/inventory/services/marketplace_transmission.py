@@ -222,3 +222,25 @@ def assemble_and_transmit(db: Session, *, tenant_id: uuid.UUID, channel: Marketp
 
     _mark(rows, status=TransmissionStatus.TRANSMITTED, error=None, now=now)
     db.commit()
+
+
+def withdraw_feed(db: Session, *, tenant_id: uuid.UUID, channel: MarketplaceChannel) -> bool:
+    """KAN-218 (Anto, 2026-11-14, Q3 A): an offboarded Betrieb's whole feed
+    for `channel` is withdrawn — an EMPTY feed delivered through the
+    gateway, which under full delivery deletes every one of its objects at
+    the marketplace. Unlike `assemble_and_transmit` nothing is validated
+    (there is no listing to validate) and nothing here commits: the caller
+    marks its listings unpublished only once this returned, in the same
+    transaction, so a failed delivery leaves them live for the retry.
+
+    False when the Betrieb has no enabled connection for the channel — the
+    caller decides whether that is fine (nothing was ever delivered) or
+    leaves a feed live at the marketplace. A connection's refusal or a
+    failed delivery propagates (the outbox retries, then dead-letters)."""
+
+    connection = get_enabled_connection(db, tenant_id=tenant_id, provider_code=channel.value)
+    if connection is None:
+        return False
+    with call_capability(db, connection=connection, capability=_CAPABILITY) as resolved_adapter:
+        cast(MarketplaceAdapter, resolved_adapter).transmit_feed([])
+    return True

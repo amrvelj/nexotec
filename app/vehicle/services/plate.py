@@ -469,25 +469,19 @@ def assign_dealer_plate(
 
 def register_export_table() -> ExportedTable:
     """KAN-218: the Kontrollschild register is never listed, browsed, paged
-    or exported (ADR-039), so it stays out of a Betrieb's export. It is the
-    dealer group's (KAN-467): after the retention period, once no Betrieb of
-    the group still holds data, the group's register is deleted. Declared
-    here, the one module that reads the table; it reads no row."""
+    or exported (ADR-039), so it stays out of a Betrieb's export; it is the
+    dealer group's (KAN-467). Declared here, the one module that reads the
+    table; it reads no row."""
 
     table = table_of(VehiclePlate)
 
     def recorded_by_the_betrieb(export_scope: ExportScope):
         return table.c.recording_tenant_id == export_scope.dealership_id
 
-    def the_groups_register(export_scope: ExportScope):
-        return table.c.group_id == export_scope.group_id
-
     return ExportedTable(
         table=table,
         scope=recorded_by_the_betrieb,
         in_archive=False,
         exclusion_reason="The plate register is never listed or exported (ADR-039).",
-        group_owned=True,
-        erase_scope=the_groups_register,
         marks_write=False,
     )

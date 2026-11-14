@@ -100,7 +100,14 @@ Decided rulings live in the PRD; built only where a bullet says so — check the
   through the authenticated GET — a signed URL waits for KAN-402.
 - Staff offboard (`POST /v1/platform/dealerships/{id}/offboard`) only after an acknowledged export
   produced after the last write; the Betrieb's principals then get 404 (`app/platform/session_guard.py`).
-  Archive exports are staff-only, with a reason. A daily job erases ten years after offboarding.
+  Archive exports are staff-only, with a reason. From that date the Betrieb drops out of every group
+  read (`services/group_read_dealerships.py`, `group_labels.py`; Anto, 2026-11-14, Q2 A).
+- Offboarding publishes `platform.dealership.offboarded` (Q3 A): Stock withdraws every live listing
+  (an empty feed through the gateway first, `inventory/services/listing_withdrawal.py`), then
+  Integration disables every connection and revokes its secrets — registered in that order.
+- **No automatic deletion** (Anto, 2026-11-14): `retention_until` is ten full years from the
+  offboarding date; past it, platform's reconciliation reports the Betrieb nightly
+  (`dealership.archive_due_for_manual_deletion`). The deletion is a manual staff step.
 
 ## Contact groups (KAN-466) — built
 - Nexotec's list `contact_group` (reference data, staff-maintained); each Betrieb switches groups on at

@@ -3,18 +3,13 @@ connections, their capability entitlements, the call log and the
 notifications. Never a secret: a connection's credentials live in the
 secrets manager, the row holds only a write-only reference (ADR-024), and the
 stored provider payloads are the provider's data kept for support.
-
-At the deletion after the retention period each connection goes through
-`delete_connection`, which deletes its secrets in the secrets manager too —
-deleting the rows alone would leave the credentials behind.
 """
 
 from collections.abc import Mapping, Sequence
 
 from sqlalchemy import select
-from sqlalchemy.orm import Session
 
-from app.core.export import ExportedTable, ExportScope, TableExporter, table_of
+from app.core.export import ExportedTable, TableExporter, table_of
 from app.integration.models.call_log import IntegrationCallLog
 from app.integration.models.call_payload import IntegrationCallPayload
 from app.integration.models.caption import IntegrationProviderCaption, IntegrationProviderCaptionFetch
@@ -23,9 +18,6 @@ from app.integration.models.entitlement import IntegrationEntitlement
 from app.integration.models.notification import IntegrationNotification
 from app.integration.models.provider import IntegrationProvider
 from app.integration.models.secret_ref import IntegrationSecretRef
-from app.integration.services.connections import delete_connection
-
-ERASURE_ACTOR_REASON = "dealership_retention_expired"
 
 _connection = table_of(IntegrationConnection)
 
@@ -74,14 +66,3 @@ class IntegrationExporter(TableExporter):
             IntegrationProviderCaption.__tablename__: catalogue,
             IntegrationProviderCaptionFetch.__tablename__: catalogue,
         }
-
-    def before_erase(self, db: Session, scope: ExportScope) -> int:
-        """Each connection with its secrets (secrets manager included) and
-        entitlements, through the one deletion integration has; each commits."""
-
-        connections = db.scalars(
-            select(IntegrationConnection).where(IntegrationConnection.tenant_id == scope.dealership_id)
-        ).all()
-        for connection in connections:
-            delete_connection(db, connection=connection, confirm=True, actor_id=None)
-        return len(connections)

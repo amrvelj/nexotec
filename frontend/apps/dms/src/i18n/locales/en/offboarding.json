@@ -1,6 +1,6 @@
 {
   "title": "Offboard a business",
-  "intro": "A business is offboarded only once its management has confirmed an export produced after the last change. Then every user is deactivated, the data stays ten years in the archive and is then deleted.",
+  "intro": "A business is offboarded only once its management has confirmed an export produced after the last change. Then every user is deactivated, its marketplace listings are withdrawn and its connections disabled. The data stays ten years in the archive; Nexotec then deletes it by hand.",
   "forbidden": {
     "title": "Nexotec staff only",
     "body": "This page is for the Nexotec team, signed in with a second factor."
@@ -21,8 +21,7 @@
     "lastWriteAt": "Last change: {{when}}",
     "acknowledgedExport": "Confirmed export produced: {{when}}",
     "offboardedAt": "Offboarded: {{when}}",
-    "retentionUntil": "In the archive through: {{day}}",
-    "erasedAt": "Deleted: {{when}}"
+    "retentionUntil": "In the archive through: {{day}}"
   },
   "notYet": "Not possible yet",
   "refusal": {
@@ -42,14 +41,13 @@
   "exportsLabel": "The business's exports",
   "confirm": {
     "title": "Offboard the business?",
-    "body": "{{name}} will be offboarded: every user is deactivated, nobody can sign in any more, and the data goes into the archive for ten years. This cannot be undone.",
+    "body": "{{name}} will be offboarded: every user is deactivated, nobody can sign in any more, its listings are withdrawn, its connections disabled, and the data goes into the archive for ten years. This cannot be undone.",
     "reason": "Reason (optional)",
     "check": "I understand this is final.",
     "submit": "Offboard for good"
   },
   "refusals": {
     "dealership_not_offboarded": "An archive export is for an offboarded business only; an active business exports its own data.",
-    "archive_erased": "This business's archive was deleted after its retention period.",
     "already_offboarded": "This business is offboarded already.",
     "export_not_acknowledged": "The management has not confirmed an export yet.",
     "export_out_of_date": "Data changed after the confirmed export – the management exports and confirms again.",

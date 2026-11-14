@@ -1,22 +1,11 @@
 """Platform's export declaration (KAN-218, FR-A-44): the Betrieb's own
 master data, its locations, users and settings, and its uploaded files
 (logos, photos, signatures — Anto, 2026-11-13, Q4 A).
-
-At the deletion after the retention period (Q3 A) the Betrieb's rows go,
-except three kept on purpose: the `dealership` row (the tombstone the users
-and the platform audit row name — its identity, addresses, contact, fiscal
-and licence columns blanked, since a sole proprietor's legal name is personal
-data), the `user` rows (A-RULE-5: never deleted — their personal fields are
-minimised and their files deleted, the identity row and its id stay) and the
-dealer group (it owns nothing and may hold sisters; a group the Betrieb was
-alone in loses its name and point of contact). Platform runs last, after
-every other context (`services/offboarding.py`).
 """
 
-import logging
 from collections.abc import Iterable, Mapping, Sequence
 
-from sqlalchemy import String, cast, func, or_, select, update
+from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from app.core.export import ExportedTable, ExportFile, ExportScope, TableExporter, table_of
@@ -53,8 +42,6 @@ from app.platform.models.user_location import UserLocation
 from app.platform.models.user_preference import UserPreference
 from app.platform.services import connected_account, contact_group
 
-logger = logging.getLogger(__name__)
-
 _user = table_of(User)
 _location = table_of(Location)
 
@@ -86,54 +73,11 @@ def _dealership_or_home_user(table):
 
 
 def _secret(table, reason: str) -> ExportedTable:
-    """Deleted with the Betrieb, never written into the archive."""
+    """The Betrieb's rows, never written into the archive."""
 
     return ExportedTable(
         table=table, scope=_by_home_user(table), in_archive=False, exclusion_reason=reason, marks_write=False
     )
-
-
-# What a minimised user row keeps (A-RULE-5): its id, Betrieb, status and the
-# stamps — the trail every document and audit row names.
-_ERASED_EMAIL_DOMAIN = "erased.invalid"
-
-_ADDRESS_PARTS = ("street", "house_number", "postal_code", "locality", "canton", "country")
-
-# What the erased Betrieb's row is left with: its id, group, status, the
-# archive's dates (offboarded_at, retention_until, erasure_progress, erased_at),
-# the created/updated stamps, the version, and its configuration (franchise
-# type, brand colours, languages, VAT rate, entitlements — no one's identity).
-# Nullable columns become NULL. The NOT NULL ones take a neutral placeholder
-# that still fits DealershipRead, so staff can read the tombstone: "" for the
-# legal name, street, house number, locality and phone; "0000" for the postal
-# code (four digits, as a Swiss seat must have, and no Swiss postal code). The
-# seat's canton and country stay: the read shape needs a real canton code, and
-# a canton alone identifies no one. vat_liable stays too (a flag, no identity).
-_ERASED_DEALERSHIP = {
-    "legal_name": "",
-    "trade_name": None,
-    "oem_affiliations": None,
-    "address_street": "",
-    "address_house_number": "",
-    "address_postal_code": "0000",
-    "address_locality": "",
-    **{f"{kind}_address_{part}": None for kind in ("correspondence", "billing") for part in _ADDRESS_PARTS},
-    "phone": "",
-    "uid": None,
-    "vat_number": None,
-    "legal_form": None,
-    "commercial_register_office": None,
-    "hr_number": None,
-    "astra_operator_number": None,
-    "collective_vehicle_licences": None,
-    "association_memberships": None,
-    "logo_url": None,
-}
-
-# A group the erased Betrieb was alone in: its point of contact goes, and its
-# name too — a group of one is named after the Betrieb's legal name at
-# onboarding (services/dealership.py). `name` is NOT NULL, so "".
-_ERASED_SOLE_GROUP = {"name": "", "contact_name": None, "contact_email": None, "contact_phone": None}
 
 
 class PlatformExporter(TableExporter):
@@ -154,17 +98,10 @@ class PlatformExporter(TableExporter):
             ExportedTable(
                 table=dealership,
                 scope=lambda scope: dealership.c.id == scope.dealership_id,
-                erase=False,
-                keep_reason=(
-                    "The tombstone the users (A-RULE-5) and the platform audit row of the deletion name; "
-                    "its identity, address, contact, fiscal and licence columns are blanked."
-                ),
             ),
             ExportedTable(
                 table=group,
                 scope=lambda scope: group.c.id == scope.group_id,
-                erase=False,
-                keep_reason="The dealer group owns nothing (ADR-014) and may hold sister Betriebe.",
                 marks_write=False,
             ),
             ExportedTable(table=_location, scope=_by_dealership(_location, "tenant_id")),
@@ -185,8 +122,6 @@ class PlatformExporter(TableExporter):
             ExportedTable(
                 table=_user,
                 scope=_by_dealership(_user, "tenant_id"),
-                erase=False,
-                keep_reason="A-RULE-5: users are never deleted; personal fields are minimised, the row and id stay.",
                 # A sign-in stamps the row; a manager's edit of a user is audited.
                 marks_write=False,
             ),
@@ -207,12 +142,12 @@ class PlatformExporter(TableExporter):
                 table=table_of(Notification), scope=_by_dealership(table_of(Notification)), marks_write=False
             ),
             ExportedTable(table=table_of(AuthEvent), scope=_by_dealership(table_of(AuthEvent)), marks_write=False),
-            # Deleted with the Betrieb, never in the archive.
+            # The Betrieb's, never in the archive.
             ExportedTable(
                 table=session,
                 scope=_dealership_or_home_user(session),
                 in_archive=False,
-                exclusion_reason="Sign-in state; ends with the Betrieb and holds no record of its own.",
+                exclusion_reason="Sign-in state; holds no record of its own.",
                 marks_write=False,
             ),
             _secret(table_of(Credential), "The password hash — a secret, never returned."),
@@ -261,57 +196,3 @@ class PlatformExporter(TableExporter):
                     yield ExportFile(
                         path=f"files/users/{user.id}/{kind}", content_type=stored.content_type, data=stored.data
                     )
-
-    def before_erase(self, db: Session, scope: ExportScope) -> int:
-        """The stored files go first (logos, photos, signatures, the export
-        ZIPs), then the users are minimised (A-RULE-5), the Betrieb's row is
-        reduced to its tombstone and, when it was alone in its group, the
-        group's name and contact are blanked. A key the store no longer holds
-        is no error, so a rerun passes."""
-
-        store = self.store
-        keys = list(
-            db.scalars(select(BrandingAsset.object_key).where(BrandingAsset.dealership_id == scope.dealership_id))
-        )
-        keys += [
-            key
-            for key in db.scalars(select(ExportJob.object_key).where(ExportJob.dealership_id == scope.dealership_id))
-            if key
-        ]
-        users = list(db.scalars(select(User).where(User.tenant_id == scope.dealership_id)))
-        keys += [key for user in users for key in (user.photo_ref, user.signature_image_ref) if key]
-        for key in keys:
-            store.delete(key)
-        result = db.execute(
-            update(User)
-            .where(User.tenant_id == scope.dealership_id)
-            .values(
-                first_name="",
-                last_name="",
-                email=func.concat(cast(_user.c.id, String), f"@{_ERASED_EMAIL_DOMAIN}"),
-                phone=None,
-                direct_dial=None,
-                employee_number=None,
-                department=None,
-                sales_advisor_code=None,
-                signature_image_ref=None,
-                photo_ref=None,
-                signature_block=None,
-                deactivation_reason="dealership_erased",
-            )
-            .execution_options(synchronize_session=False)
-        )
-        db.execute(
-            update(Dealership)
-            .where(Dealership.id == scope.dealership_id)
-            .values(**_ERASED_DEALERSHIP, version=Dealership.version + 1)
-            .execution_options(synchronize_session=False)
-        )
-        if scope.sole_in_group:
-            db.execute(
-                update(DealerGroup)
-                .where(DealerGroup.id == scope.group_id)
-                .values(**_ERASED_SOLE_GROUP, version=DealerGroup.version + 1)
-                .execution_options(synchronize_session=False)
-            )
-        return int(getattr(result, "rowcount", 0) or 0)

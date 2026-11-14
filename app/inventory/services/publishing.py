@@ -204,6 +204,20 @@ def unpublish(
     if not confirm:
         raise BadRequestError("Unpublishing is a confirmed destructive action — resend with confirm=true.")
 
+    row = record_unpublished(db, item=item, channel=channel, actor_id=actor_id)
+    db.commit()
+    db.refresh(row)
+    return row
+
+
+def record_unpublished(
+    db: Session, *, item: StockItem, channel: MarketplaceChannel, actor_id: uuid.UUID | None
+) -> StockItemPublishing:
+    """The unpublish itself — the listing's state and its
+    `inventory.stock_item.unpublished` fact in the caller's transaction, not
+    committed: `unpublish` above (the dealer's confirmed action) and the
+    offboarding withdrawal (`services/listing_withdrawal.py`, KAN-218) share it."""
+
     row = get_or_create_publishing(db, item, channel)
     row.state = PublishingState.NOT_PUBLISHED
     row.updated_by = actor_id
@@ -221,8 +235,6 @@ def unpublish(
             payload={"channel": channel.value},
         ),
     )
-    db.commit()
-    db.refresh(row)
     return row
 
 

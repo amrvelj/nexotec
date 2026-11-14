@@ -172,7 +172,6 @@ def _offboarding_read(db: Session, dealership) -> OffboardingRead:
         version=dealership.version,
         offboarded_at=dealership.offboarded_at,
         retention_until=dealership.retention_until,
-        erased_at=dealership.erased_at,
         last_write_at=state.last_write_at,
         acknowledged_export_id=state.export.id if state.export else None,
         acknowledged_export_produced_at=state.export.produced_at if state.export else None,

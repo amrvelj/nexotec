@@ -5,10 +5,10 @@ download, Q2 B staff-produced archive exports, Q3 A ten full years from the
 offboarding date). `export_job` holds one row per export of a Betrieb's data —
 the manager's own (`self_service`) or one platform staff produce from the
 archive (`archive`, with a reason) — and the object-store key of its ZIP,
-never the file. `dealership` gains `offboarded_at`, `retention_until` (the
-deletion date), `erasure_progress` (the contexts the deletion job has done,
-so a stopped run resumes) and `erased_at`. No data step: no Betrieb is
-offboarded before this migration.
+never the file. `dealership` gains `offboarded_at` and `retention_until` (the
+archive's last day; nothing deletes automatically — Anto, 2026-11-14: the
+deletion is a manual staff step, reported nightly by reconciliation). No data
+step: no Betrieb is offboarded before this migration.
 
 Revision ID: c7c0901ad259
 Revises: d72281c678c0
@@ -71,14 +71,10 @@ def upgrade() -> None:
     )
     op.add_column("dealership", sa.Column("offboarded_at", app.core.types.UTCDateTime(timezone=True), nullable=True))
     op.add_column("dealership", sa.Column("retention_until", sa.Date(), nullable=True))
-    op.add_column("dealership", sa.Column("erasure_progress", sa.JSON(), nullable=True))
-    op.add_column("dealership", sa.Column("erased_at", app.core.types.UTCDateTime(timezone=True), nullable=True))
 
 
 def downgrade() -> None:
     """Downgrade schema."""
-    op.drop_column("dealership", "erased_at")
-    op.drop_column("dealership", "erasure_progress")
     op.drop_column("dealership", "retention_until")
     op.drop_column("dealership", "offboarded_at")
     op.drop_index("ix_export_job_dealership_id_created_at", table_name="export_job")

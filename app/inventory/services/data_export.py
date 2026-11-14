@@ -1,7 +1,7 @@
 """Stock's export declaration (KAN-218; FR-A-44): the Betrieb's stock items,
 their ledger (the Wagenbuch), options, media references and publishing, and
 Stock's own copies of Sales' contracts. Every table is the Betrieb's
-(`tenant_id`) and is deleted with it after the retention period.
+(`tenant_id`).
 """
 
 from collections.abc import Mapping, Sequence

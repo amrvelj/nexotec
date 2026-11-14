@@ -9135,8 +9135,6 @@ export interface components {
              * Format: uuid
              */
             dealershipId: string;
-            /** Erasedat */
-            erasedAt: string | null;
             /** Lastwriteat */
             lastWriteAt: string | null;
             /** Legalname */

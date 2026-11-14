@@ -10,11 +10,6 @@ catalogue (the same for every Betrieb), the per-Betrieb provider catalogue
 mirror (the provider's licensed data, re-fetched on demand — not the
 Betrieb's record), the registry-lookup cache (30 days, KAN-42) and the
 custody history of the physical vehicle (recorded platform-wide).
-
-At the deletion after the retention period the Betrieb's own rows go. The
-physical vehicle and the facts recorded about it (odometer, accessories) stay:
-a vehicle is platform-wide master data, not the Betrieb's. The plate register
-is group-owned (KAN-467): it goes once no sister Betrieb holds data.
 """
 
 from collections.abc import Mapping, Sequence
@@ -61,7 +56,6 @@ _accessory = table_of(VehicleAccessory)
 _vehicle = table_of(VehicleMdm)
 
 _MIRROR = "The provider's licensed catalogue data mirrored for the Betrieb, re-fetched on demand."
-_PHYSICAL = "The physical vehicle is platform-wide master data, not the Betrieb's (vehicle-mdm)."
 
 
 def _tenant(model, **kwargs) -> ExportedTable:
@@ -89,11 +83,10 @@ class VehicleExporter(TableExporter):
     context = "vehicle"
 
     def exported_tables(self) -> Sequence[ExportedTable]:
-        configuration_option = table_of(VehicleConfigurationOption)
         return (
             _tenant(VehicleConfiguration),
             _tenant(VehicleConfigurationOption),
-            _tenant(VehicleConfigurationOptionFeature, depends_on=(configuration_option,)),
+            _tenant(VehicleConfigurationOptionFeature),
             _tenant(DealerPlate),
             _tenant(DealerPlateAssignment),
             _tenant(VehicleStockHolding),
@@ -101,20 +94,14 @@ class VehicleExporter(TableExporter):
             ExportedTable(
                 table=_odometer,
                 scope=lambda scope: _odometer.c.recording_tenant_id == scope.dealership_id,
-                erase=False,
-                keep_reason=_PHYSICAL,
             ),
             ExportedTable(
                 table=_accessory,
                 scope=lambda scope: _accessory.c.recording_tenant_id == scope.dealership_id,
-                erase=False,
-                keep_reason=_PHYSICAL,
             ),
             ExportedTable(
                 table=_vehicle,
                 scope=lambda scope: _vehicle.c.id.in_(_named_vehicle_ids(scope)),
-                erase=False,
-                keep_reason=_PHYSICAL,
                 # Other Betriebe write the shared record too.
                 marks_write=False,
             ),

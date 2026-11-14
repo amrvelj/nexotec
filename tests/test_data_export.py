@@ -198,7 +198,10 @@ def test_the_file_is_there_on_day_six_and_gone_on_day_eight(client, export_store
     assert request_export(client, dealership_id, headers)["status"] == "requested"
 
 
-def test_the_worker_registers_the_expiry_and_the_deletion_jobs():
+def test_the_worker_registers_the_expiry_job_and_no_deletion_job():
+    """Anto, 2026-11-14: nothing deletes an offboarded Betrieb automatically —
+    the deletion after ten years is a manual staff step, reported nightly."""
+
     from app.core.daily_scheduler import registered_job_names
     from app.worker import register_daily_jobs
 
@@ -206,7 +209,8 @@ def test_the_worker_registers_the_expiry_and_the_deletion_jobs():
 
     names = registered_job_names()
     assert "platform.data_exports.expire" in names
-    assert "platform.dealership_erasure" in names
+    assert "platform.dealership_erasure" not in names
+    assert not [name for name in names if "erasure" in name]
 
 
 # --- what the file holds -------------------------------------------------------------

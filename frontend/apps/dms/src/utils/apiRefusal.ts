@@ -69,7 +69,6 @@ const REASON_KEYS: Record<string, string> = {
   ...Object.fromEntries(
     [
       'already_offboarded',
-      'archive_erased',
       'dealership_not_offboarded',
       'export_not_acknowledged',
       'export_out_of_date',

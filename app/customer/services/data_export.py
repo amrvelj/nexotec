@@ -9,11 +9,6 @@ a group of one, every customer of the group (one that predates provenance
 too). Their contact channels, tags, contact groups, external ids, vehicle
 links and legal bases come with them.
 
-At the deletion after the retention period, the Betrieb's own bookings go.
-The customers stay with the group while a sister Betrieb still holds data
-(`ExportScope.sole_in_group` false); once none does, the group's customers
-and everything hanging off them are deleted.
-
 The group predicate below is the Betrieb's OWN group, handed in by platform —
 never another's: `tests/architecture/test_no_ambient_group_read.py` lists
 this file for that reason.
@@ -57,18 +52,11 @@ def _related_customer_ids(scope: ExportScope):
     )
 
 
-def _group_customer_ids(scope: ExportScope):
-    return select(_customer.c.id).where(_customer.c.group_id == scope.group_id)
-
-
 def _child(model) -> ExportedTable:
     table = table_of(model)
     return ExportedTable(
         table=table,
         scope=lambda scope: table.c.customer_id.in_(_related_customer_ids(scope)),
-        group_owned=True,
-        erase_scope=lambda scope: table.c.customer_id.in_(_group_customer_ids(scope)),
-        depends_on=(_customer,),
     )
 
 
@@ -81,8 +69,6 @@ class CustomerExporter(TableExporter):
             ExportedTable(
                 table=_customer,
                 scope=lambda scope: _customer.c.id.in_(_related_customer_ids(scope)),
-                group_owned=True,
-                erase_scope=lambda scope: _customer.c.group_id == scope.group_id,
             ),
             _child(CustomerAddress),
             _child(CustomerEmail),
@@ -98,7 +84,6 @@ class CustomerExporter(TableExporter):
                 scope=lambda scope: sequence.c.group_id == scope.group_id,
                 in_archive=False,
                 exclusion_reason="The group's customer-number counter; the numbers are on the customers.",
-                group_owned=True,
                 marks_write=False,
             ),
         )

@@ -2,30 +2,24 @@
 `app/core`'s own models are no context's, so their exporter lives beside them
 and the composition root registers it like a context's.
 
-The Betrieb's audit log is in the export (Anto, 2026-11-13, Q4 A). At the
-deletion after the retention period its rows stay — the audit log is
-append-only — and their values are blanked through the one sanctioned rewrite
-(`redact_audit_values`, ADR-121): every key of every row of the Betrieb's
-entities, one `redact` row per entity, never a deleted row.
+The Betrieb's audit log is in the export (Anto, 2026-11-13, Q4 A). Nothing
+here rewrites or deletes it: the deletion ten years after offboarding is a
+manual staff step (Anto, 2026-11-14).
 """
 
 import datetime as dt
-import uuid
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Mapping, Sequence
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.core.audit import REDACTED, redact_audit_values
 from app.core.audit_model import AuditEvent
 from app.core.daily_scheduler_model import DailyJobRun
-from app.core.export import ErasureResult, ExportedTable, ExportScope, TableExporter, table_of
+from app.core.export import ExportedTable, ExportScope, TableExporter, table_of
 from app.core.idempotency_model import IdempotencyRecord
 from app.core.outbox_model import OutboxMessage
 from app.core.processed_event_model import ProcessedEvent
 from app.core.reconciliation_model import ReconciliationOrphan, ReconciliationRun
-
-ERASURE_REASON = "dealership_retention_expired"
 
 # Audit rows that record no write of the Betrieb: reads written to the trail
 # (a plate history read, a break-glass read, a print) and the export's own
@@ -49,8 +43,6 @@ class CoreExporter(TableExporter):
             ExportedTable(
                 table=_audit,
                 scope=_own_audit_rows,
-                erase=False,
-                keep_reason="The audit log is append-only (ADR-121): its values are redacted, its rows stay.",
                 # Judged in last_write_at below, without the reads and the export's own trail.
                 marks_write=False,
             ),
@@ -77,59 +69,3 @@ class CoreExporter(TableExporter):
                 AuditEvent.action.not_in(NON_WRITE_ACTIONS),
             )
         )
-
-    def erase(self, session_factory: Callable[[], Session], scope: ExportScope) -> ErasureResult:
-        """Redacts the Betrieb's audit values entity by entity, one commit
-        per entity, so a run that stops resumes where it stopped: an entity
-        whose values are all redacted already is skipped. The Betrieb's
-        transport rows (idempotency records, delivered events) are deleted."""
-
-        db = session_factory()
-        touched = 0
-        try:
-            entities = db.execute(
-                select(AuditEvent.entity_type, AuditEvent.entity_id)
-                .where(AuditEvent.tenant_id == scope.dealership_id, AuditEvent.action != "redact")
-                .distinct()
-            ).all()
-            for entity_type, entity_id in entities:
-                keys = _unredacted_keys(db, scope.dealership_id, entity_type, entity_id)
-                if not keys:
-                    continue
-                touched += redact_audit_values(
-                    db,
-                    entity_type=entity_type,
-                    entity_id=entity_id,
-                    tenant_id=scope.dealership_id,
-                    keys=frozenset(keys),
-                    actor_id=None,
-                    reason=ERASURE_REASON,
-                )
-                db.commit()
-            # No harness purge covers these: the idempotency purge takes HTTP records only, none purges outbox rows.
-            for model in (IdempotencyRecord, OutboxMessage):
-                rows = db.query(model).filter(model.tenant_id == scope.dealership_id)
-                if model is OutboxMessage:
-                    rows = rows.filter(OutboxMessage.published_at.is_not(None))
-                touched += rows.delete(synchronize_session=False)
-            db.commit()
-        finally:
-            db.close()
-        return ErasureResult(context=self.context, rows_deleted=touched)
-
-
-def _unredacted_keys(db: Session, tenant_id: uuid.UUID, entity_type: str, entity_id: uuid.UUID) -> set[str]:
-    keys: set[str] = set()
-    for before, after in db.execute(
-        select(AuditEvent.before, AuditEvent.after).where(
-            AuditEvent.tenant_id == tenant_id,
-            AuditEvent.entity_type == entity_type,
-            AuditEvent.entity_id == entity_id,
-            AuditEvent.action != "redact",
-        )
-    ):
-        for payload in (before, after):
-            for key, value in (payload or {}).items():
-                if value is not None and value != REDACTED:
-                    keys.add(key)
-    return keys

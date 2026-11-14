@@ -3,7 +3,7 @@ ADR-029): the Betrieb's valuations with their deductions and contract carries.
 The provider quotes the valuations were computed from stay out of the file:
 they are the provider's licensed output (residual tables, the provider's own
 messages), not the Betrieb's record — the valuation keeps the figures the
-Betrieb used. They are deleted with the Betrieb after the retention period.
+Betrieb used.
 """
 
 import uuid

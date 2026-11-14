@@ -336,9 +336,8 @@ def repair_revoked_grants(db: Session) -> GrantRepairRun:
 
 def export_table() -> ExportedTable:
     """KAN-218: the grants of the Betrieb's users stay out of its export (a
-    grant holds a secret reference and is never returned, FR-AU-23) and are
-    deleted with the Betrieb after the retention period — each is revoked at
-    offboarding already. Declared here, the one module that names the table."""
+    grant holds a secret reference and is never returned, FR-AU-23); each is
+    revoked at offboarding. Declared here, the one module that names the table."""
 
     table = table_of(UserConnectedAccount)
     users = table_of(User)

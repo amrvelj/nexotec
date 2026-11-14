@@ -22,7 +22,6 @@ import datetime as dt
 import enum
 import uuid
 from decimal import Decimal
-from typing import Any
 
 from sqlalchemy import (
     DECIMAL,
@@ -239,15 +238,13 @@ class Dealership(PrimaryKeyMixin, VersionedMixin, TimestampMixin, Base):
     # and starts the ten-year read-only archive — ten full years from the
     # offboarding date, for everything. The read-only flag IS the status: the
     # gate (app/platform/session_guard.py) answers 404 to the Betrieb's
-    # principals everywhere. The daily deletion job erases the data once
-    # `retention_until` has come, context by context (`erasure_progress`
-    # names the ones done, so a stopped run resumes), and stamps `erased_at`;
-    # this row stays as the tombstone the users (A-RULE-5) and the platform
-    # audit row name.
+    # principals everywhere, and the Betrieb drops out of every group read
+    # (Anto, 2026-11-14, Q2 A). `retention_until` is the archive's last day.
+    # Nothing deletes automatically (Anto, 2026-11-14): once it has passed,
+    # reconciliation reports the Betrieb as due for manual deletion
+    # (app/platform/reconciliation.py), a staff step in an attended session.
     offboarded_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)
     retention_until: Mapped[dt.date | None] = mapped_column(Date, nullable=True)
-    erasure_progress: Mapped[list[dict[str, Any]] | None] = mapped_column(JSON, nullable=True)
-    erased_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)
 
     @property
     def address(self) -> dict[str, str]:

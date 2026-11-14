@@ -54,7 +54,6 @@ class OffboardingRead(CamelModel):
     version: int
     offboarded_at: dt.datetime | None
     retention_until: dt.date | None
-    erased_at: dt.datetime | None
     last_write_at: dt.datetime | None
     acknowledged_export_id: uuid.UUID | None
     acknowledged_export_produced_at: dt.datetime | None

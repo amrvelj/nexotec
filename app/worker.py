@@ -56,7 +56,11 @@ from app.customer.public import (
 from app.customer.services.vehicle_merge import handle_vehicle_merged_message
 from app.db import SessionLocal
 from app.export_registry import register_exporters
+from app.integration.consumers import handle_dealership_offboarded_message as disable_connections_on_offboarded
 from app.integration.daily_jobs import run_daily_integration_jobs
+from app.inventory.consumers import (
+    handle_dealership_offboarded_message as withdraw_listings_on_offboarded,
+)
 from app.inventory.consumers import (
     handle_sales_contract_cancelled_message,
     handle_sales_contract_confirmed_message,
@@ -80,7 +84,6 @@ from app.platform.consumers import (
 )
 from app.platform.daily_jobs import (
     run_daily_data_export_expiry,
-    run_daily_dealership_erasure,
     run_daily_notification_digest,
     run_daily_notification_purge,
     run_daily_revoked_grant_repair,
@@ -338,6 +341,21 @@ def register_handlers(transport: InProcessTransport) -> None:
         consumer_name="platform.data_export_production",
         handler=handle_data_export_requested_message,
     )
+    # KAN-218 (Anto, 2026-11-14, Q3 A): an offboarded Betrieb's live listings
+    # are withdrawn and its connections disabled, each context on its own
+    # session (ADR-131, rule 12). Stock first: the transport delivers in
+    # registration order, and Stock's empty feed needs the marketplace
+    # connection Integration then disables (app.inventory.services.listing_withdrawal).
+    transport.register(
+        "platform.dealership.offboarded",
+        consumer_name="inventory.listings_withdrawn_on_offboarded",
+        handler=withdraw_listings_on_offboarded,
+    )
+    transport.register(
+        "platform.dealership.offboarded",
+        consumer_name="integration.connections_disabled_on_offboarded",
+        handler=disable_connections_on_offboarded,
+    )
 
     if os.environ.get("DMS_OUTBOX_WORKER_CI_SMOKE_TEST_PROBE") == "1":
         _register_ci_smoke_test_probe(transport)
@@ -444,8 +462,8 @@ def _refresh_configuration_labels(db: Session) -> None:
 
 
 def register_exports() -> None:
-    """KAN-218: the export job and the deletion ask every context's exporter
-    through the registry, which the composition root fills."""
+    """KAN-218: the export job asks every context's exporter through the
+    registry, which the composition root fills."""
 
     register_exporters()
 
@@ -458,7 +476,7 @@ def register_ownership() -> None:
 
 
 def register_daily_jobs() -> None:
-    """Eighteen daily jobs, run in registration order once per day on this
+    """Seventeen daily jobs, run in registration order once per day on this
     process (app.core.daily_scheduler):
 
     1. ``integration.daily_jobs`` — ADR-025's expiry warnings, ADR-024's
@@ -525,16 +543,14 @@ def register_daily_jobs() -> None:
        so after reconciliation: the night's report names the grant first.
     15. ``platform.data_exports.expire`` — KAN-218 (Anto, 2026-11-13, Q1 A):
        an export's download stays seven days, then its file is deleted.
-    16. ``platform.dealership_erasure`` — KAN-218 (Q3 A, FR-A-45): an
-       offboarded Betrieb's archive is deleted the day after its ten years
-       end, context by context, platform last, with a platform-level audit
-       row; a stopped run resumes. Retention, not a repair.
-    17. ``valuation.provider_quotes.purge_unused`` — KAN-599 (Anto,
+       No job deletes an offboarded Betrieb's archive (Anto, 2026-11-14):
+       reconciliation reports one past its ten years; the deletion is manual.
+    16. ``valuation.provider_quotes.purge_unused`` — KAN-599 (Anto,
        2026-11-13, option A): a provider quote no valuation references is
        deleted ten years after it was fetched, with an audit row; one a
        valuation references stays as long as the valuation
        (app.valuation.daily_jobs). Retention, not a repair.
-    18. ``vehicle.configurations.purge_unattached`` — KAN-270 (Anto,
+    17. ``vehicle.configurations.purge_unattached`` — KAN-270 (Anto,
        2026-11-03, option C): a configuration no host ever took is deleted
        30 days after it was created, with an audit row and
        ``vehicle.configuration.discarded``; one a host holds is stamped taken
@@ -561,13 +577,11 @@ def register_daily_jobs() -> None:
     register_daily_job("platform.notifications.purge", run_daily_notification_purge)
     # 14. KAN-559: a revoked grant still holding a reference is ended at the provider.
     register_daily_job("platform.connected_account.repair", run_daily_revoked_grant_repair)
-    # 15./16. KAN-218 (Q1 A, Q3 A): an export's file goes seven days after it
-    #    was produced; an offboarded Betrieb's archive the day after its ten years.
+    # 15. KAN-218 (Q1 A): an export's file goes seven days after it was produced.
     register_daily_job("platform.data_exports.expire", run_daily_data_export_expiry)
-    register_daily_job("platform.dealership_erasure", run_daily_dealership_erasure)
-    # 17. KAN-599: a provider quote no valuation references goes ten years after it was fetched.
+    # 16. KAN-599: a provider quote no valuation references goes ten years after it was fetched.
     register_daily_job("valuation.provider_quotes.purge_unused", run_daily_unused_provider_quote_purge)
-    # 18. KAN-270 (registered last): a configuration no host ever took goes after 30 days.
+    # 17. KAN-270 (registered last): a configuration no host ever took goes after 30 days.
     register_daily_job("vehicle.configurations.purge_unattached", _purge_unattached_configurations)
 
 

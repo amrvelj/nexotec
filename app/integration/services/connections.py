@@ -318,6 +318,71 @@ def disable_connection(db: Session, *, connection: IntegrationConnection, actor_
     return connection
 
 
+def disable_offboarded_dealership_connections(
+    db: Session, *, tenant_id: uuid.UUID, secrets_backend_module=secrets_backend
+) -> int:
+    """KAN-218 (Anto, 2026-11-14, Q3 A): offboarding disables every
+    connection of the Betrieb and revokes its credentials. Per connection,
+    what `disable_connection` does (status `disabled`, audited `disable`) and,
+    for each secret slot, what `remove_secret` does (deleted in the secrets
+    manager, the reference row dropped, `rotated_at` moved so no cached token
+    is used again, audited `delete_secret` naming the slot only). The rows
+    stay — the archive keeps them (FR-A-45); `delete_connection` stays the
+    dealer's confirmed action.
+
+    Never commits: the caller is the consumer of `platform.dealership.offboarded`
+    (`app/integration/consumers.py`), whose harness commits this with its
+    processed-event row. A connection already disabled with no secret left is
+    skipped, so a redelivery or a rerun changes nothing; the secrets manager's
+    delete is idempotent (a 404 is "already deleted"), so a commit that fails
+    after it is retried safely. Returns the connections changed. Never
+    returns or logs a secret value: none is read."""
+
+    connections = list(
+        db.scalars(
+            select(IntegrationConnection)
+            .where(IntegrationConnection.tenant_id == tenant_id)
+            .order_by(IntegrationConnection.id)
+            .with_for_update()
+        ).all()
+    )
+    changed = 0
+    for connection in connections:
+        refs = list(
+            db.scalars(
+                select(IntegrationSecretRef)
+                .where(IntegrationSecretRef.connection_id == connection.id)
+                .order_by(IntegrationSecretRef.slot)
+            )
+        )
+        if not connection.enabled and connection.status == ConnectionStatus.DISABLED and not refs:
+            continue
+        if connection.enabled or connection.status != ConnectionStatus.DISABLED:
+            connection.enabled = False
+            connection.status = ConnectionStatus.DISABLED
+            connection.updated_by = None
+            connection.version += 1
+            record_audit_event(
+                db, entity_type=_ENTITY_TYPE, entity_id=connection.id, tenant_id=connection.tenant_id,
+                action="disable", actor_id=None, reason="dealership_offboarded",
+            )
+        for ref in refs:
+            try:
+                secrets_backend_module.delete_secret(connection_id=connection.id, slot=ref.slot.value)
+            except SecretsBackendNotConfigured:
+                pass  # no live secrets manager configured (tests, most local dev): nothing was stored there
+            record_audit_event(
+                db, entity_type="integration_secret_ref", entity_id=ref.id, tenant_id=connection.tenant_id,
+                action="delete_secret", actor_id=None, reason=f"slot={ref.slot.value}; dealership_offboarded",
+            )
+            db.delete(ref)
+        if refs:
+            connection.rotated_at = utcnow()
+        changed += 1
+    db.flush()
+    return changed
+
+
 def enable_connection(db: Session, *, connection: IntegrationConnection, actor_id: uuid.UUID | None) -> IntegrationConnection:
     connection.enabled = True
     # Reverts to not_configured, not connected — the next successful

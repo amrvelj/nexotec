@@ -166,8 +166,8 @@ def set_contact_group_enabled(
 
 
 def export_table() -> ExportedTable:
-    """KAN-218: the Betrieb's switched-on groups in its export, deleted with
-    it after the retention period. Declared here, the switch's one module."""
+    """KAN-218: the Betrieb's switched-on groups in its export. Declared
+    here, the switch's one module."""
 
     table = table_of(DealershipContactGroup)
 

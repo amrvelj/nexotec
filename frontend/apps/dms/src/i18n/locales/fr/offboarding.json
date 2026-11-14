@@ -1,6 +1,6 @@
 {
   "title": "Clôturer l'entreprise",
-  "intro": "Une entreprise n'est clôturée que lorsque sa direction a confirmé un export créé après la dernière modification. Ensuite, tous les utilisateurs sont désactivés, les données restent dix ans dans l'archive, puis sont supprimées.",
+  "intro": "Une entreprise n'est clôturée que lorsque sa direction a confirmé un export créé après la dernière modification. Ensuite, tous les utilisateurs sont désactivés, les annonces sur les places de marché retirées et les connexions désactivées. Les données restent dix ans dans l'archive ; Nexotec les supprime ensuite manuellement.",
   "forbidden": {
     "title": "Réservé au personnel Nexotec",
     "body": "Cette page est réservée à l'équipe Nexotec, connectée avec un second facteur."
@@ -21,8 +21,7 @@
     "lastWriteAt": "Dernière modification : {{when}}",
     "acknowledgedExport": "Export confirmé créé : {{when}}",
     "offboardedAt": "Clôturée le : {{when}}",
-    "retentionUntil": "Dans l'archive jusqu'au : {{day}} inclus",
-    "erasedAt": "Supprimée le : {{when}}"
+    "retentionUntil": "Dans l'archive jusqu'au : {{day}} inclus"
   },
   "notYet": "Pas encore possible",
   "refusal": {
@@ -42,14 +41,13 @@
   "exportsLabel": "Exports de l'entreprise",
   "confirm": {
     "title": "Clôturer l'entreprise ?",
-    "body": "{{name}} sera clôturée : tous les utilisateurs sont désactivés, plus personne ne peut se connecter et les données passent dix ans dans l'archive. Cette action est irréversible.",
+    "body": "{{name}} sera clôturée : tous les utilisateurs sont désactivés, plus personne ne peut se connecter, les annonces sont retirées, les connexions désactivées et les données passent dix ans dans l'archive. Cette action est irréversible.",
     "reason": "Motif (facultatif)",
     "check": "J'ai compris que c'est définitif.",
     "submit": "Clôturer définitivement"
   },
   "refusals": {
     "dealership_not_offboarded": "Un export de l'archive n'est possible que pour une entreprise clôturée ; une entreprise active exporte elle-même.",
-    "archive_erased": "L'archive de cette entreprise a été supprimée à l'échéance du délai de conservation.",
     "already_offboarded": "Cette entreprise est déjà clôturée.",
     "export_not_acknowledged": "La direction n'a encore confirmé aucun export.",
     "export_out_of_date": "Des données ont été modifiées depuis l'export confirmé – la direction exporte et confirme à nouveau.",

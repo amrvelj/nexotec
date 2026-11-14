@@ -1,6 +1,6 @@
 {
   "title": "Chiudere l'azienda",
-  "intro": "Un'azienda viene chiusa solo quando la sua direzione ha confermato un'esportazione creata dopo l'ultima modifica. In seguito tutti gli utenti sono disattivati, i dati restano dieci anni nell'archivio e poi vengono eliminati.",
+  "intro": "Un'azienda viene chiusa solo quando la sua direzione ha confermato un'esportazione creata dopo l'ultima modifica. In seguito tutti gli utenti sono disattivati, gli annunci sui marketplace ritirati e i collegamenti disattivati. I dati restano dieci anni nell'archivio; poi Nexotec li elimina manualmente.",
   "forbidden": {
     "title": "Solo per il personale Nexotec",
     "body": "Questa pagina è riservata al team Nexotec, connesso con un secondo fattore."
@@ -21,8 +21,7 @@
     "lastWriteAt": "Ultima modifica: {{when}}",
     "acknowledgedExport": "Esportazione confermata creata: {{when}}",
     "offboardedAt": "Chiusa il: {{when}}",
-    "retentionUntil": "Nell'archivio fino al: {{day}} compreso",
-    "erasedAt": "Eliminata il: {{when}}"
+    "retentionUntil": "Nell'archivio fino al: {{day}} compreso"
   },
   "notYet": "Non ancora possibile",
   "refusal": {
@@ -42,14 +41,13 @@
   "exportsLabel": "Esportazioni dell'azienda",
   "confirm": {
     "title": "Chiudere l'azienda?",
-    "body": "{{name}} sarà chiusa: tutti gli utenti vengono disattivati, nessuno può più accedere e i dati passano dieci anni nell'archivio. L'operazione è irreversibile.",
+    "body": "{{name}} sarà chiusa: tutti gli utenti vengono disattivati, nessuno può più accedere, gli annunci vengono ritirati, i collegamenti disattivati e i dati passano dieci anni nell'archivio. L'operazione è irreversibile.",
     "reason": "Motivo (facoltativo)",
     "check": "Ho capito che è definitivo.",
     "submit": "Chiudere definitivamente"
   },
   "refusals": {
     "dealership_not_offboarded": "Un'esportazione dall'archivio è possibile solo per un'azienda chiusa; un'azienda attiva esporta da sé.",
-    "archive_erased": "L'archivio di questa azienda è stato eliminato alla scadenza del periodo di conservazione.",
     "already_offboarded": "Questa azienda è già chiusa.",
     "export_not_acknowledged": "La direzione non ha ancora confermato alcuna esportazione.",
     "export_out_of_date": "Dei dati sono stati modificati dopo l'esportazione confermata – la direzione esporta e conferma di nuovo.",

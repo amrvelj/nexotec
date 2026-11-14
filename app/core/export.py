@@ -3,23 +3,24 @@
 ten-year archive, deletion".
 
 Cross-cutting on purpose (CLAUDE.md rule 8), like `app.core.ownership`:
-platform produces the export and runs the deletion, and asks this registry —
+platform produces the export and asks this registry —
 never a context. Each context declares its tables in its own package
 (an `Exporter`, exposed through its `public` module) and the composition root
 `app/export_registry.py` registers it. Platform imports no context's models;
 no context imports platform's export job.
 
-One declaration drives three things, so they cannot drift apart:
+One declaration drives two things, so they cannot drift apart:
 
 - **the export** — every `ExportedTable` is read with its own `scope` clause
   and written as CSV and JSON, described in `schema.json`;
 - **completeness** — every mapped table is declared by exactly one exporter,
   as exported or as excluded with a reason (`tests/test_data_export_completeness.py`):
-  a new table fails until someone decides;
-- **the deletion after the retention period** — `TableExporter.erase` deletes
-  the exported tables in reverse foreign-key order, on a session of its own
-  that it commits (ADR-047), except the tables declared `erase=False` with
-  their reason.
+  a new table fails until someone decides.
+
+Nothing here deletes. The deletion ten years after offboarding is a manual
+staff step (Anto, 2026-11-14); platform's reconciliation reports the Betriebe
+due for it. The declarations' scopes are the map of the Betrieb's rows that
+step will need.
 
 "The Betrieb's last write" (FR-A-45: offboarding needs an acknowledged export
 produced after it) is the latest `updated_at`/`created_at` over the exported
@@ -40,16 +41,15 @@ import zipfile
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from typing import Any, Protocol, cast
 
-from sqlalchemy import ColumnElement, Table, delete, func, select
+from sqlalchemy import ColumnElement, Table, func, select
 from sqlalchemy.orm import Session
-from sqlalchemy.schema import sort_tables
 
 FORMAT_VERSION = 1
 
 
 @dataclasses.dataclass(frozen=True)
 class ExportScope:
-    """What one export or deletion is about. Platform fills it — it owns the
+    """What one export is about. Platform fills it — it owns the
     organisation — so no context has to ask another:
 
     - `dealership_id`: the Betrieb (the tenant);
@@ -59,16 +59,13 @@ class ExportScope:
       Betrieb's own relationship only — the customers it created or its
       history names;
     - `group_is_single`: the group holds this one Betrieb only, so every
-      group-owned record is its own (a customer that predates provenance too);
-    - `sole_in_group`: at deletion, no other Betrieb of the group still holds
-      data (not yet erased) — only then are group-owned records deleted.
+      group-owned record is its own (a customer that predates provenance too).
     """
 
     dealership_id: uuid.UUID
     group_id: uuid.UUID
     references: Mapping[str, frozenset[uuid.UUID]] = dataclasses.field(default_factory=dict)
     group_is_single: bool = False
-    sole_in_group: bool = False
 
     def referenced(self, kind: str) -> frozenset[uuid.UUID]:
         return self.references.get(kind, frozenset())
@@ -87,33 +84,19 @@ def table_of(model: type) -> Table:
 class ExportedTable:
     """One table in the export. `scope` selects the Betrieb's rows.
     `omit_columns` never leave the database (none today holds a secret —
-    the secret tables are excluded whole). `erase=False` keeps the rows at
-    deletion; `keep_reason` then says why. `marks_write=False`: the table's
+    the secret tables are excluded whole). `marks_write=False`: the table's
     stamps move without the Betrieb writing anything."""
 
     table: Table
     scope: ScopeClause
     omit_columns: frozenset[str] = frozenset()
-    erase: bool = True
-    keep_reason: str | None = None
     marks_write: bool = True
-    # Erased only when `ExportScope.sole_in_group` (group-owned records, ADR-014).
-    group_owned: bool = False
-    # The rows the deletion removes, when they are not the exported ones: a
-    # group-owned table exports the Betrieb's relationship but, once no
-    # sister holds data, deletes the whole group's rows.
-    erase_scope: ScopeClause | None = None
-    # Tables whose rows this table's scope reads (a sub-select without a
-    # foreign key): their rows go after this table's at deletion.
-    depends_on: tuple[Table, ...] = ()
-    # False: not written into the archive (a secret, a session), only deleted
-    # after the retention period; `exclusion_reason` says why it stays out.
+    # False: the Betrieb's rows (its scope selects them) are not written into
+    # the archive — a secret, a session; `exclusion_reason` says why.
     in_archive: bool = True
     exclusion_reason: str | None = None
 
     def __post_init__(self) -> None:
-        if not self.erase and not self.keep_reason:
-            raise ValueError(f"{self.table.name}: a table kept at deletion needs its reason")
         if not self.in_archive and not self.exclusion_reason:
             raise ValueError(f"{self.table.name}: a table left out of the archive needs its reason")
 
@@ -143,12 +126,6 @@ class ExportFile:
     data: bytes
 
 
-@dataclasses.dataclass(frozen=True)
-class ErasureResult:
-    context: str
-    rows_deleted: int
-
-
 class Exporter(Protocol):
     context: str
 
@@ -167,16 +144,11 @@ class Exporter(Protocol):
 
     def last_write_at(self, db: Session, scope: ExportScope) -> dt.datetime | None: ...
 
-    def erase(self, session_factory: Callable[[], Session], scope: ExportScope) -> ErasureResult:
-        """Deletes the Betrieb's rows on a session of its own and commits
-        (ADR-047). Idempotent: a second run finds nothing left."""
-        ...
-
 
 class TableExporter:
-    """The common shape: a context lists its tables; reading, the last write
-    and the deletion are generic. A context overrides what it adds — its
-    documents, its files, its references, a step before the deletion."""
+    """The common shape: a context lists its tables; reading and the last
+    write are generic. A context overrides what it adds — its documents, its
+    files, its references."""
 
     context: str = ""
 
@@ -209,43 +181,6 @@ class TableExporter:
             if value is not None and (latest is None or value > latest):
                 latest = value
         return latest
-
-    def before_erase(self, db: Session, scope: ExportScope) -> int:
-        """A context's own step before its rows go (ends a secret at the
-        secrets manager, deletes a stored file). Returns rows it removed."""
-
-        return 0
-
-    def erasable_tables(self, scope: ExportScope) -> list[ExportedTable]:
-        return [spec for spec in self.exported_tables() if spec.erase and (scope.sole_in_group or not spec.group_owned)]
-
-    def erase(self, session_factory: Callable[[], Session], scope: ExportScope) -> ErasureResult:
-        db = session_factory()
-        try:
-            deleted = self.before_erase(db, scope)
-            specs = {spec.table: spec for spec in self.erasable_tables(scope)}
-            # Children before parents: a child's scope may be a sub-select on
-            # its parent, which must still be there when the child goes.
-            extra = [
-                (dependency, spec.table)
-                for spec in specs.values()
-                for dependency in spec.depends_on
-                if dependency in specs
-            ]
-            for table in reversed(sort_tables(list(specs), extra_dependencies=extra)):
-                spec = specs[table]
-                clause = (spec.erase_scope or spec.scope)(scope)
-                deleted += _rowcount(db.execute(delete(table).where(clause)))
-            db.commit()
-        finally:
-            db.close()
-        return ErasureResult(context=self.context, rows_deleted=deleted)
-
-
-def _rowcount(result: Any) -> int:
-    """How many rows a DML statement touched (a CursorResult's count)."""
-
-    return int(getattr(result, "rowcount", 0) or 0)
 
 
 class StubExporter(TableExporter):

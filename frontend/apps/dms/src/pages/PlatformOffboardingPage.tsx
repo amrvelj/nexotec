@@ -184,7 +184,6 @@ export function PlatformOffboardingPage() {
             {current.retentionUntil && (
               <Text fz="sm">{t('offboarding.fields.retentionUntil', { day: formatDateOnly(current.retentionUntil, locale) })}</Text>
             )}
-            {current.erasedAt && <Text fz="sm">{t('offboarding.fields.erasedAt', { when: stamp(current.erasedAt) })}</Text>}
           </SimpleGrid>
           {!offboarded && current.refusal && (
             <Alert color="yellow" variant="light" mt="sm" title={t('offboarding.notYet')}>
@@ -194,7 +193,7 @@ export function PlatformOffboardingPage() {
         </Paper>
       )}
 
-      {current && offboarded && !current.erasedAt && (
+      {current && offboarded && (
         <Paper withBorder radius="md" p="md">
           <Title order={5} mb="xs">
             {t('offboarding.archive.title')}
