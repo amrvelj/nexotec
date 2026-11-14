@@ -4,7 +4,7 @@ from decimal import Decimal
 from pydantic import Field, field_validator
 
 from app.core.schemas import CamelModel
-from app.core.validators import NormalisedVin
+from app.core.validators import NormalisedVinOrChassisNumber
 
 
 class RecordPurchaseRequest(CamelModel):
@@ -14,7 +14,7 @@ class RecordPurchaseRequest(CamelModel):
     purchase_date: dt.date
     purchase_invoice_ref: str | None = None
     landed_cost: Decimal | None = None
-    vin: NormalisedVin | None = Field(
+    vin: NormalisedVinOrChassisNumber | None = Field(
         default=None,
         description=(
             "KAN-446 (ADR-045, FR-V-04): the car's VIN. Required to book the purchase of a pipeline item, "
@@ -27,7 +27,11 @@ class RecordPurchaseRequest(CamelModel):
             "configuration carries a VIN, it must be that one (422 `configuration_vin_differs`, KAN-510; the "
             "VIN is corrected on the configuration). A trade-in whose configuration carries none is bought under "
             "the VIN its contract holds (the item's `tradeInVin`; 422 `trade_in_vin_differs`, KAN-536). On an item already in stock it may be sent and must be "
-            "the item's own (422 `purchase_vin_mismatch`)."
+            "the item's own (422 `purchase_vin_mismatch`). KAN-535 (ADR-103 as amended): a car first registered before "
+            "1981 may be bought under its chassis number (1 to 17 letters and digits) instead: its configuration "
+            "must carry that number (422 `chassis_number_requires_configuration`), a first registration before "
+            "1981 (422 `chassis_number_requires_pre_1981_registration`) and the make (422 "
+            "`chassis_number_requires_make`); its vehicle-mdm record is the number together with the make."
         ),
     )
 

@@ -20,7 +20,7 @@ import uuid
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.vehicle.models.vehicle_mdm import VehicleMdm
+from app.vehicle.models.vehicle_mdm import VehicleIdentifierKind, VehicleMdm
 from app.vehicle.services.plate import resolve_plate
 
 
@@ -49,7 +49,10 @@ def match_vehicle(
     group_id: uuid.UUID | None = None,
 ) -> MatchResult:
     if vin:
-        vehicle = db.scalar(select(VehicleMdm).where(VehicleMdm.vin == vin))
+        # KAN-535: a VIN finds a VIN record only; a chassis number is unique per make, never alone.
+        vehicle = db.scalar(
+            select(VehicleMdm).where(VehicleMdm.vin == vin, VehicleMdm.identifier_kind == VehicleIdentifierKind.VIN)
+        )
         if vehicle is not None:
             return MatchResult(rung="vin", vehicle=vehicle, decisive=True, requires_confirmation=False)
 

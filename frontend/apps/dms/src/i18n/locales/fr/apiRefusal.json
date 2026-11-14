@@ -170,7 +170,10 @@
     "contact_group_unknown": "Ce groupe de contacts n’existe pas.",
     "contact_group_not_enabled": "Ce groupe de contacts n’est pas activé dans votre entreprise. La direction l’active sous Administration › Groupes de contacts.",
     "contact_group_read_only": "Ce groupe de contacts n’est pas activé dans votre entreprise et ne peut pas être retiré ici.",
-    "customer_contact_group_exists": "Un groupe de contacts de cette modification figure déjà chez le client — il a été modifié entre-temps. Rechargez-le et réessayez."
+    "customer_contact_group_exists": "Un groupe de contacts de cette modification figure déjà chez le client — il a été modifié entre-temps. Rechargez-le et réessayez.",
+    "chassis_number_identity_fixed": "Ce véhicule est identifié par son numéro de châssis ; il ne peut pas être modifié ici.",
+    "chassis_number_requires_configuration": "Un véhicule avec un numéro de châssis au lieu d'un VIN est acheté via sa configuration : attribuez la configuration avec le numéro de châssis, la marque et la première mise en circulation («Attribuer une configuration»).",
+    "chassis_number_requires_make": "Un véhicule avec un numéro de châssis se distingue par sa marque : saisissez la marque dans sa configuration."
   },
   "accessWindow": {
     "between": "valable du {{from}} au {{to}}",

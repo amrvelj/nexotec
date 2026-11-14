@@ -27,8 +27,8 @@ Last verified against main@73baf3f (2026-10-25). -->
 # VINs in stock
 
 - **A VIN is in a dealership's stock at most once:** unique among items that have not left stock
-  (`uq_stock_item_tenant_id_vin_in_stock`); a second one, created or promoted, is 409
-  `vin_already_in_stock` with the holder, checked before vehicle-mdm is touched, and the index
+  (`uq_stock_item_tenant_id_iso_vin_in_stock`; a chassis number by its record, KAN-535); a second
+  one, created or promoted, is 409 `vin_already_in_stock` with the holder, checked before vehicle-mdm is touched, and the index
   refuses a racing writer with the same 409. A VIN sent with a create is upper-cased, stripped and
   validated as vehicle-mdm does; a client `vehicleId` is ignored (the item's `vehicle_id` is resolved
   from the VIN at purchase booking) and without a VIN refused (`vehicle_id_requires_vin`).

@@ -170,7 +170,10 @@
     "contact_group_unknown": "Questo gruppo di contatti non esiste.",
     "contact_group_not_enabled": "Questo gruppo di contatti non è attivo nella vostra azienda. La direzione lo attiva in Amministrazione › Gruppi di contatti.",
     "contact_group_read_only": "Questo gruppo di contatti non è attivo nella vostra azienda e qui non può essere tolto.",
-    "customer_contact_group_exists": "Un gruppo di contatti di questa modifica è già presente sul cliente: il cliente è stato modificato nel frattempo. Ricaricalo e riprova."
+    "customer_contact_group_exists": "Un gruppo di contatti di questa modifica è già presente sul cliente: il cliente è stato modificato nel frattempo. Ricaricalo e riprova.",
+    "chassis_number_identity_fixed": "Questo veicolo è identificato dal suo numero di telaio, che qui non può essere modificato.",
+    "chassis_number_requires_configuration": "Un veicolo con un numero di telaio al posto del VIN viene acquistato tramite la sua configurazione: assegni la configurazione con numero di telaio, marca e prima immatricolazione («Assegna configurazione»).",
+    "chassis_number_requires_make": "Un veicolo con numero di telaio si distingue per la marca: inserisca la marca nella sua configurazione."
   },
   "accessWindow": {
     "between": "valido dal {{from}} al {{to}}",

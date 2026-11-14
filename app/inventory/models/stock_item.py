@@ -82,6 +82,10 @@ class StockNumberSequence(Base):
     next_value: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
 
 
+# An ISO 3779 VIN in Postgres's regex syntax (KAN-535): the stock VIN indexes below.
+ISO_VIN_PATTERN = "^[A-HJ-NPR-Z0-9]{17}$"
+
+
 class StockItem(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, TimestampMixin, Base):
     __tablename__ = "stock_item"
     __table_args__ = (
@@ -110,13 +114,30 @@ class StockItem(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, TimestampMix
             postgresql_where=text("configuration_id IS NOT NULL"),
             sqlite_where=text("configuration_id IS NOT NULL"),
         ),
+        # KAN-535: the VIN index counts ISO 3779 VINs only — a pre-1981
+        # car's chassis number is unique per make (Anto, option A), so two
+        # cars of two makes may share one; such a car is in the dealership's
+        # stock at most once by its vehicle-mdm record instead. The pattern is
+        # `app.core.validators._VIN_RE`'s (tests/test_kan535_chassis_number_purchase.py
+        # keeps them equal). SQLite (the fast lane) has no `~`: it keeps the
+        # older, wider VIN predicate.
         Index(
-            "uq_stock_item_tenant_id_vin_in_stock",
+            "uq_stock_item_tenant_id_iso_vin_in_stock",
             "tenant_id",
             "vin",
             unique=True,
-            postgresql_where=text("vin IS NOT NULL AND left_stock_at IS NULL"),
+            postgresql_where=text(f"vin ~ '{ISO_VIN_PATTERN}' AND left_stock_at IS NULL"),
             sqlite_where=text("vin IS NOT NULL AND left_stock_at IS NULL"),
+        ),
+        Index(
+            "uq_stock_item_tenant_id_chassis_vehicle_in_stock",
+            "tenant_id",
+            "vehicle_id",
+            unique=True,
+            postgresql_where=text(
+                f"vehicle_id IS NOT NULL AND vin !~ '{ISO_VIN_PATTERN}' AND left_stock_at IS NULL"
+            ),
+            sqlite_where=text("vehicle_id IS NOT NULL AND left_stock_at IS NULL"),
         ),
         # WP-7 PR-2: the defense-in-depth half of consumer idempotency — the
         # outbox harness's ProcessedEvent table already stops the SAME

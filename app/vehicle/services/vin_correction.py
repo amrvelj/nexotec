@@ -39,7 +39,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.audit import record_audit_event
-from app.core.errors import ConflictError, NotFoundError
+from app.core.errors import ConflictError, NotFoundError, UnprocessableEntityError
 from app.core.outbox import OutboxEvent, publish
 
 if TYPE_CHECKING:
@@ -105,7 +105,7 @@ def correct_vehicle_vin(
     configuration is not the tenant's (404) or names a third VIN (422
     `configuration_vin_differs`)."""
 
-    from app.vehicle.models.vehicle_mdm import VehicleMdm
+    from app.vehicle.models.vehicle_mdm import VehicleIdentifierKind, VehicleMdm
     from app.vehicle.services.configuration import follow_vehicle_vin_correction
 
     action = "vin_correction_reverted" if compensation else "vin_corrected"
@@ -113,6 +113,14 @@ def correct_vehicle_vin(
         vehicle = own.scalar(select(VehicleMdm).where(VehicleMdm.id == vehicle_id).with_for_update(key_share=True))
         if vehicle is None:
             raise NotFoundError(f"Vehicle {vehicle_id} was not found.")
+        if vehicle.identifier_kind == VehicleIdentifierKind.CHASSIS_NUMBER:
+            # KAN-535: a pre-1981 car's chassis-number record is that number
+            # with its make; «VIN korrigieren» takes an ISO VIN and would make
+            # it another kind of record. Refused before anything is written.
+            raise UnprocessableEntityError(
+                f"Vehicle {vehicle.vehicle_number} is identified by its chassis number, which is not corrected here.",
+                details={"field": "newVin", "reason": "chassis_number_identity_fixed", "vehicleId": str(vehicle.id)},
+            )
         record_changed = False
         if include_record:
             record_changed = _correct_record(

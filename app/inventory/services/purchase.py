@@ -18,6 +18,7 @@ from app.core.base import utcnow
 from app.core.config import get_settings
 from app.core.errors import ConflictError, UnprocessableEntityError
 from app.core.outbox import OutboxEvent, publish
+from app.core.validators import is_chassis_number
 from app.inventory.models.stock_item import LifecycleStatus, StockItem
 from app.inventory.schemas.purchase import (
     NotionalInputTaxOverrideRequest,
@@ -107,11 +108,12 @@ def record_purchase(
         # «Konfiguration zuordnen» refuse it, before vehicle-mdm or the item
         # is touched. A configuration without a VIN (a factory order) takes
         # the typed one.
-        configuration_vin = None
-        if item.configuration_id is not None:
-            configuration_vin = get_configuration_for_host(
-                db, tenant_id=item.tenant_id, configuration_id=item.configuration_id
-            ).vin
+        configuration = (
+            get_configuration_for_host(db, tenant_id=item.tenant_id, configuration_id=item.configuration_id)
+            if item.configuration_id is not None
+            else None
+        )
+        configuration_vin = configuration.vin if configuration is not None else None
         # KAN-554 (ADR-116): a pipeline item created with its VIN is bought
         # under that VIN — the request may repeat it or leave it out, never
         # name another car. KAN-575 (Anto, 2026-11-07, option A): except that
@@ -146,8 +148,29 @@ def record_purchase(
         # checked above, decides alone when there is one.
         if trade_in_vin_differs(item, configuration_vin=configuration_vin, vin=vin):
             raise trade_in_vin_differs_error()
+        # KAN-535 (ADR-103 as amended; Anto, 2026-11-13, option A): a car
+        # first registered before 1981 is bought under its chassis number.
+        # Its vehicle-mdm record is that number together with its make, both
+        # read off its configuration — the one place the number was checked
+        # against the first registration (KAN-353) and the make typed. Without
+        # a configuration carrying the number there is no make to tell the car
+        # by: refused before vehicle-mdm or the item is touched.
+        chassis_make = first_registration = None
+        if is_chassis_number(vin):
+            if configuration is None or configuration.vin is None:
+                raise UnprocessableEntityError(
+                    "A car with a chassis number instead of a VIN is bought under its configuration: attach "
+                    "its configuration («Konfiguration zuordnen») with the chassis number, the make and the "
+                    "first registration.",
+                    details={"field": "vin", "reason": "chassis_number_requires_configuration", "stockItemId": str(item.id)},
+                )
+            chassis_make = configuration.brand_display_name or ""
+            first_registration = configuration.first_registration_date
         vin_before = item.vin
-        item = promote_and_flush(db, item=item, vin=vin, actor_id=actor_id, correct_vin=corrects_item_vin)
+        item = promote_and_flush(
+            db, item=item, vin=vin, actor_id=actor_id, correct_vin=corrects_item_vin,
+            chassis_make=chassis_make, first_registration_date=first_registration,
+        )
         if corrects_item_vin:
             record_audit_event(
                 db,
