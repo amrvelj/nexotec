@@ -58,12 +58,13 @@ class ExportJob(PrimaryKeyMixin, VersionedMixin, TimestampMixin, Base):
     # written before it is in the file.
     produced_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)
     # KAN-716: that snapshot itself (`pg_current_snapshot()`, as text), and
-    # the look-back — the earliest start of any transaction open just before
-    # it. A transaction begun before the snapshot and committed after stamps
-    # its rows before `produced_at`, yet they are not in the file; its rows
-    # are stamped after the look-back and written by an id at or after the
-    # snapshot's xmin, which offboarding checks. NULL on SQLite and for older
-    # exports.
+    # the look-back — the earliest start of any transaction of this database
+    # that had written just before it, less a margin for stamps taken early
+    # and clock skew (`data_export.LOOKBACK_MARGIN`). A transaction begun
+    # before the snapshot and committed after stamps its rows before
+    # `produced_at`, yet they are not in the file; offboarding refuses on a
+    # row stamped since the look-back whose writer id is at or after the
+    # snapshot's xmin. NULL on SQLite and for older exports.
     produced_snapshot: Mapped[str | None] = mapped_column(Text, nullable=True)
     produced_lookback_from: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)
     object_key: Mapped[str | None] = mapped_column(String(255), nullable=True)

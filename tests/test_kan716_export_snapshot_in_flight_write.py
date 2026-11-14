@@ -9,11 +9,13 @@ snapshot does not see.
 On Postgres, with two sessions.
 """
 
+import datetime as dt
 import uuid
 
 from sqlalchemy import text
 from sqlalchemy.orm import sessionmaker
 
+from app.core.base import utcnow
 from app.platform.models.export_job import ExportJob
 from app.platform.organisation.models.dealership import Dealership
 from tests.data_export_support import (
@@ -108,5 +110,28 @@ def test_a_write_inside_a_savepoint_of_a_transaction_in_flight_is_seen_too(clien
     finally:
         writer.close()
         other.close()
+
+    assert _reason(_offboard(client, dealership_id)) == "export_out_of_date"
+
+
+def test_a_row_stamped_before_its_transaction_wrote_is_seen_too(client, export_store, engine):
+    """The second review's case: a service takes `now` early and writes it
+    later, so a transaction that held no id when the look-back was read
+    stamps its row minutes before the export. The look-back's margin keeps
+    the row in view; its writer id (after the snapshot) refuses."""
+
+    dealership_id, _, headers = betrieb_with_manager(client)
+    early = utcnow() - dt.timedelta(minutes=5)
+    writer = sessionmaker(bind=engine, expire_on_commit=False)()
+    try:
+        row = writer.get(Dealership, uuid.UUID(dealership_id))  # begun, nothing written yet
+
+        exported_and_acknowledged(client, engine, dealership_id, headers)
+
+        row.trade_name = "Früh gestempelt"
+        row.updated_at = early
+        writer.commit()
+    finally:
+        writer.close()
 
     assert _reason(_offboard(client, dealership_id)) == "export_out_of_date"

@@ -15,6 +15,13 @@ its channel the empty feed, and the next delivered feed of its channel
 clears it. Reading it as gone would hide exactly the listings this ticket is
 about.
 
+Not covered: a row whose last attempt FAILED while an earlier feed of it is
+still live (the ticket's second case, already in that state before this
+migration). It reads `false` — counting every FAILED row as held would also
+count listings never delivered at all, which could block an offboarding
+with no connection left; that trade is Anto's (KAN-718 comment). Rows
+written after this migration record the case themselves.
+
 Revision ID: b7180a3c9d14
 Revises: 8e41c7a95b03
 Create Date: 2026-11-14

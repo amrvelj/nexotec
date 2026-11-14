@@ -224,6 +224,12 @@ def _object_key(job: ExportJob) -> str:
     return f"dealerships/{job.dealership_id}/exports/{job.id}.zip"
 
 
+# KAN-716: how far before the oldest writing transaction the look-back
+# reaches — stamps taken early, clock skew between the application and the
+# database (see `_snapshot_session`).
+LOOKBACK_MARGIN = dt.timedelta(hours=1)
+
+
 @dataclasses.dataclass(frozen=True)
 class _Snapshot:
     session: Session
@@ -239,13 +245,17 @@ def _snapshot_session(db: Session) -> _Snapshot:
     KAN-716, the snapshot itself (`pg_current_snapshot()` as text) and the
     look-back: the earliest start of any transaction of this database that
     had written (holds an id) just before it, read first on a connection of
-    its own. A transaction still open when the snapshot begins either had
-    written by then (its start is the look-back or later) or writes only
-    after that read — its rows are stamped when they are flushed — so every
-    row it writes is stamped at or after the look-back. Stamps are the application's clock and the
-    look-back the database's; the timestamp check before KAN-716 relied on
-    the same agreement. Transactions of another database role are not
-    listed to this one; none writes a Betrieb's rows."""
+    its own, less `LOOKBACK_MARGIN`. A transaction still open when the
+    snapshot begins either had written by then (its start bounds its
+    stamps) or writes only after that read. A stamp is the application's
+    clock, taken in Python before its row reaches the database, sometimes
+    earlier still (a service takes `now` once and writes it later), and the
+    application's clock may lag the database's: the margin covers all of
+    that. It costs no precision — offboarding also asks that the row's
+    writer id be at or after the snapshot's xmin; the stamp only keeps old
+    rows, whose ids may have wrapped or been frozen, out of that test.
+    Transactions of another database role are not listed to this one; none
+    writes a Betrieb's rows."""
 
     engine = db.get_bind().engine
     if engine.dialect.name != "postgresql":
@@ -262,7 +272,7 @@ def _snapshot_session(db: Session) -> _Snapshot:
     # The first statement takes the snapshot; now() is its transaction's
     # start, and pg_current_snapshot() is that same snapshot.
     produced_at, snapshot_text = snapshot.execute(select(func.now(), func.pg_current_snapshot().cast(Text))).one()
-    lookback = min(read_at, oldest_open) if oldest_open is not None else read_at
+    lookback = (min(read_at, oldest_open) if oldest_open is not None else read_at) - LOOKBACK_MARGIN
     return _Snapshot(session=snapshot, produced_at=produced_at or utcnow(), text=snapshot_text, lookback_from=lookback)
 
 
