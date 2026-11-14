@@ -36,6 +36,7 @@ from app.integration.schemas.connection import (
     UsageRead,
 )
 from app.integration.services import connections as connection_service
+from app.integration.services.account_identifier import account_identifier
 from app.integration.services import gateway
 from app.integration.services import providers as provider_service
 
@@ -79,6 +80,11 @@ def _connection_read(db: Session, connection: IntegrationConnection) -> Connecti
         last_error=connection.last_error,
         expires_at=connection.expires_at,
         rotated_at=connection.rotated_at,
+        account_identifier=account_identifier(provider.provider_code, connection.config),
+        location_id=connection.location_id,
+        location_label=connection.location_label,
+        location_bindable=provider.category in connection_service.LOCATION_BINDABLE_CATEGORIES
+        and connection.tenant_id is not None,
         secret_slots=[SecretSlotRead.model_validate(s, from_attributes=True) for s in secret_slots],
         entitlements=[EntitlementRead.model_validate(e, from_attributes=True) for e in entitlements],
         version=connection.version,

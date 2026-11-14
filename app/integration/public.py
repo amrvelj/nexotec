@@ -23,6 +23,10 @@ or `None` — "never probed or declared" is a fact this registry reports, not
 a policy it applies; `app.vehicle.services.catalogue_entitlements` is the
 one place that decides what `None` should mean for a given screen.
 
+`refresh_location_labels` / `oldest_location_label_age_seconds` (KAN-222)
+are the nightly refresh of a connection's copy of its location's name and its
+age gauge, which the worker registers and records like every label refresh.
+
 No mapped class leaves through this door (KAN-123): `get_enabled_connection`
 answers a `ConnectionRef` (the connection's id and its Betrieb), which
 `call_capability` and `resolve_adapter` take back, refusing a row of another
@@ -104,6 +108,7 @@ from app.integration.services.connection_refs import (
 )
 from app.integration.services.connections import MARKETPLACE_PUBLISH_CAPABILITY
 from app.integration.services.data_export import IntegrationExporter
+from app.integration.services.location_labels import oldest_location_label_age_seconds, refresh_location_labels
 from app.integration.services.gateway import (
     ConnectionDisabledError,
     UnknownProviderError,
@@ -153,6 +158,8 @@ __all__ = [
     "get_captions",
     "get_enabled_connection",
     "get_entitlement",
+    "oldest_location_label_age_seconds",
+    "refresh_location_labels",
     "resolve_adapter",
     "valuation_granted",
     "vin_decode_granted",

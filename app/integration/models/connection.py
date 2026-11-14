@@ -100,3 +100,13 @@ class IntegrationConnection(PrimaryKeyMixin, VersionedMixin, TimestampMixin, Bas
     # secret slots (a plain password, an AES key) don't expire on a timer.
     expires_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)
     rotated_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)
+    # KAN-222 (FR-A-21): the site a connection serves — an AutoScout24 branch
+    # number is per location. Rule 2's three-column pattern: the platform
+    # context's location id (never a foreign key), its name as copied at
+    # binding time, and when that copy was last refreshed (the nightly
+    # `integration.location_labels` job). NULL = the whole Betrieb.
+    location_id: Mapped[uuid.UUID | None] = mapped_column(
+        GUID(), nullable=True, index=True, comment="Owned by the platform context (Location.id). No DB-level FK."
+    )
+    location_label: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    location_label_refreshed_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)

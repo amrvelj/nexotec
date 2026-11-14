@@ -26,6 +26,7 @@ from app.integration.schemas.connection import ConnectionCreate, ConnectionUpdat
 from app.integration.services import providers as provider_service
 from app.integration.services import secrets_backend
 from app.integration.services.secrets_backend import SecretsBackendNotConfigured
+from app.platform.public import get_location_or_404
 
 _ENTITY_TYPE = "integration_connection"
 
@@ -284,14 +285,70 @@ def create_connection(
     return connection
 
 
+# KAN-222 (FR-A-21): the categories whose accounts are per site — an
+# AutoScout24 branch number, a location's mailbox (`calendar_mail`, when its
+# provider ships). A vehicle-data account serves the whole Betrieb.
+LOCATION_BINDABLE_CATEGORIES = frozenset({"marketplace", "calendar_mail"})
+
+
+def _bind_location(
+    db: Session, *, connection: IntegrationConnection, provider: IntegrationProvider, location_id: uuid.UUID | None
+) -> tuple[str | None, str | None] | None:
+    """Bind (or, with None, unbind) the connection to one of its own Betrieb's
+    locations, copying the location's name beside its id (rule 2). The
+    location is read through `platform.public`; another Betrieb's location, or
+    one that does not exist, is the same 422 `unknown_location` — a reference
+    in a request body, refused without confirming that it exists (the
+    locations screen's rule for a bank account, KAN-204). Returns the audit
+    (before, after) pair, or None when nothing changed."""
+
+    if location_id == connection.location_id:
+        return None
+    label: str | None = None
+    if location_id is not None:
+        if connection.tenant_id is None:
+            raise UnprocessableEntityError(
+                "A platform-wide connection serves no location.",
+                details={"reason": "location_binding_needs_tenant"},
+            )
+        if provider.category not in LOCATION_BINDABLE_CATEGORIES:
+            raise UnprocessableEntityError(
+                f"A {provider.display_name} connection serves the whole Betrieb and is not bound to a location.",
+                details={"reason": "location_binding_not_supported", "category": provider.category},
+            )
+        try:
+            location = get_location_or_404(db, dealership_id=connection.tenant_id, location_id=location_id)
+        except NotFoundError:
+            raise UnprocessableEntityError(
+                "The location is not one of this Betrieb's.",
+                details={"reason": "unknown_location", "locationId": str(location_id)},
+            ) from None
+        label = location.name
+    before = str(connection.location_id) if connection.location_id is not None else None
+    connection.location_id = location_id
+    connection.location_label = label
+    connection.location_label_refreshed_at = utcnow() if location_id is not None else None
+    return before, str(location_id) if location_id is not None else None
+
+
 def update_connection(
     db: Session, *, connection: IntegrationConnection, data: ConnectionUpdate, actor_id: uuid.UUID | None
 ) -> IntegrationConnection:
+    provider = provider_service.get_provider_or_404(db, connection.provider_id)
     if data.config is not None:
-        provider = provider_service.get_provider_or_404(db, connection.provider_id)
         _validate_required_config(provider, data.config)
-    for field, value in data.model_dump(exclude_unset=True).items():
+    changes = data.model_dump(exclude_unset=True)
+    binding = None
+    if "location_id" in changes:
+        binding = _bind_location(db, connection=connection, provider=provider, location_id=changes.pop("location_id"))
+    for field, value in changes.items():
         setattr(connection, field, value)
+    if binding is not None:
+        record_audit_event(
+            db, entity_type=_ENTITY_TYPE, entity_id=connection.id, tenant_id=connection.tenant_id,
+            action="bind_location", actor_id=actor_id,
+            before={"locationId": binding[0]}, after={"locationId": binding[1]},
+        )
     connection.updated_by = actor_id
     connection.version += 1
     db.commit()

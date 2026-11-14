@@ -6161,6 +6161,8 @@ export interface components {
         };
         /** ConnectionRead */
         ConnectionRead: {
+            /** Accountidentifier */
+            accountIdentifier: string | null;
             /** Config */
             config: {
                 [key: string]: unknown;
@@ -6188,6 +6190,12 @@ export interface components {
             lastError: string | null;
             /** Lastverifiedat */
             lastVerifiedAt: string | null;
+            /** Locationbindable */
+            locationBindable: boolean;
+            /** Locationid */
+            locationId: string | null;
+            /** Locationlabel */
+            locationLabel: string | null;
             /** Providercode */
             providerCode: string;
             /**
@@ -6231,6 +6239,8 @@ export interface components {
             displayName?: string | null;
             /** Expiresat */
             expiresAt?: string | null;
+            /** Locationid */
+            locationId?: string | null;
         };
         /**
          * ConsentScope
