@@ -11,6 +11,7 @@ export const GATED_CAPABILITIES = [
   'configurations',
   'customer_vehicle_links',
   'dealership_settings',
+  'document_templates',
   'locations',
   'marketplace_publishing',
   'number_ranges',

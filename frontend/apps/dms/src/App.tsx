@@ -37,6 +37,7 @@ const BusinessPage = lazyPage(() => import('./pages/BusinessPage'), 'BusinessPag
 const LocationsListPage = lazyPage(() => import('./pages/LocationsListPage'), 'LocationsListPage')
 const LocationDetailPage = lazyPage(() => import('./pages/LocationDetailPage'), 'LocationDetailPage')
 const BrandingPage = lazyPage(() => import('./pages/BrandingPage'), 'BrandingPage')
+const LetterheadPage = lazyPage(() => import('./pages/LetterheadPage'), 'LetterheadPage')
 const StandardTextsPage = lazyPage(() => import('./pages/StandardTextsPage'), 'StandardTextsPage')
 const NumberRangesPage = lazyPage(() => import('./pages/NumberRangesPage'), 'NumberRangesPage')
 const ContactGroupsPage = lazyPage(() => import('./pages/ContactGroupsPage'), 'ContactGroupsPage')
@@ -114,6 +115,7 @@ export default function App() {
               <Route path="/administration/locations" element={<LocationsListPage />} />
               <Route path="/administration/locations/:locationId" element={<LocationDetailPage />} />
               <Route path="/administration/branding" element={<BrandingPage />} />
+              <Route path="/administration/letterhead" element={<LetterheadPage />} />
               {/* KAN-208 — Dealer Administration › Standard texts (any role reads; writes per category). */}
               <Route path="/administration/texts" element={<StandardTextsPage />} />
               <Route path="/administration/number-ranges" element={<NumberRangesPage />} />

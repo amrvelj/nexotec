@@ -54,6 +54,9 @@
     "country": "Country",
     "countryHint": "Country code, e.g. CH, DE, LI.",
     "phone": "Phone",
+    "email": "E-mail",
+    "website": "Website",
+    "contactHint": "Appears in the footer of every document.",
     "overrides": "Different correspondence or billing address",
     "correspondenceDiffers": "Post goes to an address other than the registered seat",
     "billingDiffers": "Nexotec's invoices go to another address (e.g. the group's accounting office)"

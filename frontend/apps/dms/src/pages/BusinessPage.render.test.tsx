@@ -24,6 +24,8 @@ const DEALERSHIP = {
   correspondenceAddress: null,
   billingAddress: null,
   phone: '+41441234567',
+  email: null,
+  website: null,
   uid: 'CHE-123.456.788',
   vatNumber: 'CHE-123.456.788 MWST',
   vatLiable: true,
@@ -280,6 +282,22 @@ describe('BusinessPage (KAN-203)', () => {
     expect(settingsCalls[1].headers.get('If-Match')).toBe('2')
     expect(settingsCalls[1].body).toEqual({ cashRounding: '1.00' })
     expect(fiscal.queryByRole('alert')).toBeNull()
+  })
+
+  it("saves the Betrieb's e-mail and website for the documents' footer (KAN-206)", async () => {
+    const backend = installFakeBackend(
+      routes([{ method: 'PATCH', match: /\/dealerships\/dealership-1$/, handler: (req) => ({ ...DEALERSHIP, ...(req.body as object), version: 4 }) }]),
+    )
+    const user = userEvent.setup()
+    renderWithProviders(<BusinessPage />, { route: '/administration/business' })
+    const addresses = within(await screen.findByRole('region', { name: 'Adressen' }))
+    await user.type(addresses.getByRole('textbox', { name: (n) => n.startsWith('E-Mail') }), 'info@garage-test.ch')
+    await user.type(addresses.getByRole('textbox', { name: (n) => n.startsWith('Website') }), 'www.garage-test.ch')
+    await user.click(addresses.getByRole('button', { name: 'Speichern' }))
+    await waitFor(() => expect(backend.callsTo(/\/dealerships\/dealership-1$/, 'PATCH')).toHaveLength(1))
+    const call = backend.callsTo(/\/dealerships\/dealership-1$/, 'PATCH')[0]
+    expect(call.body).toEqual({ email: 'info@garage-test.ch', website: 'www.garage-test.ch' })
+    expect(call.headers.get('If-Match')).toBe('3')
   })
 
   it('the bank-account dialog drops a QR-IBAN once the reference type no longer takes it, and a 422 names the field', async () => {

@@ -30,6 +30,15 @@ facts Sales holds as placeholder values. A token it cannot fill fails the
 generation (422, A-RULE-4) before anything is written; the rendered text is
 frozen into content_definition like every label.
 
+KAN-206 (Anto, 2026-11-12, Q2 A): both documents end in signature lines —
+the offer's for its responsible seller, the contract's for the buyer and the
+seller — and the seller's line carries the seller's signature image. Only
+the seller's user id is frozen; platform's renderer reads the image when the
+document is printed, so a reprint shows the current one (stationery is
+current). An offer document printed while its offer is still a draft carries
+the Betrieb's draft watermark («ENTWURF», when its template has it on); a
+contract document never does — a contract is printed to be signed.
+
 ADR-057: exactly one VAT line, computed at the dealership's own
 dealer_settings.vat_rate — never a second source of truth, never a net
 price, never a rate breakdown across multiple lines.
@@ -48,12 +57,14 @@ from app.platform.public import (
     Addressee,
     ContentDefinition,
     DocumentLine,
+    DocumentWatermark,
     KeyValueBlock,
     KeyValueRow,
     LineItemsBlock,
     LineStyle,
     ParagraphBlock,
     Placeholder,
+    SignatureBlock,
     StandardTextAppliesTo,
     StandardTextCategory,
     StandardTextSlot,
@@ -66,7 +77,7 @@ from app.sales.i18n import t
 from app.sales.models.contract import SalesContract
 from app.sales.models.document import DocumentOwnerType, SalesDocument
 from app.sales.models.line_item import LineItemKind, SalesLineItem
-from app.sales.models.offer import SalesOffer
+from app.sales.models.offer import OfferStatus, SalesOffer
 from app.sales.services.contract_completeness import require_complete
 from app.sales.services.deal_projection import upsert_deal_projection
 from app.sales.services.priced_deal import require_no_live_contract
@@ -230,6 +241,12 @@ def build_offer_content(
                     language=language,
                 )
             ),
+            # KAN-206: the responsible seller signs the offer — named under
+            # the line, their signature image above it at print time.
+            SignatureBlock(
+                labels=[offer.owner_label or t(language, "signature.seller")],
+                signer_user_ids=[offer.owner_user_id],
+            ),
         ],
     )
 
@@ -262,6 +279,12 @@ def build_contract_content(
                     vat_rate=vat_rate,
                     language=language,
                 )
+            ),
+            # KAN-206: the buyer signs by hand; the seller's line carries the
+            # responsible seller's signature image at print time (Q2 A).
+            SignatureBlock(
+                labels=[t(language, "signature.buyer"), t(language, "signature.seller")],
+                signer_user_ids=[None, contract.owner_user_id],
             ),
         ],
     )
@@ -463,4 +486,23 @@ def render_document_pdf(db: Session, *, document: SalesDocument, dealership_id: 
 
     content = ContentDefinition.model_validate(document.content_definition)
     language = SwissLanguage(document.correspondence_language)
-    return render_document(db, dealership_id=dealership_id, correspondence_language=language, content=content)
+    return render_document(
+        db,
+        dealership_id=dealership_id,
+        correspondence_language=language,
+        content=content,
+        watermark=DocumentWatermark.DRAFT if _is_draft(db, document) else None,
+    )
+
+
+def _is_draft(db: Session, document: SalesDocument) -> bool:
+    """KAN-206: an offer's document is a draft while its offer is — read when
+    it is printed, so the same document prints clean once the offer is
+    finalised. A contract's document is never a draft."""
+
+    if document.owner_type != DocumentOwnerType.OFFER:
+        return False
+    status = db.scalar(
+        select(SalesOffer.status).where(SalesOffer.id == document.owner_id, SalesOffer.tenant_id == document.tenant_id)
+    )
+    return status == OfferStatus.DRAFT

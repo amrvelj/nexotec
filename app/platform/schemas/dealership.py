@@ -1,8 +1,10 @@
 import datetime as dt
+import re
 import uuid
 from decimal import Decimal
+from typing import Annotated
 
-from pydantic import Field, model_validator
+from pydantic import AfterValidator, EmailStr, Field, model_validator
 
 from app.core.schemas import CamelModel
 from app.core.validators import (
@@ -14,6 +16,22 @@ from app.core.validators import (
 )
 from app.platform.models.dealership import LEGAL_IDENTITY_FIELDS, DealershipStatus, FranchiseType
 from app.platform.schemas.patch import refuse_null_on_not_null_fields
+
+_WEBSITE_RE = re.compile(r"^(https?://)?[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+(:[0-9]{1,5})?(/[^\s]*)?$")
+
+
+def _validate_website(value: str) -> str:
+    """KAN-206: the Betrieb's website as it prints in the document footer —
+    a host name with at least one dot, optionally with http(s):// and a
+    path; no spaces. Stored as written (trimmed)."""
+
+    value = value.strip()
+    if not _WEBSITE_RE.match(value):
+        raise ValueError("website must be a web address such as www.garage-muster.ch.")
+    return value
+
+
+Website = Annotated[str, AfterValidator(_validate_website)]
 
 
 class DealershipAddress(CamelModel):
@@ -114,6 +132,9 @@ class DealershipUpdate(CamelModel):
     correspondence_address: DealershipOverrideAddress | None = None
     billing_address: DealershipOverrideAddress | None = None
     phone: E164Phone | None = None
+    # KAN-206 (Q4 C): the footer's contact column; null clears either.
+    email: EmailStr | None = Field(default=None, max_length=254)
+    website: Website | None = Field(default=None, max_length=200)
     uid: SwissUid | None = None
     vat_number: SwissVatNumber | None = None
     vat_liable: bool | None = None
@@ -150,6 +171,8 @@ class DealershipUpdate(CamelModel):
             self,
             nullable={
                 "trade_name",
+                "email",
+                "website",
                 "oem_affiliations",
                 "correspondence_address",
                 "billing_address",
@@ -186,6 +209,8 @@ class DealershipRead(CamelModel):
     correspondence_address: DealershipOverrideAddress | None
     billing_address: DealershipOverrideAddress | None
     phone: str
+    email: str | None
+    website: str | None
     # None only on a row KAN-197's migration could not convert (reported).
     uid: str | None
     vat_number: str | None

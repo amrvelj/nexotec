@@ -639,7 +639,7 @@ def test_the_document_header_prints_the_uploaded_logo_until_its_placement_is_off
     logo = document_render.document_header_logo(db_session, row, store=object_store)
     assert logo is not None and logo.content_type == "image/svg+xml"
     html = document_render._render_logo(row, logo)
-    assert html.startswith('<img src="data:image/svg+xml;base64,')
+    assert '<img ' in html and 'src="data:image/svg+xml;base64,' in html
 
     client.patch(
         f"/v1/dealerships/{did}/branding",

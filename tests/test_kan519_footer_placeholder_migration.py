@@ -17,7 +17,7 @@ from decimal import Decimal
 
 import psycopg
 import pytest
-from sqlalchemy import bindparam, create_engine, text
+from sqlalchemy import bindparam, create_engine, insert, text
 from sqlalchemy.orm import Session
 
 from app.core.errors import UnprocessableEntityError
@@ -70,14 +70,18 @@ def _dealership(session: Session, name: str) -> uuid.UUID:
     group = DealerGroup(name=f"{name} group")
     session.add(group)
     session.flush()
-    dealership = Dealership(
-        dealer_group_id=group.id, legal_name=name, franchise_type=FranchiseType.INDEPENDENT,
-        address_street="Bahnhofstrasse", address_house_number="1", address_postal_code="8001",
-        address_locality="Zürich", address_canton="ZH", phone="+41441234567", uid=valid_uid(),
-    )
-    session.add(dealership)
-    session.flush()
-    return dealership.id
+    # A Core insert names only the columns given (and those with a Python
+    # default), so a dealership column added after this revision (KAN-206's
+    # `email`, `website`) is not sent to a database that predates it.
+    return session.execute(
+        insert(Dealership)
+        .values(
+            dealer_group_id=group.id, legal_name=name, franchise_type=FranchiseType.INDEPENDENT,
+            address_street="Bahnhofstrasse", address_house_number="1", address_postal_code="8001",
+            address_locality="Zürich", address_canton="ZH", phone="+41441234567", uid=valid_uid(),
+        )
+        .returning(Dealership.id)
+    ).scalar_one()
 
 
 def _carried_over(conn) -> list[tuple[uuid.UUID, str, str, str]]:

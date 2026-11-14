@@ -23,6 +23,8 @@ interface AddressForm {
 interface Form {
   seat: AddressForm
   phone: string
+  email: string
+  website: string
   correspondenceDiffers: boolean
   correspondence: AddressForm
   billingDiffers: boolean
@@ -37,6 +39,8 @@ const addressForm = (a: DealershipAddress | DealershipOverrideAddress | null | u
 const toForm = (d: DealershipRead): Form => ({
   seat: addressForm(d.address),
   phone: d.phone,
+  email: d.email ?? '',
+  website: d.website ?? '',
   correspondenceDiffers: d.correspondenceAddress != null,
   correspondence: addressForm(d.correspondenceAddress ?? d.address),
   billingDiffers: d.billingAddress != null,
@@ -62,6 +66,11 @@ function changesOf(d: DealershipRead, f: Form): DealershipUpdate {
   const seat: DealershipAddress = { ...toOverride(f.seat), canton: f.seat.canton ?? '' }
   if (!same(seat, d.address)) c.address = seat
   if (f.phone.trim() !== d.phone) c.phone = f.phone.trim()
+  // KAN-206 (Q4 C): the footer's contact column — empty clears it.
+  const email = f.email.trim() || null
+  if (email !== (d.email ?? null)) c.email = email
+  const website = f.website.trim() || null
+  if (website !== (d.website ?? null)) c.website = website
   const correspondence = f.correspondenceDiffers ? toOverride(f.correspondence) : null
   if (!same(correspondence, d.correspondenceAddress ?? null)) c.correspondenceAddress = correspondence
   const billing = f.billingDiffers ? toOverride(f.billing) : null
@@ -115,6 +124,7 @@ function AddressFields({ value, onChange, idPrefix, seat, extra }: { value: Addr
  */
 export function AddressesSection({ dealership }: { dealership: DealershipRead }) {
   const { t } = useTranslation()
+  const hint = useFieldHint()
   const { form, set, dirty, markSaved, loaded } = useRecordForm(dealership, useCallback(toForm, []))
   const patch = useDealershipPatch(dealership.id)
   const changes = changesOf(loaded, form)
@@ -138,6 +148,23 @@ export function AddressesSection({ dealership }: { dealership: DealershipRead })
           seat
           extra={<TextInput label={t('business.addresses.phone')} value={form.phone} onChange={(e) => set('phone', e.currentTarget.value)} placeholder="+41 44 …" required />}
         />
+        <SimpleGrid cols={{ base: 1, sm: 2 }}>
+          <TextInput
+            id="seat-email"
+            {...hint(t('business.addresses.email'), t('business.addresses.contactHint'))}
+            type="email"
+            value={form.email}
+            onChange={(e) => set('email', e.currentTarget.value)}
+            placeholder="info@…"
+          />
+          <TextInput
+            id="seat-website"
+            {...hint(t('business.addresses.website'), t('business.addresses.contactHint'))}
+            value={form.website}
+            onChange={(e) => set('website', e.currentTarget.value)}
+            placeholder="www.…"
+          />
+        </SimpleGrid>
         <ProgressiveDisclosure label={t('business.addresses.overrides')}>
           <Stack gap="md">
             <Switch label={t('business.addresses.correspondenceDiffers')} checked={form.correspondenceDiffers} onChange={(e) => set('correspondenceDiffers', e.currentTarget.checked)} />

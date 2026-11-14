@@ -19,6 +19,7 @@ import {
   LifeBuoy,
   MapPin,
   Palette,
+  FileImage,
   Plug,
   Receipt,
   ShieldCheck,
@@ -110,6 +111,9 @@ function buildNavGroups(t: (key: string) => string): NavGroupConfig[] {
         // KAN-205 — Dealer Administration › Logo and colours (PRD "Logo and
         // brand assets"). Any role reads, the manager writes; never role-hidden.
         { label: t('shell.nav.branding'), href: '/administration/branding', icon: Palette, status: 'active' },
+        // KAN-206 — Dealer Administration › Letterhead and template (PRD «Branding and
+        // documents»). Any role reads; the manager writes and previews. Never role-hidden.
+        { label: t('shell.nav.letterhead'), href: '/administration/letterhead', icon: FileImage, status: 'active' },
         { label: t('shell.nav.users'), href: '/administration/users', icon: UserCog, status: 'active' },
         // KAN-208 — Dealer Administration › Standard texts. Any role reads; a
         // category is written by the manager or its delegate (FR-A-28) — the
