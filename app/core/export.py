@@ -42,7 +42,7 @@ import zipfile
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from typing import Any, BinaryIO, Protocol, cast
 
-from sqlalchemy import ColumnElement, Table, func, select
+from sqlalchemy import ColumnElement, Table, func, literal, select, text
 from sqlalchemy.orm import Session
 
 FORMAT_VERSION = 1
@@ -145,6 +145,35 @@ class Exporter(Protocol):
 
     def last_write_at(self, db: Session, scope: ExportScope) -> dt.datetime | None: ...
 
+    def wrote_outside_snapshot(self, db: Session, scope: ExportScope, snapshot: str) -> bool:
+        """KAN-716: a row `last_write_at` counts whose writer the export's
+        Postgres snapshot (`pg_current_snapshot()` as text) does not see — a
+        transaction in flight when the snapshot began, or a later one."""
+        ...
+
+
+def outside_snapshot(table: Table, snapshot: str) -> ColumnElement[bool]:
+    """KAN-716: the row's last writer (its `xmin`) is not visible in
+    `snapshot` — committed after it began, or still running. Postgres only.
+
+    `xmin` is a 32-bit transaction id; it is widened to the 64-bit id
+    `pg_visible_in_snapshot` takes against the snapshot's own xmin (an id
+    within 2^31 of it is in its epoch or a neighbouring one — anything older
+    is frozen long before, autovacuum's freeze age being far below 2^31).
+    The ids below 3 (bootstrap, frozen) are visible to every snapshot."""
+
+    reference = "pg_snapshot_xmin(CAST(:kan716_snapshot AS pg_snapshot))::text::bigint"
+    own = f"{table.name}.xmin::text::bigint"
+    widened = (
+        f"(({reference} & ~4294967295::bigint) | {own})"
+        f" + CASE WHEN (({reference} & ~4294967295::bigint) | {own}) > {reference} + 2147483648 THEN -4294967296"
+        f" WHEN (({reference} & ~4294967295::bigint) | {own}) < {reference} - 2147483648 THEN 4294967296 ELSE 0 END"
+    )
+    clause = text(
+        f"NOT ({own} < 3 OR pg_visible_in_snapshot(({widened})::text::xid8, CAST(:kan716_snapshot AS pg_snapshot)))"
+    ).bindparams(kan716_snapshot=snapshot)
+    return cast(ColumnElement[bool], clause)
+
 
 class TableExporter:
     """The common shape: a context lists its tables; reading and the last
@@ -182,6 +211,17 @@ class TableExporter:
             if value is not None and (latest is None or value > latest):
                 latest = value
         return latest
+
+    def wrote_outside_snapshot(self, db: Session, scope: ExportScope, snapshot: str) -> bool:
+        for spec in self.exported_tables():
+            if not spec.marks_write or not spec.in_archive:
+                continue
+            found = db.scalar(
+                select(literal(1)).select_from(spec.table).where(spec.scope(scope), outside_snapshot(spec.table, snapshot)).limit(1)
+            )
+            if found is not None:
+                return True
+        return False
 
 
 class StubExporter(TableExporter):

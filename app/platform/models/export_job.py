@@ -57,6 +57,11 @@ class ExportJob(PrimaryKeyMixin, VersionedMixin, TimestampMixin, Base):
     # The moment the export's snapshot of the data was taken: everything
     # written before it is in the file.
     produced_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)
+    # KAN-716: that snapshot itself (`pg_current_snapshot()`, as text) — a
+    # transaction begun before it and committed after stamps its rows before
+    # `produced_at`, yet they are not in the file; offboarding judges each
+    # row's writer against this. NULL on SQLite and for older exports.
+    produced_snapshot: Mapped[str | None] = mapped_column(Text, nullable=True)
     object_key: Mapped[str | None] = mapped_column(String(255), nullable=True)
     byte_size: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     download_expires_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)

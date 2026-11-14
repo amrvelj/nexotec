@@ -116,7 +116,21 @@ def readiness(db: Session, dealership: Dealership) -> OffboardingReadiness:
     assert export.produced_at is not None  # the query selects only produced exports
     if last is not None and last >= export.produced_at:
         return OffboardingReadiness(last, export, "export_out_of_date")
+    if export.produced_snapshot is not None and wrote_outside_snapshot(db, dealership, export.produced_snapshot):
+        return OffboardingReadiness(last, export, "export_out_of_date")
     return OffboardingReadiness(last, export, None)
+
+
+def wrote_outside_snapshot(db: Session, dealership: Dealership, snapshot: str) -> bool:
+    """KAN-716 (FR-A-45): a write of the Betrieb the export's snapshot does
+    not see. A transaction begun before the snapshot and committed after it
+    stamps its rows with its own, earlier time, so `last_write_at` alone
+    passes them; each row's writer (`xmin`) is judged against the recorded
+    snapshot instead. Postgres only — an export carries a snapshot only
+    there."""
+
+    scope = scope_for(db, dealership)
+    return any(exporter.wrote_outside_snapshot(db, scope, snapshot) for exporter in exporters())
 
 
 def _home_users(db: Session, dealership_id: uuid.UUID) -> list[User]:

@@ -29,7 +29,7 @@ import logging
 import tempfile
 import uuid
 
-from sqlalchemy import func, select
+from sqlalchemy import Text, func, select
 from sqlalchemy.orm import Session
 
 from app.core import outbox
@@ -224,17 +224,21 @@ def _object_key(job: ExportJob) -> str:
     return f"dealerships/{job.dealership_id}/exports/{job.id}.zip"
 
 
-def _snapshot_session(db: Session) -> tuple[Session, dt.datetime]:
+def _snapshot_session(db: Session) -> tuple[Session, dt.datetime, str | None]:
     """A session of its own on one consistent snapshot (REPEATABLE READ on
-    Postgres), and the snapshot's start: the export's `produced_at`."""
+    Postgres), the snapshot's start — the export's `produced_at` — and the
+    snapshot itself (`pg_current_snapshot()` as text; KAN-716: which
+    transactions' writes it sees, so offboarding can tell a write in flight
+    when it began). SQLite has no snapshot to record: None."""
 
     engine = db.get_bind().engine
     if engine.dialect.name == "postgresql":
         snapshot = Session(bind=engine.execution_options(isolation_level="REPEATABLE READ"))
-        # The first statement takes the snapshot; now() is its transaction's start.
-        produced_at = snapshot.scalar(select(func.now())) or utcnow()
-        return snapshot, produced_at
-    return Session(bind=engine), utcnow()
+        # The first statement takes the snapshot; now() is its transaction's
+        # start, and pg_current_snapshot() is that same snapshot.
+        row = snapshot.execute(select(func.now(), func.pg_current_snapshot().cast(Text))).one()
+        return snapshot, row[0] or utcnow(), row[1]
+    return Session(bind=engine), utcnow(), None
 
 
 def produce(db: Session, *, export_id: uuid.UUID, store: ObjectStore | None = None) -> ExportJob | None:
@@ -247,7 +251,7 @@ def produce(db: Session, *, export_id: uuid.UUID, store: ObjectStore | None = No
     if job is None or job.status != ExportJobStatus.REQUESTED:
         return job
     store = store or get_object_store()
-    snapshot, produced_at = _snapshot_session(db)
+    snapshot, produced_at, produced_snapshot = _snapshot_session(db)
     try:
         dealership_row = snapshot.get(Dealership, job.dealership_id)
         if dealership_row is None:
@@ -284,6 +288,7 @@ def produce(db: Session, *, export_id: uuid.UUID, store: ObjectStore | None = No
         snapshot.close()
     job.status = ExportJobStatus.READY
     job.produced_at = produced_at
+    job.produced_snapshot = produced_snapshot
     job.object_key = key
     job.byte_size = archive.byte_size
     job.download_expires_at = utcnow() + DOWNLOAD_WINDOW
