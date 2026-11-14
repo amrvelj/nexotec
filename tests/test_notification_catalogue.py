@@ -9,10 +9,15 @@ two different things. The security family is locked, as FR-A-48 rules.
 
 from pathlib import Path
 
-from app.platform.models.notification import NotificationFamily, NotificationTiming
-from app.platform.services import notification_catalogue
-from app.platform.services.notification_catalogue import CATALOGUE, DIGEST_PUSH_TITLE, DIGEST_PUSH_TITLE_KEY, LANGUAGES
-from app.platform.services.notifications import LOCKED_FAMILIES
+from app.platform.identity.models.notification import NotificationFamily, NotificationTiming
+from app.platform.identity.services import notification_catalogue
+from app.platform.identity.services.notification_catalogue import (
+    CATALOGUE,
+    DIGEST_PUSH_TITLE,
+    DIGEST_PUSH_TITLE_KEY,
+    LANGUAGES,
+)
+from app.platform.identity.services.notifications import LOCKED_FAMILIES
 from scripts import import_ui_translation_bundles
 
 _LOCALES = Path(__file__).resolve().parents[1] / "frontend" / "apps" / "dms" / "src" / "i18n" / "locales"

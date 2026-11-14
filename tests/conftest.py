@@ -461,8 +461,8 @@ def _seed_notification_catalogue(engine):
     from sqlalchemy import insert
 
     from app.core.uuid7 import uuid7
-    from app.platform.models.notification import NotificationEvent
-    from app.platform.services.notification_catalogue import CATALOGUE
+    from app.platform.identity.models.notification import NotificationEvent
+    from app.platform.identity.services.notification_catalogue import CATALOGUE
 
     with engine.begin() as conn:
         conn.execute(

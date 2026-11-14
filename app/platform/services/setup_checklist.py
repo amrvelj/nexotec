@@ -41,8 +41,9 @@ from sqlalchemy.orm import Session
 from app.core.errors import ConflictError
 from app.core.permissions import ModuleCode
 from app.core.setup_checklist import ChecklistContribution, checklist_contributions
-from app.platform.models.dealership_membership import DealershipMembership
-from app.platform.models.user import User, UserStatus
+from app.platform.identity.models.dealership_membership import DealershipMembership
+from app.platform.identity.models.user import User, UserStatus
+from app.platform.identity.services.user_common import membership_is_active
 from app.platform.organisation.models.branding_asset import BrandingAsset, BrandingAssetKind
 from app.platform.organisation.models.dealership import Dealership, DealershipStatus, Location
 from app.platform.organisation.models.dealership_bank_account import DealershipBankAccount
@@ -50,7 +51,6 @@ from app.platform.organisation.models.dealership_settings import DealershipSetti
 from app.platform.organisation.models.location_schedule import LocationOpeningHours
 from app.platform.organisation.models.number_range import NumberRangeConfirmation
 from app.platform.organisation.services.entitlement import list_active_modules
-from app.platform.services.user_common import membership_is_active
 
 
 class BlockedAction(str, enum.Enum):

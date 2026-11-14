@@ -13,13 +13,13 @@ from sqlalchemy import select
 from app.core.errors import ConflictError
 from app.inventory.models.stock_item_publishing import MarketplaceChannel
 from app.inventory.services import publishing
-from app.platform.models.notification import Notification
+from app.platform.identity.models.notification import Notification
+from app.platform.identity.services.notification_catalogue import NotificationEventCode
 from app.platform.models.setup_checklist import SetupChecklistRegression
 from app.platform.organisation.models.dealership import Dealership, DealershipStatus
 from app.platform.organisation.models.location_schedule import LocationOpeningHours
 from app.platform.public import SetupBlockedAction, require_setup_item_for
 from app.platform.services import setup_checklist_regressions
-from app.platform.services.notification_catalogue import NotificationEventCode
 from tests import setup_checklist_support as s
 
 

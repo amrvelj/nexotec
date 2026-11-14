@@ -33,6 +33,7 @@ _BUILDERS = (
     # KAN-225: the public stock projection's checks.
     "website_listing_exists",
     "listed_on_website_check",
+    "website_listing_revision_ahead",
 )
 
 

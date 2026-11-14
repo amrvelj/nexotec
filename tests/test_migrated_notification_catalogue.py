@@ -3,7 +3,7 @@ code declares.
 
 `notification_event` is seeded by a platform migration with literal rows (a
 migration never reads the application's declaration, which moves on), while
-`app/platform/services/notification_catalogue.py` is what call sites name
+`app/platform/identity/services/notification_catalogue.py` is what call sites name
 and what the test schema is seeded from (`tests/conftest.py`). A module that
 registers an event in one and forgets the other fails here: in production
 `notify` would refuse the code, or a row would exist that nothing renders.
@@ -22,7 +22,7 @@ import psycopg
 import pytest
 from sqlalchemy import create_engine, text
 
-from app.platform.services.notification_catalogue import CATALOGUE
+from app.platform.identity.services.notification_catalogue import CATALOGUE
 from scripts.check_concurrent_alembic_upgrade import UPGRADE_TIMEOUT_S, libpq_url, sqlalchemy_url_for
 
 _REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]

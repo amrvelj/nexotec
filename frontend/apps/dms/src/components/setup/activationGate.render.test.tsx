@@ -142,4 +142,29 @@ describe('LegalAcceptancePage (KAN-214)', () => {
     await waitFor(() => expect(backend.calls.filter((c) => c.method === 'POST')).toHaveLength(1))
     expect(backend.calls.find((c) => c.method === 'POST')?.body).toEqual({ legalDocumentId: 'doc-dpa' })
   })
+
+  it('renders a body with a list as a list through the kit renderer (KAN-727)', async () => {
+    installFakeBackend([
+      { method: 'GET', match: /\/auth\/me$/, handler: () => session({ legalAcceptanceDue: due(true) }) },
+      {
+        method: 'GET',
+        match: /^\/legal-documents\/current$/,
+        handler: () => ({
+          items: [
+            {
+              ...due(true).documents[0],
+              bodyMarkdown: '## Pflichten\n\n- zur Sorgfalt\n- zur Vertraulichkeit',
+              acceptanceGraceDays: 30,
+              publishedAt: '2026-11-01T00:00:00Z',
+            },
+          ],
+        }),
+      },
+    ])
+    renderWithProviders(<LegalAcceptancePage />, { route: '/administration/legal-acceptance' })
+    expect(await screen.findByRole('heading', { name: 'Pflichten' })).toBeInTheDocument()
+    const items = screen.getAllByRole('listitem').map((li) => li.textContent)
+    expect(items).toEqual(['zur Sorgfalt', 'zur Vertraulichkeit'])
+    expect(screen.queryByText(/^- zur/)).toBeNull()
+  })
 })

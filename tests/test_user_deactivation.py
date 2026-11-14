@@ -21,7 +21,7 @@ from app.core.ownership import ownership_provider, registered_ownership_modules
 from app.core.reconciliation import ReconciliationAlarm
 from app.platform import daily_jobs
 from app.platform.daily_jobs import run_daily_user_expiry
-from app.platform.models.user import User
+from app.platform.identity.models.user import User
 from tests.identity_support import PasswordLogin, create_dealership, create_user, deactivate, platform_admin_headers
 from tests.test_customer_vehicle_party_close_rule import _postgres_only, _run, _wait_until_a_backend_waits_on_a_lock
 from tests.token_support import dealer_group_of
@@ -668,7 +668,7 @@ def test_the_expiry_job_keeps_a_sister_betriebs_last_manager_by_membership_and_a
     (`last_manager_elsewhere`, raised by `update_user`) — skipped and logged
     as the alarm, like their own Betrieb's last manager."""
 
-    from app.platform.models.dealership_membership import DealershipMembership
+    from app.platform.identity.models.dealership_membership import DealershipMembership
 
     home, sister = create_dealership(client), create_dealership(client)
     yesterday = str(dt.datetime.now(ZoneInfo("Europe/Zurich")).date() - dt.timedelta(days=1))
@@ -708,7 +708,7 @@ def test_the_user_and_the_invitation_are_one_transaction(client, db_session, mon
     """FR-A-09: the user record and the invitation token are written in one
     transaction — a failure issuing the token leaves no half-created user."""
 
-    from app.platform.services import identity
+    from app.platform.identity.services import identity
 
     dealership = create_dealership(client)
     email = f"one-tx-{uuid.uuid4().hex[:6]}@example.ch"
@@ -1059,7 +1059,7 @@ def test_the_expiry_job_expires_a_staff_account_and_one_failure_does_not_stop_th
     broken = create_user(client, dealership, isDealerManager=False, validTo=yesterday)
     after = create_user(client, dealership, isDealerManager=False, validTo=yesterday)
 
-    from app.platform.services import user as user_service
+    from app.platform.identity.services import user as user_service
 
     real_update = user_service.update_user
 

@@ -12,7 +12,7 @@ import uuid
 from sqlalchemy import func, select
 
 from app.core.auth import AccessRole, create_access_token
-from app.platform.models.user import User
+from app.platform.identity.models.user import User
 from app.platform.organisation.models.dealership import DealerGroup, Dealership
 from app.platform.reference.models.reference_data import ReferenceList, ReferenceValue
 from tests.dealership_support import valid_uid

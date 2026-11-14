@@ -20,14 +20,14 @@ from app.integration.schemas.connection import ConnectionCreate
 from app.integration.services import connections as connection_service
 from app.integration.services import notifications as expiry_service
 from app.platform.consumers import handle_connection_expiry_approaching_message
-from app.platform.models.dealership_membership import DealershipMembership
-from app.platform.models.notification import (
+from app.platform.identity.models.dealership_membership import DealershipMembership
+from app.platform.identity.models.notification import (
     Notification,
     NotificationFamily,
     NotificationTiming,
     UserNotificationPreference,
 )
-from app.platform.models.user import User, UserRole, UserStatus
+from app.platform.identity.models.user import User, UserRole, UserStatus
 from tests.test_inventory_invoicing_gate import _make_dealership
 
 TODAY = dt.date(2026, 11, 14)

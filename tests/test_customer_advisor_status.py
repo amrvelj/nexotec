@@ -13,7 +13,7 @@ import uuid
 import pytest
 
 from app.core.auth import AccessRole, create_access_token
-from app.platform.models.user import User, UserStatus
+from app.platform.identity.models.user import User, UserStatus
 from tests.membership_support import create_dealership as create_sister
 from tests.membership_support import grant, if_match
 from tests.test_customer_fr17_fields import _bearer, _create_dealer, _create_user, _token

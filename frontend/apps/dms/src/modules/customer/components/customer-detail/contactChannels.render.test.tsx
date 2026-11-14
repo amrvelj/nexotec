@@ -1,0 +1,444 @@
+// @vitest-environment jsdom
+import { describe, expect, it } from 'vitest'
+import { Route, Routes } from 'react-router-dom'
+import { screen, waitFor, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import i18n from '../../../../i18n'
+import { renderWithProviders } from '../../../../test/renderWithProviders'
+import { installFakeBackend, status } from '../../../../test/fakeBackend'
+import { customer, email, phone } from '../../../../test/fixtures'
+import type { CustomerEmailRead, CustomerPhoneRead } from '../../../../api/types'
+import { CustomerDetailPage } from '../../pages/CustomerDetailPage'
+import { CustomerCreateFlow } from '../CustomerCreateFlow'
+import { COMPACT_PHONE_INPUT_MIN_WIDTH, PHONE_INPUT_MIN_WIDTH } from '../../../../components/PhoneInput'
+
+// WP-6c exit criterion (ADR-067): "a customer with two mobiles, a work
+// landline and a bounced email renders correctly in the create dialog and
+// on the detail screen, the primary of each type is marked, marking a new
+// primary unmarks the old in the same interaction, and closing a row keeps
+// it readable with its reason." One RepeatableRowGroup, both surfaces.
+
+const primaryPrefix = () => new RegExp(`^${i18n.t('customerDetail.contactPoints.primary')}`)
+const pressedCount = (buttons: HTMLElement[]) => buttons.filter((b) => b.getAttribute('aria-pressed') === 'true').length
+// KAN-267 / KAN-460 — the column template of the kit row an input sits in
+// (RepeatableRowGroup's `data-column-template`): its value column never
+// below the editor's minimum.
+const columnTemplateOf = (el: HTMLElement) => (el.closest('[data-row-layout]') as HTMLElement).dataset.columnTemplate
+const phoneTemplate = `18px 130px minmax(min(${PHONE_INPUT_MIN_WIDTH}px, 100%), 1fr) 140px 104px 28px`
+// The create dialog's compact country select (KAN-460, option A).
+const compactPhoneTemplate = `18px 130px minmax(min(${COMPACT_PHONE_INPUT_MIN_WIDTH}px, 100%), 1fr) 140px 104px 28px`
+// The add row: Save sits in the row's trailing cluster (KAN-267), one level down.
+const addRowOf = (save: HTMLElement) => (save.closest('[data-row-part="trailing"]') as HTMLElement).parentElement as HTMLElement
+
+describe('contact channels — detail screen (ADR-067)', () => {
+  function installCustomerBackend() {
+    const phones: CustomerPhoneRead[] = [
+      phone({ id: 'p-mob-1', type: 'mobile', value: '+41791110000', isPrimary: true }),
+      phone({ id: 'p-mob-2', type: 'mobile', value: '+41792220000', isPrimary: false }),
+      phone({ id: 'p-off-1', type: 'work', value: '+41443330000', isPrimary: true }),
+    ]
+    const emails: CustomerEmailRead[] = [
+      email({ id: 'e-1', type: 'personal', value: 'hans.muster@example.ch', isPrimary: true }),
+      email({
+        id: 'e-2',
+        type: 'work',
+        value: 'old.address@oldjob.ch',
+        isPrimary: false,
+        doNotUse: true,
+        doNotUseReason: 'bounced',
+      }),
+    ]
+
+    return installFakeBackend([
+      { match: /^\/customers\/c1$/, handler: () => customer({ id: 'c1' }) },
+      { match: /^\/customers\/c1\/phones$/, handler: () => ({ items: phones }) },
+      { match: /^\/customers\/c1\/emails$/, handler: () => ({ items: emails }) },
+      { match: /^\/customers\/c1\/vehicles$/, handler: () => ({ items: [], nextCursor: null }) },
+      { match: /^\/customers\/c1\/external-ids$/, handler: () => ({ items: [], nextCursor: null }) },
+      { match: /^\/customers\/c1\/audit-log$/, handler: () => ({ items: [], nextCursor: null }) },
+      {
+        method: 'PATCH',
+        match: /^\/customers\/c1\/phones\/(.+)$/,
+        handler: (req) => {
+          const id = req.pathname.split('/').pop()!
+          const patch = req.body as Partial<CustomerPhoneRead>
+          const row = phones.find((p) => p.id === id)!
+          Object.assign(row, patch)
+          // The real service unsets every sibling of the same type in the
+          // same transaction (_unset_other_primaries).
+          if (patch.isPrimary) {
+            for (const other of phones) {
+              if (other.phoneType === row.phoneType && other.id !== row.id) other.isPrimary = false
+            }
+          }
+          return row
+        },
+      },
+      {
+        method: 'PATCH',
+        match: /^\/customers\/c1\/emails\/(.+)$/,
+        handler: (req) => {
+          const id = req.pathname.split('/').pop()!
+          const row = emails.find((e) => e.id === id)!
+          Object.assign(row, req.body as Partial<CustomerEmailRead>)
+          return row
+        },
+      },
+    ])
+  }
+
+  function renderDetail() {
+    renderWithProviders(
+      <Routes>
+        <Route path="/customers/:id" element={<CustomerDetailPage />} />
+      </Routes>,
+      { route: '/customers/c1' },
+    )
+  }
+
+  it('renders both mobiles and the landline, marks the primary mobile, and a new primary unmarks the old in one interaction', async () => {
+    const user = userEvent.setup()
+    installCustomerBackend()
+    renderDetail()
+
+    // All three current numbers are on screen (PhoneInput shows the national
+    // form, re-adding the trunk 0 it strips for E.164).
+    expect(await screen.findByDisplayValue('0791110000')).toBeInTheDocument()
+    expect(screen.getByDisplayValue('0792220000')).toBeInTheDocument()
+    expect(screen.getByDisplayValue('0443330000')).toBeInTheDocument()
+
+    // Two mobiles => a star on each; the lone work number gets none.
+    let stars = screen.getAllByRole('button', { name: primaryPrefix() })
+    expect(stars).toHaveLength(2)
+    expect(stars[0]).toHaveAttribute('aria-pressed', 'true')
+    expect(stars[1]).toHaveAttribute('aria-pressed', 'false')
+
+    // Promote the second mobile.
+    await user.click(stars[1])
+
+    await waitFor(() => {
+      stars = screen.getAllByRole('button', { name: primaryPrefix() })
+      expect(pressedCount(stars)).toBe(1)
+      expect(stars[1]).toHaveAttribute('aria-pressed', 'true')
+      expect(stars[0]).toHaveAttribute('aria-pressed', 'false')
+    })
+  })
+
+  it('a phone row keeps its country and number at the phone editor\'s width, and an e-mail row shares its template (KAN-267, KAN-460)', async () => {
+    installCustomerBackend()
+    renderDetail()
+
+    expect(columnTemplateOf(await screen.findByDisplayValue('0791110000'))).toBe(phoneTemplate)
+    // One column template for both groups: the rows line up.
+    expect(columnTemplateOf(screen.getByDisplayValue('hans.muster@example.ch'))).toBe(phoneTemplate)
+  })
+
+  // KAN-460 — «I don't know what LABEL is»: the box had only a placeholder.
+  it.each(['de', 'fr', 'it', 'en'])(
+    'every contact row\'s label input has its column name and hint, the columns named once per group (%s)',
+    async (language) => {
+      await i18n.changeLanguage(language)
+      try {
+        installCustomerBackend()
+        renderDetail()
+        await screen.findByDisplayValue('0791110000')
+
+        const name = i18n.t('customerDetail.contactPoints.labelColumn')
+        const labelInputs = screen.getAllByRole('textbox', { name })
+        expect(labelInputs).toHaveLength(4) // three phones, one current e-mail
+        for (const input of labelInputs) {
+          expect(input).not.toHaveAttribute('placeholder')
+          expect(input).toHaveAccessibleDescription(i18n.t('customerDetail.contactPoints.labelHint'))
+        }
+        for (const consent of screen.getAllByRole('checkbox', { name: i18n.t('customerDetail.contactPoints.consent') })) {
+          expect(consent).toHaveAccessibleDescription(i18n.t('customerDetail.contactPoints.consentHint'))
+        }
+        const headers = [...document.querySelectorAll<HTMLElement>('[data-row-part="header"]')]
+        expect(headers.map((h) => h.textContent)).toEqual([
+          expect.stringContaining(i18n.t('customerDetail.contactPoints.phoneValueColumn')),
+          expect.stringContaining(i18n.t('customerDetail.contactPoints.emailValueColumn')),
+        ])
+        for (const header of headers) {
+          expect(header).toHaveTextContent(name)
+          expect(header.dataset.columnTemplate).toBe(phoneTemplate)
+        }
+        // The phone's own inputs keep their names without a label of their own.
+        expect(screen.getAllByRole('textbox', { name: i18n.t('customerDetail.phoneInput.number') })).toHaveLength(3)
+      } finally {
+        await i18n.changeLanguage('de')
+      }
+    },
+  )
+
+  it('the preferred channel moves off the identity card, badges the contact-card header, and marks the primary of its kind (KAN-54)', async () => {
+    installFakeBackend([
+      { match: /^\/customers\/c1$/, handler: () => customer({ id: 'c1', preferredChannel: 'phone' }) },
+      { match: /^\/customers\/c1\/phones$/, handler: () => ({ items: [phone({ id: 'p1', type: 'mobile', value: '+41 79 111 00 00', isPrimary: true })] }) },
+      { match: /^\/customers\/c1\/emails$/, handler: () => ({ items: [] }) },
+      { match: /^\/customers\/c1\/vehicles$/, handler: () => ({ items: [], nextCursor: null }) },
+      { match: /^\/customers\/c1\/external-ids$/, handler: () => ({ items: [], nextCursor: null }) },
+      { match: /^\/customers\/c1\/audit-log$/, handler: () => ({ items: [], nextCursor: null }) },
+      { match: /^\/sales\/(offers|contracts)$/, handler: () => ({ items: [], nextCursor: null }) },
+    ])
+    renderDetail()
+
+    const cardEl = (key: string): HTMLElement => {
+      const title = screen.getAllByText(i18n.t(`customerDetail.overview.cards.${key}`)).find((el) => el.tagName === 'DIV')!
+      return title.parentElement!.parentElement as HTMLElement
+    }
+    await screen.findAllByText(i18n.t('customerDetail.overview.cards.contactPoints'))
+    const contactCard = cardEl('contactPoints')
+
+    // header badge on the contact card (the value also shows in the editor
+    // row below, so at least two occurrences)
+    expect(within(contactCard).getAllByText(i18n.t('customerEnums.preferredChannel.phone')).length).toBeGreaterThan(0)
+    // the editor row lives in the contact card, not the identity card
+    expect(within(cardEl('identity')).queryByText(i18n.t('customerDetail.overview.fields.preferredChannel'))).not.toBeInTheDocument()
+    expect(within(contactCard).getByText(i18n.t('customerDetail.overview.fields.preferredChannel'))).toBeInTheDocument()
+    // the primary mobile is a tel: link and carries the preferred mark
+    expect(within(contactCard).getByRole('link', { name: '+41 79 111 00 00' })).toHaveAttribute('href', 'tel:+41791110000')
+    expect(within(contactCard).getByLabelText(i18n.t('customerDetail.contactPoints.preferredMark'))).toBeInTheDocument()
+  })
+
+  it('granting consent reveals scope + source selectors and PATCHes the scope (FR-23 §1, KAN-52)', async () => {
+    const user = userEvent.setup()
+    const backend = installCustomerBackend()
+    renderDetail()
+
+    await screen.findByDisplayValue('hans.muster@example.ch')
+    const emailBlock = screen.getByText(i18n.t('customerDetail.contactPoints.emailAddresses')).parentElement as HTMLElement
+
+    // before granting: just the type select
+    expect(within(emailBlock).getAllByRole('combobox')).toHaveLength(1)
+
+    await user.click(within(emailBlock).getByRole('checkbox'))
+    await waitFor(() => {
+      const patch = backend.callsTo(/^\/customers\/c1\/emails\/e-1$/, 'PATCH').at(-1)!.body as Record<string, unknown>
+      expect(patch).toMatchObject({ consentGranted: true, consentScope: 'marketing' })
+    })
+
+    // now the scope + source selectors are shown
+    const combos = within(emailBlock).getAllByRole('combobox')
+    expect(combos).toHaveLength(3)
+    await user.selectOptions(combos[1], i18n.t('customerEnums.consentScope.invoicing'))
+    await waitFor(() => {
+      const patch = backend.callsTo(/^\/customers\/c1\/emails\/e-1$/, 'PATCH').at(-1)!.body as Record<string, unknown>
+      expect(patch).toMatchObject({ consentScope: 'invoicing' })
+    })
+  })
+
+  it('a bounced address is closed, not deleted — kept behind the "former" toggle with its reason', async () => {
+    const user = userEvent.setup()
+    installCustomerBackend()
+    renderDetail()
+
+    await screen.findByDisplayValue('hans.muster@example.ch')
+    expect(screen.queryByDisplayValue('old.address@oldjob.ch')).not.toBeInTheDocument()
+
+    const toggle = screen.getByRole('button', { name: new RegExp(i18n.t('customerDetail.contactPoints.former'), 'i') })
+    await user.click(toggle)
+
+    const dead = await screen.findByText('old.address@oldjob.ch')
+    expect(dead).toHaveStyle({ textDecoration: 'line-through' })
+    expect(screen.getByText('bounced')).toBeInTheDocument()
+  })
+})
+
+describe('contact channels — create dialog (same RepeatableRowGroup, ADR-067)', () => {
+  // KAN-165: this test is CPU-bound, not waiting on a timer. Every keystroke
+  // and click re-renders the Mantine create flow in React's development
+  // build. Three changes cut it by about a quarter (measured: ~2.0 s to
+  // ~1.45 s idle, ~4.7 s to ~3.3 s with the CPU oversubscribed 2x):
+  // - role queries are scoped to the phone block, because a *ByRole query
+  //   computes the accessible name of every candidate in its container;
+  // - two of the three numbers are pasted rather than typed (see the test);
+  // - `delay: null` drops user-event's setTimeout(0) after each keystroke
+  //   (within noise on an idle machine).
+  // The rest is the components' own re-render cost.
+  async function openCreateFlowAtStep2(user: ReturnType<typeof userEvent.setup>): Promise<HTMLElement> {
+    installFakeBackend([{ match: /^\/customers\/duplicate-check$/, handler: () => ({ items: [], nextCursor: null }) }])
+    renderWithProviders(<CustomerCreateFlow onSuccess={() => {}} onCancel={() => {}} />)
+    await user.click(screen.getByRole('button', { name: i18n.t('customerCreate.actions.next') }))
+    // The heading's parent is the phone block (heading + RepeatableRowGroup).
+    const heading = await screen.findByText(i18n.t('customerDetail.contactPoints.phoneNumbers'))
+    return heading.parentElement as HTMLElement
+  }
+
+  async function addPhone(
+    user: ReturnType<typeof userEvent.setup>,
+    phoneBlock: HTMLElement,
+    type: string,
+    national: string,
+    entry: 'type' | 'paste',
+  ) {
+    await user.click(within(phoneBlock).getByRole('button', { name: new RegExp(i18n.t('customerDetail.contactPoints.addPhone'), 'i') }))
+    const save = within(phoneBlock).getByRole('button', { name: i18n.t('customerDetail.contactPoints.save') })
+    const addForm = addRowOf(save)
+    // The native type <select> is the first combobox in the add row.
+    await user.selectOptions(within(addForm).getAllByRole('combobox')[0], type)
+    const numberInput = within(addForm).getByLabelText(i18n.t('customerDetail.phoneInput.number'))
+    if (entry === 'type') {
+      await user.type(numberInput, national)
+    } else {
+      await user.click(numberInput)
+      await user.paste(national)
+    }
+    await user.click(save)
+  }
+
+  it('the add row gives the phone editor its width, the compact one in the dialog (KAN-267, KAN-460)', async () => {
+    const user = userEvent.setup({ delay: null })
+    const phoneBlock = await openCreateFlowAtStep2(user)
+    await user.click(within(phoneBlock).getByRole('button', { name: new RegExp(i18n.t('customerDetail.contactPoints.addPhone'), 'i') }))
+
+    expect(columnTemplateOf(within(phoneBlock).getByLabelText(i18n.t('customerDetail.phoneInput.number')))).toBe(compactPhoneTemplate)
+  })
+
+  it('two mobiles and a work landline render; the mobile primary is marked and re-marking moves it in one interaction', async () => {
+    const user = userEvent.setup({ delay: null })
+    const phoneBlock = await openCreateFlowAtStep2(user)
+
+    // The first number is typed key by key. Each keystroke re-renders every
+    // row in the group (the add-row draft is the group's state), so typing
+    // all three cost ~0.5 s. The other two are pasted, which is a real way
+    // to enter a number and goes through the same onChange.
+    await addPhone(user, phoneBlock, 'mobile', '791110000', 'type')
+    await addPhone(user, phoneBlock, 'mobile', '792220000', 'paste')
+    await addPhone(user, phoneBlock, 'work', '443330000', 'paste')
+
+    expect(screen.getByDisplayValue('0791110000')).toBeInTheDocument()
+    expect(screen.getByDisplayValue('0792220000')).toBeInTheDocument()
+    expect(screen.getByDisplayValue('0443330000')).toBeInTheDocument()
+
+    // Scoping the star query to the phone block must not narrow what it
+    // can see: every toggle (aria-pressed) on screen is one of these two.
+    expect(document.querySelectorAll('button[aria-pressed]')).toHaveLength(2)
+    let stars = within(phoneBlock).getAllByRole('button', { name: primaryPrefix() })
+    expect(stars).toHaveLength(2)
+    expect(pressedCount(stars)).toBe(1)
+    expect(stars[0]).toHaveAttribute('aria-pressed', 'true')
+
+    await user.click(stars[1])
+
+    await waitFor(() => {
+      stars = within(phoneBlock).getAllByRole('button', { name: primaryPrefix() })
+      expect(pressedCount(stars)).toBe(1)
+      expect(stars[1]).toHaveAttribute('aria-pressed', 'true')
+      expect(stars[0]).toHaveAttribute('aria-pressed', 'false')
+    })
+  })
+})
+
+describe('contact channels — one Idempotency-Key per added row (KAN-266)', () => {
+  // The first phone POST fails; every later one succeeds.
+  async function renderWithFailingFirstPhone(initial: CustomerPhoneRead[] = []) {
+    const user = userEvent.setup()
+    const phones: CustomerPhoneRead[] = [...initial]
+    let posts = 0
+    const backend = installFakeBackend([
+      { match: /^\/customers\/c1$/, handler: () => customer({ id: 'c1' }) },
+      { match: /^\/customers\/c1\/phones$/, method: 'GET', handler: () => ({ items: phones }) },
+      {
+        method: 'POST',
+        match: /^\/customers\/c1\/phones$/,
+        handler: (req) => {
+          posts += 1
+          if (posts === 1) return status(503, { error: { code: 'unavailable', message: 'Try again.', details: null } })
+          const body = req.body as { phoneType: 'mobile'; phoneE164: string }
+          const row = phone({ id: `p-${posts}`, type: body.phoneType, value: body.phoneE164, isPrimary: phones.length === 0 })
+          phones.push(row)
+          return status(201, row)
+        },
+      },
+      {
+        method: 'PATCH',
+        match: /^\/customers\/c1\/phones\/(.+)$/,
+        handler: (req) => {
+          const row = phones.find((p) => p.id === req.pathname.split('/').pop())!
+          Object.assign(row, req.body as Partial<CustomerPhoneRead>)
+          return row
+        },
+      },
+      { match: /^\/customers\/c1\/emails$/, handler: () => ({ items: [] }) },
+      { match: /^\/customers\/c1\/vehicles$/, handler: () => ({ items: [], nextCursor: null }) },
+      { match: /^\/customers\/c1\/external-ids$/, handler: () => ({ items: [], nextCursor: null }) },
+      { match: /^\/customers\/c1\/audit-log$/, handler: () => ({ items: [], nextCursor: null }) },
+    ])
+    renderWithProviders(
+      <Routes>
+        <Route path="/customers/:id" element={<CustomerDetailPage />} />
+      </Routes>,
+      { route: '/customers/c1' },
+    )
+    const phoneBlock = (await screen.findByText(i18n.t('customerDetail.contactPoints.phoneNumbers'))).parentElement as HTMLElement
+    const keys = () => backend.callsTo(/^\/customers\/c1\/phones$/, 'POST').map((call) => call.headers.get('Idempotency-Key'))
+    const saveButton = () => within(phoneBlock).queryByRole('button', { name: i18n.t('customerDetail.contactPoints.save') })
+    const numberInput = () => within(addRowOf(saveButton()!)).getByLabelText(i18n.t('customerDetail.phoneInput.number'))
+    const addPhone = async (national: string) => {
+      await user.click(within(phoneBlock).getByRole('button', { name: new RegExp(i18n.t('customerDetail.contactPoints.addPhone'), 'i') }))
+      await user.type(numberInput(), national)
+      await user.click(saveButton()!)
+    }
+    return { user, backend, phoneBlock, keys, saveButton, numberInput, addPhone }
+  }
+
+  it('a phone add retried after a failure keeps its key; the next phone gets a new one', async () => {
+    const { user, phoneBlock, keys, saveButton, addPhone } = await renderWithFailingFirstPhone()
+
+    await addPhone('791110000')
+    expect(await within(phoneBlock).findByText(i18n.t('customerDetail.errors.somethingWentWrong'))).toBeInTheDocument()
+    await user.click(saveButton()!)
+    await waitFor(() => expect(keys()).toHaveLength(2))
+    await waitFor(() => expect(saveButton()).not.toBeInTheDocument())
+
+    await addPhone('792220000')
+    await waitFor(() => expect(keys()).toHaveLength(3))
+
+    const [first, retry, next] = keys()
+    expect(first).toBeTruthy()
+    expect(retry).toBe(first)
+    expect(next).toBeTruthy()
+    expect(next).not.toBe(first)
+  })
+
+  it('a corrected value saved after a failure is a different request and gets a new key', async () => {
+    // Had the first response been lost rather than refused, the server would
+    // hold the key for the first number: the corrected one under it is a 409.
+    const { user, phoneBlock, keys, saveButton, numberInput, addPhone } = await renderWithFailingFirstPhone()
+
+    await addPhone('791110000')
+    expect(await within(phoneBlock).findByText(i18n.t('customerDetail.errors.somethingWentWrong'))).toBeInTheDocument()
+    await user.clear(numberInput())
+    await user.type(numberInput(), '793330000')
+    await user.click(saveButton()!)
+    await waitFor(() => expect(keys()).toHaveLength(2))
+
+    const [first, corrected] = keys()
+    expect(first).toBeTruthy()
+    expect(corrected).toBeTruthy()
+    expect(corrected).not.toBe(first)
+  })
+
+  it('the key of a failed add is retired by the next phone write that goes through', async () => {
+    // Had the failed add's response been lost, the server would hold its key:
+    // the same number added again after another phone write (an edit, a
+    // delete) must be a new submission, not a replay that creates nothing.
+    const { user, backend, phoneBlock, keys, addPhone } = await renderWithFailingFirstPhone([
+      phone({ id: 'p-a', type: 'mobile', value: '+41791110000', isPrimary: true }),
+      phone({ id: 'p-b', type: 'mobile', value: '+41792220000', isPrimary: false }),
+    ])
+
+    await addPhone('793330000')
+    expect(await within(phoneBlock).findByText(i18n.t('customerDetail.errors.somethingWentWrong'))).toBeInTheDocument()
+    await user.click(within(phoneBlock).getByRole('button', { name: i18n.t('customerDetail.contactPoints.cancel') }))
+    await user.click(within(phoneBlock).getAllByRole('button', { name: primaryPrefix() })[1])
+    await waitFor(() => expect(backend.callsTo(/^\/customers\/c1\/phones\/p-b$/, 'PATCH')).toHaveLength(1))
+    await addPhone('793330000')
+    await waitFor(() => expect(keys()).toHaveLength(2))
+
+    const [failed, later] = keys()
+    expect(failed).toBeTruthy()
+    expect(later).toBeTruthy()
+    expect(later).not.toBe(failed)
+  })
+})

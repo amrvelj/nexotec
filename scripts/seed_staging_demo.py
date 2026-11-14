@@ -61,10 +61,14 @@ from app.core.config import get_settings
 from app.core.errors import BadRequestError, UnprocessableEntityError
 from app.core.permissions import ModuleCode
 from app.db import SessionLocal
-from app.platform.models.auth_event import AuthEventKind
-from app.platform.models.credential import Credential
-from app.platform.models.dealership_auth_config import DealershipAuthConfig
-from app.platform.models.user import User, UserRole, UserStatus
+from app.platform.identity.models.auth_event import AuthEventKind
+from app.platform.identity.models.credential import Credential
+from app.platform.identity.models.dealership_auth_config import DealershipAuthConfig
+from app.platform.identity.models.user import User, UserRole, UserStatus
+from app.platform.identity.schemas.user import UserCreate
+from app.platform.identity.services import identity, password_hashing
+from app.platform.identity.services import user as user_service
+from app.platform.identity.services.password_policy import validate_new_password
 from app.platform.organisation.models.dealership import (
     DealerGroup,
     Dealership,
@@ -78,10 +82,6 @@ from app.platform.organisation.schemas.dealership import DealershipAddress, Deal
 from app.platform.organisation.services import dealership as dealership_service
 from app.platform.organisation.services import entitlement as entitlement_service
 from app.platform.reference.services.mailer import PlatformMailer, get_mailer
-from app.platform.schemas.user import UserCreate
-from app.platform.services import identity, password_hashing
-from app.platform.services import user as user_service
-from app.platform.services.password_policy import validate_new_password
 
 DEMO_LEGAL_NAME = "Demo Garage AG"
 # The local path's shared account. A deployed environment never creates it;
@@ -135,7 +135,7 @@ def _stamp_actor(
     report it each night. A value that does name a user — another user's
     later edit, or the shared demo user an earlier seed stamped — is left
     alone; so is null, which names nobody on purpose
-    (app.platform.services.actor_reference). Returns what changed."""
+    (app.platform.identity.services.actor_reference). Returns what changed."""
 
     named = {value for row in rows for column in _ACTOR_COLUMNS if (value := getattr(row, column)) is not None}
     existing = set(db.scalars(select(User.id).where(User.id.in_(named))).all()) if named else set()

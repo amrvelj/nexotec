@@ -28,6 +28,11 @@ import ts from 'typescript'
 //    door — the eager shell's included. A content component another module
 //    renders lives in the module's components/; what the shell or several
 //    modules use lives in src/shared/ (ADR-161 amendment, KAN-636 step 2a).
+// 5. A door holds re-exports (`export … from '…'`) and nothing else. The build
+//    (vite.config.ts) declares every door free of side effects so a screen
+//    that imports one of a module's exports loads that file only, not every
+//    file the door names (KAN-636 step 2b); a door with code of its own would
+//    make that declaration false.
 //
 // Modules move one per PR (scripts/move-to-module.mjs). Until the last one, a
 // module may still import the old roots (pages/, components/, hooks/, utils/,
@@ -40,6 +45,7 @@ const MOVES_DIR = join(APP_ROOT, 'scripts', 'module-moves')
 
 /** Each module folder → the words its file names carry (camelCase, capitalised). */
 const MODULE_WORDS: Record<string, string[]> = {
+  customer: ['Customer'],
   valuation: ['Valuation'],
 }
 
@@ -157,6 +163,21 @@ export function doorReachesPages(files: Map<string, string>): string[] {
   return out.sort()
 }
 
+/** Rule 5: every statement of a module's index.ts that is not a re-export. */
+export function doorHoldsMoreThanReExports(files: Map<string, string>): string[] {
+  const out: string[] = []
+  for (const [path, source] of files) {
+    if (!/^modules\/[^/]+\/index\.tsx?$/.test(path)) continue
+    const file = ts.createSourceFile(path, source, ts.ScriptTarget.Latest, false, ts.ScriptKind.TS)
+    for (const statement of file.statements) {
+      if (ts.isExportDeclaration(statement) && statement.moduleSpecifier) continue
+      const line = file.getLineAndCharacterOfPosition(statement.getStart(file)).line + 1
+      out.push(`${path}:${line} is not a re-export; a door holds \`export … from '…'\` only`)
+    }
+  }
+  return out.sort()
+}
+
 type MoveMapping = { module: string; moves: [string, string][] }
 
 function moveMappings(): MoveMapping[] {
@@ -180,6 +201,18 @@ describe('frontend modules keep their boundary (KAN-636, ADR-161)', () => {
       'components/stock-detail/EvaluationTab.tsx',
       'pages/ContractDetailPage.tsx',
     ])
+    // And customer's: the Vehicle 360, the deal workspace, the contract page, the offer workspace and valuation.
+    const throughCustomersDoor = [...realFiles].filter(
+      ([path, source]) => moduleOf(path) !== 'customer' && !isTestCode(path) && importsOf(path, source).some(({ specifier }) => /(^|\/)(modules\/)?customer$/.test(specifier) && resolveImport(path, specifier, (p) => realFiles.has(p)) === 'modules/customer/index.ts'),
+    )
+    expect(throughCustomersDoor.map(([path]) => path).sort()).toEqual([
+      'components/deal-workspace/DealWorkspaceContainers.tsx',
+      'components/vehicle-detail/IdentityTab.tsx',
+      'modules/valuation/components/ValuationCreateDialog.tsx',
+      'modules/valuation/pages/ValuationDetailPage.tsx',
+      'pages/ContractDetailPage.tsx',
+      'pages/OfferWorkspacePage.tsx',
+    ])
   })
 
   it('every module folder has an index.ts and its words, and every entry names a folder', () => {
@@ -191,6 +224,10 @@ describe('frontend modules keep their boundary (KAN-636, ADR-161)', () => {
   it("a module's index.ts names none of its pages", () => {
     expect([...realFiles.keys()].filter((path) => /^modules\/[^/]+\/index\.ts$/.test(path)).length).toBeGreaterThan(0)
     expect(doorReachesPages(realFiles)).toEqual([])
+  })
+
+  it("a module's index.ts holds re-exports and nothing else", () => {
+    expect(doorHoldsMoreThanReExports(realFiles)).toEqual([])
   })
 
   it('no file of a moved module stays in the old roots', () => {
@@ -261,6 +298,21 @@ describe('frontend modules keep their boundary (KAN-636, ADR-161)', () => {
         "modules/valuation/index.ts: './pages/ValuationsListPage.tsx' names a page; a door exports components, hooks and options only",
       ])
       expect(doorReachesPages(tree(valuation))).toEqual([])
+    })
+
+    it('refuses a door with code of its own, a plain import included', () => {
+      expect(
+        doorHoldsMoreThanReExports(
+          tree({
+            ...valuation,
+            'modules/valuation/index.ts': `${door}import './components/ValuationSourceMarker'\nexport const x = 1\nexport type { Y } from './components/Y'\n`,
+          }),
+        ),
+      ).toEqual([
+        "modules/valuation/index.ts:2 is not a re-export; a door holds `export … from '…'` only",
+        "modules/valuation/index.ts:3 is not a re-export; a door holds `export … from '…'` only",
+      ])
+      expect(doorHoldsMoreThanReExports(tree(valuation))).toEqual([])
     })
 
     it('a comment or a string naming a path is not an import', () => {

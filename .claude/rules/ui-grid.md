@@ -27,10 +27,10 @@ paths:
   - "frontend/apps/dms/src/architecture/grid-*"
   - "frontend/apps/dms/src/components/MappingGapsQueue*"
   - "frontend/apps/dms/src/components/catalogue/BrandsAdmin.tsx"
-  - "frontend/apps/dms/src/components/customer-detail/ExternalIdsTab.tsx"
-  - "frontend/apps/dms/src/components/customer-detail/VehiclesTab*"
-  - "frontend/apps/dms/src/components/customer-detail/OffersContractsTab.tsx"
-  - "frontend/apps/dms/src/components/customer-detail/offersContracts*"
+  - "frontend/apps/dms/src/modules/customer/components/customer-detail/ExternalIdsTab.tsx"
+  - "frontend/apps/dms/src/modules/customer/components/customer-detail/VehiclesTab*"
+  - "frontend/apps/dms/src/modules/customer/components/customer-detail/OffersContractsTab.tsx"
+  - "frontend/apps/dms/src/modules/customer/components/customer-detail/offersContracts*"
   - "frontend/apps/dms/src/components/stock-detail/WagenbuchTab.tsx"
 ---
 <!-- Maintainer note. ADR-056, ADR-058, ADR-060, ADR-092, ADR-102; UI/UX Core Principles (grids).

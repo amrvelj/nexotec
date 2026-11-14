@@ -16,12 +16,12 @@ from sqlalchemy import select
 from sqlalchemy.orm import sessionmaker
 
 from app.core.config import get_settings
-from app.platform.models.auth_event import AuthEvent, AuthEventKind
-from app.platform.models.auth_token import AuthToken, AuthTokenKind
-from app.platform.models.credential import Credential
-from app.platform.models.user import User, UserStatus
+from app.platform.identity.models.auth_event import AuthEvent, AuthEventKind
+from app.platform.identity.models.auth_token import AuthToken, AuthTokenKind
+from app.platform.identity.models.credential import Credential
+from app.platform.identity.models.user import User, UserStatus
+from app.platform.identity.services import auth_tokens, mail_texts, password_policy
 from app.platform.reference.services.mailer import MailDeliveryError, get_mailer
-from app.platform.services import auth_tokens, mail_texts, password_policy
 from tests.conftest import fastapi_app
 from tests.identity_support import (
     STRONG_PASSWORD,
@@ -362,7 +362,7 @@ def test_the_reset_mail_leaves_after_the_response_and_a_failure_is_still_recorde
     task, so a slow mailbox cannot say whether the address exists. The
     background half records a delivery failure in a session of its own."""
 
-    from app.platform.services import identity
+    from app.platform.identity.services import identity
 
     dealership = create_dealership(client)
     anna = create_user(client, dealership)
@@ -599,7 +599,7 @@ def test_the_stored_address_is_lower_case_by_constraint(client, db_session):
     from sqlalchemy.exc import IntegrityError
 
     from app.core.uuid7 import uuid7
-    from app.platform.models.user import UserRole
+    from app.platform.identity.models.user import UserRole
 
     dealership = create_dealership(client)
     db_session.add(

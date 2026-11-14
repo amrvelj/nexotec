@@ -5,9 +5,9 @@ from pydantic import Field
 
 from app.core.permissions import ModuleCode
 from app.core.schemas import CamelModel
+from app.platform.identity.schemas.user import UserRead
 from app.platform.organisation.models.dealership import DealershipStatus
 from app.platform.schemas.setup import LegalAcceptanceDue
-from app.platform.schemas.user import UserRead
 
 
 class DealershipMembershipSummary(CamelModel):

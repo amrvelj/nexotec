@@ -58,8 +58,6 @@ _DEBT = frozenset(
         "app.platform.public.Dealership",
         "app.platform.public.Location",
         "app.platform.public.User",
-        "app.sales.public.SalesContract",
-        "app.sales.public.SalesOffer",
         "app.vehicle.public.VehicleConfiguration",
         "app.vehicle.public.VehicleMdm",
     }

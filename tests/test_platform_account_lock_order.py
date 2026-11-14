@@ -27,9 +27,9 @@ import pytest
 from sqlalchemy import select
 
 from app.platform.api import auth as auth_api
-from app.platform.models.auth_session import AuthSession
-from app.platform.models.mfa import MfaRecoveryCode, MfaTotp
-from app.platform.services import auth_sessions, auth_tokens, mfa
+from app.platform.identity.models.auth_session import AuthSession
+from app.platform.identity.models.mfa import MfaRecoveryCode, MfaTotp
+from app.platform.identity.services import auth_sessions, auth_tokens, mfa
 from tests.identity_support import (
     PasswordLogin,
     change_email,

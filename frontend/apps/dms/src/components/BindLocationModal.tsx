@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { Button, Group, Modal, Select, Stack, Text } from '@mantine/core'
+import { Select, Stack, Text } from '@mantine/core'
+import { FormDialog } from '@nexotec/ui-kit'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { api } from '../api/client'
@@ -75,7 +76,15 @@ export function BindLocationModal({
   }
 
   return (
-    <Modal opened onClose={onClose} title={t('integrationsList.locationModal.title', { name: connection.displayName })}>
+    <FormDialog
+      opened
+      onClose={onClose}
+      title={t('integrationsList.locationModal.title', { name: connection.displayName })}
+      onSubmit={save}
+      submitLabel={t('common.save')}
+      cancelLabel={t('common.cancel')}
+      submitting={saving}
+    >
       <Stack gap="sm">
         {error && <Text size="sm" c="red" role="alert">{error}</Text>}
         <Select
@@ -85,11 +94,7 @@ export function BindLocationModal({
           allowDeselect={false}
           onChange={(v) => setValue(v ?? WHOLE_BUSINESS)}
         />
-        <Group justify="flex-end">
-          <Button variant="default" onClick={onClose}>{t('common.cancel')}</Button>
-          <Button onClick={() => void save()} loading={saving}>{t('common.save')}</Button>
-        </Group>
       </Stack>
-    </Modal>
+    </FormDialog>
   )
 }

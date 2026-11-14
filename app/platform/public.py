@@ -3,9 +3,30 @@ contract allows `app.<other-context>` to import `app.platform.public`, never
 `app.platform.models` / `app.platform.services` / `app.platform.api` directly.
 """
 
+from app.platform.identity.models.standard_text_delegation import StandardTextCategory
+from app.platform.identity.models.user import User
+from app.platform.identity.services.actor_reference import actor_reference_checks
+from app.platform.identity.services.connected_account import (
+    ConnectedAccountProvider,
+    GrantRevoker,
+    RevokedGrant,
+    register_grant_revoker,
+    unregister_grant_revoker,
+)
+from app.platform.identity.services.group_labels import get_group_display_labels
+from app.platform.identity.services.notification_catalogue import NotificationEventCode
+from app.platform.identity.services.notifications import NotificationSubject, UnknownNotificationEvent, notify
+from app.platform.identity.services.user_preference import ui_language_of
+from app.platform.identity.services.user_reads import (
+    UserDisplayLabel,
+    get_active_user_acting_in,
+    get_user_display_labels,
+    list_active_users_acting_in,
+    list_dealer_manager_emails,
+    list_user_dealer_group_ids,
+    list_user_dealership_ids,
+)
 from app.platform.models.standard_text import StandardTextAppliesTo, StandardTextSlot
-from app.platform.models.standard_text_delegation import StandardTextCategory
-from app.platform.models.user import User
 from app.platform.organisation.models.dealership import DealerGroup, Dealership, Location
 from app.platform.organisation.models.number_range import NumberRangeDocumentType
 from app.platform.organisation.schemas.dealership import DealerGroupRead
@@ -32,19 +53,8 @@ from app.platform.schemas.document_content import (
     ParagraphBlock,
     SignatureBlock,
 )
-from app.platform.services.actor_reference import actor_reference_checks
-from app.platform.services.connected_account import (
-    ConnectedAccountProvider,
-    GrantRevoker,
-    RevokedGrant,
-    register_grant_revoker,
-    unregister_grant_revoker,
-)
 from app.platform.services.data_export_tables import PlatformExporter
 from app.platform.services.document_render import render_document
-from app.platform.services.group_labels import get_group_display_labels
-from app.platform.services.notification_catalogue import NotificationEventCode
-from app.platform.services.notifications import NotificationSubject, UnknownNotificationEvent, notify
 from app.platform.services.publishing_readiness import (
     PublishingMissingItem,
     publishing_profile_missing_items,
@@ -54,16 +64,6 @@ from app.platform.services.setup_checklist import BlockedAction as SetupBlockedA
 from app.platform.services.setup_checklist import require_item_for as require_setup_item_for
 from app.platform.services.standard_text import RenderedStandardText, render_standard_text
 from app.platform.services.standard_text_placeholders import PLACEHOLDER_UNRESOLVED, Placeholder
-from app.platform.services.user_preference import ui_language_of
-from app.platform.services.user_reads import (
-    UserDisplayLabel,
-    get_active_user_acting_in,
-    get_user_display_labels,
-    list_active_users_acting_in,
-    list_dealer_manager_emails,
-    list_user_dealer_group_ids,
-    list_user_dealership_ids,
-)
 
 # WP-6b: Addressee/ContentDefinition/.../render_document are the shared
 # document-render layer's public contract — every future module that

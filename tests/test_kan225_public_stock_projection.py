@@ -448,3 +448,87 @@ def test_the_public_stock_endpoint_filters_by_location(client, db_session):
     body = response.json()
     items = body["items"] if isinstance(body, dict) else body
     assert [item["stockItemId"] for item in items] == [str(car_a)]
+
+
+# --- KAN-726: the projection on an older revision than Stock stated ----------------------------------
+
+
+def _age_listing(db_session, row) -> None:
+    row.updated_at = dt.datetime.now(dt.UTC) - dt.timedelta(hours=2)
+    db_session.commit()
+
+
+def _projection_row(db_session, item_id) -> PublicStockListing:
+    return db_session.scalar(select(PublicStockListing).where(PublicStockListing.stock_item_id == item_id))
+
+
+def test_a_projection_row_behind_stocks_revision_is_reported(db_session):
+    dealership = website_ready_dealership(db_session)
+    item = ready_item(db_session, dealership)
+    row = website_listing.list_on_website(db_session, item=item, actor_id=uuid.uuid4())
+    db_session.commit()
+    _deliver_all(db_session, item.id)
+    assert _projection_row(db_session, item.id).revision == 1
+
+    # Stock states revision 2 (the car is restated); that statement is lost.
+    website_listing._state(db_session, item, row)
+    db_session.commit()
+    assert row.revision == 2
+    assert _findings(db_session, "behind the revision") == []  # still in flight
+    _age_listing(db_session, row)
+    stale = _projection_row(db_session, item.id)
+    assert stale.is_listed is True and row.is_listed is True  # both sides say «listed»
+    assert [found for found, _ in _findings(db_session, "behind the revision")] == [stale.id]
+    # Not seen by the is_listed checks: this one alone sees it.
+    assert _findings(db_session, "does not list") == []
+    assert _findings(db_session, "no public stock row") == []
+
+    # The statement arrives: equal revisions are not reported.
+    _deliver_all(db_session, item.id)
+    assert _projection_row(db_session, item.id).revision == 2
+    assert _findings(db_session, "behind the revision") == []
+
+
+def test_equal_revisions_are_not_reported_listed_or_unlisted(db_session):
+    dealership = website_ready_dealership(db_session)
+    item = ready_item(db_session, dealership)
+    row = website_listing.list_on_website(db_session, item=item, actor_id=uuid.uuid4())
+    db_session.commit()
+    website_listing.unlist_from_website(db_session, item=item, actor_id=uuid.uuid4())
+    db_session.commit()
+    _deliver_all(db_session, item.id)
+    _age_listing(db_session, row)
+    projected = _projection_row(db_session, item.id)
+    assert projected.revision == row.revision == 2
+    assert projected.is_listed is False
+    assert _findings(db_session, "behind the revision") == []
+
+
+def test_an_unlisting_that_never_arrived_is_reported_as_behind(db_session):
+    dealership = website_ready_dealership(db_session)
+    item = ready_item(db_session, dealership)
+    row = website_listing.list_on_website(db_session, item=item, actor_id=uuid.uuid4())
+    db_session.commit()
+    _deliver_all(db_session, item.id)
+    website_listing.unlist_from_website(db_session, item=item, actor_id=uuid.uuid4())
+    db_session.commit()
+    _age_listing(db_session, row)
+    stale = _projection_row(db_session, item.id)
+    assert [found for found, _ in _findings(db_session, "behind the revision")] == [stale.id]
+
+
+def test_a_projection_row_of_another_betrieb_is_not_compared(db_session):
+    dealership = website_ready_dealership(db_session)
+    item = ready_item(db_session, dealership)
+    row = website_listing.list_on_website(db_session, item=item, actor_id=uuid.uuid4())
+    website_listing._state(db_session, item, row)
+    db_session.commit()
+    _age_listing(db_session, row)
+    other = _make_dealership(db_session)
+    apply_listing_changed(
+        db_session,
+        tenant_id=other.id,
+        payload={"stockItemId": str(item.id), "listed": True, "revision": 1, "locationId": None, "listing": {}},
+    )
+    db_session.commit()
+    assert _findings(db_session, "behind the revision") == []

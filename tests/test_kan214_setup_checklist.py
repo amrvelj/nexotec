@@ -13,7 +13,7 @@ from app.core.setup_checklist import (
     register_checklist_contribution,
     unregister_checklist_contribution,
 )
-from app.platform.models.user import User, UserStatus
+from app.platform.identity.models.user import User, UserStatus
 from app.platform.organisation.models.dealership import Dealership
 from app.platform.organisation.models.dealership_bank_account import DealershipBankAccount
 from app.platform.services import setup_checklist

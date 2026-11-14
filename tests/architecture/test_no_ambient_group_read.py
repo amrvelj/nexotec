@@ -90,7 +90,7 @@ _ALLOWED_FILES = {
     # always; a sister Betrieb and its users only while the group's read is
     # enabled (ADR-030's joint-controller flag). A dealer-facing read, so it
     # sits in its own module rather than beside the staff-only listing above.
-    _APP_ROOT / "platform" / "services" / "group_labels.py",
+    _APP_ROOT / "platform" / "identity" / "services" / "group_labels.py",
     # KAN-467, ADR-039 as amended (Anto, 2026-10-31: "it's on a group
     # level"): the Kontrollschild register is the dealer group's own, like
     # the customer register above — every read and write filters by the

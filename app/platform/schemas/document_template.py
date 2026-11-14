@@ -68,7 +68,7 @@ class DocumentTemplateRead(CamelModel):
     timestamps are null in that case
     (app.platform.services.document_template.get_document_template_or_default),
     matching the "absent, not 404" convention
-    app.platform.api.user_preferences already established for "nothing
+    app.platform.identity.api.user_preferences already established for "nothing
     customized here yet". `version` is `0` (never null) in that case rather
     than the usual VersionedMixin start of `1` — a real, ordinary sentinel
     the client reads off GET and echoes back as `If-Match: 0` to create the

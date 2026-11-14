@@ -44,14 +44,14 @@ from app.core.config import get_settings
 from app.core.errors import BadRequestError, ConflictError
 from app.core.export import exporters
 from app.core.outbox import OutboxEvent, publish
-from app.platform.models.dealership_membership import DealershipMembership
+from app.platform.identity.models.dealership_membership import DealershipMembership
+from app.platform.identity.models.user import User, UserStatus
+from app.platform.identity.services import connected_account, text_delegation
+from app.platform.identity.services import user as user_service
+from app.platform.identity.services.user_common import membership_is_active
 from app.platform.models.export_job import ExportJob, ExportJobKind
-from app.platform.models.user import User, UserStatus
 from app.platform.organisation.models.dealership import Dealership, DealershipStatus
-from app.platform.services import connected_account, text_delegation
-from app.platform.services import user as user_service
 from app.platform.services.data_export import scope_for
-from app.platform.services.user_common import membership_is_active
 
 RETENTION_YEARS = 10
 OFFBOARDING_REASON = "dealership_offboarded"

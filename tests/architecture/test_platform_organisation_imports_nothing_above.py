@@ -66,8 +66,8 @@ def test_organisation_imports_only_itself_and_reference():
 def test_the_guard_reports_an_import_that_reaches_up():
     # Red before green on synthetic sources.
     assert _upward_imports({
-        "app/platform/organisation/services/a.py": "from app.platform.services.user import get_user\n",
-        "app/platform/organisation/services/b.py": "import app.platform.models.dealership_membership\n",
+        "app/platform/organisation/services/a.py": "from app.platform.identity.services.user import get_user\n",
+        "app/platform/organisation/services/b.py": "import app.platform.identity.models.dealership_membership\n",
         "app/platform/organisation/services/c.py": "from app.platform.public import notify\n",
         "app/platform/organisation/services/d.py": "from app.platform.services import identity\n",
         "app/platform/organisation/services/ok.py": (
@@ -78,9 +78,9 @@ def test_the_guard_reports_an_import_that_reaches_up():
             "from app.core.audit import record_audit_event\n"
         ),
     }) == [
-        "app/platform/organisation/services/a.py -> app.platform.services.user",
-        "app/platform/organisation/services/a.py -> app.platform.services.user.get_user",
-        "app/platform/organisation/services/b.py -> app.platform.models.dealership_membership",
+        "app/platform/organisation/services/a.py -> app.platform.identity.services.user",
+        "app/platform/organisation/services/a.py -> app.platform.identity.services.user.get_user",
+        "app/platform/organisation/services/b.py -> app.platform.identity.models.dealership_membership",
         "app/platform/organisation/services/c.py -> app.platform.public",
         "app/platform/organisation/services/c.py -> app.platform.public.notify",
         "app/platform/organisation/services/d.py -> app.platform.services",

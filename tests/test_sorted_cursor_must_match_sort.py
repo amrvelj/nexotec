@@ -255,7 +255,7 @@ def test_each_type_mismatch_is_refused():
 
 
 def test_each_column_type_takes_its_own_tag_only():
-    from app.platform.models.user import User
+    from app.platform.identity.models.user import User
     from app.sales.models.deal import SalesDeal
 
     def fits(column, tagged) -> bool:
@@ -314,15 +314,15 @@ def test_every_fixed_sort_declares_its_columns_nullability_truly():
     excludes NULL — named below with where."""
 
     # api name -> where the list excludes NULL
-    excludes_null = {"deliveredAt": "app/platform/services/notifications.py::_inbox (delivered_at IS NOT NULL)"}
+    excludes_null = {"deliveredAt": "app/platform/identity/services/notifications.py::_inbox (delivered_at IS NOT NULL)"}
 
     from app.customer.api.customers import _DEFAULT_CUSTOMER_SORT
     from app.integration.api.connections import _DEFAULT_CONNECTION_SORT
     from app.inventory.api.group import _DEFAULT_GROUP_STOCK_SORT
     from app.inventory.api.stock_items import _DEFAULT_STOCK_ITEM_SORT
     from app.platform.api.dealership_users import _DEFAULT_USER_SORT
-    from app.platform.api.notifications import _INBOX_ORDER
     from app.platform.api.recovery import _DEFAULT_SORT
+    from app.platform.identity.api.notifications import _INBOX_ORDER
     from app.platform.organisation.services.dealer_group_options import _BY_NAME
     from app.sales.api.contracts import _DEFAULT_CONTRACT_SORT
     from app.sales.api.deals import _DEFAULT_DEAL_SORT

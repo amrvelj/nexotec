@@ -32,12 +32,12 @@ paths:
   - "tests/test_kan674_backfill_trade_in_seller.py"
   - "scripts/*vehicle_party*.py"
   - "scripts/backfill_customer_stock_item_booking.py"
-  - "frontend/apps/dms/src/components/customer-detail/Vehicles*"
-  - "frontend/apps/dms/src/components/customer-detail/LinkVehicle*"
-  - "frontend/apps/dms/src/components/customer-detail/vehicleLabel.ts"
-  - "frontend/apps/dms/src/components/customer-detail/MergeCustomer*"
+  - "frontend/apps/dms/src/modules/customer/components/customer-detail/Vehicles*"
+  - "frontend/apps/dms/src/modules/customer/components/customer-detail/LinkVehicle*"
+  - "frontend/apps/dms/src/modules/customer/components/customer-detail/vehicleLabel.ts"
+  - "frontend/apps/dms/src/modules/customer/components/customer-detail/MergeCustomer*"
   - "frontend/apps/dms/src/utils/vehicleParty*"
-  - "frontend/apps/dms/src/pages/*customerMerged*"
+  - "frontend/apps/dms/src/pages/*mergedBuyer*"
 ---
 <!-- Maintainer note. ADR-022, ADR-064 (as amended 2026-10-13), rule 2, rule 12; Anto's rulings on
 KAN-99, KAN-148, KAN-177, KAN-189, KAN-383, KAN-566, KAN-572, KAN-583, KAN-644. Moved out of

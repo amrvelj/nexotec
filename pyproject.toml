@@ -32,7 +32,7 @@ dependencies = [
     "argon2-cffi>=23.1,<26.0",
     "pyotp>=2.9,<3.0",
     # webauthn 3.x needs cryptography>=49; raised together (KAN-386). 3.0.1 still
-    # lets builtin exceptions out of some parsers: app/platform/services/mfa.py
+    # lets builtin exceptions out of some parsers: app/platform/identity/services/mfa.py
     # keeps its shape checks and treats such an exception at registration as a
     # malformed answer (422).
     "webauthn>=3.0.1,<4.0",
@@ -218,6 +218,7 @@ forbidden_modules = [
     "app.platform.api",
     "app.platform.consumers",
     "app.platform.daily_jobs",
+    "app.platform.identity",
     "app.platform.models",
     "app.platform.organisation",
     "app.platform.reconciliation",

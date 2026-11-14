@@ -12,10 +12,10 @@ import pytest
 from sqlalchemy import select
 
 from app.core.auth import AccessRole, create_access_token, decode_token_claims
-from app.platform.models.auth_event import AuthEvent, AuthEventKind
-from app.platform.models.auth_session import AuthSession
-from app.platform.models.dealership_membership import DealershipMembership
-from app.platform.services import auth_sessions
+from app.platform.identity.models.auth_event import AuthEvent, AuthEventKind
+from app.platform.identity.models.auth_session import AuthSession
+from app.platform.identity.models.dealership_membership import DealershipMembership
+from app.platform.identity.services import auth_sessions
 from tests.identity_support import (
     PasswordLogin,
     cookie_headers,
@@ -245,7 +245,7 @@ def test_a_session_owing_a_second_factor_is_confined_to_enrolment(client, login,
 
     import pyotp
 
-    from app.platform.models.mfa import MfaTotp
+    from app.platform.identity.models.mfa import MfaTotp
     from tests.identity_support import set_mfa_enforced
 
     dealership = create_dealership(client, mfa_enforced=True)

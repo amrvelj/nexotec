@@ -21,6 +21,7 @@ export * from "./components/FormDialog";
 export * from "./components/RowMenu";
 export * from "./components/RepeatableRowGroup";
 export * from "./components/DocumentPreview";
+export * from "./components/DocumentText";
 export * from "./components/PresentMode";
 export * from "./components/CounterTextarea";
 export * from "./components/FieldHint";

@@ -9,7 +9,7 @@ from pathlib import Path
 
 from app.customer.services import customer as customer_service
 
-_HISTORY_TAB = Path(__file__).resolve().parents[1] / "frontend/apps/dms/src/components/customer-detail/HistoryTab.tsx"
+_HISTORY_TAB = Path(__file__).resolve().parents[1] / "frontend/apps/dms/src/modules/customer/components/customer-detail/HistoryTab.tsx"
 
 
 def test_the_tab_marks_exactly_the_keys_the_endpoint_names():

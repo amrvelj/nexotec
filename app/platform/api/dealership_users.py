@@ -30,10 +30,8 @@ from app.core.sorting import SortField, decode_cursor_for_sort, parse_sort
 from app.core.tenancy import require_tenant_match
 from app.db import get_db, get_session_factory
 from app.platform.api.auth import client_ip
-from app.platform.models.user import User, UserStatus
-from app.platform.organisation.services import dealership as dealership_service
-from app.platform.reference.services.mailer import PlatformMailer, get_mailer
-from app.platform.schemas.user import (
+from app.platform.identity.models.user import User, UserStatus
+from app.platform.identity.schemas.user import (
     OwnedGroupRead,
     OwnershipRead,
     OwnershipTransfersRead,
@@ -45,14 +43,12 @@ from app.platform.schemas.user import (
     UserPage,
     UserUpdate,
 )
-from app.platform.services import (
-    identity,
-    photo,
-    signature,
-)
-from app.platform.services import ownership as ownership_service
-from app.platform.services import user as user_service
-from app.platform.services import user_reads as user_reads_service
+from app.platform.identity.services import identity, photo, signature
+from app.platform.identity.services import ownership as ownership_service
+from app.platform.identity.services import user as user_service
+from app.platform.identity.services import user_reads as user_reads_service
+from app.platform.organisation.services import dealership as dealership_service
+from app.platform.reference.services.mailer import PlatformMailer, get_mailer
 
 settings = get_settings()
 router = APIRouter(tags=["dealerships"], route_class=IdempotentRoute)

@@ -7,8 +7,8 @@ paths:
   - "frontend/apps/dms/src/hooks/useUiPreferences.ts"
   - "frontend/apps/dms/src/hooks/UiPreferencesContext.tsx"
   - "frontend/apps/dms/src/architecture/main-waits-for-i18n*"
-  - "app/platform/services/user_preference.py"
-  - "app/platform/api/user_preferences.py"
+  - "app/platform/identity/services/user_preference.py"
+  - "app/platform/identity/api/user_preferences.py"
   - "tests/test_user_preference.py"
 ---
 <!-- Maintainer note. FR-A-30…32; Anto's ruling on KAN-104 (decision 1 B). Split out of ui.md (KAN-615,

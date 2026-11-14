@@ -41,7 +41,8 @@ Customers' and Vehicle's nightly reconciliation checks against Stock's
 `stock_item_exists`, `stock_item_reservation_exists`, `stock_item_prices_moved`,
 `stock_item_differs_from_holding`, `purchased_stock_item_check`,
 `held_stock_item_check`, and since KAN-225 the public stock projection's
-`website_listing_exists` and `listed_on_website_check`;
+`website_listing_exists`, `listed_on_website_check` and
+`website_listing_revision_ahead`;
 services/reconciliation_targets.py) and confined to
 the reconciliation modules by an architecture test.
 """
@@ -66,6 +67,7 @@ from app.inventory.services.reconciliation_targets import (
     stock_item_reference_check,
     stock_item_reservation_exists,
     website_listing_exists,
+    website_listing_revision_ahead,
 )
 from app.inventory.services.reservation import release, reserve, reserve_for_contract
 from app.inventory.services.sales_contract import CONSUMERS as SALES_CONTRACT_PROJECTION_CONSUMERS
@@ -107,4 +109,5 @@ __all__ = [
     "stock_item_reference_check",
     "stock_item_reservation_exists",
     "website_listing_exists",
+    "website_listing_revision_ahead",
 ]
