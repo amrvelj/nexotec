@@ -30,6 +30,9 @@ _BUILDERS = (
     "stock_item_differs_from_holding",
     "purchased_stock_item_check",
     "held_stock_item_check",
+    # KAN-225: the public stock projection's checks.
+    "website_listing_exists",
+    "listed_on_website_check",
 )
 
 

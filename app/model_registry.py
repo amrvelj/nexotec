@@ -28,6 +28,8 @@ from app.inventory.models.stock_item import StockItem, StockNumberSequence
 from app.inventory.models.stock_item_ledger import StockItemLedger
 from app.inventory.models.stock_item_option import StockItemOption
 from app.inventory.models.stock_item_publishing import StockItemMedia, StockItemPublishing
+from app.inventory.models.website_listing import StockItemWebsiteListing
+from app.reporting.models.public_stock_listing import PublicStockListing
 from app.platform.models.auth_event import AuthEvent
 from app.platform.models.auth_session import AuthSession
 from app.platform.models.auth_token import AuthToken
@@ -190,6 +192,8 @@ __all__ = [
     "StockItemMedia",
     "StockItemOption",
     "StockItemPublishing",
+    "StockItemWebsiteListing",
+    "PublicStockListing",
     "StockNumberSequence",
     "TypeApproval",
     "TyreSpecCache",

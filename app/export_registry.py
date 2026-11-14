@@ -19,11 +19,12 @@ from app.customer.public import CustomerExporter
 from app.integration.public import IntegrationExporter
 from app.inventory.public import InventoryExporter
 from app.platform.public import PlatformExporter
+from app.reporting.public import ReportingExporter
 from app.sales.public import SalesExporter
 from app.valuation.public import ValuationExporter
 from app.vehicle.public import VehicleExporter
 
-STUB_CONTEXTS = ("aftersales", "parts", "finance", "reporting", "compliance")
+STUB_CONTEXTS = ("aftersales", "parts", "finance", "compliance")
 
 
 def register_exporters() -> None:
@@ -36,6 +37,7 @@ def register_exporters() -> None:
         ValuationExporter(),
         InventoryExporter(),
         SalesExporter(),
+        ReportingExporter(),
         *(StubExporter(context) for context in STUB_CONTEXTS),
     ):
         register_exporter(exporter)

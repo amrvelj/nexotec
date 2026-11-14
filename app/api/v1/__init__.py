@@ -25,6 +25,7 @@ from app.platform.api.auth import account_router as auth_account_router
 from app.platform.api.auth import router as auth_router
 from app.platform.api.branding import router as branding_router
 from app.platform.api.publishing_profile import router as publishing_profile_router
+from app.reporting.api.public_stock import router as public_stock_router
 from app.platform.api.configuration_copy import router as configuration_copy_router
 from app.platform.api.data_exports import router as data_exports_router
 from app.platform.api.dealership_identity import router as dealership_identity_router
@@ -69,6 +70,7 @@ api_v1_router.include_router(onboarding_router)
 api_v1_router.include_router(locations_router)
 api_v1_router.include_router(branding_router)
 api_v1_router.include_router(publishing_profile_router)
+api_v1_router.include_router(public_stock_router)
 api_v1_router.include_router(document_template_router)
 api_v1_router.include_router(configuration_copy_router)
 api_v1_router.include_router(standard_texts_router)

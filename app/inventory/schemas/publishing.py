@@ -13,6 +13,11 @@ class BlockingCondition(CamelModel):
 
     field: str
     message: str
+    # KAN-225: a stable code the SPA renders in the dealer's words, when the
+    # refusal is not a marketplace field (the website's publishing-profile
+    # items, `publishingValidation.<code>`; `message` then carries only the
+    # location's name, if any).
+    code: str | None = None
 
 
 class ListingTextUpdate(CamelModel):
@@ -39,6 +44,15 @@ class PublishingRead(CamelModel):
     transmission_status: TransmissionStatus
     last_transmission_error: str | None
     last_attempted_at: dt.datetime | None
+    blocking_conditions: list[BlockingCondition] = Field(default_factory=list)
+    version: int
+
+
+class WebsiteListingRead(CamelModel):
+    stock_item_id: uuid.UUID
+    is_listed: bool
+    listed_at: dt.datetime | None
+    unlisted_at: dt.datetime | None
     blocking_conditions: list[BlockingCondition] = Field(default_factory=list)
     version: int
 

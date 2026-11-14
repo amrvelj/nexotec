@@ -24,6 +24,7 @@ from app.inventory.models.sales_contract import InventorySalesContract
 from app.inventory.models.stock_item import StockItem
 from app.inventory.models.stock_item_ledger import StockItemLedger
 from app.inventory.models.stock_item_publishing import StockItemPublishing
+from app.inventory.models.website_listing import StockItemWebsiteListing
 from app.platform.public import Dealership, Location, actor_reference_checks
 from app.sales.public import SalesContract
 from app.valuation.public import valuation_final_offer_differs, valuation_reference_check
@@ -34,7 +35,7 @@ CONTEXT = "inventory"
 # Every Inventory table with created_by / updated_by: each must name a
 # platform user, or be null (KAN-243; see
 # app.platform.public.actor_reference_checks). The ledger has created_by only.
-ACTOR_TABLES = (StockItem, StockItemLedger, StockItemPublishing)
+ACTOR_TABLES = (StockItem, StockItemLedger, StockItemPublishing, StockItemWebsiteListing)
 # InventorySalesContract (KAN-630) carries no actor column: a consumer and a
 # backfill write it, never a user.
 

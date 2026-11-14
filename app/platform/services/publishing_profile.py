@@ -84,20 +84,21 @@ _PDF = b"%PDF-"
 # --- The aggregate ---------------------------------------------------------------------------
 
 
-def _new_profile(dealership_id: uuid.UUID, location_id: uuid.UUID | None, actor_id: uuid.UUID | None) -> PublishingProfile:
+def _new_profile(
+    dealership_id: uuid.UUID, location_id: uuid.UUID | None, actor_id: uuid.UUID | None, **extra: Any
+) -> PublishingProfile:
     # Set explicitly: the transient read row is never flushed, so the column
     # defaults would not apply to it.
-    row = PublishingProfile(
+    return PublishingProfile(
         dealership_id=dealership_id,
         location_id=location_id,
         is_published=False,
         social_profiles={},
         created_by=actor_id,
         updated_by=actor_id,
+        **{field: {} for field in _ALL_LOCALISED},
+        **extra,
     )
-    for field in _ALL_LOCALISED:
-        setattr(row, field, {})
-    return row
 
 
 def _betrieb_stmt(dealership_id: uuid.UUID):
@@ -113,10 +114,8 @@ def read_profile(db: Session, dealership_id: uuid.UUID) -> PublishingProfile:
     row = db.scalar(_betrieb_stmt(dealership_id))
     if row is not None:
         return row
-    transient = _new_profile(dealership_id, None, None)
-    transient.version = 1
-    transient.created_at = transient.updated_at = utcnow()
-    return transient
+    now = utcnow()
+    return _new_profile(dealership_id, None, None, version=1, created_at=now, updated_at=now)
 
 
 def profile_for_update(db: Session, dealership_id: uuid.UUID) -> PublishingProfile:
