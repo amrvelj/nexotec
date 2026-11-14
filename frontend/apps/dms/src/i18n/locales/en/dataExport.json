@@ -1,0 +1,67 @@
+{
+  "title": "Data export",
+  "subtitle": "A complete export of all your business's data – at any time, in open formats.",
+  "request": "Request an export",
+  "requested": "The export is being produced. It appears in the list as soon as it is ready.",
+  "acknowledged": "You confirmed you received the export.",
+  "requestError": "The export could not be requested.",
+  "acknowledgeError": "The receipt could not be confirmed.",
+  "downloadError": "The export could not be downloaded.",
+  "loadError": "The exports could not be loaded.",
+  "readOnly": "The export is requested by the business's management.",
+  "listLabel": "Exports",
+  "window": "A finished export can be downloaded for 7 days; then the file is deleted. A new export can be requested at any time.",
+  "acknowledgeHint": "Before you leave, you confirm you received the final export. Nexotec offboards a business only with a confirmed export produced after its last change.",
+  "contents": {
+    "title": "What the export holds",
+    "records": "Every record of the business as CSV and JSON, one file per entity, with a description of the schema",
+    "documents": "Every issued document as PDF, with its number and date",
+    "audit": "The audit log",
+    "files": "The uploaded files: logos, photos, signatures"
+  },
+  "status": {
+    "requested": "In progress",
+    "ready": "Ready",
+    "failed": "Failed",
+    "expired": "Expired"
+  },
+  "kind": {
+    "self_service": "Business's own export",
+    "archive": "Archive export"
+  },
+  "columns": {
+    "requestedAt": "Requested",
+    "kind": "Kind",
+    "reason": "Reason",
+    "status": "Status",
+    "producedAt": "Produced",
+    "downloadExpiresAt": "Download until",
+    "size": "Size",
+    "acknowledgedAt": "Receipt confirmed"
+  },
+  "rowMenu": {
+    "download": "Download",
+    "acknowledge": "Confirm receipt",
+    "alreadyAcknowledged": "The receipt is confirmed already.",
+    "managersOwn": "The business's own export is its management's.",
+    "notReady": {
+      "requested": "The export is still being produced.",
+      "failed": "This export failed – request a new one.",
+      "expired": "The file was deleted after 7 days."
+    }
+  },
+  "empty": {
+    "title": "No export yet",
+    "description": "A requested export appears here."
+  },
+  "refusals": {
+    "dealership_offboarded": "This business is offboarded. A copy of its archive is produced by Nexotec support.",
+    "export_requested": "The export is still being produced.",
+    "export_failed": "This export failed – request a new one.",
+    "export_expired": "This export's download has expired and its file was deleted. Request a new export.",
+    "export_file_missing": "This export's file is no longer there. Request a new export.",
+    "export_not_own": "Only the business's own export is acknowledged.",
+    "export_already_acknowledged": "This export's receipt is confirmed already.",
+    "staff_use_archive_export": "The business's export is its management's. Nexotec produces an archive export under Platform › Offboard a business."
+  }
+}

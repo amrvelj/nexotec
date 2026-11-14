@@ -10,7 +10,7 @@ on the target (`configuration_copied`), which is history, not a link.
 
 What the first version copies (option 1 — what exists today; each later
 entity joins in its own ticket: labour rate categories with KAN-224, contact
-groups with KAN-466; FR-A-01's "role presets" has nothing behind it, D-A-03):
+groups since KAN-466; FR-A-01's "role presets" has nothing behind it, D-A-03):
 
 - **standard texts** — the source's own texts and its adaptations of seeds,
   at Betrieb scope. An adaptation is copied as the target's own adaptation of
@@ -33,6 +33,10 @@ groups with KAN-466; FR-A-01's "role presets" has nothing behind it, D-A-03):
   is skipped and reported, and a pattern the target cannot take (no location
   code for `{location_code}`, a counter too short for its next value) is
   skipped with the reason.
+- **contact groups** (KAN-466) — every group switched on in the source is
+  switched on in the target; one the target has on already is unchanged,
+  and none is ever switched off (absent = kept, as for texts). A group
+  platform staff have deactivated is skipped (`contact_group_inactive`).
 
 Every item goes through its entity's own write path (validation, audit row,
 version), with the commit left to this service. The dry run runs the very
@@ -60,6 +64,7 @@ from app.platform.models.number_range import NumberRange, NumberRangeDocumentTyp
 from app.platform.models.standard_text import StandardText, StandardTextSource
 from app.platform.models.user import User
 from app.platform.schemas.document_template import DocumentTemplateUpdate
+from app.platform.services import contact_group as contact_group_service
 from app.platform.services import document_template as document_template_service
 from app.platform.services import number_range as number_range_service
 from app.platform.services import standard_text as standard_text_service
@@ -80,6 +85,7 @@ class CopySubset(str, enum.Enum):
     STANDARD_TEXTS = "standard_texts"
     DOCUMENT_TEMPLATE = "document_template"
     NUMBER_RANGES = "number_ranges"
+    CONTACT_GROUPS = "contact_groups"
 
 
 class CopyOutcome(str, enum.Enum):
@@ -436,10 +442,36 @@ def _copy_number_ranges(
         report.items.append(item)
 
 
+# --- contact groups ---------------------------------------------------------------------
+
+
+def _copy_contact_groups(
+    db: Session, *, source: Dealership, target: Dealership, actor_id: uuid.UUID, report: CopyReport
+) -> None:
+    target_on = {o.value.value_code for o in contact_group_service.list_contact_groups(db, target.id) if o.enabled}
+    for option in contact_group_service.list_contact_groups(db, source.id):
+        if not option.enabled:
+            continue
+        code = option.value.value_code
+        item = CopyItem(subset=CopySubset.CONTACT_GROUPS, key=code, outcome=CopyOutcome.UNCHANGED)
+        if code not in target_on:
+            try:
+                contact_group_service.set_contact_group_enabled(
+                    db, dealership_id=target.id, value_code=code, enabled=True, actor_id=actor_id, commit=False
+                )
+                item.outcome = CopyOutcome.CREATED
+            except AppError as refused:
+                # Refused before any write (a value platform staff deactivated).
+                item.outcome = CopyOutcome.SKIPPED
+                item.reason = str((refused.details or {}).get("reason") or "refused")
+        report.items.append(item)
+
+
 _COPIERS = {
     CopySubset.STANDARD_TEXTS: _copy_standard_texts,
     CopySubset.DOCUMENT_TEMPLATE: _copy_document_template,
     CopySubset.NUMBER_RANGES: _copy_number_ranges,
+    CopySubset.CONTACT_GROUPS: _copy_contact_groups,
 }
 
 

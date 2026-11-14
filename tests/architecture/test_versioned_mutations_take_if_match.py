@@ -33,6 +33,7 @@ from app.integration.models.secret_ref import IntegrationSecretRef
 from app.inventory.models.stock_item_publishing import StockItemMedia
 from app.main import app
 from app.platform.models.auth_session import AuthSession
+from app.platform.models.contact_group import DealershipContactGroup
 from app.platform.models.mfa import MfaPasskey, MfaTotp
 from app.platform.models.notification import Notification, PushSubscription
 from app.platform.models.user_preference import UserPreference
@@ -54,6 +55,9 @@ POST_WITHOUT_IF_MATCH = {
     "only ever filled where it is NULL (KAN-83, a bump no client holds a version for) — one fresh request per "
     "detail, audited",
     "/v1/dealerships/{dealership_id}/users": _NEW_ROW,
+    # KAN-218: a requested export is a new export_job row (and its outbox fact).
+    "/v1/dealerships/{dealership_id}/exports": _NEW_ROW,
+    "/v1/platform/dealerships/{dealership_id}/exports": _NEW_ROW,
     "/v1/dealerships/{dealership_id}/users/{user_id}/ownership/transfers": "the hand-over (D-A-35) bumps every "
     "moved offer's, contract's and customer's version, judged again under each row's lock — no single version "
     "to match",
@@ -121,6 +125,13 @@ POST_WITHOUT_IF_MATCH = {
 
 # (method, path) -> (the model the route writes, why it takes no If-Match).
 UNVERSIONED = {
+    ("PUT", "/v1/dealerships/{dealership_id}/contact-groups/{value_code}"): (
+        DealershipContactGroup,
+        (
+            "a Betrieb's contact-group switch (KAN-466): the row exists or it does not, and the same state twice "
+            "changes nothing"
+        ),
+    ),
     ("DELETE", "/v1/vehicle-mdm/{vehicle_id}/accessories/{accessory_id}"): (VehicleAccessory, "an accessory row"),
     ("PATCH", "/v1/customers/{customer_id}/phones/{phone_id}"): (CustomerPhone, "a contact channel row (ADR-067)"),
     ("DELETE", "/v1/customers/{customer_id}/phones/{phone_id}"): (CustomerPhone, "a contact channel row (ADR-067)"),

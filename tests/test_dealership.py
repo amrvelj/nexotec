@@ -347,11 +347,11 @@ def test_patch_with_stale_if_match_is_409(client):
     body = _create_dealership(client)
     token = _token(AccessRole.PLATFORM_ADMIN)
     headers = {**_bearer(token), "If-Match": "1"}
-    first = client.patch(f"/v1/dealerships/{body['id']}", json={"status": "active"}, headers=headers)
+    first = client.patch(f"/v1/dealerships/{body['id']}", json={"tradeName": "Musterbetrieb"}, headers=headers)
     assert first.status_code == 200
     assert first.json()["version"] == 2
 
-    stale = client.patch(f"/v1/dealerships/{body['id']}", json={"status": "suspended"}, headers=headers)
+    stale = client.patch(f"/v1/dealerships/{body['id']}", json={"tradeName": "Muster"}, headers=headers)
     assert stale.status_code == 409
     assert stale.json()["error"]["code"] == "conflict"
 
@@ -372,19 +372,19 @@ def test_patch_updates_dealership_and_bumps_version(client):
 # --- lifecycle: offboarded is terminal ----------------------------------------
 
 
-def test_offboarded_dealership_status_is_terminal(client):
+def test_offboarded_dealership_status_is_terminal(client, db_session):
     body = _create_dealership(client)
     token = _token(AccessRole.PLATFORM_ADMIN)
     headers = _bearer(token)
+    # KAN-712: the PATCH no longer offboards (the procedure does, KAN-218);
+    # the row is put there directly to prove the status stays terminal.
+    from app.platform.models.dealership import Dealership, DealershipStatus
 
-    r1 = client.patch(
-        f"/v1/dealerships/{body['id']}", json={"status": "offboarded"}, headers={**headers, "If-Match": "1"}
-    )
-    assert r1.status_code == 200
-    assert r1.json()["status"] == "offboarded"
+    db_session.get(Dealership, uuid.UUID(body["id"])).status = DealershipStatus.OFFBOARDED
+    db_session.commit()
 
     r2 = client.patch(
-        f"/v1/dealerships/{body['id']}", json={"status": "active"}, headers={**headers, "If-Match": "2"}
+        f"/v1/dealerships/{body['id']}", json={"status": "active"}, headers={**headers, "If-Match": "1"}
     )
     assert r2.status_code == 409
 

@@ -43,6 +43,7 @@ a contract can carry either, both, or neither (a manual configuration
 paid for partly by a trade-in is the ordinary case, not an edge case).
 """
 
+import datetime as dt
 import uuid
 from typing import Any
 
@@ -54,7 +55,7 @@ from sqlalchemy.orm import Session
 from app.core.base import utcnow
 from app.core.errors import ConflictError, UnprocessableEntityError
 from app.core.outbox import OutboxEvent, publish
-from app.core.validators import NormalisedVin
+from app.core.validators import NormalisedVin, NormalisedVinOrChassisNumber, is_chassis_number
 from app.inventory.models.stock_item import LifecycleStatus, StockItem, StockItemCondition
 from app.inventory.schemas.stock_item import StockItemCreate
 from app.inventory.services.configuration_holding import (
@@ -68,6 +69,7 @@ from app.inventory.services.stock_item import (
     CONFIGURATION_INDEX,
     _build_and_flush_stock_item,
     _check_vin_not_in_stock,
+    _item_in_stock_with_vehicle,
     _item_in_stock_with_vin,
     _vin_already_in_stock,
     apply_trade_in_seller,
@@ -77,21 +79,30 @@ from app.inventory.services.stock_item import (
 )
 from app.inventory.services.valuation import apply_valuation_ref
 from app.valuation.public import get_valuation_or_404
-from app.vehicle.public import resolve_vehicle_mdm_by_vin
+from app.vehicle.public import (
+    find_vehicle_mdm_by_chassis_number,
+    resolve_vehicle_mdm_by_chassis_number,
+    resolve_vehicle_mdm_by_vin,
+)
 
 _EVENT_PRODUCER = "inventory"
 
 # KAN-324: the create's own normalisation and rule (KAN-244, option A) — one
 # spelling for the KAN-111 duplicate check, its index and vehicle-mdm.
 _VIN = TypeAdapter(NormalisedVin)
+# KAN-535: a pre-1981 car's chassis number, in the same one spelling.
+_VIN_OR_CHASSIS_NUMBER = TypeAdapter(NormalisedVinOrChassisNumber)
 
 
-def _normalised_vin(value: str) -> str:
+def _normalised_vin(value: str, *, chassis_number_allowed: bool = False) -> str:
     """Upper-cased, whitespace removed, then validated as vehicle-mdm
-    validates a VIN — 422 `invalid_vin` otherwise, before anything is read
-    or written."""
+    validates a VIN — or, with `chassis_number_allowed` (KAN-535), a
+    pre-1981 car's chassis number — 422 `invalid_vin` otherwise, before
+    anything is read or written."""
 
     try:
+        if chassis_number_allowed:
+            return _VIN_OR_CHASSIS_NUMBER.validate_python(value)
         return _VIN.validate_python(value)
     except ValidationError as exc:
         raise UnprocessableEntityError(
@@ -310,6 +321,8 @@ def promote_and_flush(
     catalogue_variant_id: uuid.UUID | None = None,
     actor_id: uuid.UUID | None = None,
     correct_vin: bool = False,
+    chassis_make: str | None = None,
+    first_registration_date: dt.date | None = None,
 ) -> StockItem:
     """FR-V-04: VIN arrival on a pipeline item. Idempotent per stock item:
     it returns early when the item already carries a `vehicle_id` for the
@@ -323,9 +336,20 @@ def promote_and_flush(
     a retry spelling the same VIN differently is the same no-op, and a VIN
     still malformed after normalising is refused (422) before any read or
     write. It never commits: the caller's transaction does (KAN-446).
+
+    KAN-535 (ADR-103 as amended): `vin` may be a pre-1981 car's chassis
+    number when the caller names the car's make and first registration
+    (`chassis_make`, `first_registration_date`; purchase booking reads both
+    off the item's configuration). Its record is that number together with
+    the make (`vehicle.public.resolve_vehicle_mdm_by_chassis_number`, 422
+    without a pre-1981 registration or a make), and the dealership's stock
+    holds it at most once by that record, not by the number: two cars of two
+    makes may share one.
     """
 
-    vin = _normalised_vin(vin)
+    chassis = chassis_make is not None or first_registration_date is not None
+    vin = _normalised_vin(vin, chassis_number_allowed=chassis)
+    chassis = chassis and is_chassis_number(vin)
     if item.vehicle_id is not None and item.vin == vin:
         return item  # already promoted — redelivery/retry, not a second event
     # Anything else that is not pipeline is refused — including, since KAN-244
@@ -352,7 +376,17 @@ def promote_and_flush(
     # carry one trade-in, KAN-101), never twice in stock. Checked before
     # vehicle-mdm is touched, so a refused promotion writes nothing. The item
     # itself is left out: one created with its VIN holds it already (KAN-554).
-    _check_vin_not_in_stock(db, tenant_id=item.tenant_id, vin=vin, excluding=item.id)
+    if chassis:
+        known = find_vehicle_mdm_by_chassis_number(db, chassis_number=vin, make=chassis_make)
+        held = (
+            _item_in_stock_with_vehicle(db, tenant_id=item.tenant_id, vehicle_id=known.id, excluding=item.id)
+            if known is not None
+            else None
+        )
+        if held is not None:
+            raise _vin_already_in_stock(held)
+    else:
+        _check_vin_not_in_stock(db, tenant_id=item.tenant_id, vin=vin, excluding=item.id)
 
     # On vehicle-mdm's own session (`vehicle.public.resolve_vehicle_mdm_by_vin`,
     # KAN-337): its
@@ -362,7 +396,15 @@ def promote_and_flush(
     # took the car into this dealership's stock is refused by the index below.
     # KAN-243, KAN-554: a record purchase booking creates names the user who
     # booked it (`actor_id`); a promotion with none is a system write.
-    vehicle = resolve_vehicle_mdm_by_vin(db, vin=vin, catalogue_variant_id=catalogue_variant_id, actor_id=actor_id)
+    if chassis:
+        vehicle = resolve_vehicle_mdm_by_chassis_number(
+            db, chassis_number=vin, make=chassis_make, first_registration_date=first_registration_date,
+            actor_id=actor_id,
+        )
+    else:
+        vehicle = resolve_vehicle_mdm_by_vin(
+            db, vin=vin, catalogue_variant_id=catalogue_variant_id, actor_id=actor_id
+        )
 
     try:
         # A savepoint, so a racing promotion of the same VIN undoes only
@@ -375,7 +417,11 @@ def promote_and_flush(
             item.in_stock_at = utcnow()
             item.version += 1
     except IntegrityError:
-        held_by = _item_in_stock_with_vin(db, tenant_id=item.tenant_id, vin=vin, excluding=item.id)
+        held_by = (
+            _item_in_stock_with_vehicle(db, tenant_id=item.tenant_id, vehicle_id=vehicle.id, excluding=item.id)
+            if chassis
+            else _item_in_stock_with_vin(db, tenant_id=item.tenant_id, vin=vin, excluding=item.id)
+        )
         if held_by is None:
             raise
         raise _vin_already_in_stock(held_by) from None

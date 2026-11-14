@@ -1,0 +1,26 @@
+{
+  "title": "Groupes de contacts",
+  "subtitle": "Les groupes avec lesquels votre entreprise classe ses contacts. Nexotec tient la liste ; vous activez les groupes que vous utilisez.",
+  "offNotice": "Un groupe désactivé reste sur les contacts qui le portent déjà. Il n’est plus proposé et ne peut plus leur être retiré ici.",
+  "readOnly": "Seule la direction peut activer et désactiver les groupes de contacts.",
+  "loadError": "Les groupes de contacts n’ont pas pu être chargés.",
+  "saveError": "La modification n’a pas pu être enregistrée.",
+  "columns": {
+    "group": "Groupe",
+    "status": "Statut",
+    "enabled": "Utilisé dans l’entreprise"
+  },
+  "status": {
+    "on": "Activé",
+    "off": "Désactivé",
+    "inactive": "Retiré par Nexotec"
+  },
+  "switchLabel": "Utiliser {{group}}",
+  "field": {
+    "label": "Groupes de contacts",
+    "placeholder": "Choisir un groupe",
+    "noneOffered": "Aucun groupe de contacts n’est activé dans cette entreprise.",
+    "readOnlyHint": "Non activé dans cette entreprise – non modifiable ici.",
+    "unknown": "Groupe inconnu ({{code}})"
+  }
+}

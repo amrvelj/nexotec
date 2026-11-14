@@ -13,9 +13,9 @@ from app.core.auth import Principal, get_current_principal
 from app.core.concurrency import check_version, require_if_match
 from app.core.config import get_settings
 from app.core.idempotent_route import IdempotentRoute
-from app.core.pagination import SortPageParams, decode_sort_cursor
+from app.core.pagination import SortPageParams
 from app.core.permissions import require_write
-from app.core.sorting import SortField, parse_sort
+from app.core.sorting import SortField, decode_cursor_for_sort, parse_sort
 from app.db import get_db
 from app.vehicle.models.vehicle_mdm import VehicleMdm
 from app.vehicle.schemas.vehicle_mdm import (
@@ -83,7 +83,7 @@ def search_vehicles(
     """
 
     sort_fields = parse_sort(sort, allowed=VEHICLE_MDM_SORT_FIELDS) or _DEFAULT_VEHICLE_MDM_SORT
-    params = SortPageParams(limit=limit, cursor=decode_sort_cursor(cursor) if cursor else None, sort_fields=sort_fields)
+    params = SortPageParams(limit=limit, cursor=decode_cursor_for_sort(cursor, sort_fields), sort_fields=sort_fields)
 
     resolution = resolve_identifier(db, q, group_id=principal.group_id) if q else None
     if resolution is not None and (resolution.resolved or resolution.picker_candidates):

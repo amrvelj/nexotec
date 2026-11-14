@@ -13,7 +13,6 @@ from sqlalchemy.orm import Session
 from app.core.auth import Principal, require_access_role, require_mfa_session
 from app.core.config import get_settings
 from app.core.idempotent_route import IdempotentRoute
-from app.core.pagination import decode_sort_cursor
 from app.db import get_db
 from app.platform.api.auth import client_ip
 from app.platform.reference.services.mailer import PlatformMailer, get_mailer
@@ -75,7 +74,7 @@ def list_dealer_groups(
     (KAN-652): the wizard's group picker asks as the user types."""
 
     rows, next_cursor = dealer_group_options.list_dealer_group_options(
-        db, q=q, limit=limit, cursor=decode_sort_cursor(cursor) if cursor else None
+        db, q=q, limit=limit, cursor=cursor
     )
     return DealerGroupOptionList(
         items=[DealerGroupOption(id=row.id, name=row.name) for row in rows], next_cursor=next_cursor

@@ -17,9 +17,9 @@ from app.core.auth import AccessRole, Principal, get_current_principal
 from app.core.concurrency import check_version, require_if_match
 from app.core.config import get_settings
 from app.core.idempotent_route import IdempotentRoute
-from app.core.pagination import SortPageParams, decode_sort_cursor
+from app.core.pagination import SortPageParams
 from app.core.permissions import require_read, require_write
-from app.core.sorting import SortField, parse_sort
+from app.core.sorting import SortField, decode_cursor_for_sort, parse_sort
 from app.db import get_db
 from app.integration.models.connection import ConnectionScope, ConnectionStatus, IntegrationConnection
 from app.integration.models.secret_ref import SecretSlot
@@ -105,7 +105,7 @@ def list_connections(
     effective_tenant_id = tenant_id if _is_platform_admin(principal) else principal.tenant_id
     sort_fields = parse_sort(sort, allowed=CONNECTION_SORT_FIELDS) or _DEFAULT_CONNECTION_SORT
     params = SortPageParams(
-        limit=limit, cursor=decode_sort_cursor(cursor) if cursor else None, sort_fields=sort_fields
+        limit=limit, cursor=decode_cursor_for_sort(cursor, sort_fields), sort_fields=sort_fields
     )
     rows, next_cursor, total, total_is_estimate = connection_service.list_connections(
         db, tenant_id=effective_tenant_id, provider_code=provider_code, category=category, status=status, params=params

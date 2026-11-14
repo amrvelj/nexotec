@@ -11,7 +11,7 @@ from app.platform.services.configuration_copy import CopyOutcome, CopySubset
 
 class ConfigurationCopyRequest(CamelModel):
     source_dealership_id: uuid.UUID
-    # At least one subset; the screen ticks all three by default.
+    # At least one subset; the screen ticks all of them by default.
     subsets: list[CopySubset] = Field(min_length=1)
     dry_run: bool = True
 

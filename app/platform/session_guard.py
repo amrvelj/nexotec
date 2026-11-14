@@ -17,10 +17,11 @@ from sqlalchemy.orm import Session
 
 from app.core.auth import SESSION_COOKIE_NAME, AccessRole, decode_token_claims
 from app.core.base import utcnow
-from app.core.errors import ForbiddenError, UnauthorizedError
+from app.core.errors import ForbiddenError, NotFoundError, UnauthorizedError
 from app.db import get_db
 from app.platform.models.auth_event import AuthEventKind
 from app.platform.models.auth_session import AuthSession
+from app.platform.models.dealership import Dealership, DealershipStatus
 from app.platform.models.dealership_auth_config import DealershipAuthConfig
 from app.platform.services import auth_events, auth_sessions, mfa
 
@@ -131,3 +132,32 @@ def enforce_live_session(request: Request, db: Session = Depends(get_db)) -> Non
             raise UnauthorizedError(_SESSION_ENDED)
     if not _enrolment_path(path, claims) and _enrolment_owed(db, claims, row):
         raise ForbiddenError(_ENROL_FIRST, details={"mfaEnrolmentRequired": True})
+
+
+def enforce_open_dealership(request: Request, db: Session = Depends(get_db)) -> None:
+    """The archive gate (KAN-218; FR-A-45; Anto, 2026-11-13, Q2 B): an
+    offboarded Betrieb's data is a read-only archive by construction, not
+    by convention. Every API request carrying a token whose Betrieb
+    (`tenant_id`) is offboarded is answered 404 — everywhere, before any
+    route runs: there is no dealer login after offboarding, and a 404
+    confirms nothing. A former manager's copy of the archive is staff's
+    archive export (`POST /v1/platform/dealerships/{id}/exports`).
+
+    Offboarding deactivates the users and revokes their sessions, so the
+    session guard above already ends a minted session; this gate holds for
+    every other token too. A malformed token is left to the route; a token
+    naming no Betrieb is not this gate's. Signing out stays possible."""
+
+    path = request.url.path
+    if not path.startswith("/v1/") or path.endswith("/auth/logout"):
+        return
+    token = _token_from(request)
+    if not token:
+        return
+    try:
+        tenant_id = uuid.UUID(str(decode_token_claims(token).get("tenant_id")))
+    except (UnauthorizedError, ValueError):
+        return  # the route decides
+    status = db.scalar(select(Dealership.status).where(Dealership.id == tenant_id))
+    if status == DealershipStatus.OFFBOARDED:
+        raise NotFoundError("Not found.")

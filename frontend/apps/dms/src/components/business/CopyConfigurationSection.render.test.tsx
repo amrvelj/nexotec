@@ -74,11 +74,11 @@ describe('CopyConfigurationSection (KAN-220)', () => {
     expect(table.getByText('Wird überschrieben')).toBeInTheDocument()
     expect(table.getByText('Dieser Nummernkreis hat schon eine Nummer vergeben und ist gesperrt.')).toBeInTheDocument()
     const posts = () => backend.callsTo(/\/copy-configuration$/, 'POST')
-    expect(posts()[0].body).toEqual({ sourceDealershipId: 'dealership-2', subsets: ['standard_texts', 'document_template'], dryRun: true })
+    expect(posts()[0].body).toEqual({ sourceDealershipId: 'dealership-2', subsets: ['standard_texts', 'document_template', 'contact_groups'], dryRun: true })
 
     await user.click(section.getByRole('button', { name: '2 Änderungen übernehmen' }))
     await waitFor(() => expect(posts()).toHaveLength(2))
-    expect(posts()[1].body).toEqual({ sourceDealershipId: 'dealership-2', subsets: ['standard_texts', 'document_template'], dryRun: false })
+    expect(posts()[1].body).toEqual({ sourceDealershipId: 'dealership-2', subsets: ['standard_texts', 'document_template', 'contact_groups'], dryRun: false })
     expect(await section.findByText(/übernommen: 1 neu/)).toHaveTextContent(
       'Aus Garage Quelle AG übernommen: 1 neu, 1 überschrieben, 1 übersprungen.',
     )

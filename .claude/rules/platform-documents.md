@@ -26,6 +26,9 @@ paths:
   - "frontend/apps/dms/src/components/standardTexts/**"
   - "frontend/apps/dms/src/pages/NumberRangesPage*"
   - "frontend/packages/ui-kit/src/components/DocumentPreview.tsx"
+  - "frontend/apps/dms/src/pages/LetterheadPage*"
+  - "frontend/apps/dms/src/components/letterhead/**"
+  - "tests/test_sales_document_letterhead.py"
 ---
 <!-- Maintainer note (stripped before Claude sees it). Summarises ADR-047, ADR-051, ADR-109 and the
 Dealer Administration PRD's standard texts (FR-A-28, D-A-23, A-RULE-4) and number ranges (D-A-17,
@@ -39,9 +42,23 @@ against main@73baf3f on 2026-10-25 - this cut was not re-verified against the co
   HTML-tag string literal (`<table`, `<div`, `<style`, `<html`) elsewhere in `app/`
   (`test_no_layout_code_outside_document_render.py`). One template, two consumers: the ui-kit
   `DocumentPreview` only displays the PDF the renderer produced — never a second renderer.
-- `document_template` holds the header note only; a document's footer wording is its own standard
-  text, frozen in `ContentDefinition.footer_text`. The header logo is the primary branding asset,
-  inlined from the object store while the `document_header` placement is on.
+- `document_template` holds the header note and the layout (KAN-206): `header_layout`, `logo_size`
+  (S/M/L = 30/40/50 mm, 20 mm high), `address_window` (left/right, default right), `footer_columns`
+  (ordered, ≤ 4, `company` always — A-27), `draft_watermark`, `page_numbers`. A document's footer
+  wording is its own standard text, frozen in `ContentDefinition.footer_text`; the footer's columns
+  are read from master data **at render time** (`services/document_letterhead.py`), never copied.
+- **The envelope window is Swiss Post's** (`document_letterhead.WINDOW_GEOMETRY`, ePost's C5 window,
+  to confirm with a test print); `tests/test_document_letterhead.py` measures WeasyPrint's laid-out
+  box (±0.5 mm). Words a document prints (page numbers, «ENTWURF»/«MUSTER», footer labels) are in
+  `document_letterhead.py`, four languages, in the document's language.
+- **Per location: address block and logo only** (A-27): `location.letterhead_address_override` as
+  written, `branding_asset.location_id`'s logo, and the site's own bank account in the banking column
+  (ADR-051 addendum); the company column is always the legal entity. Sales passes no location yet.
+- The header logo is the site's, else the primary branding asset, while `document_header` is on.
+  A `SignatureBlock` freezes the signer's user id; the image is read at render time (Q2 A).
+  `render_document(watermark=DRAFT)` prints the draft mark only while the template has it on.
+- The preview (`GET …/document-template/preview?document=offer|invoice&location=`) goes through
+  `render_document` with «MUSTER»; only `document_templates` writers may call it (it prints the IBAN).
 - **WeasyPrint loads `data:` URIs and nothing else** (`document_render.local_url_fetcher`): every
   byte a document prints is in its own HTML, so no http(s), file or relative reference connects
   anywhere — no SSRF from a render.

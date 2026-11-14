@@ -209,6 +209,11 @@ _OWN_COMMIT_WRITES = {
             "since KAN-189 neither the trade-in nor a valuation creates a record"
         ),
     ),
+    # KAN-535 (ADR-103 as amended): the same for a pre-1981 car's chassis number.
+    "app.vehicle.public.resolve_vehicle_mdm_by_chassis_number": (
+        "app.vehicle.services.vehicle_mdm.create_vehicle_mdm",
+        "inventory: promotion at purchase booking of a pre-1981 car, on Vehicle's own session, as for a VIN",
+    ),
     # KAN-557 «VIN korrigieren» (ADR-116): Stock asks Vehicle, which owns the
     # VIN, to rewrite the record and the stock car's configuration on a
     # session of its own, before Stock writes its item; the compensation is
@@ -291,6 +296,9 @@ _READS = {
     # reconciliation runs; reads nothing itself.
     "app.platform.public.actor_reference_checks",
     "app.platform.public.get_active_reference_value_codes",
+    # KAN-466: which contact groups the acting Betrieb may set — its switch rows and the
+    # platform list, a SELECT only.
+    "app.platform.public.contact_group_codes",
     # KAN-200/KAN-410: who may own an open record in a Betrieb (a seller, an
     # advisor) — the user row and their memberships, a SELECT only.
     "app.platform.public.get_active_user_acting_in",
@@ -329,6 +337,10 @@ _READS = {
     "app.valuation.public.valuation_reference_check",
     # KAN-10: offer, stock item and valuation read the configuration they reference.
     "app.vehicle.public.get_configuration_for_host",
+    # KAN-535: promotion asks whether a pre-1981 car already has its record before it writes; a SELECT only.
+    "app.vehicle.public.find_vehicle_mdm_by_chassis_number",
+    # KAN-535: «VIN korrigieren» asks which record a corrected chassis number would collide with; a SELECT only.
+    "app.vehicle.public.find_vehicle_mdm_carrying_corrected_vin",
     # KAN-534: Stock's nightly refresh reads its configurations' labels; a SELECT only.
     "app.vehicle.public.get_configuration_labels",
     # KAN-552: the valuation's provider quote reads the car's FzKey, OptKeys and connection; a SELECT only.

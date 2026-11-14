@@ -5,6 +5,7 @@ import { Building2, Loader, User } from 'lucide-react'
 import { Alert } from '@mantine/core'
 import { useTranslation } from 'react-i18next'
 import {
+  Badge,
   CustomerTypeBadge,
   DetailHeader,
   DetailTabs,
@@ -21,6 +22,7 @@ import { toSwissLocale, type SupportedLanguage } from '../i18n'
 import { translatedCustomerTypeLabel, translatedLifecycleLabel } from '../customerOptions'
 import { buildCustomerRowMenu } from '../components/customerRowMenu'
 import { OverviewTab, type AddressDraft } from '../components/customer-detail/OverviewTab'
+import { useContactGroups } from '../hooks/useContactGroups'
 import { useCountryOptions } from '../hooks/useCountryOptions'
 import { useIdempotencyKey } from '../hooks/useIdempotencyKey'
 import type { ContactPointUpdatePatch } from '../components/customer-detail/ContactPointsEditor'
@@ -96,6 +98,7 @@ export interface CustomerDetailContentProps {
 export function CustomerDetailContent({ customerId: id, embedded = false }: CustomerDetailContentProps) {
   const navigate = useNavigate()
   const { t, i18n } = useTranslation()
+  const contactGroups = useContactGroups()
   const locale = toSwissLocale(i18n.language as SupportedLanguage)
   const { options: countryOptions } = useCountryOptions()
   const { user, entitlements } = useAuth()
@@ -523,6 +526,11 @@ export function CustomerDetailContent({ customerId: id, embedded = false }: Cust
             <CustomerTypeBadge type={customer.customerType} label={translatedCustomerTypeLabel(t, customer.customerType)} />
             <LifecycleStatusBadge status={customer.lifecycleStatus} label={translatedLifecycleLabel(t, customer.lifecycleStatus)} />
             <LanguageBadge language={customer.language} />
+            {(customer.contactGroups ?? []).map((code) => (
+              <Badge key={code} tone="purple">
+                {contactGroups.label(code)}
+              </Badge>
+            ))}
           </>
         }
         primaryAction={
@@ -624,6 +632,7 @@ export function CustomerDetailContent({ customerId: id, embedded = false }: Cust
           locale={locale}
           idLabels={historyIdLabels}
           countryLabels={historyCountryLabels}
+          contactGroupLabel={contactGroups.label}
         />
       )}
       {activeTab === 'external-ids' && (

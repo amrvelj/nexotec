@@ -102,6 +102,8 @@ from app.integration.services.connection_refs import (
     valuation_granted,
     vin_decode_granted,
 )
+from app.integration.services.connections import MARKETPLACE_PUBLISH_CAPABILITY
+from app.integration.services.data_export import IntegrationExporter
 from app.integration.services.gateway import (
     ConnectionDisabledError,
     UnknownProviderError,
@@ -111,6 +113,7 @@ from app.integration.services.gateway import (
 from app.integration.services.resilience import CircuitOpenError
 
 __all__ = [
+    "MARKETPLACE_PUBLISH_CAPABILITY",
     "BestMatchResult",
     "BuiltVehicleData",
     "CaptionData",
@@ -122,6 +125,7 @@ __all__ = [
     "ConnectionStatus",
     "EnergyLabelData",
     "EntitlementState",
+    "IntegrationExporter",
     "MarketplaceAdapter",
     "MarketplaceListing",
     "MarketplaceListingError",

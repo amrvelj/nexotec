@@ -52,7 +52,8 @@
     "creditBlockedAt": "Kreditsperre seit",
     "customerSince": "Kunde seit",
     "nextFollowUp": "Nächste Nachfassung",
-    "notes": "Notizen"
+    "notes": "Notizen",
+    "contactGroups": "Kontaktgruppen"
   },
   "rowActions": {
     "open": "Öffnen",

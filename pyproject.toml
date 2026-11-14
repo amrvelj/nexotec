@@ -399,6 +399,7 @@ source_modules = [
 forbidden_modules = [
     "app.integration.adapters",
     "app.integration.api",
+    "app.integration.consumers",
     "app.integration.daily_jobs",
     "app.integration.errors",
     "app.integration.models",

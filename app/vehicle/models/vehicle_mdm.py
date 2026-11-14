@@ -18,7 +18,7 @@ import datetime as dt
 import enum
 import uuid
 
-from sqlalchemy import JSON, Date, ForeignKey, Integer, String, UniqueConstraint
+from sqlalchemy import JSON, CheckConstraint, Date, ForeignKey, Index, Integer, String, UniqueConstraint, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.base import PrimaryKeyMixin, TimestampMixin, VersionedMixin
@@ -44,6 +44,28 @@ class VehicleStatus(str, enum.Enum):
     EXPORTED = "exported"
     SCRAPPED = "scrapped"
     STOLEN = "stolen"
+
+
+class VehicleIdentifierKind(str, enum.Enum):
+    """What a record's `vin` holds (KAN-535, ADR-103 as amended). A car
+    first registered before 1981 may carry a chassis number of 1–17 letters
+    and digits that is no ISO 3779 VIN (KAN-353); its record is unique by
+    that number together with its make (Anto, 2026-11-13, option A), since
+    short chassis numbers repeat across makes."""
+
+    VIN = "vin"
+    CHASSIS_NUMBER = "chassis_number"
+
+
+# The first registration a chassis-number record must predate (KAN-353's
+# PRE_ISO_VIN_CUTOFF, app/core/validators.py), as the CHECK below spells it.
+_CHASSIS_NUMBER_CUTOFF_SQL = "'1981-01-01'"
+CHASSIS_NUMBER_IDENTITY_CHECK = "ck_vehicle_mdm_chassis_number_identity"
+CHASSIS_NUMBER_IDENTITY_CONDITION = (
+    "(identifier_kind = 'vin' AND chassis_make_key IS NULL) OR "
+    "(identifier_kind = 'chassis_number' AND chassis_make_key IS NOT NULL "
+    f"AND first_registration_date IS NOT NULL AND first_registration_date < {_CHASSIS_NUMBER_CUTOFF_SQL})"
+)
 
 
 class VehicleNumberSequence(Base):
@@ -73,14 +95,48 @@ class VehicleMdm(PrimaryKeyMixin, VersionedMixin, TimestampMixin, Base):
 
     __tablename__ = "vehicle_mdm"
     # The migrated shape (5c7e33d9cc78): unique constraints under Postgres's
-    # default names plus plain indexes (KAN-170).
+    # default names plus plain indexes (KAN-170). KAN-535: the VIN is unique
+    # among VIN records, a chassis number per make among chassis-number
+    # records (two partial unique indexes in place of `vehicle_mdm_vin_key`).
     __table_args__ = (
-        UniqueConstraint("vin", name="vehicle_mdm_vin_key"),
         UniqueConstraint("vehicle_number", name="vehicle_mdm_vehicle_number_key"),
         UniqueConstraint("stammnummer", name="vehicle_mdm_stammnummer_key"),
+        Index(
+            "uq_vehicle_mdm_vin",
+            "vin",
+            unique=True,
+            postgresql_where=text("identifier_kind = 'vin'"),
+            sqlite_where=text("identifier_kind = 'vin'"),
+        ),
+        Index(
+            "uq_vehicle_mdm_chassis_number_make",
+            "vin",
+            "chassis_make_key",
+            unique=True,
+            postgresql_where=text("identifier_kind = 'chassis_number'"),
+            sqlite_where=text("identifier_kind = 'chassis_number'"),
+        ),
+        CheckConstraint(CHASSIS_NUMBER_IDENTITY_CONDITION, name=CHASSIS_NUMBER_IDENTITY_CHECK),
     )
 
+    # A 17-character ISO 3779 VIN, or — `identifier_kind` chassis_number — a
+    # pre-1981 car's chassis number (KAN-535).
     vin: Mapped[str] = mapped_column(String(17), nullable=False, index=True)
+    identifier_kind: Mapped[VehicleIdentifierKind] = mapped_column(
+        StoredEnum(VehicleIdentifierKind, length=16),
+        nullable=False,
+        default=VehicleIdentifierKind.VIN,
+        server_default=VehicleIdentifierKind.VIN.value,
+        comment="KAN-535: what `vin` holds — an ISO 3779 VIN, or a pre-1981 car's chassis number.",
+    )
+    chassis_make_key: Mapped[str | None] = mapped_column(
+        String(255),
+        nullable=True,
+        comment=(
+            "KAN-535: a chassis-number record's make as typed on its configuration, compared tolerantly "
+            "(case, spaces, hyphens and accents ignored); with `vin` its identity. Null on a VIN record."
+        ),
+    )
     vehicle_number: Mapped[str] = mapped_column(String(16), nullable=False, index=True)
     stammnummer: Mapped[str | None] = mapped_column(String(9), nullable=True, index=True)
     type_approval_number: Mapped[str | None] = mapped_column(String(6), nullable=True, index=True)

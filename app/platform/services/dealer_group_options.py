@@ -9,9 +9,8 @@ however many groups are onboarded.
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.core.errors import BadRequestError
-from app.core.pagination import SortCursorPosition, SortPageParams, build_sorted_page, paginate_query_sorted
-from app.core.sorting import SortField
+from app.core.pagination import SortPageParams, build_sorted_page, paginate_query_sorted
+from app.core.sorting import SortField, decode_cursor_for_sort
 from app.platform.models.dealership import DealerGroup
 
 _BY_NAME = [SortField(api_name="name", column=DealerGroup.name, direction="asc", nullable=False)]
@@ -23,14 +22,13 @@ def _contains_pattern(q: str) -> str:
 
 
 def list_dealer_group_options(
-    db: Session, *, q: str | None, limit: int, cursor: SortCursorPosition | None
+    db: Session, *, q: str | None, limit: int, cursor: str | None
 ) -> tuple[list[DealerGroup], str | None]:
     """The groups whose name contains `q` (case-insensitive; `%` and `_` are
-    literal), by name; a blank `q` lists every group, still a page at a time."""
+    literal), by name; a blank `q` lists every group, still a page at a time.
+    A cursor that is not one of this list's is a 400 (KAN-182)."""
 
-    if cursor is not None and (len(cursor.values) != 1 or not isinstance(cursor.values[0], str)):
-        raise BadRequestError("Cursor is malformed or invalid.")
-    params = SortPageParams(limit=limit, cursor=cursor, sort_fields=_BY_NAME)
+    params = SortPageParams(limit=limit, cursor=decode_cursor_for_sort(cursor, _BY_NAME), sort_fields=_BY_NAME)
     stmt = select(DealerGroup)
     term = (q or "").strip()
     if term:

@@ -42,7 +42,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 from app.core.base import PrimaryKeyMixin, TenantScopedMixin, TimestampMixin, VersionedMixin
 from app.core.enum_type import StoredEnum
 from app.core.i18n import SwissLanguage
-from app.core.types import GUID
+from app.core.types import GUID, UTCDateTime
 from app.db import Base
 
 
@@ -146,6 +146,12 @@ class Dealership(PrimaryKeyMixin, VersionedMixin, TimestampMixin, Base):
     billing_address_country: Mapped[str | None] = mapped_column(String(2), nullable=True)
 
     phone: Mapped[str] = mapped_column(String(20), nullable=False)
+    # KAN-206 (Q4 C, Anto 2026-11-12): the Betrieb's own e-mail address and
+    # website, for the footer's contact column — read at render time, never
+    # copied into the template. Optional: a column part without data prints
+    # nothing.
+    email: Mapped[str | None] = mapped_column(String(254), nullable=True)
+    website: Mapped[str | None] = mapped_column(String(200), nullable=True)
 
     # D-A-22 (KAN-197): the Swiss UID is public (Zefix), so it is a plain,
     # indexed, checksum-validated column — the encrypted write-only tax_id it
@@ -233,6 +239,18 @@ class Dealership(PrimaryKeyMixin, VersionedMixin, TimestampMixin, Base):
     # differs is out of date and is refused by require_entitlement (401), so
     # a changed entitlement set forces a fresh sign-in (Anto, 2026-10-17).
     entitlements_version: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+    # KAN-218 (FR-A-45; Anto, 2026-11-13, Q3 A): offboarding sets `offboarded`
+    # and starts the ten-year read-only archive — ten full years from the
+    # offboarding date, for everything. The read-only flag IS the status: the
+    # gate (app/platform/session_guard.py) answers 404 to the Betrieb's
+    # principals everywhere, and the Betrieb drops out of every group read
+    # (Anto, 2026-11-14, Q2 A). `retention_until` is the archive's last day.
+    # Nothing deletes automatically (Anto, 2026-11-14): once it has passed,
+    # reconciliation reports the Betrieb as due for manual deletion
+    # (app/platform/reconciliation.py), a staff step in an attended session.
+    offboarded_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)
+    retention_until: Mapped[dt.date | None] = mapped_column(Date, nullable=True)
 
     @property
     def address(self) -> dict[str, str]:
@@ -351,7 +369,10 @@ class Location(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, TimestampMixi
 
     # Overrides — NULL inherits the Betrieb's value. The letterhead override
     # replaces only the address block of the shared template (PRD Branding:
-    # never a second template); the logo override waits for branding assets.
+    # never a second template), printed as written when a document is
+    # rendered for this site (KAN-206, Q3 A); the site's own logo is a
+    # `branding_asset` row carrying this location's id (KAN-206). The legal
+    # footer never changes per site (A-27).
     letterhead_address_override: Mapped[str | None] = mapped_column(String(500), nullable=True)
     # An account of this Betrieb's `dealership_bank_account` collection, for a
     # site that was acquired and kept its account. Read only by the roles that

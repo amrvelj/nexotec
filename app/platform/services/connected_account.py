@@ -46,6 +46,7 @@ from app.core import outbox
 from app.core.audit import record_audit_event
 from app.core.base import utcnow
 from app.core.errors import ConflictError, NotFoundError
+from app.core.export import ExportedTable, ExportScope, table_of
 from app.platform.models.auth_event import AuthEventKind
 from app.platform.models.connected_account import (
     ConnectedAccountProvider,
@@ -331,3 +332,23 @@ def repair_revoked_grants(db: Session) -> GrantRepairRun:
                 extra={"connectedAccountId": str(account_id)},
             )
     return GrantRepairRun(ended=ended, no_revoker=no_revoker, failed=failed)
+
+
+def export_table() -> ExportedTable:
+    """KAN-218: the grants of the Betrieb's users stay out of its export (a
+    grant holds a secret reference and is never returned, FR-AU-23); each is
+    revoked at offboarding. Declared here, the one module that names the table."""
+
+    table = table_of(UserConnectedAccount)
+    users = table_of(User)
+
+    def scope(export_scope: ExportScope):
+        return table.c.user_id.in_(select(users.c.id).where(users.c.tenant_id == export_scope.dealership_id))
+
+    return ExportedTable(
+        table=table,
+        scope=scope,
+        in_archive=False,
+        exclusion_reason="A connected account holds a secret reference and is never returned (FR-AU-23).",
+        marks_write=False,
+    )

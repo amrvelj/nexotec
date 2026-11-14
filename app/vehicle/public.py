@@ -23,6 +23,7 @@ from app.vehicle.models.spec_block import (
     spec_block_field_names,
 )
 from app.vehicle.models.vehicle_mdm import VehicleMdm
+from app.vehicle.services.data_export import VehicleExporter
 from app.vehicle.services.host_configuration import BUILD as CONFIGURATION_MODE_BUILD
 from app.vehicle.services.host_configuration import RECORD as CONFIGURATION_MODE_RECORD
 from app.vehicle.services.host_configuration import (
@@ -42,7 +43,14 @@ from app.vehicle.services.stock_holding import CONSUMERS as STOCK_HOLDING_CONSUM
 from app.vehicle.services.stock_holding import apply_backfilled_holding
 from app.vehicle.services.vin_correction import VIN_CORRECTED_EVENT, CorrectedVehicleVin
 from app.vehicle.services.vin_correction import correct_vehicle_vin as _correct_vehicle_vin
+from app.vehicle.services.vin_correction import find_other_record_carrying as _find_other_record_carrying
 from app.vehicle.services.vin_resolution import ResolvedVehicleMdm
+from app.vehicle.services.vin_resolution import (
+    find_vehicle_mdm_by_chassis_number as _find_vehicle_mdm_by_chassis_number,
+)
+from app.vehicle.services.vin_resolution import (
+    resolve_vehicle_mdm_by_chassis_number as _resolve_vehicle_mdm_by_chassis_number,
+)
 from app.vehicle.services.vin_resolution import resolve_vehicle_mdm_by_vin as _resolve_vehicle_mdm_by_vin
 
 logger = logging.getLogger(__name__)
@@ -168,6 +176,41 @@ def resolve_vehicle_mdm_by_vin(
     """
 
     return _resolve_vehicle_mdm_by_vin(db, vin=vin, catalogue_variant_id=catalogue_variant_id, actor_id=actor_id)
+
+
+def find_vehicle_mdm_by_chassis_number(
+    db: Session, *, chassis_number: str, make: str | None
+) -> ResolvedVehicleMdm | None:
+    """KAN-535: the pre-1981 car's chassis-number record for this number and
+    make (case, spaces, hyphens and accents ignored), or None — a read that
+    creates nothing. Stock asks it before it touches vehicle-mdm, so a car
+    already in its stock is refused without a write."""
+
+    return _find_vehicle_mdm_by_chassis_number(db, chassis_number=chassis_number, make=make)
+
+
+def resolve_vehicle_mdm_by_chassis_number(
+    db: Session,
+    *,
+    chassis_number: str,
+    make: str | None,
+    first_registration_date: dt.date | None,
+    actor_id: uuid.UUID | None,
+) -> ResolvedVehicleMdm:
+    """KAN-535 (ADR-103 as amended; Anto, 2026-11-13, option A): what
+    `resolve_vehicle_mdm_by_vin` is for a car first registered before 1981
+    that carries a chassis number instead of a VIN. Its record is the number
+    together with its make, compared tolerantly; found, or created with the
+    first registration — on Vehicle's own session, committed before this
+    returns. 422 `invalid_vin` for a VIN (that is a VIN record),
+    `chassis_number_requires_pre_1981_registration` without a first
+    registration before 1981, `chassis_number_requires_make` without a make.
+    Stock's purchase booking is the caller."""
+
+    return _resolve_vehicle_mdm_by_chassis_number(
+        db, chassis_number=chassis_number, make=make, first_registration_date=first_registration_date,
+        actor_id=actor_id,
+    )
 
 
 def get_vehicle_equipment(db: Session, vehicle_id: uuid.UUID) -> dict:
@@ -338,6 +381,7 @@ def correct_vehicle_vin(
     compensation: bool = False,
     include_record: bool = True,
     relink_configuration_only: bool = False,
+    restore_chassis_make_key: str | None = None,
 ) -> CorrectedVehicleVin:
     """KAN-557 (ADR-116 (2)-(3)): Stock's «VIN korrigieren» asks Vehicle,
     which owns the VIN, to rewrite the record's VIN from `old_vin` to
@@ -353,7 +397,16 @@ def correct_vehicle_vin(
     `compensation=True`, and only what changed — `include_record=False` and
     no `configuration_id` leave either alone. Refusals: 404, 409 `vehicle_merged`,
     `vehicle_vin_changed`, `vin_belongs_to_other_vehicle`, 422
-    `configuration_vin_differs` — each with nothing written."""
+    `configuration_vin_differs`, `invalid_vin` (a chassis number on a VIN
+    record), `chassis_number_requires_pre_1981_registration` — each with
+    nothing written.
+
+    KAN-535 (Anto, 2026-11-14, option B): a pre-1981 car's chassis-number
+    record is corrected the same way — it keeps its make and first
+    registration, and collides only with a record of the same make; a real
+    VIN makes it a VIN record, and the answer's `previous_chassis_make_key`
+    is what that conversion's compensation passes back as
+    `restore_chassis_make_key`."""
 
     return _correct_vehicle_vin(
         db,
@@ -367,7 +420,22 @@ def correct_vehicle_vin(
         compensation=compensation,
         include_record=include_record,
         relink_configuration_only=relink_configuration_only,
+        restore_chassis_make_key=restore_chassis_make_key,
     )
+
+
+def find_vehicle_mdm_carrying_corrected_vin(
+    db: Session, *, vehicle_id: uuid.UUID, new_vin: str
+) -> ResolvedVehicleMdm | None:
+    """KAN-535: another vehicle-mdm record that already carries `new_vin`
+    the way this record would carry it once corrected — a VIN by itself, a
+    pre-1981 car's chassis number together with this record's make (the
+    number alone may be another make's car). A read that writes nothing;
+    Stock asks it before «VIN korrigieren» touches anything, so a car its
+    stock already holds is refused naming that stock item."""
+
+    other = _find_other_record_carrying(db, vehicle_id=vehicle_id, new_vin=new_vin)
+    return ResolvedVehicleMdm(id=other.id, vin=other.vin) if other is not None else None
 
 
 def run_daily_plate_lookup_purge(db: Session) -> None:
@@ -398,6 +466,7 @@ __all__ = [
     "ProviderValuationInput",
     "ResolvedVehicleMdm",
     "VehicleConfiguration",
+    "VehicleExporter",
     "VehicleMdm",
     "VehicleSummary",
     "apply_backfilled_holding",
@@ -406,6 +475,8 @@ __all__ = [
     "correct_vehicle_vin",
     "create_or_get_vehicle_mdm",
     "discard_configuration_copy",
+    "find_vehicle_mdm_by_chassis_number",
+    "find_vehicle_mdm_carrying_corrected_vin",
     "get_configuration_for_host",
     "get_configuration_labels",
     "get_provider_valuation_input",
@@ -416,6 +487,7 @@ __all__ = [
     "match_vehicle",
     "merged_vehicle_chain",
     "resolve_merged_vehicle_id",
+    "resolve_vehicle_mdm_by_chassis_number",
     "resolve_vehicle_mdm_by_vin",
     "run_daily_plate_lookup_purge",
     "spec_block_as_dict",

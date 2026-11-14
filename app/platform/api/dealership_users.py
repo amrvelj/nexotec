@@ -21,12 +21,12 @@ from app.core.concurrency import check_version, require_if_match
 from app.core.config import get_settings
 from app.core.idempotent_route import IdempotentRoute
 from app.core.object_store import ObjectStore, get_object_store
-from app.core.pagination import SortPageParams, decode_sort_cursor
+from app.core.pagination import SortPageParams
 from app.core.permissions import (
     require_read,
     require_write,
 )
-from app.core.sorting import SortField, parse_sort
+from app.core.sorting import SortField, decode_cursor_for_sort, parse_sort
 from app.core.tenancy import require_tenant_match
 from app.db import get_db, get_session_factory
 from app.platform.api.auth import client_ip
@@ -186,7 +186,7 @@ def list_users(
 ):
     require_tenant_match(dealership_id, principal)
     sort_fields = parse_sort(sort, allowed=USER_SORT_FIELDS) or _DEFAULT_USER_SORT
-    params = SortPageParams(limit=limit, cursor=decode_sort_cursor(cursor) if cursor else None, sort_fields=sort_fields)
+    params = SortPageParams(limit=limit, cursor=decode_cursor_for_sort(cursor, sort_fields), sort_fields=sort_fields)
     rows, next_cursor = user_reads_service.list_users(
         db, dealership_id=dealership_id, role=role, status=status, params=params, q=q
     )

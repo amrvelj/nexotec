@@ -37,8 +37,12 @@ const BusinessPage = lazyPage(() => import('./pages/BusinessPage'), 'BusinessPag
 const LocationsListPage = lazyPage(() => import('./pages/LocationsListPage'), 'LocationsListPage')
 const LocationDetailPage = lazyPage(() => import('./pages/LocationDetailPage'), 'LocationDetailPage')
 const BrandingPage = lazyPage(() => import('./pages/BrandingPage'), 'BrandingPage')
+const LetterheadPage = lazyPage(() => import('./pages/LetterheadPage'), 'LetterheadPage')
 const StandardTextsPage = lazyPage(() => import('./pages/StandardTextsPage'), 'StandardTextsPage')
 const NumberRangesPage = lazyPage(() => import('./pages/NumberRangesPage'), 'NumberRangesPage')
+const ContactGroupsPage = lazyPage(() => import('./pages/ContactGroupsPage'), 'ContactGroupsPage')
+const DataExportPage = lazyPage(() => import('./pages/DataExportPage'), 'DataExportPage')
+const PlatformOffboardingPage = lazyPage(() => import('./pages/PlatformOffboardingPage'), 'PlatformOffboardingPage')
 const IntegrationsPage = lazyPage(() => import('./pages/IntegrationsPage'), 'IntegrationsPage')
 const VehiclesListPage = lazyPage(() => import('./pages/VehiclesListPage'), 'VehiclesListPage')
 const VehicleDetailPage = lazyPage(() => import('./pages/VehicleDetailPage'), 'VehicleDetailPage')
@@ -113,14 +117,18 @@ export default function App() {
               <Route path="/administration/locations" element={<LocationsListPage />} />
               <Route path="/administration/locations/:locationId" element={<LocationDetailPage />} />
               <Route path="/administration/branding" element={<BrandingPage />} />
+              <Route path="/administration/letterhead" element={<LetterheadPage />} />
               {/* KAN-208 — Dealer Administration › Standard texts (any role reads; writes per category). */}
               <Route path="/administration/texts" element={<StandardTextsPage />} />
               <Route path="/administration/number-ranges" element={<NumberRangesPage />} />
+              <Route path="/administration/contact-groups" element={<ContactGroupsPage />} />
+              <Route path="/administration/export" element={<DataExportPage />} />
               <Route path="/administration/account-recovery" element={<AccountRecoveryPage />} />
               {/* KAN-209 — Platform Administration › Translations (D-A-23). */}
               <Route path="/platform/translations" element={<TranslationsPage />} />
               {/* KAN-210 — Platform Administration › Onboarding (D-A-06, FR-A-24/25). */}
               <Route path="/platform/onboarding" element={<OnboardingPage />} />
+              <Route path="/platform/offboarding" element={<PlatformOffboardingPage />} />
               <Route path="/integrations" element={<IntegrationsPage />} />
               <Route path="/vehicles" element={<VehiclesListPage />} />
               <Route path="/vehicles/:id" element={<VehicleDetailPage />} />

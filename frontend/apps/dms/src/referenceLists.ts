@@ -15,6 +15,7 @@
  *   - business master data   (alembic platform/e1f7a3c9b2d4) — 2 lists (KAN-203)
  *   - type-approval class    (alembic platform/5d1f8a3c7e42) — 1 list (KAN-587;
  *     `vehicle_class` became the size class there)
+ *   - contact groups         (alembic platform/d72281c678c0) — 1 list (KAN-466)
  * PRD-Vehicles §"Canonical lists to administer (v1)" and
  * PRD-Configurator §"The canonical code map" name them too; PRD-Customers
  * §"Reference lists" now names `country` (nationality + address country).
@@ -66,6 +67,8 @@ export const REFERENCE_LIST_CODES = [
   'association_membership',
   // where a catalogue colour sits, FarbArt's target (platform/b13e074523d7) — KAN-75
   'colour_area',
+  // contact groups, switched on per Betrieb in Dealer Administration (platform/d72281c678c0) — KAN-466
+  'contact_group',
 ] as const
 
 export type ReferenceListCode = (typeof REFERENCE_LIST_CODES)[number]

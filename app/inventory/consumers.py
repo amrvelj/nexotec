@@ -18,13 +18,21 @@ and `consumer_name` of each:
   (`handle_sales_contract_fact_message`, KAN-630): Stock's projection of the
   contracts its orphan sweep and «Einkauf stornieren» need
   (app.inventory.services.sales_contract; the names are its `CONSUMERS`).
+- `platform.dealership.offboarded` -> `inventory.listings_withdrawn_on_offboarded`
+  (`handle_dealership_offboarded_message`, KAN-218): every live marketplace
+  listing of the offboarded Betrieb withdrawn — an empty feed through the
+  gateway, then the listings unpublished and `inventory.dealership_listings.withdrawn`
+  stated, on which Integration disables the marketplace connections
+  (app.inventory.services.listing_withdrawal).
 """
+
+import uuid
 
 from sqlalchemy.orm import Session
 
 from app.core.outbox_model import OutboxMessage
 from app.inventory.models.stock_item_publishing import MarketplaceChannel
-from app.inventory.services import marketplace_transmission
+from app.inventory.services import listing_withdrawal, marketplace_transmission
 from app.inventory.services.pipeline import handle_sales_contract_confirmed
 from app.inventory.services.reservation import record_contract_cancelled
 from app.inventory.services.sales_contract import apply_contract_message
@@ -80,3 +88,17 @@ def handle_sales_contract_fact_message(db: Session, message: OutboxMessage) -> N
     harness makes a redelivery a no-op in the first place)."""
 
     apply_contract_message(db, message)
+
+
+def handle_dealership_offboarded_message(db: Session, message: OutboxMessage) -> None:
+    """KAN-218 (Anto, 2026-11-14, Q3 A): platform's fact that a Betrieb was
+    offboarded; Stock withdraws its live listings on this consumer's own
+    session and states `inventory.dealership_listings.withdrawn`, committed by
+    the harness with the processed-event row."""
+
+    dealership_id = uuid.UUID(message.payload["dealershipId"])
+    if message.tenant_id is not None and message.tenant_id != dealership_id:
+        raise ValueError(f"platform.dealership.offboarded message {message.id} names two Betriebe.")
+    listing_withdrawal.withdraw_live_listings(
+        db, tenant_id=dealership_id, causation_id=message.id, correlation_id=message.correlation_id
+    )

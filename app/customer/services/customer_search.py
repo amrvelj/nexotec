@@ -17,6 +17,7 @@ from app.customer.models.customer import (
     AddressType,
     Customer,
     CustomerAddress,
+    CustomerContactGroup,
     CustomerEmail,
     CustomerLifecycleStatus,
     CustomerPhone,
@@ -96,6 +97,18 @@ def _start_of_current_period(period: CalendarPeriod, now: dt.datetime | None = N
     return dt.datetime.combine(start, dt.time.min, tzinfo=zone)
 
 
+def _carries_contact_group(group_id: uuid.UUID, value_code: str):
+    return (
+        select(CustomerContactGroup.id)
+        .where(
+            CustomerContactGroup.customer_id == Customer.id,
+            CustomerContactGroup.group_id == group_id,
+            CustomerContactGroup.value_code == value_code,
+        )
+        .exists()
+    )
+
+
 def list_customers(
     db: Session,
     *,
@@ -119,6 +132,8 @@ def list_customers(
     canton_not: str | None = None,
     advisor_user_id_not: uuid.UUID | None = None,
     assigned: bool = False,
+    contact_group: str | None = None,
+    contact_group_not: str | None = None,
 ) -> tuple[list[Customer], str | None, int, bool]:
     """`advisor_user_id` narrows to one advisor's customers; `unassigned` to
     those with none — the queue FR-A-37 names, which a leaver's hand-over
@@ -136,7 +151,11 @@ def list_customers(
     The `…_not` parameters are the grid's «ist nicht» (KAN-476): a customer
     with no value for the field (no language, no primary domicile canton,
     no advisor) is kept, since it is not that value; `assigned` keeps those
-    with an advisor. A merged customer stays hidden as without them."""
+    with an advisor. A merged customer stays hidden as without them.
+
+    `contact_group` keeps the customers carrying that group (KAN-466);
+    `contact_group_not` those that do not — a customer with no group at all
+    included."""
 
     stmt = select(Customer).where(Customer.group_id == group_id)
     if advisor_user_id is not None:
@@ -198,6 +217,10 @@ def list_customers(
         stmt = stmt.where(Customer.advisor_id.is_distinct_from(advisor_user_id_not))
     if assigned:
         stmt = stmt.where(Customer.advisor_id.is_not(None))
+    if contact_group is not None:
+        stmt = stmt.where(_carries_contact_group(group_id, contact_group))
+    if contact_group_not is not None:
+        stmt = stmt.where(~_carries_contact_group(group_id, contact_group_not))
     if updated_since is not None:
         stmt = stmt.where(Customer.updated_at >= updated_since)
     if updated_more_than_days_ago is not None:

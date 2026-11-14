@@ -43,6 +43,7 @@ from app.inventory.services.configuration_label import (
     refresh_configuration_labels,
 )
 from app.inventory.services.configuration_reference import referenced_configuration_ids
+from app.inventory.services.data_export import InventoryExporter
 from app.inventory.services.group_listing import get_stock_items_for_vehicles
 from app.inventory.services.pricing import get_stock_item_pricing
 from app.inventory.services.reservation import release, reserve, reserve_for_contract
@@ -55,6 +56,7 @@ from app.inventory.services.vehicle_link import HeldVehicleRecord, get_stock_ite
 __all__ = [
     "SALES_CONTRACT_PROJECTION_CONSUMERS",
     "HeldVehicleRecord",
+    "InventoryExporter",
     "InventoryOwnershipProvider",
     "LifecycleStatus",
     "ReservationState",

@@ -6,10 +6,10 @@ nothing beside it."""
 
 import uuid
 
-from sqlalchemy import select
+from sqlalchemy import and_, select
 from sqlalchemy.orm import Session
 
-from app.platform.models.dealership import DealerGroup, Dealership
+from app.platform.models.dealership import DealerGroup, Dealership, DealershipStatus
 from app.platform.models.user import User
 
 
@@ -29,10 +29,18 @@ def get_group_display_labels(
     `DealerGroup.group_read_enabled`). An id outside that scope, or one that
     names nothing, is absent from the result — the caller renders it as
     unknown, so nothing here confirms another group's or a closed group's
-    record exists."""
+    record exists.
+
+    KAN-218 (Anto, 2026-11-14, Q2 A): an offboarded sister Betrieb and its
+    users drop out from its offboarding date — they render as unknown, like
+    a closed group's."""
 
     group_read = bool(db.scalar(select(DealerGroup.group_read_enabled).where(DealerGroup.id == group_id)))
-    in_scope = Dealership.dealer_group_id == group_id if group_read else Dealership.id == dealership_id
+    in_scope = (
+        and_(Dealership.dealer_group_id == group_id, Dealership.status != DealershipStatus.OFFBOARDED)
+        if group_read
+        else Dealership.id == dealership_id
+    )
 
     dealerships: dict[uuid.UUID, str] = {}
     if dealership_ids:

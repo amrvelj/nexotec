@@ -31,6 +31,7 @@ from app.platform.schemas.document_content import ContentDefinition
 from app.platform.services import branding as branding_service
 from app.platform.services import dealership as dealership_service
 from app.platform.services.document_render import render_document
+from app.platform.services.location import get_location_or_404
 
 router = APIRouter(tags=["branding"], route_class=IdempotentRoute)
 
@@ -130,6 +131,77 @@ def delete_branding_asset(
     dealership = dealership_service.get_dealership_for_update_or_404(db, dealership_id)
     check_version(dealership.version, if_match, entity_name="Dealership")
     dealership = branding_service.remove_asset(db, store, dealership=dealership, kind=kind, actor_id=principal.user_id)
+    return branding_service.branding_read(db, dealership)
+
+
+@router.put("/dealerships/{dealership_id}/branding/locations/{location_id}/logo", response_model=BrandingRead)
+def put_location_logo(
+    dealership_id: uuid.UUID,
+    location_id: uuid.UUID,
+    image: bytes = Body(
+        media_type="image/svg+xml",
+        description="The site's own letterhead logo: SVG (preferred) or PNG at least 600 px on its long edge, "
+        "at most 5 MiB. Judged by its bytes, as the Betrieb's logo is.",
+    ),
+    if_match: int = Depends(require_if_match),
+    principal: Principal = Depends(require_write("branding")),
+    db: Session = Depends(get_db),
+    store: ObjectStore = Depends(get_object_store),
+):
+    """KAN-206 (PRD: a per-location override of the address block and logo
+    only): the logo a document printed for this site shows in place of the
+    Betrieb's primary logo. Replaced as a whole; If-Match on the Betrieb's
+    version, like every branding write. A site of another Betrieb is a 404."""
+
+    require_tenant_match(dealership_id, principal)
+    dealership = dealership_service.get_dealership_for_update_or_404(db, dealership_id)
+    check_version(dealership.version, if_match, entity_name="Dealership")
+    location = get_location_or_404(db, dealership_id=dealership_id, location_id=location_id)
+    dealership = branding_service.set_asset(
+        db,
+        store,
+        dealership=dealership,
+        kind=BrandingAssetKind.PRIMARY,
+        data=image,
+        actor_id=principal.user_id,
+        location=location,
+    )
+    return branding_service.branding_read(db, dealership)
+
+
+@router.get("/dealerships/{dealership_id}/branding/locations/{location_id}/logo")
+def get_location_logo(
+    dealership_id: uuid.UUID,
+    location_id: uuid.UUID,
+    principal: Principal = Depends(require_read("branding")),
+    db: Session = Depends(get_db),
+    store: ObjectStore = Depends(get_object_store),
+) -> Response:
+    """The site's own letterhead logo; 404 when it has none (its documents
+    then print the Betrieb's)."""
+
+    require_tenant_match(dealership_id, principal)
+    get_location_or_404(db, dealership_id=dealership_id, location_id=location_id)
+    stored = branding_service.read_location_logo(db, store, dealership_id=dealership_id, location_id=location_id)
+    return Response(content=stored.data, media_type=stored.content_type, headers=_ASSET_HEADERS)
+
+
+@router.delete("/dealerships/{dealership_id}/branding/locations/{location_id}/logo", response_model=BrandingRead)
+def delete_location_logo(
+    dealership_id: uuid.UUID,
+    location_id: uuid.UUID,
+    if_match: int = Depends(require_if_match),
+    principal: Principal = Depends(require_write("branding")),
+    db: Session = Depends(get_db),
+    store: ObjectStore = Depends(get_object_store),
+):
+    require_tenant_match(dealership_id, principal)
+    dealership = dealership_service.get_dealership_for_update_or_404(db, dealership_id)
+    check_version(dealership.version, if_match, entity_name="Dealership")
+    location = get_location_or_404(db, dealership_id=dealership_id, location_id=location_id)
+    dealership = branding_service.remove_asset(
+        db, store, dealership=dealership, kind=BrandingAssetKind.PRIMARY, actor_id=principal.user_id, location=location
+    )
     return branding_service.branding_read(db, dealership)
 
 

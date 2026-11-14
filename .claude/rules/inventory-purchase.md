@@ -43,3 +43,17 @@ Moved out of inventory.md by KAN-615 (2026-11-13). Last verified against main@73
   the two keys reserved; the days in stock restarting at the next booking. A storno and «Rechnung
   anfordern» can still race (no shared lock); Sales' reconciliation reports the result
   (`sales-reconciliation.md`).
+- **A pre-1981 car is bought under its chassis number** (KAN-535, ADR-103 as amended; Anto,
+  2026-11-13, option A). `vin` takes `NormalisedVinOrChassisNumber`; a chassis number needs the
+  item's configuration to carry it (422 `chassis_number_requires_configuration`), with a first
+  registration before 1981 and a make (`chassis_number_requires_pre_1981_registration`,
+  `chassis_number_requires_make`), all before anything is written. Promotion resolves it through
+  `vehicle.public.resolve_vehicle_mdm_by_chassis_number`: a record of `identifier_kind`
+  `chassis_number`, unique by the number and `chassis_make_key` (the make, case, spaces, hyphens and
+  accents ignored; `uq_vehicle_mdm_chassis_number_make`; a VIN is unique among VIN records,
+  `uq_vehicle_mdm_vin`; a CHECK holds the pre-1981 date). Never found by its number alone (lookup,
+  search, `match_vehicle`); the identity PATCH does not change its number (422
+  `chassis_number_identity_fixed`) or move its registration past 1980 — «VIN korrigieren» corrects
+  the number (Anto, 2026-11-14, `inventory-vin-correction.md`). Stock counts an ISO VIN
+  once per Betrieb (`uq_stock_item_tenant_id_iso_vin_in_stock`) and a chassis-number car once by its
+  record (`uq_stock_item_tenant_id_chassis_vehicle_in_stock`): two makes may share a number.

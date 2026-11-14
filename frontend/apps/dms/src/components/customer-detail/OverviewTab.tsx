@@ -23,6 +23,7 @@ import { useAdvisorOptions } from '../../hooks/useAdvisorOptions'
 import { useInlineEditRefusal } from '../../hooks/useInlineEditRefusal'
 import { ContactPointsEditor, type ContactPointUpdatePatch } from './ContactPointsEditor'
 import { ContactChannelsSummary, PreferredChannelBadge } from './ContactChannelsSummary'
+import { ContactGroupsField } from './ContactGroupsField'
 import { AddressSearchField } from '../AddressSearchField'
 import { PHONE_INPUT_MIN_WIDTH, PhoneInput } from '../PhoneInput'
 import type { CustomerEmailRead, CustomerPhoneRead, CustomerRead, CustomerUpdateInput, EmailType, PhoneType } from '../../api/types'
@@ -617,6 +618,7 @@ export function OverviewTab({
             styles={{ root: { display: 'inline-flex' } }}
           />
         </KeyValueRow>
+        <ContactGroupsField label={f.contactGroups} value={customer.contactGroups ?? []} onSaveField={onSaveField} />
         <TagsField label={f.tags} value={customer.tags ?? []} onSaveField={onSaveField} />
         <NotesField label={f.notes} value={customer.notes} onSaveField={onSaveField} emptyLabel={fieldProps.emptyLabel} />
       </OverviewCard>

@@ -190,7 +190,20 @@ def test_compose_html_formats_amounts_the_swiss_way(db_session):
     assert "CHF 12'500.00" in html_out
 
 
-def test_compose_html_uses_the_location_address_in_the_footer_when_given(db_session):
+def _footer(html_out: str) -> str:
+    """The running footer's markup — the one element every page repeats."""
+
+    start = html_out.index('<div class="doc-footer">')
+    end = html_out.index('<div class="doc-head')
+    return html_out[start:end]
+
+
+def test_the_footer_never_prints_a_location(db_session):
+    """KAN-206, A-27: the legal footer always prints the legal entity at its
+    registered seat — a document printed for a site changes its address
+    block (and logo), never the footer. WP-6b's per-location footer address
+    is gone."""
+
     dealership = _make_dealership(db_session)
     location = Location(
         tenant_id=dealership.id,
@@ -199,46 +212,39 @@ def test_compose_html_uses_the_location_address_in_the_footer_when_given(db_sess
         address_house_number="24",
         address_postal_code="8400",
         address_locality="Winterthur",
+        letterhead_address_override="Filiale Winterthur\nIndustriestrasse 24\n8400 Winterthur",
     )
     db_session.add(location)
     db_session.flush()
 
-    html_with_location = _compose_html(
+    with_location = _compose_html(
         dealership=dealership, template=None, location=location,
         correspondence_language=SwissLanguage.DE, content=_sample_content(),
     )
-    html_without_location = _compose_html(
+    without_location = _compose_html(
         dealership=dealership, template=None, location=None,
         correspondence_language=SwissLanguage.DE, content=_sample_content(),
     )
 
-    assert "Filiale Winterthur" in html_with_location
-    assert "Industriestrasse 24" in html_with_location
-    assert "Filiale Winterthur" not in html_without_location
+    assert _footer(with_location) == _footer(without_location)
+    assert "Winterthur" not in _footer(with_location)
+    assert "Garage Muster AG" in _footer(with_location)
+    assert "Bahnhofstrasse 1" in _footer(with_location)
+    assert "8001 Zürich" in _footer(with_location)
 
 
-def test_two_locations_under_the_same_dealership_show_two_different_footer_addresses(db_session):
-    """WP-6b PR-4: the exit-criterion shape for "per-location footer" —
-    one dealership, two locations, two distinct footer addresses from the
-    same DocumentTemplate boilerplate.
-    """
+def test_a_locations_address_block_prints_its_free_text_override(db_session):
+    """KAN-206, Q3 A: the site's address block is its free-text override,
+    printed as written when the document is printed for that site; a site
+    without one prints the Betrieb's address."""
+
     dealership = _make_dealership(db_session)
     winterthur = Location(
         tenant_id=dealership.id,
         name="Filiale Winterthur",
-        address_street="Industriestrasse",
-        address_house_number="24",
-        address_postal_code="8400",
-        address_locality="Winterthur",
+        letterhead_address_override="Filiale Winterthur\nIndustriestrasse 24\n8400 Winterthur",
     )
-    baden = Location(
-        tenant_id=dealership.id,
-        name="Filiale Baden",
-        address_street="Bahnhofplatz",
-        address_house_number="3",
-        address_postal_code="5400",
-        address_locality="Baden",
-    )
+    baden = Location(tenant_id=dealership.id, name="Filiale Baden")
     db_session.add_all([winterthur, baden])
     db_session.flush()
 
@@ -251,10 +257,11 @@ def test_two_locations_under_the_same_dealership_show_two_different_footer_addre
         correspondence_language=SwissLanguage.DE, content=_sample_content(),
     )
 
-    assert "Winterthur" in html_winterthur
-    assert "Baden" not in html_winterthur
-    assert "Baden" in html_baden
-    assert "Winterthur" not in html_baden
+    head = html_winterthur[html_winterthur.index('<div class="doc-head'):]
+    assert "Filiale Winterthur\nIndustriestrasse 24\n8400 Winterthur" in head
+    assert "Bahnhofstrasse 1 · 8001 Zürich" not in head
+    assert "Bahnhofstrasse 1 · 8001 Zürich" in html_baden
+    assert "Baden" not in html_baden
 
 
 def test_letterhead_logo_uses_the_dealerships_own_brand_colour(db_session):
@@ -377,6 +384,7 @@ def test_render_document_prints_its_own_betriebs_location(db_session):
         address_postal_code="8400",
         address_locality="Winterthur",
     )
+    own.letterhead_address_override = "Filiale Winterthur\nIndustriestrasse 24"
     db_session.add(own)
     db_session.flush()
 

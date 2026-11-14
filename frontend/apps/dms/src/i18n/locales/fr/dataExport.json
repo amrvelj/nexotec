@@ -1,0 +1,67 @@
+{
+  "title": "Export des données",
+  "subtitle": "Un export complet de toutes les données de votre entreprise – à tout moment, dans des formats ouverts.",
+  "request": "Demander un export",
+  "requested": "L'export est en cours de création. Il apparaît dans la liste dès qu'il est prêt.",
+  "acknowledged": "Vous avez confirmé la réception de l'export.",
+  "requestError": "L'export n'a pas pu être demandé.",
+  "acknowledgeError": "La réception n'a pas pu être confirmée.",
+  "downloadError": "L'export n'a pas pu être téléchargé.",
+  "loadError": "Les exports n'ont pas pu être chargés.",
+  "readOnly": "L'export est demandé par la direction.",
+  "listLabel": "Exports",
+  "window": "Un export terminé peut être téléchargé pendant 7 jours ; le fichier est ensuite supprimé. Un nouvel export peut être demandé à tout moment.",
+  "acknowledgeHint": "Avant une résiliation, vous confirmez la réception du dernier export. Nexotec ne clôt l'entreprise qu'avec un export confirmé, créé après la dernière modification.",
+  "contents": {
+    "title": "Contenu de l'export",
+    "records": "Tous les enregistrements de l'entreprise en CSV et JSON, un fichier par domaine, avec une description du schéma",
+    "documents": "Chaque document émis en PDF, avec son numéro et sa date",
+    "audit": "Le journal des modifications",
+    "files": "Les fichiers téléversés : logos, photos, signatures"
+  },
+  "status": {
+    "requested": "En cours",
+    "ready": "Prêt",
+    "failed": "Échec",
+    "expired": "Expiré"
+  },
+  "kind": {
+    "self_service": "Export de l'entreprise",
+    "archive": "Export de l'archive"
+  },
+  "columns": {
+    "requestedAt": "Demandé",
+    "kind": "Type",
+    "reason": "Motif",
+    "status": "Statut",
+    "producedAt": "Créé",
+    "downloadExpiresAt": "Téléchargeable jusqu'au",
+    "size": "Taille",
+    "acknowledgedAt": "Réception confirmée"
+  },
+  "rowMenu": {
+    "download": "Télécharger",
+    "acknowledge": "Confirmer la réception",
+    "alreadyAcknowledged": "La réception est déjà confirmée.",
+    "managersOwn": "L'export propre de l'entreprise appartient à sa direction.",
+    "notReady": {
+      "requested": "L'export est encore en cours de création.",
+      "failed": "Cet export a échoué – demandez-en un nouveau.",
+      "expired": "Le fichier a été supprimé après 7 jours."
+    }
+  },
+  "empty": {
+    "title": "Aucun export pour l'instant",
+    "description": "Un export demandé apparaît ici."
+  },
+  "refusals": {
+    "dealership_offboarded": "Cette entreprise est clôturée. Une copie de son archive est établie par le support Nexotec.",
+    "export_requested": "L'export est encore en cours de création.",
+    "export_failed": "Cet export a échoué – demandez-en un nouveau.",
+    "export_expired": "Le téléchargement de cet export a expiré et le fichier a été supprimé. Demandez un nouvel export.",
+    "export_file_missing": "Le fichier de cet export n'existe plus. Demandez un nouvel export.",
+    "export_not_own": "Seul l'export propre de l'entreprise est confirmé.",
+    "export_already_acknowledged": "La réception de cet export est déjà confirmée.",
+    "staff_use_archive_export": "L'export de l'entreprise appartient à sa direction. Nexotec établit un export de l'archive sous Plateforme › Clôturer l'entreprise."
+  }
+}

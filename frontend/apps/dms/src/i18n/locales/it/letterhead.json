@@ -1,0 +1,81 @@
+{
+  "title": "Intestazione e modello",
+  "subtitle": "Come viene stampato ogni documento della sua azienda: intestazione, finestra dell'indirizzo, piè di pagina. Ogni modifica viene salvata subito e mostrata nell'anteprima.",
+  "loadError": "Non è stato possibile caricare il modello.",
+  "readOnly": "Solo la direzione modifica il modello.",
+  "saving": "Salvataggio …",
+  "saved": "Salvato",
+  "saveError": "Non è stato possibile salvare la modifica.",
+  "header": {
+    "title": "Intestazione",
+    "layout": "Posizione del logo",
+    "layoutHint": "Il mittente sta dall'altro lato; centrato, sta sotto il logo.",
+    "layouts": {
+      "logo_left": "A sinistra",
+      "logo_right": "A destra",
+      "logo_centred": "Centrato"
+    },
+    "logoSize": "Dimensione del logo",
+    "logoSizeHint": "Al massimo 30, 40 o 50 mm di larghezza e 20 mm di altezza.",
+    "logoSizes": {
+      "s": "S · 30 mm",
+      "m": "M · 40 mm",
+      "l": "L · 50 mm"
+    },
+    "addressWindow": "Finestra dell'indirizzo",
+    "addressWindowHint": "Il lato della finestra delle sue buste C5/C4. Le posizioni sono quelle della Posta Svizzera; le verifichi con una stampa di prova.",
+    "addressWindows": {
+      "left": "A sinistra",
+      "right": "A destra"
+    }
+  },
+  "footer": {
+    "title": "Piè di pagina",
+    "explanation": "Fino a quattro colonne. Il loro contenuto viene dai dati di base dell'azienda ed è letto alla stampa – mai ridigitato. Una colonna senza dati viene omessa.",
+    "columns": {
+      "company": "Ragione sociale e indirizzo",
+      "contact": "Contatto",
+      "banking": "Coordinate bancarie",
+      "register": "Registro di commercio, IDI e IVA"
+    },
+    "companyFixed": "Sempre stampata: l'entità giuridica presso la sua sede",
+    "show": "Stampare {{column}}",
+    "moveUp": "Spostare {{column}} a sinistra",
+    "moveDown": "Spostare {{column}} a destra"
+  },
+  "options": {
+    "title": "Opzioni",
+    "draftWatermark": "«BOZZA» sulle bozze",
+    "draftWatermarkHint": "Di traverso su ogni pagina di un documento che è ancora una bozza, nella lingua del documento.",
+    "pageNumbers": "Numeri di pagina («Pagina 1 di 3»)"
+  },
+  "location": {
+    "title": "Intestazione di una sede",
+    "pick": "Scelga una sede nell'anteprima per vederne l'intestazione.",
+    "explanation": "Una sede sostituisce solo il blocco dell'indirizzo e il logo. Il piè di pagina indica sempre l'entità giuridica.",
+    "addressBlock": "Blocco dell'indirizzo",
+    "addressBlockNone": "Nessun blocco dell'indirizzo proprio – viene stampato l'indirizzo dell'azienda.",
+    "addressBlockEdit": "Modificare nella sede",
+    "logo": "Logo di questa sede",
+    "logoNone": "Nessun logo proprio – viene stampato il logo dell'azienda.",
+    "logoOwn": "Logo proprio",
+    "choose": "Scegliere un file",
+    "upload": "Caricare",
+    "remove": "Rimuovere",
+    "failed": "Non è stato possibile salvare il logo."
+  },
+  "preview": {
+    "title": "Anteprima",
+    "document": "Documento di esempio",
+    "documents": {
+      "offer": "Offerta",
+      "invoice": "Fattura"
+    },
+    "location": "Stampato per",
+    "locationNone": "Azienda (nessuna sede)",
+    "loading": "Creazione dell'anteprima …",
+    "error": "Non è stato possibile creare l'anteprima.",
+    "note": "Un documento di esempio con i dati reali della sua azienda, con «FACSIMILE» di traverso sulla pagina.",
+    "notAllowed": "L'anteprima mostra le coordinate bancarie dell'azienda ed è disponibile solo per la direzione."
+  }
+}

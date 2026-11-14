@@ -10,7 +10,7 @@ from app.core.idempotency_model import IdempotencyRecord
 from app.core.outbox_model import OutboxMessage
 from app.core.processed_event_model import ProcessedEvent
 from app.core.reconciliation_model import ReconciliationOrphan, ReconciliationRun
-from app.customer.models.customer import Customer, CustomerAddress, CustomerTag
+from app.customer.models.customer import Customer, CustomerAddress, CustomerContactGroup, CustomerTag
 from app.customer.models.legal_basis import LegalBasis
 from app.customer.models.stock_item_booking import StockItemBooking
 from app.customer.models.vehicle_party import VehicleParty
@@ -33,6 +33,7 @@ from app.platform.models.auth_session import AuthSession
 from app.platform.models.auth_token import AuthToken
 from app.platform.models.branding_asset import BrandingAsset
 from app.platform.models.connected_account import UserConnectedAccount
+from app.platform.models.contact_group import DealershipContactGroup
 from app.platform.models.credential import Credential
 from app.platform.models.dealership import DealerGroup, Dealership, Location
 from app.platform.models.dealership_auth_config import DealershipAuthConfig
@@ -40,6 +41,7 @@ from app.platform.models.dealership_bank_account import DealershipBankAccount
 from app.platform.models.dealership_membership import DealershipMembership
 from app.platform.models.dealership_settings import DealershipSettings
 from app.platform.models.document_template import DocumentTemplate
+from app.platform.models.export_job import ExportJob
 from app.platform.models.holiday_calendar import Holiday, HolidayCalendar
 from app.platform.models.location_schedule import LocationClosure, LocationOpeningHours
 from app.platform.models.mfa import MfaPasskey, MfaRecoveryCode, MfaTotp
@@ -113,6 +115,7 @@ __all__ = [
     "Credential",
     "Customer",
     "CustomerAddress",
+    "CustomerContactGroup",
     "CustomerTag",
     "DailyJobRun",
     "DealerGroup",
@@ -121,9 +124,11 @@ __all__ = [
     "Dealership",
     "DealershipAuthConfig",
     "DealershipBankAccount",
+    "DealershipContactGroup",
     "DealershipMembership",
     "DealershipSettings",
     "DocumentTemplate",
+    "ExportJob",
     "Holiday",
     "HolidayCalendar",
     "IdempotencyRecord",

@@ -18,8 +18,8 @@ from app.core.concurrency import require_if_match
 from app.core.config import get_settings
 from app.core.errors import UnprocessableEntityError
 from app.core.idempotent_route import IdempotentRoute
-from app.core.pagination import SortPageParams, decode_sort_cursor
-from app.core.sorting import SortField
+from app.core.pagination import SortPageParams
+from app.core.sorting import SortField, decode_cursor_for_sort
 from app.db import get_db
 from app.platform.models.notification import Notification, NotificationEvent, NotificationFamily
 from app.platform.reference.services import web_push
@@ -79,7 +79,7 @@ def list_my_notifications(
     held for the daily digest is not listed until the digest releases it."""
 
     params = SortPageParams(
-        limit=limit, cursor=decode_sort_cursor(cursor) if cursor else None, sort_fields=_INBOX_ORDER
+        limit=limit, cursor=decode_cursor_for_sort(cursor, _INBOX_ORDER), sort_fields=_INBOX_ORDER
     )
     rows, next_cursor = notifications.list_inbox(db, user_id=principal.user_id, unread_only=unread, params=params)
     return NotificationPage(items=_reads(db, rows), next_cursor=next_cursor)

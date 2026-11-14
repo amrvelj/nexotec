@@ -22,6 +22,11 @@ reports an open record whose owner is deactivated for as long as it lasts
 The second (KAN-559, `run_daily_revoked_grant_repair`) ends at the provider
 every revoked connected-account grant still holding a reference.
 
+KAN-218 adds one: `run_daily_data_export_expiry` deletes an export's file
+seven days after it was produced. An offboarded Betrieb's archive is never
+deleted by a job (Anto, 2026-11-14): reconciliation reports it once its ten
+years have passed, and the deletion is a manual staff step.
+
 Runs where `python -m app.worker` runs; staging runs no worker (ADR-081).
 """
 
@@ -39,7 +44,13 @@ from app.core.permissions import AccessRole
 from app.db import SessionLocal
 from app.platform.models.user import User, UserStatus
 from app.platform.schemas.user import UserUpdate
-from app.platform.services import connected_account, notifications, ownership, push_subscriptions
+from app.platform.services import (
+    connected_account,
+    data_export,
+    notifications,
+    ownership,
+    push_subscriptions,
+)
 from app.platform.services import user as user_service
 from app.platform.services import user_reads as user_reads_service
 
@@ -221,3 +232,12 @@ def run_daily_revoked_grant_repair(db: Session) -> None:
         run.failed,
         extra={"ended": run.ended, "noRevoker": run.no_revoker, "failed": run.failed},
     )
+
+
+def run_daily_data_export_expiry(db: Session) -> None:
+    """KAN-218 (FR-A-44; Anto, 2026-11-13, Q1 A): an export's download stays
+    seven days; then its file is deleted and the export reads `expired`, one
+    audit row each. A new export can be requested at any time."""
+
+    expired = data_export.expire_downloads(db)
+    logger.info("platform.data_exports.expire: %d export file(s) deleted", expired, extra={"expired": expired})

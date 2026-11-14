@@ -25,9 +25,13 @@
     "translations": "Translations",
     "locations": "Locations",
     "branding": "Logo and colours",
+    "letterhead": "Letterhead and template",
     "standardTexts": "Standard texts",
     "numberRanges": "Number ranges",
-    "onboarding": "Onboard a business"
+    "onboarding": "Onboard a business",
+    "contactGroups": "Contact groups",
+    "dataExport": "Data export",
+    "offboarding": "Offboard a business"
   },
   "signOut": "Sign out",
   "environmentNotice": {

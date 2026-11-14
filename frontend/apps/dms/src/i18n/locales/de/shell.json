@@ -25,9 +25,13 @@
     "translations": "Übersetzungen",
     "locations": "Standorte",
     "branding": "Logo und Farben",
+    "letterhead": "Briefkopf und Vorlage",
     "standardTexts": "Standardtexte",
     "numberRanges": "Nummernkreise",
-    "onboarding": "Betrieb aufnehmen"
+    "onboarding": "Betrieb aufnehmen",
+    "contactGroups": "Kontaktgruppen",
+    "dataExport": "Datenexport",
+    "offboarding": "Betrieb beenden"
   },
   "signOut": "Abmelden",
   "environmentNotice": {

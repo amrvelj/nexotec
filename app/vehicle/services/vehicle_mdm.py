@@ -2,6 +2,7 @@
 
 import datetime as dt
 import re
+import unicodedata
 import uuid
 
 from sqlalchemy import select
@@ -9,10 +10,16 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.audit import record_audit_event
-from app.core.errors import ConflictError, NotFoundError
+from app.core.errors import ConflictError, NotFoundError, UnprocessableEntityError
 from app.core.outbox import OutboxEvent, publish
+from app.core.validators import PRE_ISO_VIN_CUTOFF, is_chassis_number
 from app.vehicle.models.energy_rating import ModelVariantEnergyRating
-from app.vehicle.models.vehicle_mdm import CatalogueMatchStatus, VehicleMdm, VehicleNumberSequence
+from app.vehicle.models.vehicle_mdm import (
+    CatalogueMatchStatus,
+    VehicleIdentifierKind,
+    VehicleMdm,
+    VehicleNumberSequence,
+)
 from app.vehicle.schemas.vehicle_mdm import VehicleMdmUpdate
 from app.vehicle.services.stock_holding import VIN_CHANGE_NEEDS_VIN_CORRECTION, held_stock_item
 
@@ -65,7 +72,70 @@ def get_vehicle_mdm_or_404(db: Session, vehicle_id: uuid.UUID) -> VehicleMdm:
 
 
 def get_vehicle_mdm_by_vin(db: Session, vin: str) -> VehicleMdm | None:
-    return db.scalar(select(VehicleMdm).where(VehicleMdm.vin == vin))
+    """The VIN record for `vin`. A chassis-number record is never found by
+    its number alone (KAN-535: it is that number together with its make)."""
+
+    return db.scalar(
+        select(VehicleMdm).where(VehicleMdm.vin == vin, VehicleMdm.identifier_kind == VehicleIdentifierKind.VIN)
+    )
+
+
+# KAN-535 (Anto, 2026-11-13, option A): a make compared tolerantly — case,
+# spaces, hyphens and accents ignored, nothing else — so «Mercedes-Benz» and
+# «mercedes benz» are one make and «Mercedes» another.
+_MAKE_KEY_IGNORED = re.compile(r"[\s\-\u2010-\u2015]+")
+_MAKE_KEY_LENGTH = 255  # VehicleMdm.chassis_make_key
+
+
+def chassis_make_key(make: str | None) -> str | None:
+    """The key a chassis-number record's make is compared by; None for no
+    make (nothing but spaces and hyphens included)."""
+
+    if make is None:
+        return None
+    decomposed = unicodedata.normalize("NFKD", make)
+    unaccented = "".join(char for char in decomposed if not unicodedata.combining(char))
+    key = _MAKE_KEY_IGNORED.sub("", unaccented).casefold()
+    return key[:_MAKE_KEY_LENGTH] or None
+
+
+def get_vehicle_mdm_by_chassis_number(db: Session, *, chassis_number: str, make_key: str) -> VehicleMdm | None:
+    """The chassis-number record for this number and make key (KAN-535)."""
+
+    return db.scalar(
+        select(VehicleMdm).where(
+            VehicleMdm.vin == chassis_number,
+            VehicleMdm.identifier_kind == VehicleIdentifierKind.CHASSIS_NUMBER,
+            VehicleMdm.chassis_make_key == make_key,
+        )
+    )
+
+
+def require_chassis_number_identity(
+    *, chassis_number: str, make: str | None, first_registration_date: dt.date | None
+) -> str:
+    """The make key of a pre-1981 car's chassis-number record, after the
+    rules a record needs (KAN-535): a chassis number (never a VIN: that is
+    a VIN record), a first registration before 1981-01-01 (KAN-353's rule)
+    and a make. 422 with a `reason` otherwise; returns the make key."""
+
+    if not is_chassis_number(chassis_number):
+        raise UnprocessableEntityError(
+            f"'{chassis_number}' is not a chassis number.", details={"field": "vin", "reason": "invalid_vin"}
+        )
+    if first_registration_date is None or first_registration_date >= PRE_ISO_VIN_CUTOFF:
+        raise UnprocessableEntityError(
+            "A chassis number that is not a 17-character VIN is accepted only for a car first registered "
+            "before 1981.",
+            details={"field": "vin", "reason": "chassis_number_requires_pre_1981_registration"},
+        )
+    make_key = chassis_make_key(make)
+    if make_key is None:
+        raise UnprocessableEntityError(
+            "A car with a chassis number is told apart by its make: enter the make on its configuration.",
+            details={"field": "make", "reason": "chassis_number_requires_make"},
+        )
+    return make_key
 
 
 def create_vehicle_mdm(
@@ -77,16 +147,25 @@ def create_vehicle_mdm(
     type_approval_number: str | None = None,
     first_registration_date: dt.date | None = None,
     actor_id: uuid.UUID | None = None,
+    chassis_make_key: str | None = None,
 ) -> VehicleMdm:
     """FR-V-15's "a VIN that already exists is not a validation error"
     rule is enforced by the CALLER (the API layer resolves the existing
     record and offers to open it, per the brief) — this function's own
     IntegrityError handling is the last-resort guard against a race
     between that check and this insert, not the primary mechanism.
+
+    With `chassis_make_key` (KAN-535) the record is a pre-1981 car's
+    chassis-number record, its identity the number and that key; the caller
+    has checked both (`require_chassis_number_identity`).
     """
 
     vehicle = VehicleMdm(
         vin=vin,
+        identifier_kind=(
+            VehicleIdentifierKind.VIN if chassis_make_key is None else VehicleIdentifierKind.CHASSIS_NUMBER
+        ),
+        chassis_make_key=chassis_make_key,
         vehicle_number=allocate_vehicle_number(db),
         stammnummer=stammnummer,
         type_approval_number=type_approval_number,
@@ -140,6 +219,33 @@ def create_or_get_vehicle_mdm(
     return vehicle, True
 
 
+def create_or_get_vehicle_mdm_by_chassis_number(
+    db: Session,
+    *,
+    chassis_number: str,
+    make: str | None,
+    first_registration_date: dt.date | None,
+    actor_id: uuid.UUID | None = None,
+) -> tuple[VehicleMdm, bool]:
+    """KAN-535 (ADR-103 as amended): a pre-1981 car's chassis-number record
+    — found by its number and make key, or created with its first
+    registration — FR-V-15's "the same car" for a car without a VIN.
+    Refused (422) without the rules `require_chassis_number_identity` names.
+    The insert race is the caller's, as for a VIN (`vin_resolution.py`)."""
+
+    make_key = require_chassis_number_identity(
+        chassis_number=chassis_number, make=make, first_registration_date=first_registration_date
+    )
+    existing = get_vehicle_mdm_by_chassis_number(db, chassis_number=chassis_number, make_key=make_key)
+    if existing is not None:
+        return existing, False
+    vehicle = create_vehicle_mdm(
+        db, vin=chassis_number, catalogue_variant_id=None, first_registration_date=first_registration_date,
+        actor_id=actor_id, chassis_make_key=make_key,
+    )
+    return vehicle, True
+
+
 def update_vehicle_mdm(
     db: Session,
     *,
@@ -179,6 +285,8 @@ def update_vehicle_mdm(
     summary_before = summary_fields(vehicle)
     changes = data.model_dump(exclude_unset=True)
     changed = {field: value for field, value in changes.items() if getattr(vehicle, field) != value}
+    if vehicle.identifier_kind == VehicleIdentifierKind.CHASSIS_NUMBER:
+        _refuse_chassis_number_identity_change(changed)
     if "vin" in changed:
         held = held_stock_item(db, tenant_id=tenant_id, vehicle_id=vehicle.id)
         if held is not None:
@@ -228,6 +336,30 @@ def update_vehicle_mdm(
     return vehicle
 
 
+def _refuse_chassis_number_identity_change(changed: dict[str, object]) -> None:
+    """KAN-535: a chassis-number record's identity is its number, its make
+    and its pre-1981 first registration. Its number is not changed here
+    (`chassis_number_identity_fixed`): Anto (2026-11-14, option B) lets a
+    bought oldtimer's chassis number be corrected only through Stock's «VIN
+    korrigieren» (`vin_correction.py`), which carries the stock item and the
+    configuration along — refused here whether or not the caller's Betrieb
+    holds the car. Its first registration stays before 1981
+    (`chassis_number_requires_pre_1981_registration`)."""
+
+    if "vin" in changed:
+        raise UnprocessableEntityError(
+            "This car is identified by its chassis number, which is corrected only on a stock car («VIN korrigieren»).",
+            details={"field": "vin", "reason": "chassis_number_identity_fixed"},
+        )
+    if "first_registration_date" in changed:
+        registered = changed["first_registration_date"]
+        if not isinstance(registered, dt.date) or registered >= PRE_ISO_VIN_CUTOFF:
+            raise UnprocessableEntityError(
+                "A car identified by its chassis number was first registered before 1981.",
+                details={"field": "firstRegistrationDate", "reason": "chassis_number_requires_pre_1981_registration"},
+            )
+
+
 # The PATCH's fields under their camelCase API names — the audit row's keys
 # and a duplicate refusal's `details` key (the configuration's audit rule).
 _AUDIT_NAMES = {
@@ -241,7 +373,8 @@ _AUDIT_NAMES = {
 # A unique constraint the PATCH can hit -> the field it guards and its name in
 # the refusal. Any other integrity error is not a duplicate and is raised as is.
 _UNIQUE_FIELDS = {
-    "vehicle_mdm_vin_key": ("vin", "VIN"),
+    "uq_vehicle_mdm_vin": ("vin", "VIN"),
+    "vehicle_mdm_vin_key": ("vin", "VIN"),  # SQLite's message, mapped below
     "vehicle_mdm_stammnummer_key": ("stammnummer", "Stammnummer"),
 }
 

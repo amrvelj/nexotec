@@ -83,19 +83,41 @@ Decided rulings live in the PRD; built only where a bullet says so — check the
   `POST /v1/dealerships` is deprecated in OpenAPI.
 - **Activation gate (D-A-21):** `pending_onboarding` until every applicable checklist item is done
   and the manager accepted the current ToS and DPA (D-A-34); until then only Dealer Administration
-  and My account. Only the status value exists — nothing enforces the gate yet.
+  and My account. Not enforced yet, and no route activates: the procedure is KAN-214.
+- **`status` is staff's, `active` ↔ `suspended` only** (KAN-712, ADR-165): a manager naming it is
+  422 `status_not_patchable`; activation and offboarding are procedures (`use_*_procedure`).
 - **Mail (D-A-28):** platform mail is always Nexotec's sender (`platform-identity.md`);
   customer-facing mail resolves per document type through `sending_policy` to `user_mailbox` ·
   `business_mailbox` · `verified_domain` · `nexotec_on_behalf`.
 - **Customer messaging (D-A-41):** one platform send dialog for e-mail, SMS, WhatsApp; the Betrieb
   brings its own SMS/WhatsApp provider; consent lives on the customer.
 - **Not in v1, by ruling:** policy limits (D-A-18), external users (D-A-20), custom fields and tags
-  (D-A-29), Saldosteuersatz (D-A-27), customer logins (D-A-13), API clients (D-A-14), Zefix
+  (D-A-29; one exception, contact tags — Anto, 2026-10-26), Saldosteuersatz (D-A-27), customer logins (D-A-13), API clients (D-A-14), Zefix
   auto-fill, AI translations, training mode.
+
+## Data export and offboarding (KAN-218)
+- The manager's export is a job (`export_job`; the worker writes the ZIP), downloadable 7 days via
+  the authenticated GET (signed URL: KAN-402).
+- Staff offboard (`POST /v1/platform/dealerships/{id}/offboard`) only after an acknowledged export
+  newer than the last write; the Betrieb's principals then get 404 (`session_guard.py`).
+  Archive exports: staff only, with a reason. It then leaves every group read
+  (`group_read_dealerships.py`, `group_labels.py`; Q2 A).
+- `platform.dealership.offboarded` (Q3 A): Stock withdraws live listings (empty feed first,
+  `listing_withdrawal.py`), stating `inventory.dealership_listings.withdrawn`; Integration
+  disables and revokes every connection, the `marketplace_publish` ones only on it.
+- **No automatic deletion** (Anto, 2026-11-14): past `retention_until` (offboarding + 10 years)
+  reconciliation reports it nightly (`dealership.archive_due_for_manual_deletion`); staff delete it.
+
+## Contact groups (KAN-466) — built
+- Nexotec's list `contact_group` (reference data, staff-maintained); each Betrieb switches groups on at
+  `/administration/contact-groups` (`dealership_contact_group`, a row = on, none by default; matrix row
+  `dealership_settings`); copied from a sister by the `contact_groups` subset (switches on, never off).
+  A group staff withdrew cannot be switched on. Guard: `test_contact_group_setting_is_administrations.py`.
 
 ## Business master data (D-A-22, D-A-25, D-A-27, FR-A-25) — built
 - `/administration/business` is the one screen for the Betrieb's own data: legal identity,
-  addresses, address entry, banking, commercial and fiscal defaults, licences and memberships.
+  addresses (with the Betrieb's `email` and `website`, KAN-206, for the documents' footer), address
+  entry, banking, commercial and fiscal defaults, licences and memberships.
 - `dealership.uid` is plain, public, checksum-validated (`validate_swiss_uid`) and unique; required
   on create, a duplicate is 409. There is no `tax_id`, `dealer_license_number` or `license_state`.
   `vat_rate` stays on `dealership` (ADR-057); `dealership_settings` holds the fiscal defaults and
@@ -124,8 +146,9 @@ Decided rulings live in the PRD; built only where a bullet says so — check the
   its first location from its registered seat.
 - `code` is unique per Betrieb and fixed once saved; a location is referenced by id only. Location
   is never a scoping boundary: nothing filters by it.
-- `letterhead_address_override` is stored, **not yet read by `document_render`**; no per-location
-  logo override exists. `bank_account_override_id` is read only by the banking roles (ADR-100). No
+- `letterhead_address_override` is the site's letterhead address block, printed as written when a
+  document is printed for it (KAN-206); its logo is a `branding_asset` row with its `location_id`
+  (Letterhead screen). `bank_account_override_id` is read only by the banking roles (ADR-100). No
   `vat_override` — open with Anto (ADR-057's one VAT figure). `calendar_ref`/`warehouse_ref` stay
   empty for Aftersales and Parts.
 - Opening hours are stored **per department always** (a `perDepartment: false` PUT is written for

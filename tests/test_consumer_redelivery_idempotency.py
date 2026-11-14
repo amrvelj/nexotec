@@ -613,6 +613,117 @@ def _connected_account_revoked(db_session, engine, monkeypatch):
         )
 
     return _message(db_session, connected_account.REVOKED_EVENT, account.id), ends_recorded
+
+
+def _data_export_requested(db_session, engine, monkeypatch):
+    """KAN-218 — a requested export, from the real producer: the worker
+    writes its file once and records it once (`produced`); a redelivery
+    finds the export no longer requested."""
+
+    import tempfile
+    from pathlib import Path
+
+    import app.export_registry  # noqa: F401 - the contexts' exporters
+    from app.core import object_store
+    from app.core.audit_model import AuditEvent
+    from app.platform.models.export_job import ExportJobKind
+    from app.platform.services import data_export
+
+    monkeypatch.setattr(object_store, "_store", object_store.LocalDirectoryObjectStore(Path(tempfile.mkdtemp())))
+    dealership = _dealership(db_session)
+    job = data_export.request_export(
+        db_session, dealership=dealership, kind=ExportJobKind.SELF_SERVICE, actor_id=uuid.uuid4()
+    )
+
+    def produced(db: Session) -> int:
+        return db.scalar(
+            select(func.count())
+            .select_from(AuditEvent)
+            .where(AuditEvent.entity_id == job.id, AuditEvent.action == "produced")
+        )
+
+    return _message(db_session, data_export.REQUESTED_EVENT, job.id), produced
+
+
+def _offboarded_betrieb(db_session, monkeypatch):
+    """KAN-218 — an offboarded Betrieb with one delivered AutoScout24 listing
+    and its connection, and the real producer's `platform.dealership.offboarded` row."""
+
+    from app.inventory.services import marketplace_transmission
+    from app.platform.services import offboarding
+
+    dealership = _dealership(db_session)
+    connection = _make_connection(db_session, _make_provider(db_session), tenant_id=dealership.id)
+    item = _make_ready_item(db_session, dealership.id, vin="1HGCM82633A004218")
+    publish(db_session, item=item, channel=MarketplaceChannel.AUTOSCOUT24, actor_id=uuid.uuid4())
+    adapter = FakeMarketplaceAdapter()
+    _register_fake(monkeypatch, adapter)
+    marketplace_transmission.assemble_and_transmit(
+        db_session, tenant_id=dealership.id, channel=MarketplaceChannel.AUTOSCOUT24
+    )
+    offboarding.publish_offboarded(db_session, dealership=dealership, offboarded_at=offboarding.utcnow())
+    db_session.commit()
+    return _message(db_session, offboarding.OFFBOARDED_EVENT_TYPE, dealership.id), adapter, connection
+
+
+def _listings_withdrawn_on_offboarded(db_session, engine, monkeypatch):
+    """Stock withdraws the live listing: one empty feed to the marketplace."""
+
+    message, adapter, _connection = _offboarded_betrieb(db_session, monkeypatch)
+    return message, lambda db: len(adapter.transmitted)
+
+
+def _disable_audits(connection_id: uuid.UUID) -> Measure:
+    from app.core.audit_model import AuditEvent
+
+    def disabled(db: Session) -> int:
+        return db.scalar(
+            select(func.count())
+            .select_from(AuditEvent)
+            .where(AuditEvent.entity_id == connection_id, AuditEvent.action == "disable")
+        )
+
+    return disabled
+
+
+def _connections_disabled_on_offboarded(db_session, engine, monkeypatch):
+    """Integration disables a connection Stock does not publish through (the
+    demo vehicle-data provider's): one `disable` audit row."""
+
+    from app.integration.models.provider import IntegrationProvider
+    from app.integration.schemas.connection import ConnectionCreate
+    from app.integration.services import connections as connection_service
+
+    message, _adapter, _marketplace = _offboarded_betrieb(db_session, monkeypatch)
+    provider = IntegrationProvider(
+        provider_code="auto_i_dat_mock", category="vehicle_data", display_name="Demo", auth_type="none",
+        required_secret_slots=[], capability_codes=["ident_basis"],
+    )
+    db_session.add(provider)
+    db_session.commit()
+    connection = connection_service.create_connection(
+        db_session, tenant_id=message.tenant_id,
+        data=ConnectionCreate(provider_id=provider.id, display_name="Demo", environment="sandbox"),
+        actor_id=uuid.uuid4(),
+    )
+    return message, _disable_audits(connection.id)
+
+
+def _marketplace_connections_disabled_on_withdrawn(db_session, engine, monkeypatch):
+    """KAN-218 — Stock's withdrawn fact from the real producer (its consumer of
+    the offboarded fact): Integration disables the marketplace connection,
+    one `disable` audit row."""
+
+    from app.inventory.consumers import handle_dealership_offboarded_message
+
+    offboarded, _adapter, connection = _offboarded_betrieb(db_session, monkeypatch)
+    handle_dealership_offboarded_message(db_session, offboarded)
+    db_session.commit()
+    return _message(db_session, "inventory.dealership_listings.withdrawn", offboarded.tenant_id), _disable_audits(
+        connection.id
+    )
+
+
 def _configuration_taken(event_type: str, take) -> Fixture:
     """KAN-270 — a host takes a configuration, from the real producer:
     vehicle stamps it taken, once (`first_taken_at`, never moved)."""
@@ -742,6 +853,10 @@ def _stock_holding_on_sold(db_session, engine, monkeypatch):
 
 _FIXTURES: dict[str, Fixture] = {
     "platform.connected_account_provider_revocation": _connected_account_revoked,
+    "platform.data_export_production": _data_export_requested,
+    "inventory.listings_withdrawn_on_offboarded": _listings_withdrawn_on_offboarded,
+    "integration.connections_disabled_on_offboarded": _connections_disabled_on_offboarded,
+    "integration.marketplace_connections_disabled_on_withdrawn": _marketplace_connections_disabled_on_withdrawn,
     "inventory.sales_contract_confirmed": _contract_confirmed,
     "inventory.sales_contract_cancelled": _contract_cancelled,
     "inventory.sales_contract_projection_on_created": _contract_projection(

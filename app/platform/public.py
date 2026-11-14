@@ -14,6 +14,7 @@ from app.platform.schemas.document_content import (
     Addressee,
     ContentDefinition,
     DocumentLine,
+    DocumentWatermark,
     KeyValueBlock,
     KeyValueRow,
     LineItemsBlock,
@@ -29,6 +30,8 @@ from app.platform.services.connected_account import (
     register_grant_revoker,
     unregister_grant_revoker,
 )
+from app.platform.services.contact_group import ContactGroupCodes, contact_group_codes
+from app.platform.services.data_export_tables import PlatformExporter
 from app.platform.services.dealership import (
     enable_group_read,
     get_dealer_group_or_404,
@@ -60,7 +63,10 @@ from app.platform.services.user_reads import (
 # renders a document (WP-7/8/9) builds a ContentDefinition out of these
 # block types and calls render_document. SwissLanguage itself is imported
 # straight from app.core.i18n, not re-exported here — app.core is already
-# universally importable.
+# universally importable. KAN-206: a SignatureBlock names its signers'
+# user ids (their images are read at render time) and render_document takes
+# a DocumentWatermark (DRAFT on a draft document); the letterhead, envelope
+# window and footer columns are platform's alone.
 #
 # KAN-208: render_standard_text is the standard-text resolver every module
 # prints its wording through (language → Betrieb default → DE; location →
@@ -99,12 +105,14 @@ __all__ = [
     "PLACEHOLDER_UNRESOLVED",
     "Addressee",
     "ConnectedAccountProvider",
+    "ContactGroupCodes",
     "ContentDefinition",
     "DealerGroup",
     "DealerGroupRead",
     "Dealership",
     "DealershipRef",
     "DocumentLine",
+    "DocumentWatermark",
     "GrantRevoker",
     "KeyValueBlock",
     "KeyValueRow",
@@ -116,6 +124,7 @@ __all__ = [
     "NumberRangeDocumentType",
     "ParagraphBlock",
     "Placeholder",
+    "PlatformExporter",
     "RenderedStandardText",
     "RevokedGrant",
     "SignatureBlock",
@@ -127,6 +136,7 @@ __all__ = [
     "UserDisplayLabel",
     "actor_reference_checks",
     "allocate_number",
+    "contact_group_codes",
     "enable_group_read",
     "get_active_reference_value_codes",
     "get_active_user_acting_in",

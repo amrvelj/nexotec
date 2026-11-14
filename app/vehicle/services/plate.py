@@ -40,6 +40,7 @@ from app.core.concurrency import check_version
 from app.core.config import get_settings
 from app.core.constants import CANTON_CODES
 from app.core.errors import ConflictError, NotFoundError, UnprocessableEntityError
+from app.core.export import ExportedTable, ExportScope, table_of
 from app.core.uuid7 import uuid7
 from app.vehicle.models.plate import DealerPlate, DealerPlateAssignment, VehiclePlate
 from app.vehicle.models.vehicle_mdm import VehicleMdm
@@ -464,3 +465,23 @@ def assign_dealer_plate(
     db.commit()
     db.refresh(assignment)
     return assignment
+
+
+def register_export_table() -> ExportedTable:
+    """KAN-218: the Kontrollschild register is never listed, browsed, paged
+    or exported (ADR-039), so it stays out of a Betrieb's export; it is the
+    dealer group's (KAN-467). Declared here, the one module that reads the
+    table; it reads no row."""
+
+    table = table_of(VehiclePlate)
+
+    def recorded_by_the_betrieb(export_scope: ExportScope):
+        return table.c.recording_tenant_id == export_scope.dealership_id
+
+    return ExportedTable(
+        table=table,
+        scope=recorded_by_the_betrieb,
+        in_archive=False,
+        exclusion_reason="The plate register is never listed or exported (ADR-039).",
+        marks_write=False,
+    )

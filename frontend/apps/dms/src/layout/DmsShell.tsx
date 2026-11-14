@@ -4,6 +4,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
 import {
+  Archive,
   Building2,
   Car,
   CarFront,
@@ -11,6 +12,7 @@ import {
   Cog,
   Database,
   Globe,
+  FileArchive,
   FileText,
   Handshake,
   Hash,
@@ -19,10 +21,12 @@ import {
   LifeBuoy,
   MapPin,
   Palette,
+  FileImage,
   Plug,
   Receipt,
   ShieldCheck,
   Store,
+  Tags,
   UserCog,
   Users,
   Warehouse,
@@ -109,6 +113,9 @@ function buildNavGroups(t: (key: string) => string): NavGroupConfig[] {
         // KAN-205 — Dealer Administration › Logo and colours (PRD "Logo and
         // brand assets"). Any role reads, the manager writes; never role-hidden.
         { label: t('shell.nav.branding'), href: '/administration/branding', icon: Palette, status: 'active' },
+        // KAN-206 — Dealer Administration › Letterhead and template (PRD «Branding and
+        // documents»). Any role reads; the manager writes and previews. Never role-hidden.
+        { label: t('shell.nav.letterhead'), href: '/administration/letterhead', icon: FileImage, status: 'active' },
         { label: t('shell.nav.users'), href: '/administration/users', icon: UserCog, status: 'active' },
         // KAN-208 — Dealer Administration › Standard texts. Any role reads; a
         // category is written by the manager or its delegate (FR-A-28) — the
@@ -118,6 +125,12 @@ function buildNavGroups(t: (key: string) => string): NavGroupConfig[] {
         // manager edits an open range, platform staff a frozen one (A-RULE-3).
         // Never role-hidden (A-RULE-7).
         { label: t('shell.nav.numberRanges'), href: '/administration/number-ranges', icon: Hash, status: 'active' },
+        // KAN-466 — Dealer Administration › Contact groups. Any role reads; the
+        // manager switches a group on or off (A-RULE-0). Never role-hidden (A-RULE-7).
+        { label: t('shell.nav.contactGroups'), href: '/administration/contact-groups', icon: Tags, status: 'active' },
+        // KAN-218 — Dealer Administration › Data export (D-A-31, FR-A-44). The
+        // manager's at the API (`data_export`); never role-hidden (A-RULE-7).
+        { label: t('shell.nav.dataExport'), href: '/administration/export', icon: FileArchive, status: 'active' },
         // KAN-202 — platform staff's account recovery (FR-AU-25…27). Staff-only
         // at the API; the entry is never role-hidden (Anto, 2026-10-22: under
         // Administration, like every other admin entry — A-RULE-7).
@@ -129,6 +142,9 @@ function buildNavGroups(t: (key: string) => string): NavGroupConfig[] {
         // KAN-210 — Platform Administration › Onboarding. Staff-only at the API;
         // never role-hidden (A-RULE-7).
         { label: t('shell.nav.onboarding'), href: '/platform/onboarding', icon: Building2, status: 'active' },
+        // KAN-218 — Platform Administration › Offboarding (FR-A-45). Staff-only
+        // at the API; never role-hidden (A-RULE-7).
+        { label: t('shell.nav.offboarding'), href: '/platform/offboarding', icon: Archive, status: 'active' },
       ],
     },
   ]

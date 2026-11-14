@@ -165,7 +165,15 @@
     "vehicle_vin_changed": "Le VIN de la fiche véhicule a changé entre-temps. Veuillez recharger et réessayer.",
     "vehicle_merged": "Le véhicule a été fusionné avec un autre dans la fiche véhicule. Veuillez recharger.",
     "provider_has_no_captions": "Ce fournisseur n’a pas de vocabulaire à récupérer.",
-    "vin_change_needs_vin_correction": "Ce véhicule est en stock dans votre entreprise sous {{stockNumber}}. Son VIN se modifie là-bas avec «Corriger le VIN», pour que le véhicule en stock, la fiche véhicule et la configuration portent le même VIN."
+    "vin_change_needs_vin_correction": "Ce véhicule est en stock dans votre entreprise sous {{stockNumber}}. Son VIN se modifie là-bas avec «Corriger le VIN», pour que le véhicule en stock, la fiche véhicule et la configuration portent le même VIN.",
+    "contact_group_inactive": "Nexotec a retiré ce groupe de contacts ; il ne peut pas être activé.",
+    "contact_group_unknown": "Ce groupe de contacts n’existe pas.",
+    "contact_group_not_enabled": "Ce groupe de contacts n’est pas activé dans votre entreprise. La direction l’active sous Administration › Groupes de contacts.",
+    "contact_group_read_only": "Ce groupe de contacts n’est pas activé dans votre entreprise et ne peut pas être retiré ici.",
+    "customer_contact_group_exists": "Un groupe de contacts de cette modification figure déjà chez le client — il a été modifié entre-temps. Rechargez-le et réessayez.",
+    "chassis_number_identity_fixed": "Ce véhicule est identifié par son numéro de châssis. Il se corrige uniquement sur le véhicule en stock avec «Corriger le VIN», pour que le véhicule en stock, la fiche véhicule et la configuration portent le même numéro.",
+    "chassis_number_requires_configuration": "Un véhicule avec un numéro de châssis au lieu d'un VIN est acheté via sa configuration : attribuez la configuration avec le numéro de châssis, la marque et la première mise en circulation («Attribuer une configuration»).",
+    "chassis_number_requires_make": "Un véhicule avec un numéro de châssis se distingue par sa marque : saisissez la marque dans sa configuration."
   },
   "accessWindow": {
     "between": "valable du {{from}} au {{to}}",

@@ -96,6 +96,14 @@ module folders (KAN-611). Last verified against main@73baf3f (2026-10-25). -->
 - **Canton is derived server-side from the postal code (D-13)**, never accepted from the client,
   and not removable (the list filter, a grid column and the audit trail depend on it).
 
+## Contact groups (KAN-466; Anto, 2026-10-26)
+- `customer_contact_group`: codes of the platform list `contact_group` (Privat, Gewerbe, Flotte, …),
+  several per customer, `contactGroups` full-replace like tags; free tags stay beside them. Only a
+  code the **acting** Betrieb switched on (`platform.public.contact_group_codes`) may be added; any
+  other code the customer carries (switched off, withdrawn, a sister's) is read-only there — dropping
+  it is 422 `contact_group_read_only`, never silently kept. A merge moves them all. List filter
+  `contactGroup` / `contactGroupNot`.
+
 ## Blocks and flags
 - **ADR-065 — a credit block stops contract confirmation, not the offer.** **Do-not-contact** is
   the `lifecycleStatus` value `do_not_contact`, not a flag, and stops the offer and the contract. A

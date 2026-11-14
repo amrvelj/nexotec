@@ -1,0 +1,26 @@
+{
+  "title": "Contact groups",
+  "subtitle": "The groups your business sorts its contacts into. Nexotec maintains the list; you switch on the groups you use.",
+  "offNotice": "A group switched off stays on the contacts that already carry it. It is no longer offered and cannot be removed from them here.",
+  "readOnly": "Only the management can switch contact groups on and off.",
+  "loadError": "The contact groups could not be loaded.",
+  "saveError": "The change could not be saved.",
+  "columns": {
+    "group": "Group",
+    "status": "Status",
+    "enabled": "Used in the business"
+  },
+  "status": {
+    "on": "On",
+    "off": "Off",
+    "inactive": "Withdrawn by Nexotec"
+  },
+  "switchLabel": "Use {{group}}",
+  "field": {
+    "label": "Contact groups",
+    "placeholder": "Choose a group",
+    "noneOffered": "No contact group is switched on in this business.",
+    "readOnlyHint": "Not switched on in this business – cannot be changed here.",
+    "unknown": "Unknown group ({{code}})"
+  }
+}

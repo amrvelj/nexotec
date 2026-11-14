@@ -107,6 +107,27 @@ def _normalise_tags(value: list[str]) -> list[str]:
         raise ValueError(f"A customer cannot carry more than {_MAX_TAGS} tags.")
     return seen
 
+# KAN-466: contact groups are codes of the platform reference list
+# `contact_group` — trimmed, de-duplicated, blanks dropped here; whether the
+# acting Betrieb may set a code is the service's question (it asks platform).
+_MAX_CONTACT_GROUPS = 20
+
+
+def _normalise_contact_groups(value: list[str]) -> list[str]:
+    seen: list[str] = []
+    for raw in value:
+        code = raw.strip()
+        if not code:
+            continue
+        if len(code) > 64:
+            raise ValueError("A contact group code cannot be longer than 64 characters.")
+        if code not in seen:
+            seen.append(code)
+    if len(seen) > _MAX_CONTACT_GROUPS:
+        raise ValueError(f"A customer cannot carry more than {_MAX_CONTACT_GROUPS} contact groups.")
+    return seen
+
+
 # --- Contact channels (WP-3 PR-5, ADR-067): customer_phone/email/address
 # are three child-record tables, each carrying the same six facts (type,
 # label, isPrimary, validFrom/validTo, doNotUse[+reason], consent). Field
@@ -374,6 +395,7 @@ class CustomerCreate(CamelModel):
     customer_since: dt.date | None = None
     next_follow_up: dt.date | None = None
     tags: list[str] = Field(default_factory=list)
+    contact_groups: list[str] = Field(default_factory=list)
     notes: str | None = None
 
     @field_validator("website")
@@ -385,6 +407,11 @@ class CustomerCreate(CamelModel):
     @classmethod
     def _clean_tags(cls, value: list[str]) -> list[str]:
         return _normalise_tags(value)
+
+    @field_validator("contact_groups")
+    @classmethod
+    def _clean_contact_groups(cls, value: list[str]) -> list[str]:
+        return _normalise_contact_groups(value)
 
     @model_validator(mode="after")
     def _require_a_contact_point(self) -> "CustomerCreate":
@@ -512,6 +539,11 @@ class CustomerUpdate(CamelModel):
     customer_since: dt.date | None = None
     next_follow_up: dt.date | None = None
     tags: list[str] | None = None
+    # KAN-466: the full set of the customer's contact groups (full replace,
+    # like `tags`); `null` reads as `[]`. A group the acting Betrieb may not
+    # set is read-only from there: adding one is 422
+    # `contact_group_not_enabled`, leaving one out 422 `contact_group_read_only`.
+    contact_groups: list[str] | None = None
     notes: str | None = None
 
     @field_validator("website")
@@ -526,6 +558,11 @@ class CustomerUpdate(CamelModel):
         # A field validator runs only for a key the body sends, so `None`
         # here is an explicit null; an absent key still leaves them alone.
         return [] if value is None else _normalise_tags(value)
+
+    @field_validator("contact_groups")
+    @classmethod
+    def _clean_contact_groups(cls, value: list[str] | None) -> list[str]:
+        return [] if value is None else _normalise_contact_groups(value)
 
     @field_validator(
         "language",
@@ -614,6 +651,9 @@ class CustomerRead(CamelModel):
     next_follow_up: dt.date | None
     notes: str | None
     tags: list[str] = Field(default_factory=list)
+    # KAN-466: codes of the platform list `contact_group`, sorted; labels come
+    # from GET /v1/dealerships/{id}/contact-groups.
+    contact_groups: list[str] = Field(default_factory=list)
     # Provenance — the dealership that created the record (ADR-014: the
     # GROUP owns the customer). Never scopes a read.
     dealership_id: uuid.UUID | None

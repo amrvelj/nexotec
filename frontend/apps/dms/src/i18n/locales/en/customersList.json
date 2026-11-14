@@ -52,7 +52,8 @@
     "creditBlockedAt": "Credit blocked since",
     "customerSince": "Customer since",
     "nextFollowUp": "Next follow-up",
-    "notes": "Notes"
+    "notes": "Notes",
+    "contactGroups": "Contact groups"
   },
   "rowActions": {
     "open": "Open",

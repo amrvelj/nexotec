@@ -38,6 +38,9 @@ _NOT_PLATE_LOOKUP_FUNCTIONS = {
     # KAN-467: the Swiss calendar day a plate is "current" on — a clock,
     # it reads no row at all.
     "swiss_today",
+    # KAN-218: declares the register for the export (left out of it, ADR-039)
+    # — it reads no row and hands out no plate.
+    "register_export_table",
 }
 
 

@@ -97,12 +97,27 @@ class BrandingAssetRead(CamelModel):
     uploaded_at: dt.datetime | None = None
 
 
+class LocationLogoRead(CamelModel):
+    """KAN-206: a site's own letterhead logo (PRD: the per-location override
+    of the address block and logo only). Documents printed for that site
+    show it in place of the Betrieb's primary logo."""
+
+    location_id: uuid.UUID
+    mime_type: str
+    width: int | None = None
+    height: int | None = None
+    byte_size: int
+    uploaded_by: uuid.UUID | None = None
+    uploaded_at: dt.datetime
+
+
 class BrandingRead(CamelModel):
     dealership_id: uuid.UUID
     primary_color: str
     secondary_color: str | None
     placements: BrandingPlacements
     assets: list[BrandingAssetRead]
+    location_logos: list[LocationLogoRead] = Field(default_factory=list)
     contrast: ContrastCheckRead
     # The dealership's version: every branding write moves it, and every
     # branding write takes it as If-Match.

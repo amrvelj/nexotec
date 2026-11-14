@@ -1,0 +1,81 @@
+{
+  "title": "Briefkopf und Vorlage",
+  "subtitle": "Wie jedes Dokument Ihres Betriebs gedruckt wird: Briefkopf, Adressfenster, Fusszeile. Jede Änderung wird sofort gespeichert und in der Vorschau gezeigt.",
+  "loadError": "Die Vorlage konnte nicht geladen werden.",
+  "readOnly": "Nur die Geschäftsleitung ändert die Vorlage.",
+  "saving": "Wird gespeichert …",
+  "saved": "Gespeichert",
+  "saveError": "Die Änderung konnte nicht gespeichert werden.",
+  "header": {
+    "title": "Briefkopf",
+    "layout": "Logo-Position",
+    "layoutHint": "Die Absenderangaben stehen auf der anderen Seite; zentriert stehen sie unter dem Logo.",
+    "layouts": {
+      "logo_left": "Links",
+      "logo_right": "Rechts",
+      "logo_centred": "Zentriert"
+    },
+    "logoSize": "Logo-Grösse",
+    "logoSizeHint": "Höchstens 30, 40 oder 50 mm breit und 20 mm hoch.",
+    "logoSizes": {
+      "s": "S · 30 mm",
+      "m": "M · 40 mm",
+      "l": "L · 50 mm"
+    },
+    "addressWindow": "Adressfenster",
+    "addressWindowHint": "Die Seite des Fensters Ihrer C5/C4-Couverts. Die Positionen stammen von der Schweizerischen Post; prüfen Sie sie mit einem Probedruck.",
+    "addressWindows": {
+      "left": "Links",
+      "right": "Rechts"
+    }
+  },
+  "footer": {
+    "title": "Fusszeile",
+    "explanation": "Bis zu vier Spalten. Ihr Inhalt kommt aus den Stammdaten des Betriebs und wird beim Drucken gelesen – nie abgetippt. Eine Spalte ohne Daten bleibt leer weg.",
+    "columns": {
+      "company": "Firma und Adresse",
+      "contact": "Kontakt",
+      "banking": "Bankverbindung",
+      "register": "Handelsregister, UID und MWST"
+    },
+    "companyFixed": "Immer gedruckt: der Rechtsträger an seinem Sitz",
+    "show": "{{column}} drucken",
+    "moveUp": "{{column}} nach links",
+    "moveDown": "{{column}} nach rechts"
+  },
+  "options": {
+    "title": "Optionen",
+    "draftWatermark": "«ENTWURF» auf Entwürfen",
+    "draftWatermarkHint": "Quer über jede Seite eines Dokuments, das noch ein Entwurf ist, in der Sprache des Dokuments.",
+    "pageNumbers": "Seitenzahlen («Seite 1 von 3»)"
+  },
+  "location": {
+    "title": "Briefkopf eines Standorts",
+    "pick": "Wählen Sie in der Vorschau einen Standort, um seinen Briefkopf zu sehen.",
+    "explanation": "Ein Standort ersetzt nur den Adressblock und das Logo. Die Fusszeile nennt immer den Rechtsträger.",
+    "addressBlock": "Adressblock",
+    "addressBlockNone": "Kein eigener Adressblock – es wird die Adresse des Betriebs gedruckt.",
+    "addressBlockEdit": "Am Standort bearbeiten",
+    "logo": "Logo dieses Standorts",
+    "logoNone": "Kein eigenes Logo – es wird das Logo des Betriebs gedruckt.",
+    "logoOwn": "Eigenes Logo",
+    "choose": "Datei wählen",
+    "upload": "Hochladen",
+    "remove": "Entfernen",
+    "failed": "Das Logo konnte nicht gespeichert werden."
+  },
+  "preview": {
+    "title": "Vorschau",
+    "document": "Musterdokument",
+    "documents": {
+      "offer": "Offerte",
+      "invoice": "Rechnung"
+    },
+    "location": "Gedruckt für",
+    "locationNone": "Betrieb (kein Standort)",
+    "loading": "Vorschau wird erstellt …",
+    "error": "Die Vorschau konnte nicht erstellt werden.",
+    "note": "Ein Musterdokument mit den echten Daten Ihres Betriebs, mit «MUSTER» quer über der Seite.",
+    "notAllowed": "Die Vorschau zeigt die Bankverbindung des Betriebs und steht nur der Geschäftsleitung zur Verfügung."
+  }
+}

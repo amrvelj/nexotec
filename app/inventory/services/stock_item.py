@@ -30,6 +30,7 @@ from app.vehicle.public import (
     CONFIGURATION_MODE_BUILD,
     CONFIGURATION_MODE_RECORD,
     correct_vehicle_vin,
+    find_vehicle_mdm_carrying_corrected_vin,
     get_configuration_for_host,
 )
 
@@ -150,14 +151,31 @@ def _item_in_stock_with_vin(
     db: Session, *, tenant_id: uuid.UUID, vin: str, excluding: uuid.UUID | None = None
 ) -> StockItem | None:
     """KAN-111: the dealership's item holding this VIN that has not left
-    stock — what `uq_stock_item_tenant_id_vin_in_stock` allows at most one
-    of. An item that left stock (invoiced, FR-I-12) does not count; a
+    stock — what `uq_stock_item_tenant_id_iso_vin_in_stock` allows at most
+    one of for an ISO VIN (KAN-535: a chassis number counts by its record,
+    `_item_in_stock_with_vehicle`). An item that left stock (invoiced, FR-I-12) does not count; a
     storno'd one still does (Anto, 2026-10-07), and so does a pipeline item
     created with its VIN (KAN-554). `excluding` leaves out the item being
     promoted, which holds its own VIN already when it was created with one."""
 
     query = select(StockItem).where(
         StockItem.tenant_id == tenant_id, StockItem.vin == vin, StockItem.left_stock_at.is_(None)
+    )
+    if excluding is not None:
+        query = query.where(StockItem.id != excluding)
+    return db.scalar(query)
+
+
+def _item_in_stock_with_vehicle(
+    db: Session, *, tenant_id: uuid.UUID, vehicle_id: uuid.UUID, excluding: uuid.UUID | None = None
+) -> StockItem | None:
+    """KAN-535: the dealership's item holding this vehicle-mdm record that has
+    not left stock — a pre-1981 car with a chassis number is in stock at most
+    once by its record (`uq_stock_item_tenant_id_chassis_vehicle_in_stock`),
+    since its number alone may be another make's car too."""
+
+    query = select(StockItem).where(
+        StockItem.tenant_id == tenant_id, StockItem.vehicle_id == vehicle_id, StockItem.left_stock_at.is_(None)
     )
     if excluding is not None:
         query = query.where(StockItem.id != excluding)
@@ -760,6 +778,14 @@ def correct_vin(
     (422 `configuration_vin_differs`). Vehicle's refusals pass through
     (`vin_belongs_to_other_vehicle`, `vehicle_vin_changed`, `vehicle_merged`).
 
+    KAN-535 (Anto, 2026-11-14, option B): a pre-1981 car bought under its
+    chassis number has that number corrected here, under the same rules —
+    the record keeps its make and first registration, a number another car
+    of the same make carries is `vin_already_in_stock` (this Betrieb's
+    stock) or `vin_belongs_to_other_vehicle`, and a real VIN makes it a VIN
+    record. A car bought under a VIN takes no chassis number (422
+    `invalid_vin`).
+
     The caller loaded `item` with its row lock and checked If-Match."""
 
     if item.left_stock_at is not None:
@@ -781,7 +807,17 @@ def correct_vin(
             "The new VIN is the one the car already has.",
             details={"field": "newVin", "reason": "vin_unchanged"},
         )
-    _check_vin_not_in_stock(db, tenant_id=item.tenant_id, vin=new_vin, excluding=item.id)
+    if is_valid_vin(new_vin):
+        _check_vin_not_in_stock(db, tenant_id=item.tenant_id, vin=new_vin, excluding=item.id)
+    elif is_valid_vin(old_vin):
+        # A car bought under a VIN keeps a VIN; only a pre-1981 car bought
+        # under its chassis number takes a chassis number (KAN-535). Vehicle
+        # refuses it too; refused here first, before anything is looked up.
+        raise UnprocessableEntityError(
+            f"'{new_vin}' is not a VIN.", details={"field": "newVin", "reason": "invalid_vin"}
+        )
+    else:
+        _check_chassis_number_not_in_stock(db, item=item, chassis_number=new_vin)
     if item.configuration_id is not None:
         configuration = get_configuration_for_host(db, tenant_id=item.tenant_id, configuration_id=item.configuration_id)
         if configuration.vin is not None and normalise_vin(configuration.vin) not in (old_vin, new_vin):
@@ -819,6 +855,7 @@ def correct_vin(
                 configuration_id=configuration_id if vehicle.configuration_changed else None,
                 include_record=vehicle.record_changed,
                 relink_configuration_only=not vehicle.configuration_vin_changed,
+                restore_chassis_make_key=vehicle.previous_chassis_make_key,
                 old_vin=old_vin,
                 new_vin=new_vin,
                 reason=data.reason,
@@ -828,6 +865,26 @@ def correct_vin(
         raise
     db.refresh(item)
     return item
+
+
+def _check_chassis_number_not_in_stock(db: Session, *, item: StockItem, chassis_number: str) -> None:
+    """KAN-535: a pre-1981 car's corrected chassis number names the car of
+    another record when that record has the number and the same make
+    (`vehicle.public.find_vehicle_mdm_carrying_corrected_vin`; the number
+    alone may be another make's car). When this Betrieb holds that car in
+    stock, the correction is refused as a VIN in stock is — 409
+    `vin_already_in_stock` naming the holder — before anything is written;
+    any other record carrying it is Vehicle's refusal
+    (`vin_belongs_to_other_vehicle`)."""
+
+    if item.vehicle_id is None:  # refused by the caller already (`vin_correction_needs_vehicle`)
+        return
+    other = find_vehicle_mdm_carrying_corrected_vin(db, vehicle_id=item.vehicle_id, new_vin=chassis_number)
+    if other is None:
+        return
+    held_by = _item_in_stock_with_vehicle(db, tenant_id=item.tenant_id, vehicle_id=other.id, excluding=item.id)
+    if held_by is not None:
+        raise _vin_already_in_stock(held_by)
 
 
 def _write_corrected_vin(
@@ -895,15 +952,17 @@ def _compensate_vin_correction(
     configuration_id: uuid.UUID | None,
     include_record: bool,
     relink_configuration_only: bool,
+    restore_chassis_make_key: str | None,
     old_vin: str,
     new_vin: str,
     reason: str,
     actor_id: uuid.UUID | None,
 ) -> None:
     """ADR-047's compensating action: Vehicle puts the old VIN back on what
-    this correction changed — the record when `include_record`, the
-    configuration when `configuration_id` is given (only its link, when
-    `relink_configuration_only`) — and nothing else. The two legs share
+    this correction changed — the record when `include_record` (a chassis
+    number corrected to a VIN with its make key, `restore_chassis_make_key`,
+    KAN-535), the configuration when `configuration_id` is given (only its
+    link, when `relink_configuration_only`) — and nothing else. The two legs share
     Vehicle's one transaction: should the configuration leg be refused (it
     names a third VIN by now), the record's revert is rolled back with it,
     logged at ERROR and reported by reconciliation. A failure here is logged at
@@ -923,6 +982,7 @@ def _compensate_vin_correction(
             compensation=True,
             include_record=include_record,
             relink_configuration_only=relink_configuration_only,
+            restore_chassis_make_key=restore_chassis_make_key,
         )
     except Exception:
         logger.exception(

@@ -23,6 +23,7 @@
     "firstRegistrationDate": "Erstzulassung",
     "odometerKm": "Kilometerstand",
     "stockNumber": "Lagernummer",
+    "chassisNumber": "Chassisnummer",
     "vin": "VIN"
   },
   "commercial": {
@@ -202,6 +203,13 @@
     "currentVin": "Bisherige VIN:",
     "newVinLabel": "Neue VIN",
     "newVinRequired": "Bitte geben Sie die neue VIN an.",
+    "chassisBody": "Die Chassisnummer wird auf dem Lagerfahrzeug {{stockNumber}}, im Fahrzeugstamm und in der Konfiguration geändert.",
+    "currentChassisNumber": "Bisherige Chassisnummer:",
+    "newChassisNumberLabel": "Neue Chassisnummer oder VIN",
+    "chassisNumberHint": "1 bis 17 Buchstaben und Ziffern. Eine gültige 17-stellige VIN macht daraus ein Fahrzeug mit VIN.",
+    "newChassisNumberRequired": "Bitte geben Sie die neue Chassisnummer an.",
+    "invalidChassisNumber": "Eine Chassisnummer besteht aus 1 bis 17 Buchstaben und Ziffern.",
+    "chassisNumberUnchanged": "Das ist bereits die Chassisnummer dieses Fahrzeugs.",
     "reasonLabel": "Grund",
     "reasonRequired": "Bitte geben Sie einen Grund an.",
     "submit": "VIN korrigieren",

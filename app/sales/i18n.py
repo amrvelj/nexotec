@@ -31,6 +31,9 @@ _STRINGS: dict[SwissLanguage, DocumentStrings] = {
         "contract.title": "Kaufvertrag {number}",
         "date": "Datum",
         "vehicle.heading": "Fahrzeug",
+        # KAN-206: the signature lines' labels (Q2 A).
+        "signature.buyer": "Käufer",
+        "signature.seller": "Verkäufer",
         "priceBuildUp.basePrice": "Grundpreis",
         "priceBuildUp.optionsTotal": "Optionen total",
         "priceBuildUp.listPrice": "Listenpreis",
@@ -48,6 +51,9 @@ _STRINGS: dict[SwissLanguage, DocumentStrings] = {
         "contract.title": "Contrat de vente {number}",
         "date": "Date",
         "vehicle.heading": "Véhicule",
+        # KAN-206: the signature lines' labels (Q2 A).
+        "signature.buyer": "Acheteur",
+        "signature.seller": "Vendeur",
         "priceBuildUp.basePrice": "Prix de base",
         "priceBuildUp.optionsTotal": "Total des options",
         "priceBuildUp.listPrice": "Prix catalogue",
@@ -63,6 +69,9 @@ _STRINGS: dict[SwissLanguage, DocumentStrings] = {
         "contract.title": "Contratto di vendita {number}",
         "date": "Data",
         "vehicle.heading": "Veicolo",
+        # KAN-206: the signature lines' labels (Q2 A).
+        "signature.buyer": "Acquirente",
+        "signature.seller": "Venditore",
         "priceBuildUp.basePrice": "Prezzo base",
         "priceBuildUp.optionsTotal": "Totale opzioni",
         "priceBuildUp.listPrice": "Prezzo di listino",
@@ -78,6 +87,9 @@ _STRINGS: dict[SwissLanguage, DocumentStrings] = {
         "contract.title": "Purchase contract {number}",
         "date": "Date",
         "vehicle.heading": "Vehicle",
+        # KAN-206: the signature lines' labels (Q2 A).
+        "signature.buyer": "Buyer",
+        "signature.seller": "Seller",
         "priceBuildUp.basePrice": "Base price",
         "priceBuildUp.optionsTotal": "Options total",
         "priceBuildUp.listPrice": "List price",

@@ -23,9 +23,9 @@ from app.core.auth import Principal, get_current_principal, require_access_role
 from app.core.concurrency import check_version, require_if_match
 from app.core.config import get_settings
 from app.core.idempotent_route import IdempotentRoute
-from app.core.pagination import SortPageParams, decode_sort_cursor
+from app.core.pagination import SortPageParams
 from app.core.permissions import require_read, require_write
-from app.core.sorting import SortField, parse_sort
+from app.core.sorting import SortField, decode_cursor_for_sort, parse_sort
 from app.core.validators import CantonCode
 from app.customer.models.customer import Customer, CustomerLifecycleStatus, CustomerType, Language
 from app.customer.schemas.customer import (
@@ -285,6 +285,18 @@ def list_customers(
         description="KAN-476: customers this user does not advise (unassigned ones included).",
     ),
     assigned: bool = Query(default=False, description="KAN-476: customers that have an advisor — «ist nicht Nicht zugewiesen»."),
+    contact_group: str | None = Query(
+        default=None,
+        alias="contactGroup",
+        max_length=64,
+        description="KAN-466: customers carrying this contact group (a code of the platform list contact_group).",
+    ),
+    contact_group_not: str | None = Query(
+        default=None,
+        alias="contactGroupNot",
+        max_length=64,
+        description="KAN-466: customers not carrying this contact group (customers with none included).",
+    ),
     sort: str | None = Query(default=None, description="e.g. 'lastName:asc,updatedAt:desc'"),
     limit: int = Query(default=settings.pagination_default_limit, ge=1, le=settings.pagination_max_limit),
     cursor: str | None = Query(default=None),
@@ -293,7 +305,7 @@ def list_customers(
 ):
     sort_fields = parse_sort(sort, allowed=CUSTOMER_SORT_FIELDS) or _DEFAULT_CUSTOMER_SORT
     params = SortPageParams(
-        limit=limit, cursor=decode_sort_cursor(cursor) if cursor else None, sort_fields=sort_fields
+        limit=limit, cursor=decode_cursor_for_sort(cursor, sort_fields), sort_fields=sort_fields
     )
     rows, next_cursor, total, total_is_estimate = customer_search_service.list_customers(
         db,
@@ -317,6 +329,8 @@ def list_customers(
         canton_not=canton_not,
         advisor_user_id_not=advisor_user_id_not,
         assigned=assigned,
+        contact_group=contact_group,
+        contact_group_not=contact_group_not,
     )
     projections_by_id = projections_service.compute_customer_projections_batch(db, [c.id for c in rows])
     items = [

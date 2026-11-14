@@ -1,0 +1,57 @@
+{
+  "title": "Offboard a business",
+  "intro": "A business is offboarded only once its management has confirmed an export produced after the last change. Then every user is deactivated, its marketplace listings are withdrawn and its connections disabled. The data stays ten years in the archive; Nexotec then deletes it by hand.",
+  "forbidden": {
+    "title": "Nexotec staff only",
+    "body": "This page is for the Nexotec team, signed in with a second factor."
+  },
+  "done": "The business is offboarded. Every user is deactivated.",
+  "offboardError": "The business could not be offboarded.",
+  "betrieb": "Business",
+  "betriebPlaceholder": "Choose the business",
+  "noBetrieb": "No business found",
+  "status": {
+    "pending_onboarding": "Being set up",
+    "active": "Active",
+    "suspended": "Suspended",
+    "offboarded": "Offboarded"
+  },
+  "offboard": "Offboard the business",
+  "fields": {
+    "lastWriteAt": "Last change: {{when}}",
+    "acknowledgedExport": "Confirmed export produced: {{when}}",
+    "offboardedAt": "Offboarded: {{when}}",
+    "retentionUntil": "In the archive through: {{day}}"
+  },
+  "notYet": "Not possible yet",
+  "refusal": {
+    "export_not_acknowledged": "The management has not confirmed an export yet. It requests one under Administration › Data export and confirms the receipt.",
+    "export_out_of_date": "Data changed after the confirmed export. The management produces a new export and confirms it.",
+    "already_offboarded": "This business is offboarded already."
+  },
+  "archive": {
+    "title": "Archive export",
+    "intro": "After offboarding there is no sign-in. When the former management asks for a copy, produce an export from the archive here – with a reason, audited.",
+    "reason": "Reason",
+    "reasonPlaceholder": "Who asked for the copy, and when?",
+    "request": "Produce the archive export",
+    "requested": "The archive export is being produced.",
+    "error": "The archive export could not be requested."
+  },
+  "exportsLabel": "The business's exports",
+  "confirm": {
+    "title": "Offboard the business?",
+    "body": "{{name}} will be offboarded: every user is deactivated, nobody can sign in any more, its listings are withdrawn, its connections disabled, and the data goes into the archive for ten years. This cannot be undone.",
+    "reason": "Reason (optional)",
+    "check": "I understand this is final.",
+    "submit": "Offboard for good"
+  },
+  "refusals": {
+    "dealership_not_offboarded": "An archive export is for an offboarded business only; an active business exports its own data.",
+    "already_offboarded": "This business is offboarded already.",
+    "export_not_acknowledged": "The management has not confirmed an export yet.",
+    "export_out_of_date": "Data changed after the confirmed export – the management exports and confirms again.",
+    "offboarding_confirmation_required": "Confirm that offboarding is final.",
+    "user_last_manager_of_sister": "A user of this business is the last manager of another business. Give that business another manager first."
+  }
+}

@@ -1222,6 +1222,35 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/dealerships/{dealership_id}/branding/locations/{location_id}/logo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Location Logo
+         * @description The site's own letterhead logo; 404 when it has none (its documents
+         *     then print the Betrieb's).
+         */
+        get: operations["get_location_logo_v1_dealerships__dealership_id__branding_locations__location_id__logo_get"];
+        /**
+         * Put Location Logo
+         * @description KAN-206 (PRD: a per-location override of the address block and logo
+         *     only): the logo a document printed for this site shows in place of the
+         *     Betrieb's primary logo. Replaced as a whole; If-Match on the Betrieb's
+         *     version, like every branding write. A site of another Betrieb is a 404.
+         */
+        put: operations["put_location_logo_v1_dealerships__dealership_id__branding_locations__location_id__logo_put"];
+        post?: never;
+        /** Delete Location Logo */
+        delete: operations["delete_location_logo_v1_dealerships__dealership_id__branding_locations__location_id__logo_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/dealerships/{dealership_id}/branding/preview": {
         parameters: {
             query?: never;
@@ -1237,6 +1266,40 @@ export interface paths {
          */
         get: operations["get_branding_preview_v1_dealerships__dealership_id__branding_preview_get"];
         put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/dealerships/{dealership_id}/contact-groups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Contact Groups */
+        get: operations["list_contact_groups_v1_dealerships__dealership_id__contact_groups_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/dealerships/{dealership_id}/contact-groups/{value_code}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Set Contact Group */
+        put: operations["set_contact_group_v1_dealerships__dealership_id__contact_groups__value_code__put"];
         post?: never;
         delete?: never;
         options?: never;
@@ -1296,6 +1359,32 @@ export interface paths {
         patch: operations["update_document_template_v1_dealerships__dealership_id__document_template_patch"];
         trace?: never;
     };
+    "/v1/dealerships/{dealership_id}/document-template/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Preview Document Template
+         * @description KAN-206 (FR-A-06): a sample offer or invoice as it prints today — a
+         *     PDF from the one renderer (ADR-051, the same `render_document` every
+         *     document goes through), with the saved template, the Betrieb's master
+         *     data and «MUSTER» across the page, in the Betrieb's correspondence
+         *     language. Only those who may edit the template may call it: the footer
+         *     prints the Betrieb's real bank account. Another Betrieb's id or site is a
+         *     404 (rule 7).
+         */
+        get: operations["preview_document_template_v1_dealerships__dealership_id__document_template_preview_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/dealerships/{dealership_id}/entitlements": {
         parameters: {
             query?: never;
@@ -1307,6 +1396,82 @@ export interface paths {
         get: operations["get_entitlements_v1_dealerships__dealership_id__entitlements_get"];
         /** Set Entitlements */
         put: operations["set_entitlements_v1_dealerships__dealership_id__entitlements_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/dealerships/{dealership_id}/exports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Exports */
+        get: operations["list_exports_v1_dealerships__dealership_id__exports_get"];
+        put?: never;
+        /**
+         * Request Export
+         * @description FR-A-44: a full export of the Betrieb, produced by the worker; the
+         *     response is the requested job (202).
+         */
+        post: operations["request_export_v1_dealerships__dealership_id__exports_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/dealerships/{dealership_id}/exports/{export_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Export */
+        get: operations["get_export_v1_dealerships__dealership_id__exports__export_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/dealerships/{dealership_id}/exports/{export_id}/acknowledge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Acknowledge Export
+         * @description FR-A-45: the manager confirms the final export arrived.
+         */
+        post: operations["acknowledge_export_v1_dealerships__dealership_id__exports__export_id__acknowledge_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/dealerships/{dealership_id}/exports/{export_id}/download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Download Export */
+        get: operations["download_export_v1_dealerships__dealership_id__exports__export_id__download_get"];
+        put?: never;
         post?: never;
         delete?: never;
         options?: never;
@@ -3030,6 +3195,91 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/platform/dealerships/{dealership_id}/exports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Platform Exports
+         * @description Every export of the Betrieb — its manager's and staff's archive
+         *     exports — for the offboarding page.
+         */
+        get: operations["list_platform_exports_v1_platform_dealerships__dealership_id__exports_get"];
+        put?: never;
+        /**
+         * Request Archive Export
+         * @description Q2 B: an export from the archive for a former manager who asked
+         *     support — audited with the requester and the reason.
+         */
+        post: operations["request_archive_export_v1_platform_dealerships__dealership_id__exports_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/platform/dealerships/{dealership_id}/exports/{export_id}/download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Download Archive Export
+         * @description Staff hand an archive export over; only an archive export — the
+         *     manager's own stays the manager's.
+         */
+        get: operations["download_archive_export_v1_platform_dealerships__dealership_id__exports__export_id__download_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/platform/dealerships/{dealership_id}/offboard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Offboard Dealership
+         * @description FR-A-45: refused (409) without an export the manager acknowledged
+         *     and produced after the Betrieb's last write.
+         */
+        post: operations["offboard_dealership_v1_platform_dealerships__dealership_id__offboard_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/platform/dealerships/{dealership_id}/offboarding": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Offboarding */
+        get: operations["get_offboarding_v1_platform_dealerships__dealership_id__offboarding_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/platform/dealerships/{dealership_id}/recovery/grant-manager": {
         parameters: {
             query?: never;
@@ -4400,6 +4650,12 @@ export interface components {
          */
         AddressType: "domicile" | "billing" | "delivery";
         /**
+         * AddressWindow
+         * @description The side of the C5/C4 envelope window the addressee prints for.
+         * @enum {string}
+         */
+        AddressWindow: "left" | "right";
+        /**
          * AgeingBucket
          * @description WP-7 PR-7. Fixed, NOT dealer-configurable — "a configurable
          *     threshold is a settings screen, a migration and a per-tenant answer to
@@ -4413,6 +4669,15 @@ export interface components {
          * @enum {string}
          */
         AgeingBucket: "green" | "amber" | "red";
+        /**
+         * ArchiveExportRequest
+         * @description Q2 B: staff produce an archive export for a former manager who asked
+         *     support — with the reason, which the audit row keeps.
+         */
+        ArchiveExportRequest: {
+            /** Reason */
+            reason: string;
+        };
         /** AttachValuationRequest */
         AttachValuationRequest: {
             /**
@@ -4771,6 +5036,8 @@ export interface components {
              * Format: uuid
              */
             dealershipId: string;
+            /** Locationlogos */
+            locationLogos?: components["schemas"]["LocationLogoRead"][];
             placements: components["schemas"]["BrandingPlacements"];
             /** Primarycolor */
             primaryColor: string;
@@ -5964,6 +6231,41 @@ export interface components {
          * @enum {string}
          */
         ConsentSource: "form" | "counter" | "web" | "phone";
+        /** ContactGroupList */
+        ContactGroupList: {
+            /** Items */
+            items: components["schemas"]["ContactGroupRead"][];
+        };
+        /**
+         * ContactGroupRead
+         * @description One group of the platform list `contact_group`, as this Betrieb sees
+         *     it. `active` is the platform's (staff deactivate a value on the Reference
+         *     data screen); `enabled` is this Betrieb's switch, never true for an
+         *     inactive value.
+         */
+        ContactGroupRead: {
+            /** Active */
+            active: boolean;
+            /** Enabled */
+            enabled: boolean;
+            /** Labelde */
+            labelDe: string;
+            /** Labelen */
+            labelEn: string;
+            /** Labelfr */
+            labelFr: string;
+            /** Labelit */
+            labelIt: string;
+            /** Sortorder */
+            sortOrder: number;
+            /** Valuecode */
+            valueCode: string;
+        };
+        /** ContactGroupSwitch */
+        ContactGroupSwitch: {
+            /** Enabled */
+            enabled: boolean;
+        };
         /** ContractCancelRequest */
         ContractCancelRequest: {
             /** Reason */
@@ -6213,7 +6515,7 @@ export interface components {
          * CopySubset
          * @enum {string}
          */
-        CopySubset: "standard_texts" | "document_template" | "number_ranges";
+        CopySubset: "standard_texts" | "document_template" | "number_ranges" | "contact_groups";
         /** CustomerAddressCreate */
         CustomerAddressCreate: {
             /**
@@ -6383,6 +6685,8 @@ export interface components {
             birthDate?: string | null;
             /** Companyname */
             companyName?: string | null;
+            /** Contactgroups */
+            contactGroups?: string[];
             /** Creditlimit */
             creditLimit?: number | string | null;
             /** Customersince */
@@ -6784,6 +7088,8 @@ export interface components {
             birthDate: string | null;
             /** Companyname */
             companyName: string | null;
+            /** Contactgroups */
+            contactGroups?: string[];
             /**
              * Createdat
              * Format: date-time
@@ -6907,6 +7213,8 @@ export interface components {
             birthDate?: string | null;
             /** Companyname */
             companyName?: string | null;
+            /** Contactgroups */
+            contactGroups?: string[] | null;
             /** Creditlimit */
             creditLimit?: number | string | null;
             /** Customersince */
@@ -7297,6 +7605,8 @@ export interface components {
              * Format: uuid
              */
             dealerGroupId: string;
+            /** Email */
+            email: string | null;
             franchiseType: components["schemas"]["FranchiseType"];
             /** Hrnumber */
             hrNumber: string | null;
@@ -7333,6 +7643,8 @@ export interface components {
             vatRate: string | null;
             /** Version */
             version: number;
+            /** Website */
+            website: string | null;
         };
         /** DealershipSettingsRead */
         DealershipSettingsRead: {
@@ -7420,6 +7732,8 @@ export interface components {
             /** Confirmation */
             confirmation?: boolean | null;
             correspondenceAddress?: components["schemas"]["DealershipOverrideAddress"] | null;
+            /** Email */
+            email?: string | null;
             franchiseType?: components["schemas"]["FranchiseType"] | null;
             /** Hrnumber */
             hrNumber?: string | null;
@@ -7431,6 +7745,7 @@ export interface components {
             oemAffiliations?: string[] | null;
             /** Phone */
             phone?: string | null;
+            /** @description Platform staff only: 'suspended' or back to 'active'. Activation and offboarding have their own procedures; a manager sending this field gets 422 status_not_patchable. */
             status?: components["schemas"]["DealershipStatus"] | null;
             /** Tradename */
             tradeName?: string | null;
@@ -7442,6 +7757,8 @@ export interface components {
             vatNumber?: string | null;
             /** Vatrate */
             vatRate?: number | string | null;
+            /** Website */
+            website?: string | null;
         };
         /** DeductionInput */
         DeductionInput: {
@@ -7511,9 +7828,11 @@ export interface components {
          *     than the usual VersionedMixin start of `1` — a real, ordinary sentinel
          *     the client reads off GET and echoes back as `If-Match: 0` to create the
          *     row on the first PATCH, so the shared require_if_match/check_version
-         *     machinery needs no special-casing for "doesn't exist yet" at all.
+         *     machinery needs no special-casing for "doesn't exist yet" at all. The
+         *     layout fields read the shipped defaults until the first save.
          */
         DocumentTemplateRead: {
+            addressWindow: components["schemas"]["AddressWindow"];
             /** Createdat */
             createdAt: string | null;
             /**
@@ -7521,6 +7840,11 @@ export interface components {
              * Format: uuid
              */
             dealershipId: string;
+            /** Draftwatermark */
+            draftWatermark: boolean;
+            /** Footercolumns */
+            footerColumns: components["schemas"]["FooterColumn"][];
+            headerLayout: components["schemas"]["HeaderLayout"];
             /** Headernotede */
             headerNoteDe: string | null;
             /** Headernoteen */
@@ -7531,6 +7855,9 @@ export interface components {
             headerNoteIt: string | null;
             /** Id */
             id: string | null;
+            logoSize: components["schemas"]["LogoSize"];
+            /** Pagenumbers */
+            pageNumbers: boolean;
             /** Updatedat */
             updatedAt: string | null;
             /** Version */
@@ -7539,13 +7866,21 @@ export interface components {
         /**
          * DocumentTemplateUpdate
          * @description The header note in four languages — KAN-208 moved the footer text
-         *     into the standard-text library (`invoice.footer.carried_over`). All
-         *     fields optional — PATCH semantics, partial update. A field left unset
-         *     is left unchanged; a field explicitly set to null clears it back to
-         *     "not customized yet". A field this schema does not know — a stale
-         *     client's `footerText*` among them — is a 422, never silently dropped.
+         *     into the standard-text library (`invoice.footer.carried_over`) — and,
+         *     since KAN-206, the letterhead layout. All fields optional — PATCH
+         *     semantics, partial update. A field left unset is left unchanged; a
+         *     header note explicitly set to null clears it back to "not customized
+         *     yet"; a layout field is NOT NULL and refuses null. A field this schema
+         *     does not know — a stale client's `footerText*` among them — is a 422,
+         *     never silently dropped.
          */
         DocumentTemplateUpdate: {
+            addressWindow?: components["schemas"]["AddressWindow"] | null;
+            /** Draftwatermark */
+            draftWatermark?: boolean | null;
+            /** Footercolumns */
+            footerColumns?: components["schemas"]["FooterColumn"][] | null;
+            headerLayout?: components["schemas"]["HeaderLayout"] | null;
             /** Headernotede */
             headerNoteDe?: string | null;
             /** Headernoteen */
@@ -7554,6 +7889,9 @@ export interface components {
             headerNoteFr?: string | null;
             /** Headernoteit */
             headerNoteIt?: string | null;
+            logoSize?: components["schemas"]["LogoSize"] | null;
+            /** Pagenumbers */
+            pageNumbers?: boolean | null;
         };
         /**
          * EmailType
@@ -7641,10 +7979,76 @@ export interface components {
             vin: string;
         };
         /**
+         * ExportJobKind
+         * @enum {string}
+         */
+        ExportJobKind: "self_service" | "archive";
+        /**
+         * ExportJobStatus
+         * @enum {string}
+         */
+        ExportJobStatus: "requested" | "ready" | "failed" | "expired";
+        /** ExportPage */
+        ExportPage: {
+            /** Items */
+            items: components["schemas"]["ExportRead"][];
+            /** Nextcursor */
+            nextCursor?: string | null;
+        };
+        /** ExportRead */
+        ExportRead: {
+            /** Acknowledgedat */
+            acknowledgedAt: string | null;
+            /** Acknowledgedby */
+            acknowledgedBy: string | null;
+            /** Bytesize */
+            byteSize: number | null;
+            /**
+             * Createdat
+             * Format: date-time
+             */
+            createdAt: string;
+            /**
+             * Dealershipid
+             * Format: uuid
+             */
+            dealershipId: string;
+            /** Downloadexpiresat */
+            downloadExpiresAt: string | null;
+            /** Expiredat */
+            expiredAt: string | null;
+            /** Failurereason */
+            failureReason: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            kind: components["schemas"]["ExportJobKind"];
+            /** Producedat */
+            producedAt: string | null;
+            /** Reason */
+            reason: string | null;
+            /**
+             * Requestedby
+             * Format: uuid
+             */
+            requestedBy: string;
+            status: components["schemas"]["ExportJobStatus"];
+            /** Version */
+            version: number;
+        };
+        /**
          * FinancingKind
          * @enum {string}
          */
         FinancingKind: "cash" | "leasing" | "credit";
+        /**
+         * FooterColumn
+         * @description The footer's master-data blocks (PRD: up to four columns).
+         * @enum {string}
+         */
+        FooterColumn: "company" | "contact" | "banking" | "register";
         /**
          * FranchiseType
          * @enum {string}
@@ -7698,6 +8102,13 @@ export interface components {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
         };
+        /**
+         * HeaderLayout
+         * @description Where the logo sits in the letterhead; the sender block takes the
+         *     other side (centred: the logo above the sender line).
+         * @enum {string}
+         */
+        HeaderLayout: "logo_left" | "logo_right" | "logo_centred";
         /** HolidayCalendarList */
         HolidayCalendarList: {
             /** Items */
@@ -8125,6 +8536,34 @@ export interface components {
             items: components["schemas"]["LocationRead"][];
         };
         /**
+         * LocationLogoRead
+         * @description KAN-206: a site's own letterhead logo (PRD: the per-location override
+         *     of the address block and logo only). Documents printed for that site
+         *     show it in place of the Betrieb's primary logo.
+         */
+        LocationLogoRead: {
+            /** Bytesize */
+            byteSize: number;
+            /** Height */
+            height?: number | null;
+            /**
+             * Locationid
+             * Format: uuid
+             */
+            locationId: string;
+            /** Mimetype */
+            mimeType: string;
+            /**
+             * Uploadedat
+             * Format: date-time
+             */
+            uploadedAt: string;
+            /** Uploadedby */
+            uploadedBy?: string | null;
+            /** Width */
+            width?: number | null;
+        };
+        /**
          * LocationRead
          * @description A site of the Betrieb. `bankAccountOverrideId` is filled only for the
          *     roles that read banking (manager, finance, auditor, platform staff —
@@ -8337,6 +8776,13 @@ export interface components {
             mfaRequired?: boolean;
             session?: components["schemas"]["LoginResponse"] | null;
         };
+        /**
+         * LogoSize
+         * @description The logo's maximum printed width — 30 / 40 / 50 mm — at 20 mm high at
+         *     most (Anto, 2026-11-12, as recommended).
+         * @enum {string}
+         */
+        LogoSize: "s" | "m" | "l";
         /** LogoutResponse */
         LogoutResponse: {
             /**
@@ -8805,6 +9251,44 @@ export interface components {
          * @enum {string}
          */
         OdometerSource: "service_visit" | "sale" | "valuation" | "manual" | "import";
+        /** OffboardRequest */
+        OffboardRequest: {
+            /**
+             * Confirmation
+             * @description Must be true: offboarding deactivates every user and cannot be undone.
+             */
+            confirmation: boolean;
+            /** Reason */
+            reason?: string | null;
+        };
+        /**
+         * OffboardingRead
+         * @description Where a Betrieb stands on its way out (the platform offboarding page).
+         */
+        OffboardingRead: {
+            /** Acknowledgedexportid */
+            acknowledgedExportId: string | null;
+            /** Acknowledgedexportproducedat */
+            acknowledgedExportProducedAt: string | null;
+            /**
+             * Dealershipid
+             * Format: uuid
+             */
+            dealershipId: string;
+            /** Lastwriteat */
+            lastWriteAt: string | null;
+            /** Legalname */
+            legalName: string;
+            /** Offboardedat */
+            offboardedAt: string | null;
+            /** Refusal */
+            refusal: string | null;
+            /** Retentionuntil */
+            retentionUntil: string | null;
+            status: components["schemas"]["DealershipStatus"];
+            /** Version */
+            version: number;
+        };
         /** OfferCancelRequest */
         OfferCancelRequest: {
             /** Reason */
@@ -9456,6 +9940,11 @@ export interface components {
          * @enum {string}
          */
         PreferredChannel: "email" | "phone" | "post" | "whatsapp" | "message";
+        /**
+         * PreviewDocument
+         * @enum {string}
+         */
+        PreviewDocument: "offer" | "invoice";
         /** ProviderCreate */
         ProviderCreate: {
             /** Authtype */
@@ -9771,7 +10260,7 @@ export interface components {
             supplierName: string;
             /**
              * Vin
-             * @description KAN-446 (ADR-045, FR-V-04): the car's VIN. Required to book the purchase of a pipeline item, which the booking promotes into stock with it (422 `purchase_requires_vin` without one; 409 `vin_already_in_stock` when another item of this dealership holds it in stock) — unless the item already carries its VIN (created with one, KAN-554; or stornoed, KAN-146): then it may be left out and, when sent, must be the item's own (422 `purchase_vin_mismatch`). One created with its VIN and never bought is the exception: when its configuration's VIN has changed since, the configuration's wins and the booking corrects the item's (audited `vin_corrected_at_purchase`, KAN-575). When the item's configuration carries a VIN, it must be that one (422 `configuration_vin_differs`, KAN-510; the VIN is corrected on the configuration). A trade-in whose configuration carries none is bought under the VIN its contract holds (the item's `tradeInVin`; 422 `trade_in_vin_differs`, KAN-536). On an item already in stock it may be sent and must be the item's own (422 `purchase_vin_mismatch`).
+             * @description KAN-446 (ADR-045, FR-V-04): the car's VIN. Required to book the purchase of a pipeline item, which the booking promotes into stock with it (422 `purchase_requires_vin` without one; 409 `vin_already_in_stock` when another item of this dealership holds it in stock) — unless the item already carries its VIN (created with one, KAN-554; or stornoed, KAN-146): then it may be left out and, when sent, must be the item's own (422 `purchase_vin_mismatch`). One created with its VIN and never bought is the exception: when its configuration's VIN has changed since, the configuration's wins and the booking corrects the item's (audited `vin_corrected_at_purchase`, KAN-575). When the item's configuration carries a VIN, it must be that one (422 `configuration_vin_differs`, KAN-510; the VIN is corrected on the configuration). A trade-in whose configuration carries none is bought under the VIN its contract holds (the item's `tradeInVin`; 422 `trade_in_vin_differs`, KAN-536). On an item already in stock it may be sent and must be the item's own (422 `purchase_vin_mismatch`). KAN-535 (ADR-103 as amended): a car first registered before 1981 may be bought under its chassis number (1 to 17 letters and digits) instead: its configuration must carry that number (422 `chassis_number_requires_configuration`), a first registration before 1981 (422 `chassis_number_requires_pre_1981_registration`) and the make (422 `chassis_number_requires_make`); its vehicle-mdm record is the number together with the make.
              */
             vin?: string | null;
         };
@@ -10659,12 +11148,16 @@ export interface components {
          * @description KAN-557 «VIN korrigieren» (ADR-116 (2)-(3)): the corrected VIN —
          *     normalised and validated as vehicle-mdm does (KAN-244, 422 otherwise) —
          *     and the reason, required, audited on every record the correction
-         *     rewrites.
+         *     rewrites. KAN-535 (Anto, 2026-11-14, option B): on a pre-1981 car bought
+         *     under its chassis number the corrected value may be a chassis number
+         *     (1–17 letters and digits); whether a value fits the car is decided by
+         *     the service, against its record (a VIN record keeps a VIN: 422
+         *     `invalid_vin`).
          */
         StockItemVinCorrectionRequest: {
             /**
              * Newvin
-             * @description The car's corrected VIN. It replaces the VIN on the stock item, on its vehicle-mdm record and on its configuration together (KAN-557).
+             * @description The car's corrected VIN — or, for a car first registered before 1981 bought under its chassis number, its corrected chassis number. It replaces the value on the stock item, on its vehicle-mdm record and on its configuration together (KAN-557, KAN-535).
              */
             newVin: string;
             /** Reason */
@@ -13320,6 +13813,10 @@ export interface operations {
                 advisorUserIdNot?: string | null;
                 /** @description KAN-476: customers that have an advisor — «ist nicht Nicht zugewiesen». */
                 assigned?: boolean;
+                /** @description KAN-466: customers carrying this contact group (a code of the platform list contact_group). */
+                contactGroup?: string | null;
+                /** @description KAN-466: customers not carrying this contact group (customers with none included). */
+                contactGroupNot?: string | null;
                 /** @description e.g. 'lastName:asc,updatedAt:desc' */
                 sort?: string | null;
                 limit?: number;
@@ -15198,6 +15695,120 @@ export interface operations {
             };
         };
     };
+    get_location_logo_v1_dealerships__dealership_id__branding_locations__location_id__logo_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                location_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_location_logo_v1_dealerships__dealership_id__branding_locations__location_id__logo_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                location_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "image/svg+xml": string;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BrandingRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_location_logo_v1_dealerships__dealership_id__branding_locations__location_id__logo_delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                location_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BrandingRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_branding_preview_v1_dealerships__dealership_id__branding_preview_get: {
         parameters: {
             query?: never;
@@ -15220,6 +15831,81 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_contact_groups_v1_dealerships__dealership_id__contact_groups_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContactGroupList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_contact_group_v1_dealerships__dealership_id__contact_groups__value_code__put: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                value_code: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ContactGroupSwitch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContactGroupRead"];
                 };
             };
             /** @description Validation Error */
@@ -15384,6 +16070,46 @@ export interface operations {
             };
         };
     };
+    preview_document_template_v1_dealerships__dealership_id__document_template_preview_get: {
+        parameters: {
+            query?: {
+                /** @description The sample to print. */
+                document?: components["schemas"]["PreviewDocument"];
+                /** @description Print it for this site: its address block and logo, its own bank account. */
+                location?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The sample document as a PDF. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/pdf": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_entitlements_v1_dealerships__dealership_id__entitlements_get: {
         parameters: {
             query?: never;
@@ -15446,6 +16172,192 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["EntitlementsRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_exports_v1_dealerships__dealership_id__exports_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                cursor?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExportPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    request_export_v1_dealerships__dealership_id__exports_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                dealership_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExportRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_export_v1_dealerships__dealership_id__exports__export_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                export_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExportRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    acknowledge_export_v1_dealerships__dealership_id__exports__export_id__acknowledge_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "If-Match"?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                export_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExportRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    download_export_v1_dealerships__dealership_id__exports__export_id__download_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                export_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
             /** @description Validation Error */
@@ -20020,6 +20932,198 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DealerGroupOptionList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_platform_exports_v1_platform_dealerships__dealership_id__exports_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                cursor?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExportPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    request_archive_export_v1_platform_dealerships__dealership_id__exports_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                dealership_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ArchiveExportRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExportRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    download_archive_export_v1_platform_dealerships__dealership_id__exports__export_id__download_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                export_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    offboard_dealership_v1_platform_dealerships__dealership_id__offboard_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "If-Match"?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                dealership_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OffboardRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OffboardingRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_offboarding_v1_platform_dealerships__dealership_id__offboarding_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OffboardingRead"];
                 };
             };
             /** @description Validation Error */

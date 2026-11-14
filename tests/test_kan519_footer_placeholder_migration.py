@@ -17,7 +17,7 @@ from decimal import Decimal
 
 import psycopg
 import pytest
-from sqlalchemy import bindparam, create_engine, text
+from sqlalchemy import bindparam, create_engine, insert, text
 from sqlalchemy.orm import Session
 
 from app.core.errors import UnprocessableEntityError
@@ -70,14 +70,19 @@ def _dealership(session: Session, name: str) -> uuid.UUID:
     group = DealerGroup(name=f"{name} group")
     session.add(group)
     session.flush()
-    dealership = Dealership(
-        dealer_group_id=group.id, legal_name=name, franchise_type=FranchiseType.INDEPENDENT,
-        address_street="Bahnhofstrasse", address_house_number="1", address_postal_code="8001",
-        address_locality="Zürich", address_canton="ZH", phone="+41441234567", uid=valid_uid(),
-    )
-    session.add(dealership)
-    session.flush()
-    return dealership.id
+    # A Core insert of the columns named here (and the ones with a Python
+    # default), not an ORM one: the ORM writes every column the model maps
+    # today, and the schema this test runs against is older (KAN-218 and
+    # KAN-206 added columns the revision under test does not have).
+    return session.execute(
+        insert(Dealership.__table__)
+        .values(
+            dealer_group_id=group.id, legal_name=name, franchise_type=FranchiseType.INDEPENDENT,
+            address_street="Bahnhofstrasse", address_house_number="1", address_postal_code="8001",
+            address_locality="Zürich", address_canton="ZH", phone="+41441234567", uid=valid_uid(),
+        )
+        .returning(Dealership.__table__.c.id)
+    ).scalar_one()
 
 
 def _carried_over(conn) -> list[tuple[uuid.UUID, str, str, str]]:

@@ -6,28 +6,33 @@ and KAN-243 checks those everywhere — so this job carries exactly the
 actor checks, built by app.platform.services.actor_reference as the other
 contexts build theirs through app.platform.public — and, since KAN-412, one
 StateCheck of its own: a revoked connected account whose secret is still
-held a day after the revoke. Everything here is read-only — see
-app.core.reconciliation for the mechanism.
+held a day after the revoke; since KAN-218 a second: an offboarded Betrieb
+whose ten-year archive has passed its last day, due for manual deletion.
+Everything here is read-only — see app.core.reconciliation for the mechanism.
 """
 
 import datetime as dt
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import ColumnElement, and_
 from sqlalchemy.orm import Session
 
 from app.core.base import utcnow
+from app.core.config import get_settings
 from app.core.reconciliation import ReconciliationRun, ReferenceCheck, StateCheck, run_reconciliation
 from app.platform.models.auth_event import AuthEvent
 from app.platform.models.auth_token import AuthToken
 from app.platform.models.branding_asset import BrandingAsset
 from app.platform.models.connected_account import ConnectedAccountStatus, UserConnectedAccount
+from app.platform.models.contact_group import DealershipContactGroup
 from app.platform.models.credential import Credential
-from app.platform.models.dealership import DealerGroup, Dealership, Location
+from app.platform.models.dealership import DealerGroup, Dealership, DealershipStatus, Location
 from app.platform.models.dealership_auth_config import DealershipAuthConfig
 from app.platform.models.dealership_bank_account import DealershipBankAccount
 from app.platform.models.dealership_membership import DealershipMembership
 from app.platform.models.dealership_settings import DealershipSettings
 from app.platform.models.document_template import DocumentTemplate
+from app.platform.models.export_job import ExportJob
 from app.platform.models.holiday_calendar import Holiday, HolidayCalendar
 from app.platform.models.location_schedule import LocationClosure
 from app.platform.models.module_entitlement import ModuleEntitlement
@@ -71,6 +76,8 @@ ACTOR_TABLES = (
     LocationClosure,  # created_by / updated_by (KAN-204)
     BrandingAsset,  # uploaded_by (KAN-205)
     NumberRange,  # created_by / updated_by (KAN-207; seeded rows carry none)
+    DealershipContactGroup,  # created_by / updated_by: who switched it on (KAN-466)
+    ExportJob,  # created_by / updated_by: who requested the export (KAN-218)
 )
 
 # KAN-412 (FR-AU-24, rule 10): a revoked grant's provider end is recorded by
@@ -95,6 +102,21 @@ def _revoked_grant_secret_still_held() -> ColumnElement[bool]:
     )
 
 
+# KAN-218 (FR-A-45; Anto, 2026-11-14): nothing deletes an offboarded
+# Betrieb's archive automatically. Its last day is `retention_until` (ten
+# full years from the offboarding date); from the next Swiss calendar day on
+# the Betrieb is reported every night as due for manual deletion — a staff
+# step in an attended session — until that step is done. Reported, never
+# repaired (ADR-107).
+def _archive_due_for_manual_deletion() -> ColumnElement[bool]:
+    today = dt.datetime.now(ZoneInfo(get_settings().session_timezone)).date()
+    return and_(
+        Dealership.status == DealershipStatus.OFFBOARDED,
+        Dealership.retention_until.is_not(None),
+        Dealership.retention_until < today,
+    )
+
+
 CHECKS: list[ReferenceCheck | StateCheck] = [
     *actor_reference_checks(*ACTOR_TABLES),
     StateCheck(
@@ -102,6 +124,12 @@ CHECKS: list[ReferenceCheck | StateCheck] = [
         source_model=UserConnectedAccount,
         source_row_id_column=UserConnectedAccount.id,
         where=_revoked_grant_secret_still_held,
+    ),
+    StateCheck(
+        label="dealership.archive_due_for_manual_deletion",
+        source_model=Dealership,
+        source_row_id_column=Dealership.id,
+        where=_archive_due_for_manual_deletion,
     ),
 ]
 

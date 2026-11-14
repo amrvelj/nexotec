@@ -14,6 +14,7 @@ customer import cycle that once made this necessary is gone since KAN-634
 """
 
 import dataclasses
+import datetime as dt
 import uuid
 
 from sqlalchemy.orm import Session
@@ -85,3 +86,54 @@ def resolve_vehicle_mdm_by_vin(
                 own, vin=vin, catalogue_variant_id=catalogue_variant_id, actor_id=actor_id
             )
         return ResolvedVehicleMdm(id=vehicle.id, vin=vehicle.vin)
+
+
+def find_vehicle_mdm_by_chassis_number(
+    db: Session, *, chassis_number: str, make: str | None
+) -> ResolvedVehicleMdm | None:
+    """KAN-535: the pre-1981 car's chassis-number record for this number and
+    make, compared tolerantly (`chassis_make_key`) — a read, nothing created;
+    None when there is none (or no make to compare)."""
+
+    from app.vehicle.services.vehicle_mdm import chassis_make_key, get_vehicle_mdm_by_chassis_number
+
+    make_key = chassis_make_key(make)
+    if make_key is None:
+        return None
+    vehicle = get_vehicle_mdm_by_chassis_number(db, chassis_number=chassis_number, make_key=make_key)
+    return ResolvedVehicleMdm(id=vehicle.id, vin=vehicle.vin) if vehicle is not None else None
+
+
+def resolve_vehicle_mdm_by_chassis_number(
+    db: Session,
+    *,
+    chassis_number: str,
+    make: str | None,
+    first_registration_date: dt.date | None,
+    actor_id: uuid.UUID | None,
+) -> ResolvedVehicleMdm:
+    """KAN-535 (ADR-103 as amended): `resolve_vehicle_mdm_by_vin` for a car
+    first registered before 1981 that carries a chassis number — its record
+    is that number together with its make (Anto, 2026-11-13, option A),
+    found or created, on Vehicle's own session, a lost insert race resolved
+    to the winner's record. 422 when the number, the first registration or
+    the make does not make a chassis-number record
+    (`vehicle_mdm.require_chassis_number_identity`). Committed before this
+    returns; `chassis_number` is normalised as a VIN is."""
+
+    from app.vehicle.services.vehicle_mdm import create_or_get_vehicle_mdm_by_chassis_number
+
+    def resolve(own: Session) -> ResolvedVehicleMdm:
+        vehicle, _created = create_or_get_vehicle_mdm_by_chassis_number(
+            own, chassis_number=chassis_number, make=make, first_registration_date=first_registration_date,
+            actor_id=actor_id,
+        )
+        return ResolvedVehicleMdm(id=vehicle.id, vin=vehicle.vin)
+
+    with Session(bind=db.get_bind(), autoflush=False, expire_on_commit=False) as own:
+        try:
+            return resolve(own)
+        except ConflictError as exc:
+            if not _lost_the_insert_race(exc, chassis_number):
+                raise
+            return resolve(own)  # the guard rolled `own` back; the winner's row is committed

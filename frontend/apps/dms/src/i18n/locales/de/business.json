@@ -54,6 +54,9 @@
     "country": "Land",
     "countryHint": "Ländercode, z. B. CH, DE, LI.",
     "phone": "Telefon",
+    "email": "E-Mail",
+    "website": "Website",
+    "contactHint": "Erscheint in der Fusszeile jedes Dokuments.",
     "overrides": "Abweichende Korrespondenz- oder Rechnungsadresse",
     "correspondenceDiffers": "Die Post geht an eine andere Adresse als den Sitz",
     "billingDiffers": "Rechnungen von Nexotec gehen an eine andere Adresse (z. B. die Buchhaltung der Gruppe)"
@@ -182,19 +185,21 @@
   },
   "copyConfiguration": {
     "title": "Konfiguration übernehmen von …",
-    "intro": "Übernehmen Sie Standardtexte, Kopfzeilen der Dokumentvorlage und Nummernkreis-Muster einmalig aus einem anderen Betrieb, den Sie ebenfalls verwalten. Die Kopien gehören danach diesem Betrieb; spätere Änderungen im anderen Betrieb wirken hier nicht.",
+    "intro": "Übernehmen Sie Standardtexte, Kopfzeilen der Dokumentvorlage, Nummernkreis-Muster und Kontaktgruppen einmalig aus einem anderen Betrieb, den Sie ebenfalls verwalten. Die Kopien gehören danach diesem Betrieb; spätere Änderungen im anderen Betrieb wirken hier nicht.",
     "source": "Betrieb, aus dem übernommen wird",
     "sourcePlaceholder": "Betrieb wählen",
     "subsets": "Was übernommen wird",
     "subset": {
       "standard_texts": "Standardtexte",
       "document_template": "Dokumentvorlage (Kopfzeilen)",
-      "number_ranges": "Nummernkreis-Muster"
+      "number_ranges": "Nummernkreis-Muster",
+      "contact_groups": "Kontaktgruppen"
     },
     "subsetHint": {
       "standard_texts": "Die eigenen und die angepassten Texte des Betriebs, ohne Standort-Varianten. Ein Text, den dieser Betrieb schon hat, wird überschrieben. Eine Freigabe von WhatsApp-Vorlagen wird nie übernommen; eine überschriebene Vorlage muss erneut eingereicht werden.",
       "document_template": "Die Kopfzeile der Dokumente, je Sprache. Hat der andere Betrieb in einer Sprache keine, bleibt die hiesige unverändert.",
-      "number_ranges": "Muster, Startwert und jährlicher Neubeginn der Module, die dieser Betrieb nutzt. Zählerstände werden nie übernommen; ein Nummernkreis, der schon eine Nummer vergeben hat, bleibt unverändert."
+      "number_ranges": "Muster, Startwert und jährlicher Neubeginn der Module, die dieser Betrieb nutzt. Zählerstände werden nie übernommen; ein Nummernkreis, der schon eine Nummer vergeben hat, bleibt unverändert.",
+      "contact_groups": "Die Kontaktgruppen, die der andere Betrieb verwendet, werden hier eingeschaltet. Keine Gruppe wird ausgeschaltet."
     },
     "preview": "Vorschau anzeigen",
     "previewTitle": "Vorschau: Übernahme aus {{source}}",
@@ -227,7 +232,15 @@
       "standard_text_placeholder_invalid": "Der Text enthält einen Platzhalter, der nicht mehr gültig ist.",
       "standard_text_seed_language_missing": "Die Vorlage dieses Texts gibt es in dieser Sprache nicht mehr.",
       "whatsapp_approval_reset": "Die WhatsApp-Vorlage muss erneut zur Freigabe eingereicht werden.",
-      "other": "Dieser Eintrag kann nicht übernommen werden."
+      "other": "Dieser Eintrag kann nicht übernommen werden.",
+      "contact_group_inactive": "Diese Kontaktgruppe hat Nexotec eingestellt."
     }
+  },
+  "statusRefusals": {
+    "status_required": "Der Status eines Betriebs kann nicht leer sein.",
+    "status_not_patchable": "Der Status eines Betriebs wird hier nicht geändert: Aktivierung und Beenden sind eigene Abläufe.",
+    "use_activation_procedure": "Ein Betrieb wird über die Aktivierung aktiv geschaltet, nicht über diese Änderung.",
+    "use_offboarding_procedure": "Ein Betrieb wird über «Betrieb beenden» beendet, nicht über diese Änderung.",
+    "status_transition_not_allowed": "Dieser Statuswechsel ist hier nicht möglich."
   }
 }

@@ -25,9 +25,13 @@
     "translations": "Traductions",
     "locations": "Sites",
     "branding": "Logo et couleurs",
+    "letterhead": "En-tête et modèle",
     "standardTexts": "Textes standard",
     "numberRanges": "Plages de numéros",
-    "onboarding": "Intégrer une entreprise"
+    "onboarding": "Intégrer une entreprise",
+    "contactGroups": "Groupes de contacts",
+    "dataExport": "Export des données",
+    "offboarding": "Clôturer l'entreprise"
   },
   "signOut": "Se déconnecter",
   "environmentNotice": {

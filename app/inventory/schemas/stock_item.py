@@ -25,7 +25,7 @@ from pydantic.alias_generators import to_camel
 from pydantic_core import PydanticCustomError
 
 from app.core.schemas import CamelModel
-from app.core.validators import NormalisedVin
+from app.core.validators import NormalisedVin, NormalisedVinOrChassisNumber
 from app.inventory.models.stock_item import AgeingBucket, LifecycleStatus, ReservationState, StockItemCondition
 
 
@@ -227,12 +227,17 @@ class StockItemVinCorrectionRequest(CamelModel):
     """KAN-557 «VIN korrigieren» (ADR-116 (2)-(3)): the corrected VIN —
     normalised and validated as vehicle-mdm does (KAN-244, 422 otherwise) —
     and the reason, required, audited on every record the correction
-    rewrites."""
+    rewrites. KAN-535 (Anto, 2026-11-14, option B): on a pre-1981 car bought
+    under its chassis number the corrected value may be a chassis number
+    (1–17 letters and digits); whether a value fits the car is decided by
+    the service, against its record (a VIN record keeps a VIN: 422
+    `invalid_vin`)."""
 
-    new_vin: NormalisedVin = Field(
+    new_vin: NormalisedVinOrChassisNumber = Field(
         description=(
-            "The car's corrected VIN. It replaces the VIN on the stock item, on its vehicle-mdm record and on its "
-            "configuration together (KAN-557)."
+            "The car's corrected VIN — or, for a car first registered before 1981 bought under its chassis number, "
+            "its corrected chassis number. It replaces the value on the stock item, on its vehicle-mdm record and "
+            "on its configuration together (KAN-557, KAN-535)."
         )
     )
     reason: str = Field(min_length=1, max_length=500)

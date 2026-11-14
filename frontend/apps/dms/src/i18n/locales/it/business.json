@@ -54,6 +54,9 @@
     "country": "Paese",
     "countryHint": "Codice paese, p. es. CH, DE, LI.",
     "phone": "Telefono",
+    "email": "E-mail",
+    "website": "Sito web",
+    "contactHint": "Figura nel piè di pagina di ogni documento.",
     "overrides": "Indirizzo di corrispondenza o di fatturazione diverso",
     "correspondenceDiffers": "La posta va a un indirizzo diverso dalla sede",
     "billingDiffers": "Le fatture di Nexotec vanno a un altro indirizzo (p. es. la contabilità del gruppo)"
@@ -182,19 +185,21 @@
   },
   "copyConfiguration": {
     "title": "Riprendi la configurazione da …",
-    "intro": "Riprenda una sola volta i testi standard, le intestazioni del modello di documento e i modelli degli intervalli di numerazione da un'altra azienda che gestisce anche lei. Le copie appartengono poi a questa azienda; le modifiche successive nell'altra azienda non hanno effetto qui.",
+    "intro": "Riprenda una sola volta i testi standard, le intestazioni del modello di documento, i modelli degli intervalli di numerazione e i gruppi di contatti da un'altra azienda che gestisce anche lei. Le copie appartengono poi a questa azienda; le modifiche successive nell'altra azienda non hanno effetto qui.",
     "source": "Azienda di origine",
     "sourcePlaceholder": "Scegliere un'azienda",
     "subsets": "Cosa viene ripreso",
     "subset": {
       "standard_texts": "Testi standard",
       "document_template": "Modello di documento (intestazioni)",
-      "number_ranges": "Modelli degli intervalli di numerazione"
+      "number_ranges": "Modelli degli intervalli di numerazione",
+      "contact_groups": "Gruppi di contatti"
     },
     "subsetHint": {
       "standard_texts": "I testi propri e adattati dell'azienda, senza le varianti per sede. Un testo che questa azienda ha già viene sovrascritto. L'approvazione dei modelli WhatsApp non viene mai ripresa; un modello sovrascritto deve essere inviato di nuovo.",
       "document_template": "L'intestazione dei documenti, per lingua. Se l'altra azienda non ne ha una in una lingua, quella di qui resta invariata.",
-      "number_ranges": "Modello, valore iniziale e ripartenza annuale dei moduli che questa azienda usa. I contatori non vengono mai ripresi; un intervallo che ha già assegnato un numero resta invariato."
+      "number_ranges": "Modello, valore iniziale e ripartenza annuale dei moduli che questa azienda usa. I contatori non vengono mai ripresi; un intervallo che ha già assegnato un numero resta invariato.",
+      "contact_groups": "I gruppi di contatti che l’altra azienda usa vengono attivati qui. Nessun gruppo viene disattivato."
     },
     "preview": "Mostra anteprima",
     "previewTitle": "Anteprima: ripresa da {{source}}",
@@ -227,7 +232,15 @@
       "standard_text_placeholder_invalid": "Il testo contiene un segnaposto non più valido.",
       "standard_text_seed_language_missing": "Il modello di questo testo non esiste più in questa lingua.",
       "whatsapp_approval_reset": "Il modello WhatsApp deve essere inviato di nuovo per l'approvazione.",
-      "other": "Questa voce non può essere ripresa."
+      "other": "Questa voce non può essere ripresa.",
+      "contact_group_inactive": "Nexotec ha ritirato questo gruppo di contatti."
     }
+  },
+  "statusRefusals": {
+    "status_required": "Lo stato di un'azienda non può essere vuoto.",
+    "status_not_patchable": "Lo stato di un'azienda non si modifica qui: attivazione e chiusura sono procedure a sé.",
+    "use_activation_procedure": "Un'azienda viene attivata con la procedura di attivazione, non con questa modifica.",
+    "use_offboarding_procedure": "Un'azienda viene chiusa con «Chiudere l'azienda», non con questa modifica.",
+    "status_transition_not_allowed": "Questo cambio di stato non è possibile qui."
   }
 }

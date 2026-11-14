@@ -8,6 +8,7 @@ import { api } from '../../api/client'
 import { useInlineEditRefusal } from '../../hooks/useInlineEditRefusal'
 import { isStaleVersion } from '../../utils/apiRefusal'
 import { formatCurrencyChf, formatDateOnly, formatNumber } from '../../utils/format'
+import { isChassisNumber } from '../../utils/vin'
 import { AttachConfigurationButton } from './AttachConfigurationButton'
 import { useAttachConfiguration } from './useAttachConfiguration'
 import { PurchaseStornoDialog } from './PurchaseStornoDialog'
@@ -171,7 +172,7 @@ export function DetailsTab({
           { label: t('stockDetail.spec.firstRegistrationDate'), value: item.firstRegistrationDate ? formatDateOnly(item.firstRegistrationDate, locale) : '—' },
           { label: t('stockDetail.spec.odometerKm'), value: item.odometerKm != null ? `${formatNumber(item.odometerKm)} km` : '—' },
           { label: t('stockDetail.spec.stockNumber'), value: item.stockNumber },
-          { label: t('stockDetail.spec.vin'), value: item.vin ?? t('common.notSet') },
+          { label: t(isChassisNumber(item.vin) ? 'stockDetail.spec.chassisNumber' : 'stockDetail.spec.vin'), value: item.vin ?? t('common.notSet') },
         ]}
       />
 

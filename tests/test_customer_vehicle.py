@@ -608,7 +608,9 @@ def test_listing_vehicles_does_not_go_n_plus_1(client, engine, db_session):
     # query). A per-row loop on the Customer fetch would need 3 queries
     # instead of 1 for the 3 distinct other-customers here — measurably
     # over this bound, not lost in the noise the way a 1-vs-2 gap would be.
-    assert len(queries) <= 7, f"expected a fixed, batched query count; got {len(queries)}"
+    # KAN-218: plus the archive gate's one status read per request
+    # (`session_guard.enforce_open_dealership`), the same for every route.
+    assert len(queries) <= 8, f"expected a fixed, batched query count; got {len(queries)}"
 
 
 # --- KAN-49 / FR-19 amendment: the stock-item link ------------------------------

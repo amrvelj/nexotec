@@ -134,3 +134,30 @@ describe('DetailsTab — the headline before a selling price is built (KAN-359)'
     expect(headline.textContent?.startsWith("CHF 41'900.50")).toBe(true)
   })
 })
+
+// KAN-535: a pre-1981 car bought under its chassis number shows that number
+// as «Chassisnummer», never as a VIN; a VIN car keeps «VIN».
+describe('DetailsTab — the identifier is named for what it is (KAN-535)', () => {
+  const renderWith = (vin: string) =>
+    render(
+      <MantineProvider theme={testTheme} env="test">
+        <QueryClientProvider client={new QueryClient()}>
+          <TranslatedOverlayProvider>
+            <DetailsTab item={{ ...ITEM, vin }} locale="de-CH" onSaveField={vi.fn()} onReload={vi.fn()} onRecordPurchase={vi.fn()} />
+          </TranslatedOverlayProvider>
+        </QueryClientProvider>
+      </MantineProvider>,
+    )
+
+  it('labels a chassis number «Chassisnummer»', () => {
+    renderWith('1794640162516')
+    expect(screen.getByText('Chassisnummer')).toBeInTheDocument()
+    expect(screen.queryByText('VIN')).not.toBeInTheDocument()
+  })
+
+  it('labels a VIN «VIN»', () => {
+    renderWith('WVWZZZ1KZ00000001')
+    expect(screen.getByText('VIN')).toBeInTheDocument()
+    expect(screen.queryByText('Chassisnummer')).not.toBeInTheDocument()
+  })
+})

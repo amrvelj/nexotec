@@ -127,6 +127,17 @@ export type ConfigurationCopyResult = Schemas['ConfigurationCopyResult']
 export type ConfigurationCopyItem = Schemas['ConfigurationCopyItem']
 export type ConfigurationCopySourceList = Schemas['ConfigurationCopySourceList']
 export type ConfigurationCopySubset = Schemas['ConfigurationCopyItem']['subset']
+// KAN-466 — contact groups per Betrieb.
+export type ContactGroupRead = Schemas['ContactGroupRead']
+export type ContactGroupList = Schemas['ContactGroupList']
+// KAN-218 — the data export and offboarding.
+export type ExportRead = Schemas['ExportRead']
+export type ExportPage = Schemas['ExportPage']
+export type ExportJobKind = Schemas['ExportJobKind']
+export type ExportJobStatus = Schemas['ExportJobStatus']
+export type ArchiveExportRequest = Schemas['ArchiveExportRequest']
+export type OffboardRequest = Schemas['OffboardRequest']
+export type OffboardingRead = Schemas['OffboardingRead']
 export type StandardTextCreate = Schemas['StandardTextCreate']
 export type StandardTextUpdate = Schemas['StandardTextUpdate']
 export type StandardTextPreviewRequest = Schemas['StandardTextPreviewRequest']
@@ -333,6 +344,14 @@ export type BrandingAssetRead = Schemas['BrandingAssetRead']
 export type BrandingAssetKind = Schemas['BrandingAssetKind']
 export type BrandingPlacements = Schemas['BrandingPlacements']
 export type ContrastPairRead = Schemas['ContrastPairRead']
+// KAN-206 — Dealer Administration › Letterhead and template.
+export type DocumentTemplateRead = Schemas['DocumentTemplateRead']
+export type DocumentTemplateUpdate = Schemas['DocumentTemplateUpdate']
+export type HeaderLayout = Schemas['HeaderLayout']
+export type LogoSize = Schemas['LogoSize']
+export type AddressWindow = Schemas['AddressWindow']
+export type FooterColumn = Schemas['FooterColumn']
+export type LocationLogoRead = Schemas['LocationLogoRead']
 
 // ============================================================================
 // RENAMED — same backend schema, different name on the frontend. Python

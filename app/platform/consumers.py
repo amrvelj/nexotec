@@ -16,6 +16,11 @@ register_handlers` lists them:
   registered revoker ends the grant at the provider; a refusal raises, so
   the outbox redelivers and finally dead-letters.
 
+- `platform.data_export.requested` -> `platform.data_export_production`
+  (`handle_data_export_requested_message`, KAN-218): the export's file is
+  written into the object store; a redelivery finds the export no longer
+  `requested` and does nothing.
+
 A push is a pointer, never the record (FR-A-50), and never an e-mail
 (D-A-40).
 """
@@ -27,7 +32,13 @@ from sqlalchemy.orm import Session
 from app.core.outbox_model import OutboxMessage
 from app.platform.models.notification import Notification, NotificationFamily
 from app.platform.reference.services.web_push import PushMessage
-from app.platform.services import connected_account, notification_catalogue, notifications, push_subscriptions
+from app.platform.services import (
+    connected_account,
+    data_export,
+    notification_catalogue,
+    notifications,
+    push_subscriptions,
+)
 
 
 def handle_notification_delivered_message(db: Session, message: OutboxMessage) -> None:
@@ -69,3 +80,10 @@ def handle_connected_account_revoked_message(db: Session, message: OutboxMessage
     revoker's exception is left to propagate — that is the retry."""
 
     connected_account.end_at_provider(db, account_id=uuid.UUID(message.payload["connectedAccountId"]))
+
+
+def handle_data_export_requested_message(db: Session, message: OutboxMessage) -> None:
+    """KAN-218 (FR-A-44): produce the requested export. Idempotent by the
+    export's own status, beside the harness's processed-event record."""
+
+    data_export.produce(db, export_id=uuid.UUID(message.payload["exportId"]))

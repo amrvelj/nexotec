@@ -1,0 +1,67 @@
+{
+  "title": "Esportazione dei dati",
+  "subtitle": "Un'esportazione completa di tutti i dati della vostra azienda – in qualsiasi momento, in formati aperti.",
+  "request": "Richiedi un'esportazione",
+  "requested": "L'esportazione è in preparazione. Appare nell'elenco non appena è pronta.",
+  "acknowledged": "Avete confermato la ricezione dell'esportazione.",
+  "requestError": "Non è stato possibile richiedere l'esportazione.",
+  "acknowledgeError": "Non è stato possibile confermare la ricezione.",
+  "downloadError": "Non è stato possibile scaricare l'esportazione.",
+  "loadError": "Non è stato possibile caricare le esportazioni.",
+  "readOnly": "L'esportazione è richiesta dalla direzione.",
+  "listLabel": "Esportazioni",
+  "window": "Un'esportazione pronta può essere scaricata per 7 giorni; poi il file viene eliminato. Una nuova esportazione può essere richiesta in qualsiasi momento.",
+  "acknowledgeHint": "Prima di una disdetta confermate la ricezione dell'ultima esportazione. Nexotec chiude l'azienda solo con un'esportazione confermata, creata dopo l'ultima modifica.",
+  "contents": {
+    "title": "Contenuto dell'esportazione",
+    "records": "Tutti i record dell'azienda in CSV e JSON, un file per ambito, con una descrizione dello schema",
+    "documents": "Ogni documento emesso in PDF, con numero e data",
+    "audit": "Il registro delle modifiche",
+    "files": "I file caricati: loghi, foto, firme"
+  },
+  "status": {
+    "requested": "In preparazione",
+    "ready": "Pronta",
+    "failed": "Non riuscita",
+    "expired": "Scaduta"
+  },
+  "kind": {
+    "self_service": "Esportazione dell'azienda",
+    "archive": "Esportazione dall'archivio"
+  },
+  "columns": {
+    "requestedAt": "Richiesta",
+    "kind": "Tipo",
+    "reason": "Motivo",
+    "status": "Stato",
+    "producedAt": "Creata",
+    "downloadExpiresAt": "Scaricabile fino al",
+    "size": "Dimensione",
+    "acknowledgedAt": "Ricezione confermata"
+  },
+  "rowMenu": {
+    "download": "Scarica",
+    "acknowledge": "Conferma la ricezione",
+    "alreadyAcknowledged": "La ricezione è già confermata.",
+    "managersOwn": "L'esportazione propria dell'azienda appartiene alla sua direzione.",
+    "notReady": {
+      "requested": "L'esportazione è ancora in preparazione.",
+      "failed": "Questa esportazione non è riuscita – richiedetene una nuova.",
+      "expired": "Il file è stato eliminato dopo 7 giorni."
+    }
+  },
+  "empty": {
+    "title": "Ancora nessuna esportazione",
+    "description": "Un'esportazione richiesta appare qui."
+  },
+  "refusals": {
+    "dealership_offboarded": "Questa azienda è chiusa. Una copia del suo archivio la prepara il supporto Nexotec.",
+    "export_requested": "L'esportazione è ancora in preparazione.",
+    "export_failed": "Questa esportazione non è riuscita – richiedetene una nuova.",
+    "export_expired": "Il download di questa esportazione è scaduto e il file è stato eliminato. Richiedete una nuova esportazione.",
+    "export_file_missing": "Il file di questa esportazione non c'è più. Richiedete una nuova esportazione.",
+    "export_not_own": "Si conferma solo l'esportazione propria dell'azienda.",
+    "export_already_acknowledged": "La ricezione di questa esportazione è già confermata.",
+    "staff_use_archive_export": "L'esportazione dell'azienda appartiene alla sua direzione. Nexotec prepara un'esportazione dall'archivio in Piattaforma › Chiudere l'azienda."
+  }
+}

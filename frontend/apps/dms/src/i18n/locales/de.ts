@@ -11,6 +11,7 @@ import ns_business from './de/business.json'
 import ns_catalogueBrowse from './de/catalogueBrowse.json'
 import ns_common from './de/common.json'
 import ns_configurator from './de/configurator.json'
+import ns_contactGroups from './de/contactGroups.json'
 import ns_contractDetail from './de/contractDetail.json'
 import ns_creditBlockDialog from './de/creditBlockDialog.json'
 import ns_customerCreate from './de/customerCreate.json'
@@ -19,14 +20,17 @@ import ns_customerEnums from './de/customerEnums.json'
 import ns_customerRowMenu from './de/customerRowMenu.json'
 import ns_customersList from './de/customersList.json'
 import ns_dashboard from './de/dashboard.json'
+import ns_dataExport from './de/dataExport.json'
 import ns_dealOwner from './de/dealOwner.json'
 import ns_integrationEnums from './de/integrationEnums.json'
 import ns_integrationsList from './de/integrationsList.json'
 import ns_legal from './de/legal.json'
+import ns_letterhead from './de/letterhead.json'
 import ns_locations from './de/locations.json'
 import ns_mappingGaps from './de/mappingGaps.json'
 import ns_notifications from './de/notifications.json'
 import ns_numberRanges from './de/numberRanges.json'
+import ns_offboarding from './de/offboarding.json'
 import ns_offerDetail from './de/offerDetail.json'
 import ns_offerWorkspace from './de/offerWorkspace.json'
 import ns_onboarding from './de/onboarding.json'
@@ -65,6 +69,7 @@ const bundle = {
   catalogueBrowse: ns_catalogueBrowse,
   common: ns_common,
   configurator: ns_configurator,
+  contactGroups: ns_contactGroups,
   contractDetail: ns_contractDetail,
   creditBlockDialog: ns_creditBlockDialog,
   customerCreate: ns_customerCreate,
@@ -73,14 +78,17 @@ const bundle = {
   customerRowMenu: ns_customerRowMenu,
   customersList: ns_customersList,
   dashboard: ns_dashboard,
+  dataExport: ns_dataExport,
   dealOwner: ns_dealOwner,
   integrationEnums: ns_integrationEnums,
   integrationsList: ns_integrationsList,
   legal: ns_legal,
+  letterhead: ns_letterhead,
   locations: ns_locations,
   mappingGaps: ns_mappingGaps,
   notifications: ns_notifications,
   numberRanges: ns_numberRanges,
+  offboarding: ns_offboarding,
   offerDetail: ns_offerDetail,
   offerWorkspace: ns_offerWorkspace,
   onboarding: ns_onboarding,
