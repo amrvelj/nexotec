@@ -45,8 +45,8 @@ import { CreditBlockDialog } from '../components/customer-detail/CreditBlockDial
 import { CustomerCreateDialog } from '../components/CustomerCreateDialog'
 import { toSwissLocale, type SupportedLanguage } from '../i18n'
 import { languageEndonym } from '../i18n/languageEndonyms'
+import { CANTON_OPTIONS } from '../shared/cantons'
 import {
-  CANTON_OPTIONS,
   UNASSIGNED_ADVISOR,
   applyCustomerFilters,
   translatedCustomerTypeLabel,
@@ -62,7 +62,7 @@ import {
   translatedLegalFormLabel,
 } from '../customerOptions'
 import { formatCurrencyChf, formatDate, formatDateOnly, todayLocalIsoDate } from '../utils/format'
-import { customerName } from '../utils/customer'
+import { customerName } from '../shared/displayNames'
 import { exportRowsToCsv, printRows, type ExportColumn } from '../utils/gridExport'
 import type { CustomerPage, CustomerRead, SalesContractRead, SalesOfferRead } from '../api/types'
 import { useActionBarLabels } from '../hooks/useActionBarLabels'

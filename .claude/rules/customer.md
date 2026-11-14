@@ -27,7 +27,7 @@ paths:
   - "frontend/apps/dms/src/components/customer-detail/commercial*"
   - "frontend/apps/dms/src/components/customer-detail/country*"
   - "frontend/apps/dms/src/customerOptions*"
-  - "frontend/apps/dms/src/utils/customer.ts"
+  - "frontend/apps/dms/src/shared/displayNames.ts"
   - "frontend/apps/dms/src/hooks/useAdvisorOptions.ts"
   - "frontend/packages/ui-kit/src/components/CustomerTypeBadge.tsx"
 ---

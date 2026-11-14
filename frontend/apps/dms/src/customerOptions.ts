@@ -23,37 +23,6 @@ export const CUSTOMER_TYPE_OPTIONS: { value: CustomerType; label: string }[] = [
   { value: 'business', label: 'Business' },
 ]
 
-// The 26 Swiss cantons — matches `derive_canton`'s output alphabet
-// (app/core/postal_codes.py), not a general-purpose country/region list.
-export const CANTON_OPTIONS: { value: string; label: string }[] = [
-  { value: 'AG', label: 'Aargau' },
-  { value: 'AI', label: 'Appenzell Innerrhoden' },
-  { value: 'AR', label: 'Appenzell Ausserrhoden' },
-  { value: 'BE', label: 'Bern' },
-  { value: 'BL', label: 'Basel-Landschaft' },
-  { value: 'BS', label: 'Basel-Stadt' },
-  { value: 'FR', label: 'Fribourg' },
-  { value: 'GE', label: 'Genève' },
-  { value: 'GL', label: 'Glarus' },
-  { value: 'GR', label: 'Graubünden' },
-  { value: 'JU', label: 'Jura' },
-  { value: 'LU', label: 'Luzern' },
-  { value: 'NE', label: 'Neuchâtel' },
-  { value: 'NW', label: 'Nidwalden' },
-  { value: 'OW', label: 'Obwalden' },
-  { value: 'SG', label: 'St. Gallen' },
-  { value: 'SH', label: 'Schaffhausen' },
-  { value: 'SO', label: 'Solothurn' },
-  { value: 'SZ', label: 'Schwyz' },
-  { value: 'TG', label: 'Thurgau' },
-  { value: 'TI', label: 'Ticino' },
-  { value: 'UR', label: 'Uri' },
-  { value: 'VD', label: 'Vaud' },
-  { value: 'VS', label: 'Valais' },
-  { value: 'ZG', label: 'Zug' },
-  { value: 'ZH', label: 'Zürich' },
-]
-
 // 'merged' is excluded — neither CustomerCreate nor CustomerUpdate accepts
 // it; a customer can only reach that status via POST /customers/{id}/merge.
 export const LIFECYCLE_OPTIONS: { value: CustomerLifecycleStatus; label: string }[] = [

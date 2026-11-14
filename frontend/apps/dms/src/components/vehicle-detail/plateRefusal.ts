@@ -1,5 +1,5 @@
 import { ApiError } from '../../api/client'
-import { CANTON_OPTIONS } from '../../customerOptions'
+import { CANTON_OPTIONS } from '../../shared/cantons'
 
 /** One car of the group the plate is current on, from the 409's details. */
 export interface PlateHolder {

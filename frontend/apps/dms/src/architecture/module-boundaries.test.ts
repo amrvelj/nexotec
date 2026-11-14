@@ -22,6 +22,12 @@ import ts from 'typescript'
 //    src/modules/ (src/api and src/i18n are shared, src/architecture holds the
 //    guards) carries one of the module's words in its name, and no path a move
 //    mapping in scripts/module-moves/ moved away from exists again.
+// 4. A module's index.ts never re-exports (or imports) from its own pages/.
+//    Rollup keeps a re-exported module even when its exports go unused, so a
+//    door that names a page pulls the page into every chunk that imports the
+//    door — the eager shell's included. A content component another module
+//    renders lives in the module's components/; what the shell or several
+//    modules use lives in src/shared/ (ADR-161 amendment, KAN-636 step 2a).
 //
 // Modules move one per PR (scripts/move-to-module.mjs). Until the last one, a
 // module may still import the old roots (pages/, components/, hooks/, utils/,
@@ -136,6 +142,21 @@ export function leftBehind(paths: string[], moduleWords: Record<string, string[]
     .sort()
 }
 
+/** Rule 4: every specifier a module's index.ts names that resolves into that module's pages/. */
+export function doorReachesPages(files: Map<string, string>): string[] {
+  const exists = (path: string) => files.has(path)
+  const out: string[] = []
+  for (const [path, source] of files) {
+    const door = /^modules\/([^/]+)\/index\.tsx?$/.exec(path)
+    if (!door) continue
+    for (const { specifier } of importsOf(path, source)) {
+      const target = resolveImport(path, specifier, exists)
+      if (target?.startsWith(`modules/${door[1]}/pages/`)) out.push(`${path}: '${specifier}' names a page; a door exports components, hooks and options only`)
+    }
+  }
+  return out.sort()
+}
+
 type MoveMapping = { module: string; moves: [string, string][] }
 
 function moveMappings(): MoveMapping[] {
@@ -165,6 +186,11 @@ describe('frontend modules keep their boundary (KAN-636, ADR-161)', () => {
     expect(moduleFolders.length).toBeGreaterThan(0)
     expect(moduleFolders.filter((module) => !existsSync(join(SRC_ROOT, 'modules', module, 'index.ts')))).toEqual([])
     expect([...moduleFolders].sort()).toEqual(Object.keys(MODULE_WORDS).sort())
+  })
+
+  it("a module's index.ts names none of its pages", () => {
+    expect([...realFiles.keys()].filter((path) => /^modules\/[^/]+\/index\.ts$/.test(path)).length).toBeGreaterThan(0)
+    expect(doorReachesPages(realFiles)).toEqual([])
   })
 
   it('no file of a moved module stays in the old roots', () => {
@@ -217,6 +243,24 @@ describe('frontend modules keep their boundary (KAN-636, ADR-161)', () => {
           }),
         ),
       ).toEqual([])
+    })
+
+    it("refuses a door that re-exports or imports a page of its own module, and only that", () => {
+      expect(
+        doorReachesPages(
+          tree({
+            ...valuation,
+            'modules/valuation/index.ts': `${door}export { ValuationsListPage } from './pages/ValuationsListPage'\nimport './pages/ValuationsListPage.tsx'\n`,
+            'modules/stock/index.ts': "export { ValuationSourceMarker } from '../valuation'\n",
+            'modules/stock/pages/StockPage.tsx': 'export function StockPage() { return null }\n',
+            'modules/stock/components/StockCard.tsx': "export { StockPage } from '../pages/StockPage'\n",
+          }),
+        ),
+      ).toEqual([
+        "modules/valuation/index.ts: './pages/ValuationsListPage' names a page; a door exports components, hooks and options only",
+        "modules/valuation/index.ts: './pages/ValuationsListPage.tsx' names a page; a door exports components, hooks and options only",
+      ])
+      expect(doorReachesPages(tree(valuation))).toEqual([])
     })
 
     it('a comment or a string naming a path is not an import', () => {
