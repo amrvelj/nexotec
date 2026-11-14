@@ -51,6 +51,7 @@ from sqlalchemy.orm import Session
 
 from app.core.base import utcnow
 from app.integration.public import (
+    MARKETPLACE_PUBLISH_CAPABILITY,
     CircuitOpenError,
     MarketplaceAdapter,
     MarketplaceListing,
@@ -69,7 +70,9 @@ from app.inventory.models.stock_item_publishing import (
     TransmissionStatus,
 )
 
-_CAPABILITY = "marketplace_publish"
+# One label for both sides: Integration keeps a connection declaring it
+# enabled until Stock has withdrawn its feed (KAN-218).
+_CAPABILITY = MARKETPLACE_PUBLISH_CAPABILITY
 
 # Any of these means "the connection itself refused before a real call
 # was even attempted" — caught identically at both the validation-adapter

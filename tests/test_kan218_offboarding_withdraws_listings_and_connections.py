@@ -347,3 +347,32 @@ def test_a_listing_never_delivered_is_unpublished_without_a_feed(db_session, mon
 
     assert _states(db_session, dealership.id) == [PublishingState.NOT_PUBLISHED]
     assert adapter.transmitted == []
+
+
+def test_an_unpublish_whose_feed_never_reached_the_marketplace_is_withdrawn_too(db_session, monkeypatch):
+    """The dealer unpublished the last listing before leaving, and that
+    unpublish's own feed never reached AutoScout24 (failed, dead-lettered):
+    no row is live here, yet the car is still live there. Offboarding sends
+    the channel its empty feed anyway — once the withdrawn fact disables the
+    connection, no replay could reach the marketplace again."""
+
+    from app.inventory.models.stock_item import StockItem
+    from app.inventory.services.publishing import record_unpublished
+
+    adapter = FakeMarketplaceAdapter()
+    _register_fake(monkeypatch, adapter)
+    provider = _make_provider(db_session)
+    leaving, _connection = _live_betrieb(db_session, provider, vins=["WVWZZZ1KZAW218107"])
+    (row,) = db_session.scalars(select(StockItemPublishing).where(StockItemPublishing.tenant_id == leaving.id)).all()
+    record_unpublished(db_session, item=db_session.get(StockItem, row.stock_item_id), channel=_AS24, actor_id=uuid.uuid4())
+    db_session.commit()  # its transmission consumer never delivers the empty feed
+    assert _states(db_session, leaving.id) == [PublishingState.NOT_PUBLISHED]
+    sent_before = len(adapter.transmitted)
+
+    assert (
+        withdraw_live_listings(db_session, tenant_id=leaving.id, causation_id=uuid.uuid4(), correlation_id=uuid.uuid4())
+        == 0
+    )
+
+    assert adapter.transmitted[sent_before:] == [[]]
+    assert len(_withdrawn_messages(db_session, leaving.id)) == 1

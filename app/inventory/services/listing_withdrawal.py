@@ -28,7 +28,9 @@ delivered to the marketplace (`TRANSMITTED`) — the dealer had disabled it —
 it raises rather than pretend, and states no fact: the outbox retries, then
 dead-letters and alerts (rule 10), naming no secret, and the connection keeps
 its credentials for the repair. A listing never delivered (no connection
-ever, or never transmitted) is unpublished without a feed.
+ever, or never transmitted) is unpublished without a feed. The empty feed goes
+to every channel the Betrieb ever published on, live rows or not: an
+unpublish whose own feed never reached the marketplace is withdrawn too.
 
 Staging runs no worker (ADR-081): there the listings stay live until a
 worker runs.
@@ -85,10 +87,21 @@ def withdraw_live_listings(
         for item in db.scalars(select(StockItem).where(StockItem.id.in_({row.stock_item_id for row in rows})))
     }
 
+    # Every channel the Betrieb ever published on, not only the ones with a
+    # live row: a listing unpublished here whose own empty feed never reached
+    # the marketplace (failed, dead-lettered) is still live there, and once
+    # the withdrawn fact disables the connection no replay could reach it.
+    # The empty feed is idempotent under full delivery.
+    channels = set(by_channel) | set(
+        db.scalars(
+            select(StockItemPublishing.channel).where(StockItemPublishing.tenant_id == tenant_id).distinct()
+        ).all()
+    )
+
     blocked: list[str] = []
     withdrawn = 0
-    for channel in sorted(by_channel, key=lambda c: c.value):
-        channel_rows = by_channel[channel]
+    for channel in sorted(channels, key=lambda c: c.value):
+        channel_rows = by_channel.get(channel, [])
         delivered = marketplace_transmission.withdraw_feed(db, tenant_id=tenant_id, channel=channel)
         if not delivered and any(row.transmission_status == TransmissionStatus.TRANSMITTED for row in channel_rows):
             blocked.append(channel.value)

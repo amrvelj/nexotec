@@ -612,6 +612,8 @@ def _connected_account_revoked(db_session, engine, monkeypatch):
         )
 
     return _message(db_session, connected_account.REVOKED_EVENT, account.id), ends_recorded
+
+
 def _data_export_requested(db_session, engine, monkeypatch):
     """KAN-218 — a requested export, from the real producer: the worker
     writes its file once and records it once (`produced`); a redelivery

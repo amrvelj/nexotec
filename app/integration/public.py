@@ -97,7 +97,7 @@ from app.integration.services.connection_refs import (
     get_enabled_connection,
     get_entitlement,
 )
-from app.integration.services.connections import valuation_granted, vin_decode_granted
+from app.integration.services.connections import MARKETPLACE_PUBLISH_CAPABILITY, valuation_granted, vin_decode_granted
 from app.integration.services.data_export import IntegrationExporter
 from app.integration.services.gateway import (
     ConnectionDisabledError,
@@ -108,6 +108,7 @@ from app.integration.services.gateway import (
 from app.integration.services.resilience import CircuitOpenError
 
 __all__ = [
+    "MARKETPLACE_PUBLISH_CAPABILITY",
     "BestMatchResult",
     "BuiltVehicleData",
     "CaptionData",
