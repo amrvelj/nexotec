@@ -35,6 +35,7 @@ from app.vehicle.services.host_configuration import (
     ProviderValuationInput,
 )
 from app.vehicle.services.merge import MERGED_EVENT as VEHICLE_MERGED_EVENT
+from app.vehicle.services.merge import follow_vehicle_merge_on_configuration
 from app.vehicle.services.merge import resolve_merged_id as _resolve_merged_id
 from app.vehicle.services.merge_chain import merged_vehicle_chain
 from app.vehicle.services.plate import PlateRecordingCheck, PlateVersionRef
@@ -477,6 +478,7 @@ __all__ = [
     "discard_configuration_copy",
     "find_vehicle_mdm_by_chassis_number",
     "find_vehicle_mdm_carrying_corrected_vin",
+    "follow_vehicle_merge_on_configuration",
     "get_configuration_for_host",
     "get_configuration_labels",
     "get_provider_valuation_input",

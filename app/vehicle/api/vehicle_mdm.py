@@ -22,6 +22,7 @@ from app.vehicle.schemas.vehicle_mdm import (
     VehicleMdmCreate,
     VehicleMdmCreateResult,
     VehicleMdmDetailRead,
+    VehicleMdmMerge,
     VehicleMdmPage,
     VehicleMdmRead,
     VehicleMdmUpdate,
@@ -31,6 +32,7 @@ from app.vehicle.schemas.vehicle_mdm import (
 )
 from app.vehicle.services import plate as plate_service
 from app.vehicle.services import vehicle_mdm as vehicle_mdm_service
+from app.vehicle.services.merge import merge_vehicle_records
 from app.vehicle.services.plate_read_guard import read_plate_history
 from app.vehicle.services.search import filter_vehicles, resolve_identifier
 from app.vehicle.services.stock_holding import held_stock_item
@@ -197,3 +199,29 @@ def update_vehicle(
         db, vehicle=vehicle, data=body, actor_id=principal.user_id, tenant_id=principal.tenant_id
     )
     return _detail(db, vehicle, principal)
+
+
+@router.post("/vehicle-mdm/{vehicle_id}/merge", response_model=VehicleMdmDetailRead)
+def merge_vehicle(
+    vehicle_id: uuid.UUID,
+    body: VehicleMdmMerge,
+    if_match: int = Depends(require_if_match),
+    principal: Principal = Depends(require_write("vehicle_mdm")),
+    db: Session = Depends(get_db),
+):
+    """KAN-524 (FR-V-12): «Zusammenführen mit…» — the record in the path is
+    merged into `survivorId` for good; there is no unmerge, and every Betrieb
+    shares both records. Any user who may edit vehicles may do it (Anto, Q1 B).
+    Answers the survivor. Refusals: `services/merge.py::merge_vehicle_records`.
+    Customers' party rows and Stock's items follow when the fact is consumed."""
+
+    survivor = merge_vehicle_records(
+        db,
+        duplicate_id=vehicle_id,
+        survivor_id=body.survivor_id,
+        duplicate_version=if_match,
+        survivor_version=body.survivor_version,
+        actor_id=principal.user_id,
+        tenant_id=principal.tenant_id,
+    )
+    return _detail(db, survivor, principal)

@@ -24,6 +24,12 @@ export interface VehicleRowMenuHandlers {
   onCopyVin: () => void
   /** Passed only when the active Betrieb holds `sales`. */
   onRequestValuation?: () => void
+  /**
+   * KAN-524 — «Zusammenführen mit…» (FR-V-12). Passed only when the user may
+   * edit vehicles (`vehicle_mdm`); without it the entry is left out — an action
+   * the role may never use is hidden (KAN-430), unlike one the state refuses.
+   */
+  onMerge?: () => void
 }
 
 /**
@@ -33,9 +39,9 @@ export interface VehicleRowMenuHandlers {
  * (`vehicleOpenState`); the detail screen runs the same handler as its
  * header, then drops the state, so a reload or Back never repeats it.
  */
-export type VehicleOpenAction = 'allocate' | 'recordOdometer' | 'recordAccessory' | 'recordPlate'
+export type VehicleOpenAction = 'allocate' | 'recordOdometer' | 'recordAccessory' | 'recordPlate' | 'merge'
 
-const OPEN_ACTIONS: readonly VehicleOpenAction[] = ['allocate', 'recordOdometer', 'recordAccessory', 'recordPlate']
+const OPEN_ACTIONS: readonly VehicleOpenAction[] = ['allocate', 'recordOdometer', 'recordAccessory', 'recordPlate', 'merge']
 
 export function vehicleOpenState(action: VehicleOpenAction): { vehicleOpenAction: VehicleOpenAction } {
   return { vehicleOpenAction: action }
@@ -91,14 +97,9 @@ export function buildVehicleRowMenu(t: T, handlers: VehicleRowMenuHandlers): Veh
       createFrom: requestValuation ? [requestValuation] : [],
       exportPrint: [{ label: t('vehicleDetail.header.copyVin'), icon: <Copy size={16} />, onClick: handlers.onCopyVin }],
       destructive: [
-        {
-          label: t('vehicleDetail.header.merge'),
-          icon: <GitMerge size={16} />,
-          // FR-V-12's merge has no screen yet.
-          disabled: true,
-          disabledReason: t('vehicleDetail.header.mergeDisabledReason'),
-          onClick: () => {},
-        },
+        ...(handlers.onMerge
+          ? [{ label: t('vehicleDetail.header.merge'), icon: <GitMerge size={16} />, onClick: handlers.onMerge }]
+          : []),
       ],
     },
   }

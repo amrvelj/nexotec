@@ -465,6 +465,28 @@ def _vehicle_merged(db_session, engine, monkeypatch):
     return message, on_survivor
 
 
+def _stock_items_on_vehicle_merged(db_session, engine, monkeypatch):
+    """KAN-524 — Stock's items follow a vehicle merge (FR-V-12), from the real
+    producer: the duplicate's stock car moves onto the survivor, once."""
+
+    from app.inventory.models.stock_item import StockItem
+    from app.vehicle.services.merge import MERGED_EVENT, merge_vehicles
+    from app.vehicle.services.vehicle_mdm import create_vehicle_mdm
+    from tests.test_inventory_invoicing_gate import _make_dealership
+    from tests.test_vehicle_stock_holding import _bought
+
+    item = _bought(db_session, _make_dealership(db_session).id, vin="WVWZZZ1KZAW524001")
+    survivor = create_vehicle_mdm(db_session, vin="WVWZZZ1KZAW524002", catalogue_variant_id=None)
+    db_session.commit()
+    merge_vehicles(db_session, survivor_id=survivor.id, duplicate_id=item.vehicle_id, actor_id=uuid.uuid4())
+    message = _message(db_session, MERGED_EVENT, item.vehicle_id)
+
+    def on_survivor(db: Session) -> int:
+        return db.scalar(select(func.count()).select_from(StockItem).where(StockItem.vehicle_id == survivor.id))
+
+    return message, on_survivor
+
+
 def _published_item(db_session, monkeypatch):
     tenant_id = uuid.uuid4()
     _make_connection(db_session, _make_provider(db_session), tenant_id=tenant_id)
@@ -888,6 +910,7 @@ _FIXTURES: dict[str, Fixture] = {
     "vehicle.plate_on_invoice_requested": _invoice_requested_with_plate,
     "customer.vehicle_party_labels_on_summary_changed": _vehicle_summary_changed,
     "customer.vehicle_parties_on_vehicle_merged": _vehicle_merged,
+    "inventory.stock_items_on_vehicle_merged": _stock_items_on_vehicle_merged,
     "vehicle.configuration_taken_by_offer": _configuration_taken("sales.offer.configuration_attached", _offer_takes),
     "vehicle.configuration_taken_by_contract": _configuration_taken(
         "sales.contract.configuration_attached", _contract_takes

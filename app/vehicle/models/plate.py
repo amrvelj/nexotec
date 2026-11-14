@@ -13,7 +13,9 @@ two cars of a Wechselschild.
 
 Händlerschild/U-Schild (DealerPlate + DealerPlateAssignment): a TENANT-
 SCOPED asset of the dealership itself, moved between vehicles daily for
-test drives and transfers. Nothing about it is a fact about the car.
+test drives and transfers. Nothing about it is a fact about the car. No
+service writes the assignment until it is specified (Anto, KAN-524: the
+unreached `assign_dealer_plate` was removed); the tables stay.
 
 A Wechselschild — one Kontrollschild legally shared by two vehicles, only
 one driven at a time — is two current VehiclePlate rows sharing a

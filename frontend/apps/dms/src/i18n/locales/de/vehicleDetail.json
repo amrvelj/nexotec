@@ -4,7 +4,6 @@
     "failedToLoad": "Fahrzeug konnte nicht geladen werden",
     "copyVin": "VIN kopieren",
     "merge": "Zusammenführen mit…",
-    "mergeDisabledReason": "Noch nicht verfügbar",
     "allocate": "Kunde zuordnen",
     "requestValuation": "Bewertung anfordern",
     "recordOdometer": "Kilometerstand erfassen",
@@ -111,5 +110,31 @@
   "specification": {
     "empty": "In diesem Betrieb gibt es keine Konfiguration dieses Fahrzeugs.",
     "loadError": "Die Spezifikation konnte nicht geladen werden."
+  },
+  "mergeDialog": {
+    "title": "Fahrzeug zusammenführen",
+    "intro": "Suchen Sie den anderen Datensatz desselben Fahrzeugs wie {{vehicleNumber}} — nach VIN, Fahrzeugnummer oder Kontrollschild.",
+    "searchLabel": "Anderer Datensatz",
+    "searchPlaceholder": "VIN, Fahrzeugnr. oder Kontrollschild",
+    "searchFailed": "Die Suche ist fehlgeschlagen. Bitte erneut versuchen.",
+    "recordFailed": "Der gewählte Datensatz konnte nicht geladen werden.",
+    "noMatches": "Kein anderer Datensatz gefunden.",
+    "chooseDifferent": "← Anderen Datensatz wählen",
+    "swap": "Richtung tauschen",
+    "goes": "Wird aufgelöst",
+    "stays": "Bleibt bestehen",
+    "inYourStock": "Im Lager Ihres Betriebs: {{stockNumber}}",
+    "irreversibleTitle": "Das kann nicht rückgängig gemacht werden",
+    "irreversibleBody": "{{goes}} wird endgültig in {{stays}} zusammengeführt. Kontrollschilder, Kilometerstände, Zubehör, Kundenzuordnungen und Lagerfahrzeuge gehen auf {{stays}} über; ein Lagerfahrzeug übernimmt dessen VIN. Beide Datensätze werden von allen Betrieben geteilt: die Zusammenführung gilt für alle.",
+    "typeToConfirm": "Zur Bestätigung {{vehicleNumber}} eingeben",
+    "submit": "Endgültig zusammenführen",
+    "submitting": "Wird zusammengeführt…",
+    "refused": {
+      "generic": "Die Fahrzeuge konnten nicht zusammengeführt werden.",
+      "staleVersion": "Einer der Datensätze wurde inzwischen geändert. Bitte neu laden und erneut vergleichen.",
+      "sameRecord": "Ein Datensatz kann nicht mit sich selbst zusammengeführt werden.",
+      "alreadyMerged": "Einer der Datensätze wurde bereits zusammengeführt.",
+      "bothInStock": "Ihr Betrieb führt beide Datensätze im Lager ({{duplicate}} und {{survivor}}). Verkaufen oder stornieren Sie zuerst eines der Lagerfahrzeuge."
+    }
   }
 }

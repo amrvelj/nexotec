@@ -126,7 +126,7 @@ customer.md by KAN-615 (2026-11-13). Last verified against main@73baf3f (2026-10
   its customer (`vehicle_party_update`, reason `customer_merged`) and listed by the merge's audit
   (`vehiclePartyCopiesRepointedIds`; Anto, KAN-392 B). Chains written before are not repaired.
 - A tag PATCH on the survivor racing a merge's moved tag is 409 `customer_tag_exists`, never a 500.
-- **A vehicle merge moves party rows in a consumer** (`vehicle-mdm.md`); its kept copy is refused a reopen
+- **A vehicle merge moves party rows in a consumer** (`vehicle-merge.md`); its kept copy is refused a reopen
   with 409 `vehicle_merged_party_row` (survivor's VIN); a PATCH and a Disconnect follow a merged record under
   the survivor's lock (KAN-680). The trade-in consumers take the locks of every record of the merge chain and
   read the customer's rows on all of them, so a fact consumed before the party move gives the same history

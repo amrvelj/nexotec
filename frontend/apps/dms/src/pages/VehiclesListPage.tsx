@@ -18,6 +18,7 @@ import {
 } from '@nexotec/ui-kit'
 import { useUiPreferencesContext } from '../hooks/UiPreferencesContext'
 import { useAuth } from '../auth/AuthContext'
+import { useCanWrite } from '../auth/useCanWrite'
 import { api } from '../api/client'
 import { VehicleCreateDialog } from '../components/vehicle/VehicleCreateDialog'
 import { buildVehicleRowMenu, vehicleOpenState, type VehicleOpenAction } from '../components/vehicleRowMenu'
@@ -46,6 +47,8 @@ export function VehiclesListPage() {
   const { entitlements } = useAuth()
   // KAN-198 / D-A-04: valuations are a Sales-module surface.
   const salesEntitled = entitlements.includes('sales')
+  // KAN-524: «Zusammenführen mit…» opens Vehicle 360's merge dialog for users who may edit vehicles.
+  const canMerge = useCanWrite('vehicle_mdm')
 
   // § ADR-056 — search and sort live in the URL, as on Customers and
   // Stock, so a vehicle search can be bookmarked, shared and reloaded.
@@ -268,6 +271,7 @@ export function VehiclesListPage() {
             onRecordPlate: () => openAt('recordPlate'),
             onCopyVin: () => void navigator.clipboard.writeText(row.vin),
             onRequestValuation: salesEntitled ? () => navigate(`/valuations/new?vehicle=${row.id}`) : undefined,
+            onMerge: canMerge ? () => openAt('merge') : undefined,
           })
           return {
             navigate: [

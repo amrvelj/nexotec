@@ -88,6 +88,15 @@ class VehicleMdmDetailRead(VehicleMdmRead):
     stock_item: VehicleStockItemLink | None
 
 
+class VehicleMdmMerge(CamelModel):
+    """KAN-524 (FR-V-12): fold the record in the path into `survivorId`, for
+    good. If-Match carries the duplicate's version; `survivorVersion` the
+    survivor's, so neither record changed since the user compared them."""
+
+    survivor_id: uuid.UUID
+    survivor_version: int = Field(ge=1)
+
+
 class VehicleMdmCreateResult(CamelModel):
     """FR-V-15: entering a VIN that already exists is NOT a validation
     error — it is the same car. `created=False` means the caller's VIN

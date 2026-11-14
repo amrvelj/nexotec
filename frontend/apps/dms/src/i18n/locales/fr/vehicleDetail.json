@@ -4,7 +4,6 @@
     "failedToLoad": "Échec du chargement du véhicule",
     "copyVin": "Copier le n° de châssis",
     "merge": "Fusionner avec…",
-    "mergeDisabledReason": "Pas encore disponible",
     "allocate": "Attribuer à un client",
     "requestValuation": "Demander une évaluation",
     "recordOdometer": "Saisir le kilométrage",
@@ -111,5 +110,31 @@
   "specification": {
     "empty": "Aucune configuration de ce véhicule dans cette entreprise.",
     "loadError": "La spécification n'a pas pu être chargée."
+  },
+  "mergeDialog": {
+    "title": "Fusionner le véhicule",
+    "intro": "Recherchez l'autre fiche du même véhicule que {{vehicleNumber}} — par VIN, numéro de véhicule ou plaque.",
+    "searchLabel": "Autre fiche",
+    "searchPlaceholder": "VIN, n° de véhicule ou plaque",
+    "searchFailed": "La recherche a échoué. Veuillez réessayer.",
+    "recordFailed": "La fiche choisie n'a pas pu être chargée.",
+    "noMatches": "Aucune autre fiche trouvée.",
+    "chooseDifferent": "← Choisir une autre fiche",
+    "swap": "Inverser le sens",
+    "goes": "Sera dissoute",
+    "stays": "Est conservée",
+    "inYourStock": "Dans le stock de votre entreprise : {{stockNumber}}",
+    "irreversibleTitle": "Cette action est irréversible",
+    "irreversibleBody": "{{goes}} sera fusionnée définitivement dans {{stays}}. Plaques, kilométrages, accessoires, liens clients et véhicules en stock passent sur {{stays}} ; un véhicule en stock en reprend le VIN. Les deux fiches sont partagées par toutes les entreprises : la fusion vaut pour toutes.",
+    "typeToConfirm": "Saisissez {{vehicleNumber}} pour confirmer",
+    "submit": "Fusionner définitivement",
+    "submitting": "Fusion en cours…",
+    "refused": {
+      "generic": "Les véhicules n'ont pas pu être fusionnés.",
+      "staleVersion": "L'une des fiches a été modifiée entre-temps. Veuillez recharger et comparer à nouveau.",
+      "sameRecord": "Une fiche ne peut pas être fusionnée avec elle-même.",
+      "alreadyMerged": "L'une des fiches a déjà été fusionnée.",
+      "bothInStock": "Votre entreprise a les deux fiches en stock ({{duplicate}} et {{survivor}}). Vendez ou annulez d'abord l'un des véhicules en stock."
+    }
   }
 }

@@ -30,6 +30,7 @@ import type {
 } from '../api/types'
 import { apiRefusalText } from '../utils/apiRefusal'
 import { stockOpenState } from '../components/stockRowMenu'
+import { MergeVehicleDialog } from '../components/vehicle-detail/MergeVehicleDialog'
 
 const DEFAULT_TAB = 'identity'
 
@@ -166,6 +167,14 @@ export function VehicleDetailPage() {
   // KAN-667: «VIN korrigieren» is the dealer manager's (KAN-557); a link anyone else could
   // only follow to a stock car that offers it nothing is not shown (KAN-430).
   const canCorrectVin = useCanWrite('stock_vin_correction')
+  // KAN-524 (FR-V-12): any user who may edit vehicles may merge two records (Anto, Q1 B).
+  const canMerge = useCanWrite('vehicle_mdm')
+  const [merging, setMerging] = useState(false)
+  const afterMerge = (survivorId: string) => {
+    setMerging(false)
+    void queryClient.invalidateQueries({ queryKey: ['vehicle-mdm'] })
+    navigate(`/vehicles/${survivorId}`)
+  }
   const endPartyEntry = async (party: VehiclePartyAllocationRead) => {
     await api.delete(`/customers/${party.customerId}/vehicles/${party.id}`)
     invalidatePartyRoles()
@@ -262,6 +271,7 @@ export function VehicleDetailPage() {
     recordOdometer: startRecordingOdometer,
     recordAccessory: startRecordingAccessory,
     recordPlate: startRecordingPlate,
+    merge: () => setMerging(true),
   }
 
   // KAN-503 — the Vehicles list's row menu opens the car at the action
@@ -286,6 +296,7 @@ export function VehicleDetailPage() {
     onRecordPlate: startRecordingPlate,
     onCopyVin: () => void navigator.clipboard.writeText(vehicle?.vin ?? ''),
     onRequestValuation: salesEntitled && id ? () => navigate(`/valuations/new?vehicle=${id}`) : undefined,
+    onMerge: canMerge ? () => setMerging(true) : undefined,
   })
 
   if (vehicleQuery.isLoading) return <Loader />
@@ -358,6 +369,7 @@ export function VehicleDetailPage() {
         />}
       <RecordPlateDialog opened={recordingPlate} onClose={() => setRecordingPlate(false)} onRecord={recordPlate} />
       <EndPlateDialog plate={endingPlate} onClose={() => setEndingPlate(null)} onEnd={endPlate} />
+      <MergeVehicleDialog opened={merging} onClose={() => setMerging(false)} vehicle={vehicle} onMerged={afterMerge} />
       {activeTab === 'odometer' && (
         <OdometerTab
           readings={odometerQuery.data ?? []}

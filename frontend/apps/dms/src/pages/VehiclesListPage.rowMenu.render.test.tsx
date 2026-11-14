@@ -107,7 +107,7 @@ const item = (key: string) => screen.findByRole('menuitem', { name: new RegExp(l
 afterEach(() => cleanup())
 
 describe('Vehicles list — the row menu is Vehicle 360\'s (KAN-503)', () => {
-  it('lists «Öffnen», then the detail\'s overflow in the same order, the unbuilt ones disabled', async () => {
+  it('lists «Öffnen», then the detail\'s overflow in the same order, the unbuilt one disabled', async () => {
     const user = userEvent.setup()
     install()
     render()
@@ -131,7 +131,20 @@ describe('Vehicles list — the row menu is Vehicle 360\'s (KAN-503)', () => {
     expect(names).toHaveLength(expected.length)
     expected.forEach((name, index) => expect(names[index]).toContain(name))
     expect(await item('resync')).toHaveAttribute('data-disabled')
-    expect(await item('merge')).toHaveAttribute('data-disabled')
+    // KAN-524: the merge is built — offered to a user who may edit vehicles.
+    expect(await item('merge')).not.toHaveAttribute('data-disabled')
+  })
+
+  it('«Zusammenführen mit…» opens the car with its merge dialog (KAN-524)', async () => {
+    const user = userEvent.setup()
+    install()
+    render()
+
+    await openRowMenu(user)
+    await user.click(await item('merge'))
+
+    expect(await screen.findByText(i18n.t('vehicleDetail.mergeDialog.title'))).toBeInTheDocument()
+    expect(screen.getByPlaceholderText(i18n.t('vehicleDetail.mergeDialog.searchPlaceholder'))).toBeInTheDocument()
   })
 
   it('«Kunde zuordnen» opens the car with the Identity tab\'s customer picker open', async () => {

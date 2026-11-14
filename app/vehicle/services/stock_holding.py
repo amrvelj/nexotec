@@ -32,6 +32,7 @@ environment after the deploy), and the nightly check «stock item missing from
 vehicle_stock_holding» names every car it has not covered.
 """
 
+import dataclasses
 import datetime as dt
 import uuid
 from dataclasses import dataclass
@@ -91,6 +92,13 @@ def apply_stock_holding_fact(db: Session, fact: StockHoldingFact, *, observed_at
     locked, so two workers applying two facts of one item at once serialise
     on the row instead of one failing on the unique constraint."""
 
+    from app.vehicle.services.merge import resolve_merged_id
+
+    if fact.vehicle_id is not None:
+        # KAN-524: a fact Stock wrote before a merge it had not seen names the
+        # duplicate; the hold belongs to the car, which lives on the survivor
+        # now — as the merge moved the rows already held.
+        fact = dataclasses.replace(fact, vehicle_id=resolve_merged_id(db, fact.vehicle_id))
     insert = postgresql_insert if db.get_bind().dialect.name == "postgresql" else sqlite_insert
     now = utcnow()
     inserted = db.execute(
