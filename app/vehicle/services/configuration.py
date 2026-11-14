@@ -298,8 +298,7 @@ def _link_vehicle_if_vin_resolves(db: Session, config: VehicleConfiguration) -> 
 
     # KAN-353: a pre-1981 chassis number never finds a vehicle-mdm record.
     vehicle = get_vehicle_mdm_by_vin(db, config.vin) if config.vin and not is_chassis_number(config.vin) else None
-    # KAN-723: a VIN a merged duplicate still carries links the car it was
-    # merged into — never the dead record (ADR-160, KAN-524 amendment).
+    # KAN-723 (ADR-160): a merged duplicate's VIN links the car it lives on.
     vehicle = live_vehicle_mdm(db, vehicle) if vehicle is not None else None
     if vehicle is None:
         config.vehicle_id = None
