@@ -237,11 +237,12 @@ def _snapshot_session(db: Session) -> _Snapshot:
     """A session of its own on one consistent snapshot (REPEATABLE READ on
     Postgres), the snapshot's start — the export's `produced_at` — and, for
     KAN-716, the snapshot itself (`pg_current_snapshot()` as text) and the
-    look-back: the earliest start of any transaction open just before it,
-    read first on a connection of its own. A transaction still open when the
-    snapshot begins either was open then (its start is the look-back or
-    later) or began after that read — so every row it writes is stamped at
-    or after the look-back. Stamps are the application's clock and the
+    look-back: the earliest start of any transaction of this database that
+    had written (holds an id) just before it, read first on a connection of
+    its own. A transaction still open when the snapshot begins either had
+    written by then (its start is the look-back or later) or writes only
+    after that read — its rows are stamped when they are flushed — so every
+    row it writes is stamped at or after the look-back. Stamps are the application's clock and the
     look-back the database's; the timestamp check before KAN-716 relied on
     the same agreement. Transactions of another database role are not
     listed to this one; none writes a Betrieb's rows."""
@@ -253,7 +254,7 @@ def _snapshot_session(db: Session) -> _Snapshot:
         read_at, oldest_open = probe.execute(
             text(
                 "SELECT clock_timestamp(), min(xact_start) FROM pg_stat_activity"
-                " WHERE xact_start IS NOT NULL AND pid <> pg_backend_pid()"
+                " WHERE datname = current_database() AND backend_xid IS NOT NULL AND pid <> pg_backend_pid()"
             )
         ).one()
         probe.rollback()
