@@ -22,10 +22,10 @@ the Betrieb exists carries its real group.
 
 import uuid
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.engine import Engine
 
-from app.platform.organisation.models.dealership import Dealership
+from app.platform.organisation.models.dealership import Dealership, DealershipStatus
 
 _ENGINE: list[Engine] = []
 _GROUPS: dict[uuid.UUID, uuid.UUID] = {}
@@ -60,3 +60,19 @@ def dealer_group_of(tenant_id: uuid.UUID | str) -> uuid.UUID:
         return synthetic_group_of(tid)
     _GROUPS[tid] = group
     return group
+
+
+def mark_trading(dealership_id: uuid.UUID | str) -> None:
+    """KAN-214: put a Betrieb the test created through the API (it starts
+    `pending_onboarding`) into the state of one already trading — `active`,
+    as KAN-214's migration left every Betrieb onboarded before the gate. The
+    activation itself and the gate are tested in `test_kan214_*`; a test about
+    something else needs a Betrieb its sessions can work in."""
+
+    assert _ENGINE, "mark_trading needs the test engine (the conftest fixture binds it)"
+    with _ENGINE[0].begin() as conn:
+        conn.execute(
+            update(Dealership)
+            .where(Dealership.id == uuid.UUID(str(dealership_id)))
+            .values(status=DealershipStatus.ACTIVE)
+        )

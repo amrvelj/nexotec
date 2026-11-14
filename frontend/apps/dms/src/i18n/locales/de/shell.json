@@ -33,7 +33,9 @@
     "contactGroups": "Kontaktgruppen",
     "dataExport": "Datenexport",
     "offboarding": "Betrieb beenden",
-    "providers": "Anbieter"
+    "providers": "Anbieter",
+    "setup": "Einrichtung",
+    "legalDocuments": "Rechtstexte"
   },
   "signOut": "Abmelden",
   "environmentNotice": {

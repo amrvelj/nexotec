@@ -33,6 +33,7 @@ const NOT_MONEY_LABELS = new Set([
   "t('numberRanges.startValue')", // a counter's start (KAN-207)
   "t('business.security.idleMinutes')", // minutes (KAN-229)
   "t('business.security.absoluteHours')", // hours (KAN-229)
+  "t('setup.platform.publish.grace')", // days (KAN-214)
   "t('publishing.fields.financingTermMonths')", // months (KAN-225)
   "t('publishing.fields.financingNominalRatePct')", // a percentage (KAN-225)
   "t('publishing.fields.financingEffectiveRatePct')", // a percentage (KAN-225)

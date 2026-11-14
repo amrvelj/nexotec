@@ -15,11 +15,13 @@ word for word (`tests/test_notification_catalogue.py`), and every `notify`
 call site in `app/` names a code declared here
 (`tests/architecture/test_notify_call_sites_use_registered_codes.py`).
 
-Families: `security` ships in v1 (D-A-40); `administration`'s first event is
-an integration connection nearing its expiry (KAN-222, FR-A-22), raised by
+Families: `security` ships in v1 (D-A-40). `administration`'s events: an
+integration connection nearing its expiry (KAN-222, FR-A-22), raised by
 platform's consumer of integration's `integration.connection.expiry_approaching`
-fact (ADR-047: integration never calls `notify`). `assignment` is defined so
-its events register against the same catalogue when their sources ship.
+fact (ADR-047: integration never calls `notify`); a setup-checklist item that
+broke after activation (KAN-214, D-A-21), raised by platform's daily job.
+`assignment` is defined so its events register against the same catalogue
+when their sources ship.
 """
 
 import dataclasses
@@ -51,6 +53,8 @@ class NotificationEventCode(str, enum.Enum):
     # KAN-222 (FR-A-22, D-A-40): T-30/14/7 before a connection expires, to the
     # Betrieb's managers. Raised by `consumers.handle_connection_expiry_approaching_message`.
     INTEGRATION_EXPIRING = "administration.integration_expiring"
+    # KAN-214 (D-A-21, FR-A-26): a setup-checklist item broken after activation.
+    CHECKLIST_ITEM_REGRESSED = "administration.checklist_item_regressed"
 
 
 @dataclasses.dataclass(frozen=True)
@@ -221,6 +225,16 @@ CATALOGUE: tuple[NotificationEventSpec, ...] = (
             "fr": "Une intégration arrive bientôt à échéance",
             "it": "Un'integrazione scade a breve",
             "en": "An integration expires soon",
+        },
+    ),
+    _administration(
+        NotificationEventCode.CHECKLIST_ITEM_REGRESSED,
+        "checklistItemRegressed",
+        {
+            "de": "Ein Punkt der Einrichtung fehlt wieder",
+            "fr": "Un point de la configuration manque à nouveau",
+            "it": "Un punto della configurazione manca di nuovo",
+            "en": "A setup item is missing again",
         },
     ),
 )

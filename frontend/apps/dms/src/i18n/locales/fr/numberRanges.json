@@ -41,5 +41,11 @@
     "parts_order": "Commande de pièces",
     "workshop_job": "Ordre d'atelier",
     "stock_number": "Numéro de stock"
+  },
+  "confirm": {
+    "button": "Confirmer les séries de numéros",
+    "confirmedAt": "Confirmées le {{date}}.",
+    "notConfirmed": "Vérifiez les modèles et confirmez-les – c'est un point de la mise en service. La confirmation ne fige rien.",
+    "error": "La confirmation n'a pas pu être enregistrée."
   }
 }

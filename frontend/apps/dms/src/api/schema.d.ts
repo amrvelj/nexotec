@@ -1043,6 +1043,31 @@ export interface paths {
         patch: operations["update_dealership_v1_dealerships__dealership_id__patch"];
         trace?: never;
     };
+    "/v1/dealerships/{dealership_id}/activation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Activate Dealership
+         * @description «Betrieb aktivieren» (FR-A-34): the manager, on a complete checklist
+         *     and the current ToS and DPA accepted. Freezes every number range, sets
+         *     `active`, audits and publishes `platform.dealership.activated` — one
+         *     transaction. 409 with `details.reason` when anything is missing
+         *     (`services/activation.py`). The session's own claims are unchanged: the
+         *     gate reads the status from the database on every request.
+         */
+        post: operations["activate_dealership_v1_dealerships__dealership_id__activation_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/dealerships/{dealership_id}/address-autocomplete": {
         parameters: {
             query?: never;
@@ -1479,6 +1504,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/dealerships/{dealership_id}/legal-acceptances": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Legal Acceptances */
+        get: operations["list_legal_acceptances_v1_dealerships__dealership_id__legal_acceptances_get"];
+        put?: never;
+        /**
+         * Accept Legal Document
+         * @description The manager accepts the current version of the ToS or the DPA for the
+         *     Betrieb (D-A-34): an append-only record with the user, the time, the
+         *     address and the browser. 409 `legal_document_not_current` for any other
+         *     version. Accepting it again returns the first record.
+         */
+        post: operations["accept_legal_document_v1_dealerships__dealership_id__legal_acceptances_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/dealerships/{dealership_id}/locations": {
         parameters: {
             query?: never;
@@ -1575,6 +1624,29 @@ export interface paths {
          */
         put: operations["set_opening_hours_v1_dealerships__dealership_id__locations__location_id__opening_hours_put"];
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/dealerships/{dealership_id}/number-range-confirmations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm Number Ranges
+         * @description KAN-214 (D-A-21): «Nummernkreise bestätigen» — the manager confirms the
+         *     ranges as the screen shows them, which completes the setup checklist's
+         *     item. Freezes nothing (the ranges freeze at activation, A-RULE-3).
+         *     Audited. The manager's own act: 403 for a colleague and for staff.
+         */
+        post: operations["confirm_number_ranges_v1_dealerships__dealership_id__number_range_confirmations_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1874,6 +1946,28 @@ export interface paths {
         head?: never;
         /** Update Dealership Settings */
         patch: operations["update_dealership_settings_v1_dealerships__dealership_id__settings_patch"];
+        trace?: never;
+    };
+    "/v1/dealerships/{dealership_id}/setup-checklist": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Setup Checklist
+         * @description The Betrieb's checklist, derived on read (D-A-21): the items that apply
+         *     to its entitlements, each complete or not, what it blocks and where to
+         *     fix it — the manager's first screen until activation.
+         */
+        get: operations["get_setup_checklist_v1_dealerships__dealership_id__setup_checklist_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/v1/dealerships/{dealership_id}/standard-text-previews": {
@@ -3125,6 +3219,44 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/legal-documents/current": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Current Legal Documents
+         * @description The current ToS and DPA, in `language` when published in it (else
+         *     German, else the first language published).
+         */
+        get: operations["get_current_legal_documents_v1_legal_documents_current_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/legal-documents/{document_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Legal Document */
+        get: operations["get_legal_document_v1_legal_documents__document_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/me": {
         parameters: {
             query?: never;
@@ -3572,6 +3704,29 @@ export interface paths {
          *     version, like the manager's own `PUT …/manager-flag`.
          */
         post: operations["grant_manager_v1_platform_dealerships__dealership_id__recovery_grant_manager_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/platform/legal-documents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Legal Documents */
+        get: operations["list_legal_documents_v1_platform_legal_documents_get"];
+        put?: never;
+        /**
+         * Publish Legal Document
+         * @description Publish a version of the ToS or the DPA in one language (FR-A-39).
+         *     Staff with a second factor in the session. Versions only move forward;
+         *     a published text is never edited.
+         */
+        post: operations["publish_legal_document_v1_platform_legal_documents_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4922,6 +5077,19 @@ export interface components {
          * @enum {string}
          */
         AccessRole: "platform_admin" | "sales" | "aftersales" | "parts" | "inventory" | "finance" | "technician" | "auditor";
+        /** ActivationRead */
+        ActivationRead: {
+            /** Activatedat */
+            activatedAt: string | null;
+            /**
+             * Dealershipid
+             * Format: uuid
+             */
+            dealershipId: string;
+            status: components["schemas"]["DealershipStatus"];
+            /** Version */
+            version: number;
+        };
         /** AddMediaRequest */
         AddMediaRequest: {
             /** Url */
@@ -6833,6 +7001,11 @@ export interface components {
          * @enum {string}
          */
         CopySubset: "standard_texts" | "document_template" | "number_ranges" | "contact_groups";
+        /** CurrentLegalDocuments */
+        CurrentLegalDocuments: {
+            /** Items */
+            items: components["schemas"]["LegalDocumentRead"][];
+        };
         /** CustomerAddressCreate */
         CustomerAddressCreate: {
             /**
@@ -7864,6 +8037,7 @@ export interface components {
             id: string;
             /** Legalname */
             legalName: string;
+            status: components["schemas"]["DealershipStatus"];
         };
         /**
          * DealershipOverrideAddress
@@ -8747,6 +8921,64 @@ export interface components {
              */
             stockItemId: string;
         };
+        /**
+         * LegalAcceptanceDue
+         * @description The current versions the Betrieb has not accepted (FR-A-39).
+         */
+        LegalAcceptanceDue: {
+            /** Documents */
+            documents: components["schemas"]["LegalDocumentSummary"][];
+            /**
+             * Dueby
+             * @description The last day of grace; after it the managers are held.
+             */
+            dueBy: string | null;
+            /**
+             * Held
+             * @description The grace has passed: a manager reaches only the acceptance screen.
+             */
+            held: boolean;
+        };
+        /** LegalAcceptanceList */
+        LegalAcceptanceList: {
+            /** Items */
+            items: components["schemas"]["LegalAcceptanceRead"][];
+        };
+        /** LegalAcceptanceRead */
+        LegalAcceptanceRead: {
+            /**
+             * Acceptedat
+             * Format: date-time
+             */
+            acceptedAt: string;
+            documentType: components["schemas"]["LegalDocumentType"];
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            language: components["schemas"]["SwissLanguage"];
+            /**
+             * Legaldocumentid
+             * Format: uuid
+             */
+            legalDocumentId: string;
+            /**
+             * Userid
+             * Format: uuid
+             */
+            userId: string;
+            /** Version */
+            version: string;
+        };
+        /** LegalAcceptanceRequest */
+        LegalAcceptanceRequest: {
+            /**
+             * Legaldocumentid
+             * Format: uuid
+             */
+            legalDocumentId: string;
+        };
         /** LegalBasisCreate */
         LegalBasisCreate: {
             /** Basis */
@@ -8787,6 +9019,94 @@ export interface components {
             /** Withdrawnat */
             withdrawnAt: string | null;
         };
+        /** LegalDocumentList */
+        LegalDocumentList: {
+            /** Items */
+            items: components["schemas"]["LegalDocumentRead"][];
+        };
+        /** LegalDocumentPublish */
+        LegalDocumentPublish: {
+            /**
+             * Acceptancegracedays
+             * @default 30
+             */
+            acceptanceGraceDays?: number;
+            /** Bodymarkdown */
+            bodyMarkdown: string;
+            documentType: components["schemas"]["LegalDocumentType"];
+            /**
+             * Effectivedate
+             * Format: date
+             */
+            effectiveDate: string;
+            language: components["schemas"]["SwissLanguage"];
+            /** Title */
+            title: string;
+            /** Version */
+            version: string;
+        };
+        /** LegalDocumentRead */
+        LegalDocumentRead: {
+            /** Acceptancegracedays */
+            acceptanceGraceDays: number;
+            /** Bodymarkdown */
+            bodyMarkdown: string;
+            documentType: components["schemas"]["LegalDocumentType"];
+            /**
+             * Draft
+             * @description Below version 1.0 — a draft for counsel (production does not activate on it).
+             */
+            draft: boolean;
+            /**
+             * Effectivedate
+             * Format: date
+             */
+            effectiveDate: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            language: components["schemas"]["SwissLanguage"];
+            /**
+             * Publishedat
+             * Format: date-time
+             */
+            publishedAt: string;
+            /** Title */
+            title: string;
+            /** Version */
+            version: string;
+        };
+        /** LegalDocumentSummary */
+        LegalDocumentSummary: {
+            documentType: components["schemas"]["LegalDocumentType"];
+            /**
+             * Draft
+             * @description Below version 1.0 — a draft for counsel (production does not activate on it).
+             */
+            draft: boolean;
+            /**
+             * Effectivedate
+             * Format: date
+             */
+            effectiveDate: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            language: components["schemas"]["SwissLanguage"];
+            /** Title */
+            title: string;
+            /** Version */
+            version: string;
+        };
+        /**
+         * LegalDocumentType
+         * @enum {string}
+         */
+        LegalDocumentType: "tos" | "dpa";
         /**
          * LegalForm
          * @description Fixed Swiss legal-entity taxonomy (Customer PRD) — hardcoded, not
@@ -9266,6 +9586,7 @@ export interface components {
              * @default false
              */
             isActiveDealershipManager?: boolean;
+            legalAcceptanceDue?: components["schemas"]["LegalAcceptanceDue"] | null;
             /** Memberships */
             memberships: components["schemas"]["DealershipMembershipSummary"][];
             /**
@@ -9731,6 +10052,22 @@ export interface components {
             reason: string;
         };
         /**
+         * NumberRangeConfirmationRead
+         * @description KAN-214: one «Nummernkreise bestätigen».
+         */
+        NumberRangeConfirmationRead: {
+            /**
+             * Confirmedat
+             * Format: date-time
+             */
+            confirmedAt: string;
+            /**
+             * Confirmedby
+             * Format: uuid
+             */
+            confirmedBy: string;
+        };
+        /**
          * NumberRangeDocumentType
          * @description The eleven document types the PRD's table names. Customer numbers stay
          *     per group (`customer_number_sequence`) and are not here.
@@ -9739,6 +10076,8 @@ export interface components {
         NumberRangeDocumentType: "offer" | "order_confirmation" | "sales_contract" | "purchase_contract" | "invoice" | "credit_note" | "dunning" | "service_order" | "parts_order" | "workshop_job" | "stock_number";
         /** NumberRangeList */
         NumberRangeList: {
+            /** Confirmedat */
+            confirmedAt?: string | null;
             /** Items */
             items: components["schemas"]["NumberRangeRead"][];
             /** Maychangefrozen */
@@ -11440,6 +11779,57 @@ export interface components {
             basePrice: number | string;
             /** Options */
             options: components["schemas"]["OptionInput"][];
+        };
+        /** SetupChecklistItemRead */
+        SetupChecklistItemRead: {
+            /**
+             * Blocks
+             * @description What an incomplete item refuses once the Betrieb is active; null = activation only.
+             */
+            blocks: string | null;
+            /**
+             * Code
+             * @description The item: branding, vat_and_rounding, bank_account, number_ranges, …
+             */
+            code: string;
+            /** Complete */
+            complete: boolean;
+            /**
+             * Link
+             * @description The SPA path that completes the item.
+             */
+            link: string;
+        };
+        /** SetupChecklistRead */
+        SetupChecklistRead: {
+            /** Complete */
+            complete: boolean;
+            /**
+             * Dealershipid
+             * Format: uuid
+             */
+            dealershipId: string;
+            /** Items */
+            items: components["schemas"]["SetupChecklistItemRead"][];
+            legalAcceptance: components["schemas"]["LegalAcceptanceDue"];
+            /**
+             * Legaldocumentsfinal
+             * @description False in production while a current version is a draft: activation is refused.
+             */
+            legalDocumentsFinal: boolean;
+            /**
+             * Mayactivate
+             * @description Every item complete, both documents accepted, and the texts final enough.
+             */
+            mayActivate: boolean;
+            /** Numberrangesconfirmedat */
+            numberRangesConfirmedAt: string | null;
+            status: components["schemas"]["DealershipStatus"];
+            /**
+             * Version
+             * @description The dealership's version — If-Match for the activation.
+             */
+            version: number;
         };
         /**
          * SharedVehicleIdentity
@@ -16013,6 +16403,44 @@ export interface operations {
             };
         };
     };
+    activate_dealership_v1_dealerships__dealership_id__activation_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+                authorization?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                dealership_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActivationRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_address_autocomplete_config_v1_dealerships__dealership_id__address_autocomplete_get: {
         parameters: {
             query?: never;
@@ -17249,6 +17677,82 @@ export interface operations {
             };
         };
     };
+    list_legal_acceptances_v1_dealerships__dealership_id__legal_acceptances_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LegalAcceptanceList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    accept_legal_document_v1_dealerships__dealership_id__legal_acceptances_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                dealership_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LegalAcceptanceRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LegalAcceptanceRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_locations_v1_dealerships__dealership_id__locations_get: {
         parameters: {
             query?: {
@@ -17625,6 +18129,43 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["OpeningHoursRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    confirm_number_ranges_v1_dealerships__dealership_id__number_range_confirmations_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                dealership_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NumberRangeConfirmationRead"];
                 };
             };
             /** @description Validation Error */
@@ -18474,6 +19015,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DealershipSettingsRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_setup_checklist_v1_dealerships__dealership_id__setup_checklist_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SetupChecklistRead"];
                 };
             };
             /** @description Validation Error */
@@ -21743,6 +22319,76 @@ export interface operations {
             };
         };
     };
+    get_current_legal_documents_v1_legal_documents_current_get: {
+        parameters: {
+            query?: {
+                language?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CurrentLegalDocuments"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_legal_document_v1_legal_documents__document_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                document_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LegalDocumentRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_me_v1_me_get: {
         parameters: {
             query?: never;
@@ -22815,6 +23461,78 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RecoveryResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_legal_documents_v1_platform_legal_documents_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LegalDocumentList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    publish_legal_document_v1_platform_legal_documents_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LegalDocumentPublish"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LegalDocumentRead"];
                 };
             };
             /** @description Validation Error */

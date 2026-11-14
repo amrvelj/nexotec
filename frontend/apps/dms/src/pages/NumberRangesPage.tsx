@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Alert, Button, Paper, Skeleton, Stack, Table, Text, Title } from '@mantine/core'
+import { Alert, Button, Group, Paper, Skeleton, Stack, Table, Text, Title } from '@mantine/core'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Badge, useSetBreadcrumb } from '@nexotec/ui-kit'
@@ -9,6 +9,7 @@ import { useAuth } from '../auth/AuthContext'
 import { useCanWrite } from '../auth/useCanWrite'
 import { NumberRangeDialog, type NumberRangeChange } from '../components/numberRanges/NumberRangeDialog'
 import { toSwissLocale, type SupportedLanguage } from '../i18n'
+import { apiRefusalText } from '../utils/apiRefusal'
 import { formatDateTime } from '../utils/format'
 
 const numberRangesKey = (dealershipId: string) => ['number-ranges', dealershipId]
@@ -22,16 +23,22 @@ const numberRangesKey = (dealershipId: string) => ['number-ranges', dealershipId
  * range says it freezes with its first number; a frozen one says only
  * Nexotec support can change it. Any role reads; the manager edits an open
  * range, platform staff a frozen one, with a reason.
+ *
+ * KAN-214 (D-A-21): the manager confirms the ranges once («Nummernkreise
+ * bestätigen») — a setup-checklist item. Confirming freezes nothing; the
+ * ranges freeze at «Betrieb aktivieren».
  */
 export function NumberRangesPage() {
   const { t, i18n } = useTranslation()
   const locale = toSwissLocale(i18n.language as SupportedLanguage)
   useSetBreadcrumb([t('shell.nav.administration'), t('numberRanges.title')])
-  const { activeDealership } = useAuth()
+  const { activeDealership, isActiveDealershipManager } = useAuth()
   const dealershipId = activeDealership?.id ?? ''
   const canWrite = useCanWrite('number_ranges')
   const queryClient = useQueryClient()
   const [editing, setEditing] = useState<NumberRangeRead | null>(null)
+  const [confirming, setConfirming] = useState(false)
+  const [confirmError, setConfirmError] = useState<string | null>(null)
 
   const ranges = useQuery({
     queryKey: numberRangesKey(dealershipId),
@@ -39,6 +46,19 @@ export function NumberRangesPage() {
     enabled: dealershipId !== '',
   })
   const mayChangeFrozen = ranges.data?.mayChangeFrozen ?? false
+
+  const confirm = async () => {
+    setConfirming(true)
+    setConfirmError(null)
+    try {
+      await api.post(`/dealerships/${dealershipId}/number-range-confirmations`)
+      await queryClient.invalidateQueries({ queryKey: numberRangesKey(dealershipId) })
+    } catch (err) {
+      setConfirmError(apiRefusalText(t, err, 'numberRanges.confirm.error'))
+    } finally {
+      setConfirming(false)
+    }
+  }
 
   const save = async (range: NumberRangeRead, change: NumberRangeChange) => {
     const updated = await api.patch<NumberRangeRead>(
@@ -68,6 +88,25 @@ export function NumberRangesPage() {
         </Alert>
       )}
       {ranges.isLoading && <Skeleton height={240} radius="md" />}
+      {ranges.data && isActiveDealershipManager && (
+        <Paper withBorder radius="md" p="sm">
+          <Group justify="space-between">
+            <Text fz="sm">
+              {ranges.data.confirmedAt
+                ? t('numberRanges.confirm.confirmedAt', { date: formatDateTime(ranges.data.confirmedAt, locale) })
+                : t('numberRanges.confirm.notConfirmed')}
+            </Text>
+            <Button size="xs" variant={ranges.data.confirmedAt ? 'default' : 'filled'} loading={confirming} onClick={() => void confirm()}>
+              {t('numberRanges.confirm.button')}
+            </Button>
+          </Group>
+          {confirmError && (
+            <Alert color="red" role="alert" mt="xs">
+              {confirmError}
+            </Alert>
+          )}
+        </Paper>
+      )}
       {ranges.data && !canWrite && (
         <Text c="dimmed" fz="sm">
           {t('numberRanges.readOnly')}

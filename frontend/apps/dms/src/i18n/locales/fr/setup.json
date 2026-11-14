@@ -1,0 +1,131 @@
+{
+  "title": "Mise en service",
+  "subtitle": "Ce dont votre entreprise a besoin avant de travailler. Chaque point est déduit de vos données – réglez-le sur l'écran lié.",
+  "pendingNotice": "Votre entreprise est en cours de configuration. Jusqu'à l'activation, seuls l'administration et « Mon compte » sont accessibles.",
+  "activeNotice": "Votre entreprise est active. Si un point manque à nouveau plus tard, seule l'action qui en a besoin est bloquée.",
+  "loadError": "La mise en service n'a pas pu être chargée.",
+  "complete": "Fait",
+  "missing": "Ouvert",
+  "open": "Ouvrir",
+  "itemsTitle": "Liste de contrôle",
+  "items": {
+    "branding": {
+      "title": "Logo et couleur de marque",
+      "description": "Le logo principal est téléchargé et la couleur de marque définie."
+    },
+    "vat_and_rounding": {
+      "title": "TVA et arrondi",
+      "description": "Taux de TVA (et numéro TVA si assujetti) ainsi que l'arrondi des espèces."
+    },
+    "bank_account": {
+      "title": "Compte bancaire",
+      "description": "Un compte IBAN ou QR-IBAN validé est choisi comme compte par défaut."
+    },
+    "number_ranges": {
+      "title": "Séries de numéros confirmées",
+      "description": "Vous avez vérifié et confirmé les séries de numéros. Elles sont figées à l'activation."
+    },
+    "location_opening_hours": {
+      "title": "Site avec heures d'ouverture",
+      "description": "Au moins un site actif a des heures d'ouverture."
+    },
+    "users": {
+      "title": "Utilisateurs invités",
+      "description": "Au moins un gérant est actif – dans une entreprise d'une personne, vous suffisez."
+    },
+    "publishing_profile": {
+      "title": "Profil de publication",
+      "description": "Description, mentions légales et routage des leads."
+    }
+  },
+  "blocks": {
+    "activation": "Bloque l'activation",
+    "invoice_issue": "S'il manque après l'activation, les factures sont bloquées",
+    "numbered_document": "S'il manque après l'activation, les documents numérotés sont bloqués",
+    "marketplace_publishing": "S'il manque après l'activation, la publication sur les plateformes est bloquée"
+  },
+  "legal": {
+    "title": "Conditions d'utilisation et sous-traitance",
+    "intro": "En activant, vous acceptez la version actuelle des deux documents au nom de l'entreprise.",
+    "due": "À accepter",
+    "accepted": "Les deux documents sont acceptés.",
+    "unavailable": "Les documents ne sont pas encore publiés. Contactez le support Nexotec.",
+    "notFinal": "L'activation attend les versions définitives des documents (version 1.0).",
+    "draft": "Projet",
+    "version": "Version {{version}}"
+  },
+  "activate": {
+    "button": "Activer l'entreprise",
+    "incomplete": "Réglez d'abord tous les points de la liste de contrôle.",
+    "title": "Activer l'entreprise",
+    "intro": "Lisez les deux documents et acceptez-les au nom de l'entreprise.",
+    "accept": "J'ai lu « {{title}} » (version {{version}}) et je l'accepte au nom de l'entreprise.",
+    "freezeWarning": "À l'activation, toutes les séries de numéros sont figées. Ensuite, seul le support Nexotec peut les modifier, avec un motif.",
+    "submit": "Activer maintenant",
+    "error": "L'entreprise n'a pas pu être activée.",
+    "documentsError": "Les documents n'ont pas pu être chargés."
+  },
+  "inProgress": {
+    "title": "L'entreprise est en cours de configuration",
+    "body": "Votre entreprise est en cours de configuration. Dès que la direction l'aura activée, tous les domaines vous seront accessibles.",
+    "account": "Ouvrir mon compte"
+  },
+  "acceptance": {
+    "title": "Nouvelle version des textes juridiques",
+    "intro": "Il existe une nouvelle version des conditions d'utilisation ou du contrat de sous-traitance. Lisez-la et acceptez-la au nom de l'entreprise.",
+    "dueBy": "Veuillez accepter au plus tard le {{date}}. Ensuite, les gérants n'accèdent plus qu'à cet écran ; vos collègues continuent de travailler.",
+    "held": "Le délai est échu. Tant que vous n'acceptez pas, seul cet écran est accessible.",
+    "submit": "Accepter",
+    "error": "L'acceptation n'a pas pu être enregistrée.",
+    "done": "Merci – la version actuelle est acceptée.",
+    "promptTitle": "Nouveaux textes juridiques à accepter",
+    "readNow": "Lire maintenant",
+    "later": "Plus tard"
+  },
+  "documentTypes": {
+    "tos": "Conditions d'utilisation",
+    "dpa": "Contrat de sous-traitance"
+  },
+  "platform": {
+    "title": "Textes juridiques",
+    "subtitle": "Conditions d'utilisation et contrat de sous-traitance, versionnés par langue. Une version publiée n'est jamais modifiée – une correction est une nouvelle version.",
+    "loadError": "Les textes juridiques n'ont pas pu être chargés.",
+    "empty": "Aucune version publiée.",
+    "columns": {
+      "documentType": "Document",
+      "version": "Version",
+      "language": "Langue",
+      "effectiveDate": "En vigueur dès",
+      "grace": "Délai (jours)",
+      "title": "Titre"
+    },
+    "publish": {
+      "button": "Publier une nouvelle version",
+      "title": "Publier une nouvelle version",
+      "documentType": "Document",
+      "version": "Version",
+      "versionHint": "Un à trois nombres séparés par un point, p. ex. 1.0. En dessous de 1.0, une version est un projet.",
+      "language": "Langue",
+      "effectiveDate": "En vigueur dès",
+      "documentTitle": "Titre",
+      "body": "Texte (Markdown)",
+      "grace": "Délai d'acceptation (jours)",
+      "submit": "Publier",
+      "error": "La version n'a pas pu être publiée."
+    }
+  },
+  "refusals": {
+    "dealership_not_pending": "Cette entreprise est déjà active.",
+    "legal_acceptance_missing": "Acceptez d'abord la version actuelle des conditions d'utilisation et du contrat de sous-traitance.",
+    "legal_document_empty": "Un texte juridique a besoin d’un titre et d’un texte.",
+    "legal_document_not_current": "Seule la version actuelle d’un document peut être acceptée. Rechargez la page.",
+    "legal_document_version_exists": "Cette version existe déjà dans cette langue.",
+    "legal_document_version_invalid": "Une version comporte un à trois nombres séparés par un point, p. ex. 1.0.",
+    "legal_document_version_not_newer": "Une nouvelle version doit être supérieure à la plus récente publiée.",
+    "legal_documents_not_final": "L'activation attend les versions définitives des textes juridiques (version 1.0).",
+    "legal_documents_unavailable": "Les textes juridiques ne sont pas encore publiés.",
+    "manager_only": "C'est à un gérant de cette entreprise de le faire.",
+    "setup_checklist_incomplete": "La liste de contrôle n'est pas encore complète.",
+    "setup_checklist_item_missing": "Un point de la mise en service manque : « {{item}} ». Réglez-le dans Administration › Mise en service."
+  }
+}

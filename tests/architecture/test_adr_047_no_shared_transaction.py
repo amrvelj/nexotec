@@ -336,6 +336,9 @@ _READS = {
     # Builds a PDF from content Sales supplies; persists nothing.
     "app.platform.public.render_document",
     "app.platform.public.render_standard_text",  # KAN-208: resolves and renders a text, writes nothing
+    # KAN-214 (FR-A-26): derives the setup checklist and raises when an item the
+    # action needs is incomplete; a SELECT only, nothing written.
+    "app.platform.public.require_setup_item_for",
     # KAN-225: what the Betrieb's publishing profile lacks for the website; SELECTs only.
     "app.platform.public.publishing_profile_missing_items",
     "app.platform.public.ui_language_of",  # KAN-585: the enrolment's Accept-Language; a SELECT, no commit

@@ -41,5 +41,11 @@
     "parts_order": "Parts order",
     "workshop_job": "Workshop job",
     "stock_number": "Stock number"
+  },
+  "confirm": {
+    "button": "Confirm number ranges",
+    "confirmedAt": "Confirmed on {{date}}.",
+    "notConfirmed": "Check the patterns and confirm them – it is a setup item. Confirming freezes nothing.",
+    "error": "The confirmation could not be saved."
   }
 }

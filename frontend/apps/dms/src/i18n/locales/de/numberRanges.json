@@ -41,5 +41,11 @@
     "parts_order": "Teilebestellung",
     "workshop_job": "Werkstattauftrag",
     "stock_number": "Lagernummer"
+  },
+  "confirm": {
+    "button": "Nummernkreise bestätigen",
+    "confirmedAt": "Bestätigt am {{date}}.",
+    "notConfirmed": "Prüfen Sie die Muster und bestätigen Sie sie – das ist ein Punkt der Einrichtung. Die Bestätigung friert nichts ein.",
+    "error": "Die Bestätigung konnte nicht gespeichert werden."
   }
 }

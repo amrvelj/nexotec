@@ -110,6 +110,10 @@
     "integrationExpiring": {
       "title": "Eine Integration läuft bald ab",
       "body": "Der Zugang einer Integration läuft in {{days, number}} Tagen ab. Erneuern Sie ihn unter Verwaltung › Integrationen, damit die Verbindung nicht unterbricht."
+    },
+    "checklistItemRegressed": {
+      "title": "Ein Punkt der Einrichtung fehlt wieder",
+      "body": "Ein Punkt der Einrichtungs-Checkliste ist nicht mehr erfüllt. Bis er erledigt ist, ist die Aktion gesperrt, die ihn braucht."
     }
   },
   "recoveryActions": {

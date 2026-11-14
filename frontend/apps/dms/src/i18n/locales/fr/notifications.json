@@ -110,6 +110,10 @@
     "integrationExpiring": {
       "title": "Une intégration arrive bientôt à échéance",
       "body": "L'accès d'une intégration expire dans {{days, number}} jours. Renouvelez-le sous Administration › Intégrations pour que la connexion ne s'interrompe pas."
+    },
+    "checklistItemRegressed": {
+      "title": "Un point de la configuration manque à nouveau",
+      "body": "Un point de la liste de mise en service n'est plus rempli. Tant qu'il ne l'est pas, l'action qui en a besoin est bloquée."
     }
   },
   "recoveryActions": {

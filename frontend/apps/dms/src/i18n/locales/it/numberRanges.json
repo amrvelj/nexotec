@@ -41,5 +41,11 @@
     "parts_order": "Ordine ricambi",
     "workshop_job": "Ordine di officina",
     "stock_number": "Numero di stock"
+  },
+  "confirm": {
+    "button": "Confermare le serie numeriche",
+    "confirmedAt": "Confermate il {{date}}.",
+    "notConfirmed": "Verifichi i modelli e li confermi – è un punto della configurazione. La conferma non blocca nulla.",
+    "error": "Non è stato possibile salvare la conferma."
   }
 }

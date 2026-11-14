@@ -1,0 +1,131 @@
+{
+  "title": "Setup",
+  "subtitle": "What your business needs before it starts working. Each item is read from your data – complete it on the linked screen.",
+  "pendingNotice": "Your business is being set up. Until it is activated, only Administration and My account are available.",
+  "activeNotice": "Your business is active. If an item goes missing later, only the action that needs it is blocked.",
+  "loadError": "The setup could not be loaded.",
+  "complete": "Done",
+  "missing": "Open",
+  "open": "Open",
+  "itemsTitle": "Checklist",
+  "items": {
+    "branding": {
+      "title": "Logo and brand colour",
+      "description": "The main logo is uploaded and the brand colour is set."
+    },
+    "vat_and_rounding": {
+      "title": "VAT and rounding",
+      "description": "The VAT rate (and, when VAT-registered, the VAT number) and cash rounding."
+    },
+    "bank_account": {
+      "title": "Bank account",
+      "description": "A validated IBAN or QR-IBAN account is chosen as the default account."
+    },
+    "number_ranges": {
+      "title": "Number ranges confirmed",
+      "description": "You have checked and confirmed the number ranges. They freeze at activation."
+    },
+    "location_opening_hours": {
+      "title": "Location with opening hours",
+      "description": "At least one active location has opening hours."
+    },
+    "users": {
+      "title": "Users invited",
+      "description": "At least one manager is active – in a one-person business, you are enough."
+    },
+    "publishing_profile": {
+      "title": "Publishing profile",
+      "description": "Description, legal notice and lead routing."
+    }
+  },
+  "blocks": {
+    "activation": "Blocks activation",
+    "invoice_issue": "If it goes missing after activation, invoices are blocked",
+    "numbered_document": "If it goes missing after activation, numbered documents are blocked",
+    "marketplace_publishing": "If it goes missing after activation, marketplace publishing is blocked"
+  },
+  "legal": {
+    "title": "Terms of Service and data processing",
+    "intro": "By activating, you accept the current version of both documents on behalf of the business.",
+    "due": "To accept",
+    "accepted": "Both documents are accepted.",
+    "unavailable": "The documents are not published yet. Contact Nexotec support.",
+    "notFinal": "Activation waits for the final versions of the documents (version 1.0).",
+    "draft": "Draft",
+    "version": "Version {{version}}"
+  },
+  "activate": {
+    "button": "Activate business",
+    "incomplete": "Complete every checklist item first.",
+    "title": "Activate business",
+    "intro": "Read both documents and accept them on behalf of the business.",
+    "accept": "I have read “{{title}}” (version {{version}}) and accept it on behalf of the business.",
+    "freezeWarning": "Activation freezes every number range. After that only Nexotec support can change them, with a reason.",
+    "submit": "Activate now",
+    "error": "The business could not be activated.",
+    "documentsError": "The documents could not be loaded."
+  },
+  "inProgress": {
+    "title": "Business is being set up",
+    "body": "Your business is being set up. As soon as its management activates it, every area becomes available to you.",
+    "account": "Open my account"
+  },
+  "acceptance": {
+    "title": "New version of the legal documents",
+    "intro": "There is a new version of the Terms of Service or the Data Processing Agreement. Please read and accept it on behalf of the business.",
+    "dueBy": "Please accept by {{date}} at the latest. After that, managers reach only this screen; your colleagues keep working.",
+    "held": "The deadline has passed. Until you accept, only this screen is available.",
+    "submit": "Accept",
+    "error": "The acceptance could not be saved.",
+    "done": "Thank you – the current version is accepted.",
+    "promptTitle": "New legal documents to accept",
+    "readNow": "Read now",
+    "later": "Later"
+  },
+  "documentTypes": {
+    "tos": "Terms of Service",
+    "dpa": "Data Processing Agreement"
+  },
+  "platform": {
+    "title": "Legal documents",
+    "subtitle": "Terms of Service and Data Processing Agreement, versioned per language. A published version is never changed – a correction is a new version.",
+    "loadError": "The legal documents could not be loaded.",
+    "empty": "No version published yet.",
+    "columns": {
+      "documentType": "Document",
+      "version": "Version",
+      "language": "Language",
+      "effectiveDate": "Effective from",
+      "grace": "Grace (days)",
+      "title": "Title"
+    },
+    "publish": {
+      "button": "Publish a new version",
+      "title": "Publish a new version",
+      "documentType": "Document",
+      "version": "Version",
+      "versionHint": "One to three dotted numbers, e.g. 1.0. Below 1.0 a version is a draft.",
+      "language": "Language",
+      "effectiveDate": "Effective from",
+      "documentTitle": "Title",
+      "body": "Text (Markdown)",
+      "grace": "Grace period for acceptance (days)",
+      "submit": "Publish",
+      "error": "The version could not be published."
+    }
+  },
+  "refusals": {
+    "dealership_not_pending": "This business is already active.",
+    "legal_acceptance_missing": "Accept the current Terms of Service and Data Processing Agreement first.",
+    "legal_document_empty": "A legal document needs a title and a text.",
+    "legal_document_not_current": "Only the current version of a document can be accepted. Reload the page.",
+    "legal_document_version_exists": "This version already exists in this language.",
+    "legal_document_version_invalid": "A version is one to three dotted numbers, e.g. 1.0.",
+    "legal_document_version_not_newer": "A new version must be later than the newest published one.",
+    "legal_documents_not_final": "Activation waits for the final versions of the legal documents (version 1.0).",
+    "legal_documents_unavailable": "The legal documents are not published yet.",
+    "manager_only": "A manager of this business does this.",
+    "setup_checklist_incomplete": "The checklist is not complete yet.",
+    "setup_checklist_item_missing": "A setup item is missing: “{{item}}”. Complete it under Administration › Setup."
+  }
+}

@@ -18,6 +18,7 @@ from app.platform.models.dealership_auth_config import DealershipAuthConfig
 from app.platform.models.dealership_membership import DealershipMembership
 from app.platform.models.document_template import DocumentTemplate
 from app.platform.models.export_job import ExportJob
+from app.platform.models.legal import LegalAcceptance, LegalDocument
 from app.platform.models.mfa import MfaPasskey, MfaRecoveryCode, MfaTotp
 from app.platform.models.notification import (
     Notification,
@@ -25,6 +26,7 @@ from app.platform.models.notification import (
     PushSubscription,
     UserNotificationPreference,
 )
+from app.platform.models.setup_checklist import SetupChecklistRegression
 from app.platform.models.standard_text import StandardText
 from app.platform.models.standard_text_delegation import StandardTextDelegation
 from app.platform.models.user import User
@@ -37,7 +39,7 @@ from app.platform.organisation.models.dealership_settings import DealershipSetti
 from app.platform.organisation.models.holiday_calendar import Holiday, HolidayCalendar
 from app.platform.organisation.models.location_schedule import LocationClosure, LocationOpeningHours
 from app.platform.organisation.models.module_entitlement import ModuleEntitlement
-from app.platform.organisation.models.number_range import NumberRange
+from app.platform.organisation.models.number_range import NumberRange, NumberRangeConfirmation
 from app.platform.organisation.models.publishing_profile import LocationLeadRouting, PublishingProfile
 from app.platform.organisation.services import contact_group
 from app.platform.reference.models.reference_data import ReferenceList, ReferenceValue
@@ -119,6 +121,19 @@ class PlatformExporter(TableExporter):
             ExportedTable(table=table_of(LocationLeadRouting), scope=_by_dealership(table_of(LocationLeadRouting))),
             ExportedTable(table=table_of(ModuleEntitlement), scope=_by_dealership(table_of(ModuleEntitlement))),
             ExportedTable(table=table_of(NumberRange), scope=_by_dealership(table_of(NumberRange), "tenant_id")),
+            # KAN-214: the manager's confirmations of the ranges and the Betrieb's
+            # acceptances of the ToS / DPA — its own records (the legal basis, A-1).
+            ExportedTable(
+                table=table_of(NumberRangeConfirmation), scope=_by_dealership(table_of(NumberRangeConfirmation))
+            ),
+            ExportedTable(table=table_of(LegalAcceptance), scope=_by_dealership(table_of(LegalAcceptance))),
+            ExportedTable(
+                table=table_of(SetupChecklistRegression),
+                scope=_by_dealership(table_of(SetupChecklistRegression)),
+                in_archive=False,
+                exclusion_reason="The daily job's notification ledger; the checklist itself is derived.",
+                marks_write=False,
+            ),
             ExportedTable(table=table_of(StandardText), scope=_by_dealership(table_of(StandardText))),
             ExportedTable(
                 table=table_of(StandardTextDelegation), scope=_by_dealership(table_of(StandardTextDelegation))
@@ -178,6 +193,7 @@ class PlatformExporter(TableExporter):
             ReferenceList.__tablename__: platform_reference,
             ReferenceValue.__tablename__: platform_reference,
             NotificationEvent.__tablename__: "Nexotec's catalogue of notification kinds.",
+            LegalDocument.__tablename__: "Nexotec's own Terms of Service and DPA, the same for every Betrieb.",
             UiTranslation.__tablename__: "Nexotec's interface texts.",
             UiTranslationRevision.__tablename__: "Nexotec's interface texts.",
             MissingTranslation.__tablename__: "Nexotec's interface texts.",

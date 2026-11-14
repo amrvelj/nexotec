@@ -42,6 +42,7 @@ import ns_referenceData from './en/referenceData.json'
 import ns_salesDocuments from './en/salesDocuments.json'
 import ns_salesEnums from './en/salesEnums.json'
 import ns_salesList from './en/salesList.json'
+import ns_setup from './en/setup.json'
 import ns_shell from './en/shell.json'
 import ns_standardTexts from './en/standardTexts.json'
 import ns_stockDetail from './en/stockDetail.json'
@@ -102,6 +103,7 @@ const bundle = {
   salesDocuments: ns_salesDocuments,
   salesEnums: ns_salesEnums,
   salesList: ns_salesList,
+  setup: ns_setup,
   shell: ns_shell,
   standardTexts: ns_standardTexts,
   stockDetail: ns_stockDetail,
