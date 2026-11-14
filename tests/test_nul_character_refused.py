@@ -148,8 +148,15 @@ def test_login_with_a_nul_answers_the_uniform_401(client, mailbox):
 
 
 def test_login_with_a_nul_takes_the_time_of_any_other_refusal(client, mailbox):
-    """The dummy argon2 verify runs for a NUL address too: twenty samples
-    each, the medians within 50 % of an unknown address's."""
+    """The dummy argon2 verify runs for a NUL address too: twenty-five pairs
+    of an unknown address and a NUL one, the median of the pairs' ratios
+    within 50 %.
+
+    KAN-692: the samples are paired and interleaved, each pair taken back to
+    back in alternating order, so a load change on the machine (the other
+    `pytest -n` workers) slows both of a pair alike. Taken as two batches,
+    one after the other, a burst of load during the second batch alone made
+    the ratio 1.7 to 3.6 with no difference in the code under test."""
 
     def measure(email: str, n: int) -> float:
         started = time.perf_counter()
@@ -161,10 +168,17 @@ def test_login_with_a_nul_takes_the_time_of_any_other_refusal(client, mailbox):
         assert response.status_code == 401, response.text
         return time.perf_counter() - started
 
-    unknown = [measure(f"nobody-{i}@example.ch", i) for i in range(20)]
-    nul = [measure(f"nobody-{i}\u0000@example.ch", 100 + i) for i in range(20)]
-    ratio = statistics.median(nul) / statistics.median(unknown)
-    assert 1 / 1.5 < ratio < 1.5, (statistics.median(nul), statistics.median(unknown))
+    ratios = []
+    for i in range(25):
+        if i % 2 == 0:
+            unknown = measure(f"nobody-{i}@example.ch", i)
+            nul = measure(f"nobody-{i}\u0000@example.ch", 100 + i)
+        else:
+            nul = measure(f"nobody-{i}\u0000@example.ch", 100 + i)
+            unknown = measure(f"nobody-{i}@example.ch", i)
+        ratios.append(nul / unknown)
+    ratio = statistics.median(ratios)
+    assert 1 / 1.5 < ratio < 1.5, sorted(ratios)
 
 
 def test_the_login_door_is_the_one_exemption_and_reads_no_other_string():

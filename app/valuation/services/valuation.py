@@ -37,7 +37,7 @@ from app.valuation.models.valuation import (
 )
 from app.valuation.schemas.valuation import ValuationCreate
 from app.valuation.services.contract_carry import carry_states, mark_pending, valuations_carried_by_signed_contracts
-from app.valuation.services.provider_quote import get_quote_or_404
+from app.valuation.services.provider_quote import lock_quote_for_reference_or_404
 from app.vehicle.public import CONFIGURATION_MODE_RECORD, get_configuration_for_host, match_vehicle
 
 _EVENT_PRODUCER = "valuation"
@@ -150,7 +150,7 @@ def _provider_figure(
             )
         return ValuationSource.MANUAL, data.provider_value, None
 
-    quote = get_quote_or_404(db, tenant_id=tenant_id, quote_id=data.provider_quote_id)
+    quote = lock_quote_for_reference_or_404(db, tenant_id=tenant_id, quote_id=data.provider_quote_id)
     if data.configuration_id != quote.configuration_id:
         raise UnprocessableEntityError(
             "The provider quote was fetched for another configuration.",

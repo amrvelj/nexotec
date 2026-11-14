@@ -214,9 +214,24 @@ def request_provider_quote(
     return quote
 
 
-def get_quote_or_404(db: Session, *, tenant_id: uuid.UUID, quote_id: uuid.UUID) -> ValuationProviderQuote:
-    quote = db.get(ValuationProviderQuote, quote_id)
-    if quote is None or quote.tenant_id != tenant_id:
+def lock_quote_for_reference_or_404(
+    db: Session, *, tenant_id: uuid.UUID, quote_id: uuid.UUID
+) -> ValuationProviderQuote:
+    """The quote a valuation about to be inserted will reference, read
+    `FOR KEY SHARE` (KAN-703): the lock the foreign key takes at the insert,
+    taken at the read instead, and held to the create's commit. The daily
+    purge (`provider_quote_retention.py`) locks `FOR UPDATE SKIP LOCKED`, so
+    it skips a quote a create already holds; a quote the purge holds makes
+    this read wait for the purge's commit, then find no row — the 404 any
+    vanished quote gets, never a foreign-key failure at the insert (a 500)."""
+
+    quote = db.scalar(
+        select(ValuationProviderQuote)
+        .where(ValuationProviderQuote.id == quote_id, ValuationProviderQuote.tenant_id == tenant_id)
+        .with_for_update(key_share=True)
+        .execution_options(populate_existing=True)
+    )
+    if quote is None:
         # 404, never 403 (rule 7).
         raise NotFoundError(f"Provider quote {quote_id} was not found.")
     return quote

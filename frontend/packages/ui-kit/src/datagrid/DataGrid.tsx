@@ -6,6 +6,7 @@ import { purple, radius, semantic, slate, slate25, spacing, white } from "../tok
 import { RowMenu, type RowMenuGroups } from "../components/RowMenu";
 import { formatNumber } from "../format/swissNumber";
 import { cycleSort } from "./sorting";
+import { GridCellContext } from "./cellContainment";
 import { resizeColumn, resolveColumnLayout, type ColumnLayoutState, type ColumnRegistryEntry } from "./columnLayout";
 import "./datagrid.css";
 import { ROW_HEIGHT, type Density, type EmptyStateConfig, type GridColumnDef, type GridColumnMeta, type SortSpec } from "./types";
@@ -932,7 +933,9 @@ function Cell({
         whiteSpace: "nowrap",
       }}
     >
-      {children}
+      {/* KAN-710: content that shows more than its one line (an inline
+          edit's refusal) shows it outside the clipping cell. */}
+      <GridCellContext.Provider value={true}>{children}</GridCellContext.Provider>
     </div>
   );
 }
