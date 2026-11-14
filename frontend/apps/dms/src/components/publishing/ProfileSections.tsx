@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useId, useMemo, useState } from 'react'
 import { Alert, Anchor, NumberInput, Stack, Switch, Text, TextInput } from '@mantine/core'
 import { useMutation } from '@tanstack/react-query'
 import { Banknote, Globe, Scale, Tag } from 'lucide-react'
@@ -7,6 +7,7 @@ import { Link } from 'react-router-dom'
 import { ChfInput } from '@nexotec/ui-kit'
 import { api } from '../../api/client'
 import type { LocationOverrideRead, PublishingProfileRead } from '../../api/types'
+import { useFieldHint } from '../../hooks/useFieldHint'
 import { apiRefusalText } from '../../utils/apiRefusal'
 import { SectionCard } from '../business/SectionCard'
 import { AgbDocumentField } from './AgbDocumentField'
@@ -19,7 +20,7 @@ const LISTING_LOCALISED = ['warrantyText', 'mfkStatement', 'priceDisplayWording'
 const LEGAL_LOCALISED = ['impressum', 'privacyNotice', 'withdrawalWording'] as const
 const FINANCING_MONEY = ['financingDownPaymentChf', 'financingResidualValueChf'] as const
 const FINANCING_RATES = ['financingNominalRatePct', 'financingEffectiveRatePct'] as const
-export const SOCIAL_NETWORKS = ['facebook', 'instagram', 'linkedin', 'youtube', 'tiktok'] as const
+const SOCIAL_NETWORKS = ['facebook', 'instagram', 'linkedin', 'youtube', 'tiktok'] as const
 
 const MAX_LENGTH: Record<string, number> = {
   shortDescription: 300,
@@ -106,6 +107,8 @@ function savedValues(profile: PublishingProfileRead, override: LocationOverrideR
 
 export function IdentitySection({ profile, target, override, canWrite, onWritten }: SectionProps) {
   const { t } = useTranslation()
+  const hint = useFieldHint()
+  const publishedHintId = useId()
   const betrieb = target === 'betrieb'
   const fields = betrieb ? [...IDENTITY_LOCALISED, 'websiteDomain', 'isPublished', 'socialProfiles'] : [...IDENTITY_LOCALISED]
   const saved = savedValues(profile, override)
@@ -133,8 +136,7 @@ export function IdentitySection({ profile, target, override, canWrite, onWritten
         )}
         {betrieb && (
           <TextInput
-            label={t('publishing.identity.websiteDomain')}
-            description={t('publishing.identity.websiteDomainHint')}
+            {...hint(t('publishing.identity.websiteDomain'), t('publishing.identity.websiteDomainHint'))}
             value={(s.draft.websiteDomain as string | null) ?? ''}
             readOnly={!canWrite}
             onChange={(e) => s.set('websiteDomain', e.currentTarget.value || null)}
@@ -142,8 +144,7 @@ export function IdentitySection({ profile, target, override, canWrite, onWritten
         )}
         {betrieb && (
           <Switch
-            label={t('publishing.identity.isPublished')}
-            description={t('publishing.identity.isPublishedHint')}
+            {...hint(t('publishing.identity.isPublished'), t('publishing.identity.isPublishedHint'), { descriptionId: publishedHintId })}
             checked={Boolean(s.draft.isPublished)}
             disabled={!canWrite}
             onChange={(e) => s.set('isPublished', e.currentTarget.checked)}
@@ -227,6 +228,7 @@ export function LegalSection({ profile, canWrite, onWritten }: Omit<SectionProps
 
 export function ListingDefaultsSection({ profile, target, override, canWrite, onWritten }: SectionProps) {
   const { t } = useTranslation()
+  const hint = useFieldHint()
   const fields = [...LISTING_LOCALISED, 'deliveryFeeChf']
   const s = useSectionSave(profile, target, fields, savedValues(profile, override), onWritten)
   const inherit = target !== 'betrieb'
@@ -254,8 +256,7 @@ export function ListingDefaultsSection({ profile, target, override, canWrite, on
           />
         ))}
         <ChfInput
-          label={t('publishing.fields.deliveryFeeChf')}
-          description={t('publishing.listing.deliveryFeeHint')}
+          {...hint(t('publishing.fields.deliveryFeeChf'), t('publishing.listing.deliveryFeeHint'))}
           value={money(s.draft.deliveryFeeChf)}
           readOnly={!canWrite}
           min={0}

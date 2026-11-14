@@ -577,7 +577,7 @@ def add_image(
     if len(existing) >= MAX_IMAGES_PER_KIND:
         raise UnprocessableEntityError(
             f"A location holds at most {MAX_IMAGES_PER_KIND} images of one kind.",
-            details={"reason": "too_many_images", "max": MAX_IMAGES_PER_KIND},
+            details={"reason": "too_many_images", "maxImages": MAX_IMAGES_PER_KIND},
         )
     asset_id = uuid7()
     key = image_key(profile.dealership_id, location.id, stored_kind, asset_id)

@@ -159,7 +159,17 @@
       "hint": "AutoScout24 kennt drei getrennte Begriffe: Ausstattung (suchbare Codes), Extras (Merkmale) und Eigenschaften (Zustände wie Unfallwagen)."
     },
     "publishError": "Das Inserat konnte nicht publiziert werden. Bitte erneut versuchen.",
-    "unpublishError": "Das Inserat konnte nicht depubliziert werden. Bitte erneut versuchen."
+    "unpublishError": "Das Inserat konnte nicht depubliziert werden. Bitte erneut versuchen.",
+    "website": {
+      "title": "Eigene Website",
+      "listed": "Auf der Website",
+      "notListed": "Nicht auf der Website",
+      "publish": "Auf die Website stellen",
+      "unpublish": "Von der Website nehmen",
+      "openProfile": "Angaben unter Veröffentlichung ergänzen",
+      "hint": "Die Website Ihres Betriebs, betrieben von Nexotec. Nichts wird an einen Marktplatz übermittelt.",
+      "failed": "Die Website konnte nicht geändert werden."
+    }
   },
   "evaluation": {
     "title": "Bewertung",

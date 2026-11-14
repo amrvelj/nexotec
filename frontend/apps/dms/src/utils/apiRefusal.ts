@@ -53,6 +53,18 @@ const REASON_KEYS: Record<string, string> = {
   status_transition_not_allowed: 'business.statusRefusals.status_transition_not_allowed',
   use_activation_procedure: 'business.statusRefusals.use_activation_procedure',
   use_offboarding_procedure: 'business.statusRefusals.use_offboarding_procedure',
+  // KAN-225 — the publishing profile's files and lead routing.
+  ...Object.fromEntries(
+    [
+      'agb_not_a_pdf',
+      'agb_too_large',
+      'image_not_an_image',
+      'image_too_large',
+      'image_too_small',
+      'image_unreadable',
+      'lead_recipient_not_a_user',
+    ].map((reason) => [reason, `publishing.refusals.${reason}`]),
+  ),
   // KAN-218 — the data export and offboarding.
   ...Object.fromEntries(
     [

@@ -1,7 +1,7 @@
 import { Stack, Tabs, Text, Textarea } from '@mantine/core'
 import { useTranslation } from 'react-i18next'
 
-export const PROFILE_LANGUAGES = ['de', 'fr', 'it', 'en'] as const
+const PROFILE_LANGUAGES = ['de', 'fr', 'it', 'en'] as const
 export type ProfileLanguage = (typeof PROFILE_LANGUAGES)[number]
 export type LocalisedText = Partial<Record<ProfileLanguage, string>>
 

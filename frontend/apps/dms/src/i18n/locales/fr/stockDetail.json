@@ -159,7 +159,17 @@
       "hint": "AutoScout24 distingue trois notions : équipement (codes recherchables), extras (caractéristiques) et particularités (états comme véhicule accidenté)."
     },
     "publishError": "L’annonce n’a pas pu être publiée. Veuillez réessayer.",
-    "unpublishError": "L’annonce n’a pas pu être dépubliée. Veuillez réessayer."
+    "unpublishError": "L’annonce n’a pas pu être dépubliée. Veuillez réessayer.",
+    "website": {
+      "title": "Site web propre",
+      "listed": "Sur le site",
+      "notListed": "Pas sur le site",
+      "publish": "Publier sur le site",
+      "unpublish": "Retirer du site",
+      "openProfile": "Compléter les données sous Publication",
+      "hint": "Le site web de votre entreprise, exploité par Nexotec. Rien n'est transmis à une place de marché.",
+      "failed": "Le site n'a pas pu être modifié."
+    }
   },
   "evaluation": {
     "title": "Évaluation",

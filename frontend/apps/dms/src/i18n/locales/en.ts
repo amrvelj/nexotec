@@ -35,6 +35,8 @@ import ns_offerDetail from './en/offerDetail.json'
 import ns_offerWorkspace from './en/offerWorkspace.json'
 import ns_onboarding from './en/onboarding.json'
 import ns_providerCaptions from './en/providerCaptions.json'
+import ns_publishing from './en/publishing.json'
+import ns_publishingValidation from './en/publishingValidation.json'
 import ns_recovery from './en/recovery.json'
 import ns_referenceData from './en/referenceData.json'
 import ns_salesDocuments from './en/salesDocuments.json'
@@ -93,6 +95,8 @@ const bundle = {
   offerWorkspace: ns_offerWorkspace,
   onboarding: ns_onboarding,
   providerCaptions: ns_providerCaptions,
+  publishing: ns_publishing,
+  publishingValidation: ns_publishingValidation,
   recovery: ns_recovery,
   referenceData: ns_referenceData,
   salesDocuments: ns_salesDocuments,

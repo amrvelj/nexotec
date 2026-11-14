@@ -5,6 +5,7 @@ import { Inbox } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { api } from '../../api/client'
 import type { LeadRoutingRead, LeadRoutingUpdate, PublishingProfileRead } from '../../api/types'
+import { useFieldHint } from '../../hooks/useFieldHint'
 import { apiRefusalText } from '../../utils/apiRefusal'
 import { SectionCard } from '../business/SectionCard'
 
@@ -28,6 +29,7 @@ export function LeadRoutingSection({
   onWritten: (data: PublishingProfileRead) => void
 }) {
   const { t } = useTranslation()
+  const hint = useFieldHint()
   const initial: LeadRoutingUpdate = {
     leadEmail: routing.leadEmail,
     leadPhone: routing.leadPhone,
@@ -96,8 +98,7 @@ export function LeadRoutingSection({
           onChange={(e) => set({ createsTask: e.currentTarget.checked })}
         />
         <Select
-          label={t('publishing.leadRouting.recipientRole')}
-          description={t('publishing.leadRouting.recipientRoleHint')}
+          {...hint(t('publishing.leadRouting.recipientRole'), t('publishing.leadRouting.recipientRoleHint'))}
           data={RECIPIENT_ROLES.map((role) => ({ value: role, label: t(`usersAdmin.accessRole.${role}`) }))}
           value={draft.recipientRole ?? null}
           clearable
