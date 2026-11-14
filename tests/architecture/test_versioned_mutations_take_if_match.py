@@ -124,8 +124,10 @@ POST_WITHOUT_IF_MATCH = {
 UNVERSIONED = {
     ("PUT", "/v1/dealerships/{dealership_id}/contact-groups/{value_code}"): (
         DealershipContactGroup,
-        "a Betrieb's contact-group switch (KAN-466): the row exists or it does not, and the same state twice "
-        "changes nothing",
+        (
+            "a Betrieb's contact-group switch (KAN-466): the row exists or it does not, and the same state twice "
+            "changes nothing"
+        ),
     ),
     ("DELETE", "/v1/vehicle-mdm/{vehicle_id}/accessories/{accessory_id}"): (VehicleAccessory, "an accessory row"),
     ("PATCH", "/v1/customers/{customer_id}/phones/{phone_id}"): (CustomerPhone, "a contact channel row (ADR-067)"),
