@@ -2,6 +2,15 @@
 contract allows `app.<other-context>` to import `app.sales.public`, never
 `app.sales.models` / `app.sales.services` / `app.sales.api` directly.
 
+No mapped class leaves this module (KAN-123 step 4, ADR-162). What
+valuation's and Stock's nightly reconciliation check against Sales'
+`sales_contract` table is built here (`contract_reference_check`,
+`signed_contract_carries_valuation`, `contract_carries_valuation` with
+`CarryState`, `contract_changed_since`, `uncarried_contract_carries_valuation`,
+`contract_differs_from_projection`, `unprojected_contract_check`;
+services/reconciliation_targets.py) and confined to the reconciliation
+modules by an architecture test. `ContractStatus` stays: an enum, not a table.
+
 `SalesOwnershipProvider` (KAN-200) is the ownership provider the composition
 root `app.ownership_registry` registers with `app.core.ownership`; platform
 reaches it only through that registry.
@@ -32,26 +41,38 @@ data. Valuation itself no longer asks Sales (ADR-131): Sales tells it, through
 `valuation.public`'s carry calls.
 """
 
-from app.sales.models.contract import ContractStatus, SalesContract
-from app.sales.models.offer import SalesOffer
+from app.sales.models.contract import ContractStatus
 from app.sales.services.configuration_reference import referenced_configuration_ids
 from app.sales.services.contract_status import ContractFacts, list_contract_facts
 from app.sales.services.customer_label import oldest_customer_label_age_seconds, refresh_customer_labels
 from app.sales.services.data_export import SalesExporter
 from app.sales.services.owner_label import oldest_owner_label_age_seconds, refresh_owner_labels
 from app.sales.services.ownership import SalesOwnershipProvider
+from app.sales.services.reconciliation_targets import (
+    CarryState,
+    contract_carries_valuation,
+    contract_changed_since,
+    contract_differs_from_projection,
+    contract_reference_check,
+    signed_contract_carries_valuation,
+    uncarried_contract_carries_valuation,
+    unprojected_contract_check,
+)
 from app.sales.services.trade_in_seller import TradeInSeller, get_trade_in_seller
 from app.sales.services.valuation_carry import ContractValuationCarry, trade_in_valuation_carries
 
 __all__ = [
+    "CarryState",
     "ContractFacts",
     "ContractStatus",
     "ContractValuationCarry",
-    "SalesContract",
     "SalesExporter",
-    "SalesOffer",
     "SalesOwnershipProvider",
     "TradeInSeller",
+    "contract_carries_valuation",
+    "contract_changed_since",
+    "contract_differs_from_projection",
+    "contract_reference_check",
     "get_trade_in_seller",
     "list_contract_facts",
     "oldest_customer_label_age_seconds",
@@ -59,5 +80,8 @@ __all__ = [
     "referenced_configuration_ids",
     "refresh_customer_labels",
     "refresh_owner_labels",
+    "signed_contract_carries_valuation",
     "trade_in_valuation_carries",
+    "uncarried_contract_carries_valuation",
+    "unprojected_contract_check",
 ]

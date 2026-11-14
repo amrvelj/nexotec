@@ -16,7 +16,14 @@ from app.core.base import utcnow
 from app.core.reconciliation import ReconciliationRun, ReferenceCheck, StateCheck, run_reconciliation
 from app.customer.public import Customer
 from app.platform.public import Dealership, actor_reference_checks
-from app.sales.public import ContractStatus, SalesContract
+from app.sales.public import (
+    CarryState,
+    contract_carries_valuation,
+    contract_changed_since,
+    contract_reference_check,
+    signed_contract_carries_valuation,
+    uncarried_contract_carries_valuation,
+)
 from app.valuation.models.contract_carry import ContractCarryState, ValuationContractCarry
 from app.valuation.models.valuation import Valuation, ValuationDeduction, ValuationProviderQuote
 from app.valuation.services.valuation import CONFIRMATION_GRACE
@@ -46,33 +53,20 @@ def _carried_by_a_signed_contract() -> Exists:
     """A signed contract of the valuation's own dealership carries it as its
     trade-in; signed is `signed_at` set, cancelled since included (ADR-066)."""
 
-    return (
-        select(SalesContract.id)
-        .where(
-            SalesContract.tenant_id == Valuation.tenant_id,
-            SalesContract.trade_in_valuation_id == Valuation.id,
-            SalesContract.signed_at.is_not(None),
-        )
-        .exists()
-    )
+    return signed_contract_carries_valuation(Valuation.id, tenant_id=Valuation.tenant_id)
 
 
 
-def _carry_contract(*conditions: ColumnElement[bool]) -> Exists:
+def _carry_contract(state: CarryState) -> Exists:
     """The carry row's own contract — same id, same dealership, still
-    carrying the row's valuation — in the state `conditions` name."""
+    carrying the row's valuation — in `state`."""
 
-    return (
-        select(SalesContract.id)
-        .where(
-            SalesContract.id == ValuationContractCarry.contract_id,
-            SalesContract.tenant_id == ValuationContractCarry.tenant_id,
-            SalesContract.trade_in_valuation_id == ValuationContractCarry.valuation_id,
-            *conditions,
-        )
-        .correlate(ValuationContractCarry)
-        .exists()
-    )
+    return contract_carries_valuation(
+        ValuationContractCarry.contract_id,
+        tenant_id=ValuationContractCarry.tenant_id,
+        valuation_id=ValuationContractCarry.valuation_id,
+        state=state,
+    ).correlate(ValuationContractCarry)
 
 
 def _carry_disagrees_with_its_contract() -> StateCheck:
@@ -87,16 +81,11 @@ def _carry_disagrees_with_its_contract() -> StateCheck:
 
     def where() -> ColumnElement[bool]:
         cutoff = utcnow() - _CARRY_GRACE
-        pending = _carry_contract(SalesContract.status == ContractStatus.PENDING, SalesContract.signed_at.is_(None))
-        signed = _carry_contract(SalesContract.signed_at.is_not(None))
-        carrying = _carry_contract(
-            or_(SalesContract.status == ContractStatus.PENDING, SalesContract.signed_at.is_not(None))
-        )
-        recently_written = (
-            select(SalesContract.id)
-            .where(SalesContract.id == ValuationContractCarry.contract_id, SalesContract.updated_at >= cutoff)
-            .correlate(ValuationContractCarry)
-            .exists()
+        pending = _carry_contract(CarryState.PENDING)
+        signed = _carry_contract(CarryState.SIGNED)
+        carrying = _carry_contract(CarryState.PENDING_OR_SIGNED)
+        recently_written = contract_changed_since(ValuationContractCarry.contract_id, since=cutoff).correlate(
+            ValuationContractCarry
         )
         return (
             (ValuationContractCarry.updated_at < cutoff)
@@ -125,23 +114,15 @@ def _carried_by_a_contract_valuation_does_not_know() -> StateCheck:
 
     def where() -> ColumnElement[bool]:
         cutoff = utcnow() - _CARRY_GRACE
-        return (
-            select(SalesContract.id)
-            .where(
-                SalesContract.tenant_id == Valuation.tenant_id,
-                SalesContract.trade_in_valuation_id == Valuation.id,
-                or_(SalesContract.status == ContractStatus.PENDING, SalesContract.signed_at.is_not(None)),
-                SalesContract.updated_at < cutoff,
-                ~select(ValuationContractCarry.id)
-                .where(
-                    ValuationContractCarry.valuation_id == Valuation.id,
-                    ValuationContractCarry.contract_id == SalesContract.id,
-                )
-                .exists(),
-            )
-            .correlate(Valuation)
-            .exists()
-        )
+        return uncarried_contract_carries_valuation(
+            Valuation.id,
+            tenant_id=Valuation.tenant_id,
+            changed_before=cutoff,
+            carry=lambda contract_id: select(ValuationContractCarry.id).where(
+                ValuationContractCarry.valuation_id == Valuation.id,
+                ValuationContractCarry.contract_id == contract_id,
+            ),
+        ).correlate(Valuation)
 
     return StateCheck(
         label="valuation carried by a contract it holds no carry row for",
@@ -206,13 +187,11 @@ CHECKS: list[ReferenceCheck | StateCheck] = [
     # commit failed releases the pending row it made for a contract that never
     # existed (`sales/services/valuation_carry.py::commit_carrying`), and that
     # row is meant to stay — reporting it would be a finding nothing can clear.
-    ReferenceCheck(
+    contract_reference_check(
         label="valuation_contract_carry.contract_id -> sales_contract.id",
         source_model=ValuationContractCarry,
         source_row_id_column=ValuationContractCarry.id,
         source_fk_column=ValuationContractCarry.contract_id,
-        target_model=SalesContract,
-        target_id_column=SalesContract.id,
         source_where=lambda: ValuationContractCarry.state != ContractCarryState.RELEASED,
     ),
     ReferenceCheck(

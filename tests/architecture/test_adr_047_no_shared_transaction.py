@@ -359,6 +359,18 @@ _READS = {
     # website listings — a StateCheck and an EXISTS; reads nothing itself.
     "app.inventory.public.listed_on_website_check",
     "app.inventory.public.website_listing_exists",
+    # KAN-726: the projection on an older revision than Stock stated — an EXISTS; reads nothing itself.
+    "app.inventory.public.website_listing_revision_ahead",
+    # KAN-123 step 4: what valuation's and Stock's nightly reconciliation checks
+    # against Sales' contract table, built by sales so its mapped class never
+    # leaves it — builds a ReferenceCheck, a StateCheck or an EXISTS; reads nothing itself.
+    "app.sales.public.contract_carries_valuation",
+    "app.sales.public.contract_changed_since",
+    "app.sales.public.contract_differs_from_projection",
+    "app.sales.public.contract_reference_check",
+    "app.sales.public.signed_contract_carries_valuation",
+    "app.sales.public.uncarried_contract_carries_valuation",
+    "app.sales.public.unprojected_contract_check",
     "app.valuation.public.get_valuation_or_404",
     "app.valuation.public.list_valid_valuations_for_vehicle",
     # KAN-189: the trade-in finds a valuation by VIN when the car is not in the register; a SELECT only.

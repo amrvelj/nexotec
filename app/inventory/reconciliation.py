@@ -13,7 +13,7 @@ apply_finance_invoice_issued instead.
 
 import datetime as dt
 
-from sqlalchemy import String, and_, cast, or_, select
+from sqlalchemy import and_, or_, select
 from sqlalchemy.orm import Session, aliased
 
 from app.core.base import utcnow
@@ -26,7 +26,7 @@ from app.inventory.models.stock_item_ledger import StockItemLedger
 from app.inventory.models.stock_item_publishing import PublishingState, StockItemPublishing, TransmissionStatus
 from app.inventory.models.website_listing import StockItemWebsiteListing
 from app.platform.public import Dealership, Location, actor_reference_checks
-from app.sales.public import SalesContract
+from app.sales.public import contract_differs_from_projection, contract_reference_check, unprojected_contract_check
 from app.valuation.public import valuation_final_offer_differs, valuation_reference_check
 from app.vehicle.public import VehicleConfiguration, VehicleMdm
 
@@ -211,20 +211,14 @@ def _projection_differs_from_its_contract() -> StateCheck:
         label="inventory_sales_contract differs from its sales_contract",
         source_model=InventorySalesContract,
         source_row_id_column=InventorySalesContract.id,
-        where=lambda: select(SalesContract.id)
-        .where(
-            SalesContract.id == InventorySalesContract.contract_id,
-            SalesContract.updated_at < utcnow() - _OUTBOX_LAG_GRACE,
-            (SalesContract.tenant_id != InventorySalesContract.tenant_id)
-            | (cast(SalesContract.status, String) != cast(InventorySalesContract.status, String))
-            | (SalesContract.invoice_requested_at.is_(None) != InventorySalesContract.invoice_requested_at.is_(None))
-            | (
-                SalesContract.invoice_requested_at.is_not(None)
-                & SalesContract.stock_item_id.is_distinct_from(InventorySalesContract.stock_item_id)
-            ),
-        )
-        .correlate(InventorySalesContract)
-        .exists(),
+        where=lambda: contract_differs_from_projection(
+            InventorySalesContract.contract_id,
+            tenant_id=InventorySalesContract.tenant_id,
+            status=InventorySalesContract.status,
+            invoice_requested_at=InventorySalesContract.invoice_requested_at,
+            stock_item_id=InventorySalesContract.stock_item_id,
+            changed_before=utcnow() - _OUTBOX_LAG_GRACE,
+        ).correlate(InventorySalesContract),
     )
 
 
@@ -233,18 +227,13 @@ def _contract_missing_from_the_projection() -> StateCheck:
     projection does not hold — its facts were all missed, or the projection
     backfill has not run since the deploy. The finding names the contract."""
 
-    return StateCheck(
+    return unprojected_contract_check(
         label="sales_contract missing from inventory_sales_contract",
-        source_model=SalesContract,
-        source_row_id_column=SalesContract.id,
-        where=lambda: (SalesContract.created_at < utcnow() - _OUTBOX_LAG_GRACE)
-        & ~select(InventorySalesContract.id)
-        .where(
-            InventorySalesContract.contract_id == SalesContract.id,
-            InventorySalesContract.tenant_id == SalesContract.tenant_id,
-        )
-        .correlate(SalesContract)
-        .exists(),
+        grace=_OUTBOX_LAG_GRACE,
+        projection=lambda contract_id, tenant_id: select(InventorySalesContract.id).where(
+            InventorySalesContract.contract_id == contract_id,
+            InventorySalesContract.tenant_id == tenant_id,
+        ),
     )
 
 
@@ -257,13 +246,11 @@ CHECKS: list[ReferenceCheck | StateCheck] = [
     _vin_differs_from_its_configuration(),
     _projection_differs_from_its_contract(),
     _contract_missing_from_the_projection(),
-    ReferenceCheck(
+    contract_reference_check(
         label="inventory_sales_contract.contract_id -> sales_contract.id",
         source_model=InventorySalesContract,
         source_row_id_column=InventorySalesContract.id,
         source_fk_column=InventorySalesContract.contract_id,
-        target_model=SalesContract,
-        target_id_column=SalesContract.id,
     ),
     ReferenceCheck(
         label="inventory_sales_contract.tenant_id -> dealership.id",
@@ -299,13 +286,11 @@ CHECKS: list[ReferenceCheck | StateCheck] = [
         target_id_column=Location.id,
         nullable=True,
     ),
-    ReferenceCheck(
+    contract_reference_check(
         label="stock_item.reserved_by_contract_id -> sales_contract.id",
         source_model=StockItem,
         source_row_id_column=StockItem.id,
         source_fk_column=StockItem.reserved_by_contract_id,
-        target_model=SalesContract,
-        target_id_column=SalesContract.id,
         nullable=True,  # only set while reservation_state='reserved'
     ),
     ReferenceCheck(
@@ -316,13 +301,11 @@ CHECKS: list[ReferenceCheck | StateCheck] = [
         target_model=Dealership,
         target_id_column=Dealership.id,
     ),
-    ReferenceCheck(
+    contract_reference_check(
         label="inventory_cancelled_contract.contract_id -> sales_contract.id",
         source_model=InventoryCancelledContract,
         source_row_id_column=InventoryCancelledContract.id,
         source_fk_column=InventoryCancelledContract.contract_id,
-        target_model=SalesContract,
-        target_id_column=SalesContract.id,
     ),
     # C-F (KAN-10): the configuration it was built or captured in.
     ReferenceCheck(
