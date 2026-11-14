@@ -11,7 +11,7 @@ import type { CustomerVehicleRead } from '../api/types'
 import { ValuationCreatePage } from '../modules/valuation/pages/ValuationCreatePage'
 import { ValuationsListPage } from '../modules/valuation/pages/ValuationsListPage'
 import { SpecificationTab } from '../components/vehicle-detail/SpecificationTab'
-import { VehiclesTab } from '../components/customer-detail/VehiclesTab'
+import { VehiclesTab } from '../modules/customer/components/customer-detail/VehiclesTab'
 import { nameValuationCar } from '../modules/valuation/test/nameValuationCar'
 
 // C-F (KAN-10) — the valuation host (FR-C-14, record only), Vehicle 360's

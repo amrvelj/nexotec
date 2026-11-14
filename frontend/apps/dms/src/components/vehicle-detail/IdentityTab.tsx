@@ -9,7 +9,7 @@ import { isStaleVersion } from '../../utils/apiRefusal'
 import { formatDate, formatDateOnly } from '../../utils/format'
 import { vehiclePartyRefusalMessage } from '../../utils/vehiclePartyRefusal'
 import { isPlannedNeverStarted, isUpcoming } from '../../utils/vehicleParty'
-import { CustomerDetailContent } from '../customer-detail/CustomerDetailContent'
+import { CustomerDetailContent } from '../../modules/customer'
 import type {
   VehicleMdmRead,
   VehiclePartyAllocationRead,

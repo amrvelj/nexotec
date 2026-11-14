@@ -9,7 +9,7 @@ import { installFakeBackend } from '../test/fakeBackend'
 import { customer } from '../test/fixtures'
 import type { SalesOfferRead } from '../api/types'
 import { OfferWorkspacePage } from './OfferWorkspacePage'
-import { CustomerDetailPage } from './CustomerDetailPage'
+import { CustomerDetailPage } from '../modules/customer/pages/CustomerDetailPage'
 
 // WP-6c exit criterion / ADR-059: "a customer opens as an overlay above
 // another screen without the underlying screen losing state." The one the
