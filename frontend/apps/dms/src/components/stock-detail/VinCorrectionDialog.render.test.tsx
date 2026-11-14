@@ -135,4 +135,81 @@ describe('VinCorrectionDialog (KAN-557)', () => {
     expect(onCorrected).not.toHaveBeenCalled()
     expect(onClose).not.toHaveBeenCalled()
   })
+
+  it('refuses a chassis number on a car bought under a VIN — nothing is sent', async () => {
+    const user = userEvent.setup()
+    const backend = installFakeBackend([])
+    renderDialog()
+    await screen.findByRole('dialog')
+
+    await user.type(vinField(), '1130101234568')
+    await user.type(reasonField(), 'Tippfehler')
+    await user.click(submit())
+
+    expect(await screen.findByText(i18n.t('common.invalidVin'))).toBeInTheDocument()
+    expect(backend.callsTo(PATH, 'POST')).toHaveLength(0)
+  })
+})
+
+// KAN-535 (Anto, 2026-11-14, option B): a pre-1981 car bought under its
+// chassis number has that number corrected through the same dialog.
+describe('VinCorrectionDialog on a car bought under its chassis number (KAN-535)', () => {
+  const CHASSIS = '1130101234567'
+  const OLDTIMER = { ...ITEM, vin: CHASSIS }
+  const chassisField = () =>
+    screen.getByRole('textbox', { name: (n) => n.startsWith(i18n.t('stockDetail.vinCorrection.newChassisNumberLabel')) })
+
+  function renderOldtimer() {
+    renderWithProviders(<VinCorrectionDialog opened item={OLDTIMER} onClose={vi.fn()} onCorrected={vi.fn()} />)
+  }
+
+  it('names the chassis number it changes', async () => {
+    installFakeBackend([])
+    renderOldtimer()
+    const dialog = await screen.findByRole('dialog')
+    expect(
+      within(dialog).getByText(i18n.t('stockDetail.vinCorrection.chassisBody', { stockNumber: 'S-000557' })),
+    ).toHaveTextContent('Die Chassisnummer wird auf dem Lagerfahrzeug S-000557, im Fahrzeugstamm und in der Konfiguration geändert.')
+    expect(within(dialog).getByText(i18n.t('stockDetail.vinCorrection.currentChassisNumber'))).toBeInTheDocument()
+    expect(within(dialog).getByText(CHASSIS)).toBeInTheDocument()
+  })
+
+  it('refuses a value that is no chassis number, and the unchanged one, in place — nothing is sent', async () => {
+    const user = userEvent.setup()
+    const backend = installFakeBackend([])
+    renderOldtimer()
+    await screen.findByRole('dialog')
+
+    await user.click(submit())
+    expect(await screen.findByText(i18n.t('stockDetail.vinCorrection.newChassisNumberRequired'))).toBeInTheDocument()
+
+    await user.type(chassisField(), '113-010')
+    await user.type(reasonField(), 'Tippfehler')
+    await user.click(submit())
+    expect(await screen.findByText(i18n.t('stockDetail.vinCorrection.invalidChassisNumber'))).toBeInTheDocument()
+
+    await user.clear(chassisField())
+    await user.type(chassisField(), ` ${CHASSIS} `)
+    await user.click(submit())
+    expect(await screen.findByText(i18n.t('stockDetail.vinCorrection.chassisNumberUnchanged'))).toBeInTheDocument()
+
+    expect(backend.callsTo(PATH, 'POST')).toHaveLength(0)
+  })
+
+  it.each([
+    ['another chassis number', ' 113010 1234568 ', '1130101234568'],
+    ['its real VIN', 'wdb1130421a000001', 'WDB1130421A000001'],
+  ])('POSTs %s in the one spelling', async (_case, typed, sent) => {
+    const user = userEvent.setup()
+    const backend = installFakeBackend([{ method: 'POST', match: PATH, handler: () => ({ ...OLDTIMER, vin: sent, version: 5 }) }])
+    renderOldtimer()
+    await screen.findByRole('dialog')
+
+    await user.type(chassisField(), typed)
+    await user.type(reasonField(), 'Fahrgestellnummer falsch abgeschrieben')
+    await user.click(submit())
+
+    await waitFor(() => expect(backend.callsTo(PATH, 'POST')).toHaveLength(1))
+    expect(backend.callsTo(PATH, 'POST')[0].body).toEqual({ newVin: sent, reason: 'Fahrgestellnummer falsch abgeschrieben' })
+  })
 })

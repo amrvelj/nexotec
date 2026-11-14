@@ -78,6 +78,16 @@ Last verified against main@73baf3f (2026-10-25). -->
   configuration VIN (422 `configuration_vin_differs`) · another record carries it (409
   `vin_belongs_to_other_vehicle`, `vehicleNumber`: one car, merged by platform staff, FR-V-12) · the
   record changed (409 `vehicle_vin_changed`) or was merged (409 `vehicle_merged`).
+- **A pre-1981 car's chassis number is corrected here too** (KAN-535; Anto, 2026-11-14, option B),
+  same row, audit and refusals: `newVin` takes `NormalisedVinOrChassisNumber`; the record keeps its
+  make key and first registration (the CHECK holds the date), the configuration's own date must be
+  before 1981 (422 `chassis_number_requires_pre_1981_registration`), and a collision is another record
+  of the same make key (`vehicle.public.find_vehicle_mdm_carrying_corrected_vin`: in the Betrieb's
+  stock `vin_already_in_stock`, else `vin_belongs_to_other_vehicle`). A real VIN turns it into a VIN
+  record (make key dropped; the audit row names both identities; the compensation restores the key,
+  `previous_chassis_make_key`). A car bought under a VIN takes no chassis number (422 `invalid_vin`).
+  The identity PATCH still refuses (`chassis_number_identity_fixed`). The dialog and the
+  configurator's hand-over take a chassis number on such a car (`utils/vin.ts`).
 - Not refused: another Betrieb's live item on the same record (naming it would confirm it exists) —
   its stock VIN then differs and is reported. A sold row keeps the VIN it was sold under.
 - **Rule 10:** inventory's reconciliation reports a car in stock whose VIN its record, or (a bought

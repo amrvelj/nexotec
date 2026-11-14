@@ -281,20 +281,8 @@ def test_the_identity_patch_keeps_a_chassis_number_records_number_and_pre_1981_r
     assert (stored.vin, stored.first_registration_date, stored.stammnummer) == (CHASSIS, PRE_1981, "123456789")
 
 
-def test_vin_korrigieren_leaves_a_chassis_number_record_alone(client, db_session):
-    token, item, record = _bought(client, db_session)
-
-    response = client.post(
-        f"/v1/inventory/stock-items/{item['id']}/vin-correction",
-        json={"newVin": "WDB1130421A000001", "reason": "Tippfehler"},
-        headers=_auth(_manager(token), **{"If-Match": str(item["version"])}),
-    )
-
-    assert response.status_code == 422, response.text
-    assert response.json()["error"]["details"]["reason"] == "chassis_number_identity_fixed"
-    db_session.expire_all()
-    assert db_session.get(VehicleMdm, record.id).vin == CHASSIS
-    assert db_session.get(StockItem, uuid.UUID(item["id"])).vin == CHASSIS
+# «VIN korrigieren» corrects a chassis number (Anto, 2026-11-14, option B):
+# tests/test_inventory_vin_correction_chassis_number.py.
 
 
 # --- the database holds the rule ----------------------------------------------

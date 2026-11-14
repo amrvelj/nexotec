@@ -339,13 +339,16 @@ def update_vehicle_mdm(
 def _refuse_chassis_number_identity_change(changed: dict[str, object]) -> None:
     """KAN-535: a chassis-number record's identity is its number, its make
     and its pre-1981 first registration. Its number is not changed here
-    (`chassis_number_identity_fixed`: the PATCH's `vin` takes an ISO VIN, and
-    a VIN would make it another kind of record); its first registration
-    stays before 1981 (`chassis_number_requires_pre_1981_registration`)."""
+    (`chassis_number_identity_fixed`): Anto (2026-11-14, option B) lets a
+    bought oldtimer's chassis number be corrected only through Stock's «VIN
+    korrigieren» (`vin_correction.py`), which carries the stock item and the
+    configuration along — refused here whether or not the caller's Betrieb
+    holds the car. Its first registration stays before 1981
+    (`chassis_number_requires_pre_1981_registration`)."""
 
     if "vin" in changed:
         raise UnprocessableEntityError(
-            "This car is identified by its chassis number, which is not changed here.",
+            "This car is identified by its chassis number, which is corrected only on a stock car («VIN korrigieren»).",
             details={"field": "vin", "reason": "chassis_number_identity_fixed"},
         )
     if "first_registration_date" in changed:

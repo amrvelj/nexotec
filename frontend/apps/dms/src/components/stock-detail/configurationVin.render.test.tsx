@@ -367,9 +367,9 @@ describe('Stock detail — the configurator routes a bought car\'s VIN through �
   const configuratorVin = () =>
     screen.getByRole('textbox', { name: (n) => n.startsWith(i18n.t('configurator.vehicleLink.vin')) }) as HTMLInputElement
 
-  function boughtBackend(item: StockItemRead) {
+  function boughtBackend(item: StockItemRead, configuration: Partial<ConfigurationRead> = {}) {
     const patches: Record<string, unknown>[] = []
-    let current = configurationRead({ ...RECORDED, vehicleId: item.vehicleId })
+    let current = configurationRead({ ...RECORDED, vehicleId: item.vehicleId, ...configuration })
     let stock = item
     const backend = installFakeBackend([
       ...CODED_REFERENCE_ROUTES,
@@ -468,6 +468,38 @@ describe('Stock detail — the configurator routes a bought car\'s VIN through �
     const writes = backend.calls.filter((c) => c.method !== 'GET').map((c) => `${c.method} ${c.pathname}`)
     expect(writes[0]).toBe('PATCH /configurations/cfg-1')
     expect(writes[writes.length - 1]).toBe('POST /inventory/stock-items/s1/vin-correction')
+  })
+
+  it('on an oldtimer bought under its chassis number: a corrected chassis number goes to «VIN korrigieren» (KAN-535)', async () => {
+    const user = userEvent.setup()
+    const chassis = '1130101234567'
+    const corrected = '1130101234568'
+    const oldtimer: StockItemRead = { ...BOUGHT_ITEM, vin: chassis }
+    // Its configuration carries the chassis number with a first registration before 1981 (vehicleId stays empty:
+    // a chassis number never links a record, KAN-353).
+    const { backend, patches } = boughtBackend(oldtimer, { vin: chassis, vehicleId: null, firstRegistrationDate: '1968-05-02' })
+    renderStock(oldtimer, true)
+    await openConfigurator(user)
+
+    await user.clear(configuratorVin())
+    await user.type(configuratorVin(), corrected)
+    await user.click(screen.getByRole('button', { name: i18n.t('configurator.save') }))
+
+    const dialog = await screen.findByRole('dialog', { name: i18n.t('stockDetail.vinCorrection.title') })
+    expect(patches).toHaveLength(1)
+    expect(patches[0]).not.toHaveProperty('vin')
+    const newNumber = within(dialog).getByRole('textbox', {
+      name: (n) => n.startsWith(i18n.t('stockDetail.vinCorrection.newChassisNumberLabel')),
+    })
+    expect((newNumber as HTMLInputElement).value).toBe(corrected)
+    await user.type(
+      within(dialog).getByRole('textbox', { name: (n) => n.startsWith(i18n.t('stockDetail.vinCorrection.reasonLabel')) }),
+      'Tippfehler',
+    )
+    await user.click(within(dialog).getByRole('button', { name: i18n.t('stockDetail.vinCorrection.submit') }))
+
+    await waitFor(() => expect(backend.callsTo(/\/vin-correction$/, 'POST')).toHaveLength(1))
+    expect(backend.callsTo(/\/vin-correction$/, 'POST')[0].body).toEqual({ newVin: corrected, reason: 'Tippfehler' })
   })
 
   it('on a bought car: a cancelled correction keeps the configurator open, the other fields saved', async () => {

@@ -171,7 +171,7 @@
     "contact_group_not_enabled": "Diese Kontaktgruppe ist in Ihrem Betrieb nicht eingeschaltet. Die Geschäftsführung schaltet sie unter Verwaltung › Kontaktgruppen ein.",
     "contact_group_read_only": "Diese Kontaktgruppe ist in Ihrem Betrieb nicht eingeschaltet und kann hier nicht entfernt werden.",
     "customer_contact_group_exists": "Eine Kontaktgruppe dieser Änderung ist beim Kunden bereits gesetzt – der Kunde wurde in der Zwischenzeit geändert. Laden Sie ihn neu und versuchen Sie es erneut.",
-    "chassis_number_identity_fixed": "Dieses Fahrzeug wird über seine Chassisnummer geführt; sie kann hier nicht geändert werden.",
+    "chassis_number_identity_fixed": "Dieses Fahrzeug wird über seine Chassisnummer geführt. Sie wird nur am Lagerfahrzeug mit «VIN korrigieren» korrigiert, damit Lagerfahrzeug, Fahrzeugstamm und Konfiguration dieselbe Nummer tragen.",
     "chassis_number_requires_configuration": "Ein Fahrzeug mit Chassisnummer statt VIN wird über seine Konfiguration eingekauft: Ordnen Sie die Konfiguration mit Chassisnummer, Marke und Erstzulassung zu («Konfiguration zuordnen»).",
     "chassis_number_requires_make": "Ein Fahrzeug mit Chassisnummer wird über seine Marke unterschieden: Erfassen Sie die Marke in seiner Konfiguration."
   },
