@@ -110,7 +110,7 @@ Decided rulings live in the PRD; built only where a bullet says so — check the
 
 ## Contact groups (KAN-466) — built
 - Nexotec's list `contact_group` (reference data, staff-maintained); each Betrieb switches groups on at
-  `/administration/contact-groups` (`dealership_contact_group`, a row = on, none by default; row
+  `/administration/contact-groups` (`dealership_contact_group`, a row = on, none by default; matrix row
   `dealership_settings`); copied from a sister by the `contact_groups` subset (switches on, never off).
   A group staff withdrew cannot be switched on. Guard: `test_contact_group_setting_is_administrations.py`.
 
