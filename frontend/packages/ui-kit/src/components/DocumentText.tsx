@@ -8,11 +8,14 @@ import { Anchor, Blockquote, List, Stack, Text, Title } from "@mantine/core";
  * never as HTML, so nothing in a body can inject markup:
  *
  * - `#`, `##`, `###` headings;
- * - `>` notes;
+ * - `>` notes (a block whose first line starts with `>`; later lines may
+ *   leave the `>` out);
  * - bulleted (`-`, `*`) and numbered (`1.`) lists — a line indented under an
- *   item continues it;
+ *   item continues it, and a numbered list keeps the number it starts at
+ *   (clauses «3. Haftung» … «4. Recht» set apart by body text stay 3 and 4);
  * - paragraphs (a single line break stays a line break);
- * - inline `**bold**`, `*emphasis*` / `_emphasis_` and `[text](url)` links.
+ * - inline `**bold**`, `*emphasis*` / `_emphasis_` (never inside a word:
+ *   `a_b_c` stays as written) and `[text](url)` links.
  *   A link opens only `https:`, `http:` or `mailto:`; any other target
  *   (`javascript:`, a relative path) renders its text alone.
  *
@@ -40,7 +43,13 @@ export function DocumentText({ markdown }: { markdown: string }) {
             );
           case "list":
             return (
-              <List key={index} type={block.ordered ? "ordered" : "unordered"} fz="sm" spacing={4}>
+              <List
+                key={index}
+                type={block.ordered ? "ordered" : "unordered"}
+                start={block.ordered && block.start !== 1 ? block.start : undefined}
+                fz="sm"
+                spacing={4}
+              >
                 {block.items.map((item, itemIndex) => (
                   <List.Item key={itemIndex}>
                     <span style={{ whiteSpace: "pre-line" }}>{inline(item)}</span>
@@ -63,11 +72,11 @@ export function DocumentText({ markdown }: { markdown: string }) {
 type Block =
   | { kind: "heading"; level: 1 | 2 | 3; text: string }
   | { kind: "note"; text: string }
-  | { kind: "list"; ordered: boolean; items: string[] }
+  | { kind: "list"; ordered: boolean; start: number; items: string[] }
   | { kind: "paragraph"; text: string };
 
 const BULLET = /^\s{0,3}[-*]\s+(.*)$/;
-const NUMBERED = /^\s{0,3}\d{1,3}[.)]\s+(.*)$/;
+const NUMBERED = /^\s{0,3}(\d{1,3})[.)]\s+(.*)$/;
 
 function toBlocks(markdown: string): Block[] {
   const blocks: Block[] = [];
@@ -83,20 +92,20 @@ function toBlocks(markdown: string): Block[] {
       blocks.push({ kind: "heading", level: heading[1].length as 1 | 2 | 3, text: heading[2].trim() });
       continue;
     }
-    if (lines.every((line) => /^\s*>/.test(line))) {
+    if (/^\s{0,3}>/.test(lines[0])) {
       blocks.push({ kind: "note", text: lines.map((line) => line.replace(/^\s*>\s?/, "")).join("\n") });
       continue;
     }
     // A chunk may mix a heading line, paragraph lines and list items; split
     // it into runs so each renders as what it is.
     let paragraph: string[] = [];
-    let list: { ordered: boolean; items: string[] } | null = null;
+    let list: { ordered: boolean; start: number; items: string[] } | null = null;
     const flushParagraph = () => {
       if (paragraph.length > 0) blocks.push({ kind: "paragraph", text: paragraph.join("\n").trim() });
       paragraph = [];
     };
     const flushList = () => {
-      if (list) blocks.push({ kind: "list", ordered: list.ordered, items: list.items });
+      if (list) blocks.push({ kind: "list", ordered: list.ordered, start: list.start, items: list.items });
       list = null;
     };
     for (const line of lines) {
@@ -107,8 +116,8 @@ function toBlocks(markdown: string): Block[] {
         const ordered = numbered !== null;
         flushParagraph();
         if (list && list.ordered !== ordered) flushList();
-        if (!list) list = { ordered, items: [] };
-        list.items.push(((bullet ?? numbered) as RegExpExecArray)[1].trim());
+        if (!list) list = { ordered, start: numbered ? Number(numbered[1]) : 1, items: [] };
+        list.items.push((bullet ? bullet[1] : (numbered as RegExpExecArray)[2]).trim());
       } else if (lineHeading) {
         flushParagraph();
         flushList();
@@ -131,7 +140,7 @@ function toBlocks(markdown: string): Block[] {
 const SAFE_LINK = /^(https?:|mailto:)/i;
 // Bold first, then a link, then emphasis — each match is rendered as React
 // children, never as markup.
-const INLINE = /(\*\*[^*]+\*\*|\[[^\]]+\]\([^)\s]+\)|\*[^*\s][^*]*\*|_[^_\s][^_]*_)/;
+const INLINE = /(\*\*[^*]+\*\*|\[[^\]]+\]\([^)\s]+\)|\*[^*\s][^*]*\*|(?<![\p{L}\p{N}])_[^_\s][^_]*_(?![\p{L}\p{N}]))/u;
 
 function inline(text: string): ReactNode {
   return text.split(INLINE).map((part, index) => {

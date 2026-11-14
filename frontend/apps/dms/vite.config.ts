@@ -18,7 +18,12 @@ import react from '@vitejs/plugin-react'
 // module's components loads all of them (KAN-636 step 2b, measured: the
 // valuation create dialog's load grew 15%). Every other module keeps the
 // bundler's default; module-boundaries.test.ts holds a door to re-exports.
-const DOOR = /\/src\/modules\/[^/]+\/index\.ts$/
+// The limit (KAN-636 review): a module a door re-exports whose exports go
+// unused through the door is not evaluated in the build, while vitest and the
+// dev server evaluate it — so a door-exported file must not depend on a
+// side-effect import (a CSS file, a registration) of its own; none does today.
+// The pattern names this app's own doors only, never a dependency's.
+const DOOR = /\/apps\/dms\/src\/modules\/[^/]+\/index\.ts$/
 
 export default defineConfig({
   plugins: [react()],

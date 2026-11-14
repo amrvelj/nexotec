@@ -58,4 +58,24 @@ describe("DocumentText", () => {
     expect(container.textContent).toContain("klick");
     expect(container.textContent).not.toContain("javascript:");
   });
+
+  it("keeps the number a numbered list starts at, so clauses set apart by body text keep theirs", () => {
+    const { container } = wrap(
+      <DocumentText markdown={"3. Haftung\n\nDer Betrieb haftet nach Gesetz.\n\n4. Anwendbares Recht\n\n1. a\n\n2. b"} />,
+    );
+    const lists = Array.from(container.querySelectorAll("ol"));
+    expect(lists.map((ol) => ol.getAttribute("start"))).toEqual(["3", "4", null, "2"]);
+    expect(lists.map((ol) => ol.textContent)).toEqual(["Haftung", "Anwendbares Recht", "a", "b"]);
+  });
+
+  it("leaves an underscore inside a word as written, and a note's later lines may leave out the «>»", () => {
+    const { container } = wrap(
+      <DocumentText markdown={"Feld field_name_x und _betont_.\n\n> erste Zeile\nzweite Zeile"} />,
+    );
+    expect(container.textContent).toContain("field_name_x");
+    expect(Array.from(container.querySelectorAll("em")).map((em) => em.textContent)).toEqual(["betont"]);
+    const note = container.querySelector(".mantine-Blockquote-root");
+    expect(note?.textContent).toBe("erste Zeile\nzweite Zeile");
+    expect(container.textContent).not.toContain(">");
+  });
 });
