@@ -76,7 +76,7 @@ KAN-614 (2026-11-10) to the invariants; platform.md was verified against main@73
 ## UI strings at runtime (FR-A-30…32) — built
 - `ui_translation`: namespace = a bundle's top-level object, key = the dotted path below it,
   language, `value`, `seed_value`, `source` (`bundle_seed` / `platform`), version;
-  `services/ui_translation.py` is its one writer. `scripts/import_ui_translation_bundles.py` seeds
+  `reference/services/ui_translation.py` is its one writer. `scripts/import_ui_translation_bundles.py` seeds
   `bundle_seed` rows from the bundles (dry run by default; a script, not a migration — the bundles
   live in the frontend tree and keep changing).
 - **Only `platform` values are served:** `GET /v1/i18n/{language}` is unauthenticated (the sign-in
