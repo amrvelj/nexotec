@@ -106,6 +106,7 @@ class CoreExporter(TableExporter):
                     reason=ERASURE_REASON,
                 )
                 db.commit()
+            # No harness purge covers these: the idempotency purge takes HTTP records only, none purges outbox rows.
             for model in (IdempotencyRecord, OutboxMessage):
                 rows = db.query(model).filter(model.tenant_id == scope.dealership_id)
                 if model is OutboxMessage:

@@ -234,6 +234,7 @@
     }
   },
   "statusRefusals": {
+    "status_required": "Der Status eines Betriebs kann nicht leer sein.",
     "status_not_patchable": "Der Status eines Betriebs wird hier nicht geändert: Aktivierung und Beenden sind eigene Abläufe.",
     "use_activation_procedure": "Ein Betrieb wird über die Aktivierung aktiv geschaltet, nicht über diese Änderung.",
     "use_offboarding_procedure": "Ein Betrieb wird über «Betrieb beenden» beendet, nicht über diese Änderung.",

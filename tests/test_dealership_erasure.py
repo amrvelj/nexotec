@@ -15,14 +15,14 @@ import datetime as dt
 import uuid
 
 import pytest
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.orm import sessionmaker
 
 from app.core import export as core_export
 from app.core.audit import REDACTED
 from app.core.audit_model import AuditEvent
 from app.customer.models.customer import Customer, CustomerEmail
-from app.platform.models.dealership import Dealership, Location
+from app.platform.models.dealership import DealerGroup, Dealership, DealershipStatus, Location
 from app.platform.models.export_job import ExportJob
 from app.platform.models.user import User
 from app.platform.services import offboarding
@@ -75,6 +75,85 @@ def _count(db_session, model, *where) -> int:
     return db_session.scalar(select(func.count()).select_from(model).where(*where))
 
 
+def _with_identity_filled(db_session, tenant: uuid.UUID) -> uuid.UUID:
+    """Every optional identity column of the Betrieb and its group set, so
+    the erasure has something to blank (written after the offboarding, so
+    the acknowledged export stays current)."""
+
+    db_session.execute(
+        update(Dealership)
+        .where(Dealership.id == tenant)
+        .values(
+            trade_name="Muster Autos",
+            oem_affiliations=["VW"],
+            correspondence_address_street="Postfach",
+            correspondence_address_house_number="1",
+            correspondence_address_postal_code="8001",
+            correspondence_address_locality="Zürich",
+            correspondence_address_canton="ZH",
+            correspondence_address_country="CH",
+            billing_address_street="Rechnungsweg",
+            billing_address_house_number="2",
+            billing_address_postal_code="8002",
+            billing_address_locality="Zürich",
+            billing_address_canton="ZH",
+            billing_address_country="CH",
+            vat_number="CHE-123.456.788 MWST",
+            legal_form="einzelunternehmen",
+            commercial_register_office="ZH",
+            hr_number="CH-020.1.234.567-8",
+            astra_operator_number="ZH-4711",
+            collective_vehicle_licences=[{"plateNumber": "ZH 1234 U", "canton": "ZH", "expiresOn": "2030-01-01"}],
+            association_memberships=["agvs"],
+            logo_url="https://example.ch/logo.png",
+        )
+    )
+    group_id = db_session.scalar(select(Dealership.dealer_group_id).where(Dealership.id == tenant))
+    db_session.execute(
+        update(DealerGroup)
+        .where(DealerGroup.id == group_id)
+        .values(contact_name="Hans Muster", contact_email="hans@example.ch", contact_phone="+41791234567")
+    )
+    db_session.commit()
+    before = db_session.get(Dealership, tenant)
+    assert before.uid and before.phone and before.legal_name and before.address_street
+    return group_id
+
+
+def _assert_only_the_tombstone_is_left(row: Dealership, group_id: uuid.UUID) -> None:
+    # Identity, addresses, contact, fiscal, licences and memberships: blank.
+    assert (row.legal_name, row.address_street, row.address_house_number, row.address_locality, row.phone) == (
+        "",
+        "",
+        "",
+        "",
+        "",
+    )
+    assert row.address_postal_code == "0000"
+    nulled = (
+        "trade_name",
+        "oem_affiliations",
+        "uid",
+        "vat_number",
+        "legal_form",
+        "commercial_register_office",
+        "hr_number",
+        "astra_operator_number",
+        "collective_vehicle_licences",
+        "association_memberships",
+        "logo_url",
+        *(f"{kind}_address_{part}" for kind in ("correspondence", "billing") for part in _ADDRESS_PARTS),
+    )
+    assert {name: getattr(row, name) for name in nulled} == dict.fromkeys(nulled)
+    # What the tombstone keeps: its id, group, status and the archive's dates.
+    assert row.dealer_group_id == group_id
+    assert row.status == DealershipStatus.OFFBOARDED
+    assert row.offboarded_at is not None and row.retention_until is not None
+
+
+_ADDRESS_PARTS = ("street", "house_number", "postal_code", "locality", "canton", "country")
+
+
 def test_nothing_is_deleted_on_the_archives_last_day(client, export_store, engine, db_session):
     dealership_id, _, customer, last_day = _offboarded(client, engine)
 
@@ -91,11 +170,21 @@ def test_the_day_after_everything_goes_but_the_tombstone_and_the_users(client, e
     tenant = uuid.UUID(dealership_id)
     export_keys = [job.object_key for job in db_session.scalars(select(ExportJob)) if job.object_key]
     assert export_keys and all(export_store.get(key) is not None for key in export_keys)
+    group_id = _with_identity_filled(db_session, tenant)
 
     assert _run(engine, db_session, last_day + dt.timedelta(days=1)) == []
 
     row = db_session.get(Dealership, tenant)
     assert row.erased_at is not None
+    _assert_only_the_tombstone_is_left(row, group_id)
+    # A group of one: its point of contact (and its name, the Betrieb's
+    # legal name at onboarding) goes with it.
+    group = db_session.get(DealerGroup, group_id)
+    assert (group.name, group.contact_name, group.contact_email, group.contact_phone) == ("", None, None, None)
+    # The tombstone still reads for staff (the placeholders fit the read shape).
+    read = client.get(f"/v1/dealerships/{dealership_id}", headers=staff())
+    assert read.status_code == 200, read.text
+    assert read.json()["legalName"] == "" and read.json()["uid"] is None
     assert [entry["context"] for entry in row.erasure_progress][-1] == "platform"
     # A group of one: its customers go.
     assert db_session.get(Customer, uuid.UUID(customer["id"])) is None
@@ -170,7 +259,10 @@ def test_group_owned_customers_stay_while_a_sister_holds_data(client, export_sto
 
     assert _run(engine, db_session, last_day + dt.timedelta(days=1)) == []
 
-    assert db_session.get(Dealership, uuid.UUID(dealership_id)).erased_at is not None
+    erased = db_session.get(Dealership, uuid.UUID(dealership_id))
+    assert erased.erased_at is not None and erased.legal_name == ""
+    # The group still holds a sister: its name and contact stay.
+    assert db_session.get(DealerGroup, erased.dealer_group_id).name != ""
     assert db_session.get(Customer, uuid.UUID(customer["id"])) is not None
     assert db_session.get(Customer, uuid.UUID(sisters_customer["id"])) is not None
     assert _count(db_session, Location, Location.tenant_id == uuid.UUID(dealership_id)) == 0

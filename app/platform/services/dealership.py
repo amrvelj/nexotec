@@ -321,7 +321,15 @@ def _assert_status_change(
             "The status of a Betrieb is not changed here: activation and offboarding are procedures of their own.",
             details={"reason": "status_not_patchable", "field": "status"},
         )
-    if new_status is None or new_status == dealership.status:
+    if new_status is None:
+        # The body's validator refuses a null (KAN-312); a caller past it
+        # would write NULL into the NOT NULL column, whose flush then reads
+        # as the UID conflict. Refused here as what it is.
+        raise UnprocessableEntityError(
+            "status cannot be null — leave the field out to keep its value.",
+            details={"reason": "status_required", "field": "status"},
+        )
+    if new_status == dealership.status:
         return
     if dealership.status in _TERMINAL_DEALERSHIP_STATUSES:
         raise ConflictError(

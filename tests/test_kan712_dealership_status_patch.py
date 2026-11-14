@@ -9,7 +9,10 @@ import uuid
 
 import pytest
 
+from app.core.errors import UnprocessableEntityError
 from app.platform.models.dealership import Dealership, DealershipStatus
+from app.platform.schemas.dealership import DealershipUpdate
+from app.platform.services import dealership as dealership_service
 from tests.identity_support import platform_admin_headers
 from tests.membership_support import bearer, create_dealership, token
 
@@ -111,3 +114,39 @@ def test_staff_cannot_suspend_a_betrieb_still_in_onboarding(client):
     )
     assert response.status_code == 422, response.text
     assert response.json()["error"]["details"]["reason"] == "status_transition_not_allowed"
+
+
+def test_staff_patch_with_a_null_status_is_422_and_changes_nothing(client, db_session):
+    """`status` is NOT NULL: the body's validator refuses a null (KAN-312)."""
+
+    dealership_id = create_dealership(client)
+    _set_status(db_session, dealership_id, DealershipStatus.ACTIVE)
+    response = client.patch(
+        f"/v1/dealerships/{dealership_id}",
+        json={"status": None, "tradeName": "Neu"},
+        headers={**platform_admin_headers(), "If-Match": "1"},
+    )
+    assert response.status_code == 422, response.text
+    assert "status cannot be null" in response.text
+    after = _read(client, dealership_id)
+    assert after["status"] == "active" and after["tradeName"] != "Neu" and after["version"] == 1
+
+
+def test_the_service_refuses_a_null_status_even_past_the_body_validator(client, db_session):
+    """A caller that builds the update without the validator (a script, a
+    later route) gets 422 `status_required` — never a NULL written into the
+    NOT NULL column, which surfaced as the 409 UID conflict of the flush."""
+
+    dealership_id = create_dealership(client)
+    _set_status(db_session, dealership_id, DealershipStatus.ACTIVE)
+    dealership = db_session.get(Dealership, uuid.UUID(dealership_id))
+    data = DealershipUpdate.model_construct(_fields_set={"status"}, status=None)
+
+    with pytest.raises(UnprocessableEntityError) as refused:
+        dealership_service.update_dealership(
+            db_session, dealership=dealership, data=data, actor_id=uuid.uuid4(), actor_is_staff=True
+        )
+
+    assert refused.value.details["reason"] == "status_required"
+    db_session.rollback()
+    assert _read(client, dealership_id)["status"] == "active"

@@ -49,6 +49,7 @@ const REASON_KEYS: Record<string, string> = {
   vin_differs_from_configuration: 'valuationCreate.vinDiffersFromConfiguration',
   // KAN-712 — the dealership PATCH's status rule (the Business screen sends no status).
   status_not_patchable: 'business.statusRefusals.status_not_patchable',
+  status_required: 'business.statusRefusals.status_required',
   status_transition_not_allowed: 'business.statusRefusals.status_transition_not_allowed',
   use_activation_procedure: 'business.statusRefusals.use_activation_procedure',
   use_offboarding_procedure: 'business.statusRefusals.use_offboarding_procedure',

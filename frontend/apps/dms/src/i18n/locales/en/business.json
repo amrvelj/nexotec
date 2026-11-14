@@ -234,6 +234,7 @@
     }
   },
   "statusRefusals": {
+    "status_required": "A business's status cannot be empty.",
     "status_not_patchable": "A business's status is not changed here: activation and offboarding are procedures of their own.",
     "use_activation_procedure": "A business becomes active through its activation, not through this change.",
     "use_offboarding_procedure": "A business is offboarded through «Offboard a business», not through this change.",

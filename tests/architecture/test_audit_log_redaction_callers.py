@@ -35,7 +35,8 @@ _SCAN_ROOTS = [_REPO_ROOT / "app", _REPO_ROOT / "scripts"]
 # module -> why it may call the function named in the key of _ALLOWED_CALLERS
 _ALLOWED_CALLERS: dict[str, set[str]] = {
     # ADR-121: the vehicle context's wrapper (the keys a configuration's rows copy).
-    # KAN-218 (Q3 A, ADR-121): the deletion of an offboarded Betrieb after its
+    # KAN-218 (Q3 A; ADR-121 addendum (KAN-218, proposed; Anto's answer on the
+    # ten-year deletion pending)): the deletion of an offboarded Betrieb after its
     # ten years blanks the values of every entity of its audit log; the rows stay.
     "redact_audit_values": {"app/vehicle/services/configuration.py", "app/core/export_core.py"},
     # ADR-121: the two deletions of a configuration — the discard of a host's

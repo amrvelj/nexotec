@@ -91,7 +91,8 @@ re-verified against the code. -->
   `plate_recording_refused`; past the limit `holdersWithheld`). The answer is the same POST with
   `moveFrom` (the listed assignments with their versions; each ends the day before) or
   `wechselschildWith` (one other car; a group of at most two), serialised per plate by an advisory
-  lock. Rows are never deleted — «beenden» ends one under If-Match.
+  lock. Rows are never deleted — «beenden» ends one under If-Match — except by the ten-year erasure of an
+  offboarded group (KAN-218, `app/core/export.py`; what it removes awaits Anto).
 - A sold car's plate is entered at Sales' «Rechnung anfordern», checked by
   `vehicle.public.check_plate_handover` and recorded by the consumer
   `vehicle.plate_on_invoice_requested`; a refusal there is raised — retried, then dead-lettered. The

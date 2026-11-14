@@ -83,7 +83,9 @@ Decided rulings live in the PRD; built only where a bullet says so — check the
   `POST /v1/dealerships` is deprecated in OpenAPI.
 - **Activation gate (D-A-21):** `pending_onboarding` until every applicable checklist item is done
   and the manager accepted the current ToS and DPA (D-A-34); until then only Dealer Administration
-  and My account. Only the status value exists — nothing enforces the gate yet.
+  and My account. Not enforced yet, and no route activates: the procedure is KAN-214.
+- **`status` is staff's, `active` ↔ `suspended` only** (KAN-712, ADR-165): a manager naming it is
+  422 `status_not_patchable`; activation and offboarding are procedures (`use_*_procedure`).
 - **Mail (D-A-28):** platform mail is always Nexotec's sender (`platform-identity.md`);
   customer-facing mail resolves per document type through `sending_policy` to `user_mailbox` ·
   `business_mailbox` · `verified_domain` · `nexotec_on_behalf`.
@@ -92,6 +94,13 @@ Decided rulings live in the PRD; built only where a bullet says so — check the
 - **Not in v1, by ruling:** policy limits (D-A-18), external users (D-A-20), custom fields and tags
   (D-A-29; one exception, contact tags — Anto, 2026-10-26), Saldosteuersatz (D-A-27), customer logins (D-A-13), API clients (D-A-14), Zefix
   auto-fill, AI translations, training mode.
+
+## Data export and offboarding (KAN-218, in review)
+- The manager's export is a job (`export_job`, the worker writes the ZIP); the download lives 7 days
+  through the authenticated GET — a signed URL waits for KAN-402.
+- Staff offboard (`POST /v1/platform/dealerships/{id}/offboard`) only after an acknowledged export
+  produced after the last write; the Betrieb's principals then get 404 (`app/platform/session_guard.py`).
+  Archive exports are staff-only, with a reason. A daily job erases ten years after offboarding.
 
 ## Contact groups (KAN-466) — built
 - Nexotec's list `contact_group` (reference data, staff-maintained); each Betrieb switches groups on at

@@ -234,6 +234,7 @@
     }
   },
   "statusRefusals": {
+    "status_required": "Le statut d'une entreprise ne peut pas être vide.",
     "status_not_patchable": "Le statut d'une entreprise n'est pas modifié ici : l'activation et la clôture sont des procédures à part.",
     "use_activation_procedure": "Une entreprise est activée par la procédure d'activation, pas par cette modification.",
     "use_offboarding_procedure": "Une entreprise est clôturée par « Clôturer l'entreprise », pas par cette modification.",

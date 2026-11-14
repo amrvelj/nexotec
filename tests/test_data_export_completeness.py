@@ -101,14 +101,25 @@ def test_every_context_is_in_the_registry():
 def _seed(client, engine, dealership_id, headers, manager):
     """A Betrieb with data in each built context: users and a membership, a
     customer with contact channels, a stock item, an offer with a document,
-    a valuation, a vehicle configuration."""
+    a valuation, a vehicle configuration and an integration connection."""
 
+    from sqlalchemy import select
+
+    from app.integration.models.connection import ConnectionEnvironment
+    from app.integration.models.provider import IntegrationProvider
+    from app.integration.schemas.connection import ConnectionCreate
+    from app.integration.services import connections as connection_service
     from app.inventory.models.stock_item import StockItemCondition
     from app.inventory.schemas.stock_item import StockItemCreate
     from app.inventory.services.stock_item import create_stock_item
     from app.sales.models.document import DocumentOwnerType, SalesDocument
     from app.sales.services.offer import create_offer
     from app.valuation.models.valuation import Valuation, ValuationSource
+    from app.vehicle.models.configuration import ConfigurationMatchMethod, ConfigurationMode, ConfigurationSource
+    from app.vehicle.schemas.configuration import ConfigurationCreate
+    from app.vehicle.services import configuration as configuration_service
+    from tests.configuration_test_support import MANUAL_CODED, seed_manual_coded_lists
+    from tests.identapi_support import make_provider
 
     customer = client.post(
         "/v1/customers",
@@ -155,6 +166,35 @@ def _seed(client, engine, dealership_id, headers, manager):
                 is_draft=False,
             )
         )
+        seed_manual_coded_lists(session)
+        configuration_service.create_configuration(
+            session,
+            tenant_id=tenant,
+            actor_id=uuid.UUID(manager["id"]),
+            data=ConfigurationCreate(
+                source=ConfigurationSource.MANUAL,
+                mode=ConfigurationMode.RECORD,
+                match_method=ConfigurationMatchMethod.MANUAL,
+                brand_display_name="Škoda",
+                model_group_name="Octavia",
+                variant_name="Combi",
+                **MANUAL_CODED,
+            ),
+        )
+        provider = session.scalar(
+            select(IntegrationProvider).where(IntegrationProvider.provider_code == "auto_i_dat")
+        ) or make_provider(session)
+        connection_service.create_connection(
+            session,
+            tenant_id=tenant,
+            data=ConnectionCreate(
+                provider_id=provider.id,
+                display_name="auto-i-dat",
+                environment=ConnectionEnvironment.SANDBOX,
+                config={"clientId": "nexotec-test-client"},
+            ),
+            actor_id=uuid.UUID(manager["id"]),
+        )
         session.commit()
     finally:
         session.close()
@@ -192,7 +232,19 @@ def test_a_seeded_betriebs_export_holds_exactly_its_rows(client, export_store, e
             if exported:
                 filled[exporter.context] += 1
     # The seed reached every built context's export.
-    assert {"core", "platform", "customer", "inventory", "sales", "valuation"} <= set(filled)
+    assert {"core", "platform", "customer", "inventory", "sales", "valuation", "vehicle", "integration"} <= set(filled)
+    # What the seed made for this Betrieb, counted by hand — not through the
+    # export's own scope functions, which `expected` above relies on.
+    by_hand = {
+        ("customer", "customer"): 1,
+        ("customer", "customer_phone"): 1,
+        ("customer", "customer_email"): 1,
+        ("inventory", "stock_item"): 1,
+        ("vehicle", "vehicle_configuration"): 1,
+        ("integration", "integration_connection"): 1,
+        ("valuation", "valuation"): 1,
+    }
+    assert {key: len(rows_in(archive, *key)) for key in by_hand} == by_hand
     # No row of the other Betrieb (its own id never appears as an owner).
     for name in archive.namelist():
         if name.startswith("data/") and name.endswith(".json"):

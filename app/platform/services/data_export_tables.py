@@ -4,10 +4,13 @@ master data, its locations, users and settings, and its uploaded files
 
 At the deletion after the retention period (Q3 A) the Betrieb's rows go,
 except three kept on purpose: the `dealership` row (the tombstone the users
-and the platform audit row name), the `user` rows (A-RULE-5: never deleted —
-their personal fields are minimised and their files deleted, the identity row
-and its id stay) and the dealer group (it owns nothing and may hold sisters).
-Platform runs last, after every other context (`services/offboarding.py`).
+and the platform audit row name — its identity, addresses, contact, fiscal
+and licence columns blanked, since a sole proprietor's legal name is personal
+data), the `user` rows (A-RULE-5: never deleted — their personal fields are
+minimised and their files deleted, the identity row and its id stay) and the
+dealer group (it owns nothing and may hold sisters; a group the Betrieb was
+alone in loses its name and point of contact). Platform runs last, after
+every other context (`services/offboarding.py`).
 """
 
 import logging
@@ -94,6 +97,44 @@ def _secret(table, reason: str) -> ExportedTable:
 # stamps — the trail every document and audit row names.
 _ERASED_EMAIL_DOMAIN = "erased.invalid"
 
+_ADDRESS_PARTS = ("street", "house_number", "postal_code", "locality", "canton", "country")
+
+# What the erased Betrieb's row is left with: its id, group, status, the
+# archive's dates (offboarded_at, retention_until, erasure_progress, erased_at),
+# the created/updated stamps, the version, and its configuration (franchise
+# type, brand colours, languages, VAT rate, entitlements — no one's identity).
+# Nullable columns become NULL. The NOT NULL ones take a neutral placeholder
+# that still fits DealershipRead, so staff can read the tombstone: "" for the
+# legal name, street, house number, locality and phone; "0000" for the postal
+# code (four digits, as a Swiss seat must have, and no Swiss postal code). The
+# seat's canton and country stay: the read shape needs a real canton code, and
+# a canton alone identifies no one. vat_liable stays too (a flag, no identity).
+_ERASED_DEALERSHIP = {
+    "legal_name": "",
+    "trade_name": None,
+    "oem_affiliations": None,
+    "address_street": "",
+    "address_house_number": "",
+    "address_postal_code": "0000",
+    "address_locality": "",
+    **{f"{kind}_address_{part}": None for kind in ("correspondence", "billing") for part in _ADDRESS_PARTS},
+    "phone": "",
+    "uid": None,
+    "vat_number": None,
+    "legal_form": None,
+    "commercial_register_office": None,
+    "hr_number": None,
+    "astra_operator_number": None,
+    "collective_vehicle_licences": None,
+    "association_memberships": None,
+    "logo_url": None,
+}
+
+# A group the erased Betrieb was alone in: its point of contact goes, and its
+# name too — a group of one is named after the Betrieb's legal name at
+# onboarding (services/dealership.py). `name` is NOT NULL, so "".
+_ERASED_SOLE_GROUP = {"name": "", "contact_name": None, "contact_email": None, "contact_phone": None}
+
 
 class PlatformExporter(TableExporter):
     context = "platform"
@@ -114,7 +155,10 @@ class PlatformExporter(TableExporter):
                 table=dealership,
                 scope=lambda scope: dealership.c.id == scope.dealership_id,
                 erase=False,
-                keep_reason="The tombstone the users (A-RULE-5) and the platform audit row of the deletion name.",
+                keep_reason=(
+                    "The tombstone the users (A-RULE-5) and the platform audit row of the deletion name; "
+                    "its identity, address, contact, fiscal and licence columns are blanked."
+                ),
             ),
             ExportedTable(
                 table=group,
@@ -220,8 +264,10 @@ class PlatformExporter(TableExporter):
 
     def before_erase(self, db: Session, scope: ExportScope) -> int:
         """The stored files go first (logos, photos, signatures, the export
-        ZIPs), then the users are minimised (A-RULE-5). A key the store no
-        longer holds is no error, so a rerun passes."""
+        ZIPs), then the users are minimised (A-RULE-5), the Betrieb's row is
+        reduced to its tombstone and, when it was alone in its group, the
+        group's name and contact are blanked. A key the store no longer holds
+        is no error, so a rerun passes."""
 
         store = self.store
         keys = list(
@@ -255,4 +301,17 @@ class PlatformExporter(TableExporter):
             )
             .execution_options(synchronize_session=False)
         )
+        db.execute(
+            update(Dealership)
+            .where(Dealership.id == scope.dealership_id)
+            .values(**_ERASED_DEALERSHIP, version=Dealership.version + 1)
+            .execution_options(synchronize_session=False)
+        )
+        if scope.sole_in_group:
+            db.execute(
+                update(DealerGroup)
+                .where(DealerGroup.id == scope.group_id)
+                .values(**_ERASED_SOLE_GROUP, version=DealerGroup.version + 1)
+                .execution_options(synchronize_session=False)
+            )
         return int(getattr(result, "rowcount", 0) or 0)
