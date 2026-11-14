@@ -56,6 +56,40 @@ def _edited(db, tenant_id) -> uuid.UUID:
     return config.id
 
 
+def _leaves(value):
+    """Every scalar an audit row's `before` / `after` holds, keys and values,
+    however deeply nested."""
+
+    if isinstance(value, dict):
+        for key, inner in value.items():
+            yield key
+            yield from _leaves(inner)
+    elif isinstance(value, (list, tuple)):
+        for inner in value:
+            yield from _leaves(inner)
+    else:
+        yield value
+
+
+def _personal_values_in(rows: list[AuditEvent], *, texts: tuple[str, ...], numbers: tuple[int, ...]) -> list:
+    """KAN-692 — what of the personal values any of `rows` still holds. A text
+    (VIN, plate, note) is looked for inside every string, so a copy inside a
+    label is found too; a number is compared whole, as a number or its digits
+    alone — never as a substring of the whole dump, where `2000` or `150000`
+    also turns up inside a row id or a timestamp's microseconds and failed
+    these tests at random."""
+
+    found = []
+    for row in rows:
+        for leaf in _leaves((row.before, row.after)):
+            if isinstance(leaf, str):
+                found += [(row.action, text) for text in texts if text in leaf]
+                found += [(row.action, leaf) for number in numbers if leaf.strip() == str(number)]
+            elif isinstance(leaf, (int, float)) and not isinstance(leaf, bool) and leaf in numbers:
+                found.append((row.action, leaf))
+    return found
+
+
 def _update_row(rows: list[AuditEvent]) -> AuditEvent:
     return next(row for row in rows if row.action == "update")
 
@@ -93,9 +127,9 @@ def test_the_purge_blanks_the_personal_values_in_the_configurations_own_rows(db_
         assert update_row.after[key] == REDACTED, key
     assert update_row.before["vin"] == REDACTED
     # Nothing personal anywhere in the configuration's rows.
-    text = repr([(row.before, row.after) for row in rows])
-    for value in (OLD_VIN, NEW_VIN, "ZH999999", "ZH123456", "150000", "148000", "Kunde Herr Muster"):
-        assert value not in text, value
+    assert _personal_values_in(
+        rows, texts=(OLD_VIN, NEW_VIN, "ZH999999", "ZH123456", "Kunde Herr Muster"), numbers=(150000, 148000)
+    ) == []
 
 
 def test_the_purge_records_one_redact_row_naming_rows_and_keys_never_values(db_session):
@@ -217,9 +251,9 @@ def test_rows_written_before_kan_346_with_snake_case_keys_are_redacted_too(db_se
 
     run_daily_unattached_configuration_purge(db_session, held_by_hosts=CONFIGURATION_HOSTS)
 
-    text = repr([(row.before, row.after) for row in _rows(db_session, configuration_id)])
-    for value in ("ZH 111111", "ZH 222222", "1000", "2000"):
-        assert value not in text, value
+    assert _personal_values_in(
+        _rows(db_session, configuration_id), texts=("ZH 111111", "ZH 222222"), numbers=(1000, 2000)
+    ) == []
     legacy = next(row for row in _rows(db_session, configuration_id) if row.before and "licence_plate" in row.before)
     assert legacy.before == {"licence_plate": REDACTED, "mileage_km": REDACTED, "vehicle_id": REDACTED}
     assert legacy.after == {"licence_plate": REDACTED, "mileage_km": REDACTED, "vehicle_id": None}
