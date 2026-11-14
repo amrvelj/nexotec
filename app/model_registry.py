@@ -50,6 +50,7 @@ from app.platform.models.user import User
 from app.platform.models.user_location import UserLocation
 from app.platform.models.user_preference import UserPreference
 from app.platform.organisation.models.branding_asset import BrandingAsset
+from app.platform.organisation.models.publishing_profile import LocationLeadRouting, PublishingProfile
 from app.platform.organisation.models.contact_group import DealershipContactGroup
 from app.platform.organisation.models.dealership import DealerGroup, Dealership, Location
 from app.platform.organisation.models.dealership_bank_account import DealershipBankAccount
@@ -111,6 +112,8 @@ __all__ = [
     "AuthToken",
     "Brand",
     "BrandingAsset",
+    "LocationLeadRouting",
+    "PublishingProfile",
     "ColourCache",
     "Credential",
     "Customer",

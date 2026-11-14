@@ -10,7 +10,7 @@ from typing import Literal
 from pydantic import Field, field_validator, model_validator
 
 from app.core.schemas import CamelModel
-from app.platform.organisation.models.branding_asset import BrandingAssetKind
+from app.platform.organisation.models.branding_asset import LogoKind
 from app.platform.organisation.services.brand_colors import HEX_COLOR, WCAG_AA_NORMAL_TEXT, ContrastPairName
 from app.platform.reference.schemas.patch import refuse_null_on_not_null_fields
 
@@ -87,7 +87,7 @@ class BrandingAssetRead(CamelModel):
     all). The file fields describe this variant's own file and are null
     without one."""
 
-    kind: BrandingAssetKind
+    kind: LogoKind
     source: Literal["own", "primary", "none"]
     mime_type: str | None = None
     width: int | None = None

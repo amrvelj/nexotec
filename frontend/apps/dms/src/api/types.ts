@@ -341,7 +341,7 @@ export type PeriodLockPolicy = Schemas['PeriodLockPolicy']
 export type BrandingRead = Schemas['BrandingRead']
 export type BrandingUpdate = Schemas['BrandingUpdate']
 export type BrandingAssetRead = Schemas['BrandingAssetRead']
-export type BrandingAssetKind = Schemas['BrandingAssetKind']
+export type BrandingAssetKind = Schemas['LogoKind']
 export type BrandingPlacements = Schemas['BrandingPlacements']
 export type ContrastPairRead = Schemas['ContrastPairRead']
 // KAN-206 — Dealer Administration › Letterhead and template.
