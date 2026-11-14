@@ -299,7 +299,7 @@ def test_a_valuation_created_on_a_quote_the_purge_is_deleting_is_refused_not_a_5
         def _create() -> None:
             try:
                 outcome["response"] = _valuation(client, tenant_id, configuration_id, providerQuoteId=quote["id"])
-            except Exception as exc:  # the unfixed create raises out of the TestClient
+            except IntegrityError as exc:  # the unfixed create raises it out of the TestClient
                 outcome["error"] = exc
 
         creator = threading.Thread(target=_create)
