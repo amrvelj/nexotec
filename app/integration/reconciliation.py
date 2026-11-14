@@ -20,7 +20,7 @@ from app.integration.models.entitlement import IntegrationEntitlement
 from app.integration.models.notification import IntegrationNotification
 from app.integration.models.provider import IntegrationProvider
 from app.integration.models.secret_ref import IntegrationSecretRef
-from app.platform.public import Dealership, actor_reference_checks
+from app.platform.public import Dealership, Location, actor_reference_checks
 
 CONTEXT = "integration"
 
@@ -62,6 +62,18 @@ CHECKS = [
         target_model=Dealership,
         target_id_column=Dealership.id,
         nullable=True,  # platform-scoped connections have no tenant
+    ),
+    # KAN-222: a bound connection names one of platform's locations (rule 2;
+    # the nightly `integration.location_labels` refresh leaves an id naming
+    # nothing alone, so this check is where it shows).
+    ReferenceCheck(
+        label="integration_connection.location_id -> location.id",
+        source_model=IntegrationConnection,
+        source_row_id_column=IntegrationConnection.id,
+        source_fk_column=IntegrationConnection.location_id,
+        target_model=Location,
+        target_id_column=Location.id,
+        nullable=True,  # an unbound connection serves the whole Betrieb
     ),
     ReferenceCheck(
         label="integration_secret_ref.connection_id -> integration_connection.id",

@@ -2595,7 +2595,12 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get Connection Usage */
+        /**
+         * Get Connection Usage
+         * @description KAN-222 (FR-A-23): «Nutzung anzeigen» — the period's requests per
+         *     provider counter, `?from=YYYY-MM-DD&to=YYYY-MM-DD` (both inclusive, Swiss
+         *     calendar days; the trailing 30 days by default, a year at most).
+         */
         get: operations["get_connection_usage_v1_integrations_connections__connection_id__usage_get"];
         put?: never;
         post?: never;
@@ -6439,6 +6444,8 @@ export interface components {
         };
         /** ConnectionRead */
         ConnectionRead: {
+            /** Accountidentifier */
+            accountIdentifier: string | null;
             /** Config */
             config: {
                 [key: string]: unknown;
@@ -6466,6 +6473,12 @@ export interface components {
             lastError: string | null;
             /** Lastverifiedat */
             lastVerifiedAt: string | null;
+            /** Locationbindable */
+            locationBindable: boolean;
+            /** Locationid */
+            locationId: string | null;
+            /** Locationlabel */
+            locationLabel: string | null;
             /** Providercode */
             providerCode: string;
             /**
@@ -6509,6 +6522,8 @@ export interface components {
             displayName?: string | null;
             /** Expiresat */
             expiresAt?: string | null;
+            /** Locationid */
+            locationId?: string | null;
         };
         /**
          * ConsentScope
@@ -12158,20 +12173,43 @@ export interface components {
             count: number;
         };
         /**
+         * UsageCounterRead
+         * @description One of the provider's own counters, named verbatim (FR-A-23).
+         */
+        UsageCounterRead: {
+            /** Count */
+            count: number;
+            /** Counter */
+            counter: string;
+        };
+        /**
          * UsageRead
-         * @description PR-7 — indicative only (I-2/I-3): Nexotec never bills on top of a
-         *     provider's own contract, so this is never a billing artifact.
+         * @description KAN-222 (FR-A-23) — the connection's requests in a period, per
+         *     provider counter. Counts only, never a CHF amount (Anto, 2026-11-14,
+         *     Q1 A: prices are in each Betrieb's own contract). Indicative only
+         *     (I-2/I-3): Nexotec never bills on top of a provider's own contract.
+         *     `periodFrom`/`periodTo` are calendar days in Swiss time, both inclusive.
          */
         UsageRead: {
-            /** Callsthisperiod */
-            callsThisPeriod: number;
-            /** Costunitsthisperiod */
-            costUnitsThisPeriod: string | null;
+            /** Counters */
+            counters: components["schemas"]["UsageCounterRead"][];
             /**
              * Indicative
              * @default true
              */
             indicative?: boolean;
+            /**
+             * Periodfrom
+             * Format: date
+             */
+            periodFrom: string;
+            /**
+             * Periodto
+             * Format: date
+             */
+            periodTo: string;
+            /** Totalcalls */
+            totalCalls: number;
         };
         /** UserAdminRead */
         UserAdminRead: {
@@ -20309,7 +20347,10 @@ export interface operations {
     };
     get_connection_usage_v1_integrations_connections__connection_id__usage_get: {
         parameters: {
-            query?: never;
+            query?: {
+                from?: string | null;
+                to?: string | null;
+            };
             header?: {
                 authorization?: string | null;
             };

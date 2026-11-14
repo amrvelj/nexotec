@@ -6,7 +6,10 @@ per-event.
 import datetime as dt
 import uuid
 
+from sqlalchemy import select
+
 from app.core.notifications import LoggingNotificationSender, get_notification_sender, set_notification_sender
+from app.core.outbox_model import OutboxMessage
 from app.integration.models.connection import ConnectionEnvironment, ConnectionScope
 from app.integration.models.notification import IntegrationNotification, NotificationKind
 from app.integration.models.provider import IntegrationProvider
@@ -128,22 +131,39 @@ def test_expiry_warning_skips_platform_scope_connections(db_session):
     assert sent == []
 
 
-def test_expiry_warning_sends_to_the_dealer_manager(db_session, monkeypatch):
+def test_expiry_warning_is_a_fact_on_the_outbox_never_an_email(db_session):
+    """KAN-222 (FR-A-22, D-A-40): the warning reaches the managers as an
+    in-app `administration` notification that platform raises from
+    integration's fact — integration sends no e-mail and calls no `notify`."""
+
     recording = _RecordingSender()
     set_notification_sender(recording)
     try:
         provider = _make_provider(db_session)
         tenant_id = uuid.uuid4()
         _make_manager(db_session, tenant_id=tenant_id, email="realmanager@example.com")
-        _make_connection(
+        connection = _make_connection(
             db_session, provider, tenant_id=tenant_id,
             expires_at=dt.datetime.combine(TODAY + dt.timedelta(days=7), dt.time.min, tzinfo=dt.UTC),
         )
 
-        notification_service.check_and_send_expiry_warnings(db_session, today=TODAY)
+        sent = notification_service.check_and_send_expiry_warnings(db_session, today=TODAY)
+        notification_service.check_and_send_expiry_warnings(db_session, today=TODAY)  # the same day again
 
-        assert len(recording.sent) == 1
-        assert recording.sent[0].recipient == "realmanager@example.com"
+        assert recording.sent == []
+        facts = db_session.scalars(
+            select(OutboxMessage).where(OutboxMessage.event_type == notification_service.EXPIRY_APPROACHING_EVENT)
+        ).all()
+        assert len(facts) == 1 and len(sent) == 1
+        fact = facts[0]
+        assert fact.tenant_id == tenant_id and fact.aggregate_id == connection.id
+        assert fact.payload == {
+            "connectionId": str(connection.id),
+            "dealershipId": str(tenant_id),
+            "providerCode": "auto_i_dat_mock",
+            "thresholdDays": 7,
+            "expiresAt": connection.expires_at.isoformat(),
+        }
     finally:
         _reset_sender()
 

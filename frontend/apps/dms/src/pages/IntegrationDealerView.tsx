@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next'
 import { ConnectionStatusBadge, KeyValueRow, OverviewCard, RowMenu } from '@nexotec/ui-kit'
 import { api } from '../api/client'
 import { buildConnectionRowMenu, connectionAccountIdentifier } from '../components/connectionRowMenu'
+import { BindLocationModal } from '../components/BindLocationModal'
 import { ConnectionUsageModal } from '../components/ConnectionUsageModal'
 import { DeleteConnectionModal } from '../components/DeleteConnectionModal'
 import { RotateSecretModal } from '../components/RotateSecretModal'
@@ -23,8 +24,14 @@ import type {
 import { apiRefusalText } from '../utils/apiRefusal'
 
 /**
- * WP-6 PR-7 — the dealer self-service view: cards by category, one per
- * provider. A provider with no connection yet shows a "Connect" card; a
+ * WP-6 PR-7; KAN-222 moved it under Dealer Administration
+ * (`/administration/integrations`, A-RULE-0). The dealer self-service view:
+ * cards by category, one per provider — only the categories with an
+ * available provider (Anto, 2026-11-14, Q2 A: the provider list is the
+ * catalogue, so a category appears when its first provider ships). Each card
+ * names the account at the provider (FR-A-20, «Kennung fehlt» when the
+ * configuration lacks it), the location a per-site account serves (FR-A-21)
+ * and when it was last verified. A provider with no connection yet shows a "Connect" card; a
  * connected one shows its status, account identifier (never a secret —
  * `config` never carries one, only `username`/non-secret settings) and
  * the shared row menu (Test/Secret/Disable/Enable/Delete/View usage — see
@@ -54,6 +61,7 @@ export function IntegrationDealerView() {
   const [usageFor, setUsageFor] = useState<IntegrationConnectionRead | null>(null)
   const [rotatingFor, setRotatingFor] = useState<IntegrationConnectionRead | null>(null)
   const [deletingFor, setDeletingFor] = useState<IntegrationConnectionRead | null>(null)
+  const [bindingFor, setBindingFor] = useState<IntegrationConnectionRead | null>(null)
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['integrations'] })
   // KAN-266 — one key per kind, passed the request: a retry keeps its key and
@@ -123,8 +131,13 @@ export function IntegrationDealerView() {
                     {t(`integrationEnums.environment.${connection.environment}`, connection.environment)}
                   </KeyValueRow>
                   <KeyValueRow label={t('integrationsList.fields.accountIdentifier')}>
-                    {connectionAccountIdentifier(connection)}
+                    {connectionAccountIdentifier(t, connection)}
                   </KeyValueRow>
+                  {connection.locationBindable && (
+                    <KeyValueRow label={t('integrationsList.fields.location')}>
+                      {connection.locationLabel ?? t('integrationsList.locationWholeBusiness')}
+                    </KeyValueRow>
+                  )}
                   <KeyValueRow label={t('integrationsList.fields.lastVerified')}>
                     {connection.lastVerifiedAt ? formatDate(connection.lastVerifiedAt, locale) : '—'}
                   </KeyValueRow>
@@ -144,6 +157,7 @@ export function IntegrationDealerView() {
                           onRotateSecret: () => setRotatingFor(connection),
                           onToggleEnabled: () => void toggleEnabled(connection),
                           onDelete: () => setDeletingFor(connection),
+                          onBindLocation: () => setBindingFor(connection),
                         }, provider.requiredSecretSlots)}
                       />
                     </Group>
@@ -178,6 +192,7 @@ export function IntegrationDealerView() {
         onCreatedWithoutSecret={() => void invalidate()}
       />
       <ConnectionUsageModal connection={usageFor} onClose={() => setUsageFor(null)} />
+      <BindLocationModal connection={bindingFor} onClose={() => setBindingFor(null)} onBound={() => void invalidate()} />
       <RotateSecretModal
         connection={rotatingFor}
         requiredSecretSlots={rotatingFor ? providersById.get(rotatingFor.providerId)?.requiredSecretSlots ?? [] : []}

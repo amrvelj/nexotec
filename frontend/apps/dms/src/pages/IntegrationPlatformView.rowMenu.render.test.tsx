@@ -47,7 +47,10 @@ function install() {
     { match: /^\/integrations\/providers$/, handler: () => ({ items: [PROVIDER] }) },
     {
       match: /^\/integrations\/connections\/conn-1\/usage$/,
-      handler: () => ({ callsThisPeriod: 4200, costUnitsThisPeriod: '17.25', indicative: true }),
+      handler: () => ({
+        periodFrom: '2026-10-16', periodTo: '2026-11-14', totalCalls: 4217,
+        counters: [{ counter: 'caption_code', count: 4200 }, { counter: 'oauth_token', count: 17 }], indicative: true,
+      }),
     },
     {
       method: 'PUT',
@@ -83,7 +86,8 @@ describe('IntegrationPlatformView row menu (KAN-650)', () => {
 
     expect(within(dialog).getByText(i18n.t('integrationsList.usageModal.title', { name: 'auto-i-dat Garage Nord' }))).toBeInTheDocument()
     expect(await within(dialog).findByText("4'200")).toBeInTheDocument()
-    expect(within(dialog).getByText('17.2500')).toBeInTheDocument()
+    expect(within(dialog).getByText('caption_code')).toBeInTheDocument()
+    expect(within(dialog).getByText("4'217")).toBeInTheDocument()
   })
 
   it('«Secret erneuern» opens the secret dialog and writes the slot', async () => {

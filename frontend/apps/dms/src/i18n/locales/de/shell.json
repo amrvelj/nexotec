@@ -32,7 +32,8 @@
     "onboarding": "Betrieb aufnehmen",
     "contactGroups": "Kontaktgruppen",
     "dataExport": "Datenexport",
-    "offboarding": "Betrieb beenden"
+    "offboarding": "Betrieb beenden",
+    "providers": "Anbieter"
   },
   "signOut": "Abmelden",
   "environmentNotice": {

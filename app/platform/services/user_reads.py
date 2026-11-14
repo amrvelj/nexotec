@@ -155,6 +155,27 @@ def list_dealer_manager_emails(db: Session, *, dealership_id: uuid.UUID) -> list
     return list(db.scalars(union(home_managers, managers_by_membership)).all())
 
 
+def list_dealer_manager_ids(db: Session, *, dealership_id: uuid.UUID) -> list[uuid.UUID]:
+    """KAN-222 — who the `administration` notifications of a Betrieb go to
+    (FR-A-22): its active managers, homed there or by an active membership,
+    as `list_dealer_manager_emails` counts them. Ordered for a stable fan-out."""
+
+    home_managers = select(User.id).where(
+        User.tenant_id == dealership_id, User.is_dealer_manager.is_(True), User.status == UserStatus.ACTIVE
+    )
+    managers_by_membership = (
+        select(User.id)
+        .join(DealershipMembership, DealershipMembership.user_id == User.id)
+        .where(
+            DealershipMembership.dealership_id == dealership_id,
+            DealershipMembership.is_dealer_manager.is_(True),
+            membership_is_active(),
+            User.status == UserStatus.ACTIVE,
+        )
+    )
+    return sorted(set(db.scalars(union(home_managers, managers_by_membership)).all()))
+
+
 def list_active_users_acting_in(db: Session, *, dealership_id: uuid.UUID) -> list[User]:
     """The users `get_active_user_acting_in` admits for a dealership — homed
     there or an active member, active or invited — ordered by name, for a

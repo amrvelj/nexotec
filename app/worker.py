@@ -61,6 +61,7 @@ from app.integration.consumers import (
 )
 from app.integration.consumers import handle_dealership_offboarded_message as disable_connections_on_offboarded
 from app.integration.daily_jobs import run_daily_integration_jobs
+from app.integration.public import oldest_location_label_age_seconds, refresh_location_labels
 from app.inventory.consumers import (
     handle_dealership_offboarded_message as withdraw_listings_on_offboarded,
 )
@@ -84,6 +85,7 @@ from app.inventory.public import referenced_configuration_ids as referenced_by_s
 from app.ownership_registry import register_ownership_providers
 from app.platform.consumers import (
     handle_connected_account_revoked_message,
+    handle_connection_expiry_approaching_message,
     handle_data_export_requested_message,
     handle_digest_released_message,
     handle_notification_delivered_message,
@@ -357,6 +359,15 @@ def register_handlers(transport: InProcessTransport) -> None:
         consumer_name="platform.data_export_production",
         handler=handle_data_export_requested_message,
     )
+    # KAN-222 (FR-A-22): integration's fact that a connection nears its
+    # expiry becomes its Betrieb's managers' `administration` notification —
+    # platform raises it on its own session; integration never calls notify
+    # (ADR-047).
+    transport.register(
+        "integration.connection.expiry_approaching",
+        consumer_name="platform.administration_notification_on_connection_expiry",
+        handler=handle_connection_expiry_approaching_message,
+    )
     # KAN-218 (Anto, 2026-11-14, Q3 A): an offboarded Betrieb's live listings
     # are withdrawn and its connections disabled, each context on its own
     # session (ADR-131, rule 12). Facts, not registration order (delivery is
@@ -431,6 +442,8 @@ def _heartbeat(db, transport: InProcessTransport) -> None:
     record_label_age_seconds("sales.customer", customer_label_age)
     configuration_label_age = oldest_configuration_label_age_seconds(db)
     record_label_age_seconds("inventory.configuration", configuration_label_age)
+    location_label_age = oldest_location_label_age_seconds(db)
+    record_label_age_seconds("integration.location", location_label_age)
 
     logger.info(
         "outbox heartbeat",
@@ -444,6 +457,7 @@ def _heartbeat(db, transport: InProcessTransport) -> None:
             "ownerLabelAgeSeconds": owner_label_age,
             "salesCustomerLabelAgeSeconds": customer_label_age,
             "configurationLabelAgeSeconds": configuration_label_age,
+            "connectionLocationLabelAgeSeconds": location_label_age,
         },
     )
 
@@ -489,6 +503,11 @@ def _refresh_configuration_labels(db: Session) -> None:
     logger.info("inventory.configuration_labels: %d stock item(s) relabelled", changed)
 
 
+def _refresh_location_labels(db: Session) -> None:
+    changed = refresh_location_labels(db)
+    logger.info("integration.location_labels: %d connection(s) relabelled", changed)
+
+
 def register_exports() -> None:
     """KAN-218: the export job asks every context's exporter through the
     registry, which the composition root fills."""
@@ -504,7 +523,7 @@ def register_ownership() -> None:
 
 
 def register_daily_jobs() -> None:
-    """Seventeen daily jobs, run in registration order once per day on this
+    """Eighteen daily jobs, run in registration order once per day on this
     process (app.core.daily_scheduler):
 
     1. ``integration.daily_jobs`` — ADR-025's expiry warnings, ADR-024's
@@ -536,49 +555,53 @@ def register_daily_jobs() -> None:
        edited after it was attached («Konfiguration bearbeiten», KAN-510)
        shows its new label in the stock list's «Konfiguration» column within
        a day. The item's own ``vehicle_label`` («Fahrzeug») is not touched.
-    7. ``reconciliation.run_all`` — the nightly cross-context reconciliation
+    7. ``integration.location_labels`` — KAN-222: the same for a
+       connection's copy of the name of the location it is bound to
+       (FR-A-21), through app.platform.public, so a renamed site shows on
+       the integration cards within a day.
+    8. ``reconciliation.run_all`` — the nightly cross-context reconciliation
        (P-10, CLAUDE.md rule 10). There are no cross-context foreign keys
        anywhere in this codebase, so the database cannot detect a dangling
        reference; this job walking every context's ReferenceCheck list is
        the entire compensating control. A finding is logged and swallowed (see
        app.reconciliation_runner.run_all_daily), never re-run the same day.
-    8. ``inventory.orphaned_reservations.release`` — KAN-122: Stock frees a
+    9. ``inventory.orphaned_reservations.release`` — KAN-122: Stock frees a
        car whose reservation no longer has a signed contract behind it
        (app.inventory.daily_jobs). A repair, so not part of the read-only
        reconciliation; after it, so that, when reconciliation ran first that
        day, a reservation naming a missing contract is recorded as a
        dangling reference before it is released.
-    9. ``vehicle.plate_lookup_cache.purge`` — deletes plate-lookup cache rows
+    10. ``vehicle.plate_lookup_cache.purge`` — deletes plate-lookup cache rows
        past their 30-day TTL (KAN-42, FR-C-02; revDSG data minimisation).
-    10. ``core.idempotency_records.purge`` — deletes the Idempotency-Key
+    11. ``core.idempotency_records.purge`` — deletes the Idempotency-Key
        records of HTTP requests older than 24 hours (KAN-119): a retry comes
        within minutes, and a stored response can carry personal data. The
        records a context keeps under its own path (inventory's
        ``inventory.reserve:<item>``) are left alone.
-    11. ``platform.user_expiry`` — KAN-200 (FR-A-12): a user whose
+    12. ``platform.user_expiry`` — KAN-200 (FR-A-12): a user whose
        ``valid_to`` has passed is deactivated and their open records released
        to the modules' queues; a release a module refused is retried for 30
        days (a repair of the owning step, after reconciliation like Stock's
        sweep, so the night's report still names the record first).
-    12. ``platform.notifications.digest`` — KAN-216 (FR-A-48): notifications
+    13. ``platform.notifications.digest`` — KAN-216 (FR-A-48): notifications
        held for a family set to ``digest`` reach the inbox; one push each.
-    13. ``platform.notifications.purge`` — KAN-216 (FR-A-50, FR-A-49): the
+    14. ``platform.notifications.purge`` — KAN-216 (FR-A-50, FR-A-49): the
        inbox keeps 90 days; no push subscription outlives a revoked session.
-    14. ``platform.connected_account.repair`` — KAN-559 (FR-AU-24, ADR-118):
+    15. ``platform.connected_account.repair`` — KAN-559 (FR-AU-24, ADR-118):
        every revoked connected-account grant still holding a secret reference
        is ended at the provider again (an outage longer than the outbox's
        retries, a grant revoked before its revoker was registered). A repair,
        so after reconciliation: the night's report names the grant first.
-    15. ``platform.data_exports.expire`` — KAN-218 (Anto, 2026-11-13, Q1 A):
+    16. ``platform.data_exports.expire`` — KAN-218 (Anto, 2026-11-13, Q1 A):
        an export's download stays seven days, then its file is deleted.
        No job deletes an offboarded Betrieb's archive (Anto, 2026-11-14):
        reconciliation reports one past its ten years; the deletion is manual.
-    16. ``valuation.provider_quotes.purge_unused`` — KAN-599 (Anto,
+    17. ``valuation.provider_quotes.purge_unused`` — KAN-599 (Anto,
        2026-11-13, option A): a provider quote no valuation references is
        deleted ten years after it was fetched, with an audit row; one a
        valuation references stays as long as the valuation
        (app.valuation.daily_jobs). Retention, not a repair.
-    17. ``vehicle.configurations.purge_unattached`` — KAN-270 (Anto,
+    18. ``vehicle.configurations.purge_unattached`` — KAN-270 (Anto,
        2026-11-03, option C): a configuration no host ever took is deleted
        30 days after it was created, with an audit row and
        ``vehicle.configuration.discarded``; one a host holds is stamped taken
@@ -592,24 +615,25 @@ def register_daily_jobs() -> None:
     register_daily_job("sales.owner_labels", _refresh_owner_labels)
     register_daily_job("sales.customer_labels", _refresh_customer_labels)
     register_daily_job("inventory.configuration_labels", _refresh_configuration_labels)
+    register_daily_job("integration.location_labels", _refresh_location_labels)
     register_daily_job("reconciliation.run_all", run_all_daily)
     register_daily_job("inventory.orphaned_reservations.release", run_daily_reservation_sweep)
     register_daily_job("vehicle.plate_lookup_cache.purge", run_daily_plate_lookup_purge)
     register_daily_job("core.idempotency_records.purge", run_daily_idempotency_record_purge)
-    # 11. KAN-200 (FR-A-12): a user whose `valid_to` has passed is deactivated
+    # 12. KAN-200 (FR-A-12): a user whose `valid_to` has passed is deactivated
     #    and their open records released to the modules' queues.
     register_daily_job("platform.user_expiry", run_daily_user_expiry)
-    # 12./13. KAN-216 (FR-A-48, FR-A-50): the day's digests reach the inbox
+    # 13./14. KAN-216 (FR-A-48, FR-A-50): the day's digests reach the inbox
     #    with one push each; the inbox keeps 90 days.
     register_daily_job("platform.notifications.digest", run_daily_notification_digest)
     register_daily_job("platform.notifications.purge", run_daily_notification_purge)
-    # 14. KAN-559: a revoked grant still holding a reference is ended at the provider.
+    # 15. KAN-559: a revoked grant still holding a reference is ended at the provider.
     register_daily_job("platform.connected_account.repair", run_daily_revoked_grant_repair)
-    # 15. KAN-218 (Q1 A): an export's file goes seven days after it was produced.
+    # 16. KAN-218 (Q1 A): an export's file goes seven days after it was produced.
     register_daily_job("platform.data_exports.expire", run_daily_data_export_expiry)
-    # 16. KAN-599: a provider quote no valuation references goes ten years after it was fetched.
+    # 17. KAN-599: a provider quote no valuation references goes ten years after it was fetched.
     register_daily_job("valuation.provider_quotes.purge_unused", run_daily_unused_provider_quote_purge)
-    # 17. KAN-270 (registered last): a configuration no host ever took goes after 30 days.
+    # 18. KAN-270 (registered last): a configuration no host ever took goes after 30 days.
     register_daily_job("vehicle.configurations.purge_unattached", _purge_unattached_configurations)
 
 

@@ -32,7 +32,8 @@
     "onboarding": "Intégrer une entreprise",
     "contactGroups": "Groupes de contacts",
     "dataExport": "Export des données",
-    "offboarding": "Clôturer l'entreprise"
+    "offboarding": "Clôturer l'entreprise",
+    "providers": "Fournisseurs"
   },
   "signOut": "Se déconnecter",
   "environmentNotice": {

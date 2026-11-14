@@ -37,6 +37,7 @@ const connection: IntegrationConnectionRead = {
   status: 'connected',
   enabled: true,
   config: { clientId: 'client-id-for-the-test' },
+  accountIdentifier: 'client-id-for-the-test',
   tenantId: 'dealership-1',
   createdAt: '2026-01-01T00:00:00Z',
   expiresAt: null,
