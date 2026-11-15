@@ -118,6 +118,11 @@ module folders (KAN-611). Last verified against main@73baf3f (2026-10-25). -->
   the audit log, its ids named on read (ADR-093) — a sister Betrieb and its users only while the
   group's read is enabled (ADR-030); an id nothing names renders as a translated marker, never a
   bare UUID.
+- **An offboarded Betrieb's entries leave the History tab** (KAN-722; Anto, 2026-11-15), and exactly
+  those are in its archive export — one rule, `app/core/audit_attribution.py`: the row's
+  `acting_dealership_id`, else (older rows) an author whose only Betrieb in the group is that one.
+  Every customer History write passes `acting_dealership_id` by name (`None` only for a write no
+  Betrieb made); `tests/test_kan722_offboarded_history_hidden.py` refuses one that does not.
 - `advisor_label` follows a rename within a day (`customer.advisor_labels`, `events-worker.md`);
   its batches skip a customer another writer holds, which could otherwise deadlock against a merge.
 

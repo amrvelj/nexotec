@@ -56,7 +56,7 @@ def _vehicle(db_session, vin: str):
 
 def _allocate(db, vehicle_id, customer: Customer, group_id, **period) -> VehicleParty:
     return allocate_vehicle_party(
-        db, vehicle_id=vehicle_id, customer_id=customer.id, role=OWNER, group_id=group_id, actor_id=uuid.uuid4(),
+        db, vehicle_id=vehicle_id, customer_id=customer.id, role=OWNER, group_id=group_id, actor_id=uuid.uuid4(), acting_dealership_id=None,
         **period,
     )
 
@@ -157,7 +157,7 @@ def test_a_create_from_the_customer_over_a_future_owner_is_refused(db_session):
     with pytest.raises(ConflictError) as raised:
         create_customer_vehicle(
             db_session, customer=huber, data=CustomerVehicleCreate(vehicle_id=vehicle.id, role=OWNER),
-            actor_id=uuid.uuid4(),
+            actor_id=uuid.uuid4(), acting_dealership_id=None,
         )
 
     assert raised.value.details["reason"] == "vehicle_party_future_holder"
@@ -168,14 +168,14 @@ def test_a_reopen_over_a_future_owner_is_refused_and_changes_nothing(db_session)
     vehicle = _vehicle(db_session, "WVWZZZ1KZAW583005")
     huber = _customer(db_session, group_id, "Hans", "Huber")
     huber_party = _allocate(db_session, vehicle.id, huber, group_id)
-    delete_customer_vehicle(db_session, party=huber_party, actor_id=uuid.uuid4(), group_id=group_id)
+    delete_customer_vehicle(db_session, party=huber_party, actor_id=uuid.uuid4(), acting_dealership_id=None, group_id=group_id)
     _, future = _future_owner(db_session, group_id, vehicle)
     closed_at = _rows(db_session, vehicle.id)[0].effective_to
 
     loaded = get_customer_vehicle_or_404(db_session, customer_id=huber.id, party_id=huber_party.id)
     with pytest.raises(ConflictError) as raised:
         update_customer_vehicle(
-            db_session, party=loaded, data=CustomerVehicleUpdate(effective_to=None), actor_id=uuid.uuid4(),
+            db_session, party=loaded, data=CustomerVehicleUpdate(effective_to=None), actor_id=uuid.uuid4(), acting_dealership_id=None,
             group_id=group_id,
         )
 
@@ -193,13 +193,13 @@ def test_a_reopen_ending_before_the_future_owner_starts_is_accepted(db_session):
     vehicle = _vehicle(db_session, "WVWZZZ1KZAW583006")
     huber = _customer(db_session, group_id, "Hans", "Huber")
     huber_party = _allocate(db_session, vehicle.id, huber, group_id)
-    delete_customer_vehicle(db_session, party=huber_party, actor_id=uuid.uuid4(), group_id=group_id)
+    delete_customer_vehicle(db_session, party=huber_party, actor_id=uuid.uuid4(), acting_dealership_id=None, group_id=group_id)
     _, future = _future_owner(db_session, group_id, vehicle)
     until = future.effective_from - dt.timedelta(hours=1)
 
     loaded = get_customer_vehicle_or_404(db_session, customer_id=huber.id, party_id=huber_party.id)
     reopened = update_customer_vehicle(
-        db_session, party=loaded, data=CustomerVehicleUpdate(effective_to=until), actor_id=uuid.uuid4(),
+        db_session, party=loaded, data=CustomerVehicleUpdate(effective_to=until), actor_id=uuid.uuid4(), acting_dealership_id=None,
         group_id=group_id,
     )
 

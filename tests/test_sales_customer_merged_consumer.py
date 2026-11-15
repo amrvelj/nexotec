@@ -47,7 +47,7 @@ def _customer(db: Session, group_id: uuid.UUID, tenant_id: uuid.UUID, name: str)
                 )
             ],
         ),
-        actor_id=uuid.uuid4(),
+        actor_id=uuid.uuid4(), acting_dealership_id=None,
         dealership_id=tenant_id,
     )
 
@@ -59,7 +59,7 @@ def _offer(db: Session, tenant_id: uuid.UUID, group_id: uuid.UUID, customer_id: 
 
 def _merge(db: Session, *, duplicate_id: uuid.UUID, survivor_id: uuid.UUID, group_id: uuid.UUID) -> OutboxMessage:
     loaded = customer_common_service.get_customer_or_404(db, group_id, duplicate_id)
-    customer_merge_service.merge_customer(db, customer=loaded, duplicate_of_customer_id=survivor_id, actor_id=uuid.uuid4())
+    customer_merge_service.merge_customer(db, customer=loaded, duplicate_of_customer_id=survivor_id, actor_id=uuid.uuid4(), acting_dealership_id=None)
     return db.scalars(
         select(OutboxMessage).where(
             OutboxMessage.event_type == "customer.merged", OutboxMessage.aggregate_id == duplicate_id

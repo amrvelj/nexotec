@@ -60,7 +60,7 @@ def test_an_allocation_and_its_holders_are_handed_out_as_values(db_session):
 
     party = public.allocate_vehicle_party(
         db_session, vehicle_id=vehicle.id, customer_id=holder.id, role=VehiclePartyRole.OWNER,
-        group_id=GROUP_ID, actor_id=uuid.uuid4(),
+        group_id=GROUP_ID, actor_id=uuid.uuid4(), acting_dealership_id=None,
     )
 
     assert isinstance(party, public.VehiclePartyRef)

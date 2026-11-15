@@ -51,7 +51,7 @@ def _cars(db, count=2):
 def _holder(db, vehicle, group_id, *, customer=None, role=OWNER, **dates) -> VehicleParty:
     customer = customer or _customer(db, group_id)
     return allocate_vehicle_party(
-        db, vehicle_id=vehicle.id, customer_id=customer.id, role=role, group_id=group_id, actor_id=uuid.uuid4(),
+        db, vehicle_id=vehicle.id, customer_id=customer.id, role=role, group_id=group_id, actor_id=uuid.uuid4(), acting_dealership_id=None,
         **dates,
     )
 
@@ -291,7 +291,7 @@ def test_the_same_customer_from_the_same_instant_on_both_cars_is_kept_as_a_marke
     # It never holds its role again (as KAN-177's copy).
     with pytest.raises(ConflictError) as refused:
         update_customer_vehicle(
-            db_session, party=kept, data=CustomerVehicleUpdate(effective_to=None), actor_id=uuid.uuid4(),
+            db_session, party=kept, data=CustomerVehicleUpdate(effective_to=None), actor_id=uuid.uuid4(), acting_dealership_id=None,
             group_id=group_id,
         )
     # KAN-680 (Anto, 2026-11-13, option A): its own reason, naming the survivor's VIN.
@@ -460,7 +460,7 @@ def test_a_row_waiting_for_a_planned_holder_kept_as_a_copy_waits_for_the_survivo
     assert _current(db_session, survivor) == {waiting.id}
 
     # Cancelling the planned holder («planned, never started») gives the role back.
-    delete_customer_vehicle(db_session, party=_row(db_session, planned), actor_id=uuid.uuid4(), group_id=group_id)
+    delete_customer_vehicle(db_session, party=_row(db_session, planned), actor_id=uuid.uuid4(), acting_dealership_id=None, group_id=group_id)
     db_session.commit()
     assert _row(db_session, waiting).effective_to is None
     assert _current(db_session, survivor) == {waiting.id}

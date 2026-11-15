@@ -247,10 +247,18 @@ def test_a_seeded_betriebs_export_holds_exactly_its_rows(client, export_store, e
     }
     assert {key: len(rows_in(archive, *key)) for key in by_hand} == by_hand
     # No row of the other Betrieb (its own id never appears as an owner).
+    # KAN-722: an audit row of a group customer carries the group as its
+    # tenant; the archive holds it only as one this Betrieb wrote.
+    group_id = str(scope.group_id)
     for name in archive.namelist():
         if name.startswith("data/") and name.endswith(".json"):
             for row in rows_in(archive, *name[len("data/") : -len(".json")].split("/")):
                 for column in ("tenant_id", "dealership_id"):
                     assert row.get(column) in (None, dealership_id) or (
                         name.endswith("dealership_membership.json") and row["dealership_id"] == dealership_id
+                    ) or (
+                        name == "data/core/audit_event.json"
+                        and column == "tenant_id"
+                        and row[column] == group_id
+                        and row["acting_dealership_id"] == dealership_id
                     ), (name, column)

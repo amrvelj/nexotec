@@ -110,7 +110,12 @@ def _stamp_consent_timestamp_on_grant(row: Any, changes: dict[str, Any], *, was_
 
 
 def create_customer_phone(
-    db: Session, *, customer: Customer, data: CustomerPhoneCreate, actor_id: uuid.UUID
+    db: Session,
+    *,
+    customer: Customer,
+    data: CustomerPhoneCreate,
+    actor_id: uuid.UUID,
+    acting_dealership_id: uuid.UUID | None,
 ) -> CustomerPhone:
     is_primary = data.is_primary or not _has_usable_primary(
         db, CustomerPhone, customer_id=customer.id, type_value=data.phone_type
@@ -148,6 +153,7 @@ def create_customer_phone(
         tenant_id=customer.group_id,
         action="phone_add",
         actor_id=actor_id,
+        acting_dealership_id=acting_dealership_id,
         after={
             "phoneType": phone.phone_type.value,
             "label": phone.label,
@@ -162,7 +168,12 @@ def create_customer_phone(
 
 
 def update_customer_phone(
-    db: Session, *, phone: CustomerPhone, data: CustomerPhoneUpdate, actor_id: uuid.UUID
+    db: Session,
+    *,
+    phone: CustomerPhone,
+    data: CustomerPhoneUpdate,
+    actor_id: uuid.UUID,
+    acting_dealership_id: uuid.UUID | None,
 ) -> CustomerPhone:
     changes = data.model_dump(exclude_unset=True)
     was_granted = phone.consent_granted
@@ -208,6 +219,7 @@ def update_customer_phone(
         tenant_id=phone.group_id,
         action="phone_update",
         actor_id=actor_id,
+        acting_dealership_id=acting_dealership_id,
         before=before,
         after={
             "phoneType": phone.phone_type.value,
@@ -266,7 +278,13 @@ def _assert_not_last_contact_point(db: Session, row: CustomerPhone | CustomerEma
         )
 
 
-def delete_customer_phone(db: Session, *, phone: CustomerPhone, actor_id: uuid.UUID) -> None:
+def delete_customer_phone(
+    db: Session,
+    *,
+    phone: CustomerPhone,
+    actor_id: uuid.UUID,
+    acting_dealership_id: uuid.UUID | None,
+) -> None:
     _assert_not_last_contact_point(db, phone, removing="phone number")
     record_audit_event(
         db,
@@ -275,6 +293,7 @@ def delete_customer_phone(db: Session, *, phone: CustomerPhone, actor_id: uuid.U
         tenant_id=phone.group_id,
         action="phone_remove",
         actor_id=actor_id,
+        acting_dealership_id=acting_dealership_id,
         before={
             "phoneType": phone.phone_type.value,
             "label": phone.label,
@@ -307,7 +326,12 @@ def get_customer_email_or_404(
 
 
 def create_customer_email(
-    db: Session, *, customer: Customer, data: CustomerEmailCreate, actor_id: uuid.UUID
+    db: Session,
+    *,
+    customer: Customer,
+    data: CustomerEmailCreate,
+    actor_id: uuid.UUID,
+    acting_dealership_id: uuid.UUID | None,
 ) -> CustomerEmail:
     is_primary = data.is_primary or not _has_usable_primary(
         db, CustomerEmail, customer_id=customer.id, type_value=data.email_type
@@ -344,6 +368,7 @@ def create_customer_email(
         tenant_id=customer.group_id,
         action="email_add",
         actor_id=actor_id,
+        acting_dealership_id=acting_dealership_id,
         after={
             "emailType": email.email_type.value,
             "label": email.label,
@@ -358,7 +383,12 @@ def create_customer_email(
 
 
 def update_customer_email(
-    db: Session, *, email: CustomerEmail, data: CustomerEmailUpdate, actor_id: uuid.UUID
+    db: Session,
+    *,
+    email: CustomerEmail,
+    data: CustomerEmailUpdate,
+    actor_id: uuid.UUID,
+    acting_dealership_id: uuid.UUID | None,
 ) -> CustomerEmail:
     changes = data.model_dump(exclude_unset=True)
     was_granted = email.consent_granted
@@ -402,6 +432,7 @@ def update_customer_email(
         tenant_id=email.group_id,
         action="email_update",
         actor_id=actor_id,
+        acting_dealership_id=acting_dealership_id,
         before=before,
         after={
             "emailType": email.email_type.value,
@@ -416,7 +447,13 @@ def update_customer_email(
     return email
 
 
-def delete_customer_email(db: Session, *, email: CustomerEmail, actor_id: uuid.UUID) -> None:
+def delete_customer_email(
+    db: Session,
+    *,
+    email: CustomerEmail,
+    actor_id: uuid.UUID,
+    acting_dealership_id: uuid.UUID | None,
+) -> None:
     _assert_not_last_contact_point(db, email, removing="email address")
     record_audit_event(
         db,
@@ -425,6 +462,7 @@ def delete_customer_email(db: Session, *, email: CustomerEmail, actor_id: uuid.U
         tenant_id=email.group_id,
         action="email_remove",
         actor_id=actor_id,
+        acting_dealership_id=acting_dealership_id,
         before={
             "emailType": email.email_type.value,
             "label": email.label,

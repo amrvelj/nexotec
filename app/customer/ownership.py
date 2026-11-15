@@ -87,6 +87,7 @@ class CustomerOwnershipProvider:
                 to_user_id=transfer.to_user_id,
                 to_label=transfer.to_label,
                 actor_id=actor_id,
+                acting_dealership_id=dealership_id,
                 reason=reason,
             )
             db.commit()
@@ -139,6 +140,7 @@ def _transfer_customers(
     to_user_id: uuid.UUID | None,
     to_label: str | None,
     actor_id: uuid.UUID | None,
+    acting_dealership_id: uuid.UUID,
     reason: str | None,
 ) -> int:
     rows = list(
@@ -173,6 +175,7 @@ def _transfer_customers(
             tenant_id=customer.group_id,
             action="update",
             actor_id=actor_id,
+            acting_dealership_id=acting_dealership_id,
             before=before,
             after={"advisor_id": str(to_user_id) if to_user_id is not None else None},
             reason=reason or "ownership_transferred",

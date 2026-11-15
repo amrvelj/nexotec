@@ -86,7 +86,7 @@ def _customer(db_session, group_id, *, with_address=True):
             emails=[CustomerEmailCreate(email_type="personal", email_address="didier@example.ch", is_primary=True)],
             addresses=addresses,
         ),
-        actor_id=uuid.uuid4(),
+        actor_id=uuid.uuid4(), acting_dealership_id=None,
         dealership_id=uuid.uuid4(),
     )
 
@@ -319,7 +319,7 @@ def test_credit_block_stops_the_contract(db_session, engine):
     # customer has a usable address (via _stock_contract) so the refusal is
     # the credit block, not the D-20 address gate that follows it.
     contract, _item, customer = _stock_contract(db_session, dealership.id, group_id)
-    set_credit_block(db_session, customer=customer, blocked=True, reason="Zahlungsverzug", actor_id=uuid.uuid4())
+    set_credit_block(db_session, customer=customer, blocked=True, reason="Zahlungsverzug", actor_id=uuid.uuid4(), acting_dealership_id=None)
 
     with pytest.raises(ConflictError) as exc:
         confirm_contract(db_session, contract=contract, group_id=group_id, actor_id=uuid.uuid4(), session_factory=_session_factory(engine))
@@ -335,7 +335,7 @@ def test_do_not_contact_also_stops_the_contract(db_session, engine):
         db_session,
         customer=customer,
         data=CustomerUpdate(lifecycle_status="do_not_contact"),
-        actor_id=uuid.uuid4(),
+        actor_id=uuid.uuid4(), acting_dealership_id=None,
         dealership_id=uuid.uuid4(),
     )
 
@@ -358,7 +358,7 @@ def test_do_not_contact_also_stops_attaching_the_customer_to_an_offer(db_session
         db_session,
         customer=customer,
         data=CustomerUpdate(lifecycle_status="do_not_contact"),
-        actor_id=uuid.uuid4(),
+        actor_id=uuid.uuid4(), acting_dealership_id=None,
         dealership_id=uuid.uuid4(),
     )
 
@@ -377,7 +377,7 @@ def test_credit_block_does_not_stop_offer_creation_or_editing(db_session):
     dealership = _dealership(db_session)
     group_id = uuid.uuid4()
     customer = _customer(db_session, group_id)
-    set_credit_block(db_session, customer=customer, blocked=True, reason="Test", actor_id=uuid.uuid4())
+    set_credit_block(db_session, customer=customer, blocked=True, reason="Test", actor_id=uuid.uuid4(), acting_dealership_id=None)
 
     offer = create_offer(db_session, tenant_id=dealership.id, actor_id=uuid.uuid4())
     updated = update_offer(
@@ -447,7 +447,7 @@ def test_confirm_contract_refused_for_billing_address_but_no_domicile(db_session
             address_type="billing", address_street="Rechnungsweg", address_house_number="2",
             address_postal_code="3011", address_locality="Bern", address_country="CH", is_primary=True,
         ),
-        actor_id=uuid.uuid4(),
+        actor_id=uuid.uuid4(), acting_dealership_id=None,
     )
 
     with pytest.raises(ConflictError) as exc:
@@ -464,7 +464,7 @@ def test_a_prohibition_is_named_before_the_missing_address(db_session, engine):
     dealership = _dealership(db_session)
     group_id = uuid.uuid4()
     contract, _item, customer = _stock_contract(db_session, dealership.id, group_id, with_address=False)
-    set_credit_block(db_session, customer=customer, blocked=True, reason="Zahlungsverzug", actor_id=uuid.uuid4())
+    set_credit_block(db_session, customer=customer, blocked=True, reason="Zahlungsverzug", actor_id=uuid.uuid4(), acting_dealership_id=None)
 
     with pytest.raises(ConflictError) as exc:
         confirm_contract(db_session, contract=contract, group_id=group_id, actor_id=uuid.uuid4(), session_factory=_session_factory(engine))
@@ -614,7 +614,7 @@ def test_a_prohibition_is_named_before_missing_vehicle(db_session, engine):
     )
     update_customer(
         db_session, customer=customer, data=CustomerUpdate(lifecycle_status="do_not_contact"),
-        actor_id=uuid.uuid4(), dealership_id=uuid.uuid4(),
+        actor_id=uuid.uuid4(), acting_dealership_id=None, dealership_id=uuid.uuid4(),
     )
 
     with pytest.raises(ConflictError) as exc:

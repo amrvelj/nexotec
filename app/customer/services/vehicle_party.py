@@ -41,7 +41,12 @@ from app.vehicle.public import get_vehicle_mdm_or_404, get_vehicle_summaries
 
 
 def create_customer_vehicle(
-    db: Session, *, customer: Customer, data: CustomerVehicleCreate, actor_id: uuid.UUID
+    db: Session,
+    *,
+    customer: Customer,
+    data: CustomerVehicleCreate,
+    actor_id: uuid.UUID,
+    acting_dealership_id: uuid.UUID | None,
 ) -> VehicleParty:
     """KAN-31: resolves against vehicle_mdm (WP-5's three-layer model),
     never the legacy `vehicle` table — that table's writes are frozen
@@ -72,6 +77,7 @@ def create_customer_vehicle(
             role=data.role,
             group_id=customer.group_id,
             actor_id=actor_id,
+            acting_dealership_id=acting_dealership_id,
             effective_from=effective_from,
             effective_to=data.effective_to,
         )
@@ -123,6 +129,7 @@ def create_customer_vehicle(
         tenant_id=customer.group_id,
         action="vehicle_party_add",
         actor_id=actor_id,
+        acting_dealership_id=acting_dealership_id,
         after={
             "vehicleId": str(vehicle_id),
             "role": party.role.value,
@@ -147,7 +154,13 @@ def create_customer_vehicle(
 
 
 def update_customer_vehicle(
-    db: Session, *, party: VehicleParty, data: CustomerVehicleUpdate, actor_id: uuid.UUID, group_id: uuid.UUID
+    db: Session,
+    *,
+    party: VehicleParty,
+    data: CustomerVehicleUpdate,
+    actor_id: uuid.UUID,
+    acting_dealership_id: uuid.UUID | None,
+    group_id: uuid.UUID,
 ) -> VehicleParty:
     """KAN-148 (Anto, option A): a PATCH whose `effectiveTo` leaves the row
     holding its role — `null`, or an end still to come — may reopen a closed
@@ -260,13 +273,21 @@ def update_customer_vehicle(
         # start first — with or without an `effectiveTo` in the same PATCH —
         # so the close below neither spares them at their old end (a gap) nor
         # closes one twice.
-        _follow_planned_start(db, planned=party, old_start=old_start, actor_id=actor_id, group_id=group_id)
+        _follow_planned_start(
+            db,
+            planned=party,
+            old_start=old_start,
+            actor_id=actor_id,
+            acting_dealership_id=acting_dealership_id,
+            group_id=group_id,
+        )
         to_close = [row for row in to_close if _is_open(row.effective_to)]
     _close_incumbents(
         db,
         to_close,
         new_effective_from=new_effective_from,
         actor_id=actor_id,
+        acting_dealership_id=acting_dealership_id,
         group_id=group_id,
         new_party_id=party.id,
     )
@@ -307,6 +328,7 @@ def update_customer_vehicle(
         tenant_id=group_id,
         action="vehicle_party_update",
         actor_id=actor_id,
+        acting_dealership_id=acting_dealership_id,
         before=before,
         after={
             "effectiveFrom": party.effective_from.isoformat(),
@@ -318,7 +340,14 @@ def update_customer_vehicle(
     return party
 
 
-def delete_customer_vehicle(db: Session, *, party: VehicleParty, actor_id: uuid.UUID, group_id: uuid.UUID) -> None:
+def delete_customer_vehicle(
+    db: Session,
+    *,
+    party: VehicleParty,
+    actor_id: uuid.UUID,
+    acting_dealership_id: uuid.UUID | None,
+    group_id: uuid.UUID,
+) -> None:
     """"Disconnect" (FR-V-05) — CLOSES the allocation by setting
     effective_to; the row is never deleted, so history survives (WP-5
     PR-9, ADR-064). This was a hard db.delete() before PR-9 — a real
@@ -360,13 +389,27 @@ def delete_customer_vehicle(db: Session, *, party: VehicleParty, actor_id: uuid.
             db,
             party=party,
             actor_id=actor_id,
+            acting_dealership_id=acting_dealership_id,
             group_id=group_id,
             effective_to=party.effective_from,
             reason="planned_never_started",
         )
-        _restore_holders_ended_by(db, planned=party, actor_id=actor_id, group_id=group_id, now=now)
+        _restore_holders_ended_by(
+            db,
+            planned=party,
+            actor_id=actor_id,
+            acting_dealership_id=acting_dealership_id,
+            group_id=group_id,
+            now=now,
+        )
     else:
-        _close_vehicle_party(db, party=party, actor_id=actor_id, group_id=group_id)
+        _close_vehicle_party(
+            db,
+            party=party,
+            actor_id=actor_id,
+            acting_dealership_id=acting_dealership_id,
+            group_id=group_id,
+        )
     db.commit()
 
 
@@ -392,7 +435,13 @@ def _linked_holders(
 
 
 def _restore_holders_ended_by(
-    db: Session, *, planned: VehicleParty, actor_id: uuid.UUID, group_id: uuid.UUID, now: dt.datetime
+    db: Session,
+    *,
+    planned: VehicleParty,
+    actor_id: uuid.UUID,
+    acting_dealership_id: uuid.UUID | None,
+    group_id: uuid.UUID,
+    now: dt.datetime,
 ) -> None:
     """KAN-583 + KAN-644: recording `planned` closed the current holder of the
     role at `planned`'s start and linked it (`closed_for_party_id`).
@@ -438,6 +487,7 @@ def _restore_holders_ended_by(
             tenant_id=group_id,
             action="vehicle_party_update",
             actor_id=actor_id,
+            acting_dealership_id=acting_dealership_id,
             before=before,
             after={
                 "effectiveFrom": row.effective_from.isoformat(),
@@ -448,7 +498,13 @@ def _restore_holders_ended_by(
 
 
 def _follow_planned_start(
-    db: Session, *, planned: VehicleParty, old_start: dt.datetime, actor_id: uuid.UUID, group_id: uuid.UUID
+    db: Session,
+    *,
+    planned: VehicleParty,
+    old_start: dt.datetime,
+    actor_id: uuid.UUID,
+    acting_dealership_id: uuid.UUID | None,
+    group_id: uuid.UUID,
 ) -> None:
     """KAN-644: a PATCH moving a planned holder's start moves the end of the
     holders it was planned to replace, so the history keeps no gap and never
@@ -473,12 +529,20 @@ def _follow_planned_start(
                 tenant_id=group_id,
                 action="vehicle_party_update",
                 actor_id=actor_id,
+                acting_dealership_id=acting_dealership_id,
                 before=before,
                 after={"effectiveFrom": row.effective_from.isoformat(), "effectiveTo": ends.isoformat()},
                 reason="planned_handover_moved",
             )
         else:
-            _close_vehicle_party(db, party=row, actor_id=actor_id, group_id=group_id, effective_to=ends)
+            _close_vehicle_party(
+                db,
+                party=row,
+                actor_id=actor_id,
+                acting_dealership_id=acting_dealership_id,
+                group_id=group_id,
+                effective_to=ends,
+            )
 
 
 def _close_vehicle_party(
@@ -486,6 +550,7 @@ def _close_vehicle_party(
     *,
     party: VehicleParty,
     actor_id: uuid.UUID | None,
+    acting_dealership_id: uuid.UUID | None,
     group_id: uuid.UUID,
     effective_to: dt.datetime | None = None,
     merged_into_customer_id: uuid.UUID | None = None,
@@ -531,6 +596,7 @@ def _close_vehicle_party(
         tenant_id=group_id,
         action="vehicle_party_remove",
         actor_id=actor_id,
+        acting_dealership_id=acting_dealership_id,
         before=before,
         after=after,
         reason=reason,
@@ -561,6 +627,7 @@ def allocate_vehicle_party(
     role: VehiclePartyRole,
     group_id: uuid.UUID,
     actor_id: uuid.UUID,
+    acting_dealership_id: uuid.UUID | None,
     effective_from: dt.datetime | None = None,
     effective_to: dt.datetime | None = None,
 ) -> VehicleParty:
@@ -636,6 +703,7 @@ def allocate_vehicle_party(
         role=role,
         group_id=group_id,
         actor_id=actor_id,
+        acting_dealership_id=acting_dealership_id,
         effective_from=effective_from,
         effective_to=effective_to,
         incumbents=incumbents,
@@ -752,6 +820,7 @@ def _close_incumbents(
     *,
     new_effective_from: dt.datetime,
     actor_id: uuid.UUID,
+    acting_dealership_id: uuid.UUID | None,
     group_id: uuid.UUID,
     new_party_id: uuid.UUID,
 ) -> None:
@@ -781,6 +850,7 @@ def _close_incumbents(
             db,
             party=incumbent,
             actor_id=actor_id,
+            acting_dealership_id=acting_dealership_id,
             group_id=group_id,
             effective_to=close_at,
             closed_for_party_id=new_party_id if close_at is not None else None,
@@ -795,6 +865,7 @@ def _open_vehicle_party(
     role: VehiclePartyRole,
     group_id: uuid.UUID,
     actor_id: uuid.UUID,
+    acting_dealership_id: uuid.UUID | None,
     effective_from: dt.datetime,
     effective_to: dt.datetime | None,
     incumbents: list[VehicleParty],
@@ -812,6 +883,7 @@ def _open_vehicle_party(
         incumbents,
         new_effective_from=effective_from,
         actor_id=actor_id,
+        acting_dealership_id=acting_dealership_id,
         group_id=group_id,
         new_party_id=party.id,
     )
@@ -847,6 +919,7 @@ def _open_vehicle_party(
         tenant_id=group_id,
         action="vehicle_party_add",
         actor_id=actor_id,
+        acting_dealership_id=acting_dealership_id,
         after=after,
     )
     publish_event(
