@@ -40,11 +40,14 @@ const BrandingPage = lazyPage(() => import('./pages/BrandingPage'), 'BrandingPag
 const PublishingPage = lazyPage(() => import('./pages/PublishingPage'), 'PublishingPage')
 const LetterheadPage = lazyPage(() => import('./pages/LetterheadPage'), 'LetterheadPage')
 const StandardTextsPage = lazyPage(() => import('./pages/StandardTextsPage'), 'StandardTextsPage')
+const AiAdministrationPage = lazyPage(() => import('./pages/AiAdministrationPage'), 'AiAdministrationPage')
 const NumberRangesPage = lazyPage(() => import('./pages/NumberRangesPage'), 'NumberRangesPage')
 const SetupChecklistPage = lazyPage(() => import('./pages/SetupChecklistPage'), 'SetupChecklistPage')
 const LegalAcceptancePage = lazyPage(() => import('./pages/LegalAcceptancePage'), 'LegalAcceptancePage')
 const SetupInProgressPage = lazyPage(() => import('./pages/SetupInProgressPage'), 'SetupInProgressPage')
 const PlatformLegalDocumentsPage = lazyPage(() => import('./pages/PlatformLegalDocumentsPage'), 'PlatformLegalDocumentsPage')
+const StatusPage = lazyPage(() => import('./pages/StatusPage'), 'StatusPage')
+const PlatformStatusPage = lazyPage(() => import('./pages/PlatformStatusPage'), 'PlatformStatusPage')
 const ContactGroupsPage = lazyPage(() => import('./pages/ContactGroupsPage'), 'ContactGroupsPage')
 const DataExportPage = lazyPage(() => import('./pages/DataExportPage'), 'DataExportPage')
 const PlatformOffboardingPage = lazyPage(() => import('./pages/PlatformOffboardingPage'), 'PlatformOffboardingPage')
@@ -128,6 +131,8 @@ export default function App() {
               <Route path="/administration/letterhead" element={<LetterheadPage />} />
               {/* KAN-208 — Dealer Administration › Standard texts (any role reads; writes per category). */}
               <Route path="/administration/texts" element={<StandardTextsPage />} />
+              {/* KAN-227 — Dealer Administration › AI texts: the AI connection in use and the prompts. */}
+              <Route path="/administration/ai" element={<AiAdministrationPage />} />
               <Route path="/administration/number-ranges" element={<NumberRangesPage />} />
               {/* KAN-214 — the setup checklist and «Betrieb aktivieren» (D-A-21, FR-A-34),
                   the re-acceptance of a new ToS / DPA version (FR-A-39), and what a
@@ -145,6 +150,10 @@ export default function App() {
               <Route path="/platform/offboarding" element={<PlatformOffboardingPage />} />
               {/* KAN-214 — Platform Administration › Legal documents (FR-A-39). */}
               <Route path="/platform/legal-documents" element={<PlatformLegalDocumentsPage />} />
+              {/* KAN-223 — the Betrieb's status page (D-A-38, every role reads) and
+                  Platform Administration › Nexotec status (staff write the incidents). */}
+              <Route path="/administration/status" element={<StatusPage />} />
+              <Route path="/platform/status" element={<PlatformStatusPage />} />
               {/* KAN-222: the dealer's integrations are a section of Dealer Administration
                   (A-RULE-0), the platform's view is /platform/providers; the old path redirects. */}
               <Route path="/administration/integrations" element={<AdministrationIntegrationsPage />} />

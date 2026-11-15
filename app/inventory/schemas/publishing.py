@@ -3,6 +3,7 @@ import uuid
 
 from pydantic import Field
 
+from app.core.i18n import SwissLanguage
 from app.core.schemas import CamelModel
 from app.inventory.models.stock_item_publishing import MarketplaceChannel, PublishingState, TransmissionStatus
 
@@ -84,3 +85,21 @@ class AddMediaRequest(CamelModel):
 
 class ReorderMediaRequest(CamelModel):
     ordered_media_ids: list[uuid.UUID]
+
+
+class ListingTextSuggestionRequest(CamelModel):
+    """KAN-227 «Text vorschlagen». `language`: the listing's language; left
+    out, the Betrieb's correspondence language."""
+
+    language: SwissLanguage | None = None
+
+
+class ListingTextSuggestionRead(CamelModel):
+    """A suggestion only: nothing was stored or published. The user takes it
+    into the description and edits it."""
+
+    text: str
+    language: SwissLanguage
+    # Whether the Betrieb's own adaptation of the prompt was used.
+    prompt_adapted: bool
+    provider_name: str

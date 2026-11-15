@@ -33,6 +33,7 @@ from app.platform.models.export_job import ExportJob
 from app.platform.models.legal import LegalAcceptance, LegalDocument
 from app.platform.models.setup_checklist import SetupChecklistRegression
 from app.platform.models.standard_text import StandardText
+from app.platform.models.status_page import PlatformStatusIncident, StatusItemState
 from app.platform.organisation.models.branding_asset import IMAGERY_KINDS, BrandingAsset
 from app.platform.organisation.models.dealership import DealerGroup, Dealership, Location
 from app.platform.organisation.models.dealership_bank_account import DealershipBankAccount
@@ -134,6 +135,15 @@ class PlatformExporter(TableExporter):
                 exclusion_reason="The daily job's notification ledger; the checklist itself is derived.",
                 marks_write=False,
             ),
+            # KAN-223: the status page's notification ledger, like the
+            # checklist's — the page itself is derived.
+            ExportedTable(
+                table=table_of(StatusItemState),
+                scope=_by_dealership(table_of(StatusItemState)),
+                in_archive=False,
+                exclusion_reason="The daily job's notification ledger; the status page itself is derived.",
+                marks_write=False,
+            ),
             ExportedTable(table=table_of(StandardText), scope=_by_dealership(table_of(StandardText))),
             ExportedTable(
                 table=table_of(StandardTextDelegation), scope=_by_dealership(table_of(StandardTextDelegation))
@@ -194,6 +204,7 @@ class PlatformExporter(TableExporter):
             ReferenceValue.__tablename__: platform_reference,
             NotificationEvent.__tablename__: "Nexotec's catalogue of notification kinds.",
             LegalDocument.__tablename__: "Nexotec's own Terms of Service and DPA, the same for every Betrieb.",
+            PlatformStatusIncident.__tablename__: "Nexotec's own platform status, the same for every Betrieb.",
             UiTranslation.__tablename__: "Nexotec's interface texts.",
             UiTranslationRevision.__tablename__: "Nexotec's interface texts.",
             MissingTranslation.__tablename__: "Nexotec's interface texts.",

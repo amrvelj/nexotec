@@ -171,6 +171,25 @@
       "openProfile": "Compléter les données sous Publication",
       "hint": "Le site web de votre entreprise, exploité par Nexotec. Rien n'est transmis à une place de marché.",
       "failed": "Le site n'a pas pu être modifié."
+    },
+    "suggestion": {
+      "open": "Proposer un texte",
+      "title": "Proposer une description",
+      "intro": "Votre fournisseur d'IA rédige une proposition à partir des données de ce véhicule. Vous la vérifiez et la modifiez avant de la reprendre ; rien n'est publié.",
+      "language": "Langue de l'annonce",
+      "generate": "Créer une proposition",
+      "again": "Nouvelle proposition",
+      "draft": "Proposition",
+      "review": "Veuillez vérifier chaque information : le texte provient de votre fournisseur d'IA.",
+      "take": "Reprendre dans la description",
+      "discard": "Ignorer",
+      "failed": "Aucune proposition n'a pu être créée.",
+      "connect": "Connecter un fournisseur d'IA",
+      "tooLong": "La proposition dépasse les {{count, number}} caractères de la description. Raccourcissez-la avant de la reprendre.",
+      "replaceTitle": "Remplacer la description existante ?",
+      "replaceBody": "La description contient déjà du texte. Si vous reprenez la proposition, ce texte sera remplacé.",
+      "replaceConfirm": "Remplacer",
+      "replaceCancel": "Ne pas remplacer"
     }
   },
   "evaluation": {

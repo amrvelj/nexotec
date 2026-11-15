@@ -96,6 +96,7 @@ from app.platform.daily_jobs import (
     run_daily_notification_purge,
     run_daily_revoked_grant_repair,
     run_daily_setup_checklist_regressions,
+    run_daily_status_page_notifications,
     run_daily_user_expiry,
 )
 from app.reconciliation_runner import run_all_daily
@@ -118,6 +119,7 @@ from app.sales.public import (
     refresh_owner_labels,
 )
 from app.sales.public import referenced_configuration_ids as referenced_by_offers_and_contracts
+from app.status_registry import register_status_providers
 from app.valuation.daily_jobs import run_daily_unused_provider_quote_purge
 from app.valuation.public import referenced_configuration_ids as referenced_by_valuations
 from app.vehicle.consumers import (
@@ -523,8 +525,15 @@ def register_ownership() -> None:
     register_ownership_providers()
 
 
+def register_status() -> None:
+    """KAN-223: the status page's notification job derives the page through
+    the status registry, which the composition root fills."""
+
+    register_status_providers()
+
+
 def register_daily_jobs() -> None:
-    """Nineteen daily jobs, run in registration order once per day on this
+    """Twenty daily jobs, run in registration order once per day on this
     process (app.core.daily_scheduler):
 
     1. ``integration.daily_jobs`` — ADR-025's expiry warnings, ADR-024's
@@ -603,6 +612,10 @@ def register_daily_jobs() -> None:
        notification to the Betrieb's managers per regression; an item
        complete again closes it. Not a repair: the action the item blocks is
        refused meanwhile by the module that runs it.
+    17b. ``platform.status_page.notifications`` — KAN-223 (D-A-38): an item
+       of the Betrieb's status page that is no longer green raises one
+       ``administration`` notification to its managers, nothing more until
+       it is green again. Derived health is only read, never repaired.
     18. ``valuation.provider_quotes.purge_unused`` — KAN-599 (Anto,
        2026-11-13, option A): a provider quote no valuation references is
        deleted ten years after it was fetched, with an audit row; one a
@@ -640,6 +653,8 @@ def register_daily_jobs() -> None:
     register_daily_job("platform.data_exports.expire", run_daily_data_export_expiry)
     # 17. KAN-214: one administration notification per checklist item broken after activation.
     register_daily_job("platform.setup_checklist.regressions", run_daily_setup_checklist_regressions)
+    # 17b. KAN-223: one administration notification per status-page item that is no longer green.
+    register_daily_job("platform.status_page.notifications", run_daily_status_page_notifications)
     # 18. KAN-599: a provider quote no valuation references goes ten years after it was fetched.
     register_daily_job("valuation.provider_quotes.purge_unused", run_daily_unused_provider_quote_purge)
     # 19. KAN-270 (registered last): a configuration no host ever took goes after 30 days.
@@ -651,6 +666,7 @@ def run(*, max_iterations: int | None = None) -> None:
     register_handlers(transport)
     register_ownership()
     register_exports()
+    register_status()
     register_daily_jobs()
 
     iterations = 0

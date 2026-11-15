@@ -776,6 +776,10 @@ class ConnectionUsage:
     period_from: dt.date
     period_to: dt.date
     counters: list[UsageCounter]
+    # KAN-227: the tokens an AI provider reported over the period, in and
+    # out; None when no request in it reported any (every non-AI provider).
+    tokens_in: int | None = None
+    tokens_out: int | None = None
 
     @property
     def total(self) -> int:
@@ -828,4 +832,17 @@ def get_usage(
         .group_by(IntegrationCallLog.capability)
     ).all()
     counters = sorted((UsageCounter(counter=name, count=int(n)) for name, n in rows), key=lambda c: (-c.count, c.counter))
-    return ConnectionUsage(period_from=period_from, period_to=period_to, counters=counters)
+    tokens_in, tokens_out = db.execute(
+        select(func.sum(IntegrationCallLog.tokens_in), func.sum(IntegrationCallLog.tokens_out)).where(
+            IntegrationCallLog.connection_id == connection.id,
+            IntegrationCallLog.created_at >= since,
+            IntegrationCallLog.created_at < until,
+        )
+    ).one()
+    return ConnectionUsage(
+        period_from=period_from,
+        period_to=period_to,
+        counters=counters,
+        tokens_in=int(tokens_in) if tokens_in is not None else None,
+        tokens_out=int(tokens_out) if tokens_out is not None else None,
+    )

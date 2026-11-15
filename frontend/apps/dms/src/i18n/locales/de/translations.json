@@ -5,7 +5,8 @@
   "sourcesLabel": "Quelle",
   "sources": {
     "ui": "UI-Texte",
-    "standardTexts": "Standardtext-Vorlagen"
+    "standardTexts": "Standardtext-Vorlagen",
+    "aiPrompts": "KI-Prompts"
   },
   "search": {
     "label": "Suchen",
@@ -96,5 +97,11 @@
     "loadError": "Die Vorlagen konnten nicht geladen werden.",
     "gridLabel": "Standardtext-Vorlagen"
   },
-  "gridLabel": "UI-Texte"
+  "gridLabel": "UI-Texte",
+  "aiPrompts": {
+    "subtitle": "Die Prompts, die Nexotec jedem Betrieb mitgibt. Eine Änderung ersetzt nie die Anpassung eines Betriebs; dieser sieht «Die Vorgabe hat sich geändert».",
+    "loadError": "Die KI-Prompts konnten nicht geladen werden.",
+    "saveError": "Der Prompt konnte nicht gespeichert werden.",
+    "empty": "Keine KI-Prompts installiert."
+  }
 }

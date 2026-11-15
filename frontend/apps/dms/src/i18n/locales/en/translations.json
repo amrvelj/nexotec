@@ -5,7 +5,8 @@
   "sourcesLabel": "Source",
   "sources": {
     "ui": "UI strings",
-    "standardTexts": "Standard-text seeds"
+    "standardTexts": "Standard-text seeds",
+    "aiPrompts": "AI prompts"
   },
   "search": {
     "label": "Search",
@@ -96,5 +97,11 @@
     "loadError": "The seeds could not be loaded.",
     "gridLabel": "Standard-text templates"
   },
-  "gridLabel": "UI strings"
+  "gridLabel": "UI strings",
+  "aiPrompts": {
+    "subtitle": "The prompts Nexotec ships to every business. An edit never replaces a business's adaptation; it sees «The default has changed».",
+    "loadError": "The AI prompts could not be loaded.",
+    "saveError": "The prompt could not be saved.",
+    "empty": "No AI prompts installed."
+  }
 }

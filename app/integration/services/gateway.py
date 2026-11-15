@@ -37,6 +37,7 @@ from app.core.audit import record_audit_event
 from app.core.base import utcnow
 from app.core.deployment_environment import DeploymentEnvironment, current_deployment_environment
 from app.core.errors import ConflictError
+from app.integration.adapters.ai_base import AI_CATEGORY
 from app.integration.adapters.auto_i_dat_mock import MockAutoIDatAdapter
 from app.integration.adapters.base import ProviderAdapter
 from app.integration.errors import (
@@ -224,6 +225,7 @@ def record_call(
     duration_ms: int,
     cost_units: Decimal | None = None,
     correlation_id: uuid.UUID | None = None,
+    tokens: tuple[int, int] | None = None,
 ) -> IntegrationCallLog:
     log = IntegrationCallLog(
         connection_id=connection.id,
@@ -236,6 +238,8 @@ def record_call(
         duration_ms=duration_ms,
         cost_units=cost_units,
         correlation_id=correlation_id or uuid.uuid4(),
+        tokens_in=tokens[0] if tokens is not None else None,
+        tokens_out=tokens[1] if tokens is not None else None,
     )
     db.add(log)
     db.commit()
@@ -314,11 +318,14 @@ def call_capability(
         # the network.
         gateway_db.commit()
 
-        def record_request(operation: str, status: CallStatus, duration_ms: int, cost_units: Decimal | None):
+        def record_request(
+            operation: str, status: CallStatus, duration_ms: int, cost_units: Decimal | None,
+            tokens: tuple[int, int] | None,
+        ):
             _bound_lock_wait(gateway_db)
             return record_call(
                 gateway_db, connection=connection, capability=operation, status=status, duration_ms=duration_ms,
-                cost_units=cost_units, correlation_id=correlation_id,
+                cost_units=cost_units, correlation_id=correlation_id, tokens=tokens,
             )
 
         started_at = time.monotonic()
@@ -503,7 +510,11 @@ def test_connection(
     # captions (`entitlement_probes.access_check`). The
     # actor is the user the token is requested for (auto-i's User Enrollment
     # Grant) — a test with no actor fails as a configuration error.
-    check = entitlement_probes.access_check(provider.provider_code)
+    # KAN-227: an AI connection's check is the smallest billed completion
+    # (`AiGateway.verify`), which proves key, model and deployment together; it
+    # has no captions and no licence options to probe.
+    is_ai = provider.category == AI_CATEGORY
+    check = (lambda adapter: adapter.verify()) if is_ai else entitlement_probes.access_check(provider.provider_code)  # type: ignore[attr-defined]
     healthy = False
     access_answer: object = None
     try:
@@ -525,7 +536,7 @@ def test_connection(
         connection.last_error = None
         healthy = True
     db.commit()
-    if healthy:
+    if healthy and not is_ai:
         _store_captions(
             db, connection=connection, provider_code=provider.provider_code, actor_id=actor_id,
             access_answer=access_answer,

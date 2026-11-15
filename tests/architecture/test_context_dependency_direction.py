@@ -86,6 +86,9 @@ _TOP_LEVEL: dict[str, int] = {
     # KAN-218: names every context's exporter for app.core.export's registry,
     # as ownership_registry names every ownership provider.
     "export_registry": _COMPOSITION_ROOT_RANK,
+    # KAN-223: names every context's status-page contribution for
+    # app.core.status's registry, as ownership_registry does for ownership.
+    "status_registry": _COMPOSITION_ROOT_RANK,
 }
 
 # The upward imports that exist today, each with the ticket that removes it

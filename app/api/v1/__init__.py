@@ -11,6 +11,7 @@ from app.api.v1.dealer_groups import router as dealer_groups_router
 from app.api.v1.vehicle_parties import allocation_router as vehicle_party_allocation_router
 from app.api.v1.vehicle_parties import holders_router as vehicle_party_holders_router
 from app.customer.api.customers import router as customers_router
+from app.integration.api.ai_prompts import router as integration_ai_prompts_router
 from app.integration.api.call_payloads import router as integration_call_payloads_router
 from app.integration.api.captions import router as integration_captions_router
 from app.integration.api.connections import router as integration_connections_router
@@ -36,6 +37,7 @@ from app.platform.api.recovery import router as platform_recovery_router
 from app.platform.api.setup import router as setup_router
 from app.platform.api.standard_text_seeds import router as standard_text_seeds_router
 from app.platform.api.standard_texts import router as standard_texts_router
+from app.platform.api.status_page import router as status_page_router
 from app.platform.identity.api.dealership_memberships import router as dealership_memberships_router
 from app.platform.identity.api.me import router as me_router
 from app.platform.identity.api.notifications import router as notifications_router
@@ -69,6 +71,7 @@ api_v1_router.include_router(dealership_memberships_router)
 api_v1_router.include_router(dealership_identity_router)
 api_v1_router.include_router(onboarding_router)
 api_v1_router.include_router(setup_router)
+api_v1_router.include_router(status_page_router)
 api_v1_router.include_router(locations_router)
 api_v1_router.include_router(branding_router)
 api_v1_router.include_router(publishing_profile_router)
@@ -107,6 +110,7 @@ api_v1_router.include_router(sales_documents_router)
 api_v1_router.include_router(valuations_router)
 api_v1_router.include_router(integration_providers_router)
 api_v1_router.include_router(integration_connections_router)
+api_v1_router.include_router(integration_ai_prompts_router)
 api_v1_router.include_router(integration_call_payloads_router)
 api_v1_router.include_router(integration_captions_router)
 api_v1_router.include_router(auth_router)

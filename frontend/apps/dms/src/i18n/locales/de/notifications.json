@@ -114,6 +114,10 @@
     "checklistItemRegressed": {
       "title": "Ein Punkt der Einrichtung fehlt wieder",
       "body": "Der Punkt «{{item}}» der Einrichtungs-Checkliste ist nicht mehr erfüllt. Bis er erledigt ist, ist die Aktion gesperrt, die ihn braucht."
+    },
+    "statusItemDegraded": {
+      "title": "Die Statusseite ist nicht mehr grün",
+      "body": "Ein Punkt auf der Statusseite Ihres Betriebs braucht Aufmerksamkeit. Öffnen Sie die Statusseite, um zu sehen, welcher und wie Sie ihn beheben."
     }
   },
   "recoveryActions": {

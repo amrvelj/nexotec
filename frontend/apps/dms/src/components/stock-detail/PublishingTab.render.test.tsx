@@ -824,4 +824,128 @@ describe('PublishingTab — read-only for a role that may not publish (canPublis
     // Only the internal field carries the hint.
     expect(screen.getAllByRole('img', { name: i18n.t('common.fieldHintIcon') })).toHaveLength(1)
   })
+
+  it('offers no «Text vorschlagen»', async () => {
+    install()
+    renderWithProviders(<PublishingTab stockItemId="st-1" locale="de-CH" canPublish={false} />)
+    expect(await screen.findByText('Top gepflegt')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: i18n.t('stockDetail.publishing.suggestion.open') })).not.toBeInTheDocument()
+  })
+})
+
+describe('PublishingTab — «Text vorschlagen» (KAN-227)', () => {
+  const row = (version: number) => ({
+    id: 'pub-1', stockItemId: 'st-1', channel: 'autoscout24', state: 'not_published', transmissionStatus: 'not_sent',
+    lastPublishedAt: null, lastAttemptedAt: null, lastTransmissionError: null, zusatztitel: null,
+    bemerkungen: null as string | null, zustandsbeschreibung: null, haendlerbemerkungen: null, youtubeUrl: null,
+    pdfDocumentRef: null, version, blockingConditions: [],
+  })
+  const t = (key: string) => i18n.t(`stockDetail.publishing.suggestion.${key}`)
+
+  const backendFor = (suggestion: () => unknown, bemerkungen: string | null = null) => {
+    let current = { ...row(1), bemerkungen }
+    return installFakeBackend([
+      { match: /^\/inventory\/stock-items\/st-1\/equipment$/, handler: () => EQUIPMENT },
+      { match: /^\/inventory\/stock-items\/st-1\/media$/, handler: () => [] },
+      { method: 'GET', match: /^\/inventory\/stock-items\/st-1\/publishing\/autoscout24$/, handler: () => current },
+      {
+        method: 'PATCH',
+        match: /^\/inventory\/stock-items\/st-1\/publishing\/autoscout24$/,
+        handler: (req) => {
+          current = { ...current, ...(req.body as object), version: current.version + 1 }
+          return current
+        },
+      },
+      { method: 'POST', match: /^\/inventory\/stock-items\/st-1\/listing-text-suggestions$/, handler: suggestion },
+    ])
+  }
+
+  it('the suggestion is edited in the dialog and saved into the description only when taken', async () => {
+    const user = userEvent.setup()
+    const backend = backendFor(() => ({ text: 'Gepflegter Kombi.', language: 'de', promptAdapted: false, providerName: 'OpenAI' }))
+    renderWithProviders(<PublishingTab stockItemId="st-1" locale="de-CH" />)
+
+    await user.click(await screen.findByRole('button', { name: t('open') }))
+    await user.click(await screen.findByRole('button', { name: t('generate') }))
+    const draft = await screen.findByRole('textbox', { name: (n) => n.startsWith(t('draft')) })
+    expect(draft).toHaveValue('Gepflegter Kombi.')
+    expect(backend.callsTo(/listing-text-suggestions$/, 'POST')[0].body).toEqual({ language: 'de' })
+    // Nothing is written until the user takes it.
+    expect(backend.callsTo(/\/publishing\/autoscout24$/, 'PATCH')).toHaveLength(0)
+
+    await user.type(draft, ' Ab MFK.')
+    await user.click(screen.getByRole('button', { name: t('take') }))
+
+    await waitFor(() => expect(backend.callsTo(/\/publishing\/autoscout24$/, 'PATCH')).toHaveLength(1))
+    expect(backend.callsTo(/\/publishing\/autoscout24$/, 'PATCH')[0].body).toEqual({ bemerkungen: 'Gepflegter Kombi. Ab MFK.' })
+    await waitFor(() =>
+      expect(screen.getByLabelText(i18n.t('stockDetail.publishing.fields.bemerkungen'))).toHaveValue('Gepflegter Kombi. Ab MFK.'),
+    )
+  })
+
+  it('a description with text already is replaced only after the user confirms', async () => {
+    const user = userEvent.setup()
+    const backend = backendFor(
+      () => ({ text: 'Gepflegter Kombi.', language: 'de', promptAdapted: false, providerName: 'OpenAI' }),
+      'Unser eigener Text.',
+    )
+    renderWithProviders(<PublishingTab stockItemId="st-1" locale="de-CH" />)
+    await screen.findByDisplayValue('Unser eigener Text.')
+
+    await user.click(screen.getByRole('button', { name: t('open') }))
+    await user.click(await screen.findByRole('button', { name: t('generate') }))
+    await screen.findByRole('textbox', { name: (n) => n.startsWith(t('draft')) })
+    await user.click(screen.getByRole('button', { name: t('take') }))
+
+    // Asked first; «Nicht ersetzen» writes nothing and keeps the suggestion.
+    expect(await screen.findByText(t('replaceBody'))).toBeInTheDocument()
+    expect(backend.callsTo(/\/publishing\/autoscout24$/, 'PATCH')).toHaveLength(0)
+    await user.click(screen.getByRole('button', { name: t('replaceCancel') }))
+    expect(screen.queryByText(t('replaceBody'))).not.toBeInTheDocument()
+    expect(backend.callsTo(/\/publishing\/autoscout24$/, 'PATCH')).toHaveLength(0)
+    expect(screen.getByLabelText(i18n.t('stockDetail.publishing.fields.bemerkungen'))).toHaveValue('Unser eigener Text.')
+
+    await user.click(screen.getByRole('button', { name: t('take') }))
+    await user.click(await screen.findByRole('button', { name: t('replaceConfirm') }))
+    await waitFor(() => expect(backend.callsTo(/\/publishing\/autoscout24$/, 'PATCH')).toHaveLength(1))
+    expect(backend.callsTo(/\/publishing\/autoscout24$/, 'PATCH')[0].body).toEqual({ bemerkungen: 'Gepflegter Kombi.' })
+  })
+
+  it('a suggestion over the 4000 characters shows its count and is never cut: taking over waits until it fits', async () => {
+    const user = userEvent.setup()
+    const long = 'A'.repeat(4001)
+    const backend = backendFor(() => ({ text: long, language: 'de', promptAdapted: false, providerName: 'OpenAI' }))
+    renderWithProviders(<PublishingTab stockItemId="st-1" locale="de-CH" />)
+
+    await user.click(await screen.findByRole('button', { name: t('open') }))
+    await user.click(await screen.findByRole('button', { name: t('generate') }))
+    const draft = await screen.findByRole('textbox', { name: (n) => n.startsWith(t('draft')) })
+
+    expect(draft).toHaveValue(long)
+    const dialog = screen.getByRole('dialog')
+    expect(within(dialog).getByText(i18n.t('stockDetail.publishing.suggestion.tooLong', { count: 4000 }))).toBeInTheDocument()
+    expect(within(dialog).getByText(/4.?001 \/ 4.?000/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: t('take') })).toBeDisabled()
+
+    await user.type(draft, '{Backspace}')
+    expect(screen.getByRole('button', { name: t('take') })).toBeEnabled()
+    await user.click(screen.getByRole('button', { name: t('take') }))
+    await waitFor(() => expect(backend.callsTo(/\/publishing\/autoscout24$/, 'PATCH')).toHaveLength(1))
+    expect((backend.callsTo(/\/publishing\/autoscout24$/, 'PATCH')[0].body as { bemerkungen: string }).bemerkungen).toHaveLength(4000)
+  })
+
+  it('without an AI provider it says so in the UI language and links the integrations', async () => {
+    const user = userEvent.setup()
+    const backend = backendFor(() =>
+      status(409, { error: { code: 'conflict', message: 'No AI provider is connected.', details: { reason: 'ai_not_connected' } } }),
+    )
+    renderWithProviders(<PublishingTab stockItemId="st-1" locale="de-CH" />)
+
+    await user.click(await screen.findByRole('button', { name: t('open') }))
+    await user.click(await screen.findByRole('button', { name: t('generate') }))
+
+    expect(await screen.findByText(i18n.t('aiPrompts.refusals.ai_not_connected'))).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: t('connect') })).toHaveAttribute('href', '/administration/integrations')
+    expect(backend.callsTo(/\/publishing\/autoscout24$/, 'PATCH')).toHaveLength(0)
+  })
 })

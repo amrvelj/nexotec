@@ -91,6 +91,19 @@ function UsageModalBody({ connection, onClose }: { connection: IntegrationConnec
                   <Text size="sm" fw={600}>{formatNumber(usageQuery.data?.totalCalls ?? 0)}</Text>
                 </Table.Td>
               </Table.Tr>
+              {/* KAN-227 — an AI provider bills tokens: shown when the period's requests reported any. */}
+              {usageQuery.data?.tokensIn != null && (
+                <Table.Tr>
+                  <Table.Td><Text size="sm">{t('integrationsList.usageModal.tokensIn')}</Text></Table.Td>
+                  <Table.Td style={{ textAlign: 'right' }}>{formatNumber(usageQuery.data.tokensIn)}</Table.Td>
+                </Table.Tr>
+              )}
+              {usageQuery.data?.tokensOut != null && (
+                <Table.Tr>
+                  <Table.Td><Text size="sm">{t('integrationsList.usageModal.tokensOut')}</Text></Table.Td>
+                  <Table.Td style={{ textAlign: 'right' }}>{formatNumber(usageQuery.data.tokensOut)}</Table.Td>
+                </Table.Tr>
+              )}
             </Table.Tbody>
           </Table>
         )}
