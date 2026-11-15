@@ -59,7 +59,7 @@ from sqlalchemy.orm import InstrumentedAttribute, Session
 from app.core.base import utcnow
 from app.core.outbox_model import OutboxMessage
 from app.core.reconciliation import ReconciliationRun, ReferenceCheck, StateCheck, run_reconciliation
-from app.customer.public import Customer, customer_in_group, customer_is_merged
+from app.customer.public import customer_exists, customer_in_group, customer_is_merged, customer_reference_check
 from app.inventory.public import (
     purchased_stock_item_check,
     stock_item_exists,
@@ -163,13 +163,13 @@ def _customer_outside_the_group(label: str, deal: _Deal) -> StateCheck:
     dealership is itself missing is the tenant_id ReferenceCheck's finding."""
 
     def where() -> ColumnElement[bool]:
-        customer_exists = select(Customer.id).where(Customer.id == deal.customer_id).correlate(deal).exists()
+        customer_named = customer_exists(deal.customer_id).correlate(deal)
         dealership_exists = select(Dealership.id).where(Dealership.id == deal.tenant_id).correlate(deal).exists()
         dealerships_group = (
             select(Dealership.dealer_group_id).where(Dealership.id == deal.tenant_id).correlate(deal).scalar_subquery()
         )
         in_group = customer_in_group(deal.customer_id, dealerships_group).correlate(deal)
-        return customer_exists & dealership_exists & ~in_group
+        return customer_named & dealership_exists & ~in_group
 
     return StateCheck(label=label, source_model=deal, source_row_id_column=deal.id, where=where)
 
@@ -399,13 +399,11 @@ CHECKS: list[ReferenceCheck | StateCheck] = [
         target_model=Dealership,
         target_id_column=Dealership.id,
     ),
-    ReferenceCheck(
+    customer_reference_check(
         label="sales_offer.customer_id -> customer.id",
         source_model=SalesOffer,
         source_row_id_column=SalesOffer.id,
         source_fk_column=SalesOffer.customer_id,
-        target_model=Customer,
-        target_id_column=Customer.id,
         nullable=True,
     ),
     stock_item_reference_check(
@@ -460,13 +458,11 @@ CHECKS: list[ReferenceCheck | StateCheck] = [
         target_model=Dealership,
         target_id_column=Dealership.id,
     ),
-    ReferenceCheck(
+    customer_reference_check(
         label="sales_contract.customer_id -> customer.id",
         source_model=SalesContract,
         source_row_id_column=SalesContract.id,
         source_fk_column=SalesContract.customer_id,
-        target_model=Customer,
-        target_id_column=Customer.id,
         nullable=True,
     ),
     stock_item_reference_check(
@@ -560,13 +556,11 @@ CHECKS: list[ReferenceCheck | StateCheck] = [
         target_model=Dealership,
         target_id_column=Dealership.id,
     ),
-    ReferenceCheck(
+    customer_reference_check(
         label="sales_deal.customer_id -> customer.id",
         source_model=SalesDeal,
         source_row_id_column=SalesDeal.id,
         source_fk_column=SalesDeal.customer_id,
-        target_model=Customer,
-        target_id_column=Customer.id,
         nullable=True,
     ),
     ReferenceCheck(

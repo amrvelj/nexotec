@@ -21,7 +21,12 @@ from app.inventory.models.stock_item_publishing import PublishingState, StockIte
 from app.inventory.services import marketplace_transmission
 from app.inventory.services.listing_withdrawal import ListingWithdrawalBlocked, withdraw_live_listings
 from app.inventory.services.publishing import publish, record_unpublished, unpublish
-from tests.test_inventory_marketplace_transmission import FakeMarketplaceAdapter, _make_provider, _make_ready_item, _register_fake
+from tests.test_inventory_marketplace_transmission import (
+    FakeMarketplaceAdapter,
+    _make_provider,
+    _make_ready_item,
+    _register_fake,
+)
 from tests.test_kan218_offboarding_withdraws_listings_and_connections import _AS24, _live_betrieb
 
 

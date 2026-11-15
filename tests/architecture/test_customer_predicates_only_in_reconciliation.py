@@ -12,6 +12,9 @@ report. A new caller is a new group read — an ADR plus an entry here.
 `customer.public.customer_is_merged` (KAN-581) is the same kind of builder —
 an EXISTS over `customer` another context could embed in a live query, out of
 `test_no_cross_context_orm_query.py`'s sight — and is confined the same way.
+So are `customer_exists` and `customer_reference_check` (KAN-123 step 5,
+ADR-162): what Sales', Valuation's and Stock's reconciliation check against
+`customer` since `Customer` left `customer.public`.
 """
 
 from __future__ import annotations
@@ -26,7 +29,7 @@ def _may_use_it(relative: str) -> bool:
     return relative.startswith("app/customer/") or relative.endswith("/reconciliation.py")
 
 
-_PREDICATES = ("customer_in_group", "customer_is_merged")
+_PREDICATES = ("customer_in_group", "customer_is_merged", "customer_exists", "customer_reference_check")
 
 
 def _callers_outside_reconciliation(sources: dict[str, str]) -> list[str]:
@@ -68,4 +71,13 @@ def test_the_guard_reports_a_caller_outside_reconciliation():
         "app/valuation/reconciliation.py": uses,
         "app/sales/services/untouched.py": "x = 1\n",
         "app/valuation/services/valuation.py": "from app.customer.public import customer_is_merged\n",
-    }) == ["app/inventory/api/stock.py", "app/sales/services/offer.py", "app/valuation/services/valuation.py"]
+        # KAN-123 step 5: the reference builders are confined the same way.
+        "app/inventory/services/stock_item.py": "from app.customer.public import customer_reference_check\n",
+        "app/sales/services/deal_list.py": "from app.customer.public import customer_exists\n",
+    }) == [
+        "app/inventory/api/stock.py",
+        "app/inventory/services/stock_item.py",
+        "app/sales/services/deal_list.py",
+        "app/sales/services/offer.py",
+        "app/valuation/services/valuation.py",
+    ]
