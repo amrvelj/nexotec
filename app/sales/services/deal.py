@@ -11,7 +11,8 @@ from sqlalchemy import and_, or_, select
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
-from app.core.pagination import SortPageParams, build_sorted_page, count_capped, paginate_query_sorted
+from app.core.pagination import SortPageParams, count_capped, paginate_query_sorted
+from app.core.sorting import build_page_for_sort
 from app.sales.models.deal import SalesDeal
 
 # An offer that's never been opened for real work — nothing a seller has
@@ -81,5 +82,5 @@ def list_deals(
     total, total_is_estimate = count_capped(db, stmt, threshold=get_settings().count_exact_threshold)
     stmt = paginate_query_sorted(stmt, model=SalesDeal, params=params)
     rows = list(db.scalars(stmt).all())
-    items, next_cursor = build_sorted_page(rows, params)
+    items, next_cursor = build_page_for_sort(rows, params)
     return items, next_cursor, total, total_is_estimate

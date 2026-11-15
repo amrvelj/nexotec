@@ -24,7 +24,8 @@ from app.core.base import utcnow
 from app.core.config import get_settings
 from app.core.errors import ConflictError, NotFoundError, UnprocessableEntityError
 from app.core.outbox import OutboxEvent, publish
-from app.core.pagination import SortPageParams, build_sorted_page, count_capped, paginate_query_sorted
+from app.core.pagination import SortPageParams, count_capped, paginate_query_sorted
+from app.core.sorting import build_page_for_sort
 from app.core.validators import is_chassis_number, normalise_vin, require_vin_or_pre_1981_chassis_number
 from app.customer.public import get_customer_or_404
 from app.valuation.models.contract_carry import ContractCarryState
@@ -630,5 +631,5 @@ def list_valuations(
     total, total_is_estimate = count_capped(db, stmt, threshold=get_settings().count_exact_threshold)
     stmt = paginate_query_sorted(stmt, model=Valuation, params=params)
     rows = list(db.scalars(stmt).all())
-    items, next_cursor = build_sorted_page(rows, params)
+    items, next_cursor = build_page_for_sort(rows, params)
     return items, next_cursor, total, total_is_estimate

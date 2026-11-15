@@ -10,8 +10,9 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
-from app.core.pagination import SortPageParams, build_sorted_page, count_capped, paginate_query_sorted
+from app.core.pagination import SortPageParams, count_capped, paginate_query_sorted
 from app.core.relative_dates import start_of_current_period, start_of_day_days_ago
+from app.core.sorting import build_page_for_sort
 from app.core.validators import normalise_phone
 from app.customer.models.customer import (
     AddressType,
@@ -246,7 +247,7 @@ def list_customers(
                 continue
             if customer is not None:
                 rows.append(customer)
-    items, next_cursor = build_sorted_page(rows, params)
+    items, next_cursor = build_page_for_sort(rows, params)
     return items, next_cursor, total, total_is_estimate
 
 

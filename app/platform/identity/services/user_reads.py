@@ -17,7 +17,8 @@ from sqlalchemy.orm import Session
 
 from app.core.auth import AccessRole
 from app.core.errors import NotFoundError
-from app.core.pagination import SortPageParams, build_sorted_page, paginate_query_sorted
+from app.core.pagination import SortPageParams, paginate_query_sorted
+from app.core.sorting import build_page_for_sort
 from app.core.tenancy import get_or_404
 from app.platform.identity.models.auth_token import AuthToken, AuthTokenKind
 from app.platform.identity.models.dealership_membership import DealershipMembership
@@ -126,7 +127,7 @@ def list_users(
         stmt = stmt.where(or_(User.first_name.ilike(like), User.last_name.ilike(like), User.email.ilike(like)))
     stmt = paginate_query_sorted(stmt, model=User, params=params)
     rows = list(db.scalars(stmt).all())
-    return build_sorted_page(rows, params)
+    return build_page_for_sort(rows, params)
 
 
 def list_dealer_manager_emails(db: Session, *, dealership_id: uuid.UUID) -> list[str]:

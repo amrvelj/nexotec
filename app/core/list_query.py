@@ -26,13 +26,12 @@ the entity's scope predicates as a required, non-empty argument and this
 module never names a tenant or a group column. Relative and absolute dates
 resolve on the server in the session time zone (`app.core.relative_dates`).
 
-**Cursor** (KAN-182 kept): the sorted keyset cursor of
-`app.core.pagination` serialises datetimes, UUIDs, ints, bools and strings
-only. A money or decimal value is written as its scaled integer (the
-column's scale), a calendar date as midnight of that day, and converted
-back after `app.core.sorting.decode_cursor_for_sort` checked it against the
-sort — so a cursor stays the preserved wire format and a cursor from
-another sort is still a 400 `cursor_invalid`.
+**Cursor** (KAN-182 kept): `app.core.sorting` mints and decodes the keyset
+cursor for every sorted list, this layer included (ADR-179's addendum,
+KAN-713): a money or decimal value travels as its scaled integer, a calendar
+date as midnight, a boolean is bound on decode — the preserved wire format —
+and a cursor from another sort is still a 400 `cursor_invalid`. This module
+converts nothing itself.
 
 Cross-cutting: imports no bounded context.
 """
@@ -45,20 +44,14 @@ import re
 from collections.abc import Callable, Sequence
 from typing import Any, Literal
 
-from sqlalchemy import Boolean, ColumnElement, Date, Numeric, Select, and_, func, literal, or_, true
+from sqlalchemy import ColumnElement, Select, and_, func, or_, true
 from sqlalchemy.orm import Session
 
 from app.core.errors import UnprocessableEntityError
-from app.core.pagination import (
-    SortCursorPosition,
-    SortPageParams,
-    count_capped,
-    encode_sort_cursor,
-    paginate_query_sorted,
-)
+from app.core.pagination import SortPageParams, count_capped, paginate_query_sorted
 from app.core.relative_dates import start_of_current_period, start_of_day, start_of_day_days_ago, today_in_session_zone
 from app.core.schemas import CamelModel
-from app.core.sorting import SortField, decode_cursor_for_sort
+from app.core.sorting import SortField, build_page_for_sort, decode_cursor_for_sort
 
 ValueType = Literal["text", "enum", "number", "money", "date", "datetime", "boolean"]
 
@@ -459,66 +452,6 @@ def parse_list_sort(sort: str | None, registry: Registry, *, default: Sequence[t
     return fields
 
 
-def _column_type(column: Any) -> Any:
-    return column.property.columns[0].type
-
-
-def _decimal_scale(column: Any) -> int | None:
-    column_type = _column_type(column)
-    if isinstance(column_type, Numeric):
-        return column_type.scale or 0
-    return None
-
-
-def _to_cursor_value(value: Any, column: Any) -> Any:
-    """What the preserved cursor serialises: a decimal as its scaled integer,
-    a date as midnight of that day."""
-
-    if isinstance(value, decimal.Decimal):
-        scale = _decimal_scale(column) or 0
-        return int(value.scaleb(scale).to_integral_value())
-    if isinstance(value, dt.date) and not isinstance(value, dt.datetime):
-        return dt.datetime.combine(value, dt.time.min)
-    return value
-
-
-def _from_cursor_value(value: Any, column: Any) -> Any:
-    if value is None:
-        return None
-    if isinstance(value, bool):
-        # `column > False` is refused by SQLAlchemy (a Python constant may
-        # only be compared with = or IS); a bound boolean compares like any
-        # value (false < true in Postgres).
-        return literal(value, Boolean())
-    scale = _decimal_scale(column)
-    if scale is not None and isinstance(value, int) and not isinstance(value, bool):
-        return decimal.Decimal(value).scaleb(-scale)
-    if isinstance(_column_type(column), Date) and isinstance(value, dt.datetime):
-        return value.date()
-    return value
-
-
-def decode_list_cursor(cursor: str | None, sort_fields: list[SortField]) -> SortCursorPosition | None:
-    position = decode_cursor_for_sort(cursor, sort_fields)
-    if position is None:
-        return None
-    values = tuple(_from_cursor_value(v, f.column) for v, f in zip(position.values, sort_fields, strict=True))
-    return SortCursorPosition(values=values, id=position.id)
-
-
-def build_list_page(rows: list[Any], params: SortPageParams) -> tuple[list[Any], str | None]:
-    """`app.core.pagination.build_sorted_page`, for every column type the
-    registry serves (a decimal or a date included)."""
-
-    has_more = len(rows) > params.limit
-    page_rows = rows[: params.limit]
-    if not (has_more and page_rows):
-        return page_rows, None
-    last = page_rows[-1]
-    values = tuple(_to_cursor_value(getattr(last, f.column.key), f.column) for f in params.sort_fields)
-    return page_rows, encode_sort_cursor(SortCursorPosition(values=values, id=last.id))
-
-
 # --- One call ----------------------------------------------------------------------
 
 
@@ -568,8 +501,8 @@ def run_list_query(
     stmt = stmt.where(*scope, *filter_clauses(query.filters))
     total, is_estimate = count_capped(db, stmt, threshold=count_threshold)
     params = SortPageParams(
-        limit=query.limit, cursor=decode_list_cursor(query.cursor, query.sort_fields), sort_fields=query.sort_fields
+        limit=query.limit, cursor=decode_cursor_for_sort(query.cursor, query.sort_fields), sort_fields=query.sort_fields
     )
     rows = list(db.scalars(paginate_query_sorted(stmt, model=model, params=params)).all())
-    page, next_cursor = build_list_page(rows, params)
+    page, next_cursor = build_page_for_sort(rows, params)
     return page, next_cursor, total, is_estimate
