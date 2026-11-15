@@ -20,6 +20,7 @@ from app.core.base import utcnow
 from app.core.errors import BadRequestError, ConflictError
 from app.core.outbox import OutboxEvent
 from app.core.outbox import publish as publish_event
+from app.integration.public import get_enabled_connection
 from app.inventory.models.stock_item import StockItem
 from app.inventory.models.stock_item_publishing import (
     MAX_ADDITIONAL_MEDIA,
@@ -166,10 +167,40 @@ def unpublish(
     if not confirm:
         raise BadRequestError("Unpublishing is a confirmed destructive action — resend with confirm=true.")
 
+    _refuse_while_connection_off(db, item=item, channel=channel)
     row = record_unpublished(db, item=item, channel=channel, actor_id=actor_id)
     db.commit()
     db.refresh(row)
     return row
+
+
+def _refuse_while_connection_off(db: Session, *, item: StockItem, channel: MarketplaceChannel) -> None:
+    """KAN-735 (Anto, 2026-11-15; ADR-062 as amended): the dealer's unpublish
+    is refused while the marketplace still holds the listing
+    (`at_marketplace`, what the last delivered feed held) and the Betrieb has
+    no enabled connection for the channel — no feed could withdraw it, so the
+    car would stay live there while the screen said it was gone. 409
+    `marketplace_connection_disabled`, nothing written; the way out is
+    switching the connection on (Dealer Administration › Integrations). A
+    listing the marketplace never received has nothing to withdraw and is
+    unpublished as before. Only this dealer's action asks: the offboarding
+    withdrawal (`listing_withdrawal.py`) calls `record_unpublished` directly
+    and keeps KAN-718's behaviour (recorded as not delivered, reported,
+    offboarding held)."""
+
+    held = db.scalar(
+        select(StockItemPublishing.at_marketplace).where(
+            StockItemPublishing.stock_item_id == item.id, StockItemPublishing.channel == channel
+        )
+    )
+    if not held:
+        return
+    if get_enabled_connection(db, tenant_id=item.tenant_id, provider_code=channel.value) is not None:
+        return
+    raise ConflictError(
+        f"The {channel.value} connection is switched off: the marketplace still shows this listing.",
+        details={"reason": "marketplace_connection_disabled", "channel": channel.value},
+    )
 
 
 def record_unpublished(

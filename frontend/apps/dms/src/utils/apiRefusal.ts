@@ -65,6 +65,8 @@ const REASON_KEYS: Record<string, string> = {
       'image_too_small',
       'image_unreadable',
       'lead_recipient_not_a_user',
+      // KAN-734 — the lead e-mail is the manager's, on both screens.
+      'lead_email_manager_only',
     ].map((reason) => [reason, `publishing.refusals.${reason}`]),
   ),
   // KAN-218 — the data export and offboarding.
@@ -279,6 +281,8 @@ const REASON_KEYS: Record<string, string> = {
       'vehicle_merged',
       'vehicle_vin_changed',
       'vin_belongs_to_other_vehicle',
+      // KAN-735 — an unpublish the marketplace would never receive.
+      'marketplace_connection_disabled',
       // KAN-723 — a VIN a merged duplicate still carries.
       'vin_names_merged_vehicle',
       'vin_correction_left_stock',
@@ -376,6 +380,8 @@ const REASON_PARAMS: Record<string, (details: Details, t: TFunction) => Record<s
   }),
   // KAN-557: the vehicle-mdm record that already carries the VIN.
   vin_belongs_to_other_vehicle: (d) => ({ vehicleNumber: String(d.vehicleNumber ?? '—') }),
+  // KAN-735: the marketplace, as the Publishing tab names it.
+  marketplace_connection_disabled: (d) => ({ channel: MARKETPLACE_LABEL[String(d.channel)] ?? String(d.channel ?? '—') }),
   // KAN-723: the record the car lives on since the merge, and its VIN.
   vin_names_merged_vehicle: (d) => ({ vehicleNumber: String(d.vehicleNumber ?? '—'), vin: String(d.vin ?? '—') }),
   // KAN-583: the future holder in the way — who, in which role, from when
@@ -389,6 +395,9 @@ const REASON_PARAMS: Record<string, (details: Details, t: TFunction) => Record<s
         : '—',
   }),
 }
+
+// Marketplace names are brands, the same in every language.
+const MARKETPLACE_LABEL: Record<string, string> = { autoscout24: 'AutoScout24', carmarket: 'Carmarket', autolina: 'Autolina' }
 
 const placeholderTokens = (value: unknown): string =>
   Array.isArray(value) && value.length > 0

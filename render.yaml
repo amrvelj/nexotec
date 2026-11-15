@@ -105,7 +105,28 @@ services:
   - name: dms-staging
     type: web
     runtime: python
-    plan: free
+    # KAN-402 (Anto, 2026-10-29 and 2026-11-15; ADR-081 as amended): `starter`
+    # (about USD 7/month), not `free` — only a paid instance can carry a
+    # persistent disk, and the object store the web service writes (signature
+    # images, photos, logos, publishing imagery, AGB) must survive a deploy. A
+    # free instance's own disk is emptied by every deploy and restart. Applying
+    # this sync needs a payment method on the Render account (Anto's step).
+    plan: starter
+    # The disk the object store lives on (DMS_OBJECT_STORE_LOCAL_DIR below), a
+    # stop-gap until a Swiss S3-compatible store. Known limits (ADR-081 as
+    # amended): one instance only (a disk cannot be shared, so no scaling out),
+    # a few seconds of downtime per deploy (Render stops the old instance
+    # before the new one mounts the disk), the worker cannot read it — so the
+    # data export the worker builds (KAN-218) cannot use this store until the
+    # KAN-738 settles where it runs — data in
+    # Render's region (Oregon, the KAN-440 exception), daily snapshots kept 7
+    # days. Production copies this block when it is created; there it is
+    # required — the app refuses to start in production unless
+    # DMS_OBJECT_STORE_LOCAL_DIR is on a mounted disk (app/core/object_store.py).
+    disk:
+      name: dms-staging-objects
+      mountPath: /var/data/objects
+      sizeGB: 1
     # Same pin as the database (KAN-440): Oregon is where the live service
     # is, and only services in one region share Render's private network —
     # the internal database URL above and, one day, the worker.
@@ -129,6 +150,7 @@ services:
       alembic upgrade heads &&
       (python scripts/seed_staging_demo.py || true) &&
       (python scripts/retire_staging_shared_demo_user.py --commit || true) &&
+      (python scripts/check_stored_objects.py || true) &&
       uvicorn app.main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /v1/healthz
     envVars:
@@ -149,6 +171,11 @@ services:
         fromDatabase:
           name: dms-staging-db
           property: connectionString
+      # KAN-402: the object store's directory is the disk's mount point above.
+      # scripts/check_stored_objects.py (startCommand) reports, on every start,
+      # a stored key whose object the disk does not hold.
+      - key: DMS_OBJECT_STORE_LOCAL_DIR
+        value: /var/data/objects
       - key: DMS_JWT_PRIVATE_KEY
         sync: false
       - key: DMS_TAX_ID_ENCRYPTION_KEY

@@ -101,4 +101,6 @@ verified against main@73baf3f (2026-10-25). -->
   `at_marketplace` is what the last delivered feed holds; `transmission_status` only the last
   attempt — judge «still live there» by the former (ADR-062 as amended, `test_kan718_*`). Only
   AutoScout24 transmits; Carmarket and Autolina have no provider specification (KAN-72).
+  **The dealer's unpublish is refused while the channel has no enabled connection** and the marketplace
+  holds the listing (409 `marketplace_connection_disabled`, KAN-735); offboarding's withdrawal is not.
 - Stock numbers are allocated per dealership inside the caller's transaction.

@@ -83,6 +83,7 @@
   "leadRouting": {
     "hint": "Dove vanno le richieste sui veicoli di questa sede.",
     "leadEmail": "E-mail per le richieste",
+    "leadEmailManagerOnlyHint": "Solo la direzione modifica l'e-mail per le richieste – qui e in Sedi.",
     "leadPhone": "Telefono per le richieste",
     "createsTask": "Una richiesta crea anche un compito nel DMS",
     "recipientRole": "Destinatario",
@@ -121,6 +122,7 @@
     "image_too_large": "La foto è troppo grande — al massimo 10 MB.",
     "image_too_small": "La foto è troppo piccola — almeno 800 px sul lato lungo.",
     "image_unreadable": "Il file immagine è danneggiato.",
+    "lead_email_manager_only": "Solo la direzione può modificare l'e-mail per le richieste.",
     "lead_recipient_not_a_user": "Il destinatario deve essere un utente attivo della vostra azienda."
   }
 }

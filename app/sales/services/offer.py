@@ -14,7 +14,7 @@ from app.core.config import get_settings
 from app.core.errors import ConflictError, NotFoundError
 from app.core.outbox import OutboxEvent, publish
 from app.core.pagination import SortPageParams, build_sorted_page, count_capped, paginate_query_sorted
-from app.customer.public import Customer, CustomerLifecycleStatus, get_customer_or_404, resolve_live_customer_id
+from app.customer.public import CustomerLifecycleStatus, CustomerRef, get_customer_or_404, resolve_live_customer_id
 from app.sales.models.offer import OfferStatus, SalesOffer
 from app.sales.schemas.offer import OfferUpdate
 from app.sales.services import ownership
@@ -33,7 +33,7 @@ _EVENT_PRODUCER = "sales"
 logger = logging.getLogger(__name__)
 
 
-def resolve_customer_label(customer: Customer) -> str:
+def resolve_customer_label(customer: CustomerRef) -> str:
     """Shared with contract.py's own customer_id-sourced denormalization
     (KAN-58) — one label rule for both "attach a customer to an offer" and
     "create a contract directly for a customer"."""
@@ -43,7 +43,7 @@ def resolve_customer_label(customer: Customer) -> str:
     return " ".join(part for part in [customer.first_name, customer.last_name] if part) or customer.customer_number
 
 
-def refuse_unattachable_customer(db: Session, *, customer: Customer, group_id: uuid.UUID, host: str) -> None:
+def refuse_unattachable_customer(db: Session, *, customer: CustomerRef, group_id: uuid.UUID, host: str) -> None:
     """The buyer rules an offer and a contract share, on create and on every
     change of buyer: a do-not-contact customer is refused (ADR-065/S-D19),
     and so is a merged one (KAN-656) — its record no longer exists as a

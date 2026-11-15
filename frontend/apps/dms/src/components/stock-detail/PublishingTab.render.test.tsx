@@ -310,6 +310,50 @@ describe('PublishingTab — a failed save says so and keeps its key (KAN-272)', 
     expect(retryKey).toBe(failedKey)
   })
 
+  // KAN-735 (Anto, 2026-11-15): the marketplace still shows the car while its
+  // connection is off — the refusal says so and names the way out, where the
+  // dealer acted, and the listing stays published.
+  it.each([
+    ['de', 'Verwaltung › Integrationen'],
+    ['fr', 'Administration › Intégrations'],
+    ['it', 'Amministrazione › Integrazioni'],
+    ['en', 'Administration › Integrations'],
+  ])('says an unpublish refused while the connection is off, in %s, inside the confirmation', async (lng, wayOut) => {
+    await i18n.changeLanguage(lng)
+    const user = userEvent.setup()
+    installFakeBackend([
+      { match: /^\/inventory\/stock-items\/st-1\/equipment$/, handler: () => EQUIPMENT },
+      { match: /^\/inventory\/stock-items\/st-1\/media$/, handler: () => [] },
+      { method: 'GET', match: /\/publishing\/autoscout24$/, handler: () => publishingRow('published') },
+      {
+        method: 'POST',
+        match: /\/publishing\/autoscout24\/unpublish$/,
+        handler: () =>
+          status(409, {
+            error: {
+              code: 'conflict',
+              message: 'The autoscout24 connection is switched off: the marketplace still shows this listing.',
+              details: { reason: 'marketplace_connection_disabled', channel: 'autoscout24' },
+            },
+          }),
+      },
+    ])
+    renderWithProviders(<PublishingTab stockItemId="st-1" locale="de-CH" />)
+
+    await user.click(
+      await screen.findByRole('button', { name: i18n.t('stockDetail.publishing.unpublish', { channel: 'AutoScout24' }) }),
+    )
+    await user.click(await screen.findByRole('button', { name: i18n.t('stockDetail.publishing.unpublishConfirmSubmit') }))
+
+    const dialog = await screen.findByRole('dialog')
+    const text = (await within(dialog).findByRole('alert')).textContent ?? ''
+    expect(text).toBe(i18n.t('apiRefusal.reasons.marketplace_connection_disabled', { channel: 'AutoScout24' }))
+    expect(text).toContain('AutoScout24')
+    expect(text).toContain(wayOut)
+    expect(text).not.toContain('{{')
+    expect(screen.queryByText(/switched off: the marketplace/)).not.toBeInTheDocument()
+  })
+
   it('a failed photo add says so, offers the same URL again, and the retry reuses the key', async () => {
     const user = userEvent.setup()
     const rows: { id: string; url: string; position: number }[] = []
