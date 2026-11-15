@@ -57,4 +57,4 @@ KAN-672, KAN-673, KAN-680, KAN-706; ADR-131, ADR-160. -->
   (KAN-706, ADR-160 amended). Customer's reconciliation reports any other party row naming a merged vehicle.
 - **A merged duplicate's VIN never links the dead record** (ADR-160 as amended, KAN-723): a
   configuration's VIN and the trade-in/valuation match follow the merge (`live_vehicle_mdm`); the
-  purchase booking is 409 `vin_names_merged_vehicle` with the survivor's number and VIN.
+  purchase booking and «VIN korrigieren» (KAN-729) are 409 `vin_names_merged_vehicle` with the survivor's number and VIN.

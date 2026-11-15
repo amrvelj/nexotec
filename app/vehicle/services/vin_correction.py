@@ -126,7 +126,9 @@ def correct_vehicle_vin(
     into another (409 `vehicle_merged`); it no longer carries `old_vin`
     (409 `vehicle_vin_changed`); `new_vin` already names another record
     (409 `vin_belongs_to_other_vehicle` with its `vehicleNumber`: the two
-    records are one car, merged with «Zusammenführen mit…», FR-V-12); a VIN
+    records are one car, merged with «Zusammenführen mit…», FR-V-12) — or
+    only a merged duplicate carries it (409 `vin_names_merged_vehicle`
+    naming the survivor, KAN-729); a VIN
     record is given a chassis number (422 `invalid_vin`); the configuration
     is not the tenant's (404), names a third VIN (422
     `configuration_vin_differs`) or, given a chassis number, is not first
@@ -298,7 +300,7 @@ def _correct_record(
     kind, make_key = _identity_after(vehicle, new_vin=new_vin, restore_chassis_make_key=restore_chassis_make_key)
     other = _record_carrying(own, vin=new_vin, kind=kind, make_key=make_key)
     if other is not None and other.id != vehicle.id:
-        raise _belongs_to_other_vehicle(new_vin, other.vehicle_number)
+        raise _carried_by_another_record(own, new_vin, other)
 
     summary_before = summary_fields(vehicle)
     before: dict[str, object] = {"vin": old_vin}
@@ -321,7 +323,7 @@ def _correct_record(
         raced = _record_carrying(own, vin=new_vin, kind=kind, make_key=make_key)
         if raced is None:
             raise
-        raise _belongs_to_other_vehicle(new_vin, raced.vehicle_number) from exc
+        raise _carried_by_another_record(own, new_vin, raced) from exc
 
     record_audit_event(
         own,
@@ -355,6 +357,25 @@ def _correct_record(
     )
     publish_summary_changed_if_changed(own, vehicle=vehicle, before=summary_before)
     return True
+
+
+def _carried_by_another_record(own: Session, vin: str, other: "VehicleMdm") -> ConflictError:
+    """The refusal for a `vin` another record already carries. KAN-729
+    (ADR-160): a merged duplicate keeps its (usually mistyped) VIN, so the
+    record found may be a dead one — then the two are already one car, and
+    «Merge into…» is advice that cannot be followed. It is refused as every
+    other write naming a merged record is (KAN-723), 409
+    `vin_names_merged_vehicle` naming the record the car lives on and its VIN —
+    another car, or the very car being corrected when `vin` is its own merged
+    duplicate's. The duplicate keeps its VIN (the unique index holds it), so
+    the survivor cannot take it either way. A live record is
+    `vin_belongs_to_other_vehicle`, as before."""
+
+    from app.vehicle.services.vin_resolution import refusal_naming_merged_record
+
+    if other.merged_into_vehicle_id is not None:
+        return refusal_naming_merged_record(own, other)
+    return _belongs_to_other_vehicle(vin, other.vehicle_number)
 
 
 def _belongs_to_other_vehicle(vin: str, vehicle_number: str) -> ConflictError:

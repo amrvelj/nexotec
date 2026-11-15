@@ -18,14 +18,15 @@ and never cached, audited.
 
 import uuid
 
-from fastapi import APIRouter, Depends, Response
+from fastapi import APIRouter, Depends
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.core.auth import AccessRole, Principal, require_access_role, require_mfa_session
 from app.core.concurrency import check_version, require_if_match
 from app.core.errors import ForbiddenError, UnprocessableEntityError
 from app.core.idempotent_route import IdempotentRoute
-from app.core.object_store import ObjectStore, get_object_store
+from app.core.object_store import ObjectStore, OpenedObject, get_object_store
 from app.core.pagination import PageParams, page_params
 from app.core.permissions import require_read, require_write
 from app.core.tenancy import require_tenant_match
@@ -65,12 +66,19 @@ def _the_betriebs_own(principal: Principal) -> None:
         )
 
 
-def _zip(job: ExportJob, data: bytes) -> Response:
+def _zip(job: ExportJob, opened: OpenedObject) -> StreamingResponse:
+    """The archive streamed in chunks (KAN-725), never read whole into the
+    web process; the iterator closes the file once sent."""
+
     filename = f"nexotec-export-{job.id}.zip"
-    return Response(
-        content=data,
+    return StreamingResponse(
+        opened.chunks(),
         media_type=export_service.CONTENT_TYPE,
-        headers={**_DOWNLOAD_HEADERS, "Content-Disposition": f'attachment; filename="{filename}"'},
+        headers={
+            **_DOWNLOAD_HEADERS,
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Content-Length": str(opened.size),
+        },
     )
 
 

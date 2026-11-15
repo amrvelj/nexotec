@@ -38,7 +38,7 @@ from app.core.audit import record_audit_event
 from app.core.base import utcnow
 from app.core.errors import ConflictError, NotFoundError
 from app.core.export import ExportScope, exporters, write_archive
-from app.core.object_store import ObjectStore, get_object_store
+from app.core.object_store import ObjectStore, OpenedObject, get_object_store
 from app.core.pagination import PageParams, build_page, paginate_query
 from app.platform.models.export_job import ExportJob, ExportJobKind, ExportJobStatus
 from app.platform.organisation.models.dealership import Dealership, DealershipStatus
@@ -183,20 +183,26 @@ def _assert_downloadable(job: ExportJob, now: dt.datetime) -> None:
         )
 
 
-def download(db: Session, *, job: ExportJob, actor_id: uuid.UUID, store: ObjectStore | None = None) -> bytes:
-    """The file, through the authenticated GET (no signed URL before the
-    bucket, KAN-402). Every download is audited."""
+def download(db: Session, *, job: ExportJob, actor_id: uuid.UUID, store: ObjectStore | None = None) -> OpenedObject:
+    """The file, opened for a streamed read, through the authenticated GET
+    (no signed URL before the bucket, KAN-402). Every download is audited.
+    KAN-725: the caller streams it in chunks (`OpenedObject.chunks`, which
+    closes it) — the archive is never read whole into the web process."""
 
     _assert_downloadable(job, utcnow())
-    stored = (store or get_object_store()).get(job.object_key or "")
-    if stored is None:
+    opened = (store or get_object_store()).open(job.object_key or "")
+    if opened is None:
         logger.error("data export %s is ready but its file is missing", job.id, extra={"exportId": str(job.id)})
         raise ConflictError(
             "This export's file is no longer there — request a new export.", details={"reason": "export_file_missing"}
         )
-    _audit(db, job, "downloaded", actor_id=actor_id)
-    db.commit()
-    return stored.data
+    try:
+        _audit(db, job, "downloaded", actor_id=actor_id)
+        db.commit()
+    except BaseException:
+        opened.close()
+        raise
+    return opened
 
 
 def acknowledge(db: Session, *, job: ExportJob, actor_id: uuid.UUID) -> ExportJob:

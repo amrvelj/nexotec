@@ -15,8 +15,10 @@ ticket's rule).
 
 import dataclasses
 import logging
+import os
 import re
 import shutil
+from collections.abc import Iterator
 from pathlib import Path
 from typing import BinaryIO, Protocol
 
@@ -45,6 +47,27 @@ class StoredObject:
     content_type: str
 
 
+@dataclasses.dataclass(frozen=True)
+class OpenedObject:
+    """A stored object opened for a streamed read (KAN-725): the caller
+    reads `stream` in chunks — `chunks()` does, and closes it at the end —
+    and never holds the whole object in memory. Whoever opens one closes it."""
+
+    stream: BinaryIO
+    content_type: str
+    size: int
+
+    def chunks(self, chunk_size: int = _COPY_CHUNK) -> Iterator[bytes]:
+        try:
+            while chunk := self.stream.read(chunk_size):
+                yield chunk
+        finally:
+            self.stream.close()
+
+    def close(self) -> None:
+        self.stream.close()
+
+
 class ObjectStore(Protocol):
     def put(self, key: str, data: bytes, *, content_type: str) -> None: ...
 
@@ -55,6 +78,12 @@ class ObjectStore(Protocol):
         ...
 
     def get(self, key: str) -> StoredObject | None: ...
+
+    def open(self, key: str) -> OpenedObject | None:
+        """The object opened for a streamed read, or None when the key holds
+        nothing (KAN-725: a Betrieb's export archive is downloaded in
+        chunks, never read whole into the web process's memory)."""
+        ...
 
     def delete(self, key: str) -> bool:
         """True when something was removed."""
@@ -99,6 +128,23 @@ class LocalDirectoryObjectStore:
         meta = path.with_name(path.name + ".meta")
         content_type = meta.read_text(encoding="utf-8").strip() if meta.is_file() else "application/octet-stream"
         return StoredObject(data=path.read_bytes(), content_type=content_type)
+
+    def open(self, key: str) -> OpenedObject | None:
+        path = self._path(key)
+        try:
+            stream = path.open("rb")
+        except (FileNotFoundError, IsADirectoryError):
+            return None
+        meta = path.with_name(path.name + ".meta")
+        try:
+            content_type = meta.read_text(encoding="utf-8").strip() if meta.is_file() else "application/octet-stream"
+            # The open file stays readable if `put`/`delete` replaces or
+            # removes the path meanwhile (POSIX): the reader sees one version.
+            size = os.fstat(stream.fileno()).st_size
+        except BaseException:
+            stream.close()
+            raise
+        return OpenedObject(stream=stream, content_type=content_type, size=size)
 
     def delete(self, key: str) -> bool:
         path = self._path(key)
