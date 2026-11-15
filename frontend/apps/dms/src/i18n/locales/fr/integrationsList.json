@@ -10,7 +10,8 @@
   "platformConnectionsTitle": "Connexions",
   "categories": {
     "marketplace": "Marketplace",
-    "vehicle_data": "Données véhicule"
+    "vehicle_data": "Données véhicule",
+    "ai": "Fournisseur d'IA"
   },
   "fields": {
     "provider": "Fournisseur",
@@ -49,7 +50,9 @@
     "total": "Total",
     "empty": "Aucune requête pendant cette période.",
     "invalidPeriod": "La fin de la période précède son début.",
-    "loadError": "L'utilisation n'a pas pu être chargée."
+    "loadError": "L'utilisation n'a pas pu être chargée.",
+    "tokensIn": "Jetons (entrée)",
+    "tokensOut": "Jetons (sortie)"
   },
   "rotateModal": {
     "title": "Renouveler les secrets — {{name}}",

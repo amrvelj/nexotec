@@ -121,6 +121,15 @@ export type NumberRangeRead = Schemas['NumberRangeRead']
 export type NumberRangeList = Schemas['NumberRangeList']
 export type NumberRangeDocumentType = Schemas['NumberRangeRead']['documentType']
 export type NumberRangePreviewRead = Schemas['NumberRangePreviewRead']
+// KAN-223 — the Betrieb's status page and Nexotec's incidents.
+export type StatusPageRead = Schemas['StatusPageRead']
+export type StatusItemRead = Schemas['StatusItemRead']
+export type StatusState = Schemas['StatusItemRead']['state']
+export type StatusIncidentRead = Schemas['StatusIncidentRead']
+export type StatusIncidentList = Schemas['StatusIncidentList']
+export type StatusIncidentCreate = Schemas['StatusIncidentCreate']
+export type StatusIncidentUpdate = Schemas['StatusIncidentUpdate']
+export type IncidentSeverity = Schemas['StatusIncidentRead']['severity']
 // KAN-214 — setup checklist, activation and the legal documents.
 export type SetupChecklistRead = Schemas['SetupChecklistRead']
 export type SetupChecklistItemRead = Schemas['SetupChecklistItemRead']
@@ -502,3 +511,14 @@ export interface ApiErrorBody {
     details: Record<string, unknown> | null
   }
 }
+
+// KAN-227 — the AI prompt library, the AI connection in use, «Text vorschlagen».
+export type AiPromptRead = Schemas['AiPromptRead']
+export type AiPromptList = Schemas['AiPromptList']
+export type AiPromptCreate = Schemas['AiPromptCreate']
+export type AiPromptUpdate = Schemas['AiPromptUpdate']
+export type AiConnectionInUseRead = Schemas['AiConnectionInUseRead']
+export type AiPromptSeedRead = Schemas['AiPromptSeedRead']
+export type AiPromptSeedGroup = Schemas['AiPromptSeedGroup']
+export type AiPromptSeedList = Schemas['AiPromptSeedList']
+export type ListingTextSuggestionRead = Schemas['ListingTextSuggestionRead']

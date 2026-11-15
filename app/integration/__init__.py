@@ -22,6 +22,11 @@ import-linter contract: only `app.integration.public` is reachable from
 outside this package.
 """
 
+# KAN-227 — the four AI provider adapters (OpenAI, Azure OpenAI, Mistral,
+# Anthropic) behind `adapters/ai_base.py::AiGateway`, registered the same way
+# as the two below; httpx opens nothing until a request is sent.
+from app.integration.adapters import ai_providers as _ai_providers  # noqa: F401
+
 # Importing this submodule registers the real auto-i-dat adapter factory
 # with services/gateway.py as a side effect, the same way
 # services/gateway.py's own module already registers the mock factory in

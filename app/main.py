@@ -22,6 +22,7 @@ from app.export_registry import register_exporters
 from app.ownership_registry import register_ownership_providers
 from app.platform.reference.services.mailer import get_mailer
 from app.platform.session_guard import enforce_live_session, enforce_open_dealership
+from app.status_registry import register_status_providers
 
 configure_logging()
 configure_sentry()
@@ -31,6 +32,9 @@ register_ownership_providers()
 # KAN-218: every context's exporter, so the export and offboarding ask the
 # registry (app.core.export) and import no context themselves.
 register_exporters()
+# KAN-223: every context's status-page contribution, so the status page asks
+# the registry (app.core.status) and imports no context itself.
+register_status_providers()
 
 # KAN-196 (FR-AU-17/18): every request carrying a session token is checked
 # against its `session` row — revoked, idle or past its absolute end is 401

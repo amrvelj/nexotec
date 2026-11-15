@@ -1,0 +1,52 @@
+{
+  "title": "AI texts",
+  "subtitle": "Which of your business's AI providers suggests texts, and with which instructions. You connect your own provider under Integrations; it bills you directly.",
+  "loadError": "The AI settings could not be loaded.",
+  "saveError": "The prompt could not be saved.",
+  "placeholders": "Placeholders: {{list}}",
+  "languagesLabel": "Languages",
+  "codes": {
+    "vehicle_listing": "Listing text for a vehicle"
+  },
+  "connection": {
+    "title": "AI provider",
+    "provider": "Provider",
+    "name": "Connection",
+    "hint": "With several AI providers connected, the one most recently tested successfully writes.",
+    "none": "No AI provider connected. Without one, Nexotec suggests no texts.",
+    "manage": "Open integrations"
+  },
+  "fields": {
+    "title": "Title",
+    "systemPrompt": "Instructions",
+    "systemPromptHint": "How the provider should write: tone, length, what it must never claim.",
+    "userPrompt": "Request",
+    "userPromptHint": "The vehicle's details; Nexotec fills in the placeholders when suggesting."
+  },
+  "status": {
+    "default": "Nexotec default",
+    "adapted": "Adapted"
+  },
+  "seedChanged": {
+    "title": "The default has changed",
+    "body": "Nexotec changed this prompt's default. Please review your version; the new default reads:",
+    "markReviewed": "Mark as reviewed"
+  },
+  "actions": {
+    "save": "Save",
+    "backToDefault": "Back to the default"
+  },
+  "refusals": {
+    "ai_not_connected": "No AI provider is connected for this business.",
+    "ai_provider_not_configured": "The AI provider connection is incomplete: check the model and the API key.",
+    "ai_provider_unavailable": "The AI provider delivered no suggestion. Please try again later.",
+    "ai_prompt_missing": "No prompt is installed for this purpose.",
+    "ai_prompt_code_unknown": "This prompt does not exist.",
+    "ai_prompt_empty": "Instructions and request cannot be empty.",
+    "ai_prompt_exists": "Your business has already adapted this prompt in this language.",
+    "ai_prompt_placeholder_invalid": "The prompt uses placeholders that are not allowed here.",
+    "ai_prompt_placeholder_unresolved": "A placeholder in the prompt cannot be filled.",
+    "ai_prompt_seed_language_missing": "This prompt does not exist in this language.",
+    "ai_prompt_seed_not_shipped": "Nexotec ships no wording to restore for this prompt."
+  }
+}

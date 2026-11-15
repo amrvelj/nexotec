@@ -1,0 +1,93 @@
+{
+  "title": "Status",
+  "subtitle": "Was Nexotec für Ihren Betrieb laufend prüft. Jeder Punkt wird aus Ihren Daten abgeleitet – nichts wird von Hand gesetzt.",
+  "loadError": "Die Statusseite konnte nicht geladen werden.",
+  "overall": {
+    "ok": "Alles grün",
+    "warning": "Bitte prüfen",
+    "blocked": "Handlungsbedarf"
+  },
+  "overallDetail": {
+    "ok": "Jeder geprüfte Punkt ist in Ordnung.",
+    "attention_one": "{{count, number}} Punkt braucht Aufmerksamkeit.",
+    "attention_other": "{{count, number}} Punkte brauchen Aufmerksamkeit."
+  },
+  "itemsTitle": "Geprüfte Punkte",
+  "states": {
+    "ok": "In Ordnung",
+    "warning": "Warnung",
+    "blocked": "Blockiert"
+  },
+  "sources": {
+    "number_ranges": "Nummernkreise",
+    "integration": "Integrationen",
+    "nexotec": "Nexotec"
+  },
+  "open": "Öffnen",
+  "since": "seit {{date}}",
+  "until": "bis {{date}}",
+  "items": {
+    "numberRange": {
+      "ok": "{{documentType}}: {{percent, number}} % belegt",
+      "nearlyExhausted": "{{documentType}}: {{percent, number}} % belegt – der Nummernkreis ist bald voll. Erweitern Sie das Muster.",
+      "exhausted": "{{documentType}}: voll – es kann keine Nummer mehr vergeben werden. Erweitern Sie das Muster."
+    },
+    "integration": {
+      "ok": "{{provider}} · {{connection}}: verbunden",
+      "expiring": "{{provider}} · {{connection}}: der Zugang läuft in {{days, number}} Tagen ab.",
+      "expired": "{{provider}} · {{connection}}: der Zugang ist abgelaufen.",
+      "error": "{{provider}} · {{connection}}: der letzte Verbindungstest ist fehlgeschlagen.",
+      "notTested": "{{provider}} · {{connection}}: noch nicht getestet."
+    },
+    "nexotec": {
+      "ok": "Alle Dienste von Nexotec laufen normal.",
+      "incident": "Störung bei Nexotec"
+    },
+    "sourceUnavailable": "Diese Quelle konnte gerade nicht geprüft werden."
+  },
+  "indicator": {
+    "ok": "Status: alles grün",
+    "attention_one": "Status: {{count, number}} Punkt braucht Aufmerksamkeit",
+    "attention_other": "Status: {{count, number}} Punkte brauchen Aufmerksamkeit"
+  },
+  "platform": {
+    "title": "Nexotec-Status",
+    "subtitle": "Störungen von Nexotec selbst. Eine laufende Störung erscheint auf der Statusseite jedes Betriebs.",
+    "loadError": "Die Störungen konnten nicht geladen werden.",
+    "new": "Störung erfassen",
+    "empty": "Es ist keine Störung erfasst.",
+    "columns": {
+      "severity": "Schwere",
+      "title": "Titel",
+      "from": "Von",
+      "to": "Bis",
+      "state": "Stand"
+    },
+    "severity": {
+      "warning": "Beeinträchtigt",
+      "blocked": "Ausfall"
+    },
+    "current": "Laufend",
+    "ended": "Beendet",
+    "scheduled": "Geplant",
+    "end": "Beenden",
+    "edit": "Bearbeiten",
+    "form": {
+      "createTitle": "Störung erfassen",
+      "editTitle": "Störung bearbeiten",
+      "severity": "Schwere",
+      "titleIn": "Titel ({{language}})",
+      "bodyIn": "Text ({{language}})",
+      "startsAt": "Beginn",
+      "endsAt": "Ende (leer = offen)",
+      "save": "Speichern",
+      "allLanguages": "Titel und Text werden in allen vier Sprachen gebraucht."
+    },
+    "saveError": "Die Störung konnte nicht gespeichert werden."
+  },
+  "refusals": {
+    "status_incident_ends_before_start": "Eine Störung endet nach ihrem Beginn.",
+    "status_incident_language_missing": "Titel und Text werden in Deutsch, Französisch, Italienisch und Englisch gebraucht.",
+    "status_incident_text_too_long": "Der Titel hat höchstens 200, der Text höchstens 2000 Zeichen."
+  }
+}

@@ -114,6 +114,10 @@
     "checklistItemRegressed": {
       "title": "A setup item is missing again",
       "body": "The setup checklist item «{{item}}» is no longer met. Until it is, the action that needs it is blocked."
+    },
+    "statusItemDegraded": {
+      "title": "The status page is no longer green",
+      "body": "An item on your business's status page needs attention. Open the status page to see which one and how to fix it."
     }
   },
   "recoveryActions": {

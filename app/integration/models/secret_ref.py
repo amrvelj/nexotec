@@ -28,6 +28,8 @@ class SecretSlot(str, enum.Enum):
     CLIENT_SECRET = "client_secret"
     REFRESH_TOKEN = "refresh_token"
     CERTIFICATE = "certificate"
+    # KAN-227: the Betrieb's own key at its AI provider (BYO, D-A-33).
+    API_KEY = "api_key"
 
 
 class IntegrationSecretRef(PrimaryKeyMixin, TimestampMixin, Base):

@@ -1,0 +1,52 @@
+{
+  "title": "Textes IA",
+  "subtitle": "Quel fournisseur d'IA de votre entreprise propose des textes, et avec quelles instructions. Vous connectez votre propre fournisseur sous Intégrations ; il vous facture directement.",
+  "loadError": "Les réglages IA n'ont pas pu être chargés.",
+  "saveError": "Le prompt n'a pas pu être enregistré.",
+  "placeholders": "Espaces réservés : {{list}}",
+  "languagesLabel": "Langues",
+  "codes": {
+    "vehicle_listing": "Texte d'annonce pour un véhicule"
+  },
+  "connection": {
+    "title": "Fournisseur d'IA",
+    "provider": "Fournisseur",
+    "name": "Connexion",
+    "hint": "Si plusieurs fournisseurs d'IA sont connectés, celui testé avec succès le plus récemment rédige.",
+    "none": "Aucun fournisseur d'IA connecté. Sans fournisseur, Nexotec ne propose pas de textes.",
+    "manage": "Ouvrir les intégrations"
+  },
+  "fields": {
+    "title": "Titre",
+    "systemPrompt": "Instructions",
+    "systemPromptHint": "Comment le fournisseur doit écrire : ton, longueur, ce qu'il ne doit jamais affirmer.",
+    "userPrompt": "Demande",
+    "userPromptHint": "Les données du véhicule ; Nexotec remplit les espaces réservés lors de la proposition."
+  },
+  "status": {
+    "default": "Modèle Nexotec",
+    "adapted": "Adapté"
+  },
+  "seedChanged": {
+    "title": "Le modèle par défaut a changé",
+    "body": "Nexotec a modifié le modèle de ce prompt. Veuillez vérifier votre version ; le nouveau modèle est :",
+    "markReviewed": "Marquer comme vérifié"
+  },
+  "actions": {
+    "save": "Enregistrer",
+    "backToDefault": "Revenir au modèle"
+  },
+  "refusals": {
+    "ai_not_connected": "Aucun fournisseur d'IA n'est connecté pour cette entreprise.",
+    "ai_provider_not_configured": "La connexion au fournisseur d'IA est incomplète : vérifiez le modèle et la clé API.",
+    "ai_provider_unavailable": "Le fournisseur d'IA n'a livré aucune proposition. Veuillez réessayer plus tard.",
+    "ai_prompt_missing": "Aucun prompt n'est installé pour cet usage.",
+    "ai_prompt_code_unknown": "Ce prompt n'existe pas.",
+    "ai_prompt_empty": "Les instructions et la demande ne peuvent pas être vides.",
+    "ai_prompt_exists": "Votre entreprise a déjà adapté ce prompt dans cette langue.",
+    "ai_prompt_placeholder_invalid": "Le prompt utilise des espaces réservés non autorisés ici.",
+    "ai_prompt_placeholder_unresolved": "Un espace réservé du prompt ne peut pas être rempli.",
+    "ai_prompt_seed_language_missing": "Ce prompt n'existe pas dans cette langue.",
+    "ai_prompt_seed_not_shipped": "Nexotec ne livre aucun texte à restaurer pour ce prompt."
+  }
+}

@@ -10,7 +10,8 @@
   "platformConnectionsTitle": "Verbindungen",
   "categories": {
     "marketplace": "Marktplatz",
-    "vehicle_data": "Fahrzeugdaten"
+    "vehicle_data": "Fahrzeugdaten",
+    "ai": "KI-Anbieter"
   },
   "fields": {
     "provider": "Anbieter",
@@ -49,7 +50,9 @@
     "total": "Total",
     "empty": "Keine Anfragen in diesem Zeitraum.",
     "invalidPeriod": "Das Ende des Zeitraums liegt vor seinem Beginn.",
-    "loadError": "Die Nutzung konnte nicht geladen werden."
+    "loadError": "Die Nutzung konnte nicht geladen werden.",
+    "tokensIn": "Tokens (Eingabe)",
+    "tokensOut": "Tokens (Ausgabe)"
   },
   "rotateModal": {
     "title": "Secrets erneuern — {{name}}",

@@ -121,6 +121,10 @@ class UsageRead(CamelModel):
     period_to: dt.date
     total_calls: int
     counters: list[UsageCounterRead]
+    # KAN-227 (FR-A-36): an AI provider's tokens in and out over the period
+    # (it bills tokens); null for a provider that reports none.
+    tokens_in: int | None = None
+    tokens_out: int | None = None
     indicative: bool = True
 
 

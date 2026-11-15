@@ -5,7 +5,8 @@
   "sourcesLabel": "Origine",
   "sources": {
     "ui": "Testi dell'interfaccia",
-    "standardTexts": "Modelli di testi standard"
+    "standardTexts": "Modelli di testi standard",
+    "aiPrompts": "Prompt IA"
   },
   "search": {
     "label": "Cerca",
@@ -96,5 +97,11 @@
     "loadError": "Non è stato possibile caricare i modelli.",
     "gridLabel": "Modelli di testi standard"
   },
-  "gridLabel": "Testi dell'interfaccia"
+  "gridLabel": "Testi dell'interfaccia",
+  "aiPrompts": {
+    "subtitle": "I prompt che Nexotec fornisce a ogni azienda. Una modifica non sostituisce mai l'adattamento di un'azienda; questa vede «Il predefinito è cambiato».",
+    "loadError": "Non è stato possibile caricare i prompt IA.",
+    "saveError": "Non è stato possibile salvare il prompt.",
+    "empty": "Nessun prompt IA installato."
+  }
 }

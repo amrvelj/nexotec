@@ -32,6 +32,7 @@ from app.platform.identity.services.actor_reference import actor_reference_check
 from app.platform.models.document_template import DocumentTemplate
 from app.platform.models.export_job import ExportJob
 from app.platform.models.standard_text import StandardText
+from app.platform.models.status_page import PlatformStatusIncident
 from app.platform.organisation.models.branding_asset import BrandingAsset
 from app.platform.organisation.models.contact_group import DealershipContactGroup
 from app.platform.organisation.models.dealership import DealerGroup, Dealership, DealershipStatus, Location
@@ -81,6 +82,7 @@ ACTOR_TABLES = (
     NumberRange,  # created_by / updated_by (KAN-207; seeded rows carry none)
     DealershipContactGroup,  # created_by / updated_by: who switched it on (KAN-466)
     ExportJob,  # created_by / updated_by: who requested the export (KAN-218)
+    PlatformStatusIncident,  # created_by / updated_by: the staff user who opened or edited it (KAN-223)
 )
 
 # KAN-412 (FR-AU-24, rule 10): a revoked grant's provider end is recorded by

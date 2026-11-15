@@ -31,6 +31,10 @@ KAN-214 adds `run_daily_setup_checklist_regressions`: a checklist item that
 broke after activation raises one `administration` notification to the
 Betrieb's managers per regression (`services/setup_checklist_regressions.py`).
 
+KAN-223 adds `run_daily_status_page_notifications`: a status-page item that is
+no longer green raises one `administration` notification to the Betrieb's
+managers until it clears (`services/status_notifications.py`).
+
 Runs where `python -m app.worker` runs; staging runs no worker (ADR-081).
 """
 
@@ -51,7 +55,7 @@ from app.platform.identity.schemas.user import UserUpdate
 from app.platform.identity.services import connected_account, notifications, ownership, push_subscriptions
 from app.platform.identity.services import user as user_service
 from app.platform.identity.services import user_reads as user_reads_service
-from app.platform.services import data_export, setup_checklist_regressions
+from app.platform.services import data_export, setup_checklist_regressions, status_notifications
 
 logger = logging.getLogger(__name__)
 
@@ -248,3 +252,11 @@ def run_daily_setup_checklist_regressions(db: Session) -> None:
     last run notifies the managers once, an item complete again is closed."""
 
     setup_checklist_regressions.run(db)
+
+
+def run_daily_status_page_notifications(db: Session) -> None:
+    """`platform.status_page.notifications` (KAN-223; D-A-38): every active
+    Betrieb's status page, one transaction each; an item no longer green
+    notifies the managers once, until it is green again."""
+
+    status_notifications.run(db)

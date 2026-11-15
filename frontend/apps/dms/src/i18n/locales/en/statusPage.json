@@ -1,0 +1,93 @@
+{
+  "title": "Status",
+  "subtitle": "What Nexotec checks continuously for your business. Every item is derived from your data – nothing is set by hand.",
+  "loadError": "The status page could not be loaded.",
+  "overall": {
+    "ok": "All green",
+    "warning": "Please check",
+    "blocked": "Action needed"
+  },
+  "overallDetail": {
+    "ok": "Every item checked is fine.",
+    "attention_one": "{{count, number}} item needs attention.",
+    "attention_other": "{{count, number}} items need attention."
+  },
+  "itemsTitle": "Items checked",
+  "states": {
+    "ok": "Fine",
+    "warning": "Warning",
+    "blocked": "Blocked"
+  },
+  "sources": {
+    "number_ranges": "Number ranges",
+    "integration": "Integrations",
+    "nexotec": "Nexotec"
+  },
+  "open": "Open",
+  "since": "since {{date}}",
+  "until": "until {{date}}",
+  "items": {
+    "numberRange": {
+      "ok": "{{documentType}}: {{percent, number}} % used",
+      "nearlyExhausted": "{{documentType}}: {{percent, number}} % used – the range is nearly full. Widen the pattern.",
+      "exhausted": "{{documentType}}: full – no number can be handed out any more. Widen the pattern."
+    },
+    "integration": {
+      "ok": "{{provider}} · {{connection}}: connected",
+      "expiring": "{{provider}} · {{connection}}: access expires in {{days, number}} days.",
+      "expired": "{{provider}} · {{connection}}: access has expired.",
+      "error": "{{provider}} · {{connection}}: the last connection test failed.",
+      "notTested": "{{provider}} · {{connection}}: not tested yet."
+    },
+    "nexotec": {
+      "ok": "All Nexotec services are running normally.",
+      "incident": "Incident at Nexotec"
+    },
+    "sourceUnavailable": "This source could not be checked just now."
+  },
+  "indicator": {
+    "ok": "Status: all green",
+    "attention_one": "Status: {{count, number}} item needs attention",
+    "attention_other": "Status: {{count, number}} items need attention"
+  },
+  "platform": {
+    "title": "Nexotec status",
+    "subtitle": "Incidents of Nexotec itself. A current incident shows on every business's status page.",
+    "loadError": "The incidents could not be loaded.",
+    "new": "Record an incident",
+    "empty": "No incident is recorded.",
+    "columns": {
+      "severity": "Severity",
+      "title": "Title",
+      "from": "From",
+      "to": "To",
+      "state": "State"
+    },
+    "severity": {
+      "warning": "Degraded",
+      "blocked": "Outage"
+    },
+    "current": "Current",
+    "ended": "Ended",
+    "scheduled": "Scheduled",
+    "end": "End",
+    "edit": "Edit",
+    "form": {
+      "createTitle": "Record an incident",
+      "editTitle": "Edit the incident",
+      "severity": "Severity",
+      "titleIn": "Title ({{language}})",
+      "bodyIn": "Text ({{language}})",
+      "startsAt": "Start",
+      "endsAt": "End (empty = open)",
+      "save": "Save",
+      "allLanguages": "Title and text are needed in all four languages."
+    },
+    "saveError": "The incident could not be saved."
+  },
+  "refusals": {
+    "status_incident_ends_before_start": "An incident ends after it starts.",
+    "status_incident_language_missing": "Title and text are needed in German, French, Italian and English.",
+    "status_incident_text_too_long": "The title is at most 200 characters, the text at most 2000."
+  }
+}

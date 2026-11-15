@@ -210,6 +210,7 @@ export function IntegrationDealerView() {
 }
 
 const AUTO_I_DAT_PROVIDER_CODE = 'auto_i_dat'
+const AI_CATEGORY = 'ai'
 
 function ConnectDialog({
   provider,
@@ -225,6 +226,12 @@ function ConnectDialog({
   const { t } = useTranslation()
   const hint = useFieldHint()
   const [environment, setEnvironment] = useState<'sandbox' | 'production'>('sandbox')
+  // KAN-227: a provider without a sandbox (every AI provider, AutoScout24)
+  // starts on production — its sandbox option is disabled, and a sandbox
+  // connection is refused on the production server (KAN-489).
+  useEffect(() => {
+    if (provider) setEnvironment(provider.supportsSandbox ? 'sandbox' : 'production')
+  }, [provider])
   const [secrets, setSecrets] = useState<Record<string, string>>({})
   const [configValues, setConfigValues] = useState<Record<string, string>>({})
   const [submitting, setSubmitting] = useState(false)
@@ -265,6 +272,14 @@ function ConnectDialog({
       for (const slot of provider.requiredSecretSlots) {
         const value = secrets[slot]
         if (value) await api.put(`/integrations/connections/${created.id}/secrets/${slot}`, { secretValue: value })
+      }
+      // KAN-227 (FR-A-36) — an AI provider is tested on connect: one small,
+      // billed completion proves key and model before anyone presses «Text
+      // vorschlagen». Its outcome is the card's status badge; a failed test is
+      // not a failed connect.
+      if (provider.category === AI_CATEGORY) {
+        const path = `/integrations/connections/${created.id}/test`
+        await api.post(path, undefined, { 'Idempotency-Key': crypto.randomUUID() }).catch(() => undefined)
       }
       onConnected()
     } catch (err) {

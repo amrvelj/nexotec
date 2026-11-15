@@ -55,3 +55,8 @@ class IntegrationCallLog(PrimaryKeyMixin, TimestampMixin, Base):
     duration_ms: Mapped[int] = mapped_column(Integer, nullable=False)
     cost_units: Mapped[Decimal | None] = mapped_column(DECIMAL(12, 4), nullable=True)
     correlation_id: Mapped[uuid.UUID] = mapped_column(GUID(), nullable=False, index=True)
+    # KAN-227 (FR-A-36): an AI provider bills tokens, not requests — the
+    # tokens it reported for the request, in and out. NULL for every provider
+    # that reports none (every non-AI one).
+    tokens_in: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    tokens_out: Mapped[int | None] = mapped_column(Integer, nullable=True)

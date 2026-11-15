@@ -3,6 +3,7 @@
 // `python3 scripts/split_locale_bundles.py index`.
 import ns_account from './de/account.json'
 import ns_addressSearch from './de/addressSearch.json'
+import ns_aiPrompts from './de/aiPrompts.json'
 import ns_apiRefusal from './de/apiRefusal.json'
 import ns_auth from './de/auth.json'
 import ns_branding from './de/branding.json'
@@ -45,6 +46,7 @@ import ns_salesList from './de/salesList.json'
 import ns_setup from './de/setup.json'
 import ns_shell from './de/shell.json'
 import ns_standardTexts from './de/standardTexts.json'
+import ns_statusPage from './de/statusPage.json'
 import ns_stockDetail from './de/stockDetail.json'
 import ns_stockEnums from './de/stockEnums.json'
 import ns_stockList from './de/stockList.json'
@@ -64,6 +66,7 @@ import ns_vehiclesList from './de/vehiclesList.json'
 const bundle = {
   account: ns_account,
   addressSearch: ns_addressSearch,
+  aiPrompts: ns_aiPrompts,
   apiRefusal: ns_apiRefusal,
   auth: ns_auth,
   branding: ns_branding,
@@ -106,6 +109,7 @@ const bundle = {
   setup: ns_setup,
   shell: ns_shell,
   standardTexts: ns_standardTexts,
+  statusPage: ns_statusPage,
   stockDetail: ns_stockDetail,
   stockEnums: ns_stockEnums,
   stockList: ns_stockList,

@@ -8,6 +8,19 @@ export interface NavItemConfig {
    * § Sidebar: "Modules not yet built... stay visible deliberately, the
    * roadmap is part of the product story." */
   status?: "active" | "soon";
+  /** A compact state marker beside the label (KAN-223: the status page's
+   * indicator — a green dot, or a warning/destructive dot with a count). The
+   * app decides who sees it; the label is its accessible name (no kit
+   * string). Shown on the icon when the sidebar is collapsed. */
+  indicator?: NavItemIndicator;
+}
+
+export interface NavItemIndicator {
+  tone: "success" | "warning" | "destructive";
+  /** Shown beside the dot when above zero. */
+  count?: number;
+  /** The accessible name and tooltip, e.g. "Status: 2 items need attention". */
+  label: string;
 }
 
 export interface NavGroupConfig {

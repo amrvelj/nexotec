@@ -1,0 +1,52 @@
+{
+  "title": "KI-Texte",
+  "subtitle": "Welcher KI-Anbieter Ihres Betriebs Texte vorschlägt und mit welchen Anweisungen. Sie verbinden Ihren eigenen Anbieter unter Integrationen; die Kosten rechnet er mit Ihnen ab.",
+  "loadError": "Die KI-Einstellungen konnten nicht geladen werden.",
+  "saveError": "Der Prompt konnte nicht gespeichert werden.",
+  "placeholders": "Platzhalter: {{list}}",
+  "languagesLabel": "Sprachen",
+  "codes": {
+    "vehicle_listing": "Inseratetext für ein Fahrzeug"
+  },
+  "connection": {
+    "title": "KI-Anbieter",
+    "provider": "Anbieter",
+    "name": "Verbindung",
+    "hint": "Sind mehrere KI-Anbieter verbunden, schreibt der zuletzt erfolgreich getestete.",
+    "none": "Kein KI-Anbieter verbunden. Ohne Anbieter schlägt Nexotec keine Texte vor.",
+    "manage": "Integrationen öffnen"
+  },
+  "fields": {
+    "title": "Titel",
+    "systemPrompt": "Anweisungen",
+    "systemPromptHint": "Wie der Anbieter schreiben soll: Ton, Länge, was er nie behaupten darf.",
+    "userPrompt": "Anfrage",
+    "userPromptHint": "Die Angaben zum Fahrzeug; die Platzhalter füllt Nexotec beim Vorschlagen."
+  },
+  "status": {
+    "default": "Vorgabe von Nexotec",
+    "adapted": "Angepasst"
+  },
+  "seedChanged": {
+    "title": "Die Vorgabe hat sich geändert",
+    "body": "Nexotec hat die Vorgabe dieses Prompts geändert. Bitte prüfen Sie Ihre Fassung; die neue Vorgabe lautet:",
+    "markReviewed": "Als geprüft markieren"
+  },
+  "actions": {
+    "save": "Speichern",
+    "backToDefault": "Auf Vorgabe zurücksetzen"
+  },
+  "refusals": {
+    "ai_not_connected": "Für diesen Betrieb ist kein KI-Anbieter verbunden.",
+    "ai_provider_not_configured": "Die Verbindung zum KI-Anbieter ist unvollständig: Prüfen Sie Modell und API-Schlüssel.",
+    "ai_provider_unavailable": "Der KI-Anbieter hat keinen Vorschlag geliefert. Bitte später erneut versuchen.",
+    "ai_prompt_missing": "Für diesen Zweck ist kein Prompt installiert.",
+    "ai_prompt_code_unknown": "Diesen Prompt gibt es nicht.",
+    "ai_prompt_empty": "Anweisungen und Anfrage dürfen nicht leer sein.",
+    "ai_prompt_exists": "Ihr Betrieb hat diesen Prompt in dieser Sprache bereits angepasst.",
+    "ai_prompt_placeholder_invalid": "Der Prompt verwendet Platzhalter, die hier nicht erlaubt sind.",
+    "ai_prompt_placeholder_unresolved": "Ein Platzhalter im Prompt kann nicht gefüllt werden.",
+    "ai_prompt_seed_language_missing": "Diesen Prompt gibt es in dieser Sprache nicht.",
+    "ai_prompt_seed_not_shipped": "Für diesen Prompt liefert Nexotec keinen Wortlaut, der wiederhergestellt werden kann."
+  }
+}

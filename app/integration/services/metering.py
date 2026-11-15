@@ -34,8 +34,10 @@ from app.integration.models.call_log import CallStatus, IntegrationCallLog
 
 T = TypeVar("T")
 
-# (operation, status, duration_ms, cost_units) -> the row written
-RecordRequest = Callable[[str, CallStatus, int, Decimal | None], IntegrationCallLog]
+# (operation, status, duration_ms, cost_units, tokens) -> the row written.
+# `tokens` is (in, out) as the provider reported them (KAN-227, an AI
+# provider), else None.
+RecordRequest = Callable[[str, CallStatus, int, Decimal | None, "tuple[int, int] | None"], IntegrationCallLog]
 
 ONE_REQUEST = Decimal(1)
 
@@ -49,9 +51,12 @@ class CallMeter:
     requests: int = 0
     last_log: IntegrationCallLog | None = None
 
-    def write(self, operation: str, status: CallStatus, started_at: float, cost_units: Decimal | None) -> None:
+    def write(
+        self, operation: str, status: CallStatus, started_at: float, cost_units: Decimal | None,
+        tokens: tuple[int, int] | None = None,
+    ) -> None:
         duration_ms = int((time.monotonic() - started_at) * 1000)
-        self.last_log = self.record(operation, status, duration_ms, cost_units)
+        self.last_log = self.record(operation, status, duration_ms, cost_units, tokens)
         self.requests += 1
 
 
@@ -91,6 +96,13 @@ class ProviderRequest:
         self._cost_units = cost_units
         self._is_timeout = is_timeout
         self._answered_at: float | None = None
+        self._tokens: tuple[int, int] | None = None
+
+    def report_tokens(self, tokens_in: int, tokens_out: int) -> None:
+        """KAN-227: what the provider says the request consumed (an AI
+        provider bills tokens). Written on the request's row when it ends."""
+
+        self._tokens = (tokens_in, tokens_out)
 
     def attempt(self, send: Callable[[], T]) -> T:
         started_at = time.monotonic()
@@ -108,7 +120,7 @@ class ProviderRequest:
         if self._meter is None or self._answered_at is None:
             return
         status = CallStatus.ERROR if failed else CallStatus.SUCCESS
-        self._meter.write(self._operation, status, self._answered_at, self._cost_units)
+        self._meter.write(self._operation, status, self._answered_at, self._cost_units, self._tokens)
         self._answered_at = None
 
 

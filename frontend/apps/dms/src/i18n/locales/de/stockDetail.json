@@ -171,6 +171,25 @@
       "openProfile": "Angaben unter Veröffentlichung ergänzen",
       "hint": "Die Website Ihres Betriebs, betrieben von Nexotec. Nichts wird an einen Marktplatz übermittelt.",
       "failed": "Die Website konnte nicht geändert werden."
+    },
+    "suggestion": {
+      "open": "Text vorschlagen",
+      "title": "Beschreibung vorschlagen",
+      "intro": "Ihr KI-Anbieter schreibt einen Vorschlag aus den Angaben zu diesem Fahrzeug. Sie prüfen und bearbeiten ihn, bevor Sie ihn übernehmen; veröffentlicht wird nichts.",
+      "language": "Sprache des Inserats",
+      "generate": "Vorschlag erstellen",
+      "again": "Neuer Vorschlag",
+      "draft": "Vorschlag",
+      "review": "Bitte prüfen Sie jede Angabe: Der Text stammt von Ihrem KI-Anbieter.",
+      "take": "In Beschreibung übernehmen",
+      "discard": "Verwerfen",
+      "failed": "Es konnte kein Vorschlag erstellt werden.",
+      "connect": "KI-Anbieter verbinden",
+      "tooLong": "Der Vorschlag ist länger als die {{count, number}} Zeichen der Beschreibung. Kürzen Sie ihn, bevor Sie ihn übernehmen.",
+      "replaceTitle": "Bestehende Beschreibung ersetzen?",
+      "replaceBody": "Die Beschreibung enthält bereits Text. Übernehmen Sie den Vorschlag, wird dieser Text ersetzt.",
+      "replaceConfirm": "Ersetzen",
+      "replaceCancel": "Nicht ersetzen"
     }
   },
   "evaluation": {

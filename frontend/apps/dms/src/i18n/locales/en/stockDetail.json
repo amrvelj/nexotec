@@ -171,6 +171,25 @@
       "openProfile": "Complete the details under Publishing",
       "hint": "Your business's website, run by Nexotec. Nothing is sent to a marketplace.",
       "failed": "The website could not be changed."
+    },
+    "suggestion": {
+      "open": "Suggest text",
+      "title": "Suggest a description",
+      "intro": "Your AI provider writes a suggestion from this vehicle's details. You review and edit it before you take it over; nothing is published.",
+      "language": "Listing language",
+      "generate": "Create suggestion",
+      "again": "New suggestion",
+      "draft": "Suggestion",
+      "review": "Please check every statement: the text comes from your AI provider.",
+      "take": "Use as description",
+      "discard": "Discard",
+      "failed": "No suggestion could be created.",
+      "connect": "Connect an AI provider",
+      "tooLong": "The suggestion is longer than the description's {{count, number}} characters. Shorten it before you use it.",
+      "replaceTitle": "Replace the existing description?",
+      "replaceBody": "The description already holds text. Using the suggestion replaces it.",
+      "replaceConfirm": "Replace",
+      "replaceCancel": "Keep the description"
     }
   },
   "evaluation": {

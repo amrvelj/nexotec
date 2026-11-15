@@ -23,6 +23,10 @@ or `None` — "never probed or declared" is a fact this registry reports, not
 a policy it applies; `app.vehicle.services.catalogue_entitlements` is the
 one place that decides what `None` should mean for a given screen.
 
+`IntegrationStatusProvider` (KAN-223) is the connections' contribution to the
+Betrieb's status page, registered with `app.core.status` by the composition
+root `app/status_registry.py` — platform never imports it.
+
 `refresh_location_labels` / `oldest_location_label_age_seconds` (KAN-222)
 are the nightly refresh of a connection's copy of its location's name and its
 age gauge, which the worker registers and records like every label refresh.
@@ -61,6 +65,15 @@ browse shapes are the identAPI operations' return vocabulary;
 copies it. `ProviderNotEntitledError` and `ProviderTimeoutError` are
 exported so the identification waterfall can tell «not in the contract»
 from «unavailable» without importing the errors module.
+
+`generate` (KAN-227, D-A-33) is the one door to the Betrieb's own AI provider:
+it resolves the AI connection, the prompt of a registry code (the Betrieb's
+adaptation over Nexotec's seed, in the language chain) and the caller's
+variables, sends one completion through `call_capability`, and returns a
+`GeneratedText` — a suggestion the caller shows for the user to edit, stored
+and published by nothing. Its refusals are the core error taxonomy (409
+`ai_not_connected`, 422 `ai_provider_unavailable`), so a caller needs no
+integration error type. `AI_PROMPT_VEHICLE_LISTING` names the one v1 code.
 """
 
 from app.integration.adapters.base import (
@@ -97,6 +110,8 @@ from app.integration.errors import (
     ProviderTimeoutError,
 )
 from app.integration.models.connection import ConnectionStatus
+from app.integration.services.ai_generation import GeneratedText, generate
+from app.integration.services.ai_prompt_registry import VEHICLE_LISTING as AI_PROMPT_VEHICLE_LISTING
 from app.integration.services.captions import ProviderCaption, get_captions
 from app.integration.services.connection_refs import (
     ConnectionRef,
@@ -116,8 +131,10 @@ from app.integration.services.gateway import (
 )
 from app.integration.services.location_labels import oldest_location_label_age_seconds, refresh_location_labels
 from app.integration.services.resilience import CircuitOpenError
+from app.integration.services.status import IntegrationStatusProvider
 
 __all__ = [
+    "AI_PROMPT_VEHICLE_LISTING",
     "MARKETPLACE_PUBLISH_CAPABILITY",
     "BestMatchResult",
     "BuiltVehicleData",
@@ -130,7 +147,9 @@ __all__ = [
     "ConnectionStatus",
     "EnergyLabelData",
     "EntitlementState",
+    "GeneratedText",
     "IntegrationExporter",
+    "IntegrationStatusProvider",
     "MarketplaceAdapter",
     "MarketplaceListing",
     "MarketplaceListingError",
@@ -155,6 +174,7 @@ __all__ = [
     "VariantTyreSpecData",
     "VehiclePriceData",
     "call_capability",
+    "generate",
     "get_captions",
     "get_enabled_connection",
     "get_entitlement",

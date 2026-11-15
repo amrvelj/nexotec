@@ -62,6 +62,13 @@ KAN-614 (2026-11-10) to the invariants; platform.md was verified against main@73
   event that platform consumes, or a call on a session of its own with a compensating action —
   classified in `test_adr_047_no_shared_transaction.py`, which refuses an unclassified cross-context
   `notify` by name.
+- **Status page (D-A-38) — built (KAN-223):** `GET /v1/dealerships/{id}/status`, derived on read
+  (`services/status_page.py`; every role reads, 404 cross-tenant): number ranges (warning 90 %,
+  blocked 100 %), Nexotec's `platform_status_incident` (staff, `/platform/status`) and contributions
+  through `app/core/status.py`, registered in `app/status_registry.py` (integration's connections).
+  The daily `platform.status_page.notifications` raises `administration.status_item_degraded` once
+  per degradation (`status_item_state`, under a per-Betrieb advisory lock): a warning the source
+  really announced is exempt, the move to blocked never; an unavailable source keeps its rows, its own blocked item announced once (ADR-180).
 - `digest` holds rows until the daily `platform.notifications.digest`, which publishes one release
   per user filed under no Betrieb (a digest may span sister Betriebe).
 - The security family hangs on `auth_events.record` (`services/security_alerts.py`): new-device
@@ -91,5 +98,5 @@ KAN-614 (2026-11-10) to the invariants; platform.md was verified against main@73
 - `POST /v1/i18n/missing-translations` logs keys that rendered the marker (a session, ≤ 50 keys,
   the log capped at 5000 rows).
 - The screen is `/platform/translations`; its sources (`components/translations/translationSources.ts`)
-  are `ui` and `standardTexts`, each a panel on the shared `FourLanguageEditor` (the AI-prompt seeds,
-  [P3-7], join there). The SPA side is `ui-i18n-runtime.md`.
+  are `ui`, `standardTexts` and `aiPrompts` (KAN-227's seeds, `integration-ai.md`), each a panel on
+  the shared `FourLanguageEditor`. The SPA side is `ui-i18n-runtime.md`.

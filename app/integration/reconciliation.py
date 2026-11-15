@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 
 from app.core.audit_model import AuditEvent
 from app.core.reconciliation import ReconciliationRun, ReferenceCheck, run_reconciliation
+from app.integration.models.ai_prompt import IntegrationAiPrompt
 from app.integration.models.call_log import IntegrationCallLog
 from app.integration.models.call_payload import IntegrationCallPayload
 from app.integration.models.caption import IntegrationProviderCaption, IntegrationProviderCaptionFetch
@@ -37,6 +38,7 @@ ACTOR_TABLES = (
     IntegrationNotification,
     IntegrationProviderCaption,  # KAN-547: written by Test connection, never by a user — null actors
     IntegrationProviderCaptionFetch,  # KAN-588: written with the captions — null actors; the audit row names who
+    IntegrationAiPrompt,  # KAN-227: the manager who adapted a prompt, platform staff who edited a seed
 )
 
 
