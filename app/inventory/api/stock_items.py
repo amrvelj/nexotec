@@ -179,7 +179,8 @@ def change_condition(
         "its vehicle-mdm record and its configuration together, each audited with the reason. Vehicle is asked "
         "first (its own transaction); a refusal there writes nothing here. 409 `vin_already_in_stock`, "
         "`vin_belongs_to_other_vehicle` (another record carries the VIN: one car, merged with «Merge into…»), "
-        "`vin_names_merged_vehicle` (only a merged duplicate carries it: names the record the car lives on), "
+        "`vin_names_merged_vehicle` (only another car's merged duplicate carries it: names the record that car "
+        "lives on — the car's own merged duplicate gives the VIN up and takes the old one, KAN-730), "
         "`vin_correction_left_stock`, `vin_correction_needs_vehicle` (a car never bought: correct its "
         "configuration), `vehicle_vin_changed`, `vehicle_merged`; 422 `vin_unchanged`, `configuration_vin_differs`."
     ),

@@ -395,11 +395,24 @@ def _own_merged_duplicate(
     from app.vehicle.models.vehicle_mdm import VehicleMdm
     from app.vehicle.services.vehicle_mdm import live_vehicle_mdm
 
+    other_vin = other.vin
     if other.merged_into_vehicle_id is None or other.identifier_kind != kind or vehicle.identifier_kind != kind:
         return None
     if live_vehicle_mdm(own, other).id != vehicle.id:
         return None
-    return own.scalar(select(VehicleMdm).where(VehicleMdm.id == other.id).with_for_update(key_share=True))
+    # Locked after `vehicle` (survivor first): the one other writer locking
+    # both is a merge of the same pair, refused since the duplicate is merged.
+    # Re-read under the lock (the unlocked read above is in the identity map)
+    # and judged again, so a write that slipped in is never overwritten.
+    locked = own.scalar(
+        select(VehicleMdm)
+        .where(VehicleMdm.id == other.id)
+        .with_for_update(key_share=True)
+        .execution_options(populate_existing=True)
+    )
+    if locked is None or locked.merged_into_vehicle_id is None or locked.vin != other_vin:
+        return None
+    return locked
 
 
 def _vin_in_transit() -> str:
