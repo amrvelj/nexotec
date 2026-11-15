@@ -404,13 +404,18 @@ def _round_trip(column, value):
     assert page == rows[:1] and cursor
     position = decode_cursor_for_sort(cursor, [field])
     assert position is not None and position.id == rows[0].id
-    return position.values[0]
+    from sqlalchemy.sql.elements import BindParameter
+
+    back = position.values[0]
+    # A boolean comes back bound (`column > False` is refused unbound); judge the value it binds.
+    return back.value if isinstance(back, BindParameter) else back
 
 
 def _all_sort_allow_lists() -> dict[str, dict]:
     from app.customer.api.customers import CUSTOMER_SORT_FIELDS
     from app.integration.api.connections import CONNECTION_SORT_FIELDS
     from app.inventory.api.group import GROUP_STOCK_SORT_FIELDS
+    from app.inventory.services.stock_grid import STOCK_ITEM_COLUMNS
     from app.platform.api.dealership_users import USER_SORT_FIELDS
     from app.platform.api.recovery import RECOVERY_SORT_FIELDS
     from app.sales.api.contracts import CONTRACT_SORT_FIELDS
@@ -430,6 +435,12 @@ def _all_sort_allow_lists() -> dict[str, dict]:
         "offers": OFFER_SORT_FIELDS,
         "valuations": VALUATION_SORT_FIELDS,
         "vehicle-mdm": VEHICLE_MDM_SORT_FIELDS,
+        # A grid on the list-query layer (ADR-179) sorts by its registry's sortable columns.
+        "stock grid (list-query registry)": {
+            spec.api_name: spec.sort_column if spec.sort_column is not None else spec.column
+            for spec in STOCK_ITEM_COLUMNS
+            if spec.sortable
+        },
     }
 
 
@@ -469,7 +480,8 @@ def test_a_money_cursor_keeps_every_digit_of_the_column():
     for raw in ("0.00", "0.01", "-12.50", "9999999999.99"):
         value = decimal.Decimal(raw)
         assert _round_trip(SalesDeal.gross_price, value) == value
-    for unrepresentable in ("12.505", "NaN", "Infinity"):  # never a stored DECIMAL(12, 2) value
+    # 12.505 has more digits than the scale; NaN fits a numeric(12, 2) column but no path of the app writes it.
+    for unrepresentable in ("12.505", "NaN", "Infinity"):
         with pytest.raises(TypeError):
             _round_trip(SalesDeal.gross_price, decimal.Decimal(unrepresentable))
 
@@ -590,4 +602,27 @@ def test_dealership_users_sorted_by_a_date_page_past_page_one(client, db_session
     got = [r[field] for r in rows]
     dated = sorted((d.isoformat() for d in days if d is not None), reverse=direction == "desc")
     assert got == [*dated, None]
+    assert sorted(r["id"] for r in rows) == sorted(ids)
+
+
+@pytest.mark.parametrize("direction", ["asc", "desc"])
+def test_dealership_users_sorted_by_a_boolean_page_past_page_one(client, db_session, direction):
+    """Found merging KAN-461 into KAN-713: a decoded boolean reached the keyset
+    as a Python constant, and SQLAlchemy refuses `column > False` — page two of
+    a sort on a Boolean column was a 500. `decode_cursor_for_sort` now binds it."""
+
+    from tests.identity_support import create_dealership, create_user
+
+    dealership = create_dealership(client)
+    flags = [True, False, True, False, False]
+    ids = [create_user(client, dealership, lastName=f"Flag{n}", isDealerManager=flag)["id"] for n, flag in enumerate(flags)]
+
+    rows = _walk(
+        client,
+        f"/v1/dealerships/{dealership}/users",
+        params={"sort": f"isDealerManager:{direction}"},
+        headers=platform_admin_headers(),
+    )
+
+    assert [r["isDealerManager"] for r in rows] == sorted(flags, reverse=direction == "desc")
     assert sorted(r["id"] for r in rows) == sorted(ids)

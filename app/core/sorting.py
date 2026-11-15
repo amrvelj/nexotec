@@ -14,7 +14,8 @@ import decimal
 import uuid
 from typing import Any
 
-from sqlalchemy.types import Numeric, TypeDecorator
+from sqlalchemy import literal
+from sqlalchemy.types import Boolean, Numeric, TypeDecorator
 
 from app.core.enum_type import StoredEnum
 from app.core.errors import BadRequestError, UnprocessableEntityError
@@ -181,7 +182,9 @@ def _cursor_value_fits(value: Any, column: Any) -> bool:
 #     so DECIMAL(12, 2)'s 12500.50 is ["int", 1250050]: exact, no float;
 #   - a date as that day's midnight, a naive datetime — ["dt", "2026-03-01T00:00:00"].
 # `decode_cursor_for_sort` turns both back into the column's own type before
-# the keyset comparison binds them. Every sorted list mints its cursor here
+# the keyset comparison binds them, and binds a boolean explicitly. The
+# list-query layer (`app.core.list_query`) uses these two functions and
+# converts nothing itself. Every sorted list mints its cursor here
 # (`build_page_for_sort`), never with `pagination.build_sorted_page`
 # (tests/architecture/test_sorted_cursor_is_decoded_against_its_sort.py).
 
@@ -215,6 +218,12 @@ def _from_cursor_value(value: Any, column: Any) -> Any:
         return decimal.Decimal(value).scaleb(-scale)
     if expected is dt.date:
         return value.date()
+    if expected is bool:
+        # `column > False` is refused by SQLAlchemy (a Python True/False/None
+        # compares only with = or IS); bound, a boolean compares like any value
+        # (false < true in Postgres). Found merging KAN-461 into KAN-713: the
+        # users list sorted by isDealerManager was a 500 on page two.
+        return literal(value, Boolean())
     return value
 
 
