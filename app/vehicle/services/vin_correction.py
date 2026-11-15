@@ -127,8 +127,9 @@ def correct_vehicle_vin(
     (409 `vehicle_vin_changed`); `new_vin` already names another record
     (409 `vin_belongs_to_other_vehicle` with its `vehicleNumber`: the two
     records are one car, merged with «Zusammenführen mit…», FR-V-12) — or
-    only a merged duplicate carries it (409 `vin_names_merged_vehicle`
-    naming the survivor, KAN-729); a VIN
+    only another car's merged duplicate carries it (409
+    `vin_names_merged_vehicle` naming the survivor, KAN-729) — the car's own
+    merged duplicate gives it up and takes the old VIN instead (KAN-730); a VIN
     record is given a chassis number (422 `invalid_vin`); the configuration
     is not the tenant's (404), names a third VIN (422
     `configuration_vin_differs`) or, given a chassis number, is not first
@@ -299,8 +300,11 @@ def _correct_record(
         )
     kind, make_key = _identity_after(vehicle, new_vin=new_vin, restore_chassis_make_key=restore_chassis_make_key)
     other = _record_carrying(own, vin=new_vin, kind=kind, make_key=make_key)
+    duplicate = None
     if other is not None and other.id != vehicle.id:
-        raise _carried_by_another_record(own, new_vin, other)
+        duplicate = _own_merged_duplicate(own, vehicle=vehicle, other=other, kind=kind)
+        if duplicate is None:
+            raise _carried_by_another_record(own, new_vin, other)
 
     summary_before = summary_fields(vehicle)
     before: dict[str, object] = {"vin": old_vin}
@@ -310,6 +314,12 @@ def _correct_record(
         # VIN, or that undone); the audit row keeps the identity it had.
         before |= {"identifierKind": vehicle.identifier_kind.value, "chassisMakeKey": vehicle.chassis_make_key}
         after |= {"identifierKind": kind.value, "chassisMakeKey": make_key}
+    if duplicate is not None:
+        # KAN-730: the duplicate gives the VIN up first (the unique index is
+        # checked per row), and takes this record's old one below.
+        duplicate_summary_before = summary_fields(duplicate)
+        duplicate.vin = _vin_in_transit()
+        own.flush()
     vehicle.vin = new_vin
     vehicle.identifier_kind = kind
     vehicle.chassis_make_key = make_key
@@ -356,7 +366,105 @@ def _correct_record(
         ),
     )
     publish_summary_changed_if_changed(own, vehicle=vehicle, before=summary_before)
+    if duplicate is not None:
+        _take_over_vin(
+            own,
+            duplicate=duplicate,
+            survivor=vehicle,
+            old_vin=old_vin,
+            new_vin=new_vin,
+            reason=reason,
+            actor_id=actor_id,
+            action=action,
+            compensation=compensation,
+            summary_before=duplicate_summary_before,
+        )
     return True
+
+
+def _own_merged_duplicate(
+    own: Session, *, vehicle: "VehicleMdm", other: "VehicleMdm", kind: "VehicleIdentifierKind"
+) -> "VehicleMdm | None":
+    """KAN-730 (Anto, 2026-11-15, option 1): `other`, locked, when it is a
+    record merged into `vehicle` (at the end of its merge chain) of the
+    identity kind `vehicle` has and keeps — the merge kept the wrong VIN, and
+    the correction takes the right one over from its own dead duplicate.
+    None for anything else (another car's duplicate, a live record), which is
+    refused as before."""
+
+    from app.vehicle.models.vehicle_mdm import VehicleMdm
+    from app.vehicle.services.vehicle_mdm import live_vehicle_mdm
+
+    if other.merged_into_vehicle_id is None or other.identifier_kind != kind or vehicle.identifier_kind != kind:
+        return None
+    if live_vehicle_mdm(own, other).id != vehicle.id:
+        return None
+    return own.scalar(select(VehicleMdm).where(VehicleMdm.id == other.id).with_for_update(key_share=True))
+
+
+def _vin_in_transit() -> str:
+    """A value no VIN or chassis number can be (`~` is never normalised in),
+    held by the duplicate between the two flushes of one transaction only."""
+
+    return "~" + uuid.uuid4().hex[:16]
+
+
+def _take_over_vin(
+    own: Session,
+    *,
+    duplicate: "VehicleMdm",
+    survivor: "VehicleMdm",
+    old_vin: str,
+    new_vin: str,
+    reason: str,
+    actor_id: uuid.UUID | None,
+    action: str,
+    compensation: bool,
+    summary_before: dict,
+) -> None:
+    """KAN-730 (ADR-160 as amended): the merged duplicate takes the VIN its
+    survivor gave up — the two swap, so the dead record still carries a VIN
+    (NOT NULL, unique) and a lookup by the old, mistyped one still lands on
+    it and names the survivor (`vin_names_merged_vehicle`, KAN-723). Audited
+    and published like the survivor's own change; the compensation (VINs
+    swapped) swaps them back through the same path."""
+
+    from app.vehicle.services.vehicle_mdm import publish_summary_changed_if_changed
+
+    duplicate.vin = old_vin
+    duplicate.updated_by = actor_id
+    duplicate.version += 1
+    own.flush()
+    record_audit_event(
+        own,
+        entity_type="vehicle_mdm",
+        entity_id=duplicate.id,
+        tenant_id=None,
+        action=action,
+        actor_id=actor_id,
+        before={"vin": new_vin},
+        after={"vin": old_vin, "vinTakenOverBy": str(survivor.id)},
+        reason=reason,
+    )
+    publish(
+        own,
+        OutboxEvent(
+            event_type=VIN_CORRECTED_EVENT,
+            tenant_id=None,
+            producer="vehicle",
+            aggregate_type="vehicle_mdm",
+            aggregate_id=duplicate.id,
+            payload={
+                "vehicleId": str(duplicate.id),
+                "version": duplicate.version,
+                "previousVin": new_vin,
+                "vin": old_vin,
+                "correctedBy": str(actor_id) if actor_id else None,
+                "compensation": compensation,
+            },
+        ),
+    )
+    publish_summary_changed_if_changed(own, vehicle=duplicate, before=summary_before)
 
 
 def _carried_by_another_record(own: Session, vin: str, other: "VehicleMdm") -> ConflictError:
@@ -365,10 +473,9 @@ def _carried_by_another_record(own: Session, vin: str, other: "VehicleMdm") -> C
     record found may be a dead one — then the two are already one car, and
     «Merge into…» is advice that cannot be followed. It is refused as every
     other write naming a merged record is (KAN-723), 409
-    `vin_names_merged_vehicle` naming the record the car lives on and its VIN —
-    another car, or the very car being corrected when `vin` is its own merged
-    duplicate's. The duplicate keeps its VIN (the unique index holds it), so
-    the survivor cannot take it either way. A live record is
+    `vin_names_merged_vehicle` naming the record the car lives on and its VIN.
+    (The car's own merged duplicate is no refusal: the correction takes its
+    VIN over, KAN-730 — `_own_merged_duplicate`.) A live record is
     `vin_belongs_to_other_vehicle`, as before."""
 
     from app.vehicle.services.vin_resolution import refusal_naming_merged_record
