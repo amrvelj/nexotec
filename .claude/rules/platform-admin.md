@@ -92,8 +92,7 @@ Decided rulings live in the PRD; built only where a bullet says so — check the
   newer than the last write and than its id floor (KAN-716, `test_kan716_*`); the Betrieb's
   principals then get 404 (`session_guard.py`).
   Archive exports: staff only, with a reason. It then leaves every group read
-  (`group_read_dealerships.py`, `group_labels.py`; Q2 A), a group customer's History included: its
-  entries are hidden from the sisters and exactly those are in its archive (KAN-722, `customer.md`).
+  (`group_read_dealerships.py`, `group_labels.py`; Q2 A).
 - `platform.dealership.offboarded` (Q3 A): Stock withdraws live listings (empty feed first,
   `listing_withdrawal.py`), stating `inventory.dealership_listings.withdrawn`; Integration
   disables and revokes every connection, the `marketplace_publish` ones only on it.
