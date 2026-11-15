@@ -84,5 +84,10 @@
       "allLanguages": "Title and text are needed in all four languages."
     },
     "saveError": "The incident could not be saved."
+  },
+  "refusals": {
+    "status_incident_ends_before_start": "An incident ends after it starts.",
+    "status_incident_language_missing": "Title and text are needed in German, French, Italian and English.",
+    "status_incident_text_too_long": "The title is at most 200 characters, the text at most 2000."
   }
 }

@@ -84,5 +84,10 @@
       "allLanguages": "Titolo e testo servono in tutte e quattro le lingue."
     },
     "saveError": "Non è stato possibile salvare il guasto."
+  },
+  "refusals": {
+    "status_incident_ends_before_start": "Un guasto termina dopo il suo inizio.",
+    "status_incident_language_missing": "Titolo e testo servono in tedesco, francese, italiano e inglese.",
+    "status_incident_text_too_long": "Il titolo ha al massimo 200 caratteri, il testo al massimo 2000."
   }
 }

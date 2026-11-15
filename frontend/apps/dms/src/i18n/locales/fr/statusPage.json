@@ -84,5 +84,10 @@
       "allLanguages": "Le titre et le texte sont requis dans les quatre langues."
     },
     "saveError": "L'incident n'a pas pu être enregistré."
+  },
+  "refusals": {
+    "status_incident_ends_before_start": "Un incident se termine après son début.",
+    "status_incident_language_missing": "Le titre et le texte sont requis en allemand, français, italien et anglais.",
+    "status_incident_text_too_long": "Le titre compte au plus 200 caractères, le texte au plus 2000."
   }
 }

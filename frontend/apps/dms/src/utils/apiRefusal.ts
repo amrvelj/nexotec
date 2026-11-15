@@ -92,6 +92,14 @@ const REASON_KEYS: Record<string, string> = {
       'user_last_manager_of_sister',
     ].map((reason) => [reason, `offboarding.refusals.${reason}`]),
   ),
+  // KAN-223 — Nexotec's status incidents (Platform Administration › Nexotec status).
+  ...Object.fromEntries(
+    [
+      'status_incident_ends_before_start',
+      'status_incident_language_missing',
+      'status_incident_text_too_long',
+    ].map((reason) => [reason, `statusPage.refusals.${reason}`]),
+  ),
   // KAN-214 — the setup checklist, «Betrieb aktivieren» and the legal documents.
   ...Object.fromEntries(
     [

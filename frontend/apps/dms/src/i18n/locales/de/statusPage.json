@@ -84,5 +84,10 @@
       "allLanguages": "Titel und Text werden in allen vier Sprachen gebraucht."
     },
     "saveError": "Die Störung konnte nicht gespeichert werden."
+  },
+  "refusals": {
+    "status_incident_ends_before_start": "Eine Störung endet nach ihrem Beginn.",
+    "status_incident_language_missing": "Titel und Text werden in Deutsch, Französisch, Italienisch und Englisch gebraucht.",
+    "status_incident_text_too_long": "Der Titel hat höchstens 200, der Text höchstens 2000 Zeichen."
   }
 }
