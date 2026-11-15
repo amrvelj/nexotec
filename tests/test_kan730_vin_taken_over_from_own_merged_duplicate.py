@@ -15,7 +15,7 @@ mistyped one still names the survivor. Another car's duplicate stays refused
 import uuid
 
 import pytest
-from sqlalchemy import select
+from sqlalchemy import select, text
 
 from app.core.errors import ConflictError
 from app.core.outbox_model import OutboxMessage
@@ -24,6 +24,7 @@ from app.inventory.services import stock_item as stock_item_service
 from app.vehicle.models.configuration import VehicleConfiguration
 from app.vehicle.models.vehicle_mdm import VehicleMdm
 from app.vehicle.public import correct_vehicle_vin, resolve_vehicle_mdm_by_vin
+from app.vehicle.services import vehicle_mdm as vehicle_mdm_service
 from app.vehicle.services.merge import merge_vehicles
 from app.vehicle.services.vehicle_mdm import create_vehicle_mdm
 from tests.test_inventory_purchase_promotes import VIN
@@ -173,3 +174,81 @@ def test_the_stock_car_s_configuration_and_item_follow(client, db_session):
     stored = db_session.get(StockItem, uuid.UUID(item["id"]))
     configuration = db_session.get(VehicleConfiguration, stored.configuration_id)
     assert (stored.vin, configuration.vin, configuration.vehicle_id) == (RIGHT_VIN, RIGHT_VIN, stored.vehicle_id)
+
+
+# --- a write to the duplicate between the unlocked read and its lock -------------
+
+SLIPPED_VIN = "WVWZZZ1KZAW730199"
+
+
+def _write_slips_in(db_session, monkeypatch, sql: str, params: dict) -> None:
+    """Another connection commits `sql` once, right after the correction's
+    unlocked read of the duplicate and before it locks the row."""
+
+    real = vehicle_mdm_service.live_vehicle_mdm
+    fired: list[bool] = []
+
+    def _racing(own, record):
+        result = real(own, record)
+        if not fired:
+            fired.append(True)
+            with db_session.get_bind().connect() as other:
+                other.execute(text(sql), params)
+                other.commit()
+        return result
+
+    monkeypatch.setattr(vehicle_mdm_service, "live_vehicle_mdm", _racing)
+
+
+def _car_and_duplicate(db_session) -> tuple[uuid.UUID, VehicleMdm]:
+    car = create_vehicle_mdm(db_session, vin=VIN, catalogue_variant_id=None)
+    db_session.commit()
+    return car.id, _merged_duplicate(db_session, survivor_id=car.id)
+
+
+def _correct_directly(db_session, car_id: uuid.UUID):
+    return correct_vehicle_vin(
+        db_session,
+        vehicle_id=car_id,
+        old_vin=VIN,
+        new_vin=RIGHT_VIN,
+        reason=REASON,
+        actor_id=None,
+        tenant_id=uuid.uuid4(),
+    )
+
+
+def test_a_vin_written_to_the_duplicate_before_the_lock_is_not_overwritten(db_session, monkeypatch):
+    """The duplicate is re-read under its lock and judged again: it no longer
+    carries the VIN, so nothing is swapped and the other write stands."""
+
+    car_id, duplicate = _car_and_duplicate(db_session)
+    version_before = duplicate.version
+    _write_slips_in(
+        db_session,
+        monkeypatch,
+        "UPDATE vehicle_mdm SET vin = :vin, version = version + 1 WHERE id = :id",
+        {"vin": SLIPPED_VIN, "id": duplicate.id},
+    )
+
+    with pytest.raises(ConflictError):
+        _correct_directly(db_session, car_id)
+
+    db_session.expire_all()
+    dead = db_session.get(VehicleMdm, duplicate.id)
+    assert (dead.vin, dead.version) == (SLIPPED_VIN, version_before + 1)
+    assert db_session.get(VehicleMdm, car_id).vin == VIN
+
+
+def test_another_write_to_the_duplicate_before_the_lock_keeps_its_own_version(db_session, monkeypatch):
+    car_id, duplicate = _car_and_duplicate(db_session)
+    version_before = duplicate.version
+    _write_slips_in(
+        db_session, monkeypatch, "UPDATE vehicle_mdm SET version = version + 1 WHERE id = :id", {"id": duplicate.id}
+    )
+
+    _correct_directly(db_session, car_id)
+
+    db_session.expire_all()
+    dead = db_session.get(VehicleMdm, duplicate.id)
+    assert (dead.vin, dead.version) == (VIN, version_before + 2)
