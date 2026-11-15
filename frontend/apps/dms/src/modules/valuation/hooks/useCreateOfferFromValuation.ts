@@ -49,6 +49,12 @@ export function useCreateOfferFromValuation(): {
   const pending = useRef<{ valuationId: string; offerId: string } | null>(null)
   // A second click while a run is in flight starts nothing (the menu entry
   // stays enabled: a disabled item without a reason is a defect, ADR-061).
+  // KAN-720: a run that succeeded stays closed — only a refused run reopens
+  // it. The navigation to the workspace renders after `navigate()` returns,
+  // so the trigger is still on screen for a moment; reopened there (with a
+  // renewed Idempotency-Key) a second click of a double click created a
+  // second offer. Both screens using this hook leave on success, and a
+  // return mounts a fresh hook.
   const inFlight = useRef(false)
 
   const run = useCallback(
@@ -88,6 +94,7 @@ export function useCreateOfferFromValuation(): {
         attachKey.renew()
         navigate(`/sales/offers/${offer.id}`)
       } catch (err) {
+        inFlight.current = false
         pending.current = { valuationId: valuation.id, offerId: offer.id }
         setError({
           text: t('valuationDetail.errors.createOfferTradeInFailed', {
@@ -96,8 +103,6 @@ export function useCreateOfferFromValuation(): {
           }),
           offer: { id: offer.id, offerNumber: offer.offerNumber },
         })
-      } finally {
-        inFlight.current = false
       }
     },
     [attachKey, createKey, navigate, t]
