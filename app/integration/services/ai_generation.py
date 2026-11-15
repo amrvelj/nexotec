@@ -121,10 +121,9 @@ def generate(
         raise ConflictError(f"No AI prompt {code} is installed.", details={"reason": "ai_prompt_missing", "code": code})
     system_prompt = render(entry, prompt.system_prompt, values=variables, language=prompt.language)
     user_prompt = render(entry, prompt.user_prompt, values=variables, language=prompt.language)
-    # Read before the provider is called: the gateway commits its own session,
-    # never this one, but nothing below depends on the prompt row any more.
+    # The caller's session is the caller's: nothing here commits it (ADR-047).
+    # The call log and the audit row are written on the gateway's own session.
     prompt_language, adapted = prompt.language, prompt.tenant_id is not None
-    db.commit()  # end the read before a provider call that may take a while
 
     try:
         with call_capability(

@@ -14,6 +14,10 @@ the value lives in the secrets manager).
   the shape the SOAP account had, which its required configuration still
   carries.
 - `autoscout24` — the AutoScout24 customer number (`kundennummer`).
+- `openai`, `mistral`, `anthropic` (KAN-227) — the model the dealer chose:
+  the account itself is named only by its API key, which is a secret; the
+  model is what tells two AI connections apart. `azure_openai` — the
+  resource endpoint and the deployment.
 
 A provider added to the catalogue adds its line here;
 `tests/test_integration_connection_location.py::test_every_provider_with_an_adapter_names_its_account_identifier`
@@ -32,6 +36,10 @@ ACCOUNT_IDENTIFIER_CONFIG_KEYS: dict[str, tuple[str, ...]] = {
     "auto_i_dat": ("clientId",),
     "auto_i_dat_mock": ("benutzerNr", "benutzerInfo"),
     "autoscout24": ("kundennummer",),
+    "openai": ("model",),
+    "mistral": ("model",),
+    "anthropic": ("model",),
+    "azure_openai": ("endpoint", "deployment"),
 }
 
 _SEPARATOR = " · "
