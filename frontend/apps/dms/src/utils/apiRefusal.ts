@@ -65,6 +65,8 @@ const REASON_KEYS: Record<string, string> = {
       'image_too_small',
       'image_unreadable',
       'lead_recipient_not_a_user',
+      // KAN-734 — the lead e-mail is the manager's, on both screens.
+      'lead_email_manager_only',
     ].map((reason) => [reason, `publishing.refusals.${reason}`]),
   ),
   // KAN-218 — the data export and offboarding.

@@ -83,6 +83,7 @@
   "leadRouting": {
     "hint": "Where enquiries about this location's vehicles go.",
     "leadEmail": "Enquiry e-mail",
+    "leadEmailManagerOnlyHint": "Only the business's managers change the enquiry e-mail – here and under Locations.",
     "leadPhone": "Enquiry phone",
     "createsTask": "An enquiry also creates a task in the DMS",
     "recipientRole": "Recipient",
@@ -121,6 +122,7 @@
     "image_too_large": "The photo is too large — at most 10 MB.",
     "image_too_small": "The photo is too small — at least 800 px on the long edge.",
     "image_unreadable": "The image file is damaged.",
+    "lead_email_manager_only": "Only the business's managers can change the enquiry e-mail.",
     "lead_recipient_not_a_user": "The recipient must be an active user of your business."
   }
 }

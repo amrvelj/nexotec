@@ -41,7 +41,7 @@ from sqlalchemy.orm import Session
 
 from app.core.audit import record_audit_event
 from app.core.base import utcnow
-from app.core.errors import BadRequestError, NotFoundError, UnprocessableEntityError
+from app.core.errors import BadRequestError, ForbiddenError, NotFoundError, UnprocessableEntityError
 from app.core.object_store import ObjectStore, StoredObject
 from app.core.uuid7 import uuid7
 from app.platform.identity.models.user import User, UserStatus
@@ -742,12 +742,30 @@ def _routing_snapshot(location: Location, routing: LocationLeadRouting | None) -
 
 
 def set_lead_routing(
-    db: Session, *, profile: PublishingProfile, location: Location, data: LeadRoutingUpdate, actor_id: uuid.UUID
+    db: Session,
+    *,
+    profile: PublishingProfile,
+    location: Location,
+    data: LeadRoutingUpdate,
+    actor_id: uuid.UUID,
+    may_write_lead_email: bool,
 ) -> tuple[Location, LocationLeadRouting]:
     """Replaces a site's lead routing. The caller holds the location's row
     lock: its `lead_email` is the Locations master data's own column, so a
-    change moves the location's version and is audited as its update."""
+    change moves the location's version and is audited as its update.
 
+    KAN-734 (Anto, 2026-11-15, KAN-225 Q3 A): the lead e-mail has one rule on
+    both screens — the Locations row's, the manager only. `may_write_lead_email`
+    is the caller's answer to that row (`may_write("locations", …)`); without
+    it a *changed* lead e-mail is 403 `lead_email_manager_only`, nothing
+    written. The other routing fields share this PUT and stay on the
+    `publishing_profile` row: the same e-mail sent back is no change."""
+
+    if location.lead_email != data.lead_email and not may_write_lead_email:
+        raise ForbiddenError(
+            "Only the dealer manager may change a location's lead e-mail.",
+            details={"reason": "lead_email_manager_only", "field": "leadEmail"},
+        )
     if data.recipient_user_id is not None:
         user = db.scalar(
             select(User).where(

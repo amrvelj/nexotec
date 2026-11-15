@@ -83,6 +83,7 @@
   "leadRouting": {
     "hint": "Où vont les demandes concernant les véhicules de ce site.",
     "leadEmail": "E-mail pour les demandes",
+    "leadEmailManagerOnlyHint": "Seule la direction modifie l'e-mail pour les demandes – ici et sous Sites.",
     "leadPhone": "Téléphone pour les demandes",
     "createsTask": "Une demande crée aussi une tâche dans le DMS",
     "recipientRole": "Destinataire",
@@ -121,6 +122,7 @@
     "image_too_large": "La photo est trop volumineuse — 10 Mo au maximum.",
     "image_too_small": "La photo est trop petite — au moins 800 px sur le grand côté.",
     "image_unreadable": "Le fichier image est endommagé.",
+    "lead_email_manager_only": "Seule la direction peut modifier l'e-mail pour les demandes.",
     "lead_recipient_not_a_user": "Le destinataire doit être un utilisateur actif de votre entreprise."
   }
 }

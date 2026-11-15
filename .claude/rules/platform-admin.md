@@ -73,7 +73,8 @@ Decided rulings live in the PRD; built only where a bullet says so — check the
   `administration.checklist_item_regressed` — never for a Betrieb the migration set active
   (`activated_at` null). Production never asks for or activates on a draft (< 1.0) ToS/DPA.
 - **Publishing profile — built (KAN-225):** `services/publishing_profile`, `/administration/publishing`;
-  the public stock projection is `reporting`'s (ADR-174, ADR-175).
+  the public stock projection is `reporting`'s (ADR-174, ADR-175). A location's lead e-mail is the
+  manager's on both screens (403 `lead_email_manager_only`, KAN-734); the rest of lead routing is `publishing_profile`'s.
 - **`status` is staff's, `active` ↔ `suspended` only** (KAN-712, ADR-165): a manager naming it is
   422 `status_not_patchable`; activation and offboarding are procedures (`use_*_procedure`).
 - **Mail (D-A-28):** platform mail is always Nexotec's sender (`platform-identity.md`);
