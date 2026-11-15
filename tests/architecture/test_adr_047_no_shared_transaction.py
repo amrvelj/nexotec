@@ -264,6 +264,13 @@ _OWN_COMMIT_WRITES = {
             "valuation: the provider quote (KAN-552)"
         ),
     ),
+    # KAN-227: one AI completion through call_capability — the call-log row
+    # (with its tokens) commits on the gateway's own session; the caller's
+    # session is only read from, never committed.
+    "app.integration.public.generate": (
+        "app.integration.services.gateway.record_call",
+        "inventory: «Text vorschlagen» (KAN-227)",
+    ),
 }
 
 # ADR-047's forbidden shape, known and tracked as debt. The one entry Anto
