@@ -10,7 +10,8 @@ import { conditionsForField, type FilterFieldDef, type FilterPredicate } from '@
 import { applyGroupStockFilters, applyStockFilters, buildGroupStockFilterFields, buildStockFilterFields } from '../stockOptions'
 import { applyCustomerFilters } from '../modules/customer/customerOptions'
 import { applyCatalogueFilters, buildCatalogueFilterFields, CATALOGUE_FILTER_SCOPE, FACET_LIST_CODE } from '../catalogueOptions'
-import type { CatalogueFacetsRead } from '../api/types'
+import type { CatalogueFacetsRead, GridSchemaRead } from '../api/types'
+import gridSchemas from '../api/gridSchemas.json'
 
 // KAN-458: the Stock grid offered «Zustand = Neu», showed it as an active
 // filter, and never sent it — the list still held used cars. A grid may
@@ -73,9 +74,9 @@ function samplePredicate(field: FilterFieldDef, condition: string): FilterPredic
     case 'select':
       return { ...base, value: field.options?.[0]?.value ?? 'sample' }
     case 'number':
-      return { ...base, value: 5 }
+      return condition === 'between' ? { ...base, value: 5, valueTo: 9 } : { ...base, value: 5 }
     case 'date':
-      return { ...base, days: 7 }
+      return ['on', 'before', 'after'].includes(condition) ? { ...base, value: '2026-03-12' } : { ...base, days: 7 }
     case 'boolean':
       return { ...base, value: true }
     case 'text':
@@ -225,10 +226,44 @@ function coverageProblems(fileName: string, text: string, covered: Record<string
 }
 
 describe('every offered filter is applied server-side (KAN-458)', () => {
-  it('Stock: every offered field and condition is sent', () => {
-    const fields = buildStockFilterFields(t)
-    expect(fields.map((f) => f.id)).toEqual(['lifecycleStatus', 'condition'])
-    expect(unmapped(fields, applyStockFilters, queryParamsOf(MAPPERS.applyStockFilters.endpoint))).toEqual([])
+  it('Stock: every field and condition of the served grid schema is offered and sent (KAN-461)', () => {
+    const schema = (gridSchemas as Record<string, GridSchemaRead>)['/v1/inventory/stock-items']
+    const fields = buildStockFilterFields(t, schema)
+    expect(fields.map((f) => f.id)).toEqual(schema.fields.map((f) => f.field))
+    // Every condition the endpoint serves is offered, but an enum's `in`
+    // (the builder's select holds one value).
+    for (const field of schema.fields) {
+      const offered = conditionsForField(fields.find((f) => f.id === field.field)!)
+      expect([...offered].sort(), field.field).toEqual(field.operators.filter((op) => op !== 'in').sort())
+    }
+    const apply: Mapper = (params, predicates) => applyStockFilters(params, predicates, fields)
+    expect(unmapped(fields, apply, queryParamsOf(MAPPERS.applyStockFilters.endpoint))).toEqual([])
+  })
+
+  it('Stock: a predicate goes out as one filter parameter, field:condition:value (KAN-461)', () => {
+    const schema = (gridSchemas as Record<string, GridSchemaRead>)['/v1/inventory/stock-items']
+    const fields = buildStockFilterFields(t, schema)
+    const params = new URLSearchParams()
+    applyStockFilters(
+      params,
+      [
+        { id: 'a', fieldId: 'listPrice', type: 'number', condition: 'between', value: 10000, valueTo: 25000.5 },
+        { id: 'b', fieldId: 'condition', type: 'select', condition: 'isNot', value: 'used' },
+        { id: 'c', fieldId: 'purchaseDate', type: 'date', condition: 'before', value: '2026-03-12' },
+        { id: 'd', fieldId: 'updatedAt', type: 'date', condition: 'inTheLastDays', days: 30 },
+        { id: 'e', fieldId: 'isInvoiceable', type: 'boolean', condition: 'is', value: false },
+        { id: 'f', fieldId: 'supplierName', type: 'text', condition: 'contains', value: 'a:b' },
+      ],
+      fields,
+    )
+    expect(params.getAll('filter')).toEqual([
+      'listPrice:between:10000.00,25000.50',
+      'condition:isNot:used',
+      'purchaseDate:before:2026-03-12',
+      'updatedAt:inTheLastDays:30',
+      'isInvoiceable:is:false',
+      'supplierName:contains:a:b',
+    ])
   })
 
   it('Group stock: the Betrieb filter, «ist» and «ist nicht», is sent (KAN-565)', () => {
@@ -264,8 +299,10 @@ describe('every offered filter is applied server-side (KAN-458)', () => {
   })
 
   it('reads the endpoints\' declared query parameters from schema.d.ts', () => {
+    // KAN-461: `filter` is the grid's one parameter; the four hand-wired
+    // ones stay one release as deprecated aliases the SPA no longer sends.
     expect(queryParamsOf('/v1/inventory/stock-items')).toEqual(
-      new Set(['q', 'lifecycle_status', 'condition', 'lifecycle_status_not', 'condition_not', 'sort', 'limit', 'cursor']),
+      new Set(['q', 'filter', 'lifecycle_status', 'condition', 'lifecycle_status_not', 'condition_not', 'sort', 'limit', 'cursor']),
     )
     // KAN-476: the exclusions «ist nicht» is sent as.
     expect(queryParamsOf('/v1/customers')).toContain('advisorUserIdNot')

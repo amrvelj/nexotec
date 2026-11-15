@@ -26,6 +26,10 @@ export const FR_CONDITION_LABELS: FilterConditionLabels = {
     thisYear: 'cette année',
     inTheLastDays: 'au cours des N derniers jours',
     moreThanDaysAgo: 'il y a plus de N jours',
+    between: 'entre',
+    on: 'le',
+    before: 'avant le',
+    after: 'après le',
   },
   predicateText: {
     contains: ({ field, value }) => `${field} : contient ${value}`,
@@ -43,6 +47,10 @@ export const FR_CONDITION_LABELS: FilterConditionLabels = {
     thisYear: ({ field }) => `${field} : cette année`,
     inTheLastDays: ({ field, days }) => `${field} : au cours des ${days} derniers jours`,
     moreThanDaysAgo: ({ field, days }) => `${field} : il y a plus de ${days} jours`,
+    between: ({ field, value }) => `${field} : entre ${value}`,
+    on: ({ field, value }) => `${field} : le ${value}`,
+    before: ({ field, value }) => `${field} : avant le ${value}`,
+    after: ({ field, value }) => `${field} : après le ${value}`,
   },
   booleanTrue: (field) => `${field} : oui`,
   booleanFalse: (field) => `${field} : non`,
@@ -57,6 +65,10 @@ export const FR_FILTER_BUILDER_LABELS: FilterBuilderLabels = {
   deleteFilter: 'Supprimer le filtre',
   dayCount: 'Nombre de jours',
   invalidDayCount: (min, max) => `Saisissez un nombre entier de jours entre ${min} et ${max}.`,
+  day: 'Date',
+  rangeFrom: 'De',
+  rangeTo: 'À',
+  invalidRange: 'La première valeur doit être inférieure ou égale à la seconde.',
   ...FR_CONDITION_LABELS,
 }
 

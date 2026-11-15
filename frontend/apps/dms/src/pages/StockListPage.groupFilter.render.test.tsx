@@ -114,3 +114,21 @@ describe('StockListPage — group stock filtered by Betrieb (KAN-565)', () => {
     expect(screen.getAllByText(/Garage Süd AG/).length).toBeGreaterThan(0)
   })
 })
+
+describe('StockListPage — the group grid sorts only on its own fields (KAN-461 review)', () => {
+  it('a sort the group cannot apply — the own grid\'s price — is narrowed away, not sent', async () => {
+    const fake = backend()
+    renderWithProviders(<StockListPage />, { route: '/stock?scope=group&sort=listPrice:asc' })
+
+    await waitFor(() => expect(lastListingCall(fake)).toBeDefined())
+    expect(lastListingCall(fake).params.get('sort')).toBe('updatedAt:desc')
+  })
+
+  it('a sort it applies is sent as it is', async () => {
+    const fake = backend()
+    renderWithProviders(<StockListPage />, { route: '/stock?scope=group&sort=stockNumber:asc' })
+
+    await waitFor(() => expect(lastListingCall(fake)).toBeDefined())
+    expect(lastListingCall(fake).params.get('sort')).toBe('stockNumber:asc')
+  })
+})

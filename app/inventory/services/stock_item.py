@@ -14,8 +14,8 @@ from app.core.audit import record_audit_event
 from app.core.base import utcnow
 from app.core.config import get_settings
 from app.core.errors import ConflictError, NotFoundError, UnprocessableEntityError
+from app.core.list_query import ListQuery, run_list_query
 from app.core.outbox import OutboxEvent, publish
-from app.core.pagination import SortPageParams, build_sorted_page, count_capped, paginate_query_sorted
 from app.core.validators import is_valid_vin, normalise_vin
 from app.inventory.models.stock_item import (
     AgeingBucket,
@@ -38,6 +38,12 @@ _EVENT_PRODUCER = "inventory"
 logger = logging.getLogger(__name__)
 
 
+# The ageing buckets' bounds in whole days on the lot (fixed, AgeingBucket);
+# the grid's ageing filter reads the same two (KAN-461, services/stock_grid.py).
+AGEING_GREEN_MAX_DAYS = 60
+AGEING_AMBER_MAX_DAYS = 120
+
+
 def compute_ageing_bucket(item: StockItem) -> AgeingBucket | None:
     """None while the item has never been in_stock (pipeline) — ageing is
     "days on the lot," not "days since this row was created" (a factory
@@ -47,9 +53,9 @@ def compute_ageing_bucket(item: StockItem) -> AgeingBucket | None:
     if item.in_stock_at is None:
         return None
     days = (utcnow() - item.in_stock_at).days
-    if days <= 60:
+    if days <= AGEING_GREEN_MAX_DAYS:
         return AgeingBucket.GREEN
-    if days <= 120:
+    if days <= AGEING_AMBER_MAX_DAYS:
         return AgeingBucket.AMBER
     return AgeingBucket.RED
 
@@ -712,43 +718,31 @@ def _publish_condition_changed(db: Session, *, item: StockItem, previous: StockI
 
 
 def list_stock_items(
-    db: Session,
-    *,
-    tenant_id: uuid.UUID,
-    q: str | None,
-    lifecycle_status: LifecycleStatus | None,
-    condition: StockItemCondition | None = None,
-    lifecycle_status_not: LifecycleStatus | None = None,
-    condition_not: StockItemCondition | None = None,
-    params: SortPageParams,
+    db: Session, *, tenant_id: uuid.UUID, q: str | None, query: ListQuery
 ) -> tuple[list[StockItem], str | None, int, bool]:
+    """The Betrieb's stock grid: its own items not yet out of stock, the
+    free-text search, and the grid's filters and sort over the column
+    registry (KAN-461, `services/stock_grid.py`)."""
+
     # FR-I-12 (PR-5): a sold (invoiced) item is absent from the active
     # list — enforced here, never a 4th lifecycle_status value. Still
     # directly fetchable by id (get_stock_item_or_404 is unaffected) for
     # whoever holds a historical link to it.
-    stmt = select(StockItem).where(StockItem.tenant_id == tenant_id, StockItem.left_stock_at.is_(None))
+    stmt = select(StockItem).where(StockItem.left_stock_at.is_(None))
     if q:
-        like = f"%{q}%"
         stmt = stmt.where(
-            (StockItem.stock_number.ilike(like))
-            | (StockItem.vin.ilike(like))
-            | (StockItem.vehicle_label.ilike(like))
+            StockItem.stock_number.icontains(q, autoescape=True)
+            | StockItem.vin.icontains(q, autoescape=True)
+            | StockItem.vehicle_label.icontains(q, autoescape=True)
         )
-    if lifecycle_status is not None:
-        stmt = stmt.where(StockItem.lifecycle_status == lifecycle_status)
-    if condition is not None:
-        stmt = stmt.where(StockItem.condition == condition)
-    # KAN-476: «ist nicht» — both columns are NOT NULL, so `!=` loses no row.
-    if lifecycle_status_not is not None:
-        stmt = stmt.where(StockItem.lifecycle_status != lifecycle_status_not)
-    if condition_not is not None:
-        stmt = stmt.where(StockItem.condition != condition_not)
-
-    total, total_is_estimate = count_capped(db, stmt, threshold=get_settings().count_exact_threshold)
-    stmt = paginate_query_sorted(stmt, model=StockItem, params=params)
-    rows = list(db.scalars(stmt).all())
-    items, next_cursor = build_sorted_page(rows, params)
-    return items, next_cursor, total, total_is_estimate
+    return run_list_query(
+        db,
+        stmt,
+        model=StockItem,
+        scope=[StockItem.tenant_id == tenant_id],
+        query=query,
+        count_threshold=get_settings().count_exact_threshold,
+    )
 
 
 def correct_vin(

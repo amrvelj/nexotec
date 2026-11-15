@@ -1,5 +1,6 @@
 import { vi } from 'vitest'
 import { GATED_CAPABILITIES } from '../auth/gatedCapabilities'
+import gridSchemas from '../api/gridSchemas.json'
 
 // A fetch-level fake of the DMS API. Render tests stub `global.fetch` with
 // this rather than mocking `api/client.ts` or any hook, so the real
@@ -122,6 +123,16 @@ const DEFAULT_COUNTRY_VALUES = [
 // UiPreferencesProvider). Appended after the test's own routes so a test
 // can still override any of them.
 const INFRA_ROUTES: FakeRoute[] = [
+  // KAN-461: a grid on the list-query layer reads its served schema first —
+  // the backend's own, from the file `make generate-frontend-types` writes
+  // (tests/test_kan461_grid_schemas_file.py keeps it current).
+  ...Object.entries(gridSchemas).map(
+    ([path, schema]): FakeRoute => ({
+      method: 'GET',
+      match: new RegExp(`^${path.replace(/^\/v1/, '')}/grid-schema$`),
+      handler: () => schema,
+    }),
+  ),
   {
     method: 'GET',
     match: /\/auth\/me$/,
