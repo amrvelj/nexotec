@@ -95,12 +95,20 @@ def allocate_vehicle_party(
     role: VehiclePartyRole,
     group_id: uuid.UUID,
     actor_id: uuid.UUID,
+    acting_dealership_id: uuid.UUID | None,
 ) -> VehiclePartyRef:
-    """`vehicle_party.allocate_vehicle_party`, answered as a value."""
+    """`vehicle_party.allocate_vehicle_party`, answered as a value.
+    `acting_dealership_id`: the Betrieb the allocation is made in (KAN-722)."""
 
     return _party_ref(
         vehicle_party.allocate_vehicle_party(
-            db, vehicle_id=vehicle_id, customer_id=customer_id, role=role, group_id=group_id, actor_id=actor_id
+            db,
+            vehicle_id=vehicle_id,
+            customer_id=customer_id,
+            role=role,
+            group_id=group_id,
+            actor_id=actor_id,
+            acting_dealership_id=acting_dealership_id,
         )
     )
 
