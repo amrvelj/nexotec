@@ -302,6 +302,7 @@ def _take_later_end(
         tenant_id=group_id,
         action="vehicle_party_update",
         actor_id=None,
+        acting_dealership_id=None,  # KAN-722: the vehicle.merged consumer's write, no Betrieb's
         before=before,
         after={
             "effectiveFrom": kept.effective_from.isoformat(),
@@ -343,6 +344,7 @@ def _keep_copy(
             db,
             party=party,
             actor_id=None,
+            acting_dealership_id=None,
             group_id=group_id,
             effective_to=party.effective_from,
             merged_into_vehicle_id=target,
@@ -369,6 +371,7 @@ def _keep_copy(
         tenant_id=group_id,
         action="vehicle_party_update",
         actor_id=None,
+        acting_dealership_id=None,  # KAN-722: the vehicle.merged consumer's write, no Betrieb's
         before=period,
         after={**period, "mergedIntoVehicleId": str(target)},
         reason=VEHICLE_MERGED_REASON,
@@ -428,6 +431,7 @@ def _settle_role(
             db,
             party=replaced,
             actor_id=None,
+            acting_dealership_id=None,
             group_id=group_id,
             effective_to=current[-1].effective_from,
             reason=VEHICLE_MERGED_REASON,
@@ -441,6 +445,7 @@ def _settle_role(
             db,
             party=earlier,
             actor_id=None,
+            acting_dealership_id=None,
             group_id=group_id,
             effective_to=later.effective_from,
             closed_for_party_id=None if empty else later.id,

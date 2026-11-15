@@ -235,7 +235,7 @@ def test_the_reopen_closes_a_holder_allocated_since(db_session, engine):
     group_id = contract_group_id(db_session, contract)
     someone_else = allocate_vehicle_party(
         db_session, vehicle_id=item.vehicle_id, customer_id=_customer(db_session, group_id).id,
-        role=VehiclePartyRole.OWNER, group_id=group_id, actor_id=uuid.uuid4(),
+        role=VehiclePartyRole.OWNER, group_id=group_id, actor_id=uuid.uuid4(), acting_dealership_id=None,
     )
 
     _customer_consumes_storno(db_session, _storno(db_session, item, returned=True))
@@ -260,7 +260,7 @@ def test_a_late_returned_storno_never_closes_a_holder_allocated_after_it(db_sess
     group_id = contract_group_id(db_session, contract)
     newer = allocate_vehicle_party(
         db_session, vehicle_id=item.vehicle_id, customer_id=_customer(db_session, group_id).id,
-        role=VehiclePartyRole.OWNER, group_id=group_id, actor_id=uuid.uuid4(),
+        role=VehiclePartyRole.OWNER, group_id=group_id, actor_id=uuid.uuid4(), acting_dealership_id=None,
     )
 
     assert _customer_consumes_storno(db_session, storno) is True
@@ -292,7 +292,7 @@ def test_a_backdated_allocation_made_after_the_storno_still_counts_as_newer(db_s
     group_id = contract_group_id(db_session, contract)
     backdated = allocate_vehicle_party(
         db_session, vehicle_id=item.vehicle_id, customer_id=_customer(db_session, group_id).id,
-        role=VehiclePartyRole.OWNER, group_id=group_id, actor_id=uuid.uuid4(),
+        role=VehiclePartyRole.OWNER, group_id=group_id, actor_id=uuid.uuid4(), acting_dealership_id=None,
         effective_from=storno.occurred_at - dt.timedelta(days=3),
     )
 
@@ -313,9 +313,9 @@ def test_a_holder_linked_and_disconnected_after_the_storno_keeps_the_role_untouc
     group_id = contract_group_id(db_session, contract)
     linked = allocate_vehicle_party(
         db_session, vehicle_id=item.vehicle_id, customer_id=_customer(db_session, group_id).id,
-        role=VehiclePartyRole.OWNER, group_id=group_id, actor_id=uuid.uuid4(),
+        role=VehiclePartyRole.OWNER, group_id=group_id, actor_id=uuid.uuid4(), acting_dealership_id=None,
     )
-    delete_customer_vehicle(db_session, party=linked, actor_id=uuid.uuid4(), group_id=group_id)
+    delete_customer_vehicle(db_session, party=linked, actor_id=uuid.uuid4(), acting_dealership_id=None, group_id=group_id)
 
     _customer_consumes_storno(db_session, storno)
 
@@ -332,7 +332,7 @@ def test_a_future_holder_recorded_before_the_storno_is_never_ended_before_it_beg
     group_id = contract_group_id(db_session, contract)
     future = allocate_vehicle_party(
         db_session, vehicle_id=item.vehicle_id, customer_id=_customer(db_session, group_id).id,
-        role=VehiclePartyRole.OWNER, group_id=group_id, actor_id=uuid.uuid4(),
+        role=VehiclePartyRole.OWNER, group_id=group_id, actor_id=uuid.uuid4(), acting_dealership_id=None,
         effective_from=dt.datetime.now(dt.UTC) + dt.timedelta(days=30),
     )
 
@@ -355,7 +355,7 @@ def test_a_history_row_recorded_after_the_storno_does_not_stop_the_reopen(db_ses
     storno = _storno(db_session, item, returned=True)
     group_id = contract_group_id(db_session, contract)
     create_customer_vehicle(
-        db_session, customer=_customer(db_session, group_id), actor_id=uuid.uuid4(),
+        db_session, customer=_customer(db_session, group_id), actor_id=uuid.uuid4(), acting_dealership_id=None,
         data=CustomerVehicleCreate(
             vehicle_id=item.vehicle_id, role=VehiclePartyRole.OWNER,
             effective_from=dt.datetime(2015, 1, 1, tzinfo=dt.UTC), effective_to=dt.datetime(2018, 1, 1, tzinfo=dt.UTC),

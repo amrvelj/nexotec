@@ -207,6 +207,8 @@ def handle_stock_item_purchased_message(
             payload.get("purchaseDate"), booked_at=message.occurred_at, known_since=seller.known_since
         ),
         actor_id=uuid.UUID(purchased_by) if purchased_by else None,
+        # KAN-722: the Betrieb whose stock booking this is wrote the History row.
+        acting_dealership_id=message.tenant_id,
     )
 
 
@@ -280,6 +282,8 @@ def handle_stock_item_storno_message(
         closed_after=seller.known_since,
         closed_until=message.occurred_at,
         actor_id=uuid.UUID(stornoed_by) if stornoed_by else None,
+        # KAN-722: the Betrieb whose stock booking this is wrote the History row.
+        acting_dealership_id=message.tenant_id,
     )
 
 

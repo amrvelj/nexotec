@@ -80,7 +80,7 @@ def _customer(db_session, group_id):
                 )
             ],
         ),
-        actor_id=uuid.uuid4(),
+        actor_id=uuid.uuid4(), acting_dealership_id=None,
         dealership_id=uuid.uuid4(),
     )
 

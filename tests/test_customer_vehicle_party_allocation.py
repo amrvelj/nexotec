@@ -61,13 +61,13 @@ def test_allocating_a_new_holder_closes_the_previous_one(db_session):
 
     first = allocate_vehicle_party(
         db_session, vehicle_id=vehicle.id, customer_id=alice.id, role=VehiclePartyRole.OWNER,
-        group_id=GROUP_ID, actor_id=uuid.uuid4(),
+        group_id=GROUP_ID, actor_id=uuid.uuid4(), acting_dealership_id=None,
     )
     assert first.effective_to is None
 
     second = allocate_vehicle_party(
         db_session, vehicle_id=vehicle.id, customer_id=bob.id, role=VehiclePartyRole.OWNER,
-        group_id=GROUP_ID, actor_id=uuid.uuid4(),
+        group_id=GROUP_ID, actor_id=uuid.uuid4(), acting_dealership_id=None,
     )
     assert second.effective_to is None
     assert second.customer_id == bob.id
@@ -83,11 +83,11 @@ def test_reallocating_the_same_customer_is_a_no_op(db_session):
 
     first = allocate_vehicle_party(
         db_session, vehicle_id=vehicle.id, customer_id=alice.id, role=VehiclePartyRole.KEEPER,
-        group_id=GROUP_ID, actor_id=uuid.uuid4(),
+        group_id=GROUP_ID, actor_id=uuid.uuid4(), acting_dealership_id=None,
     )
     second = allocate_vehicle_party(
         db_session, vehicle_id=vehicle.id, customer_id=alice.id, role=VehiclePartyRole.KEEPER,
-        group_id=GROUP_ID, actor_id=uuid.uuid4(),
+        group_id=GROUP_ID, actor_id=uuid.uuid4(), acting_dealership_id=None,
     )
     assert first.id == second.id
 
@@ -100,10 +100,10 @@ def test_delete_closes_never_deletes_and_is_idempotent(db_session):
     alice = _customer(db_session, "Alice")
     party = allocate_vehicle_party(
         db_session, vehicle_id=vehicle.id, customer_id=alice.id, role=VehiclePartyRole.DRIVER,
-        group_id=GROUP_ID, actor_id=uuid.uuid4(),
+        group_id=GROUP_ID, actor_id=uuid.uuid4(), acting_dealership_id=None,
     )
 
-    delete_customer_vehicle(db_session, party=party, actor_id=uuid.uuid4(), group_id=GROUP_ID)
+    delete_customer_vehicle(db_session, party=party, actor_id=uuid.uuid4(), acting_dealership_id=None, group_id=GROUP_ID)
     db_session.refresh(party)
     first_close_time = party.effective_to
     assert first_close_time is not None
@@ -114,7 +114,7 @@ def test_delete_closes_never_deletes_and_is_idempotent(db_session):
     assert still_there is not None  # never deleted
 
     # Idempotent: a second close doesn't move the timestamp.
-    delete_customer_vehicle(db_session, party=party, actor_id=uuid.uuid4(), group_id=GROUP_ID)
+    delete_customer_vehicle(db_session, party=party, actor_id=uuid.uuid4(), acting_dealership_id=None, group_id=GROUP_ID)
     db_session.refresh(party)
     assert party.effective_to == first_close_time
 
@@ -124,9 +124,9 @@ def test_list_default_excludes_closed_include_closed_shows_history(db_session):
     alice = _customer(db_session, "Alice")
     party = allocate_vehicle_party(
         db_session, vehicle_id=vehicle.id, customer_id=alice.id, role=VehiclePartyRole.OWNER,
-        group_id=GROUP_ID, actor_id=uuid.uuid4(),
+        group_id=GROUP_ID, actor_id=uuid.uuid4(), acting_dealership_id=None,
     )
-    delete_customer_vehicle(db_session, party=party, actor_id=uuid.uuid4(), group_id=GROUP_ID)
+    delete_customer_vehicle(db_session, party=party, actor_id=uuid.uuid4(), acting_dealership_id=None, group_id=GROUP_ID)
 
     assert list_customer_vehicles(db_session, customer_id=alice.id) == []
     assert len(list_customer_vehicles(db_session, customer_id=alice.id, include_closed=True)) == 1
@@ -139,11 +139,11 @@ def test_allocation_publishes_linked_and_unlinked_outbox_events(db_session):
 
     allocate_vehicle_party(
         db_session, vehicle_id=vehicle.id, customer_id=alice.id, role=VehiclePartyRole.OWNER,
-        group_id=GROUP_ID, actor_id=uuid.uuid4(),
+        group_id=GROUP_ID, actor_id=uuid.uuid4(), acting_dealership_id=None,
     )
     allocate_vehicle_party(
         db_session, vehicle_id=vehicle.id, customer_id=bob.id, role=VehiclePartyRole.OWNER,
-        group_id=GROUP_ID, actor_id=uuid.uuid4(),
+        group_id=GROUP_ID, actor_id=uuid.uuid4(), acting_dealership_id=None,
     )
 
     events = list(
@@ -175,11 +175,11 @@ def test_summary_is_null_without_a_catalogue_match_and_resolved_with_one(db_sess
 
     allocate_vehicle_party(
         db_session, vehicle_id=unmatched.id, customer_id=alice.id, role=VehiclePartyRole.OWNER,
-        group_id=GROUP_ID, actor_id=uuid.uuid4(),
+        group_id=GROUP_ID, actor_id=uuid.uuid4(), acting_dealership_id=None,
     )
     allocate_vehicle_party(
         db_session, vehicle_id=matched.id, customer_id=alice.id, role=VehiclePartyRole.DRIVER,
-        group_id=GROUP_ID, actor_id=uuid.uuid4(),
+        group_id=GROUP_ID, actor_id=uuid.uuid4(), acting_dealership_id=None,
     )
 
     parties = {p.vehicle_id: p for p in list_customer_vehicles(db_session, customer_id=alice.id)}
@@ -225,7 +225,7 @@ def test_allocation_never_closes_another_groups_holder(db_session, role, a_first
     parties = {
         group_id: allocate_vehicle_party(
             db_session, vehicle_id=vehicle.id, customer_id=customer.id, role=role,
-            group_id=group_id, actor_id=uuid.uuid4(),
+            group_id=group_id, actor_id=uuid.uuid4(), acting_dealership_id=None,
         )
         for customer, group_id in order
     }
@@ -247,15 +247,15 @@ def test_same_group_close_is_stamped_with_that_group(db_session):
 
     bruno_party = allocate_vehicle_party(
         db_session, vehicle_id=vehicle.id, customer_id=bruno.id, role=VehiclePartyRole.OWNER,
-        group_id=group_b, actor_id=uuid.uuid4(),
+        group_id=group_b, actor_id=uuid.uuid4(), acting_dealership_id=None,
     )
     alice_party = allocate_vehicle_party(
         db_session, vehicle_id=vehicle.id, customer_id=alice.id, role=VehiclePartyRole.OWNER,
-        group_id=group_a, actor_id=uuid.uuid4(),
+        group_id=group_a, actor_id=uuid.uuid4(), acting_dealership_id=None,
     )
     allocate_vehicle_party(
         db_session, vehicle_id=vehicle.id, customer_id=anna.id, role=VehiclePartyRole.OWNER,
-        group_id=group_a, actor_id=uuid.uuid4(),
+        group_id=group_a, actor_id=uuid.uuid4(), acting_dealership_id=None,
     )
 
     db_session.refresh(alice_party)
@@ -277,7 +277,7 @@ def test_failure_after_the_close_leaves_the_previous_holder_open(db_session, mon
     bob = _customer(db_session, "Bob")
     first = allocate_vehicle_party(
         db_session, vehicle_id=vehicle.id, customer_id=alice.id, role=VehiclePartyRole.KEEPER,
-        group_id=GROUP_ID, actor_id=uuid.uuid4(),
+        group_id=GROUP_ID, actor_id=uuid.uuid4(), acting_dealership_id=None,
     )
 
     real_record = vehicle_party_service.record_audit_event
@@ -291,7 +291,7 @@ def test_failure_after_the_close_leaves_the_previous_holder_open(db_session, mon
     with pytest.raises(RuntimeError):
         allocate_vehicle_party(
             db_session, vehicle_id=vehicle.id, customer_id=bob.id, role=VehiclePartyRole.KEEPER,
-            group_id=GROUP_ID, actor_id=uuid.uuid4(),
+            group_id=GROUP_ID, actor_id=uuid.uuid4(), acting_dealership_id=None,
         )
     monkeypatch.undo()
 
@@ -324,7 +324,7 @@ def test_allocation_closes_every_open_holder_in_the_callers_group(db_session):
 
     allocate_vehicle_party(
         db_session, vehicle_id=vehicle.id, customer_id=zoe.id, role=VehiclePartyRole.OWNER,
-        group_id=GROUP_ID, actor_id=uuid.uuid4(),
+        group_id=GROUP_ID, actor_id=uuid.uuid4(), acting_dealership_id=None,
     )
 
     for row in (older, newer):
@@ -341,7 +341,7 @@ def test_reallocating_a_holder_who_shares_the_role_leaves_exactly_one_open(db_se
 
     allocate_vehicle_party(
         db_session, vehicle_id=vehicle.id, customer_id=xaver.id, role=VehiclePartyRole.OWNER,
-        group_id=GROUP_ID, actor_id=uuid.uuid4(),
+        group_id=GROUP_ID, actor_id=uuid.uuid4(), acting_dealership_id=None,
     )
 
     assert [p.customer_id for p in list_vehicle_parties(db_session, vehicle_id=vehicle.id, group_id=GROUP_ID)] == [xaver.id]
@@ -354,13 +354,13 @@ def test_allocating_another_groups_customer_is_a_404_and_writes_nothing(db_sessi
     berta = _group_customer(db_session, group_b, "Berta")
     brunos = allocate_vehicle_party(
         db_session, vehicle_id=vehicle.id, customer_id=bruno.id, role=VehiclePartyRole.OWNER,
-        group_id=group_b, actor_id=uuid.uuid4(),
+        group_id=group_b, actor_id=uuid.uuid4(), acting_dealership_id=None,
     )
 
     with pytest.raises(NotFoundError):
         allocate_vehicle_party(
             db_session, vehicle_id=vehicle.id, customer_id=berta.id, role=VehiclePartyRole.OWNER,
-            group_id=GROUP_ID, actor_id=uuid.uuid4(),
+            group_id=GROUP_ID, actor_id=uuid.uuid4(), acting_dealership_id=None,
         )
     db_session.rollback()
 
@@ -384,7 +384,7 @@ def test_concurrent_allocations_leave_exactly_one_open_holder(engine, db_session
     if with_incumbent:
         allocate_vehicle_party(
             db_session, vehicle_id=vehicle.id, customer_id=xaver.id, role=VehiclePartyRole.OWNER,
-            group_id=GROUP_ID, actor_id=uuid.uuid4(),
+            group_id=GROUP_ID, actor_id=uuid.uuid4(), acting_dealership_id=None,
         )
 
     first_inserted, release = threading.Event(), threading.Event()
@@ -405,7 +405,7 @@ def test_concurrent_allocations_leave_exactly_one_open_holder(engine, db_session
             try:
                 allocate_vehicle_party(
                     session, vehicle_id=vehicle.id, customer_id=customer_id, role=VehiclePartyRole.OWNER,
-                    group_id=GROUP_ID, actor_id=uuid.uuid4(),
+                    group_id=GROUP_ID, actor_id=uuid.uuid4(), acting_dealership_id=None,
                 )
             except Exception as exc:  # noqa: BLE001 — collected and asserted empty below, never swallowed
                 errors.append(exc)

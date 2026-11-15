@@ -68,7 +68,12 @@ def get_customer_address_or_404(
 
 
 def create_customer_address(
-    db: Session, *, customer: Customer, data: CustomerAddressCreate, actor_id: uuid.UUID
+    db: Session,
+    *,
+    customer: Customer,
+    data: CustomerAddressCreate,
+    actor_id: uuid.UUID,
+    acting_dealership_id: uuid.UUID | None,
 ) -> CustomerAddress:
     _validate_country_codes(db, {"addressCountry": data.address_country})
     is_primary = data.is_primary or not _has_usable_primary(
@@ -105,6 +110,7 @@ def create_customer_address(
         tenant_id=customer.group_id,
         action="address_add",
         actor_id=actor_id,
+        acting_dealership_id=acting_dealership_id,
         after=_address_audit_payload(address),
     )
     db.commit()
@@ -113,7 +119,12 @@ def create_customer_address(
 
 
 def update_customer_address(
-    db: Session, *, address: CustomerAddress, data: CustomerAddressUpdate, actor_id: uuid.UUID
+    db: Session,
+    *,
+    address: CustomerAddress,
+    data: CustomerAddressUpdate,
+    actor_id: uuid.UUID,
+    acting_dealership_id: uuid.UUID | None,
 ) -> CustomerAddress:
     changes = data.model_dump(exclude_unset=True)
     if "address_country" in changes:
@@ -147,6 +158,7 @@ def update_customer_address(
         tenant_id=address.group_id,
         action="address_update",
         actor_id=actor_id,
+        acting_dealership_id=acting_dealership_id,
         before=before,
         after=_address_audit_payload(address),
     )
@@ -155,7 +167,13 @@ def update_customer_address(
     return address
 
 
-def delete_customer_address(db: Session, *, address: CustomerAddress, actor_id: uuid.UUID) -> None:
+def delete_customer_address(
+    db: Session,
+    *,
+    address: CustomerAddress,
+    actor_id: uuid.UUID,
+    acting_dealership_id: uuid.UUID | None,
+) -> None:
     record_audit_event(
         db,
         entity_type="customer",
@@ -163,6 +181,7 @@ def delete_customer_address(db: Session, *, address: CustomerAddress, actor_id: 
         tenant_id=address.group_id,
         action="address_remove",
         actor_id=actor_id,
+        acting_dealership_id=acting_dealership_id,
         before=_address_audit_payload(address),
     )
     customer_id, address_type = address.customer_id, address.address_type

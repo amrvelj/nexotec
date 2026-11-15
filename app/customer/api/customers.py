@@ -17,7 +17,6 @@ import uuid
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
-from app.core.audit import list_audit_events
 from app.core.audit_schemas import AuditEventRead
 from app.core.auth import Principal, get_current_principal, require_access_role
 from app.core.concurrency import check_version, require_if_match
@@ -129,6 +128,7 @@ def create_customer(
         group_id=principal.group_id,
         data=body,
         actor_id=principal.user_id,
+        acting_dealership_id=principal.tenant_id,
         dealership_id=principal.tenant_id,
     )
     return _customer_read(db, customer)
@@ -186,7 +186,12 @@ def update_customer(
     customer = customer_common_service.get_customer_or_404(db, principal.group_id, customer_id)
     check_version(customer.version, if_match, entity_name="Customer")
     customer = customer_service.update_customer(
-        db, customer=customer, data=body, actor_id=principal.user_id, dealership_id=principal.tenant_id
+        db,
+        customer=customer,
+        data=body,
+        actor_id=principal.user_id,
+        acting_dealership_id=principal.tenant_id,
+        dealership_id=principal.tenant_id,
     )
     return _customer_read(db, customer)
 
@@ -204,7 +209,12 @@ def set_credit_block(
     customer = customer_common_service.get_customer_or_404(db, principal.group_id, customer_id)
     check_version(customer.version, if_match, entity_name="Customer")
     customer = customer_service.set_credit_block(
-        db, customer=customer, blocked=body.blocked, reason=body.reason, actor_id=principal.user_id
+        db,
+        customer=customer,
+        blocked=body.blocked,
+        reason=body.reason,
+        actor_id=principal.user_id,
+        acting_dealership_id=principal.tenant_id,
     )
     return _customer_read(db, customer)
 
@@ -224,6 +234,7 @@ def merge_customer(
         customer=customer,
         duplicate_of_customer_id=body.duplicate_of_customer_id,
         actor_id=principal.user_id,
+        acting_dealership_id=principal.tenant_id,
     )
     return _customer_read(db, customer)
 
@@ -352,9 +363,8 @@ def get_customer_audit_log(
     db: Session = Depends(get_db),
 ):
     customer_common_service.get_customer_or_404(db, principal.group_id, customer_id)
-    events = list_audit_events(
-        db, entity_type="customer", entity_id=customer_id, tenant_id=principal.group_id
-    )
+    # KAN-722: without an offboarded sister Betrieb's entries.
+    events = customer_service.list_customer_history(db, group_id=principal.group_id, customer_id=customer_id)
     # KAN-371: the ids the events carry are named on read, group-scoped.
     return CustomerHistoryPage(
         items=[AuditEventRead.model_validate(e, from_attributes=True) for e in events],
@@ -392,7 +402,13 @@ def create_customer_phone(
     db: Session = Depends(get_db),
 ):
     customer = customer_common_service.get_customer_or_404(db, principal.group_id, customer_id)
-    phone = contact_channels_service.create_customer_phone(db, customer=customer, data=body, actor_id=principal.user_id)
+    phone = contact_channels_service.create_customer_phone(
+        db,
+        customer=customer,
+        data=body,
+        actor_id=principal.user_id,
+        acting_dealership_id=principal.tenant_id,
+    )
     return CustomerPhoneRead.model_validate(phone, from_attributes=True)
 
 
@@ -407,7 +423,13 @@ def update_customer_phone(
     phone = contact_channels_service.get_customer_phone_or_404(
         db, group_id=principal.group_id, customer_id=customer_id, phone_id=phone_id
     )
-    phone = contact_channels_service.update_customer_phone(db, phone=phone, data=body, actor_id=principal.user_id)
+    phone = contact_channels_service.update_customer_phone(
+        db,
+        phone=phone,
+        data=body,
+        actor_id=principal.user_id,
+        acting_dealership_id=principal.tenant_id,
+    )
     return CustomerPhoneRead.model_validate(phone, from_attributes=True)
 
 
@@ -421,7 +443,12 @@ def delete_customer_phone(
     phone = contact_channels_service.get_customer_phone_or_404(
         db, group_id=principal.group_id, customer_id=customer_id, phone_id=phone_id
     )
-    contact_channels_service.delete_customer_phone(db, phone=phone, actor_id=principal.user_id)
+    contact_channels_service.delete_customer_phone(
+        db,
+        phone=phone,
+        actor_id=principal.user_id,
+        acting_dealership_id=principal.tenant_id,
+    )
 
 
 @router.get("/customers/{customer_id}/emails", response_model=CustomerEmailPage)
@@ -443,7 +470,13 @@ def create_customer_email(
     db: Session = Depends(get_db),
 ):
     customer = customer_common_service.get_customer_or_404(db, principal.group_id, customer_id)
-    email = contact_channels_service.create_customer_email(db, customer=customer, data=body, actor_id=principal.user_id)
+    email = contact_channels_service.create_customer_email(
+        db,
+        customer=customer,
+        data=body,
+        actor_id=principal.user_id,
+        acting_dealership_id=principal.tenant_id,
+    )
     return CustomerEmailRead.model_validate(email, from_attributes=True)
 
 
@@ -458,7 +491,13 @@ def update_customer_email(
     email = contact_channels_service.get_customer_email_or_404(
         db, group_id=principal.group_id, customer_id=customer_id, email_id=email_id
     )
-    email = contact_channels_service.update_customer_email(db, email=email, data=body, actor_id=principal.user_id)
+    email = contact_channels_service.update_customer_email(
+        db,
+        email=email,
+        data=body,
+        actor_id=principal.user_id,
+        acting_dealership_id=principal.tenant_id,
+    )
     return CustomerEmailRead.model_validate(email, from_attributes=True)
 
 
@@ -472,7 +511,12 @@ def delete_customer_email(
     email = contact_channels_service.get_customer_email_or_404(
         db, group_id=principal.group_id, customer_id=customer_id, email_id=email_id
     )
-    contact_channels_service.delete_customer_email(db, email=email, actor_id=principal.user_id)
+    contact_channels_service.delete_customer_email(
+        db,
+        email=email,
+        actor_id=principal.user_id,
+        acting_dealership_id=principal.tenant_id,
+    )
 
 
 # --- CustomerAddress: multi-valued postal addresses (WP-3 PR-5, ADR-067).
@@ -499,7 +543,13 @@ def create_customer_address(
     db: Session = Depends(get_db),
 ):
     customer = customer_common_service.get_customer_or_404(db, principal.group_id, customer_id)
-    address = addresses_service.create_customer_address(db, customer=customer, data=body, actor_id=principal.user_id)
+    address = addresses_service.create_customer_address(
+        db,
+        customer=customer,
+        data=body,
+        actor_id=principal.user_id,
+        acting_dealership_id=principal.tenant_id,
+    )
     return CustomerAddressRead.model_validate(address, from_attributes=True)
 
 
@@ -514,7 +564,13 @@ def update_customer_address(
     address = addresses_service.get_customer_address_or_404(
         db, group_id=principal.group_id, customer_id=customer_id, address_id=address_id
     )
-    address = addresses_service.update_customer_address(db, address=address, data=body, actor_id=principal.user_id)
+    address = addresses_service.update_customer_address(
+        db,
+        address=address,
+        data=body,
+        actor_id=principal.user_id,
+        acting_dealership_id=principal.tenant_id,
+    )
     return CustomerAddressRead.model_validate(address, from_attributes=True)
 
 
@@ -528,7 +584,12 @@ def delete_customer_address(
     address = addresses_service.get_customer_address_or_404(
         db, group_id=principal.group_id, customer_id=customer_id, address_id=address_id
     )
-    addresses_service.delete_customer_address(db, address=address, actor_id=principal.user_id)
+    addresses_service.delete_customer_address(
+        db,
+        address=address,
+        actor_id=principal.user_id,
+        acting_dealership_id=principal.tenant_id,
+    )
 
 
 # --- CustomerExternalId: per-dealer CRM/OEM linkage. Write is
@@ -568,7 +629,13 @@ def create_customer_external_id(
     # linkage, by design reachable across every dealer) — resolve the
     # customer's real group_id from the row itself instead.
     customer = customer_common_service.get_customer_by_id_or_404(db, customer_id)
-    row = external_ids_service.create_customer_external_id(db, customer=customer, data=body, actor_id=principal.user_id)
+    row = external_ids_service.create_customer_external_id(
+        db,
+        customer=customer,
+        data=body,
+        actor_id=principal.user_id,
+        acting_dealership_id=principal.tenant_id,
+    )
     return CustomerExternalIdRead.model_validate(row, from_attributes=True)
 
 
@@ -584,7 +651,13 @@ def update_customer_external_id(
     row = external_ids_service.get_customer_external_id_or_404(
         db, group_id=customer.group_id, customer_id=customer_id, external_id_row_id=external_id_row_id
     )
-    row = external_ids_service.update_customer_external_id(db, row=row, data=body, actor_id=principal.user_id)
+    row = external_ids_service.update_customer_external_id(
+        db,
+        row=row,
+        data=body,
+        actor_id=principal.user_id,
+        acting_dealership_id=principal.tenant_id,
+    )
     return CustomerExternalIdRead.model_validate(row, from_attributes=True)
 
 
@@ -599,7 +672,12 @@ def delete_customer_external_id(
     row = external_ids_service.get_customer_external_id_or_404(
         db, group_id=customer.group_id, customer_id=customer_id, external_id_row_id=external_id_row_id
     )
-    external_ids_service.delete_customer_external_id(db, row=row, actor_id=principal.user_id)
+    external_ids_service.delete_customer_external_id(
+        db,
+        row=row,
+        actor_id=principal.user_id,
+        acting_dealership_id=principal.tenant_id,
+    )
 
 
 # --- Customer<->Vehicle relationships (D-12, FR-10): owner/keeper/driver,
@@ -618,7 +696,13 @@ def create_customer_vehicle(
     db: Session = Depends(get_db),
 ):
     customer = customer_common_service.get_customer_or_404(db, principal.group_id, customer_id)
-    party = vehicle_party_service.create_customer_vehicle(db, customer=customer, data=body, actor_id=principal.user_id)
+    party = vehicle_party_service.create_customer_vehicle(
+        db,
+        customer=customer,
+        data=body,
+        actor_id=principal.user_id,
+        acting_dealership_id=principal.tenant_id,
+    )
     return CustomerVehicleRead.model_validate(party, from_attributes=True)
 
 
@@ -633,7 +717,12 @@ def update_customer_vehicle(
     customer_common_service.get_customer_or_404(db, principal.group_id, customer_id)
     party = vehicle_party_reads_service.get_customer_vehicle_or_404(db, customer_id=customer_id, party_id=party_id)
     party = vehicle_party_service.update_customer_vehicle(
-        db, party=party, data=body, actor_id=principal.user_id, group_id=principal.group_id
+        db,
+        party=party,
+        data=body,
+        actor_id=principal.user_id,
+        acting_dealership_id=principal.tenant_id,
+        group_id=principal.group_id,
     )
     return CustomerVehicleRead.model_validate(party, from_attributes=True)
 
@@ -648,7 +737,11 @@ def delete_customer_vehicle(
     customer_common_service.get_customer_or_404(db, principal.group_id, customer_id)
     party = vehicle_party_reads_service.get_customer_vehicle_or_404(db, customer_id=customer_id, party_id=party_id)
     vehicle_party_service.delete_customer_vehicle(
-        db, party=party, actor_id=principal.user_id, group_id=principal.group_id
+        db,
+        party=party,
+        actor_id=principal.user_id,
+        acting_dealership_id=principal.tenant_id,
+        group_id=principal.group_id,
     )
 
 

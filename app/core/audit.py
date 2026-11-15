@@ -19,7 +19,11 @@ def record_audit_event(
     before: dict[str, Any] | None = None,
     after: dict[str, Any] | None = None,
     reason: str | None = None,
+    acting_dealership_id: uuid.UUID | None = None,
 ) -> AuditEvent:
+    """`acting_dealership_id` (KAN-722): the Betrieb the write was made in,
+    where `tenant_id` is not that Betrieb — a group-owned record's rows."""
+
     event = AuditEvent(
         entity_type=entity_type,
         entity_id=entity_id,
@@ -29,6 +33,7 @@ def record_audit_event(
         before=before,
         after=after,
         reason=reason,
+        acting_dealership_id=acting_dealership_id,
     )
     db.add(event)
     db.flush()

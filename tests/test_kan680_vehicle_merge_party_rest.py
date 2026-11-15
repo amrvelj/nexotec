@@ -72,7 +72,7 @@ def _purchase(db, *, vehicle_id, customer_id, group_id):
     ended_at = utcnow() - dt.timedelta(days=1)
     return record_former_holder_on_purchase(
         db, vehicle_id=vehicle_id, customer_id=customer_id, group_id=group_id,
-        held_from=ended_at - dt.timedelta(days=200), ended_at=ended_at, actor_id=None,
+        held_from=ended_at - dt.timedelta(days=200), ended_at=ended_at, actor_id=None, acting_dealership_id=None,
     )
 
 
@@ -135,7 +135,7 @@ def test_a_returned_storno_naming_a_merged_record_reopens_the_rows_on_its_surviv
     signed_at = utcnow() - dt.timedelta(days=10)
     record_former_holder_on_purchase(
         db_session, vehicle_id=duplicate_id, customer_id=customer.id, group_id=group_id,
-        held_from=signed_at, ended_at=utcnow() - dt.timedelta(days=2), actor_id=None,
+        held_from=signed_at, ended_at=utcnow() - dt.timedelta(days=2), actor_id=None, acting_dealership_id=None,
     )
     db_session.commit()
     _merge(db_session, engine, survivor_id=survivor_id, duplicate_id=duplicate_id)
@@ -143,7 +143,7 @@ def test_a_returned_storno_naming_a_merged_record_reopens_the_rows_on_its_surviv
 
     reopened = reopen_former_holder_after_storno(
         db_session, vehicle_id=duplicate_id, customer_id=customer.id, group_id=group_id,
-        closed_after=signed_at, closed_until=utcnow(), actor_id=None,
+        closed_after=signed_at, closed_until=utcnow(), actor_id=None, acting_dealership_id=None,
     )
     db_session.commit()
 
@@ -195,7 +195,7 @@ def test_reopening_a_vehicle_merge_copy_is_refused_with_its_own_reason(db_sessio
 
     with pytest.raises(ConflictError) as refused:
         update_customer_vehicle(
-            db_session, party=copy, data=CustomerVehicleUpdate(effective_to=None), actor_id=uuid.uuid4(),
+            db_session, party=copy, data=CustomerVehicleUpdate(effective_to=None), actor_id=uuid.uuid4(), acting_dealership_id=None,
             group_id=group_id,
         )
 
@@ -216,7 +216,7 @@ def test_the_vehicles_page_marks_the_copy_with_the_surviving_record_and_its_vin(
     )
     own = allocate_vehicle_party(
         db_session, vehicle_id=survivor_id, customer_id=customer.id, role=KEEPER, group_id=group_id,
-        actor_id=uuid.uuid4(),
+        actor_id=uuid.uuid4(), acting_dealership_id=None,
     )
     db_session.commit()
 
@@ -247,7 +247,7 @@ def _row_read_then_moved(db_session, engine, writer):
     customer = _customer(db_session, group_id)
     party = allocate_vehicle_party(
         db_session, vehicle_id=duplicate_id, customer_id=customer.id, role=OWNER, group_id=group_id,
-        actor_id=uuid.uuid4(),
+        actor_id=uuid.uuid4(), acting_dealership_id=None,
     )
     db_session.commit()
     stale = writer.get(VehicleParty, party.id)
@@ -262,7 +262,7 @@ def test_a_disconnect_of_a_row_moved_meanwhile_closes_it_on_the_survivor(db_sess
     factory = sessionmaker(bind=engine, autoflush=False, autocommit=False, expire_on_commit=False)
     with factory() as writer:
         state = _row_read_then_moved(db_session, engine, writer)
-        delete_customer_vehicle(writer, party=state.party, actor_id=uuid.uuid4(), group_id=state.group)
+        delete_customer_vehicle(writer, party=state.party, actor_id=uuid.uuid4(), acting_dealership_id=None, group_id=state.group)
 
     db_session.expire_all()
     row = db_session.get(VehicleParty, state.party_id)
@@ -283,11 +283,11 @@ def test_a_write_on_a_row_moved_meanwhile_takes_the_survivors_lock(db_session, e
         try:
             with pytest.raises(ConflictError) as refused:
                 if write == "disconnect":
-                    delete_customer_vehicle(writer, party=state.party, actor_id=uuid.uuid4(), group_id=state.group)
+                    delete_customer_vehicle(writer, party=state.party, actor_id=uuid.uuid4(), acting_dealership_id=None, group_id=state.group)
                 else:
                     update_customer_vehicle(
                         writer, party=state.party, data=CustomerVehicleUpdate(effective_to=None),
-                        actor_id=uuid.uuid4(), group_id=state.group,
+                        actor_id=uuid.uuid4(), acting_dealership_id=None, group_id=state.group,
                     )
             assert refused.value.details == {"reason": "vehicle_merge_in_progress"}
         finally:

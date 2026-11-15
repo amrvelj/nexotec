@@ -91,6 +91,15 @@ _ALLOWED_FILES = {
     # enabled (ADR-030's joint-controller flag). A dealer-facing read, so it
     # sits in its own module rather than beside the staff-only listing above.
     _APP_ROOT / "platform" / "identity" / "services" / "group_labels.py",
+    # KAN-722 (Anto, 2026-11-15): which Betrieb of the CALLER's group wrote a
+    # group customer's audit row — the group's Betriebe (the offboarded ones,
+    # or the one being exported) and the users whose only Betrieb in that
+    # group is one of them. Ids only, never a row; the group is the
+    # caller's own (the History tab: the token's group; the export: the
+    # Betrieb's own group from platform's scope). Used to hide an offboarded
+    # Betrieb's entries from its sisters and to put exactly those in its
+    # archive. Its own module, like group_labels.py above.
+    _APP_ROOT / "platform" / "identity" / "services" / "audit_attribution.py",
     # KAN-467, ADR-039 as amended (Anto, 2026-10-31: "it's on a group
     # level"): the Kontrollschild register is the dealer group's own, like
     # the customer register above — every read and write filters by the

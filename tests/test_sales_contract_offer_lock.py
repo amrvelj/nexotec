@@ -48,7 +48,7 @@ def _offer_for_a_customer(db_session):
             customer_type="individual", language="de", first_name="Lea", last_name="Keller",
             emails=[CustomerEmailCreate(email_type="personal", email_address="lea@example.ch", is_primary=True)],
         ),
-        actor_id=uuid.uuid4(), dealership_id=tenant_id,
+        actor_id=uuid.uuid4(), acting_dealership_id=None, dealership_id=tenant_id,
     )
     offer = create_offer(db_session, tenant_id=tenant_id, actor_id=uuid.uuid4())
     offer = update_offer(
