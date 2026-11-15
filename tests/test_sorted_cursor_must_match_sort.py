@@ -279,7 +279,7 @@ def test_every_sortable_column_is_one_a_cursor_can_be_checked_against():
 
     from app.customer.api.customers import CUSTOMER_SORT_FIELDS
     from app.integration.api.connections import CONNECTION_SORT_FIELDS
-    from app.inventory.api.stock_items import STOCK_ITEM_SORT_FIELDS
+    from app.inventory.api.group import GROUP_STOCK_SORT_FIELDS
     from app.platform.api.dealership_users import USER_SORT_FIELDS
     from app.platform.api.recovery import RECOVERY_SORT_FIELDS
     from app.sales.api.contracts import CONTRACT_SORT_FIELDS
@@ -291,7 +291,7 @@ def test_every_sortable_column_is_one_a_cursor_can_be_checked_against():
     allow_lists = (
         CUSTOMER_SORT_FIELDS,
         CONNECTION_SORT_FIELDS,
-        STOCK_ITEM_SORT_FIELDS,
+        GROUP_STOCK_SORT_FIELDS,
         USER_SORT_FIELDS,
         RECOVERY_SORT_FIELDS,
         CONTRACT_SORT_FIELDS,
