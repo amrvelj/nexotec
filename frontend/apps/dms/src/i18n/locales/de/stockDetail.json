@@ -65,6 +65,8 @@
     "error": "Der Einkauf konnte nicht erfasst werden. Bitte erneut versuchen.",
     "notRecorded": "Noch kein Einkauf erfasst.",
     "configurationVinDiffers": "Die VIN weicht von der Konfiguration ab.",
+    "vinNamesMergedVehicle": "Diese VIN trägt ein Fahrzeug, das im Fahrzeugstamm mit {{vehicleNumber}} zusammengeführt wurde. Das Fahrzeug führt die VIN {{vin}}. Korrigieren Sie die VIN mit «Konfiguration bearbeiten».",
+    "vinNamesMergedVehicleNoConfiguration": "Diese VIN trägt ein Fahrzeug, das im Fahrzeugstamm mit {{vehicleNumber}} zusammengeführt wurde. Das Fahrzeug führt die VIN {{vin}}. Ordnen Sie dem Fahrzeug über «Konfiguration zuordnen» eine Konfiguration mit der richtigen VIN zu.",
     "storno": {
       "button": "Einkauf stornieren",
       "title": "Einkauf stornieren",

@@ -42,3 +42,6 @@ this. Cut from platform.md (verified against main@73baf3f) by KAN-614; not re-ve
   never what the role may read. The names a screen asks about are `src/auth/gatedCapabilities.ts`,
   each a matrix row — never a role table in the frontend.
 - Policy limits are not in v1 (D-A-18): no `dealer_policy_limit`, no screen, no row.
+- **A location's lead e-mail is the manager's on both screens** (KAN-734): the publishing screen's
+  lead-routing PUT refuses a changed one for anyone the `locations` row does not let write (403
+  `lead_email_manager_only`); the rest of lead routing stays on `publishing_profile`.

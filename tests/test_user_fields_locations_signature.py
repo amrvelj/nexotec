@@ -286,19 +286,56 @@ def test_the_list_sorts_server_side_and_refuses_an_unknown_field(client):
     assert client.get(f"{url}?sort=hairColour:asc", headers=platform_admin_headers()).status_code == 422
 
 
-def test_the_local_object_store_is_refused_in_production(monkeypatch):
-    """KAN-402: a directory on the web service's disk is emptied by every
+def test_the_local_object_store_is_refused_in_production_off_a_mounted_disk(monkeypatch, tmp_path):
+    """KAN-402: a directory on the web service's own disk is emptied by every
     deploy while the rows keep their keys — production refuses to start
-    with it, like the mailer refuses its `logging` sender."""
+    unless the directory is on a mounted persistent disk (ADR-081 as
+    amended), like the mailer refuses its `logging` sender."""
 
     from app.core import object_store
     from app.core.config import get_settings
 
     settings = get_settings()
     monkeypatch.setattr(settings, "environment", "production")
+    monkeypatch.setattr(settings, "object_store_local_dir", str(tmp_path / "objects"))
     monkeypatch.setattr(object_store, "_store", None)
-    with pytest.raises(RuntimeError, match="not a production store"):
+    monkeypatch.setattr(object_store.os.path, "ismount", lambda path: False)
+    with pytest.raises(RuntimeError, match="not on a mounted persistent disk"):
         object_store.get_object_store()
+
+
+def test_production_starts_with_the_store_on_a_mounted_disk(monkeypatch, tmp_path):
+    """KAN-402: the directory is the disk's mount point (Render's
+    `disk.mountPath`) or below it."""
+
+    from pathlib import Path
+
+    from app.core import object_store
+    from app.core.config import get_settings
+
+    disk = (tmp_path / "var" / "data").resolve()
+    settings = get_settings()
+    monkeypatch.setattr(settings, "environment", "production")
+    monkeypatch.setattr(settings, "object_store_local_dir", str(disk / "objects"))
+    monkeypatch.setattr(object_store, "_store", None)
+    monkeypatch.setattr(object_store.os.path, "ismount", lambda path: Path(path) == disk)
+    try:
+        assert isinstance(object_store.get_object_store(), object_store.LocalDirectoryObjectStore)
+    finally:
+        object_store.set_object_store(None)
+
+
+def test_the_container_root_is_no_persistent_disk(monkeypatch, tmp_path):
+    """`/` is always a mount point; it is the instance's own disk, which a
+    deploy replaces — never counted."""
+
+    from pathlib import Path
+
+    from app.core import object_store
+
+    monkeypatch.setattr(object_store.os.path, "ismount", lambda path: Path(path) == Path(Path(path).anchor))
+    with pytest.raises(RuntimeError, match="KAN-402"):
+        object_store.require_mounted_disk(tmp_path / "objects")
 
 
 def test_the_locations_audit_row_records_the_resulting_set_not_the_sent_fields(client, db_session):

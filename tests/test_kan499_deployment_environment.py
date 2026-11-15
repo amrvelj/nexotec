@@ -87,6 +87,7 @@ def test_the_object_store_counts_every_production_spelling_as_production(monkeyp
 
     monkeypatch.setattr(get_settings(), "environment", name)
     monkeypatch.setattr(object_store, "_store", None)
+    monkeypatch.setattr(object_store.os.path, "ismount", lambda path: False)  # no persistent disk
     with pytest.raises(RuntimeError, match="KAN-402"):
         object_store.get_object_store()
 

@@ -158,5 +158,6 @@ the manager flag or integration secrets (FR-A-17).
   UI language) and signature block; the e-mail address is a 422 there.
 - Signature image and photo (the manager sets them too): PNG or JPEG judged by their bytes, stored
   in the object store (`app/core/object_store.py`), the row holding only the key — never bytes or
-  base64. The `local` store is refused in production at startup (the bucket is KAN-402). `hasPhoto`
+  base64. In production the `local` store must sit on a mounted persistent disk, else the start fails; every
+  start reports a key whose object is missing (KAN-402, ADR-081 as amended). `hasPhoto`
   is the one field added to the session's frozen `UserRead` shape.

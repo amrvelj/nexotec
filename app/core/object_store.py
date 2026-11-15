@@ -1,9 +1,10 @@
 """The object-store seam (KAN-200; Anto, 2026-10-19): where the product keeps
 files that are not rows — a user's signature image today (Dealer
-Administration, Users → Personal settings), a photo and a Betrieb's logo
-upload later. Cross-cutting, like the mailer seam: one protocol, the
-local-disk store built now, an S3-compatible store a follow-up with its
-own dependency decision.
+Administration, Users → Personal settings), a user's photo, a Betrieb's
+logo, imagery and AGB, an export archive. Cross-cutting, like the mailer
+seam: one protocol, the local-directory store built now — in production on
+a mounted persistent disk (KAN-402, ADR-081 as amended), a stop-gap until a
+Swiss S3-compatible store, a follow-up with its own dependency decision.
 
 Keys are paths the caller composes, tenant-partitioned by convention and
 checked here: `dealerships/<dealership id>/users/<user id>/signature`. A
@@ -155,6 +156,24 @@ class LocalDirectoryObjectStore:
         return existed
 
 
+def require_mounted_disk(root: Path) -> None:
+    """KAN-402: `root` must lie on a mounted file system other than the
+    container's root — Render mounts a persistent disk at its `mountPath`;
+    anything else on the instance is lost at the next deploy. Raises
+    RuntimeError naming the directory; the caller fails the start."""
+
+    resolved = root.resolve()
+    for candidate in (resolved, *resolved.parents):
+        if candidate == Path(candidate.anchor):
+            break
+        if os.path.ismount(candidate):
+            return
+    raise RuntimeError(
+        f"DMS_OBJECT_STORE_LOCAL_DIR={str(root)!r} is not on a mounted persistent disk: its files would not survive a "
+        "deploy (KAN-402). Mount the service's disk there (render.yaml `disk.mountPath`)."
+    )
+
+
 _store: ObjectStore | None = None
 
 
@@ -168,15 +187,16 @@ def get_object_store() -> ObjectStore:
             raise RuntimeError(
                 f"DMS_OBJECT_STORE_BACKEND={settings.object_store_backend!r} is not built — only 'local' is (KAN-200)."
             )
+        root = Path(settings.object_store_local_dir)
         if current_deployment_environment(settings) is DeploymentEnvironment.PRODUCTION:  # KAN-499
-            # A directory on the web service's disk is emptied by every deploy
-            # (Render), while the rows keep their keys: a signature image would
-            # vanish silently. Production refuses to start until a durable
-            # store exists (KAN-402) — like the mailer's `logging` sender.
-            raise RuntimeError(
-                "DMS_OBJECT_STORE_BACKEND=local is not a production store: the directory does not survive a deploy (KAN-402)."
-            )
-        _store = LocalDirectoryObjectStore(Path(settings.object_store_local_dir))
+            # A directory on the web service's own disk is emptied by every
+            # deploy (Render), while the rows keep their keys: a signature
+            # image would vanish silently. KAN-402 (Anto, 2026-10-29; ADR-081
+            # as amended): production keeps its files on a persistent disk
+            # mounted at the directory — a stop-gap until a Swiss S3 store —
+            # and refuses to start when the directory is not on one.
+            require_mounted_disk(root)
+        _store = LocalDirectoryObjectStore(root)
     return _store
 
 

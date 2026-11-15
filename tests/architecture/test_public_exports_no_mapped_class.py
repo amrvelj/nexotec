@@ -52,8 +52,6 @@ _CONTEXTS = (
 # `Valuation` went in the second (ADR-162), inventory's `StockItem` in the third.
 _DEBT = frozenset(
     {
-        "app.customer.public.Customer",
-        "app.customer.public.VehicleParty",
         "app.platform.public.DealerGroup",
         "app.platform.public.Dealership",
         "app.platform.public.Location",

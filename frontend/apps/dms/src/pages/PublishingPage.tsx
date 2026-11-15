@@ -33,6 +33,8 @@ export function PublishingPage() {
   const dealershipId = activeDealership?.id ?? ''
   const queryClient = useQueryClient()
   const canWrite = useCanWrite('publishing_profile')
+  // KAN-734: the lead e-mail follows the Locations row (the manager only).
+  const canWriteLeadEmail = useCanWrite('locations')
   const [scope, setScope] = useState<string>(BETRIEB)
   const [toggleError, setToggleError] = useState<string | null>(null)
 
@@ -141,7 +143,13 @@ export function PublishingPage() {
               )}
               {scope !== BETRIEB && routing && (
                 <>
-                  <LeadRoutingSection profile={data} routing={routing} canWrite={canWrite} onWritten={onWritten} />
+                  <LeadRoutingSection
+                    profile={data}
+                    routing={routing}
+                    canWrite={canWrite}
+                    canWriteLeadEmail={canWriteLeadEmail}
+                    onWritten={onWritten}
+                  />
                   <ImagerySection profile={data} locationId={scope} canWrite={canWrite} onWritten={onWritten} />
                 </>
               )}

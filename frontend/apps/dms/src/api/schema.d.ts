@@ -1895,7 +1895,8 @@ export interface paths {
          * Set Lead Routing
          * @description Replaces the site's lead routing. Its lead e-mail is the location's
          *     own column (the Locations master data): saved here, it moves the
-         *     location's version too.
+         *     location's version too — and, as on the Locations screen, only the
+         *     manager may change it (403 `lead_email_manager_only`, KAN-734).
          */
         put: operations["set_lead_routing_v1_dealerships__dealership_id__publishing_profile_locations__location_id__lead_routing_put"];
         post?: never;

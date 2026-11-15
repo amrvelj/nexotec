@@ -16,16 +16,23 @@ const RECIPIENT_ROLES = ['sales', 'aftersales', 'parts', 'inventory', 'finance']
  * where enquiries go, whether they also open a task, and which role
  * receives them. The lead e-mail is the location's own field (Locations);
  * saved here it moves the location's record too.
+ *
+ * KAN-734 (Anto, 2026-11-15, KAN-225 Q3 A): it has one rule on both screens,
+ * the Locations row's — the manager only (`canWriteLeadEmail`, the session's
+ * `locations` row). For anyone else it is read-only with the reason in its
+ * hint; the server refuses a changed one (403 `lead_email_manager_only`).
  */
 export function LeadRoutingSection({
   profile,
   routing,
   canWrite,
+  canWriteLeadEmail,
   onWritten,
 }: {
   profile: PublishingProfileRead
   routing: LeadRoutingRead
   canWrite: boolean
+  canWriteLeadEmail: boolean
   onWritten: (data: PublishingProfileRead) => void
 }) {
   const { t } = useTranslation()
@@ -79,10 +86,12 @@ export function LeadRoutingSection({
           {t('publishing.leadRouting.hint')}
         </Text>
         <TextInput
-          label={t('publishing.leadRouting.leadEmail')}
+          {...(canWrite && !canWriteLeadEmail
+            ? hint(t('publishing.leadRouting.leadEmail'), t('publishing.leadRouting.leadEmailManagerOnlyHint'))
+            : { label: t('publishing.leadRouting.leadEmail') })}
           type="email"
           value={draft.leadEmail ?? ''}
-          readOnly={!canWrite}
+          readOnly={!canWrite || !canWriteLeadEmail}
           onChange={(e) => set({ leadEmail: e.currentTarget.value || null })}
         />
         <TextInput
