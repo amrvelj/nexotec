@@ -104,11 +104,11 @@ def test_party_roles_default_current_only(client, db_session):
 
     allocate_vehicle_party(
         db_session, vehicle_id=uuid.UUID(vehicle["id"]), customer_id=alice.id, role=VehiclePartyRole.OWNER,
-        group_id=group_id, actor_id=uuid.uuid4(),
+        group_id=group_id, actor_id=uuid.uuid4(), acting_dealership_id=None,
     )
     allocate_vehicle_party(
         db_session, vehicle_id=uuid.UUID(vehicle["id"]), customer_id=bob.id, role=VehiclePartyRole.OWNER,
-        group_id=group_id, actor_id=uuid.uuid4(),
+        group_id=group_id, actor_id=uuid.uuid4(), acting_dealership_id=None,
     )
 
     current = client.get(f"/v1/vehicle-mdm/{vehicle['id']}/party-roles", headers=_bearer(token)).json()
@@ -152,11 +152,11 @@ def test_party_roles_never_leaks_another_groups_customer(client, db_session):
 
     allocate_vehicle_party(
         db_session, vehicle_id=uuid.UUID(vehicle["id"]), customer_id=customer_a.id, role=VehiclePartyRole.OWNER,
-        group_id=group_a, actor_id=uuid.uuid4(),
+        group_id=group_a, actor_id=uuid.uuid4(), acting_dealership_id=None,
     )
     allocate_vehicle_party(
         db_session, vehicle_id=uuid.UUID(vehicle["id"]), customer_id=customer_b.id, role=VehiclePartyRole.DRIVER,
-        group_id=group_b, actor_id=uuid.uuid4(),
+        group_id=group_b, actor_id=uuid.uuid4(), acting_dealership_id=None,
     )
 
     seen_by_a = client.get(f"/v1/vehicle-mdm/{vehicle['id']}/party-roles", headers=_bearer(token_a)).json()
@@ -199,7 +199,7 @@ def test_party_roles_carry_the_holders_display_name_current_and_closed(client, d
     for holder in (former, company):
         allocate_vehicle_party(
             db_session, vehicle_id=uuid.UUID(vehicle["id"]), customer_id=holder.id, role=VehiclePartyRole.KEEPER,
-            group_id=group_id, actor_id=uuid.uuid4(),
+            group_id=group_id, actor_id=uuid.uuid4(), acting_dealership_id=None,
         )
 
     current = client.get(f"/v1/vehicle-mdm/{vehicle['id']}/party-roles", headers=_bearer(token)).json()
@@ -241,11 +241,11 @@ def test_party_roles_never_resolve_another_groups_customer_name(client, db_sessi
 
     allocate_vehicle_party(
         db_session, vehicle_id=uuid.UUID(vehicle["id"]), customer_id=mine.id, role=VehiclePartyRole.OWNER,
-        group_id=group_a, actor_id=uuid.uuid4(),
+        group_id=group_a, actor_id=uuid.uuid4(), acting_dealership_id=None,
     )
     allocate_vehicle_party(
         db_session, vehicle_id=uuid.UUID(vehicle["id"]), customer_id=theirs.id, role=VehiclePartyRole.OWNER,
-        group_id=group_b, actor_id=uuid.uuid4(),
+        group_id=group_b, actor_id=uuid.uuid4(), acting_dealership_id=None,
     )
 
     response = client.get(

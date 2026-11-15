@@ -35,6 +35,7 @@ def record_former_holder_on_purchase(
     held_from: dt.datetime,
     ended_at: dt.datetime,
     actor_id: uuid.UUID | None,
+    acting_dealership_id: uuid.UUID | None,
 ) -> list[VehicleParty]:
     """KAN-189 (Anto, 2026-11-02, option A): the Betrieb has bought the car
     `customer_id` traded in, so that customer is recorded as its former owner
@@ -108,7 +109,14 @@ def record_former_holder_on_purchase(
         )
         for row in own_rows:
             if row.effective_to is None or row.effective_to > ended_at:
-                _close_vehicle_party(db, party=row, actor_id=actor_id, group_id=group_id, effective_to=ended_at)
+                _close_vehicle_party(
+                    db,
+                    party=row,
+                    actor_id=actor_id,
+                    acting_dealership_id=acting_dealership_id,
+                    group_id=group_id,
+                    effective_to=ended_at,
+                )
         # A holding row closed here may start after `held_from`: the stretch
         # before it is filled below like any other (KAN-566).
         # KAN-566 (Anto, 2026-11-11, option B): the customer's own rows and
@@ -144,7 +152,12 @@ def record_former_holder_on_purchase(
             )
             for row in same_start:
                 _extend_to_purchase(
-                    db, party=row, ended_at=next_start or ended_at, actor_id=actor_id, group_id=group_id
+                    db,
+                    party=row,
+                    ended_at=next_start or ended_at,
+                    actor_id=actor_id,
+                    acting_dealership_id=acting_dealership_id,
+                    group_id=group_id,
                 )
         for gap_from, gap_to in _uncovered(db, mine=mine, held_from=held_from, ended_at=ended_at):
             taken = _rows_starting_at(db, chain=chain, customer_id=customer_id, role=role, start=gap_from)
@@ -155,12 +168,22 @@ def record_former_holder_on_purchase(
                 # case 1 extends its row. A merge's kept copy stands for it.
                 for row in taken:
                     if not _is_kept_copy(row):
-                        _extend_to_purchase(db, party=row, ended_at=gap_to, actor_id=actor_id, group_id=group_id)
+                        _extend_to_purchase(
+                            db,
+                            party=row,
+                            ended_at=gap_to,
+                            actor_id=actor_id,
+                            acting_dealership_id=acting_dealership_id,
+                            group_id=group_id,
+                        )
                 continue
             written.append(
                 _write_history_row(
                     db, vehicle_id=vehicle_id, customer_id=customer_id, role=role, group_id=group_id,
-                    effective_from=gap_from, effective_to=gap_to, actor_id=actor_id,
+                    effective_from=gap_from,
+                    effective_to=gap_to,
+                    actor_id=actor_id,
+                    acting_dealership_id=acting_dealership_id,
                 )
             )
     db.flush()
@@ -226,6 +249,7 @@ def _write_history_row(
     effective_from: dt.datetime,
     effective_to: dt.datetime,
     actor_id: uuid.UUID | None,
+    acting_dealership_id: uuid.UUID | None,
 ) -> VehicleParty:
     """A closed row of the former holder (KAN-189): history, so it closes
     nobody (KAN-370); audited `vehicle_party_add`, published `linked`."""
@@ -244,6 +268,7 @@ def _write_history_row(
         tenant_id=group_id,
         action="vehicle_party_add",
         actor_id=actor_id,
+        acting_dealership_id=acting_dealership_id,
         after={
             "vehicleId": str(vehicle_id),
             "role": role.value,
@@ -266,7 +291,13 @@ def _write_history_row(
 
 
 def _extend_to_purchase(
-    db: Session, *, party: VehicleParty, ended_at: dt.datetime, actor_id: uuid.UUID | None, group_id: uuid.UUID
+    db: Session,
+    *,
+    party: VehicleParty,
+    ended_at: dt.datetime,
+    actor_id: uuid.UUID | None,
+    acting_dealership_id: uuid.UUID | None,
+    group_id: uuid.UUID,
 ) -> None:
     """KAN-566: an own history row of the trade-in's customer is extended to
     `ended_at` — case 1's row starting at the signature (to the purchase, or
@@ -295,6 +326,7 @@ def _extend_to_purchase(
         tenant_id=group_id,
         action="vehicle_party_update",
         actor_id=actor_id,
+        acting_dealership_id=acting_dealership_id,
         before=before,
         after={"effectiveTo": ended_at.isoformat()},
         reason="trade_in_purchased",
@@ -310,6 +342,7 @@ def reopen_former_holder_after_storno(
     closed_after: dt.datetime,
     closed_until: dt.datetime,
     actor_id: uuid.UUID | None,
+    acting_dealership_id: uuid.UUID | None,
 ) -> list[VehicleParty]:
     """KAN-572 (Anto, 2026-11-07, option C): Stock cancelled a trade-in's
     purchase and said the car went back to `customer_id`, who traded it in.
@@ -422,7 +455,13 @@ def reopen_former_holder_after_storno(
         if newer_row is not None or any(other.effective_from > closed_until for other in others):
             continue
         for other in others:
-            _close_vehicle_party(db, party=other, actor_id=actor_id, group_id=group_id)
+            _close_vehicle_party(
+                db,
+                party=other,
+                actor_id=actor_id,
+                acting_dealership_id=acting_dealership_id,
+                group_id=group_id,
+            )
         before = {
             "vehicleId": str(party.vehicle_id),
             "role": party.role.value,
@@ -438,6 +477,7 @@ def reopen_former_holder_after_storno(
             tenant_id=group_id,
             action="vehicle_party_update",
             actor_id=actor_id,
+            acting_dealership_id=acting_dealership_id,
             before=before,
             after={"effectiveTo": None},
             reason="trade_in_returned_to_customer",

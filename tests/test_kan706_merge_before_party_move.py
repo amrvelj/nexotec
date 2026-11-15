@@ -67,7 +67,7 @@ def _a_customer_holding_the_duplicate(db, *, duplicate_id, group_id, since):
     for role in (OWNER, KEEPER):
         allocate_vehicle_party(
             db, vehicle_id=duplicate_id, customer_id=customer.id, role=role, group_id=group_id,
-            actor_id=uuid.uuid4(), effective_from=since,
+            actor_id=uuid.uuid4(), acting_dealership_id=None, effective_from=since,
         )
     db.commit()
     return customer
@@ -76,7 +76,7 @@ def _a_customer_holding_the_duplicate(db, *, duplicate_id, group_id, since):
 def _purchase(db, *, vehicle_id, customer_id, group_id, held_from, ended_at):
     record_former_holder_on_purchase(
         db, vehicle_id=vehicle_id, customer_id=customer_id, group_id=group_id,
-        held_from=held_from, ended_at=ended_at, actor_id=None,
+        held_from=held_from, ended_at=ended_at, actor_id=None, acting_dealership_id=None,
     )
     db.commit()
 
@@ -141,7 +141,7 @@ def test_a_returned_storno_reopens_the_same_rows_whether_or_not_the_party_move_r
     def storno() -> list[VehicleParty]:
         reopened = reopen_former_holder_after_storno(
             db_session, vehicle_id=duplicate_id, customer_id=customer.id, group_id=group_id,
-            closed_after=signed_at, closed_until=utcnow(), actor_id=None,
+            closed_after=signed_at, closed_until=utcnow(), actor_id=None, acting_dealership_id=None,
         )
         db_session.commit()
         return reopened

@@ -328,6 +328,9 @@ _READS = {
     "app.platform.public.get_dealership_or_404",
     # KAN-371: the History tab's Betrieb and user names, group-scoped; a SELECT only.
     "app.platform.public.get_group_display_labels",
+    # KAN-722: the offboarded Betriebe of a group and their sole authors, which the
+    # History tab of a group customer hides; a SELECT only.
+    "app.platform.public.get_offboarded_audit_attribution",
     # KAN-222: locations' names and Betriebe for integration's nightly location-label
     # refresh; a SELECT only.
     "app.platform.public.get_location_labels",

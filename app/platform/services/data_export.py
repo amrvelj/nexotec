@@ -40,6 +40,7 @@ from app.core.errors import ConflictError, NotFoundError
 from app.core.export import ExportScope, exporters, write_archive
 from app.core.object_store import ObjectStore, OpenedObject, get_object_store
 from app.core.pagination import PageParams, build_page, paginate_query
+from app.platform.identity.services.audit_attribution import get_audit_attribution
 from app.platform.models.export_job import ExportJob, ExportJobKind, ExportJobStatus
 from app.platform.organisation.models.dealership import Dealership, DealershipStatus
 from app.platform.organisation.services import dealership as dealership_service
@@ -76,6 +77,11 @@ def scope_for(db: Session, dealership: Dealership) -> ExportScope:
         dealership_id=dealership.id,
         group_id=dealership.dealer_group_id,
         group_is_single=all(other.id == dealership.id for other in group),
+        # KAN-722: the rows it wrote in a group customer's History — the ones
+        # its sisters stop seeing once it is offboarded.
+        audit_attribution=get_audit_attribution(
+            db, group_id=dealership.dealer_group_id, dealership_ids=frozenset({dealership.id})
+        ),
     )
 
 

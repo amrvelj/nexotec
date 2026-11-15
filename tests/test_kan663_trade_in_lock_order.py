@@ -38,7 +38,7 @@ LOCK_ROW = "SELECT 1 FROM vehicle_party WHERE id = :id FOR NO KEY UPDATE"
 
 def _allocate(db, vehicle_id, customer, group_id, role: VehiclePartyRole, *, days_ago: int) -> VehicleParty:
     return allocate_vehicle_party(
-        db, vehicle_id=vehicle_id, customer_id=customer.id, role=role, group_id=group_id, actor_id=uuid.uuid4(),
+        db, vehicle_id=vehicle_id, customer_id=customer.id, role=role, group_id=group_id, actor_id=uuid.uuid4(), acting_dealership_id=None,
         effective_from=(utcnow() - dt.timedelta(days=days_ago)).replace(microsecond=0),
     )
 
@@ -101,7 +101,7 @@ def test_recording_the_former_holder_never_deadlocks_against_the_label_refresh(e
             s, vehicle_id=vehicle.id, customer_id=clara.id, group_id=group_id,
             # Signed when Clara's rows start, so the purchase only closes them
             # (KAN-566 would fill a stretch before them otherwise).
-            held_from=max(owner.effective_from, keeper.effective_from), ended_at=ended_at, actor_id=None,
+            held_from=max(owner.effective_from, keeper.effective_from), ended_at=ended_at, actor_id=None, acting_dealership_id=None,
         ),
     )
 
@@ -123,7 +123,7 @@ def test_reopening_after_a_returned_storno_never_deadlocks_against_the_label_ref
     signed_at = ended_at - dt.timedelta(days=30)
     record_former_holder_on_purchase(
         db_session, vehicle_id=vehicle.id, customer_id=clara.id, group_id=group_id,
-        held_from=signed_at, ended_at=ended_at, actor_id=None,
+        held_from=signed_at, ended_at=ended_at, actor_id=None, acting_dealership_id=None,
     )
     db_session.commit()
     clara_keeper = db_session.scalars(
@@ -136,7 +136,7 @@ def test_reopening_after_a_returned_storno_never_deadlocks_against_the_label_ref
         engine, older_id=leasing_keeper.id, newer_id=clara_keeper.id,
         write=lambda s: reopen_former_holder_after_storno(
             s, vehicle_id=vehicle.id, customer_id=clara.id, group_id=group_id,
-            closed_after=signed_at, closed_until=storno_at, actor_id=None,
+            closed_after=signed_at, closed_until=storno_at, actor_id=None, acting_dealership_id=None,
         ),
     )
 

@@ -25,7 +25,7 @@ def _customer(db_session, group_id, **overrides):
         "emails": [CustomerEmailCreate(email_type="personal", email_address="ursula@example.ch", is_primary=True)],
     }
     data.update(overrides)
-    return create_customer(db_session, group_id=group_id, data=CustomerCreate(**data), actor_id=uuid.uuid4(), dealership_id=uuid.uuid4())
+    return create_customer(db_session, group_id=group_id, data=CustomerCreate(**data), actor_id=uuid.uuid4(), acting_dealership_id=None, dealership_id=uuid.uuid4())
 
 
 def test_contract_status_has_four_values():
@@ -105,7 +105,7 @@ def test_create_contract_for_a_do_not_contact_customer_is_refused(db_session):
     customer = _customer(db_session, group_id)
     update_customer(
         db_session, customer=customer, data=CustomerUpdate(lifecycle_status="do_not_contact"),
-        actor_id=uuid.uuid4(), dealership_id=uuid.uuid4(),
+        actor_id=uuid.uuid4(), acting_dealership_id=None, dealership_id=uuid.uuid4(),
     )
 
     with pytest.raises(ConflictError):
@@ -123,7 +123,7 @@ def test_create_contract_for_a_credit_blocked_customer_still_succeeds(db_session
     tenant_id = uuid.uuid4()
     group_id = uuid.uuid4()
     customer = _customer(db_session, group_id)
-    set_credit_block(db_session, customer=customer, blocked=True, reason="Zahlungsverzug", actor_id=uuid.uuid4())
+    set_credit_block(db_session, customer=customer, blocked=True, reason="Zahlungsverzug", actor_id=uuid.uuid4(), acting_dealership_id=None)
 
     contract = create_contract(
         db_session, tenant_id=tenant_id, offer=None, customer_id=customer.id, group_id=group_id, actor_id=uuid.uuid4()

@@ -97,7 +97,7 @@ def test_a_reopen_with_a_future_start_closes_the_current_owner_at_that_start(db_
     loaded = get_customer_vehicle_or_404(db_session, customer_id=meier.id, party_id=meier_party.id)
     update_customer_vehicle(
         db_session, party=loaded, data=CustomerVehicleUpdate(effective_from=handover, effective_to=None),
-        actor_id=uuid.uuid4(), group_id=group_id,
+        actor_id=uuid.uuid4(), acting_dealership_id=None, group_id=group_id,
     )
 
     assert _row(db_session, clara_party.id).effective_to == handover
@@ -166,7 +166,7 @@ def test_ending_a_planned_entry_twice_changes_nothing_the_second_time(db_session
 
     for _ in range(2):
         loaded = get_customer_vehicle_or_404(db_session, customer_id=meier.id, party_id=meier_party.id)
-        delete_customer_vehicle(db_session, party=loaded, actor_id=uuid.uuid4(), group_id=group_id)
+        delete_customer_vehicle(db_session, party=loaded, actor_id=uuid.uuid4(), acting_dealership_id=None, group_id=group_id)
 
     removals = db_session.scalars(
         select(AuditEvent).where(AuditEvent.entity_id == meier.id, AuditEvent.action == "vehicle_party_remove")
@@ -180,7 +180,7 @@ def test_a_cancelled_planned_entry_is_not_in_the_way_of_a_new_owner(db_session):
     meier, huber = _customer(db_session, group_id, "Anna", "Meier"), _customer(db_session, group_id, "Hans", "Huber")
     meier_party = _allocate(db_session, vehicle.id, meier, group_id, effective_from=_handover())
     loaded = get_customer_vehicle_or_404(db_session, customer_id=meier.id, party_id=meier_party.id)
-    delete_customer_vehicle(db_session, party=loaded, actor_id=uuid.uuid4(), group_id=group_id)
+    delete_customer_vehicle(db_session, party=loaded, actor_id=uuid.uuid4(), acting_dealership_id=None, group_id=group_id)
 
     huber_party = _allocate(db_session, vehicle.id, huber, group_id)  # no future-holder refusal
 
@@ -196,7 +196,7 @@ def test_ending_a_current_entry_still_ends_it_now(db_session):
     before = utcnow()
 
     loaded = get_customer_vehicle_or_404(db_session, customer_id=clara.id, party_id=clara_party.id)
-    delete_customer_vehicle(db_session, party=loaded, actor_id=uuid.uuid4(), group_id=group_id)
+    delete_customer_vehicle(db_session, party=loaded, actor_id=uuid.uuid4(), acting_dealership_id=None, group_id=group_id)
 
     ended = _row(db_session, clara_party.id).effective_to
     assert ended is not None and before <= ended <= utcnow()
@@ -234,13 +234,13 @@ def _events(db, event_type: str, aggregate_id) -> list:
 def _patch(db, party, group_id, **fields):
     loaded = get_customer_vehicle_or_404(db, customer_id=party.customer_id, party_id=party.id)
     return update_customer_vehicle(
-        db, party=loaded, data=CustomerVehicleUpdate(**fields), actor_id=uuid.uuid4(), group_id=group_id,
+        db, party=loaded, data=CustomerVehicleUpdate(**fields), actor_id=uuid.uuid4(), acting_dealership_id=None, group_id=group_id,
     )
 
 
 def _end(db, party, group_id):
     loaded = get_customer_vehicle_or_404(db, customer_id=party.customer_id, party_id=party.id)
-    delete_customer_vehicle(db, party=loaded, actor_id=uuid.uuid4(), group_id=group_id)
+    delete_customer_vehicle(db, party=loaded, actor_id=uuid.uuid4(), acting_dealership_id=None, group_id=group_id)
 
 
 def test_cancelling_a_planned_entry_leaves_an_end_the_user_typed_alone(db_session):
@@ -279,7 +279,7 @@ def test_disconnect_decides_on_the_locked_row_when_its_start_moved_meanwhile(eng
         )
         other.commit()
 
-    delete_customer_vehicle(db_session, party=stale, actor_id=uuid.uuid4(), group_id=group_id)
+    delete_customer_vehicle(db_session, party=stale, actor_id=uuid.uuid4(), acting_dealership_id=None, group_id=group_id)
 
     row = _row(db_session, party.id)
     assert row.effective_from == row.effective_to == later

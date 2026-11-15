@@ -6,12 +6,10 @@ its name or its users' names in a group customer's history; an active sister
 still is in each.
 """
 
-import types
 import uuid
 
 from app.core.auth import AccessRole, Principal
 from app.core.base import utcnow
-from app.customer.services import customer as customer_service
 from app.inventory.models.stock_item import StockItemCondition
 from app.inventory.public import get_stock_items_for_vehicles
 from app.inventory.schemas.stock_item import StockItemCreate
@@ -125,26 +123,3 @@ def test_the_customer_360_no_longer_finds_a_car_in_the_offboarded_betriebs_stock
     assert set(get_stock_items_for_vehicles(db_session, principal=principal, vehicle_ids=[in_leaving, in_staying])) == {
         in_staying,
     }
-
-
-def test_a_group_customers_history_no_longer_names_the_offboarded_betrieb_or_its_users(db_session):
-    group, viewer, leaving, staying = _group(db_session)
-    left_user = _user(db_session, leaving, "Lea")
-    stayed_user = _user(db_session, staying, "Sven")
-    events = [
-        types.SimpleNamespace(actor_id=left_user.id, before=None, after={"dealershipId": str(leaving.id)}),
-        types.SimpleNamespace(actor_id=stayed_user.id, before=None, after={"dealership_id": str(staying.id)}),
-    ]
-
-    def labels() -> dict[str, str]:
-        return customer_service.history_labels(db_session, group_id=group.id, dealership_id=viewer.id, events=events)
-
-    before = labels()
-    assert {str(leaving.id), str(left_user.id), str(staying.id), str(stayed_user.id)} <= set(before)
-
-    _offboarded(db_session, leaving)
-
-    after = labels()
-    assert str(leaving.id) not in after and str(left_user.id) not in after
-    assert after[str(staying.id)] == staying.legal_name
-    assert after[str(stayed_user.id)] == "Sven Muster"

@@ -345,7 +345,7 @@ def test_an_open_link_the_customer_already_had_is_closed_at_the_purchase(db_sess
     group_id = contract_group_id(db_session, contract)
     earlier = allocate_vehicle_party(
         db_session, vehicle_id=item.vehicle_id, customer_id=contract.customer_id, role=VehiclePartyRole.OWNER,
-        group_id=group_id, actor_id=uuid.uuid4(), effective_from=dt.datetime(2019, 5, 1, tzinfo=dt.UTC),
+        group_id=group_id, actor_id=uuid.uuid4(), acting_dealership_id=None, effective_from=dt.datetime(2019, 5, 1, tzinfo=dt.UTC),
     )
 
     _customer_consumes(db_session, message)
@@ -367,7 +367,7 @@ def test_another_holder_in_the_group_is_left_alone(db_session, engine):
     others = [
         allocate_vehicle_party(
             db_session, vehicle_id=item.vehicle_id, customer_id=someone_else, role=role,
-            group_id=group_id, actor_id=uuid.uuid4(),
+            group_id=group_id, actor_id=uuid.uuid4(), acting_dealership_id=None,
         )
         for role in (VehiclePartyRole.OWNER, VehiclePartyRole.KEEPER, VehiclePartyRole.DRIVER)
     ]

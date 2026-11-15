@@ -45,7 +45,12 @@ def get_customer_external_id_or_404(
 
 
 def create_customer_external_id(
-    db: Session, *, customer: Customer, data: CustomerExternalIdCreate, actor_id: uuid.UUID
+    db: Session,
+    *,
+    customer: Customer,
+    data: CustomerExternalIdCreate,
+    actor_id: uuid.UUID,
+    acting_dealership_id: uuid.UUID | None,
 ) -> CustomerExternalId:
     row = CustomerExternalId(
         group_id=customer.group_id,
@@ -73,6 +78,7 @@ def create_customer_external_id(
         tenant_id=customer.group_id,
         action="external_id_add",
         actor_id=actor_id,
+        acting_dealership_id=acting_dealership_id,
         after={"systemName": row.system_name, "externalId": row.external_id},
     )
     db.commit()
@@ -86,7 +92,12 @@ _EXTERNAL_ID_UNIQUE_CONSTRAINTS = frozenset(
 
 
 def update_customer_external_id(
-    db: Session, *, row: CustomerExternalId, data: CustomerExternalIdUpdate, actor_id: uuid.UUID
+    db: Session,
+    *,
+    row: CustomerExternalId,
+    data: CustomerExternalIdUpdate,
+    actor_id: uuid.UUID,
+    acting_dealership_id: uuid.UUID | None,
 ) -> CustomerExternalId:
     changes = data.model_dump(exclude_unset=True)
     before = {"systemName": row.system_name, "externalId": row.external_id}
@@ -127,6 +138,7 @@ def update_customer_external_id(
         tenant_id=row.group_id,
         action="external_id_update",
         actor_id=actor_id,
+        acting_dealership_id=acting_dealership_id,
         before=before,
         after={"systemName": row.system_name, "externalId": row.external_id},
     )
@@ -135,7 +147,13 @@ def update_customer_external_id(
     return row
 
 
-def delete_customer_external_id(db: Session, *, row: CustomerExternalId, actor_id: uuid.UUID) -> None:
+def delete_customer_external_id(
+    db: Session,
+    *,
+    row: CustomerExternalId,
+    actor_id: uuid.UUID,
+    acting_dealership_id: uuid.UUID | None,
+) -> None:
     record_audit_event(
         db,
         entity_type="customer",
@@ -143,6 +161,7 @@ def delete_customer_external_id(db: Session, *, row: CustomerExternalId, actor_i
         tenant_id=row.group_id,
         action="external_id_remove",
         actor_id=actor_id,
+        acting_dealership_id=acting_dealership_id,
         before={"systemName": row.system_name, "externalId": row.external_id},
     )
     db.delete(row)

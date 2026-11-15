@@ -490,7 +490,7 @@ def test_merge_conflict_on_the_survivor_names_a_reason(client, db_session, monke
     monkeypatch.setattr(db_session, "commit", conflicting_commit)
     with pytest.raises(ConflictError) as refused:
         customer_merge_service.merge_customer(
-            db_session, customer=row, duplicate_of_customer_id=uuid.UUID(survivor["id"]), actor_id=uuid.uuid4()
+            db_session, customer=row, duplicate_of_customer_id=uuid.UUID(survivor["id"]), actor_id=uuid.uuid4(), acting_dealership_id=None
         )
     assert refused.value.details["reason"] == "merge_conflict_on_survivor"
 
@@ -1457,7 +1457,7 @@ def test_external_id_update_answers_external_id_taken_only_for_its_unique_constr
     with pytest.raises(IntegrityError):
         update_customer_external_id(
             db_session, row=row, data=CustomerExternalIdUpdate.model_construct(external_id=None),
-            actor_id=uuid.uuid4(),
+            actor_id=uuid.uuid4(), acting_dealership_id=None,
         )
 
 

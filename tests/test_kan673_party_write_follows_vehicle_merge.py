@@ -247,7 +247,7 @@ def test_the_write_takes_the_survivors_role_lock_not_the_duplicates(db_session, 
         session.execute(text("SET LOCAL lock_timeout = '300ms'"))
         return allocate_vehicle_party(
             session, vehicle_id=duplicate.id, customer_id=customer.id, role=OWNER, group_id=group_id,
-            actor_id=uuid.uuid4(),
+            actor_id=uuid.uuid4(), acting_dealership_id=None,
         )
 
     with factory() as holder, factory() as writer:
@@ -281,7 +281,7 @@ def test_a_merge_committed_after_the_request_read_its_vehicle_is_still_followed(
         merge_vehicles(merge, survivor_id=survivor.id, duplicate_id=duplicate.id, actor_id=uuid.uuid4())
         party = allocate_vehicle_party(
             request, vehicle_id=duplicate.id, customer_id=customer.id, role=OWNER, group_id=group_id,
-            actor_id=uuid.uuid4(),
+            actor_id=uuid.uuid4(), acting_dealership_id=None,
         )
         assert party.vehicle_id == survivor.id
 
@@ -319,7 +319,7 @@ def test_a_merge_committed_while_the_write_waited_for_its_lock_is_followed(db_se
     with factory() as request:
         party = allocate_vehicle_party(
             request, vehicle_id=duplicate.id, customer_id=customer.id, role=OWNER, group_id=group_id,
-            actor_id=uuid.uuid4(),
+            actor_id=uuid.uuid4(), acting_dealership_id=None,
         )
         assert party.vehicle_id == survivor.id
     assert locked == [("wait", duplicate.id), ("try", survivor.id)]
@@ -362,7 +362,7 @@ def test_a_survivor_lock_that_is_busy_after_such_a_merge_is_refused_not_waited_f
                 with pytest.raises(ConflictError) as refused:
                     allocate_vehicle_party(
                         request, vehicle_id=duplicate.id, customer_id=customer.id, role=OWNER, group_id=group_id,
-                        actor_id=uuid.uuid4(),
+                        actor_id=uuid.uuid4(), acting_dealership_id=None,
                     )
                 request.rollback()
         finally:

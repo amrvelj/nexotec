@@ -423,7 +423,7 @@ def _vehicle_summary_changed(db_session, engine, monkeypatch):
     vehicle = create_vehicle_mdm(db_session, vin="WVWZZZ1KZAW000186", catalogue_variant_id=None)
     allocate_vehicle_party(
         db_session, vehicle_id=vehicle.id, customer_id=_customer(db_session, group_id).id,
-        role=VehiclePartyRole.OWNER, group_id=group_id, actor_id=uuid.uuid4(),
+        role=VehiclePartyRole.OWNER, group_id=group_id, actor_id=uuid.uuid4(), acting_dealership_id=None,
     )
     corrected = "WVWZZZ1KZAW000187"
     update_vehicle_mdm(db_session, vehicle=vehicle, data=VehicleMdmUpdate(vin=corrected), actor_id=None, tenant_id=None)
@@ -454,7 +454,7 @@ def _vehicle_merged(db_session, engine, monkeypatch):
     duplicate = create_vehicle_mdm(db_session, vin="WVWZZZ1KZAW000635", catalogue_variant_id=None)
     allocate_vehicle_party(
         db_session, vehicle_id=duplicate.id, customer_id=_customer(db_session, group_id).id,
-        role=VehiclePartyRole.OWNER, group_id=group_id, actor_id=uuid.uuid4(),
+        role=VehiclePartyRole.OWNER, group_id=group_id, actor_id=uuid.uuid4(), acting_dealership_id=None,
     )
     merge_vehicles(db_session, survivor_id=survivor.id, duplicate_id=duplicate.id, actor_id=uuid.uuid4())
     message = _message(db_session, MERGED_EVENT, duplicate.id)
