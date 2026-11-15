@@ -126,7 +126,7 @@ def list_group_stock_items(
     items, next_cursor = build_page_for_sort(rows, params)
 
     # The label is attached in Python from platform's answer above, never
-    # joined into the paged statement (rule 2; build_sorted_page also reads
+    # joined into the paged statement (rule 2; build_page_for_sort also reads
     # the cursor's sort values off a StockItem, not a row tuple).
     return [(item, dealerships[item.tenant_id]) for item in items], next_cursor, total, total_is_estimate
 
