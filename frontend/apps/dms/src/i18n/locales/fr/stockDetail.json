@@ -184,7 +184,12 @@
       "take": "Reprendre dans la description",
       "discard": "Ignorer",
       "failed": "Aucune proposition n'a pu être créée.",
-      "connect": "Connecter un fournisseur d'IA"
+      "connect": "Connecter un fournisseur d'IA",
+      "tooLong": "La proposition dépasse les {{count}} caractères de la description. Raccourcissez-la avant de la reprendre.",
+      "replaceTitle": "Remplacer la description existante ?",
+      "replaceBody": "La description contient déjà du texte. Si vous reprenez la proposition, ce texte sera remplacé.",
+      "replaceConfirm": "Remplacer",
+      "replaceCancel": "Ne pas remplacer"
     }
   },
   "evaluation": {

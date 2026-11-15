@@ -842,8 +842,8 @@ describe('PublishingTab — «Text vorschlagen» (KAN-227)', () => {
   })
   const t = (key: string) => i18n.t(`stockDetail.publishing.suggestion.${key}`)
 
-  const backendFor = (suggestion: () => unknown) => {
-    let current = row(1)
+  const backendFor = (suggestion: () => unknown, bemerkungen: string | null = null) => {
+    let current = { ...row(1), bemerkungen }
     return installFakeBackend([
       { match: /^\/inventory\/stock-items\/st-1\/equipment$/, handler: () => EQUIPMENT },
       { match: /^\/inventory\/stock-items\/st-1\/media$/, handler: () => [] },
@@ -881,6 +881,57 @@ describe('PublishingTab — «Text vorschlagen» (KAN-227)', () => {
     await waitFor(() =>
       expect(screen.getByLabelText(i18n.t('stockDetail.publishing.fields.bemerkungen'))).toHaveValue('Gepflegter Kombi. Ab MFK.'),
     )
+  })
+
+  it('a description with text already is replaced only after the user confirms', async () => {
+    const user = userEvent.setup()
+    const backend = backendFor(
+      () => ({ text: 'Gepflegter Kombi.', language: 'de', promptAdapted: false, providerName: 'OpenAI' }),
+      'Unser eigener Text.',
+    )
+    renderWithProviders(<PublishingTab stockItemId="st-1" locale="de-CH" />)
+    await screen.findByDisplayValue('Unser eigener Text.')
+
+    await user.click(screen.getByRole('button', { name: t('open') }))
+    await user.click(await screen.findByRole('button', { name: t('generate') }))
+    await screen.findByRole('textbox', { name: (n) => n.startsWith(t('draft')) })
+    await user.click(screen.getByRole('button', { name: t('take') }))
+
+    // Asked first; «Nicht ersetzen» writes nothing and keeps the suggestion.
+    expect(await screen.findByText(t('replaceBody'))).toBeInTheDocument()
+    expect(backend.callsTo(/\/publishing\/autoscout24$/, 'PATCH')).toHaveLength(0)
+    await user.click(screen.getByRole('button', { name: t('replaceCancel') }))
+    expect(screen.queryByText(t('replaceBody'))).not.toBeInTheDocument()
+    expect(backend.callsTo(/\/publishing\/autoscout24$/, 'PATCH')).toHaveLength(0)
+    expect(screen.getByLabelText(i18n.t('stockDetail.publishing.fields.bemerkungen'))).toHaveValue('Unser eigener Text.')
+
+    await user.click(screen.getByRole('button', { name: t('take') }))
+    await user.click(await screen.findByRole('button', { name: t('replaceConfirm') }))
+    await waitFor(() => expect(backend.callsTo(/\/publishing\/autoscout24$/, 'PATCH')).toHaveLength(1))
+    expect(backend.callsTo(/\/publishing\/autoscout24$/, 'PATCH')[0].body).toEqual({ bemerkungen: 'Gepflegter Kombi.' })
+  })
+
+  it('a suggestion over the 4000 characters shows its count and is never cut: taking over waits until it fits', async () => {
+    const user = userEvent.setup()
+    const long = 'A'.repeat(4001)
+    const backend = backendFor(() => ({ text: long, language: 'de', promptAdapted: false, providerName: 'OpenAI' }))
+    renderWithProviders(<PublishingTab stockItemId="st-1" locale="de-CH" />)
+
+    await user.click(await screen.findByRole('button', { name: t('open') }))
+    await user.click(await screen.findByRole('button', { name: t('generate') }))
+    const draft = await screen.findByRole('textbox', { name: (n) => n.startsWith(t('draft')) })
+
+    expect(draft).toHaveValue(long)
+    const dialog = screen.getByRole('dialog')
+    expect(within(dialog).getByText(i18n.t('stockDetail.publishing.suggestion.tooLong', { count: 4000 }))).toBeInTheDocument()
+    expect(within(dialog).getByText(/4.?001 \/ 4.?000/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: t('take') })).toBeDisabled()
+
+    await user.type(draft, '{Backspace}')
+    expect(screen.getByRole('button', { name: t('take') })).toBeEnabled()
+    await user.click(screen.getByRole('button', { name: t('take') }))
+    await waitFor(() => expect(backend.callsTo(/\/publishing\/autoscout24$/, 'PATCH')).toHaveLength(1))
+    expect((backend.callsTo(/\/publishing\/autoscout24$/, 'PATCH')[0].body as { bemerkungen: string }).bemerkungen).toHaveLength(4000)
   })
 
   it('without an AI provider it says so in the UI language and links the integrations', async () => {

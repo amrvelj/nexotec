@@ -304,6 +304,66 @@ def test_text_vorschlagen_sends_the_cars_facts_and_stores_nothing(client, db_ses
     assert [(r.capability, r.tokens_in, r.tokens_out) for r in logged] == [("chat.completions", 310, 96)]
 
 
+def _equip(db_session, item, *, extras, eigenschaften, provider_ausstattung):
+    from app.vehicle.models.vehicle_mdm import VehicleMdm
+
+    vehicle = db_session.get(VehicleMdm, item.vehicle_id)
+    vehicle.extras = extras
+    vehicle.eigenschaften = eigenschaften
+    vehicle.provider_ausstattung = provider_ausstattung
+    db_session.commit()
+
+
+def test_the_provider_equipment_text_in_the_prompts_language_is_sent_never_the_condition_flags(
+    client, db_session, seeds, dealership, provider
+):
+    _ai_connection(db_session, dealership.id)
+    item = _make_ready_item(db_session, dealership.id, vin=unique_vin())
+    _equip(
+        db_session, item,
+        extras=["Anhängerkupplung"],
+        eigenschaften=["Unfallwagen", "Nichtraucher"],
+        provider_ausstattung={"de": "Navigationssystem, Sitzheizung", "fr": "Système de navigation, sièges chauffants"},
+    )
+
+    assert _suggest(client, item, _role(dealership.id, AccessRole.INVENTORY), language="fr").status_code == 200
+
+    facts = provider.requests[0]["messages"][1]["content"]
+    assert "Système de navigation, sièges chauffants" in facts
+    # The language's provider text wins over the extras, and never another language's.
+    assert "Navigationssystem" not in facts and "Anhängerkupplung" not in facts
+    # Condition flags are not equipment: an accident history is never sent.
+    assert "Unfallwagen" not in facts and "Nichtraucher" not in facts
+
+
+def test_without_a_provider_text_in_the_language_the_extras_are_sent(client, db_session, seeds, dealership, provider):
+    _ai_connection(db_session, dealership.id)
+    item = _make_ready_item(db_session, dealership.id, vin=unique_vin())
+    _equip(
+        db_session, item,
+        extras=["Anhängerkupplung", "Panoramadach"],
+        eigenschaften=["Unfallwagen"],
+        provider_ausstattung={"de": "Navigationssystem"},
+    )
+
+    assert _suggest(client, item, _role(dealership.id, AccessRole.INVENTORY), language="it").status_code == 200
+
+    facts = provider.requests[0]["messages"][1]["content"]
+    assert "Anhängerkupplung, Panoramadach" in facts
+    assert "Navigationssystem" not in facts and "Unfallwagen" not in facts
+
+
+def test_without_any_equipment_the_prompt_says_not_stated(client, db_session, seeds, dealership, provider):
+    _ai_connection(db_session, dealership.id)
+    item = _make_ready_item(db_session, dealership.id, vin=unique_vin())
+    _equip(db_session, item, extras=[], eigenschaften=["Unfallwagen"], provider_ausstattung={})
+
+    assert _suggest(client, item, _role(dealership.id, AccessRole.INVENTORY), language="de").status_code == 200
+
+    facts = provider.requests[0]["messages"][1]["content"]
+    assert f"Ausstattung: {NOT_STATED[SwissLanguage.DE]}" in facts and "Unfallwagen" not in facts
+
+
 def test_the_betriebs_adaptation_and_the_language_asked_for_are_used(client, db_session, seeds, dealership, provider):
     _ai_connection(db_session, dealership.id)
     adapted = {
@@ -363,6 +423,9 @@ def test_a_failing_provider_is_a_422_in_our_words(client, db_session, seeds, dea
     assert response.status_code == 422
     assert response.json()["error"]["details"]["reason"] == "ai_provider_unavailable"
     assert "provider detail" not in response.text
+    # `failure` is our adapter's wording; no `providerMessage` key claims otherwise.
+    details = response.json()["error"]["details"]
+    assert details["failure"] == "OpenAI failed to answer (HTTP 503)." and "providerMessage" not in details
     resilience.record_success(connection.id)
 
 
