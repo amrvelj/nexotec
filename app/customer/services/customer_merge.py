@@ -87,7 +87,13 @@ def _lock_merge_customers(db: Session, *, duplicate_id: uuid.UUID, target_id: uu
 
 
 def _repoint_vehicle_parties(
-    db: Session, *, duplicate_id: uuid.UUID, target_id: uuid.UUID, actor_id: uuid.UUID, group_id: uuid.UUID
+    db: Session,
+    *,
+    duplicate_id: uuid.UUID,
+    target_id: uuid.UUID,
+    actor_id: uuid.UUID,
+    acting_dealership_id: uuid.UUID | None,
+    group_id: uuid.UUID,
 ) -> tuple[int, list[uuid.UUID]]:
     """Re-points the duplicate's party rows at the survivor; returns how
     many, and the ids of the rows it KEPT instead.
@@ -182,6 +188,7 @@ def _repoint_vehicle_parties(
                     db,
                     party=party,
                     actor_id=actor_id,
+                    acting_dealership_id=acting_dealership_id,
                     group_id=group_id,
                     effective_to=party.effective_from,
                     merged_into_customer_id=target_id,
@@ -195,7 +202,13 @@ def _repoint_vehicle_parties(
 
 
 def _repoint_earlier_merges(
-    db: Session, *, duplicate_id: uuid.UUID, target_id: uuid.UUID, actor_id: uuid.UUID, group_id: uuid.UUID
+    db: Session,
+    *,
+    duplicate_id: uuid.UUID,
+    target_id: uuid.UUID,
+    actor_id: uuid.UUID,
+    acting_dealership_id: uuid.UUID | None,
+    group_id: uuid.UUID,
 ) -> tuple[list[uuid.UUID], list[uuid.UUID]]:
     """Returns the re-pointed customers' ids and the re-pointed copies' ids.
 
@@ -267,6 +280,7 @@ def _repoint_earlier_merges(
             tenant_id=group_id,
             action="vehicle_party_update",
             actor_id=actor_id,
+            acting_dealership_id=acting_dealership_id,
             before={
                 "vehicleId": str(copy.vehicle_id),
                 "role": copy.role.value,
@@ -286,6 +300,7 @@ def _repoint_earlier_merges(
             tenant_id=group_id,
             action="merge_survivor_repointed",
             actor_id=actor_id,
+            acting_dealership_id=acting_dealership_id,
             before={"duplicateOfCustomerId": str(duplicate_id)},
             after={"duplicateOfCustomerId": str(target_id)},
         )
@@ -380,7 +395,12 @@ def _repoint_customer_tags(db: Session, *, duplicate_id: uuid.UUID, target_id: u
 
 
 def merge_customer(
-    db: Session, *, customer: Customer, duplicate_of_customer_id: uuid.UUID, actor_id: uuid.UUID
+    db: Session,
+    *,
+    customer: Customer,
+    duplicate_of_customer_id: uuid.UUID,
+    actor_id: uuid.UUID,
+    acting_dealership_id: uuid.UUID | None,
 ) -> Customer:
     """Merges `customer` (the duplicate) into the survivor (FR-09).
 
@@ -420,7 +440,12 @@ def merge_customer(
     before = {"lifecycleStatus": customer.lifecycle_status.value, "duplicateOfCustomerId": None}
 
     parties_repointed, parties_kept_closed = _repoint_vehicle_parties(
-        db, duplicate_id=customer.id, target_id=target.id, actor_id=actor_id, group_id=customer.group_id
+        db,
+        duplicate_id=customer.id,
+        target_id=target.id,
+        actor_id=actor_id,
+        acting_dealership_id=acting_dealership_id,
+        group_id=customer.group_id,
     )
     phones_repointed, phones_dropped = _repoint_contacts(
         db, CustomerPhone, ("phone_e164",), duplicate_id=customer.id, target_id=target.id
@@ -443,7 +468,12 @@ def merge_customer(
         db, duplicate_id=customer.id, target_id=target.id
     )
     earlier_merges_repointed, party_copies_repointed = _repoint_earlier_merges(
-        db, duplicate_id=customer.id, target_id=target.id, actor_id=actor_id, group_id=customer.group_id
+        db,
+        duplicate_id=customer.id,
+        target_id=target.id,
+        actor_id=actor_id,
+        acting_dealership_id=acting_dealership_id,
+        group_id=customer.group_id,
     )
 
     customer.lifecycle_status = CustomerLifecycleStatus.MERGED
@@ -458,6 +488,7 @@ def merge_customer(
         tenant_id=customer.group_id,
         action="merge",
         actor_id=actor_id,
+        acting_dealership_id=acting_dealership_id,
         before=before,
         after={
             "lifecycleStatus": "merged",

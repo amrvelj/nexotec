@@ -64,7 +64,7 @@ def _vehicle(db_session, vin: str):
 def _allocate(db, vehicle_id, customer: Customer | uuid.UUID, group_id, role=OWNER) -> VehicleParty:
     customer_id = customer if isinstance(customer, uuid.UUID) else customer.id
     return allocate_vehicle_party(
-        db, vehicle_id=vehicle_id, customer_id=customer_id, role=role, group_id=group_id, actor_id=uuid.uuid4(),
+        db, vehicle_id=vehicle_id, customer_id=customer_id, role=role, group_id=group_id, actor_id=uuid.uuid4(), acting_dealership_id=None,
     )
 
 
@@ -87,7 +87,7 @@ def _patch(db, party_ref: tuple[uuid.UUID, uuid.UUID], group_id, **fields) -> Ve
     customer_id, party_id = party_ref
     loaded = get_customer_vehicle_or_404(db, customer_id=customer_id, party_id=party_id)
     return update_customer_vehicle(
-        db, party=loaded, data=CustomerVehicleUpdate(**fields), actor_id=uuid.uuid4(), group_id=group_id,
+        db, party=loaded, data=CustomerVehicleUpdate(**fields), actor_id=uuid.uuid4(), acting_dealership_id=None, group_id=group_id,
     )
 
 
@@ -108,7 +108,7 @@ def test_a_create_with_a_future_end_date_closes_the_previous_holder(db_session):
 
     bruno_party = create_customer_vehicle(
         db_session, customer=bruno, data=CustomerVehicleCreate(vehicle_id=vehicle.id, role=OWNER, effective_to=until),
-        actor_id=uuid.uuid4(),
+        actor_id=uuid.uuid4(), acting_dealership_id=None,
     )
 
     assert _open_holders(db_session, vehicle.id) == {bruno.id}
@@ -130,7 +130,7 @@ def test_a_create_with_a_future_end_date_for_the_current_holder_replaces_the_ope
     second = create_customer_vehicle(
         db_session, customer=alice,
         data=CustomerVehicleCreate(vehicle_id=vehicle.id, role=OWNER, effective_to=utcnow() + dt.timedelta(days=30)),
-        actor_id=uuid.uuid4(),
+        actor_id=uuid.uuid4(), acting_dealership_id=None,
     )
 
     assert second.id != first.id
@@ -156,7 +156,7 @@ def test_a_create_repeating_a_rows_exact_start_is_a_409_and_changes_nothing(db_s
     start = utcnow() - dt.timedelta(days=3)
     first = allocate_vehicle_party(
         db_session, vehicle_id=vehicle.id, customer_id=alice.id, role=OWNER, group_id=group_id,
-        actor_id=uuid.uuid4(), effective_from=start,
+        actor_id=uuid.uuid4(), acting_dealership_id=None, effective_from=start,
     )
 
     with pytest.raises(ConflictError) as refused:
@@ -165,7 +165,7 @@ def test_a_create_repeating_a_rows_exact_start_is_a_409_and_changes_nothing(db_s
             data=CustomerVehicleCreate(
                 vehicle_id=vehicle.id, role=OWNER, effective_from=start, effective_to=utcnow() + dt.timedelta(days=9),
             ),
-            actor_id=uuid.uuid4(),
+            actor_id=uuid.uuid4(), acting_dealership_id=None,
         )
 
     # KAN-369: the reason the link dialog translates.
@@ -187,7 +187,7 @@ def test_a_create_with_a_past_end_date_is_history_and_closes_nobody(db_session):
             vehicle_id=vehicle.id, role=OWNER,
             effective_from=utcnow() - dt.timedelta(days=400), effective_to=utcnow() - dt.timedelta(days=300),
         ),
-        actor_id=uuid.uuid4(),
+        actor_id=uuid.uuid4(), acting_dealership_id=None,
     )
 
     assert _open_holders(db_session, vehicle.id) == {alice.id}
@@ -203,7 +203,7 @@ def test_a_create_with_a_future_end_date_never_closes_another_groups_holder(db_s
     create_customer_vehicle(
         db_session, customer=bruno,
         data=CustomerVehicleCreate(vehicle_id=vehicle.id, role=OWNER, effective_to=utcnow() + dt.timedelta(days=5)),
-        actor_id=uuid.uuid4(),
+        actor_id=uuid.uuid4(), acting_dealership_id=None,
     )
 
     assert _open_holders(db_session, vehicle.id) == {alice.id, bruno.id}
@@ -252,7 +252,7 @@ def test_a_patch_that_ends_a_row_closes_nobody_else(db_session):
     alice, bruno = _customer(db_session, group_id, "Alice"), _customer(db_session, group_id, "Bruno")
     alice_party = allocate_vehicle_party(
         db_session, vehicle_id=vehicle.id, customer_id=alice.id, role=OWNER, group_id=group_id,
-        actor_id=uuid.uuid4(), effective_from=utcnow() - dt.timedelta(days=30),
+        actor_id=uuid.uuid4(), acting_dealership_id=None, effective_from=utcnow() - dt.timedelta(days=30),
     )
     _allocate(db_session, vehicle.id, bruno, group_id, role=VehiclePartyRole.KEEPER)
 
@@ -276,7 +276,7 @@ def test_a_patch_that_ends_a_holding_row_publishes_one_unlinked_event(db_session
     alice = _customer(db_session, group_id, "Alice")
     party = allocate_vehicle_party(
         db_session, vehicle_id=vehicle.id, customer_id=alice.id, role=OWNER, group_id=group_id,
-        actor_id=uuid.uuid4(), effective_from=utcnow() - dt.timedelta(days=30),
+        actor_id=uuid.uuid4(), acting_dealership_id=None, effective_from=utcnow() - dt.timedelta(days=30),
     )
     effective_to = utcnow() if end == "now" else utcnow() - dt.timedelta(days=3)
 
@@ -309,9 +309,9 @@ def test_a_patch_to_an_already_closed_row_publishes_no_second_unlinked_event(db_
     vehicle = _vehicle(db_session, "WVWZZZ1KZAW352003")
     party = allocate_vehicle_party(
         db_session, vehicle_id=vehicle.id, customer_id=_customer(db_session, group_id, "Alice").id, role=OWNER,
-        group_id=group_id, actor_id=uuid.uuid4(), effective_from=utcnow() - dt.timedelta(days=30),
+        group_id=group_id, actor_id=uuid.uuid4(), acting_dealership_id=None, effective_from=utcnow() - dt.timedelta(days=30),
     )
-    delete_customer_vehicle(db_session, party=party, actor_id=uuid.uuid4(), group_id=group_id)
+    delete_customer_vehicle(db_session, party=party, actor_id=uuid.uuid4(), acting_dealership_id=None, group_id=group_id)
     assert len(_events(db_session, "customer.vehicle_party.unlinked", party.id)) == 1
 
     _patch(db_session, (party.customer_id, party.id), group_id, effective_to=utcnow() - dt.timedelta(days=2))
@@ -423,9 +423,9 @@ def test_two_disconnects_of_one_row_close_it_once(engine, db_session):
     with factory() as first, factory() as second:
         in_first = get_customer_vehicle_or_404(first, customer_id=alice.id, party_id=party.id)
         in_second = get_customer_vehicle_or_404(second, customer_id=alice.id, party_id=party.id)
-        delete_customer_vehicle(first, party=in_first, actor_id=uuid.uuid4(), group_id=group_id)
+        delete_customer_vehicle(first, party=in_first, actor_id=uuid.uuid4(), acting_dealership_id=None, group_id=group_id)
         closed_at = in_first.effective_to
-        delete_customer_vehicle(second, party=in_second, actor_id=uuid.uuid4(), group_id=group_id)
+        delete_customer_vehicle(second, party=in_second, actor_id=uuid.uuid4(), acting_dealership_id=None, group_id=group_id)
         second.rollback()
 
     db_session.expire_all()
@@ -510,7 +510,7 @@ def test_a_disconnect_racing_an_allocation_closes_the_row_once(engine, db_sessio
         assert reached.wait(timeout=10), "the allocation never reached its insert"
 
         def _disconnect():
-            delete_customer_vehicle(disconnect_session, party=stale, actor_id=uuid.uuid4(), group_id=group_id)
+            delete_customer_vehicle(disconnect_session, party=stale, actor_id=uuid.uuid4(), acting_dealership_id=None, group_id=group_id)
             disconnect_session.rollback()
 
         disconnect = _run("disconnect", errors, _disconnect)
@@ -609,7 +609,7 @@ def test_a_merge_racing_an_allocation_waits_for_it_and_closes_nothing_twice(engi
         with factory() as session:
             loaded = customer_common_service.get_customer_or_404(session, group_id, duplicate_id)
             customer_merge_service.merge_customer(
-                session, customer=loaded, duplicate_of_customer_id=survivor_id, actor_id=uuid.uuid4()
+                session, customer=loaded, duplicate_of_customer_id=survivor_id, actor_id=uuid.uuid4(), acting_dealership_id=None
             )
 
     allocation = _run("allocation", errors, _allocation)
@@ -650,7 +650,7 @@ def test_a_merge_locks_every_vehicle_role_it_touches_in_sorted_order(db_session,
     )
 
     customer_merge_service.merge_customer(
-        db_session, customer=duplicate, duplicate_of_customer_id=survivor.id, actor_id=uuid.uuid4()
+        db_session, customer=duplicate, duplicate_of_customer_id=survivor.id, actor_id=uuid.uuid4(), acting_dealership_id=None
     )
 
     assert taken == sorted({(str(v.id), r.value) for v in vehicles for r in (OWNER, VehiclePartyRole.DRIVER)})
@@ -690,7 +690,7 @@ def test_a_merge_never_waits_for_a_late_pair_out_of_order(engine, db_session, mo
             loaded = customer_common_service.get_customer_or_404(session, group_id, duplicate.id)
             with pytest.raises(ConflictError) as refused:
                 customer_merge_service.merge_customer(
-                    session, customer=loaded, duplicate_of_customer_id=survivor.id, actor_id=uuid.uuid4()
+                    session, customer=loaded, duplicate_of_customer_id=survivor.id, actor_id=uuid.uuid4(), acting_dealership_id=None
                 )
             session.rollback()
     finally:
@@ -709,7 +709,7 @@ def test_a_merge_never_waits_for_a_late_pair_out_of_order(engine, db_session, mo
 def _merge(db, duplicate: Customer | uuid.UUID, survivor_id: uuid.UUID, group_id: uuid.UUID) -> None:
     duplicate_id = duplicate if isinstance(duplicate, uuid.UUID) else duplicate.id
     loaded = customer_common_service.get_customer_or_404(db, group_id, duplicate_id)
-    customer_merge_service.merge_customer(db, customer=loaded, duplicate_of_customer_id=survivor_id, actor_id=uuid.uuid4())
+    customer_merge_service.merge_customer(db, customer=loaded, duplicate_of_customer_id=survivor_id, actor_id=uuid.uuid4(), acting_dealership_id=None)
 
 
 def test_an_allocation_to_a_merged_customer_is_refused(db_session):
@@ -887,7 +887,7 @@ def _create_history(db, customer: Customer, vehicle_id: uuid.UUID, start: dt.dat
         data=CustomerVehicleCreate(
             vehicle_id=vehicle_id, role=OWNER, effective_from=start, effective_to=start + dt.timedelta(days=100),
         ),
-        actor_id=uuid.uuid4(),
+        actor_id=uuid.uuid4(), acting_dealership_id=None,
     )
 
 
@@ -1285,7 +1285,7 @@ def test_a_merge_never_waits_for_a_kept_copy_another_writer_holds(engine, db_ses
             loaded = customer_common_service.get_customer_or_404(session, group_id, d_id)
             with pytest.raises(ConflictError) as refused:
                 customer_merge_service.merge_customer(
-                    session, customer=loaded, duplicate_of_customer_id=t_id, actor_id=uuid.uuid4()
+                    session, customer=loaded, duplicate_of_customer_id=t_id, actor_id=uuid.uuid4(), acting_dealership_id=None
                 )
             session.rollback()
     finally:

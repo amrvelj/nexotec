@@ -46,6 +46,8 @@ from sqlalchemy import ColumnElement, Table, func, literal, select, text
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.orm import Session
 
+from app.core.audit_attribution import NOBODY, AuditAttribution
+
 FORMAT_VERSION = 1
 
 
@@ -61,13 +63,17 @@ class ExportScope:
       Betrieb's own relationship only — the customers it created or its
       history names;
     - `group_is_single`: the group holds this one Betrieb only, so every
-      group-owned record is its own (a customer that predates provenance too).
+      group-owned record is its own (a customer that predates provenance too);
+    - `audit_attribution` (KAN-722): which rows of a group-owned record's audit
+      trail (`tenant_id` = the group) this Betrieb wrote — the rows its sisters
+      stop seeing once it is offboarded (`app.core.audit_attribution`).
     """
 
     dealership_id: uuid.UUID
     group_id: uuid.UUID
     references: Mapping[str, frozenset[uuid.UUID]] = dataclasses.field(default_factory=dict)
     group_is_single: bool = False
+    audit_attribution: AuditAttribution = NOBODY
 
     def referenced(self, kind: str) -> frozenset[uuid.UUID]:
         return self.references.get(kind, frozenset())

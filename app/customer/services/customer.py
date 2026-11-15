@@ -15,11 +15,13 @@ that's Customer's real scoping key.
 import uuid
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import not_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.audit import record_audit_event
+from app.core.audit_attribution import attributed
+from app.core.audit_model import AuditEvent
 from app.core.base import utcnow
 from app.core.errors import BadRequestError, ConflictError, UnprocessableEntityError
 from app.core.outbox import OutboxEvent
@@ -57,6 +59,7 @@ from app.customer.services.customer_common import (
 from app.platform.public import (
     get_active_user_acting_in,
     get_group_display_labels,
+    get_offboarded_audit_attribution,
     list_active_users_acting_in,
 )
 
@@ -330,6 +333,7 @@ def create_customer(
     group_id: uuid.UUID,
     data: CustomerCreate,
     actor_id: uuid.UUID,
+    acting_dealership_id: uuid.UUID | None,
     dealership_id: uuid.UUID,
 ) -> Customer:
     _validate_country_codes(
@@ -424,6 +428,7 @@ def create_customer(
         tenant_id=group_id,
         action="create",
         actor_id=actor_id,
+        acting_dealership_id=acting_dealership_id,
         after=after,
     )
     publish_event(
@@ -448,6 +453,7 @@ def update_customer(
     customer: Customer,
     data: CustomerUpdate,
     actor_id: uuid.UUID,
+    acting_dealership_id: uuid.UUID | None,
     dealership_id: uuid.UUID,
 ) -> Customer:
     if customer.lifecycle_status in _TERMINAL_LIFECYCLE_STATUSES:
@@ -557,6 +563,7 @@ def update_customer(
             tenant_id=customer.group_id,
             action="update",
             actor_id=actor_id,
+            acting_dealership_id=acting_dealership_id,
             before=before or None,
             after=after or None,
         )
@@ -613,7 +620,13 @@ def has_usable_domicile_address(db: Session, *, customer_id: uuid.UUID) -> bool:
 
 
 def set_credit_block(
-    db: Session, *, customer: Customer, blocked: bool, reason: str | None, actor_id: uuid.UUID
+    db: Session,
+    *,
+    customer: Customer,
+    blocked: bool,
+    reason: str | None,
+    actor_id: uuid.UUID,
+    acting_dealership_id: uuid.UUID | None,
 ) -> Customer:
     """WP-8 PR-6 (ADR-065/S-D19) — stops a CONTRACT from being confirmed,
     never an offer (quoting a blocked customer is often how the block gets
@@ -639,6 +652,7 @@ def set_credit_block(
         tenant_id=customer.group_id,
         action="credit_block_changed",
         actor_id=actor_id,
+        acting_dealership_id=acting_dealership_id,
         before=before,
         after={"creditBlock": customer.credit_block, "creditBlockReason": customer.credit_block_reason},
     )
@@ -672,6 +686,28 @@ def _vehicle_label(make: str | None, model: str | None, model_year: int | None, 
     if make and model:
         return f"{make} {model} ({model_year})" if model_year else f"{make} {model}"
     return number
+
+
+def list_customer_history(db: Session, *, group_id: uuid.UUID, customer_id: uuid.UUID) -> list[AuditEvent]:
+    """The History tab of a group customer: its audit rows, oldest first,
+    without the rows an offboarded Betrieb of the group wrote (KAN-722;
+    KAN-218 Q2 A, «leaves every group read»). Which rows those are is the
+    one rule the leaver's archive export uses to take them
+    (`app.core.audit_attribution`), so what its sisters stop seeing is what
+    its archive holds. The caller has found the customer in its own group."""
+
+    hidden = get_offboarded_audit_attribution(db, group_id=group_id)
+    stmt = (
+        select(AuditEvent)
+        .where(
+            AuditEvent.entity_type == "customer",
+            AuditEvent.entity_id == customer_id,
+            AuditEvent.tenant_id == group_id,
+            not_(attributed(AuditEvent, hidden)),
+        )
+        .order_by(AuditEvent.created_at.asc(), AuditEvent.id.asc())
+    )
+    return list(db.scalars(stmt).all())
 
 
 def history_labels(

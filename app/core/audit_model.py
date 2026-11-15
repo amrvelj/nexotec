@@ -38,6 +38,13 @@ class AuditEvent(PrimaryKeyMixin, Base):
     tenant_id: Mapped[uuid.UUID | None] = mapped_column(GUID(), nullable=True, index=True)
     action: Mapped[str] = mapped_column(String(32), nullable=False)
     actor_id: Mapped[uuid.UUID | None] = mapped_column(GUID(), nullable=True)
+    # KAN-722: the Betrieb the write was made in — owner: platform
+    # (dealership.id), a plain GUID as for tenant_id. `tenant_id` says whose
+    # record it is; for a group-owned customer that is the group, so this is
+    # what attributes a History entry to one Betrieb
+    # (`app.core.audit_attribution`). NULL on rows written before KAN-722
+    # and on writes no Betrieb made (a consumer, a system job).
+    acting_dealership_id: Mapped[uuid.UUID | None] = mapped_column(GUID(), nullable=True)
     before: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     after: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     reason: Mapped[str | None] = mapped_column(Text, nullable=True)

@@ -31,7 +31,7 @@ ROLES = (VehiclePartyRole.OWNER, VehiclePartyRole.KEEPER)
 
 def _history_row(db, vehicle_id, customer, group_id, role, *, start: dt.datetime, end: dt.datetime) -> VehicleParty:
     return allocate_vehicle_party(
-        db, vehicle_id=vehicle_id, customer_id=customer.id, role=role, group_id=group_id, actor_id=uuid.uuid4(),
+        db, vehicle_id=vehicle_id, customer_id=customer.id, role=role, group_id=group_id, actor_id=uuid.uuid4(), acting_dealership_id=None,
         effective_from=start, effective_to=end,
     )
 
@@ -64,7 +64,7 @@ def test_a_row_starting_at_the_signature_and_ended_before_the_purchase_is_ended_
 
     written = record_former_holder_on_purchase(
         db_session, vehicle_id=vehicle.id, customer_id=clara.id, group_id=group_id,
-        held_from=signed_at, ended_at=ended_at, actor_id=None,
+        held_from=signed_at, ended_at=ended_at, actor_id=None, acting_dealership_id=None,
     )
     db_session.commit()
 
@@ -82,7 +82,7 @@ def test_a_row_starting_at_the_signature_and_ended_before_the_purchase_is_ended_
     # A redelivery changes nothing more.
     record_former_holder_on_purchase(
         db_session, vehicle_id=vehicle.id, customer_id=clara.id, group_id=group_id,
-        held_from=signed_at, ended_at=ended_at, actor_id=None,
+        held_from=signed_at, ended_at=ended_at, actor_id=None, acting_dealership_id=None,
     )
     db_session.commit()
     for role in ROLES:
@@ -104,7 +104,7 @@ def test_a_row_ended_between_the_signature_and_the_purchase_is_continued_without
 
     written = record_former_holder_on_purchase(
         db_session, vehicle_id=vehicle.id, customer_id=clara.id, group_id=group_id,
-        held_from=signed_at, ended_at=ended_at, actor_id=None,
+        held_from=signed_at, ended_at=ended_at, actor_id=None, acting_dealership_id=None,
     )
     db_session.commit()
 
@@ -131,7 +131,7 @@ def test_a_row_ended_before_the_signature_leaves_the_new_row_at_the_signature(db
 
     record_former_holder_on_purchase(
         db_session, vehicle_id=vehicle.id, customer_id=clara.id, group_id=group_id,
-        held_from=signed_at, ended_at=ended_at, actor_id=None,
+        held_from=signed_at, ended_at=ended_at, actor_id=None, acting_dealership_id=None,
     )
     db_session.commit()
 
@@ -155,7 +155,7 @@ def test_the_same_start_row_is_extended_only_up_to_the_customers_next_row(db_ses
 
     record_former_holder_on_purchase(
         db_session, vehicle_id=vehicle.id, customer_id=clara.id, group_id=group_id,
-        held_from=signed_at, ended_at=ended_at, actor_id=None,
+        held_from=signed_at, ended_at=ended_at, actor_id=None, acting_dealership_id=None,
     )
     db_session.commit()
 
@@ -182,7 +182,7 @@ def test_an_own_row_starting_inside_the_period_leaves_no_gap_before_it(db_sessio
 
     record_former_holder_on_purchase(
         db_session, vehicle_id=vehicle.id, customer_id=clara.id, group_id=group_id,
-        held_from=signed_at, ended_at=ended_at, actor_id=None,
+        held_from=signed_at, ended_at=ended_at, actor_id=None, acting_dealership_id=None,
     )
     db_session.commit()
 
@@ -207,13 +207,13 @@ def test_an_own_row_still_holding_at_the_purchase_and_starting_inside_the_period
     linked = signed_at + dt.timedelta(days=5)
     allocate_vehicle_party(
         db_session, vehicle_id=vehicle.id, customer_id=clara.id, role=VehiclePartyRole.OWNER, group_id=group_id,
-        actor_id=uuid.uuid4(), effective_from=linked,
+        actor_id=uuid.uuid4(), acting_dealership_id=None, effective_from=linked,
     )
     db_session.commit()
 
     record_former_holder_on_purchase(
         db_session, vehicle_id=vehicle.id, customer_id=clara.id, group_id=group_id,
-        held_from=signed_at, ended_at=ended_at, actor_id=None,
+        held_from=signed_at, ended_at=ended_at, actor_id=None, acting_dealership_id=None,
     )
     db_session.commit()
 
@@ -235,7 +235,7 @@ def test_an_empty_own_row_inside_the_period_does_not_cut_the_history_short(db_se
 
     record_former_holder_on_purchase(
         db_session, vehicle_id=vehicle.id, customer_id=clara.id, group_id=group_id,
-        held_from=signed_at, ended_at=ended_at, actor_id=None,
+        held_from=signed_at, ended_at=ended_at, actor_id=None, acting_dealership_id=None,
     )
     db_session.commit()
 
@@ -259,7 +259,7 @@ def test_an_empty_own_row_where_another_own_row_ends_is_extended_over_the_rest(d
 
     record_former_holder_on_purchase(
         db_session, vehicle_id=vehicle.id, customer_id=clara.id, group_id=group_id,
-        held_from=signed_at, ended_at=ended_at, actor_id=None,
+        held_from=signed_at, ended_at=ended_at, actor_id=None, acting_dealership_id=None,
     )
     db_session.commit()
 

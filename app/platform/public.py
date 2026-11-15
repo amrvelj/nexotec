@@ -6,6 +6,7 @@ contract allows `app.<other-context>` to import `app.platform.public`, never
 from app.platform.identity.models.standard_text_delegation import StandardTextCategory
 from app.platform.identity.models.user import User
 from app.platform.identity.services.actor_reference import actor_reference_checks
+from app.platform.identity.services.audit_attribution import get_offboarded_audit_attribution
 from app.platform.identity.services.connected_account import (
     ConnectedAccountProvider,
     GrantRevoker,
@@ -163,6 +164,7 @@ __all__ = [
     "get_group_display_labels",
     "get_location_labels",
     "get_location_or_404",
+    "get_offboarded_audit_attribution",
     "get_user_display_labels",
     "list_active_users_acting_in",
     "list_dealer_manager_emails",

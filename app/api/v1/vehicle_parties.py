@@ -93,7 +93,7 @@ def allocate_to_customer(
     holder = customer.get_customer_or_404(db, principal.group_id, body.customer_id)
     party = customer.allocate_vehicle_party(
         db, vehicle_id=vehicle_id, customer_id=body.customer_id, role=body.role,
-        group_id=principal.group_id, actor_id=principal.user_id,
+        group_id=principal.group_id, actor_id=principal.user_id, acting_dealership_id=principal.tenant_id,
     )
     return VehiclePartyAllocationRead.model_validate(party, from_attributes=True).model_copy(
         update={"display_name": customer.customer_display_name(holder)}

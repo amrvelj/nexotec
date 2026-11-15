@@ -105,7 +105,7 @@ def _merged_message(db, duplicate_id: uuid.UUID) -> OutboxMessage:
 def _allocate(db, vehicle_id, group_id, role, **dates) -> VehicleParty:
     return allocate_vehicle_party(
         db, vehicle_id=vehicle_id, customer_id=_customer(db, group_id).id, role=role, group_id=group_id,
-        actor_id=uuid.uuid4(), **dates,
+        actor_id=uuid.uuid4(), acting_dealership_id=None, **dates,
     )
 
 

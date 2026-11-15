@@ -98,7 +98,7 @@ def _make(db_session, group_id, **create_kwargs) -> Customer:
         db_session,
         group_id=group_id,
         data=CustomerCreate(**data_kwargs),
-        actor_id=uuid.uuid4(),
+        actor_id=uuid.uuid4(), acting_dealership_id=None,
         dealership_id=uuid.uuid4(),
     )
 
@@ -335,7 +335,7 @@ def test_tags_update_is_a_full_replace(db_session):
         db_session,
         customer=customer,
         data=CustomerUpdate(tags=["Beta", "Gamma"]),
-        actor_id=uuid.uuid4(),
+        actor_id=uuid.uuid4(), acting_dealership_id=None,
         dealership_id=uuid.uuid4(),
     )
     rows = db_session.query(CustomerTag).filter(CustomerTag.customer_id == customer.id).all()
@@ -373,7 +373,7 @@ def test_a_patch_without_tags_leaves_them_alone(db_session):
         db_session,
         customer=customer,
         data=CustomerUpdate(notes="unrelated"),
-        actor_id=uuid.uuid4(),
+        actor_id=uuid.uuid4(), acting_dealership_id=None,
         dealership_id=uuid.uuid4(),
     )
     rows = db_session.query(CustomerTag).filter(CustomerTag.customer_id == customer.id).all()
@@ -395,7 +395,7 @@ def test_dealership_id_is_set_on_create_and_not_changed_by_an_update(db_session)
             last_name="Byron",
             emails=[CustomerEmailCreate(email_type="personal", email_address="prov@example.ch")],
         ),
-        actor_id=uuid.uuid4(),
+        actor_id=uuid.uuid4(), acting_dealership_id=None,
         dealership_id=dealership_id,
     )
     assert customer.dealership_id == dealership_id
@@ -404,7 +404,7 @@ def test_dealership_id_is_set_on_create_and_not_changed_by_an_update(db_session)
         db_session,
         customer=customer,
         data=CustomerUpdate(first_name="Augusta"),
-        actor_id=uuid.uuid4(),
+        actor_id=uuid.uuid4(), acting_dealership_id=None,
         dealership_id=uuid.uuid4(),  # a different acting dealership
     )
     assert customer.dealership_id == dealership_id

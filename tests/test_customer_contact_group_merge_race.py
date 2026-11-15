@@ -55,13 +55,13 @@ def _customer(db_session, group_id: uuid.UUID, first_name: str, groups: tuple[st
 
 def _merge(db, duplicate_id: uuid.UUID, survivor_id: uuid.UUID, group_id: uuid.UUID) -> None:
     loaded = customer_common_service.get_customer_or_404(db, group_id, duplicate_id)
-    customer_merge_service.merge_customer(db, customer=loaded, duplicate_of_customer_id=survivor_id, actor_id=uuid.uuid4())
+    customer_merge_service.merge_customer(db, customer=loaded, duplicate_of_customer_id=survivor_id, actor_id=uuid.uuid4(), acting_dealership_id=None)
 
 
 def _set_groups(db, customer_id: uuid.UUID, group_id: uuid.UUID, groups: list[str]) -> None:
     loaded = customer_common_service.get_customer_or_404(db, group_id, customer_id)
     customer_service.update_customer(
-        db, customer=loaded, data=CustomerUpdate(contact_groups=groups), actor_id=uuid.uuid4(), dealership_id=uuid.uuid4()
+        db, customer=loaded, data=CustomerUpdate(contact_groups=groups), actor_id=uuid.uuid4(), acting_dealership_id=None, dealership_id=uuid.uuid4()
     )
 
 
@@ -171,7 +171,7 @@ def test_an_integrity_failure_that_is_not_the_group_constraint_is_not_called_a_g
     with pytest.raises(ConflictError) as refused:
         loaded = customer_common_service.get_customer_or_404(db_session, group_id, t.id)
         customer_service.update_customer(
-            db_session, customer=loaded, data=CustomerUpdate.model_construct(newsletter=None), actor_id=uuid.uuid4(),
+            db_session, customer=loaded, data=CustomerUpdate.model_construct(newsletter=None), actor_id=uuid.uuid4(), acting_dealership_id=None,
             dealership_id=uuid.uuid4(),
         )
 

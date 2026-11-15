@@ -83,7 +83,7 @@ def _customer(db_session, group_id):
             customer_type="individual", language="de", first_name="Didier", last_name="Perrin",
             emails=[CustomerEmailCreate(email_type="personal", email_address="didier@example.ch", is_primary=True)],
         ),
-        actor_id=uuid.uuid4(),
+        actor_id=uuid.uuid4(), acting_dealership_id=None,
         dealership_id=uuid.uuid4(),
     )
 

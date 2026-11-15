@@ -2,17 +2,25 @@
 `app/core`'s own models are no context's, so their exporter lives beside them
 and the composition root registers it like a context's.
 
-The Betrieb's audit log is in the export (Anto, 2026-11-13, Q4 A). Nothing
-here rewrites or deletes it: the deletion ten years after offboarding is a
+The Betrieb's audit log is in the export (Anto, 2026-11-13, Q4 A): its own
+rows (`tenant_id` = the Betrieb) and, since KAN-722 (Anto, 2026-11-15), the
+rows it wrote in a group-owned customer's History (`tenant_id` = the group),
+attributed by the one rule the History read uses to hide them from its
+sisters (`app.core.audit_attribution`) — the exported set is the hidden set.
+The customers those rows are about come with them (`references`), so each
+entry is readable in the archive on its own. Nothing here rewrites or
+deletes it: the deletion ten years after offboarding is a
 manual staff step (Anto, 2026-11-14).
 """
 
 import datetime as dt
+import uuid
 from collections.abc import Mapping, Sequence
 
-from sqlalchemy import ColumnElement, func, literal, select
+from sqlalchemy import ColumnElement, and_, func, literal, or_, select
 from sqlalchemy.orm import Session
 
+from app.core.audit_attribution import attributed
 from app.core.audit_model import AuditEvent
 from app.core.daily_scheduler_model import DailyJobRun
 from app.core.export import ExportedTable, ExportScope, TableExporter, table_of, written_at_or_after_xid
@@ -31,8 +39,25 @@ NON_WRITE_ACTIONS = frozenset({"break_glass_read", "printed", "secret_resolved",
 _audit = table_of(AuditEvent)
 
 
-def _own_audit_rows(scope: ExportScope):
-    return _audit.c.tenant_id == scope.dealership_id
+def _group_history_rows(scope: ExportScope) -> ColumnElement[bool]:
+    """KAN-722: the rows this Betrieb wrote in a group customer's History —
+    the same rows (`entity_type` customer, the group as tenant, the one
+    attribution rule) the History read hides from its sisters once it is
+    offboarded, so the two sets are equal by construction. The group is
+    the Betrieb's own, handed in by platform (`ExportScope.group_id`)."""
+
+    return and_(
+        _audit.c.entity_type == "customer",
+        _audit.c.tenant_id == scope.group_id,
+        attributed(_audit.c, scope.audit_attribution),
+    )
+
+
+def _own_audit_rows(scope: ExportScope) -> ColumnElement[bool]:
+    """The Betrieb's own rows, and the rows it wrote in its group's
+    customers' History (KAN-722)."""
+
+    return or_(_audit.c.tenant_id == scope.dealership_id, _group_history_rows(scope))
 
 
 class CoreExporter(TableExporter):
@@ -58,6 +83,19 @@ class CoreExporter(TableExporter):
             ReconciliationOrphan.__tablename__: "Nexotec's nightly integrity check, no Betrieb's data.",
         }
 
+    def references(self, db: Session, scope: ExportScope) -> Mapping[str, frozenset[uuid.UUID]]:
+        """KAN-722: the group customers whose History holds a row this
+        Betrieb wrote — so the exported entry finds its customer in the
+        archive (the relationship already includes "the customers its
+        history names", `ExportScope.references`)."""
+
+        if scope.audit_attribution.is_empty():
+            return {}
+        ids = db.scalars(
+            select(_audit.c.entity_id).where(_group_history_rows(scope)).distinct()
+        )
+        return {"customer": frozenset(ids)}
+
     def last_write_at(self, db: Session, scope: ExportScope) -> dt.datetime | None:
         """An audited write — a deletion leaves no stamp elsewhere, and the
         tables without timestamps (memberships, entitlements) are audited."""
@@ -82,7 +120,7 @@ class CoreExporter(TableExporter):
 
 def _audited_writes(scope: ExportScope) -> tuple[ColumnElement[bool], ...]:
     return (
-        AuditEvent.tenant_id == scope.dealership_id,
+        _own_audit_rows(scope),
         AuditEvent.entity_type.not_in(NON_WRITE_ENTITY_TYPES),
         AuditEvent.action.not_in(NON_WRITE_ACTIONS),
     )
