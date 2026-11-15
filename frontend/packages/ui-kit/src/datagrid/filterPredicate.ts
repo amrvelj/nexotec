@@ -46,16 +46,21 @@ export type SelectCondition = "is" | "isNot";
 /** `atLeast`/`atMost` are the inclusive bounds (≥ / ≤) an endpoint's
  * `…Min`/`…Max` range parameters apply; `greaterThan`/`lessThan` are strict.
  * A field offers only the ones its endpoint honours exactly (KAN-458). */
-export type NumberCondition = "equals" | "greaterThan" | "lessThan" | "atLeast" | "atMost";
+export type NumberCondition = "equals" | "greaterThan" | "lessThan" | "atLeast" | "atMost" | "between";
 export type BooleanCondition = "is";
 /**
- * Every date condition is relative — "date conditions are RELATIVE never
- * absolute" (§ Action Bar). There is no calendar-day condition anywhere in
- * this union on purpose; a saved "changed in the last 30 days" filter
- * means the same thing every time it's opened, where a saved "changed
- * since 12.03.2026" would silently go stale.
+ * The relative date conditions — a saved "changed in the last 30 days"
+ * filter means the same thing every time it's opened.
  */
-export type DateCondition = "today" | "thisWeek" | "thisMonth" | "thisYear" | "inTheLastDays" | "moreThanDaysAgo";
+export type RelativeDateCondition = "today" | "thisWeek" | "thisMonth" | "thisYear" | "inTheLastDays" | "moreThanDaysAgo";
+/**
+ * KAN-461 (Anto, 2026-11-15): «am», «vor», «nach» a calendar day, beside the
+ * relative ones — offered only by a field that lists them (a grid on the
+ * list-query layer), never by default. Their value is an ISO date
+ * (`YYYY-MM-DD`), a calendar day in the session's zone.
+ */
+export type AbsoluteDateCondition = "on" | "before" | "after";
+export type DateCondition = RelativeDateCondition | AbsoluteDateCondition;
 
 export type ConditionForType<T extends FilterFieldType> = T extends "text"
   ? TextCondition
@@ -77,6 +82,9 @@ export interface FilterPredicate {
   value?: string | number | boolean;
   /** Only `inTheLastDays` / `moreThanDaysAgo` use this. */
   days?: number;
+  /** Only `between` uses this: the inclusive upper bound; `value` is the
+   * lower one (KAN-461 — a field holds one filter, ranges included). */
+  valueTo?: number;
 }
 
 /** Every condition value a predicate can store. The values are stable —
@@ -84,12 +92,25 @@ export interface FilterPredicate {
  * label never changes one. */
 export type FilterCondition = TextCondition | SelectCondition | NumberCondition | BooleanCondition | DateCondition;
 
+/** What a field offers when it lists no conditions of its own. */
 export const CONDITIONS_BY_TYPE: Record<FilterFieldType, FilterCondition[]> = {
   text: ["contains", "equals", "notEquals"],
   select: ["is", "isNot"],
   number: ["equals", "greaterThan", "lessThan", "atLeast", "atMost"],
   boolean: ["is"],
   date: ["today", "thisWeek", "thisMonth", "thisYear", "inTheLastDays", "moreThanDaysAgo"],
+};
+
+/** Every condition the kit can build, by type — a field reaches the ones
+ * beyond `CONDITIONS_BY_TYPE` (`between`, `on`/`before`/`after`, KAN-461)
+ * only by listing them in `conditions`, so a grid whose endpoint does not
+ * apply them never offers them. */
+export const ALL_CONDITIONS_BY_TYPE: Record<FilterFieldType, FilterCondition[]> = {
+  text: ["contains", "equals", "notEquals"],
+  select: ["is", "isNot"],
+  number: ["equals", "greaterThan", "lessThan", "atLeast", "atMost", "between"],
+  boolean: ["is"],
+  date: ["today", "thisWeek", "thisMonth", "thisYear", "inTheLastDays", "moreThanDaysAgo", "on", "before", "after"],
 };
 
 /** What a saved filter's text is built from: the field's label, the
@@ -114,6 +135,9 @@ export interface FilterConditionLabels {
   predicateText: Record<FilterCondition, (parts: PredicateTextParts) => string>;
   booleanTrue: (field: string) => string;
   booleanFalse: (field: string) => string;
+  /** A calendar day (`YYYY-MM-DD`) as the user reads one — the app's
+   * `formatDateOnly` (KAN-461's «am», «vor», «nach»). Omitted: dd.MM.yyyy. */
+  formatDay?: (isoDay: string) => string;
 }
 
 /**
@@ -124,11 +148,40 @@ export interface FilterConditionLabels {
  * then silently dropped).
  */
 export function conditionsForField(field: FilterFieldDef): FilterCondition[] {
-  const all = CONDITIONS_BY_TYPE[field.type];
-  if (!field.conditions) return all;
+  if (!field.conditions) return CONDITIONS_BY_TYPE[field.type];
   const allowed = new Set(field.conditions);
-  const narrowed = all.filter((c) => allowed.has(c));
-  return narrowed.length > 0 ? narrowed : all;
+  const narrowed = ALL_CONDITIONS_BY_TYPE[field.type].filter((c) => allowed.has(c));
+  return narrowed.length > 0 ? narrowed : CONDITIONS_BY_TYPE[field.type];
+}
+
+/** The three date conditions that name a calendar day (KAN-461). */
+export function takesCalendarDay(condition: FilterCondition | string): boolean {
+  return condition === "on" || condition === "before" || condition === "after";
+}
+
+/** A calendar day as the endpoints take it: `YYYY-MM-DD`, a real date. */
+export function isValidIsoDay(value: unknown): value is string {
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const [y, m, d] = value.split("-").map(Number);
+  const date = new Date(Date.UTC(y, m - 1, d));
+  return date.getUTCFullYear() === y && date.getUTCMonth() === m - 1 && date.getUTCDate() === d;
+}
+
+/** A `between` range the endpoint accepts: two numbers, the lower first. */
+export function isValidRange(value: unknown, valueTo: unknown): boolean {
+  return (
+    typeof value === "number" && Number.isFinite(value) && typeof valueTo === "number" && Number.isFinite(valueTo) && value <= valueTo
+  );
+}
+
+/** Whether a predicate carries every value its condition needs — what the
+ * builder commits and what a grid sends (a link or a saved view may hold
+ * one that does not). */
+export function hasCompleteValue(predicate: FilterPredicate): boolean {
+  if (predicate.type === "date" && takesDayCount(predicate.condition)) return isValidDayCount(predicate.days);
+  if (predicate.type === "date" && takesCalendarDay(predicate.condition)) return isValidIsoDay(predicate.value);
+  if (predicate.type === "number" && predicate.condition === "between") return isValidRange(predicate.value, predicate.valueTo);
+  return true;
 }
 
 /** The day counts an N-days condition takes — the list endpoints' own
@@ -167,7 +220,7 @@ export function offeredPredicates(predicates: FilterPredicate[], fields: FilterF
     const field = byId.get(p.fieldId);
     if (field === undefined || field.type !== p.type) return false;
     if (!conditionsForField(field).includes(p.condition as FilterCondition)) return false;
-    if (field.type === "date" && takesDayCount(p.condition) && !isValidDayCount(p.days)) return false;
+    if (!hasCompleteValue(p)) return false;
     if (taken.has(field.id)) return false;
     taken.add(field.id);
     return true;
@@ -207,7 +260,7 @@ export interface ResolvedDateRange {
  * date. `now` is a parameter, never read internally, so this stays a pure
  * function a test can pin to an exact instant.
  */
-export function resolveRelativeDateRange(condition: DateCondition, days: number | undefined, now: Date): ResolvedDateRange {
+export function resolveRelativeDateRange(condition: RelativeDateCondition, days: number | undefined, now: Date): ResolvedDateRange {
   const today = startOfDay(now);
 
   switch (condition) {
@@ -250,15 +303,27 @@ export function describePredicate(predicate: FilterPredicate, field: FilterField
   if (predicate.type === "boolean") {
     return predicate.value ? labels.booleanTrue(field.label) : labels.booleanFalse(field.label);
   }
-  const condition = CONDITIONS_BY_TYPE[predicate.type].find((c) => c === predicate.condition);
+  const condition = ALL_CONDITIONS_BY_TYPE[predicate.type].find((c) => c === predicate.condition);
   if (!condition) return field.label;
+  const number = (v: unknown) =>
+    typeof v === "number" && Number.isFinite(v) ? formatNumberValue(v, field.numberFormat ?? "grouped") : String(v ?? "");
   const value =
     predicate.type === "select"
       ? (field.options?.find((o) => o.value === predicate.value)?.label ?? String(predicate.value ?? ""))
-      : predicate.type === "number" && typeof predicate.value === "number" && Number.isFinite(predicate.value)
-        ? formatNumberValue(predicate.value, field.numberFormat ?? "grouped")
-        : String(predicate.value ?? "");
+      : predicate.type === "number" && condition === "between"
+        ? `${number(predicate.value)} – ${number(predicate.valueTo)}`
+        : predicate.type === "number"
+          ? number(predicate.value)
+          : predicate.type === "date" && isValidIsoDay(predicate.value)
+            ? (labels.formatDay ?? formatIsoDay)(predicate.value)
+            : String(predicate.value ?? "");
   return labels.predicateText[condition]({ field: field.label, value, days: predicate.days ?? 0 });
+}
+
+/** A calendar day as the grid shows one: dd.MM.yyyy (ui-formats). */
+function formatIsoDay(day: string): string {
+  const [y, m, d] = day.split("-");
+  return `${d}.${m}.${y}`;
 }
 
 function formatNumberValue(value: number, format: NonNullable<FilterFieldDef["numberFormat"]>): string {

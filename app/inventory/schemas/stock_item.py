@@ -185,6 +185,10 @@ class StockItemRead(CamelModel):
             "other item. It is not the item's `vin`, which stays empty until the purchase is booked."
         ),
     )
+    trade_in_signed_at: dt.datetime | None = Field(
+        default=None,
+        description="KAN-461 (ADR-060): when the trade-in's contract was signed — a grid column. Null on every other item.",
+    )
     order_date: dt.date | None
     expected_delivery: dt.date | None
     in_stock_at: dt.datetime | None

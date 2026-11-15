@@ -34,6 +34,18 @@ async function viewControl(): Promise<HTMLElement> {
 }
 
 describe('StockListPage — every filter it shows is sent (KAN-458)', () => {
+  it('offers every column of the served schema as a filter, with «zwischen» on a price (KAN-461)', async () => {
+    const backend = installFakeBackend([{ match: /^\/inventory\/stock-items$/, handler: () => EMPTY_PAGE }])
+    renderWithProviders(<StockListPage />, {
+      route: routeWith([{ id: 'p1', fieldId: 'listPrice', type: 'number', condition: 'between', value: 10000, valueTo: 20000 }]),
+    })
+
+    await waitFor(() => expect(backend.callsTo(/^\/inventory\/stock-items$/, 'GET').length).toBeGreaterThan(0))
+    const call = backend.callsTo(/^\/inventory\/stock-items$/, 'GET').at(-1)!
+    expect(call.params.getAll('filter')).toEqual(['listPrice:between:10000.00,20000.00'])
+  })
+
+
   it('«Zustand = Neu» in the URL is sent as condition=new and counted as one active filter', async () => {
     const backend = installFakeBackend([{ match: /^\/inventory\/stock-items$/, handler: () => EMPTY_PAGE }])
 
@@ -43,7 +55,8 @@ describe('StockListPage — every filter it shows is sent (KAN-458)', () => {
 
     await waitFor(() => expect(backend.callsTo(/^\/inventory\/stock-items$/, 'GET').length).toBeGreaterThan(0))
     const call = backend.callsTo(/^\/inventory\/stock-items$/, 'GET').at(-1)!
-    expect(call.params.get('condition')).toBe('new')
+    // KAN-461: one `filter` parameter per predicate, field:condition:value.
+    expect(call.params.getAll('filter')).toEqual(['condition:is:new'])
     expect((await viewControl()).textContent).toMatch(/(^|\D)1(\D|$)/)
   })
 
@@ -59,8 +72,7 @@ describe('StockListPage — every filter it shows is sent (KAN-458)', () => {
 
     await waitFor(() => expect(backend.callsTo(/^\/inventory\/stock-items$/, 'GET').length).toBeGreaterThan(0))
     const call = backend.callsTo(/^\/inventory\/stock-items$/, 'GET').at(-1)!
-    expect(call.params.get('condition')).toBe('used')
-    expect(call.params.get('lifecycle_status')).toBe('in_stock')
+    expect(call.params.getAll('filter')).toEqual(['condition:is:used', 'lifecycleStatus:is:in_stock'])
   })
 
   it('a predicate the grid does not offer — an unknown field — is neither sent nor shown as active', async () => {
@@ -73,10 +85,11 @@ describe('StockListPage — every filter it shows is sent (KAN-458)', () => {
     await waitFor(() => expect(backend.callsTo(/^\/inventory\/stock-items$/, 'GET').length).toBeGreaterThan(0))
     const call = backend.callsTo(/^\/inventory\/stock-items$/, 'GET').at(-1)!
     expect(call.params.get('fuelType')).toBeNull()
+    expect(call.params.getAll('filter')).toEqual([])
     expect((await viewControl()).textContent).not.toMatch(/\d/)
   })
 
-  it('Zustand «ist nicht Occasion» is sent as condition_not and shown as active (KAN-476)', async () => {
+  it('Zustand «ist nicht Occasion» is sent as condition:isNot and shown as active (KAN-476)', async () => {
     const backend = installFakeBackend([{ match: /^\/inventory\/stock-items$/, handler: () => EMPTY_PAGE }])
 
     renderWithProviders(<StockListPage />, {
@@ -85,8 +98,8 @@ describe('StockListPage — every filter it shows is sent (KAN-458)', () => {
 
     await waitFor(() => expect(backend.callsTo(/^\/inventory\/stock-items$/, 'GET').length).toBeGreaterThan(0))
     const call = backend.callsTo(/^\/inventory\/stock-items$/, 'GET').at(-1)!
-    expect(call.params.get('condition_not')).toBe('used')
-    expect(call.params.get('condition')).toBeNull()
+    expect(call.params.getAll('filter')).toEqual(['condition:isNot:used'])
+    expect(call.params.get('condition_not')).toBeNull()
     expect((await viewControl()).textContent).toMatch(/1/)
   })
 })

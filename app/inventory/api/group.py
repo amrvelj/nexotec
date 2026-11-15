@@ -19,7 +19,6 @@ from app.core.pagination import SortPageParams
 from app.core.permissions import ModuleCode, require_entitlement
 from app.core.sorting import SortField, decode_cursor_for_sort, parse_sort
 from app.db import get_db
-from app.inventory.api.stock_items import STOCK_ITEM_SORT_FIELDS
 from app.inventory.models.stock_item import StockItem
 from app.inventory.schemas.group_listing import (
     GroupStockDealershipList,
@@ -35,9 +34,18 @@ from app.platform.public import DealershipRef
 router = APIRouter(tags=["inventory"], dependencies=[Depends(require_entitlement(ModuleCode.SALES))])
 settings = get_settings()
 
-# KAN-152: the tenant grid's indexed sort columns, and its default order.
+# KAN-152: the group grid's sort columns, and its default order. Its own set
+# since KAN-461 gave the tenant grid every column (services/stock_grid.py):
+# the group projection carries no prices or purchase facts (ADR-055), so
+# ordering it by one would leak the order of a sister's private values.
 # dealershipLabel is deliberately not sortable — it lives on another
 # context's table, and ordering by it would mean sorting on a join.
+GROUP_STOCK_SORT_FIELDS: dict[str, object] = {
+    "stockNumber": StockItem.stock_number,
+    "vin": StockItem.vin,
+    "updatedAt": StockItem.updated_at,
+    "createdAt": StockItem.created_at,
+}
 _DEFAULT_GROUP_STOCK_SORT = [
     SortField(api_name="updatedAt", column=StockItem.updated_at, direction="desc", nullable=False)
 ]
@@ -48,7 +56,7 @@ def _group_page_params(
     limit: int = Query(default=settings.pagination_default_limit, ge=1, le=settings.pagination_max_limit),
     cursor: str | None = Query(default=None),
 ) -> SortPageParams:
-    sort_fields = parse_sort(sort, allowed=STOCK_ITEM_SORT_FIELDS) or _DEFAULT_GROUP_STOCK_SORT
+    sort_fields = parse_sort(sort, allowed=GROUP_STOCK_SORT_FIELDS) or _DEFAULT_GROUP_STOCK_SORT
     return SortPageParams(limit=limit, cursor=decode_cursor_for_sort(cursor, sort_fields), sort_fields=sort_fields)
 
 

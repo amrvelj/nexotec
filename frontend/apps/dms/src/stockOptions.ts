@@ -1,5 +1,7 @@
 import type { FilterFieldDef, FilterPredicate } from '@nexotec/ui-kit'
+import { filterFieldsFromGridSchema, listQueryFilter } from './shared/gridSchema'
 import type {
+  GridSchemaRead,
   GroupStockDealershipRead,
   LedgerCategory,
   StockItemCondition,
@@ -56,43 +58,22 @@ export function translatedLedgerCategoryOptions(t: Translate): { value: LedgerCa
   return HAND_BOOKABLE_LEDGER_CATEGORIES.map((value) => ({ value, label: translatedLedgerCategoryLabel(t, value) }))
 }
 
-/** The Stock grid's filter fields. Each offers only the conditions
- * `/inventory/stock-items` applies (KAN-458): one value per field, «ist» or
- * «ist nicht» (the endpoint's `…_not`, KAN-476). */
-export function buildStockFilterFields(t: Translate): FilterFieldDef[] {
-  return [
-    {
-      id: 'lifecycleStatus',
-      label: t('stockList.columns.lifecycleStatus'),
-      type: 'select',
-      options: translatedStockLifecycleOptions(t),
-      conditions: ['is', 'isNot'],
-    },
-    {
-      id: 'condition',
-      label: t('stockList.columns.condition'),
-      type: 'select',
-      options: translatedStockConditionOptions(t),
-      conditions: ['is', 'isNot'],
-    },
-  ]
+/** The Stock grid's filter fields: every field the endpoint's served grid
+ * schema lists, with the conditions it applies (KAN-461). Empty until the
+ * schema has arrived — a predicate from a link then waits, it is not dropped
+ * (the page narrows only once it has the schema). */
+export function buildStockFilterFields(t: Translate, schema: GridSchemaRead | undefined): FilterFieldDef[] {
+  return schema ? filterFieldsFromGridSchema(schema, t) : []
 }
 
-const STOCK_FILTER_PARAM: Record<string, string> = {
-  lifecycleStatus: 'lifecycle_status',
-  condition: 'condition',
-}
-
-/** FilterPredicate[] → `/inventory/stock-items` query params. Every field
- * and condition `buildStockFilterFields` offers is sent;
- * `architecture/grid-filters-are-applied.test.ts` fails if one is not. */
-export function applyStockFilters(params: URLSearchParams, predicates: FilterPredicate[]): void {
+/** FilterPredicate[] → `/inventory/stock-items`'s `filter` parameters, one per
+ * predicate (KAN-461). Every field and condition `buildStockFilterFields`
+ * offers is sent; `architecture/grid-filters-are-applied.test.ts` fails if
+ * one is not. */
+export function applyStockFilters(params: URLSearchParams, predicates: FilterPredicate[], fields: FilterFieldDef[]): void {
   for (const predicate of predicates) {
-    const param = STOCK_FILTER_PARAM[predicate.fieldId]
-    if (!param || typeof predicate.value !== 'string') {
-      // Not a field this grid offers, or no value — `offeredPredicates` passes neither.
-    } else if (predicate.condition === 'is') params.set(param, predicate.value)
-    else if (predicate.condition === 'isNot') params.set(`${param}_not`, predicate.value)
+    const filter = listQueryFilter(predicate, fields)
+    if (filter !== null) params.append('filter', filter)
   }
 }
 

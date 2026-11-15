@@ -29,7 +29,22 @@
     "orderDate": "Bestelldatum",
     "expectedDelivery": "Voraussichtliche Lieferung",
     "pipelineRef": "Pipeline-Referenz",
-    "configuration": "Konfiguration"
+    "configuration": "Konfiguration",
+    "exteriorColour": "Aussenfarbe",
+    "bodyStyle": "Karosserie",
+    "firstRegistrationDate": "1. Inverkehrsetzung",
+    "inStockAt": "An Lager seit",
+    "tradeInVin": "VIN Eintausch",
+    "tradeInSignedAt": "Eintausch unterschrieben",
+    "supplierIsVatRegistered": "Lieferant MWST-pflichtig",
+    "purchaseInvoiceRef": "Einkaufsrechnung",
+    "notionalInputTaxApplicable": "Fiktiver Vorsteuerabzug anwendbar",
+    "notionalInputTaxRate": "Satz fiktiver Vorsteuerabzug",
+    "notionalInputTaxOverridden": "Fiktiver Vorsteuerabzug übersteuert",
+    "valuationRefAmount": "Bewertungsbetrag",
+    "valuationRefValuedAt": "Bewertet am",
+    "valuationRefSource": "Bewertungsquelle",
+    "createdAt": "Erfasst"
   },
   "emptyState": {
     "title": "Kein Fahrzeug im Lager",

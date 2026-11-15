@@ -31,5 +31,10 @@
     "zusatzerloes": "Additional proceeds",
     "foerderung": "Incentive/subsidy",
     "sonstige_ertraege": "Other revenue"
+  },
+  "ageingBucket": {
+    "green": "Green (up to 60 days)",
+    "amber": "Amber (61–120 days)",
+    "red": "Red (over 120 days)"
   }
 }

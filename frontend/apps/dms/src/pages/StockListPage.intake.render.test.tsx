@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, screen, within } from '@testing-library/react'
+import { cleanup, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import i18n from '../i18n'
 import { renderWithProviders } from '../test/renderWithProviders'
@@ -92,7 +92,10 @@ describe('Stock list — one intake (KAN-463)', () => {
     install({ items: [] })
     renderWithProviders(<StockListPage />, { route: '/stock' })
 
-    const [, emptyStateAction] = await screen.findAllByRole('button', { name: intake() })
+    // The empty state's own button arrives once the list has loaded (after the
+    // grid schema, KAN-461) — wait for both, never click the header's twice.
+    await waitFor(() => expect(screen.getAllByRole('button', { name: intake() })).toHaveLength(2))
+    const [, emptyStateAction] = screen.getAllByRole('button', { name: intake() })
     await user.click(emptyStateAction)
 
     const overlay = await screen.findByRole('dialog')

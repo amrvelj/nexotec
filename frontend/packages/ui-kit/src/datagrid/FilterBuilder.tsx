@@ -5,9 +5,12 @@ import { ChfInput } from "../format/ChfInput";
 import {
   conditionsForField,
   describePredicate,
+  hasCompleteValue,
   isValidDayCount,
+  isValidRange,
   MAX_FILTER_DAYS,
   MIN_FILTER_DAYS,
+  takesCalendarDay,
   takesDayCount,
   type FilterConditionLabels,
   type FilterFieldDef,
@@ -50,12 +53,19 @@ export interface FilterBuilderLabels extends FilterConditionLabels {
    * number from `min` to `max` (KAN-475) — the list endpoints refuse anything
    * else. */
   invalidDayCount: (min: number, max: number) => string;
+  /** KAN-461: the calendar-day input's accessible name («Datum»). */
+  day: string;
+  /** KAN-461: the accessible names of a range's two inputs («von», «bis»). */
+  rangeFrom: string;
+  rangeTo: string;
+  /** Said in place, and Save held back, while a range's lower bound is above its upper one. */
+  invalidRange: string;
 }
 
-/** A draft Save may commit: an N-days condition needs a day count the
- * endpoint accepts. */
+/** A draft Save may commit: every value its condition needs, in a form the
+ * endpoint accepts (a day count, a calendar day, a range lower bound first). */
 function isCommittable(draft: FilterPredicate): boolean {
-  return !(draft.type === "date" && takesDayCount(draft.condition)) || isValidDayCount(draft.days);
+  return hasCompleteValue(draft);
 }
 
 function defaultPredicateFor(field: FilterFieldDef): FilterPredicate {
@@ -223,7 +233,10 @@ function PredicateEditorRow({
   onCancel: () => void;
   onPreviewCount?: (predicates: FilterPredicate[]) => Promise<number>;
   otherPredicates: FilterPredicate[];
-  labels: Pick<FilterBuilderLabels, "save" | "cancel" | "matchCount" | "conditions" | "dayCount" | "invalidDayCount">;
+  labels: Pick<
+    FilterBuilderLabels,
+    "save" | "cancel" | "matchCount" | "conditions" | "dayCount" | "invalidDayCount" | "day" | "rangeFrom" | "rangeTo" | "invalidRange"
+  >;
 }) {
   const [count, setCount] = useState<number | null>(null);
   const field = fields.find((f) => f.id === draft.fieldId);
@@ -242,7 +255,7 @@ function PredicateEditorRow({
       clearTimeout(timer);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [draft.fieldId, draft.condition, draft.value, draft.days]);
+  }, [draft.fieldId, draft.condition, draft.value, draft.days, draft.valueTo]);
 
   const changeField = (fieldId: string) => {
     const newField = fields.find((f) => f.id === fieldId);
@@ -298,7 +311,7 @@ function PredicateEditorRow({
         ))}
       </select>
 
-      <ValueInput field={field} draft={draft} onDraftChange={onDraftChange} labels={labels} />
+      <ValueInput key={`${field.id}:${draft.condition}`} field={field} draft={draft} onDraftChange={onDraftChange} labels={labels} />
 
       {onPreviewCount && (
         <span style={{ fontSize: 12, color: slate[5], fontStyle: count === null ? "italic" : undefined }}>
@@ -335,14 +348,16 @@ function ChfFilterValue({
   label,
   draft,
   onDraftChange,
+  bound = "value",
 }: {
   label: string;
   draft: FilterPredicate;
   onDraftChange: (draft: FilterPredicate) => void;
+  /** Which of the draft's numbers this input edits — a range's upper bound is `valueTo`. */
+  bound?: "value" | "valueTo";
 }) {
-  const [typed, setTyped] = useState<number | string>(
-    typeof draft.value === "number" && Number.isFinite(draft.value) ? draft.value : "",
-  );
+  const current = draft[bound];
+  const [typed, setTyped] = useState<number | string>(typeof current === "number" && Number.isFinite(current) ? current : "");
   return (
     <ChfInput
       size="xs"
@@ -350,10 +365,68 @@ function ChfFilterValue({
       value={typed}
       onChange={(v) => {
         setTyped(v);
-        onDraftChange({ ...draft, value: typeof v === "number" ? v : v.trim() === "" ? Number.NaN : Number(v) });
+        onDraftChange({ ...draft, [bound]: typeof v === "number" ? v : v.trim() === "" ? Number.NaN : Number(v) });
       }}
       w={160}
     />
+  );
+}
+
+/** A plain number input for one of the draft's numbers (`value`, or a
+ * range's `valueTo`). */
+function NumberFilterValue({
+  label,
+  draft,
+  onDraftChange,
+  bound = "value",
+}: {
+  label?: string;
+  draft: FilterPredicate;
+  onDraftChange: (draft: FilterPredicate) => void;
+  bound?: "value" | "valueTo";
+}) {
+  const current = draft[bound];
+  return (
+    <input
+      type="number"
+      aria-label={label}
+      value={typeof current === "number" && Number.isFinite(current) ? current : ""}
+      onChange={(e) => onDraftChange({ ...draft, [bound]: e.target.valueAsNumber })}
+      style={inputStyle}
+    />
+  );
+}
+
+/** KAN-461's «zwischen»: two inputs, one predicate — a field holds one
+ * filter, ranges included (ADR-102). A lower bound above the upper one is
+ * said in place and Save held back. */
+function RangeFilterValue({
+  field,
+  draft,
+  onDraftChange,
+  labels,
+}: {
+  field: FilterFieldDef;
+  draft: FilterPredicate;
+  onDraftChange: (draft: FilterPredicate) => void;
+  labels: Pick<FilterBuilderLabels, "rangeFrom" | "rangeTo" | "invalidRange">;
+}) {
+  const errorId = useId();
+  const bothTyped =
+    typeof draft.value === "number" && Number.isFinite(draft.value) && typeof draft.valueTo === "number" && Number.isFinite(draft.valueTo);
+  const inverted = bothTyped && !isValidRange(draft.value, draft.valueTo);
+  const Input = field.numberFormat === "chf" ? ChfFilterValue : NumberFilterValue;
+  return (
+    <span aria-describedby={inverted ? errorId : undefined} style={{ display: "inline-flex", alignItems: "center", gap: spacing.xs }}>
+      <Input label={labels.rangeFrom} draft={draft} onDraftChange={onDraftChange} bound="value" />
+      <span aria-hidden>–</span>
+      <Input label={labels.rangeTo} draft={draft} onDraftChange={onDraftChange} bound="valueTo" />
+      {inverted && (
+        <span id={errorId} role="alert" style={{ fontSize: 12, color: semantic.destructive.text }}>
+          {labels.invalidRange}
+        </span>
+      )}
+    </span>
   );
 }
 
@@ -407,7 +480,7 @@ function ValueInput({
   field: FilterFieldDef;
   draft: FilterPredicate;
   onDraftChange: (draft: FilterPredicate) => void;
-  labels: Pick<FilterBuilderLabels, "dayCount" | "invalidDayCount">;
+  labels: Pick<FilterBuilderLabels, "dayCount" | "invalidDayCount" | "day" | "rangeFrom" | "rangeTo" | "invalidRange">;
 }) {
   if (field.type === "select") {
     return (
@@ -423,6 +496,9 @@ function ValueInput({
   if (field.type === "boolean") {
     return null; // the condition itself ("is") plus the field label already say everything — see describePredicate
   }
+  if (field.type === "number" && draft.condition === "between") {
+    return <RangeFilterValue field={field} draft={draft} onDraftChange={onDraftChange} labels={labels} />;
+  }
   if (field.type === "number" && field.numberFormat === "chf") {
     // ADR-076 (KAN-168, KAN-454): a CHF amount is typed into the kit's
     // ChfInput — «CHF 40'000.00», the same figure the saved filter's text
@@ -431,14 +507,7 @@ function ValueInput({
     return <ChfFilterValue key={field.id} label={field.label} draft={draft} onDraftChange={onDraftChange} />;
   }
   if (field.type === "number") {
-    return (
-      <input
-        type="number"
-        value={typeof draft.value === "number" ? draft.value : ""}
-        onChange={(e) => onDraftChange({ ...draft, value: e.target.valueAsNumber })}
-        style={inputStyle}
-      />
-    );
+    return <NumberFilterValue draft={draft} onDraftChange={onDraftChange} />;
   }
   if (field.type === "date") {
     if (takesDayCount(draft.condition)) {
@@ -446,6 +515,18 @@ function ValueInput({
       // MAX_FILTER_DAYS would reach the endpoint as a 422 and show the
       // grid's error state.
       return <DayCountValue key={`${field.id}:${draft.condition}`} draft={draft} onDraftChange={onDraftChange} labels={labels} />;
+    }
+    if (takesCalendarDay(draft.condition)) {
+      // KAN-461: «am», «vor», «nach» a calendar day, as YYYY-MM-DD.
+      return (
+        <input
+          type="date"
+          aria-label={labels.day}
+          value={typeof draft.value === "string" ? draft.value : ""}
+          onChange={(e) => onDraftChange({ ...draft, value: e.target.value })}
+          style={inputStyle}
+        />
+      );
     }
     return null; // today/thisWeek/thisMonth/thisYear carry no free value
   }
