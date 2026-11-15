@@ -45,6 +45,7 @@ import ns_salesList from './it/salesList.json'
 import ns_setup from './it/setup.json'
 import ns_shell from './it/shell.json'
 import ns_standardTexts from './it/standardTexts.json'
+import ns_statusPage from './it/statusPage.json'
 import ns_stockDetail from './it/stockDetail.json'
 import ns_stockEnums from './it/stockEnums.json'
 import ns_stockList from './it/stockList.json'
@@ -106,6 +107,7 @@ const bundle = {
   setup: ns_setup,
   shell: ns_shell,
   standardTexts: ns_standardTexts,
+  statusPage: ns_statusPage,
   stockDetail: ns_stockDetail,
   stockEnums: ns_stockEnums,
   stockList: ns_stockList,

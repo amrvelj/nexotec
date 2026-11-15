@@ -1,8 +1,8 @@
 import type { ComponentType, CSSProperties, ReactNode } from "react";
 import { Bell, Building2, Check, FileText, LogOut, PanelLeftClose, PanelLeftOpen, ShieldCheck } from "lucide-react";
 import { Menu, SegmentedControl, Tooltip, UnstyledButton } from "@mantine/core";
-import { purple, radius, slate, spacing, white } from "../tokens";
-import type { NavGroupConfig, NavItemConfig } from "./types";
+import { purple, radius, semantic, slate, spacing, white } from "../tokens";
+import type { NavGroupConfig, NavItemConfig, NavItemIndicator } from "./types";
 
 export const SIDEBAR_WIDTH_EXPANDED = 240;
 export const SIDEBAR_WIDTH_COLLAPSED = 64;
@@ -501,6 +501,25 @@ export function Sidebar({
   );
 }
 
+function IndicatorDot({ indicator, floating = false }: { indicator: NavItemIndicator; floating?: boolean }) {
+  return (
+    <span
+      aria-hidden={floating ? undefined : "true"}
+      role={floating ? "status" : undefined}
+      aria-label={floating ? indicator.label : undefined}
+      data-nav-indicator={floating ? indicator.tone : undefined}
+      style={{
+        width: 8,
+        height: 8,
+        borderRadius: radius.full,
+        backgroundColor: semantic[indicator.tone].text,
+        boxShadow: `0 0 0 2px ${white}`,
+        ...(floating ? { position: "absolute", top: -2, right: -3 } : {}),
+      }}
+    />
+  );
+}
+
 function NavItem({
   item,
   collapsed,
@@ -536,8 +555,27 @@ function NavItem({
         whiteSpace: "nowrap",
       }}
     >
-      <Icon size={18} strokeWidth={2} />
+      <span style={{ position: "relative", display: "flex" }}>
+        <Icon size={18} strokeWidth={2} />
+        {collapsed && item.indicator && <IndicatorDot indicator={item.indicator} floating />}
+      </span>
       {!collapsed && <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{item.label}</span>}
+      {!collapsed && item.indicator && (
+        <span
+          data-nav-indicator={item.indicator.tone}
+          role="status"
+          aria-label={item.indicator.label}
+          title={item.indicator.label}
+          style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: spacing.xs, fontSize: 12, fontWeight: 600 }}
+        >
+          <IndicatorDot indicator={item.indicator} />
+          {item.indicator.count ? (
+            <span aria-hidden="true" style={{ color: semantic[item.indicator.tone].text }}>
+              {item.indicator.count > 99 ? "99+" : item.indicator.count}
+            </span>
+          ) : null}
+        </span>
+      )}
       {!collapsed && isSoon && (
         <span
           style={{

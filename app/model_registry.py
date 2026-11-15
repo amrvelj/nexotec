@@ -52,6 +52,7 @@ from app.platform.models.export_job import ExportJob
 from app.platform.models.legal import LegalAcceptance, LegalDocument
 from app.platform.models.setup_checklist import SetupChecklistRegression
 from app.platform.models.standard_text import StandardText
+from app.platform.models.status_page import PlatformStatusIncident, StatusItemState
 from app.platform.organisation.models.branding_asset import BrandingAsset
 from app.platform.organisation.models.contact_group import DealershipContactGroup
 from app.platform.organisation.models.dealership import DealerGroup, Dealership, Location
@@ -173,6 +174,7 @@ __all__ = [
     "NumberRangeConfirmation",
     "OutboxMessage",
     "PlateLookupCacheEntry",
+    "PlatformStatusIncident",
     "ProcessedEvent",
     "ProviderCodeMap",
     "ProviderEntityRef",
@@ -193,6 +195,7 @@ __all__ = [
     "SetupChecklistRegression",
     "StandardText",
     "StandardTextDelegation",
+    "StatusItemState",
     "StockItem",
     "StockItemBooking",
     "StockItemLedger",

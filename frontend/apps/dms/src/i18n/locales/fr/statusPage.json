@@ -1,0 +1,88 @@
+{
+  "title": "État",
+  "subtitle": "Ce que Nexotec vérifie en continu pour votre entreprise. Chaque point est déduit de vos données – rien n'est saisi à la main.",
+  "loadError": "La page d'état n'a pas pu être chargée.",
+  "overall": {
+    "ok": "Tout est au vert",
+    "warning": "À vérifier",
+    "blocked": "Action requise"
+  },
+  "overallDetail": {
+    "ok": "Chaque point vérifié est en ordre.",
+    "attention_one": "{{count, number}} point demande votre attention.",
+    "attention_other": "{{count, number}} points demandent votre attention."
+  },
+  "itemsTitle": "Points vérifiés",
+  "states": {
+    "ok": "En ordre",
+    "warning": "Avertissement",
+    "blocked": "Bloqué"
+  },
+  "sources": {
+    "number_ranges": "Plages de numéros",
+    "integration": "Intégrations",
+    "nexotec": "Nexotec"
+  },
+  "open": "Ouvrir",
+  "since": "depuis le {{date}}",
+  "until": "jusqu'au {{date}}",
+  "items": {
+    "numberRange": {
+      "ok": "{{documentType}} : {{percent, number}} % utilisés",
+      "nearlyExhausted": "{{documentType}} : {{percent, number}} % utilisés – la plage sera bientôt pleine. Élargissez le modèle.",
+      "exhausted": "{{documentType}} : pleine – plus aucun numéro ne peut être attribué. Élargissez le modèle."
+    },
+    "integration": {
+      "ok": "{{provider}} · {{connection}} : connecté",
+      "expiring": "{{provider}} · {{connection}} : l'accès expire dans {{days, number}} jours.",
+      "expired": "{{provider}} · {{connection}} : l'accès a expiré.",
+      "error": "{{provider}} · {{connection}} : le dernier test de connexion a échoué.",
+      "notTested": "{{provider}} · {{connection}} : pas encore testé."
+    },
+    "nexotec": {
+      "ok": "Tous les services de Nexotec fonctionnent normalement.",
+      "incident": "Incident chez Nexotec"
+    },
+    "sourceUnavailable": "Cette source n'a pas pu être vérifiée pour l'instant."
+  },
+  "indicator": {
+    "ok": "État : tout est au vert",
+    "attention_one": "État : {{count, number}} point demande votre attention",
+    "attention_other": "État : {{count, number}} points demandent votre attention"
+  },
+  "platform": {
+    "title": "État de Nexotec",
+    "subtitle": "Les incidents de Nexotec. Un incident en cours apparaît sur la page d'état de chaque entreprise.",
+    "loadError": "Les incidents n'ont pas pu être chargés.",
+    "new": "Saisir un incident",
+    "empty": "Aucun incident n'est saisi.",
+    "columns": {
+      "severity": "Gravité",
+      "title": "Titre",
+      "from": "Du",
+      "to": "Au",
+      "state": "État"
+    },
+    "severity": {
+      "warning": "Perturbé",
+      "blocked": "Panne"
+    },
+    "current": "En cours",
+    "ended": "Terminé",
+    "scheduled": "Planifié",
+    "end": "Terminer",
+    "edit": "Modifier",
+    "form": {
+      "createTitle": "Saisir un incident",
+      "editTitle": "Modifier l'incident",
+      "severity": "Gravité",
+      "titleIn": "Titre ({{language}})",
+      "bodyIn": "Texte ({{language}})",
+      "startsAt": "Début",
+      "endsAt": "Fin (vide = ouvert)",
+      "save": "Enregistrer",
+      "allLanguages": "Le titre et le texte sont requis dans les quatre langues."
+    },
+    "saveError": "L'incident n'a pas pu être enregistré."
+  }
+}

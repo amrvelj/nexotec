@@ -23,6 +23,10 @@ or `None` — "never probed or declared" is a fact this registry reports, not
 a policy it applies; `app.vehicle.services.catalogue_entitlements` is the
 one place that decides what `None` should mean for a given screen.
 
+`IntegrationStatusProvider` (KAN-223) is the connections' contribution to the
+Betrieb's status page, registered with `app.core.status` by the composition
+root `app/status_registry.py` — platform never imports it.
+
 `refresh_location_labels` / `oldest_location_label_age_seconds` (KAN-222)
 are the nightly refresh of a connection's copy of its location's name and its
 age gauge, which the worker registers and records like every label refresh.
@@ -116,6 +120,7 @@ from app.integration.services.gateway import (
 )
 from app.integration.services.location_labels import oldest_location_label_age_seconds, refresh_location_labels
 from app.integration.services.resilience import CircuitOpenError
+from app.integration.services.status import IntegrationStatusProvider
 
 __all__ = [
     "MARKETPLACE_PUBLISH_CAPABILITY",
@@ -131,6 +136,7 @@ __all__ = [
     "EnergyLabelData",
     "EntitlementState",
     "IntegrationExporter",
+    "IntegrationStatusProvider",
     "MarketplaceAdapter",
     "MarketplaceListing",
     "MarketplaceListingError",

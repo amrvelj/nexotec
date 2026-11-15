@@ -35,7 +35,9 @@
     "offboarding": "Offboard a business",
     "providers": "Providers",
     "setup": "Setup",
-    "legalDocuments": "Legal documents"
+    "legalDocuments": "Legal documents",
+    "status": "Status",
+    "platformStatus": "Nexotec status"
   },
   "signOut": "Sign out",
   "environmentNotice": {

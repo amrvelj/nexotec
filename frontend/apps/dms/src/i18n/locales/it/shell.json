@@ -35,7 +35,9 @@
     "offboarding": "Chiudere l'azienda",
     "providers": "Fornitori",
     "setup": "Configurazione",
-    "legalDocuments": "Testi legali"
+    "legalDocuments": "Testi legali",
+    "status": "Stato",
+    "platformStatus": "Stato di Nexotec"
   },
   "signOut": "Disconnetti",
   "environmentNotice": {

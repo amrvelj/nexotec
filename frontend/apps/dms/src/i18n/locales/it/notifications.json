@@ -114,6 +114,10 @@
     "checklistItemRegressed": {
       "title": "Un punto della configurazione manca di nuovo",
       "body": "Il punto «{{item}}» della lista di configurazione non è più soddisfatto. Finché non è completato, l'azione che ne ha bisogno è bloccata."
+    },
+    "statusItemDegraded": {
+      "title": "La pagina di stato non è più verde",
+      "body": "Un punto della pagina di stato della sua azienda richiede attenzione. Apra la pagina di stato per vedere quale e come risolverlo."
     }
   },
   "recoveryActions": {

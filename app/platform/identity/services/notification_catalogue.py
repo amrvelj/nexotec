@@ -19,7 +19,9 @@ Families: `security` ships in v1 (D-A-40). `administration`'s events: an
 integration connection nearing its expiry (KAN-222, FR-A-22), raised by
 platform's consumer of integration's `integration.connection.expiry_approaching`
 fact (ADR-047: integration never calls `notify`); a setup-checklist item that
-broke after activation (KAN-214, D-A-21), raised by platform's daily job.
+broke after activation (KAN-214, D-A-21), raised by platform's daily job; an
+item of the status page that is no longer green (KAN-223, D-A-38), raised by
+platform's daily job once per degradation.
 `assignment` is defined so its events register against the same catalogue
 when their sources ship.
 """
@@ -55,6 +57,9 @@ class NotificationEventCode(str, enum.Enum):
     INTEGRATION_EXPIRING = "administration.integration_expiring"
     # KAN-214 (D-A-21, FR-A-26): a setup-checklist item broken after activation.
     CHECKLIST_ITEM_REGRESSED = "administration.checklist_item_regressed"
+    # KAN-223 (D-A-38): an item of the status page that is no longer green —
+    # once per degradation until it clears (`services/status_notifications.py`).
+    STATUS_ITEM_DEGRADED = "administration.status_item_degraded"
 
 
 @dataclasses.dataclass(frozen=True)
@@ -235,6 +240,16 @@ CATALOGUE: tuple[NotificationEventSpec, ...] = (
             "fr": "Un point de la configuration manque à nouveau",
             "it": "Un punto della configurazione manca di nuovo",
             "en": "A setup item is missing again",
+        },
+    ),
+    _administration(
+        NotificationEventCode.STATUS_ITEM_DEGRADED,
+        "statusItemDegraded",
+        {
+            "de": "Die Statusseite ist nicht mehr grün",
+            "fr": "La page d'état n'est plus au vert",
+            "it": "La pagina di stato non è più verde",
+            "en": "The status page is no longer green",
         },
     ),
 )

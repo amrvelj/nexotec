@@ -1,0 +1,88 @@
+{
+  "title": "Stato",
+  "subtitle": "Ciò che Nexotec verifica continuamente per la sua azienda. Ogni punto è derivato dai suoi dati – nulla è impostato a mano.",
+  "loadError": "Non è stato possibile caricare la pagina di stato.",
+  "overall": {
+    "ok": "Tutto verde",
+    "warning": "Da verificare",
+    "blocked": "Intervento necessario"
+  },
+  "overallDetail": {
+    "ok": "Ogni punto verificato è in ordine.",
+    "attention_one": "{{count, number}} punto richiede attenzione.",
+    "attention_other": "{{count, number}} punti richiedono attenzione."
+  },
+  "itemsTitle": "Punti verificati",
+  "states": {
+    "ok": "In ordine",
+    "warning": "Avviso",
+    "blocked": "Bloccato"
+  },
+  "sources": {
+    "number_ranges": "Serie di numeri",
+    "integration": "Integrazioni",
+    "nexotec": "Nexotec"
+  },
+  "open": "Apri",
+  "since": "dal {{date}}",
+  "until": "fino al {{date}}",
+  "items": {
+    "numberRange": {
+      "ok": "{{documentType}}: {{percent, number}} % utilizzato",
+      "nearlyExhausted": "{{documentType}}: {{percent, number}} % utilizzato – la serie sarà presto piena. Ampli lo schema.",
+      "exhausted": "{{documentType}}: piena – non si può più assegnare alcun numero. Ampli lo schema."
+    },
+    "integration": {
+      "ok": "{{provider}} · {{connection}}: collegato",
+      "expiring": "{{provider}} · {{connection}}: l'accesso scade tra {{days, number}} giorni.",
+      "expired": "{{provider}} · {{connection}}: l'accesso è scaduto.",
+      "error": "{{provider}} · {{connection}}: l'ultimo test di collegamento non è riuscito.",
+      "notTested": "{{provider}} · {{connection}}: non ancora testato."
+    },
+    "nexotec": {
+      "ok": "Tutti i servizi di Nexotec funzionano normalmente.",
+      "incident": "Guasto presso Nexotec"
+    },
+    "sourceUnavailable": "Al momento non è stato possibile verificare questa fonte."
+  },
+  "indicator": {
+    "ok": "Stato: tutto verde",
+    "attention_one": "Stato: {{count, number}} punto richiede attenzione",
+    "attention_other": "Stato: {{count, number}} punti richiedono attenzione"
+  },
+  "platform": {
+    "title": "Stato di Nexotec",
+    "subtitle": "I guasti di Nexotec stessa. Un guasto in corso appare sulla pagina di stato di ogni azienda.",
+    "loadError": "Non è stato possibile caricare i guasti.",
+    "new": "Registra un guasto",
+    "empty": "Nessun guasto registrato.",
+    "columns": {
+      "severity": "Gravità",
+      "title": "Titolo",
+      "from": "Dal",
+      "to": "Al",
+      "state": "Stato"
+    },
+    "severity": {
+      "warning": "Rallentato",
+      "blocked": "Guasto"
+    },
+    "current": "In corso",
+    "ended": "Concluso",
+    "scheduled": "Pianificato",
+    "end": "Concludi",
+    "edit": "Modifica",
+    "form": {
+      "createTitle": "Registra un guasto",
+      "editTitle": "Modifica il guasto",
+      "severity": "Gravità",
+      "titleIn": "Titolo ({{language}})",
+      "bodyIn": "Testo ({{language}})",
+      "startsAt": "Inizio",
+      "endsAt": "Fine (vuoto = aperto)",
+      "save": "Salva",
+      "allLanguages": "Titolo e testo servono in tutte e quattro le lingue."
+    },
+    "saveError": "Non è stato possibile salvare il guasto."
+  }
+}

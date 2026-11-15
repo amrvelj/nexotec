@@ -4,6 +4,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
 import {
+  Activity,
   Archive,
   Building2,
   Cable,
@@ -29,6 +30,7 @@ import {
   Receipt,
   Scale,
   ShieldCheck,
+  Siren,
   Store,
   Tags,
   UserCog,
@@ -36,21 +38,32 @@ import {
   Warehouse,
   Wrench,
 } from 'lucide-react'
-import { AppShell, EnvironmentNotice, OverlayProvider, purple, white, type GlobalSearchGroup, type GlobalSearchProps, type NavGroupConfig } from '@nexotec/ui-kit'
+import {
+  AppShell,
+  EnvironmentNotice,
+  OverlayProvider,
+  purple,
+  white,
+  type GlobalSearchGroup,
+  type GlobalSearchProps,
+  type NavGroupConfig,
+  type NavItemIndicator,
+} from '@nexotec/ui-kit'
+import { useStatusPage } from '../hooks/useStatusPage'
 import { useAuth } from '../auth/AuthContext'
 import { outboxWorkerAbsent } from '../config/deployment'
 import { LEGAL_PRIVACY_PATH, LEGAL_TERMS_PATH } from '../config/legalPages'
 import { UiPreferencesProvider, useUiPreferencesContext } from '../hooks/UiPreferencesContext'
 import { api, ApiError } from '../api/client'
 import { customerName } from '../shared/displayNames'
-import type { CustomerPage, VehicleSearchResult } from '../api/types'
+import type { CustomerPage, StatusState, VehicleSearchResult } from '../api/types'
 import { filterNavGroupsByEntitlements } from './navEntitlements'
 import { useUnreadNotificationCount } from '../hooks/useNotifications'
 import { rebindPushToThisSession } from '../utils/webPush'
 
 // Translated at render time (not a module-level constant) — labels must
 // re-render when the user switches UI language via the top bar.
-function buildNavGroups(t: (key: string) => string): NavGroupConfig[] {
+function buildNavGroups(t: (key: string) => string, statusIndicator?: NavItemIndicator): NavGroupConfig[] {
   return [
     {
       // No `label` — a single top-level entry above Master Data, not its
@@ -105,6 +118,17 @@ function buildNavGroups(t: (key: string) => string): NavGroupConfig[] {
         // aktivieren» (D-A-21). The manager's at the API (`setup_checklist`);
         // never role-hidden (A-RULE-7).
         { label: t('shell.nav.setup'), href: '/administration/setup', icon: ListChecks, status: 'active' },
+        // KAN-223 — Dealer Administration › Status («Alles grün», D-A-38). Every
+        // role reads it; the entry is never role-hidden (A-RULE-7). Its
+        // indicator (green dot / count) is the managers' only (Anto,
+        // 2026-11-14, Q2 A) — the shell's compact status indicator.
+        {
+          label: t('shell.nav.status'),
+          href: '/administration/status',
+          icon: Activity,
+          status: 'active',
+          indicator: statusIndicator,
+        },
         // KAN-200 — Dealer Administration › Users. Manager-only at the API
         // (`dealership_users`); the entry is never role-hidden (A-RULE-7).
         // KAN-203 — Dealer Administration › Business (A-RULE-0: the one place
@@ -164,9 +188,40 @@ function buildNavGroups(t: (key: string) => string): NavGroupConfig[] {
         // KAN-214 — Platform Administration › Legal documents (FR-A-39): the ToS
         // and DPA versions. Staff-only at the API; never role-hidden (A-RULE-7).
         { label: t('shell.nav.legalDocuments'), href: '/platform/legal-documents', icon: Scale, status: 'active' },
+        // KAN-223 — Platform Administration › Nexotec status (D-A-38): the
+        // incidents every Betrieb's status page shows. Staff-only at the API;
+        // never role-hidden (A-RULE-7).
+        { label: t('shell.nav.platformStatus'), href: '/platform/status', icon: Siren, status: 'active' },
       ],
     },
   ]
+}
+
+const STATUS_TONE: Record<StatusState, NavItemIndicator['tone']> = {
+  ok: 'success',
+  warning: 'warning',
+  blocked: 'destructive',
+}
+
+/** The status page's compact indicator (KAN-223; D-A-38): a green dot, or the
+ * worst state's colour with the count of items that want attention. None
+ * while it loads or failed, and none for anyone but a manager. */
+function useStatusIndicator(
+  dealershipId: string,
+  enabled: boolean,
+  t: (key: string, options?: Record<string, unknown>) => string
+): NavItemIndicator | undefined {
+  const status = useStatusPage(dealershipId, enabled, { poll: true })
+  if (!enabled || !status.data) return undefined
+  const { state, attentionCount } = status.data
+  return {
+    tone: STATUS_TONE[state],
+    count: attentionCount,
+    label:
+      attentionCount === 0
+        ? t('statusPage.indicator.ok')
+        : t('statusPage.indicator.attention', { count: attentionCount }),
+  }
 }
 
 const GLOBAL_SEARCH_LIMIT_PER_ENTITY = 5
@@ -316,14 +371,30 @@ export function DmsShell({ children }: { children: ReactNode }) {
 }
 
 function DmsShellInner({ children }: { children: ReactNode }) {
-  const { user, activeDealership, memberships, entitlements, logout, switchDealership, mfaEnrolmentRequired } = useAuth()
+  const {
+    user,
+    activeDealership,
+    memberships,
+    entitlements,
+    logout,
+    switchDealership,
+    mfaEnrolmentRequired,
+    isActiveDealershipManager,
+  } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const { t, i18n } = useTranslation()
   const { sidebarCollapsed, uiLanguage, setSidebarCollapsed, setUiLanguage } = useUiPreferencesContext()
   const [switchError, setSwitchError] = useState<string | null>(null)
 
-  const navGroups = filterNavGroupsByEntitlements(buildNavGroups(t), entitlements)
+  // KAN-223 (Q2 A): the status indicator is the active Betrieb's managers'
+  // only — a salesperson cannot fix a bank account or a domain.
+  const statusIndicator = useStatusIndicator(
+    activeDealership?.id ?? '',
+    isActiveDealershipManager && !mfaEnrolmentRequired,
+    t
+  )
+  const navGroups = filterNavGroupsByEntitlements(buildNavGroups(t, statusIndicator), entitlements)
 
   // The sidebar matches `item.href` exactly. Most nav routes are a single
   // segment (`/customers`, `/stock`), but a couple are two

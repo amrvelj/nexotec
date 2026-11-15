@@ -114,6 +114,10 @@
     "checklistItemRegressed": {
       "title": "Un point de la configuration manque à nouveau",
       "body": "Le point «{{item}}» de la liste de mise en service n'est plus rempli. Tant qu'il ne l'est pas, l'action qui en a besoin est bloquée."
+    },
+    "statusItemDegraded": {
+      "title": "La page d'état n'est plus au vert",
+      "body": "Un point de la page d'état de votre entreprise demande votre attention. Ouvrez la page d'état pour voir lequel et comment le corriger."
     }
   },
   "recoveryActions": {

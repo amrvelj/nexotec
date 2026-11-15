@@ -42,7 +42,7 @@ class RegressionRun:
     notified: int
 
 
-def _managers(db: Session, dealership_id) -> list[User]:
+def active_managers(db: Session, dealership_id) -> list[User]:
     members = select(DealershipMembership.user_id).where(
         DealershipMembership.dealership_id == dealership_id,
         DealershipMembership.is_dealer_manager.is_(True),
@@ -89,7 +89,7 @@ def check_dealership(db: Session, dealership: Dealership) -> RegressionRun:
             db.add(regression)
             db.flush()
             opened += 1
-            for manager in _managers(db, dealership.id):
+            for manager in active_managers(db, dealership.id):
                 delivered = notifications.notify(
                     db,
                     NotificationEventCode.CHECKLIST_ITEM_REGRESSED,
