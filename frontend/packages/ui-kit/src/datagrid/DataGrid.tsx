@@ -72,10 +72,8 @@ export interface DataGridProps<T> {
   getRowId: (row: T) => string;
   sort: SortSpec[];
   onSortChange: (sort: SortSpec[]) => void;
-  /** KAN-461: the fields the list endpoint sorts, from its served grid
-   * schema. Given, a header sorts exactly when its column id is in the set
-   * and `meta.sortField` is not read; omitted, `meta.sortField` decides (a
-   * grid not yet on the list-query layer). */
+  /** KAN-461: the fields the endpoint sorts (its grid schema): a header sorts exactly when its id is in
+   * the set. Omitted, `meta.sortField` decides (a grid not on the list-query layer). */
   sortableFields?: ReadonlySet<string>;
   density: Density;
   rowHref?: (row: T) => string;
@@ -389,15 +387,7 @@ export function DataGrid<T>({
                     <HeaderCell
                       key={header.id}
                       label={isActions ? "" : flexRender(header.column.columnDef.header, header.getContext())}
-                      sortField={
-                        isActions
-                          ? undefined
-                          : sortableFields
-                            ? sortableFields.has(columnId)
-                              ? columnId
-                              : undefined
-                            : meta?.sortField
-                      }
+                      sortField={isActions ? undefined : sortableFields ? (sortableFields.has(columnId) ? columnId : undefined) : meta?.sortField}
                       sort={sort}
                       onSortChange={onSortChange}
                       pinned={isActions ? "right" : meta?.pinned}
