@@ -16,7 +16,6 @@ paths:
   - "frontend/apps/dms/src/hooks/useSavedViews.ts"
   - "frontend/apps/dms/src/hooks/*ersistedPreference*"
   - "frontend/apps/dms/src/utils/gridExport*"
-  - "frontend/apps/dms/src/hooks/useSortInUrl*"
   - "frontend/apps/dms/src/utils/columnRegistry*"
   - "frontend/apps/dms/src/hooks/useSortInUrl*"
   - "frontend/apps/dms/src/pages/StandardTextsPage*"

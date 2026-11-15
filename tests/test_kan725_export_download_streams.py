@@ -10,6 +10,7 @@ Python's allocations while the service's download is read measured with
 `tracemalloc`.
 """
 
+import asyncio
 import hashlib
 import os
 import tempfile
@@ -20,6 +21,7 @@ from sqlalchemy import select
 
 from app.core.audit_model import AuditEvent
 from app.core.object_store import LocalDirectoryObjectStore
+from app.main import app as fastapi_app
 from app.platform.models.export_job import ExportJob
 from app.platform.services import data_export
 from tests.data_export_support import (
@@ -92,6 +94,56 @@ def test_the_download_is_read_in_chunks_with_a_bounded_peak(client, engine, db_s
     assert digest.hexdigest() == expected
     assert opened.stream.closed
     assert peak < PEAK_LIMIT, f"peak {peak} bytes while downloading {SIZE} bytes"
+
+
+def _asgi_get(path: str, headers: dict[str, str]) -> tuple[int, list[int], str]:
+    """The route called over raw ASGI — the TestClient would buffer the body
+    — with a `send` that keeps only each body message's size; returns the
+    status, those sizes and the bytes' SHA-256."""
+
+    status: list[int] = []
+    sizes: list[int] = []
+    digest = hashlib.sha256()
+    scope = {
+        "type": "http", "asgi": {"version": "3.0"}, "http_version": "1.1", "method": "GET", "scheme": "http",
+        "path": path, "raw_path": path.encode(), "query_string": b"", "root_path": "",
+        "headers": [(k.lower().encode(), v.encode()) for k, v in headers.items()],
+        "client": ("testclient", 50000), "server": ("testserver", 80),
+    }
+
+    requested = False
+
+    async def receive():
+        nonlocal requested
+        if not requested:
+            requested = True
+            return {"type": "http.request", "body": b"", "more_body": False}
+        await asyncio.Event().wait()  # the client never disconnects
+        raise AssertionError("unreachable")
+
+    async def send(message):
+        if message["type"] == "http.response.start":
+            status.append(message["status"])
+        elif message["type"] == "http.response.body":
+            body = message.get("body", b"")
+            sizes.append(len(body))
+            digest.update(body)
+
+    asyncio.run(fastapi_app(scope, receive, send))
+    return status[0], sizes, digest.hexdigest()
+
+
+def test_the_route_sends_the_archive_in_chunks_never_whole(client, engine, db_session, export_store):
+    dealership_id, row, headers, expected = _ready_export_with_a_large_file(client, engine, db_session, export_store)
+
+    status, sizes, digest = _asgi_get(f"/v1/dealerships/{dealership_id}/exports/{row.id}/download", headers)
+
+    assert status == 200
+    assert digest == expected
+    assert sum(sizes) == SIZE
+    # Streamed: many body messages, none larger than one store chunk.
+    assert len([size for size in sizes if size]) >= SIZE // (1024 * 1024)
+    assert max(sizes) <= 1024 * 1024
 
 
 def test_the_store_opens_nothing_for_a_missing_key(tmp_path):

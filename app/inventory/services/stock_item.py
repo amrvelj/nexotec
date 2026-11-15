@@ -779,7 +779,8 @@ def correct_vin(
     one it has (422 `vin_unchanged`); another item of the Betrieb holds it in
     stock (409 `vin_already_in_stock`); the configuration names a third VIN
     (422 `configuration_vin_differs`). Vehicle's refusals pass through
-    (`vin_belongs_to_other_vehicle`, `vehicle_vin_changed`, `vehicle_merged`).
+    (`vin_belongs_to_other_vehicle`, `vin_names_merged_vehicle` — KAN-729,
+    `vehicle_vin_changed`, `vehicle_merged`).
 
     KAN-535 (Anto, 2026-11-14, option B): a pre-1981 car bought under its
     chassis number has that number corrected here, under the same rules —

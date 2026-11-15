@@ -397,7 +397,9 @@ def correct_vehicle_vin(
     the compensation is the same call with the VINs swapped,
     `compensation=True`, and only what changed — `include_record=False` and
     no `configuration_id` leave either alone. Refusals: 404, 409 `vehicle_merged`,
-    `vehicle_vin_changed`, `vin_belongs_to_other_vehicle`, 422
+    `vehicle_vin_changed`, `vin_belongs_to_other_vehicle`,
+    `vin_names_merged_vehicle` (only a merged duplicate carries the VIN; the
+    survivor is named, KAN-729), 422
     `configuration_vin_differs`, `invalid_vin` (a chassis number on a VIN
     record), `chassis_number_requires_pre_1981_registration` — each with
     nothing written.

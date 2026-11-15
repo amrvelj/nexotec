@@ -11,8 +11,10 @@ from scripts import rule_budget
 
 
 def _tracked_files() -> list[str]:
+    """Committed files only: a glob matched by an uncommitted local file
+    would pass here and fail on CI."""
     out = subprocess.run(
-        ("git", "ls-files", "--cached", "--others", "--exclude-standard"),
+        ("git", "ls-files", "--cached"),
         cwd=rule_budget.ROOT, check=True, capture_output=True, text=True,
     ).stdout
     return [line for line in out.splitlines() if line]
