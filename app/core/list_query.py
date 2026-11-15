@@ -88,8 +88,10 @@ _PERIOD_OF = {"today": "day", "thisWeek": "week", "thisMonth": "month", "thisYea
 # The bounds every N-days condition takes (the customer list's own, KAN-474).
 MAX_FILTER_DAYS = 36500
 MAX_TEXT_FILTER_LENGTH = 200
-# The calendar days a date filter takes — far wider than any stored date.
-MIN_FILTER_YEAR = 1900
+# The calendar days a date filter takes: a veteran car's first registration
+# (KAN-535 accepts pre-1981 cars) is well inside; the bounds keep the day
+# arithmetic and the UTC bind clear of year 1 and year 9999, which overflow.
+MIN_FILTER_YEAR = 1800
 MAX_FILTER_YEAR = 2999
 _NUMBER = re.compile(r"^-?\d{1,12}(\.\d{1,4})?$")
 _MONEY = re.compile(r"^-?\d{1,10}(\.\d{1,2})?$")

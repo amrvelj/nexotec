@@ -42,6 +42,7 @@ import {
 } from '../stockOptions'
 import { formatCurrencyChf, formatDate, formatDateOnly, formatNumber } from '../utils/format'
 import { GroupStockGrid } from './stock/GroupStockGrid'
+import { buildStockGroupColumns } from './stock/columns/stockGroupColumns'
 import { STOCK_VEHICLE_COLUMN_WIDTH } from './stock/columns/stockVehicleColumn'
 import { buildStockRowMenu, stockOpenState, type StockOpenAction } from '../components/stockRowMenu'
 import { AddToPipelineButton } from './stock/AddToPipelineButton'
@@ -54,8 +55,6 @@ import { useDataGridLabels } from '../hooks/useDataGridLabels'
 
 const GRID_KEY = 'inventory.stock.list'
 const DEFAULT_SORT: SortSpec[] = [{ field: 'updatedAt', direction: 'desc' }]
-/** The group stock list's sorts (app/inventory/api/group.py). */
-const GROUP_SORT_FIELDS: ReadonlySet<string> = new Set(['stockNumber', 'vin', 'updatedAt', 'createdAt'])
 
 export function StockListPage() {
   const { t, i18n } = useTranslation()
@@ -132,7 +131,13 @@ export function StockListPage() {
   // the own grid's price, carried over by a scope switch or a link — is
   // narrowed away, never sent (KAN-461).
   const urlGroupSort = searchParams.get('sort') ? sortSpecFromQueryParam(searchParams.get('sort')) : []
-  const offeredGroupSort = urlGroupSort.filter((s) => GROUP_SORT_FIELDS.has(s.field))
+  // The fields the group grid's own headers sort (stockGroupColumns; the
+  // backend's list is held to them by test_inventory_group_listing_api.py).
+  const groupSortFields = useMemo(
+    () => new Set(buildStockGroupColumns(t, locale).flatMap((c) => (c.meta?.sortField ? [c.meta.sortField] : []))),
+    [t, locale]
+  )
+  const offeredGroupSort = urlGroupSort.filter((s) => groupSortFields.has(s.field))
   const groupSort = offeredGroupSort.length > 0 ? offeredGroupSort : DEFAULT_SORT
   const setGroupSort = (next: SortSpec[]) => {
     updateUrl({ sort: sortSpecToQueryParam(next) ?? null })
@@ -272,7 +277,7 @@ export function StockListPage() {
           ) : (
             '—'
           ),
-              },
+      },
       {
         id: 'basePrice',
         header: t('stockList.columns.basePrice'),
@@ -301,27 +306,27 @@ export function StockListPage() {
         id: 'isInvoiceable',
         header: t('stockList.columns.isInvoiceable'),
         cell: ({ row }) => yesNo(row.original.isInvoiceable),
-              },
+      },
       {
         id: 'supplierName',
         header: t('stockList.columns.supplierName'),
         cell: ({ row }) => row.original.supplierName ?? '—',
-              },
+      },
       {
         id: 'purchaseDate',
         header: t('stockList.columns.purchaseDate'),
         cell: ({ row }) => (row.original.purchaseDate ? formatDateOnly(row.original.purchaseDate, locale) : '—'),
-              },
+      },
       {
         id: 'orderDate',
         header: t('stockList.columns.orderDate'),
         cell: ({ row }) => (row.original.orderDate ? formatDateOnly(row.original.orderDate, locale) : '—'),
-              },
+      },
       {
         id: 'expectedDelivery',
         header: t('stockList.columns.expectedDelivery'),
         cell: ({ row }) => (row.original.expectedDelivery ? formatDateOnly(row.original.expectedDelivery, locale) : '—'),
-              },
+      },
       {
         id: 'pipelineRef',
         header: t('stockList.columns.pipelineRef'),
@@ -333,7 +338,7 @@ export function StockListPage() {
         id: 'configurationLabel',
         header: t('stockList.columns.configuration'),
         cell: ({ row }) => row.original.configurationLabel ?? '—',
-              },
+      },
       // KAN-461: the persisted fields the grid did not offer before.
       {
         id: 'exteriorColour',
