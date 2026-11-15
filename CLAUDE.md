@@ -102,7 +102,7 @@ Lowest layer first (ADR-131); peers: parts and inventory, aftersales and sales.
 | Context | Owns |
 |---|---|
 | `platform` | tenants/dealers, users, auth, roles, module entitlements, feature flags, reference data, locations, document templates |
-| `integration` | the integration registry (connections, write-only secret refs, entitlements, call log, retention) + provider-gateway adapters; the AI prompt library and `generate` (ADR-181) |
+| `integration` | the integration registry (connections, write-only secret refs, entitlements, call log, retention) + provider-gateway adapters; AI (ADR-181) |
 | `vehicle` | physical vehicles, catalogue (canonical taxonomy + per-tenant provider mirror), plates, odometer, custody, provenance, the configurator |
 | `customer` | customers (**group-scoped**, ADR-014), contact channels as child collections (ADR-067), external IDs, duplicates/merges, `VehicleParty` |
 | `valuation` | the standalone valuation application (ADR-066), tenant-private (ADR-029) |

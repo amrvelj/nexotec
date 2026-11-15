@@ -185,7 +185,7 @@
       "discard": "Verwerfen",
       "failed": "Es konnte kein Vorschlag erstellt werden.",
       "connect": "KI-Anbieter verbinden",
-      "tooLong": "Der Vorschlag ist länger als die {{count}} Zeichen der Beschreibung. Kürzen Sie ihn, bevor Sie ihn übernehmen.",
+      "tooLong": "Der Vorschlag ist länger als die {{count, number}} Zeichen der Beschreibung. Kürzen Sie ihn, bevor Sie ihn übernehmen.",
       "replaceTitle": "Bestehende Beschreibung ersetzen?",
       "replaceBody": "Die Beschreibung enthält bereits Text. Übernehmen Sie den Vorschlag, wird dieser Text ersetzt.",
       "replaceConfirm": "Ersetzen",

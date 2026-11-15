@@ -185,7 +185,7 @@
       "discard": "Discard",
       "failed": "No suggestion could be created.",
       "connect": "Connect an AI provider",
-      "tooLong": "The suggestion is longer than the description's {{count}} characters. Shorten it before you use it.",
+      "tooLong": "The suggestion is longer than the description's {{count, number}} characters. Shorten it before you use it.",
       "replaceTitle": "Replace the existing description?",
       "replaceBody": "The description already holds text. Using the suggestion replaces it.",
       "replaceConfirm": "Replace",
