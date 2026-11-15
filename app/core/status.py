@@ -71,10 +71,10 @@ class StatusItem:
     link: str | None
     # Values the message interpolates (a provider's name, a percentage).
     params: dict[str, str | int] = dataclasses.field(default_factory=dict)
-    # True when the source raises its own `administration` notification for
-    # this state already (an integration nearing expiry: KAN-222's
-    # T-30/14/7 `administration.integration_expiring`), so the status job
-    # does not tell the managers a second time.
+    # True only when the source has really announced this state to the
+    # managers itself (an integration whose T-30/14/7 expiry notice was sent,
+    # KAN-222), so the status job does not tell them a second time. Honoured
+    # for a warning only: the move to blocked is always announced.
     notified_by_source: bool = False
 
 

@@ -22,6 +22,9 @@ of ui.md by KAN-615 (2026-11-13). Last verified against main@73baf3f (2026-10-25
   accessible name and tooltip — and names the dashboard once on the dashboard itself. A page's own
   segments: `ui-detail.md`. Account chrome lives only in the sidebar footer; the top bar carries
   the breadcrumb and search only.
+- **A state marker sits on its sidebar entry** (`NavItemConfig.indicator`: tone, count, label;
+  KAN-223): the status page's dot and count are on «Status» — managers only, a dot on the icon
+  when collapsed — because the top bar stays breadcrumb and search only.
 - **ADR-084 — one environment-notice slot.** `AppShell`'s optional `notice` strip (ui-kit
   `shell/EnvironmentNotice.tsx`, between the top bar and the content, `role="status"`, no dismiss)
   is the only place for a persistent deployment-level notice — D-A-05's support-access banner uses

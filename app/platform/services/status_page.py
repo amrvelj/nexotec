@@ -55,6 +55,9 @@ class StatusPage:
     # The current incidents behind the `nexotec.incident.*` items, by key —
     # the page shows their own four-language title and text.
     incidents: dict[str, PlatformStatusIncident]
+    # Sources that raised on this read: their items are one
+    # `<source>.unavailable` item, and their real items are unknown, not gone.
+    unavailable_sources: frozenset[str] = frozenset()
 
 
 def _number_range_item(row: NumberRange, *, year: int) -> StatusItem:
@@ -137,6 +140,7 @@ def derive(db: Session, dealership_id: uuid.UUID, *, now: dt.datetime) -> Status
 
     items: list[StatusItem] = [*number_range_items(db, dealership_id)]
     nexotec, incidents = nexotec_items(db, now)
+    unavailable: set[str] = set()
     for provider in status_providers():
         try:
             # A savepoint, so a source whose query failed leaves the caller's
@@ -150,6 +154,7 @@ def derive(db: Session, dealership_id: uuid.UUID, *, now: dt.datetime) -> Status
                 dealership_id,
                 extra={"dealershipId": str(dealership_id), "source": provider.source},
             )
+            unavailable.add(provider.source)
             items.append(
                 StatusItem(
                     key=f"{provider.source}.unavailable",
@@ -165,4 +170,5 @@ def derive(db: Session, dealership_id: uuid.UUID, *, now: dt.datetime) -> Status
         state=worst([item.state for item in items]),
         items=tuple(items),
         incidents=incidents,
+        unavailable_sources=frozenset(unavailable),
     )
