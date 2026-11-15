@@ -37,7 +37,8 @@
     "setup": "Setup",
     "legalDocuments": "Legal documents",
     "status": "Status",
-    "platformStatus": "Nexotec status"
+    "platformStatus": "Nexotec status",
+    "aiTexts": "AI texts"
   },
   "signOut": "Sign out",
   "environmentNotice": {

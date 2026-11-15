@@ -97,5 +97,5 @@ KAN-614 (2026-11-10) to the invariants; platform.md was verified against main@73
 - `POST /v1/i18n/missing-translations` logs keys that rendered the marker (a session, ≤ 50 keys,
   the log capped at 5000 rows).
 - The screen is `/platform/translations`; its sources (`components/translations/translationSources.ts`)
-  are `ui` and `standardTexts`, each a panel on the shared `FourLanguageEditor` (the AI-prompt seeds,
-  [P3-7], join there). The SPA side is `ui-i18n-runtime.md`.
+  are `ui`, `standardTexts` and `aiPrompts` (KAN-227's seeds, `integration-ai.md`), each a panel on
+  the shared `FourLanguageEditor`. The SPA side is `ui-i18n-runtime.md`.

@@ -1091,6 +1091,42 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/dealerships/{dealership_id}/ai-prompts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Ai Prompts */
+        get: operations["list_ai_prompts_v1_dealerships__dealership_id__ai_prompts_get"];
+        put?: never;
+        /** Create Ai Prompt */
+        post: operations["create_ai_prompt_v1_dealerships__dealership_id__ai_prompts_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/dealerships/{dealership_id}/ai-prompts/{prompt_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Ai Prompt */
+        delete: operations["delete_ai_prompt_v1_dealerships__dealership_id__ai_prompts__prompt_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update Ai Prompt */
+        patch: operations["update_ai_prompt_v1_dealerships__dealership_id__ai_prompts__prompt_id__patch"];
+        trace?: never;
+    };
     "/v1/dealerships/{dealership_id}/audit-log": {
         parameters: {
             query?: never;
@@ -2953,6 +2989,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/inventory/stock-items/{stock_item_id}/listing-text-suggestions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Suggest Listing Text
+         * @description KAN-227 «Text vorschlagen» (FR-A-38): a description suggested by the
+         *     Betrieb's own AI provider. Stores nothing and publishes nothing — the
+         *     answer is for the user to take into the description and edit. Gated like
+         *     the listing texts it fills (`marketplace_publishing`); a Betrieb without an
+         *     AI connection gets 409 `ai_not_connected`.
+         */
+        post: operations["suggest_listing_text_v1_inventory_stock_items__stock_item_id__listing_text_suggestions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/inventory/stock-items/{stock_item_id}/media": {
         parameters: {
             query?: never;
@@ -3601,6 +3661,57 @@ export interface paths {
         post?: never;
         /** Delete My Signature */
         delete: operations["delete_my_signature_v1_me_signature_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/platform/ai-prompt-seeds": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Ai Prompt Seeds */
+        get: operations["list_ai_prompt_seeds_v1_platform_ai_prompt_seeds_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/platform/ai-prompt-seeds/{seed_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Update Ai Prompt Seed */
+        put: operations["update_ai_prompt_seed_v1_platform_ai_prompt_seeds__seed_id__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/platform/ai-prompt-seeds/{seed_id}/revert": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Revert Ai Prompt Seed */
+        post: operations["revert_ai_prompt_seed_v1_platform_ai_prompt_seeds__seed_id__revert_post"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -5215,6 +5326,164 @@ export interface components {
          * @enum {string}
          */
         AgeingBucket: "green" | "amber" | "red";
+        /**
+         * AiConnectionInUseRead
+         * @description The Betrieb's AI connection generation uses (`services/ai_generation.py`).
+         */
+        AiConnectionInUseRead: {
+            /**
+             * Connectionid
+             * Format: uuid
+             */
+            connectionId: string;
+            /** Displayname */
+            displayName: string;
+            /** Providercode */
+            providerCode: string;
+            /** Providername */
+            providerName: string;
+            status: components["schemas"]["ConnectionStatus"];
+        };
+        /** AiPromptCodeRead */
+        AiPromptCodeRead: {
+            /** Code */
+            code: string;
+            /** Placeholders */
+            placeholders: string[];
+        };
+        /**
+         * AiPromptCreate
+         * @description The Betrieb's adaptation of a seed (same code and language).
+         */
+        AiPromptCreate: {
+            /** Code */
+            code: string;
+            language: components["schemas"]["SwissLanguage"];
+            /** Systemprompt */
+            systemPrompt: string;
+            /** Userprompt */
+            userPrompt: string;
+        };
+        /**
+         * AiPromptList
+         * @description Every seed and every override of the Betrieb; the codes with their
+         *     placeholders; the connection in use (null: none connected).
+         */
+        AiPromptList: {
+            /** Codes */
+            codes: components["schemas"]["AiPromptCodeRead"][];
+            connection: components["schemas"]["AiConnectionInUseRead"] | null;
+            /** Items */
+            items: components["schemas"]["AiPromptRead"][];
+        };
+        /** AiPromptRead */
+        AiPromptRead: {
+            /** Active */
+            active: boolean;
+            /** Code */
+            code: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            language: components["schemas"]["SwissLanguage"];
+            /** Overriddenfromid */
+            overriddenFromId: string | null;
+            /** Seedchanged */
+            seedChanged: boolean;
+            source: components["schemas"]["AiPromptSource"];
+            /** Systemprompt */
+            systemPrompt: string;
+            /** Title */
+            title: string;
+            /**
+             * Updatedat
+             * Format: date-time
+             */
+            updatedAt: string;
+            /** Userprompt */
+            userPrompt: string;
+            /** Version */
+            version: number;
+        };
+        /** AiPromptSeedGroup */
+        AiPromptSeedGroup: {
+            /** Code */
+            code: string;
+            de?: components["schemas"]["AiPromptSeedRead"] | null;
+            en?: components["schemas"]["AiPromptSeedRead"] | null;
+            fr?: components["schemas"]["AiPromptSeedRead"] | null;
+            it?: components["schemas"]["AiPromptSeedRead"] | null;
+            /** Placeholders */
+            placeholders: string[];
+        };
+        /** AiPromptSeedList */
+        AiPromptSeedList: {
+            /** Items */
+            items: components["schemas"]["AiPromptSeedGroup"][];
+        };
+        /** AiPromptSeedRead */
+        AiPromptSeedRead: {
+            /** Edited */
+            edited: boolean;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            language: components["schemas"]["SwissLanguage"];
+            /** Shippedsystemprompt */
+            shippedSystemPrompt: string | null;
+            /** Shippedtitle */
+            shippedTitle: string | null;
+            /** Shippeduserprompt */
+            shippedUserPrompt: string | null;
+            /** Systemprompt */
+            systemPrompt: string;
+            /** Title */
+            title: string;
+            /**
+             * Updatedat
+             * Format: date-time
+             */
+            updatedAt: string;
+            /** Updatedby */
+            updatedBy: string | null;
+            /** Userprompt */
+            userPrompt: string;
+            /** Version */
+            version: number;
+        };
+        /** AiPromptSeedUpdate */
+        AiPromptSeedUpdate: {
+            /** Systemprompt */
+            systemPrompt?: string | null;
+            /** Title */
+            title?: string | null;
+            /** Userprompt */
+            userPrompt?: string | null;
+        };
+        /**
+         * AiPromptSource
+         * @enum {string}
+         */
+        AiPromptSource: "platform_seed" | "dealer";
+        /**
+         * AiPromptUpdate
+         * @description PATCH: a field not sent keeps its value. `seedReviewed: true` records
+         *     that the seed's current wording was reviewed.
+         */
+        AiPromptUpdate: {
+            /** Active */
+            active?: boolean | null;
+            /** Seedreviewed */
+            seedReviewed?: boolean | null;
+            /** Systemprompt */
+            systemPrompt?: string | null;
+            /** Userprompt */
+            userPrompt?: string | null;
+        };
         /**
          * ArchiveExportRequest
          * @description Q2 B: staff produce an archive export for a former manager who asked
@@ -9304,6 +9573,28 @@ export interface components {
             /** Factoryoptions */
             factoryOptions?: components["schemas"]["LineItemFactoryOptionPatch"][];
         };
+        /**
+         * ListingTextSuggestionRead
+         * @description A suggestion only: nothing was stored or published. The user takes it
+         *     into the description and edits it.
+         */
+        ListingTextSuggestionRead: {
+            language: components["schemas"]["SwissLanguage"];
+            /** Promptadapted */
+            promptAdapted: boolean;
+            /** Providername */
+            providerName: string;
+            /** Text */
+            text: string;
+        };
+        /**
+         * ListingTextSuggestionRequest
+         * @description KAN-227 «Text vorschlagen». `language`: the listing's language; left
+         *     out, the Betrieb's correspondence language.
+         */
+        ListingTextSuggestionRequest: {
+            language?: components["schemas"]["SwissLanguage"] | null;
+        };
         /** ListingTextUpdate */
         ListingTextUpdate: {
             /** Bemerkungen */
@@ -11793,7 +12084,7 @@ export interface components {
          * SecretSlot
          * @enum {string}
          */
-        SecretSlot: "password" | "client_secret" | "refresh_token" | "certificate";
+        SecretSlot: "password" | "client_secret" | "refresh_token" | "certificate" | "api_key";
         /**
          * SecretSlotRead
          * @description The slot's own metadata only — never `secretRef`, never a value.
@@ -12790,6 +13081,10 @@ export interface components {
              * Format: date
              */
             periodTo: string;
+            /** Tokensin */
+            tokensIn?: number | null;
+            /** Tokensout */
+            tokensOut?: number | null;
             /** Totalcalls */
             totalCalls: number;
         };
@@ -16655,6 +16950,158 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AddressAutocompleteConfigRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_ai_prompts_v1_dealerships__dealership_id__ai_prompts_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiPromptList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_ai_prompt_v1_dealerships__dealership_id__ai_prompts_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                dealership_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AiPromptCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiPromptRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_ai_prompt_v1_dealerships__dealership_id__ai_prompts__prompt_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                prompt_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_ai_prompt_v1_dealerships__dealership_id__ai_prompts__prompt_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                prompt_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AiPromptUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiPromptRead"];
                 };
             };
             /** @description Validation Error */
@@ -21810,6 +22257,47 @@ export interface operations {
             };
         };
     };
+    suggest_listing_text_v1_inventory_stock_items__stock_item_id__listing_text_suggestions_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                stock_item_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ListingTextSuggestionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListingTextSuggestionRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_media_v1_inventory_stock_items__stock_item_id__media_get: {
         parameters: {
             query?: never;
@@ -23416,6 +23904,120 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MeRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_ai_prompt_seeds_v1_platform_ai_prompt_seeds_get: {
+        parameters: {
+            query?: {
+                /** @description Matches a code, title or prompt, any language. */
+                q?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiPromptSeedList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_ai_prompt_seed_v1_platform_ai_prompt_seeds__seed_id__put: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+                authorization?: string | null;
+            };
+            path: {
+                seed_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AiPromptSeedUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiPromptSeedRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    revert_ai_prompt_seed_v1_platform_ai_prompt_seeds__seed_id__revert_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+                authorization?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                seed_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiPromptSeedRead"];
                 };
             };
             /** @description Validation Error */

@@ -1,0 +1,52 @@
+{
+  "title": "Testi IA",
+  "subtitle": "Quale fornitore IA della vostra azienda propone testi e con quali istruzioni. Collegate il vostro fornitore in Integrazioni; vi fattura direttamente.",
+  "loadError": "Non è stato possibile caricare le impostazioni IA.",
+  "saveError": "Non è stato possibile salvare il prompt.",
+  "placeholders": "Segnaposto: {{list}}",
+  "languagesLabel": "Lingue",
+  "codes": {
+    "vehicle_listing": "Testo dell'annuncio per un veicolo"
+  },
+  "connection": {
+    "title": "Fornitore IA",
+    "provider": "Fornitore",
+    "name": "Connessione",
+    "hint": "Se sono collegati più fornitori IA, scrive quello testato con successo più di recente.",
+    "none": "Nessun fornitore IA collegato. Senza fornitore Nexotec non propone testi.",
+    "manage": "Apri le integrazioni"
+  },
+  "fields": {
+    "title": "Titolo",
+    "systemPrompt": "Istruzioni",
+    "systemPromptHint": "Come deve scrivere il fornitore: tono, lunghezza, cosa non deve mai affermare.",
+    "userPrompt": "Richiesta",
+    "userPromptHint": "I dati del veicolo; Nexotec compila i segnaposto al momento della proposta."
+  },
+  "status": {
+    "default": "Predefinito Nexotec",
+    "adapted": "Adattato"
+  },
+  "seedChanged": {
+    "title": "Il predefinito è cambiato",
+    "body": "Nexotec ha modificato il predefinito di questo prompt. Verificate la vostra versione; il nuovo predefinito è:",
+    "markReviewed": "Segna come verificato"
+  },
+  "actions": {
+    "save": "Salva",
+    "backToDefault": "Ripristina il predefinito"
+  },
+  "refusals": {
+    "ai_not_connected": "Per questa azienda non è collegato alcun fornitore IA.",
+    "ai_provider_not_configured": "La connessione al fornitore IA è incompleta: verificate modello e chiave API.",
+    "ai_provider_unavailable": "Il fornitore IA non ha fornito alcuna proposta. Riprovate più tardi.",
+    "ai_prompt_missing": "Per questo scopo non è installato alcun prompt.",
+    "ai_prompt_code_unknown": "Questo prompt non esiste.",
+    "ai_prompt_empty": "Istruzioni e richiesta non possono essere vuote.",
+    "ai_prompt_exists": "La vostra azienda ha già adattato questo prompt in questa lingua.",
+    "ai_prompt_placeholder_invalid": "Il prompt usa segnaposto non consentiti qui.",
+    "ai_prompt_placeholder_unresolved": "Un segnaposto del prompt non può essere compilato.",
+    "ai_prompt_seed_language_missing": "Questo prompt non esiste in questa lingua.",
+    "ai_prompt_seed_not_shipped": "Nexotec non fornisce alcun testo da ripristinare per questo prompt."
+  }
+}

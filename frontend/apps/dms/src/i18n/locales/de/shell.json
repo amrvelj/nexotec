@@ -37,7 +37,8 @@
     "setup": "Einrichtung",
     "legalDocuments": "Rechtstexte",
     "status": "Status",
-    "platformStatus": "Nexotec-Status"
+    "platformStatus": "Nexotec-Status",
+    "aiTexts": "KI-Texte"
   },
   "signOut": "Abmelden",
   "environmentNotice": {

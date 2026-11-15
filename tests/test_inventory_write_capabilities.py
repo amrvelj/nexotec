@@ -46,6 +46,8 @@ EXPECTED_CAPABILITY: dict[tuple[str, str], str] = {
     ("POST", "/v1/inventory/stock-items/{stock_item_id}/ledger-entries"): "stock_acquisition",
     ("PATCH", "/v1/inventory/stock-items/{stock_item_id}/publishing/{channel}"): "marketplace_publishing",
     ("POST", "/v1/inventory/stock-items/{stock_item_id}/publishing/{channel}/publish"): "marketplace_publishing",
+    # KAN-227: «Text vorschlagen» fills the listing texts this row guards.
+    ("POST", "/v1/inventory/stock-items/{stock_item_id}/listing-text-suggestions"): "marketplace_publishing",
     # KAN-225: the Betrieb's own website, on the same matrix row.
     ("POST", "/v1/inventory/stock-items/{stock_item_id}/website-listing/publish"): "marketplace_publishing",
     ("POST", "/v1/inventory/stock-items/{stock_item_id}/website-listing/unpublish"): "marketplace_publishing",

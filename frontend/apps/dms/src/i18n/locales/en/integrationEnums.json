@@ -14,10 +14,15 @@
     "password": "Password",
     "client_secret": "Client secret",
     "refresh_token": "Refresh token",
-    "certificate": "Certificate"
+    "certificate": "Certificate",
+    "api_key": "API key"
   },
   "configKey": {
     "username": "Username",
-    "clientId": "Client ID"
+    "clientId": "Client ID",
+    "model": "Model",
+    "endpoint": "Endpoint",
+    "deployment": "Deployment",
+    "apiVersion": "API version"
   }
 }

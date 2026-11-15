@@ -87,6 +87,8 @@ POST_WITHOUT_IF_MATCH = {
     "the caller did not name, its version bumped and audited as its own update (the bank account's precedent)",
     "/v1/dealerships/{dealership_id}/standard-text-previews": "the editor's preview (KAN-208): renders a body on "
     "sample data and writes nothing",
+    "/v1/dealerships/{dealership_id}/ai-prompts": "a new AI prompt row (KAN-227), the Betrieb's adaptation of a "
+    "seed: the seed is read, never written, and a second adaptation of the same language is 409 `ai_prompt_exists`",
     "/v1/dealerships/{dealership_id}/copy-configuration": "the one-shot copy from a sister Betrieb (KAN-220, "
     "FR-A-01): it writes the target's texts, template and ranges through each entity's own write path, which checks "
     "the version of the row it read or locked in the same transaction — rows the caller did not name, each audited; "
@@ -119,6 +121,8 @@ POST_WITHOUT_IF_MATCH = {
     "/v1/inventory/stock-items/{stock_item_id}/publishing/{channel}/unpublish": _KAN_428 + "a state switch that "
     "needs confirm=true (it deletes the listing at the marketplace); same version effect as publish",
     "/v1/inventory/stock-items/{stock_item_id}/media": _CHILD_ROW,
+    "/v1/inventory/stock-items/{stock_item_id}/listing-text-suggestions": "«Text vorschlagen» (KAN-227): asks the "
+    "Betrieb's AI provider for a suggestion and writes nothing to the stock item or its listing texts",
     "/v1/inventory/stock-items/{stock_item_id}/media/reorder": "the photos' positions (unversioned rows)",
     "/v1/sales/offers/{offer_id}/copy": _NEW_ROW,
     "/v1/sales/offers/{offer_id}/documents": "a new document and the grid's deal row (unversioned)",

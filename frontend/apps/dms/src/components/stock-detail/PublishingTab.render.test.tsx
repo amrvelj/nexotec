@@ -824,4 +824,77 @@ describe('PublishingTab — read-only for a role that may not publish (canPublis
     // Only the internal field carries the hint.
     expect(screen.getAllByRole('img', { name: i18n.t('common.fieldHintIcon') })).toHaveLength(1)
   })
+
+  it('offers no «Text vorschlagen»', async () => {
+    install()
+    renderWithProviders(<PublishingTab stockItemId="st-1" locale="de-CH" canPublish={false} />)
+    expect(await screen.findByText('Top gepflegt')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: i18n.t('stockDetail.publishing.suggestion.open') })).not.toBeInTheDocument()
+  })
+})
+
+describe('PublishingTab — «Text vorschlagen» (KAN-227)', () => {
+  const row = (version: number) => ({
+    id: 'pub-1', stockItemId: 'st-1', channel: 'autoscout24', state: 'not_published', transmissionStatus: 'not_sent',
+    lastPublishedAt: null, lastAttemptedAt: null, lastTransmissionError: null, zusatztitel: null,
+    bemerkungen: null as string | null, zustandsbeschreibung: null, haendlerbemerkungen: null, youtubeUrl: null,
+    pdfDocumentRef: null, version, blockingConditions: [],
+  })
+  const t = (key: string) => i18n.t(`stockDetail.publishing.suggestion.${key}`)
+
+  const backendFor = (suggestion: () => unknown) => {
+    let current = row(1)
+    return installFakeBackend([
+      { match: /^\/inventory\/stock-items\/st-1\/equipment$/, handler: () => EQUIPMENT },
+      { match: /^\/inventory\/stock-items\/st-1\/media$/, handler: () => [] },
+      { method: 'GET', match: /^\/inventory\/stock-items\/st-1\/publishing\/autoscout24$/, handler: () => current },
+      {
+        method: 'PATCH',
+        match: /^\/inventory\/stock-items\/st-1\/publishing\/autoscout24$/,
+        handler: (req) => {
+          current = { ...current, ...(req.body as object), version: current.version + 1 }
+          return current
+        },
+      },
+      { method: 'POST', match: /^\/inventory\/stock-items\/st-1\/listing-text-suggestions$/, handler: suggestion },
+    ])
+  }
+
+  it('the suggestion is edited in the dialog and saved into the description only when taken', async () => {
+    const user = userEvent.setup()
+    const backend = backendFor(() => ({ text: 'Gepflegter Kombi.', language: 'de', promptAdapted: false, providerName: 'OpenAI' }))
+    renderWithProviders(<PublishingTab stockItemId="st-1" locale="de-CH" />)
+
+    await user.click(await screen.findByRole('button', { name: t('open') }))
+    await user.click(await screen.findByRole('button', { name: t('generate') }))
+    const draft = await screen.findByRole('textbox', { name: (n) => n.startsWith(t('draft')) })
+    expect(draft).toHaveValue('Gepflegter Kombi.')
+    expect(backend.callsTo(/listing-text-suggestions$/, 'POST')[0].body).toEqual({ language: 'de' })
+    // Nothing is written until the user takes it.
+    expect(backend.callsTo(/\/publishing\/autoscout24$/, 'PATCH')).toHaveLength(0)
+
+    await user.type(draft, ' Ab MFK.')
+    await user.click(screen.getByRole('button', { name: t('take') }))
+
+    await waitFor(() => expect(backend.callsTo(/\/publishing\/autoscout24$/, 'PATCH')).toHaveLength(1))
+    expect(backend.callsTo(/\/publishing\/autoscout24$/, 'PATCH')[0].body).toEqual({ bemerkungen: 'Gepflegter Kombi. Ab MFK.' })
+    await waitFor(() =>
+      expect(screen.getByLabelText(i18n.t('stockDetail.publishing.fields.bemerkungen'))).toHaveValue('Gepflegter Kombi. Ab MFK.'),
+    )
+  })
+
+  it('without an AI provider it says so in the UI language and links the integrations', async () => {
+    const user = userEvent.setup()
+    const backend = backendFor(() =>
+      status(409, { error: { code: 'conflict', message: 'No AI provider is connected.', details: { reason: 'ai_not_connected' } } }),
+    )
+    renderWithProviders(<PublishingTab stockItemId="st-1" locale="de-CH" />)
+
+    await user.click(await screen.findByRole('button', { name: t('open') }))
+    await user.click(await screen.findByRole('button', { name: t('generate') }))
+
+    expect(await screen.findByText(i18n.t('aiPrompts.refusals.ai_not_connected'))).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: t('connect') })).toHaveAttribute('href', '/administration/integrations')
+    expect(backend.callsTo(/\/publishing\/autoscout24$/, 'PATCH')).toHaveLength(0)
+  })
 })

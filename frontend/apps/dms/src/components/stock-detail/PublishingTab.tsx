@@ -7,6 +7,7 @@ import { useFieldHint } from '../../hooks/useFieldHint'
 import { api, ApiError } from '../../api/client'
 import { BlockingConditionBanner } from './BlockingConditionBanner'
 import { ChannelPublishCard } from './ChannelPublishCard'
+import { ListingTextSuggestion } from './ListingTextSuggestion'
 import { WebsiteListingCard } from './WebsiteListingCard'
 import type { EquipmentRead, MarketplaceChannel, MediaRead, PublishingRead } from '../../api/types'
 import { useDealSaveQueue, type DealSaveQueue } from '../../hooks/useDealSaveQueue'
@@ -277,6 +278,7 @@ export function PublishingTab({ stockItemId, locale, canPublish = true }: Publis
           ) : activePublishing ? (
             <ListingTextFields
               key={activeChannel}
+              stockItemId={stockItemId}
               publishing={activePublishing}
               resetKey={String(listingTextResync[activeChannel])}
               onSave={(patch) => saveListingText(activeChannel, patch)}
@@ -334,11 +336,13 @@ type ListingTextField = 'zusatztitel' | 'bemerkungen' | 'zustandsbeschreibung' |
 type ListingTextPatch = Partial<Record<ListingTextField, string>>
 
 function ListingTextFields({
+  stockItemId,
   publishing,
   resetKey,
   onSave,
   titleDisplayLimitCaption,
 }: {
+  stockItemId: string
   publishing: PublishingRead
   resetKey: string
   onSave: (patch: ListingTextPatch) => Promise<void>
@@ -357,6 +361,9 @@ function ListingTextFields({
   return (
     <>
       <ListingTextInput {...field('zusatztitel')} maxLength={500} displayLimitCaption={titleDisplayLimitCaption} minRows={1} />
+      {/* KAN-227 — the suggestion fills the description only when the user
+          takes it, saved through the same queued PATCH as typing (4000 at most). */}
+      <ListingTextSuggestion stockItemId={stockItemId} onTake={(text) => onSave({ bemerkungen: text.slice(0, 4000) })} />
       <ListingTextInput {...field('bemerkungen')} maxLength={4000} />
       <ListingTextInput {...field('zustandsbeschreibung')} maxLength={2000} />
       <ListingTextInput

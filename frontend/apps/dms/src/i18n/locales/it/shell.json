@@ -37,7 +37,8 @@
     "setup": "Configurazione",
     "legalDocuments": "Testi legali",
     "status": "Stato",
-    "platformStatus": "Stato di Nexotec"
+    "platformStatus": "Stato di Nexotec",
+    "aiTexts": "Testi IA"
   },
   "signOut": "Disconnetti",
   "environmentNotice": {

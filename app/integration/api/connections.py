@@ -158,6 +158,8 @@ def get_connection_usage(
         period_to=usage.period_to,
         total_calls=usage.total,
         counters=[UsageCounterRead(counter=c.counter, count=c.count) for c in usage.counters],
+        tokens_in=usage.tokens_in,
+        tokens_out=usage.tokens_out,
     )
 
 

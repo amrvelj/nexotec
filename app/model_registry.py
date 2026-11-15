@@ -14,6 +14,7 @@ from app.customer.models.customer import Customer, CustomerAddress, CustomerCont
 from app.customer.models.legal_basis import LegalBasis
 from app.customer.models.stock_item_booking import StockItemBooking
 from app.customer.models.vehicle_party import VehicleParty
+from app.integration.models.ai_prompt import IntegrationAiPrompt
 from app.integration.models.call_log import IntegrationCallLog
 from app.integration.models.call_payload import IntegrationCallPayload
 from app.integration.models.caption import IntegrationProviderCaption, IntegrationProviderCaptionFetch
@@ -139,6 +140,7 @@ __all__ = [
     "HolidayCalendar",
     "IdempotencyRecord",
     "ImageRef",
+    "IntegrationAiPrompt",
     "IntegrationCallLog",
     "IntegrationCallPayload",
     "IntegrationConnection",

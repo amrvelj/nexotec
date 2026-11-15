@@ -14,10 +14,15 @@
     "password": "Mot de passe",
     "client_secret": "Secret client",
     "refresh_token": "Jeton de rafraîchissement",
-    "certificate": "Certificat"
+    "certificate": "Certificat",
+    "api_key": "Clé API"
   },
   "configKey": {
     "username": "Nom d'utilisateur",
-    "clientId": "Client-ID"
+    "clientId": "Client-ID",
+    "model": "Modèle",
+    "endpoint": "Point de terminaison",
+    "deployment": "Déploiement",
+    "apiVersion": "Version de l'API"
   }
 }

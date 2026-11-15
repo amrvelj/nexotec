@@ -40,6 +40,7 @@ const BrandingPage = lazyPage(() => import('./pages/BrandingPage'), 'BrandingPag
 const PublishingPage = lazyPage(() => import('./pages/PublishingPage'), 'PublishingPage')
 const LetterheadPage = lazyPage(() => import('./pages/LetterheadPage'), 'LetterheadPage')
 const StandardTextsPage = lazyPage(() => import('./pages/StandardTextsPage'), 'StandardTextsPage')
+const AiAdministrationPage = lazyPage(() => import('./pages/AiAdministrationPage'), 'AiAdministrationPage')
 const NumberRangesPage = lazyPage(() => import('./pages/NumberRangesPage'), 'NumberRangesPage')
 const SetupChecklistPage = lazyPage(() => import('./pages/SetupChecklistPage'), 'SetupChecklistPage')
 const LegalAcceptancePage = lazyPage(() => import('./pages/LegalAcceptancePage'), 'LegalAcceptancePage')
@@ -130,6 +131,8 @@ export default function App() {
               <Route path="/administration/letterhead" element={<LetterheadPage />} />
               {/* KAN-208 — Dealer Administration › Standard texts (any role reads; writes per category). */}
               <Route path="/administration/texts" element={<StandardTextsPage />} />
+              {/* KAN-227 — Dealer Administration › AI texts: the AI connection in use and the prompts. */}
+              <Route path="/administration/ai" element={<AiAdministrationPage />} />
               <Route path="/administration/number-ranges" element={<NumberRangesPage />} />
               {/* KAN-214 — the setup checklist and «Betrieb aktivieren» (D-A-21, FR-A-34),
                   the re-acceptance of a new ToS / DPA version (FR-A-39), and what a
