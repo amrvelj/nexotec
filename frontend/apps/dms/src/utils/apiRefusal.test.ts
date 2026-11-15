@@ -176,6 +176,17 @@ describe('the reason table', () => {
   // backend lane. It reads the same JSON list, and the reason names straight
   // from REASON_KEYS' source — the test below keeps that reading faithful.
   const NOT_A_REFUSAL = new Set(Object.keys(notARefusalReasons))
+  // The literal forms a raised reason takes; the backend-lane twin reads the same three.
+  const REASON_LITERALS = [
+    /"reason":\s*"([a-z0-9_]+)"/g,
+    /^(?:REFUSAL_REASON|COLLEAGUE_CANNOT_ACT_THERE)\s*=\s*"([a-z0-9_]+)"/gm,
+    /reason: str = "([a-z0-9_]+)"/g,
+  ]
+  it('scans app/ for the same literal forms as its backend-lane twin (KAN-679)', () => {
+    const twin = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', '..', '..', 'tests', 'test_frontend_knows_backend_refusals.py'), 'utf-8')
+    const declared = [...twin.matchAll(/^\s*re\.compile\(r'(.*)'(?:, re\.MULTILINE)?\),$/gm)].map((m) => m[1])
+    expect(declared).toEqual(REASON_LITERALS.map((pattern) => pattern.source))
+  })
   it("lists REASON_KEYS' reasons where the backend-lane twin reads them (KAN-679)", () => {
     const source = readFileSync(join(dirname(fileURLToPath(import.meta.url)), 'apiRefusal.ts'), 'utf-8')
     const table = source.match(/^const REASON_KEYS: Record<string, string> = \{\n([\s\S]*?)^\}\n/m)?.[1] ?? ''
@@ -192,9 +203,7 @@ describe('the reason table', () => {
         if (statSync(full).isDirectory()) walk(full)
         else if (entry.endsWith('.py')) {
           const source = readFileSync(full, 'utf-8')
-          for (const m of source.matchAll(/"reason":\s*"([a-z0-9_]+)"/g)) raised.add(m[1])
-          for (const m of source.matchAll(/^(?:REFUSAL_REASON|COLLEAGUE_CANNOT_ACT_THERE)\s*=\s*"([a-z0-9_]+)"/gm)) raised.add(m[1])
-          for (const m of source.matchAll(/reason: str = "([a-z0-9_]+)"/g)) raised.add(m[1])
+          for (const pattern of REASON_LITERALS) for (const m of source.matchAll(pattern)) raised.add(m[1])
         }
       }
     }

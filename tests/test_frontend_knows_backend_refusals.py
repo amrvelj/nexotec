@@ -32,7 +32,7 @@ NOT_A_REFUSAL_JSON = DMS_SRC / "utils" / "notARefusalReasons.json"
 BANNER_TSX = DMS_SRC / "components" / "stock-detail" / "BlockingConditionBanner.tsx"
 LISTING_CONDITIONS = APP / "inventory" / "services" / "listing_conditions.py"
 
-# The three literal forms apiRefusal.test.ts reads, verbatim.
+# The three literal forms apiRefusal.test.ts reads, verbatim (its REASON_LITERALS; a vitest case pins the two lists).
 _REASON_LITERALS = (
     re.compile(r'"reason":\s*"([a-z0-9_]+)"'),
     re.compile(r'^(?:REFUSAL_REASON|COLLEAGUE_CANNOT_ACT_THERE)\s*=\s*"([a-z0-9_]+)"', re.MULTILINE),
@@ -106,9 +106,9 @@ def test_the_blocking_condition_banner_knows_every_field_the_api_names():
     banner = BANNER_TSX.read_text(encoding="utf-8")
     known = re.search(r"const BLOCKING_FIELDS = new Set\(\[([^\]]*)\]\)", banner)
     assert known, "BlockingConditionBanner.tsx no longer declares BLOCKING_FIELDS as this test reads it"
-    assert [field for field in named if f"'{field}'" not in known.group(1)] == []
+    assert [field for field in named if f"'{field}'" not in known.group(1)] == [], "a field BLOCKING_FIELDS lacks"
     missing = []
     for language, bundle in read_bundles(DEFAULT_BUNDLES_DIR).items():
         sentences = bundle.get("stockDetail", {}).get("publishing", {}).get("blockingCondition", {})
-        missing += [f"{language}: {field}" for field in named if not isinstance(sentences.get(field), str)]
-    assert missing == []
+        missing += [f"{language.value}: {field}" for field in named if not isinstance(sentences.get(field), str)]
+    assert missing == [], "a blocking field without its sentence in stockDetail.publishing.blockingCondition"
