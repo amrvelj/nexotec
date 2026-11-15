@@ -2833,6 +2833,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/inventory/stock-items/grid-schema": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Stock Item Grid Schema
+         * @description KAN-461: the Stock grid's column registry — every field, its type, the conditions `filter` takes on it, whether it sorts, its label key, whether the grid shows it by default and (an enum) its options. The SPA derives its columns, sortability and filter fields from it.
+         */
+        get: operations["get_stock_item_grid_schema_v1_inventory_stock_items_grid_schema_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/inventory/stock-items/{stock_item_id}": {
         parameters: {
             query?: never;
@@ -8645,6 +8665,43 @@ export interface components {
              */
             userId: string;
         };
+        /** GridField */
+        GridField: {
+            /** Defaultvisible */
+            defaultVisible: boolean;
+            /** Field */
+            field: string;
+            /** Labelkey */
+            labelKey: string;
+            /** Operators */
+            operators: string[];
+            /** Options */
+            options?: components["schemas"]["GridFieldOption"][] | null;
+            /** Sortable */
+            sortable: boolean;
+            /**
+             * Type
+             * @enum {string}
+             */
+            type: "text" | "enum" | "number" | "money" | "date" | "datetime" | "boolean";
+        };
+        /** GridFieldOption */
+        GridFieldOption: {
+            /** Labelkey */
+            labelKey: string;
+            /** Value */
+            value: string;
+        };
+        /**
+         * GridSchemaRead
+         * @description KAN-461: an entity's column registry as the grid derives it — every
+         *     field, its type, the operators it takes, whether it sorts, its label key
+         *     and (an enum) its options.
+         */
+        GridSchemaRead: {
+            /** Fields */
+            fields: components["schemas"]["GridField"][];
+        };
         /**
          * GroupStockDealershipList
          * @description The whole roster in one response: a group has a handful of Betriebe,
@@ -12308,6 +12365,11 @@ export interface components {
             supplierIsVatRegistered: boolean | null;
             /** Suppliername */
             supplierName: string | null;
+            /**
+             * Tradeinsignedat
+             * @description KAN-461 (ADR-060): when the trade-in's contract was signed — a grid column. Null on every other item.
+             */
+            tradeInSignedAt?: string | null;
             /**
              * Tradeinvin
              * @description KAN-536: the VIN the contract holds for a trade-in, kept on its pipeline item. «Einkauf buchen» prefills it, and the booking refuses another (422 `trade_in_vin_differs`) unless the item's configuration carries a VIN, which then decides (`configuration_vin_differs`). Null on every other item. It is not the item's `vin`, which stays empty until the purchase is booked.
@@ -21233,13 +21295,29 @@ export interface operations {
         parameters: {
             query?: {
                 q?: string | null;
+                /** @description KAN-461: one predicate per parameter, `field:operator[:value]`, repeatable (ANDed). Fields, operators and enum values come from `GET /v1/inventory/stock-items/grid-schema`; anything else is 422 (`details.reason`: unknown_field, operator_not_allowed, filter_malformed, invalid_filter_value). `in` and `between` take comma-separated values; dates are YYYY-MM-DD, money CHF with up to two decimals, day counts 0–36500; relative dates resolve in Europe/Zurich. */
+                filter?: string[] | null;
+                /**
+                 * @deprecated
+                 * @description Before KAN-461; use `filter=lifecycleStatus:is:<code>`.
+                 */
                 lifecycle_status?: components["schemas"]["LifecycleStatus"] | null;
+                /**
+                 * @deprecated
+                 * @description Before KAN-461; use `filter=condition:is:<code>`.
+                 */
                 condition?: components["schemas"]["StockItemCondition"] | null;
-                /** @description KAN-476: items whose lifecycle status is not this one — the grid's «ist nicht». */
+                /**
+                 * @deprecated
+                 * @description KAN-476's «ist nicht», before KAN-461; use `filter=lifecycleStatus:isNot:<code>`.
+                 */
                 lifecycle_status_not?: components["schemas"]["LifecycleStatus"] | null;
-                /** @description KAN-476: items whose condition is not this one (Zustand «ist nicht Occasion»). */
+                /**
+                 * @deprecated
+                 * @description KAN-476's «ist nicht», before KAN-461; use `filter=condition:isNot:<code>`.
+                 */
                 condition_not?: components["schemas"]["StockItemCondition"] | null;
-                /** @description e.g. 'stockNumber:asc,updatedAt:desc' */
+                /** @description Any grid-schema field that sorts, e.g. 'listPrice:asc,updatedAt:desc' */
                 sort?: string | null;
                 limit?: number;
                 cursor?: string | null;
@@ -21300,6 +21378,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["StockItemRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_stock_item_grid_schema_v1_inventory_stock_items_grid_schema_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GridSchemaRead"];
                 };
             };
             /** @description Validation Error */
