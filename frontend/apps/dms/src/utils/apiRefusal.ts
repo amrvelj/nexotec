@@ -69,6 +69,22 @@ const REASON_KEYS: Record<string, string> = {
       'lead_email_manager_only',
     ].map((reason) => [reason, `publishing.refusals.${reason}`]),
   ),
+  // KAN-227 — the AI prompts and «Text vorschlagen».
+  ...Object.fromEntries(
+    [
+      'ai_not_connected',
+      'ai_prompt_code_unknown',
+      'ai_prompt_empty',
+      'ai_prompt_exists',
+      'ai_prompt_missing',
+      'ai_prompt_placeholder_invalid',
+      'ai_prompt_placeholder_unresolved',
+      'ai_prompt_seed_language_missing',
+      'ai_prompt_seed_not_shipped',
+      'ai_provider_not_configured',
+      'ai_provider_unavailable',
+    ].map((reason) => [reason, `aiPrompts.refusals.${reason}`]),
+  ),
   // KAN-218 — the data export and offboarding.
   ...Object.fromEntries(
     [

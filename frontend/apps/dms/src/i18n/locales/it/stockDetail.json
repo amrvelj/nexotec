@@ -171,6 +171,20 @@
       "openProfile": "Completare i dati sotto Pubblicazione",
       "hint": "Il sito web della vostra azienda, gestito da Nexotec. Nulla viene trasmesso a un mercato online.",
       "failed": "Il sito non ha potuto essere modificato."
+    },
+    "suggestion": {
+      "open": "Proponi testo",
+      "title": "Proponi descrizione",
+      "intro": "Il vostro fornitore IA scrive una proposta dai dati di questo veicolo. La verificate e modificate prima di riprenderla; non viene pubblicato nulla.",
+      "language": "Lingua dell'annuncio",
+      "generate": "Crea proposta",
+      "again": "Nuova proposta",
+      "draft": "Proposta",
+      "review": "Verificate ogni informazione: il testo proviene dal vostro fornitore IA.",
+      "take": "Riprendi nella descrizione",
+      "discard": "Scarta",
+      "failed": "Non è stato possibile creare una proposta.",
+      "connect": "Collega un fornitore IA"
     }
   },
   "evaluation": {

@@ -499,3 +499,14 @@ export interface ApiErrorBody {
     details: Record<string, unknown> | null
   }
 }
+
+// KAN-227 — the AI prompt library, the AI connection in use, «Text vorschlagen».
+export type AiPromptRead = Schemas['AiPromptRead']
+export type AiPromptList = Schemas['AiPromptList']
+export type AiPromptCreate = Schemas['AiPromptCreate']
+export type AiPromptUpdate = Schemas['AiPromptUpdate']
+export type AiConnectionInUseRead = Schemas['AiConnectionInUseRead']
+export type AiPromptSeedRead = Schemas['AiPromptSeedRead']
+export type AiPromptSeedGroup = Schemas['AiPromptSeedGroup']
+export type AiPromptSeedList = Schemas['AiPromptSeedList']
+export type ListingTextSuggestionRead = Schemas['ListingTextSuggestionRead']

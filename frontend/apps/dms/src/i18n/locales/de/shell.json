@@ -35,7 +35,8 @@
     "offboarding": "Betrieb beenden",
     "providers": "Anbieter",
     "setup": "Einrichtung",
-    "legalDocuments": "Rechtstexte"
+    "legalDocuments": "Rechtstexte",
+    "aiTexts": "KI-Texte"
   },
   "signOut": "Abmelden",
   "environmentNotice": {

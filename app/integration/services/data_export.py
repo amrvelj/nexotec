@@ -1,6 +1,6 @@
 """Integrations' export declaration (KAN-218; FR-A-44): the Betrieb's
 connections, their capability entitlements, the call log and the
-notifications. Never a secret: a connection's credentials live in the
+notifications, and its adapted AI prompts. Never a secret: a connection's credentials live in the
 secrets manager, the row holds only a write-only reference (ADR-024), and the
 stored provider payloads are the provider's data kept for support.
 """
@@ -10,6 +10,7 @@ from collections.abc import Mapping, Sequence
 from sqlalchemy import select
 
 from app.core.export import ExportedTable, TableExporter, table_of
+from app.integration.models.ai_prompt import IntegrationAiPrompt
 from app.integration.models.call_log import IntegrationCallLog
 from app.integration.models.call_payload import IntegrationCallPayload
 from app.integration.models.caption import IntegrationProviderCaption, IntegrationProviderCaptionFetch
@@ -41,6 +42,9 @@ class IntegrationExporter(TableExporter):
         secret_ref = table_of(IntegrationSecretRef)
         return (
             _tenant(IntegrationConnection),
+            # KAN-227: the Betrieb's adaptations of the AI prompts (Nexotec's
+            # seeds have no Betrieb and are not its data).
+            _tenant(IntegrationAiPrompt),
             ExportedTable(table=entitlement, scope=_by_connection(entitlement), marks_write=False),
             ExportedTable(
                 table=secret_ref,

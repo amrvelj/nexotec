@@ -29,6 +29,7 @@ import {
   Receipt,
   Scale,
   ShieldCheck,
+  Sparkles,
   Store,
   Tags,
   UserCog,
@@ -129,6 +130,10 @@ function buildNavGroups(t: (key: string) => string): NavGroupConfig[] {
         // category is written by the manager or its delegate (FR-A-28) — the
         // entry is never role-hidden (A-RULE-7).
         { label: t('shell.nav.standardTexts'), href: '/administration/texts', icon: FileText, status: 'active' },
+        // KAN-227 — Dealer Administration › AI texts (D-A-33): the Betrieb's own AI
+        // provider in use and its prompts. Inventory and sales read, the manager
+        // writes; never role-hidden (A-RULE-7).
+        { label: t('shell.nav.aiTexts'), href: '/administration/ai', icon: Sparkles, status: 'active' },
         // KAN-207 — Dealer Administration › Number ranges. Any role reads; the
         // manager edits an open range, platform staff a frozen one (A-RULE-3).
         // Never role-hidden (A-RULE-7).

@@ -7,6 +7,7 @@
  * A module of its own, importing nothing, so test fixtures can read it.
  */
 export const GATED_CAPABILITIES = [
+  'ai_prompts',
   'branding',
   'configurations',
   'customer_vehicle_links',

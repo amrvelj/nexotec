@@ -11,6 +11,7 @@ from app.api.v1.dealer_groups import router as dealer_groups_router
 from app.api.v1.vehicle_parties import allocation_router as vehicle_party_allocation_router
 from app.api.v1.vehicle_parties import holders_router as vehicle_party_holders_router
 from app.customer.api.customers import router as customers_router
+from app.integration.api.ai_prompts import router as integration_ai_prompts_router
 from app.integration.api.call_payloads import router as integration_call_payloads_router
 from app.integration.api.captions import router as integration_captions_router
 from app.integration.api.connections import router as integration_connections_router
@@ -107,6 +108,7 @@ api_v1_router.include_router(sales_documents_router)
 api_v1_router.include_router(valuations_router)
 api_v1_router.include_router(integration_providers_router)
 api_v1_router.include_router(integration_connections_router)
+api_v1_router.include_router(integration_ai_prompts_router)
 api_v1_router.include_router(integration_call_payloads_router)
 api_v1_router.include_router(integration_captions_router)
 api_v1_router.include_router(auth_router)

@@ -10,7 +10,8 @@
   "platformConnectionsTitle": "Connessioni",
   "categories": {
     "marketplace": "Marketplace",
-    "vehicle_data": "Dati veicolo"
+    "vehicle_data": "Dati veicolo",
+    "ai": "Fornitore IA"
   },
   "fields": {
     "provider": "Fornitore",
@@ -49,7 +50,9 @@
     "total": "Totale",
     "empty": "Nessuna richiesta in questo periodo.",
     "invalidPeriod": "La fine del periodo precede il suo inizio.",
-    "loadError": "Non è stato possibile caricare l'utilizzo."
+    "loadError": "Non è stato possibile caricare l'utilizzo.",
+    "tokensIn": "Token (input)",
+    "tokensOut": "Token (output)"
   },
   "rotateModal": {
     "title": "Rinnova secret — {{name}}",

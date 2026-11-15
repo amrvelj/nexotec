@@ -15,6 +15,8 @@ from app.inventory.models.stock_item_publishing import MarketplaceChannel, Stock
 from app.inventory.schemas.publishing import (
     AddMediaRequest,
     EquipmentRead,
+    ListingTextSuggestionRead,
+    ListingTextSuggestionRequest,
     ListingTextUpdate,
     MediaRead,
     PublishingRead,
@@ -22,6 +24,7 @@ from app.inventory.schemas.publishing import (
     UnpublishRequest,
     WebsiteListingRead,
 )
+from app.inventory.services import listing_suggestion
 from app.inventory.services import publishing as publishing_service
 from app.inventory.services import stock_item as stock_item_service
 from app.inventory.services import website_listing as website_listing_service
@@ -91,6 +94,33 @@ def unpublish_from_channel(
     item = stock_item_service.get_stock_item_or_404(db, principal.tenant_id, stock_item_id)
     row = publishing_service.unpublish(db, item=item, channel=channel, confirm=body.confirm, actor_id=principal.user_id)
     return _publishing_read(db, item, row)
+
+
+@router.post(
+    "/inventory/stock-items/{stock_item_id}/listing-text-suggestions", response_model=ListingTextSuggestionRead
+)
+def suggest_listing_text(
+    stock_item_id: uuid.UUID,
+    body: ListingTextSuggestionRequest,
+    principal: Principal = Depends(require_write("marketplace_publishing")),
+    db: Session = Depends(get_db),
+):
+    """KAN-227 «Text vorschlagen» (FR-A-38): a description suggested by the
+    Betrieb's own AI provider. Stores nothing and publishes nothing — the
+    answer is for the user to take into the description and edit. Gated like
+    the listing texts it fills (`marketplace_publishing`); a Betrieb without an
+    AI connection gets 409 `ai_not_connected`."""
+
+    item = stock_item_service.get_stock_item_or_404(db, principal.tenant_id, stock_item_id)
+    suggestion = listing_suggestion.suggest_listing_text(
+        db, item=item, language=body.language, actor_id=principal.user_id
+    )
+    return ListingTextSuggestionRead(
+        text=suggestion.text,
+        language=suggestion.language,
+        prompt_adapted=suggestion.prompt_adapted,
+        provider_name=suggestion.provider_name,
+    )
 
 
 @router.get("/inventory/stock-items/{stock_item_id}/equipment", response_model=EquipmentRead)
