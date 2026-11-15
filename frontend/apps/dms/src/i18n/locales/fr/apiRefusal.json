@@ -182,7 +182,13 @@
     "location_binding_not_supported": "Cette connexion vaut pour toute l'entreprise et n'est attribuée à aucun site.",
     "unknown_location": "Ce site n'appartient pas à votre entreprise.",
     "usage_period_reversed": "La fin de la période précède son début.",
-    "usage_period_too_long": "Une période couvre au plus une année."
+    "usage_period_too_long": "Une période couvre au plus une année.",
+    "filter_malformed": "Ce filtre n'est pas valable.",
+    "unknown_field": "Ce champ ne peut être ni filtré ni trié.",
+    "operator_not_allowed": "Cette condition ne s'applique pas à ce champ.",
+    "invalid_filter_value": "La valeur du filtre n'est pas valable.",
+    "sort_malformed": "Ce tri n'est pas valable.",
+    "field_not_sortable": "Ce champ ne peut pas être trié."
   },
   "accessWindow": {
     "between": "valable du {{from}} au {{to}}",

@@ -78,7 +78,11 @@
       "thisMonth": "questo mese",
       "thisYear": "quest'anno",
       "inTheLastDays": "negli ultimi N giorni",
-      "moreThanDaysAgo": "più di N giorni fa"
+      "moreThanDaysAgo": "più di N giorni fa",
+      "between": "tra",
+      "on": "il",
+      "before": "prima del",
+      "after": "dopo il"
     },
     "predicateText": {
       "contains": "{{field}}: contiene {{value}}",
@@ -97,12 +101,20 @@
       "inTheLastDays_one": "{{field}}: nell'ultimo giorno",
       "inTheLastDays_other": "{{field}}: negli ultimi {{days, number}} giorni",
       "moreThanDaysAgo_one": "{{field}}: più di un giorno fa",
-      "moreThanDaysAgo_other": "{{field}}: più di {{days, number}} giorni fa"
+      "moreThanDaysAgo_other": "{{field}}: più di {{days, number}} giorni fa",
+      "between": "{{field}}: tra {{value}}",
+      "on": "{{field}}: il {{value}}",
+      "before": "{{field}}: prima del {{value}}",
+      "after": "{{field}}: dopo il {{value}}"
     },
     "booleanTrue": "{{field}}: sì",
     "booleanFalse": "{{field}}: no",
     "dayCount": "Numero di giorni",
-    "invalidDayCount": "Inserisci un numero intero di giorni tra {{min, number}} e {{max, number}}."
+    "invalidDayCount": "Inserisci un numero intero di giorni tra {{min, number}} e {{max, number}}.",
+    "day": "Data",
+    "rangeFrom": "da",
+    "rangeTo": "a",
+    "invalidRange": "Il primo valore deve essere minore o uguale al secondo."
   },
   "overlay": {
     "close": "Chiudi"

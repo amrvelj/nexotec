@@ -31,5 +31,10 @@
     "zusatzerloes": "Zusatzerlös",
     "foerderung": "Förderung",
     "sonstige_ertraege": "Sonstige Erträge"
+  },
+  "ageingBucket": {
+    "green": "Grün (bis 60 Tage)",
+    "amber": "Orange (61–120 Tage)",
+    "red": "Rot (über 120 Tage)"
   }
 }
