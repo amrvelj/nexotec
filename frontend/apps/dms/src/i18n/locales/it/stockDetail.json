@@ -65,6 +65,8 @@
     "error": "Non è stato possibile registrare l’acquisto. Riprovare.",
     "notRecorded": "Nessun acquisto ancora registrato.",
     "configurationVinDiffers": "Il VIN è diverso da quello della configurazione.",
+    "vinNamesMergedVehicle": "Questo VIN appartiene a un veicolo unito a {{vehicleNumber}} nell'anagrafica veicoli. Il veicolo porta il VIN {{vin}}. Correggere il VIN tramite «Modifica configurazione».",
+    "vinNamesMergedVehicleNoConfiguration": "Questo VIN appartiene a un veicolo unito a {{vehicleNumber}} nell'anagrafica veicoli. Il veicolo porta il VIN {{vin}}. Assegnare al veicolo, tramite «Assegna configurazione», una configurazione con il VIN corretto.",
     "storno": {
       "button": "Stornare l'acquisto",
       "title": "Stornare l'acquisto",

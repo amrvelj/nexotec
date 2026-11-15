@@ -65,6 +65,8 @@
     "error": "The purchase could not be recorded. Please try again.",
     "notRecorded": "No purchase recorded yet.",
     "configurationVinDiffers": "The VIN differs from the configuration's.",
+    "vinNamesMergedVehicle": "This VIN belongs to a vehicle record that was merged into {{vehicleNumber}}. The vehicle carries the VIN {{vin}}. Correct the VIN with «Edit configuration».",
+    "vinNamesMergedVehicleNoConfiguration": "This VIN belongs to a vehicle record that was merged into {{vehicleNumber}}. The vehicle carries the VIN {{vin}}. Use «Assign configuration» to give the vehicle a configuration with the correct VIN.",
     "storno": {
       "button": "Cancel purchase",
       "title": "Cancel purchase",
