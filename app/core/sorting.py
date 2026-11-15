@@ -195,6 +195,8 @@ def _to_cursor_value(value: Any, column: Any) -> Any:
         if scale is None:
             raise TypeError(f"{column} has no fixed scale; a cursor cannot carry its value exactly.")
         scaled = decimal.Decimal(value).scaleb(scale)
+        if not scaled.is_finite():
+            raise TypeError(f"{value!r} on {column} is not a finite number; a cursor cannot carry it.")
         if scaled != scaled.to_integral_value():
             raise TypeError(f"{value!r} has more digits than the scale of {column}.")
         return int(scaled)

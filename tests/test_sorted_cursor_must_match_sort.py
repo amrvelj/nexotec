@@ -275,33 +275,15 @@ def test_each_column_type_takes_its_own_tag_only():
 
 def test_every_sortable_column_is_one_a_cursor_can_be_checked_against():
     """A column of a type `decode_cursor_for_sort` cannot judge would refuse
-    every cursor on its sort — a sortable column must be of a supported type."""
+    every cursor on its sort — a sortable column must be of a supported type.
+    The allow-lists are `_all_sort_allow_lists()`, shared with KAN-713's minting
+    guard below, so a new sorted list is named once."""
 
-    from app.customer.api.customers import CUSTOMER_SORT_FIELDS
-    from app.integration.api.connections import CONNECTION_SORT_FIELDS
-    from app.inventory.api.stock_items import STOCK_ITEM_SORT_FIELDS
-    from app.platform.api.dealership_users import USER_SORT_FIELDS
-    from app.platform.api.recovery import RECOVERY_SORT_FIELDS
-    from app.sales.api.contracts import CONTRACT_SORT_FIELDS
-    from app.sales.api.deals import DEAL_SORT_FIELDS
-    from app.sales.api.offers import OFFER_SORT_FIELDS
-    from app.valuation.api.valuations import VALUATION_SORT_FIELDS
-    from app.vehicle.api.vehicle_mdm import VEHICLE_MDM_SORT_FIELDS
-
-    allow_lists = (
-        CUSTOMER_SORT_FIELDS,
-        CONNECTION_SORT_FIELDS,
-        STOCK_ITEM_SORT_FIELDS,
-        USER_SORT_FIELDS,
-        RECOVERY_SORT_FIELDS,
-        CONTRACT_SORT_FIELDS,
-        DEAL_SORT_FIELDS,
-        OFFER_SORT_FIELDS,
-        VALUATION_SORT_FIELDS,
-        VEHICLE_MDM_SORT_FIELDS,
-    )
     unsupported = [
-        f"{column}" for allowed in allow_lists for column in allowed.values() if not cursor_column_supported(column)
+        f"{column}"
+        for allowed in _all_sort_allow_lists().values()
+        for column in allowed.values()
+        if not cursor_column_supported(column)
     ]
     assert unsupported == []
 
@@ -474,6 +456,9 @@ def test_a_money_cursor_keeps_every_digit_of_the_column():
     for raw in ("0.00", "0.01", "-12.50", "9999999999.99"):
         value = decimal.Decimal(raw)
         assert _round_trip(SalesDeal.gross_price, value) == value
+    for unrepresentable in ("12.505", "NaN", "Infinity"):  # never a stored DECIMAL(12, 2) value
+        with pytest.raises(TypeError):
+            _round_trip(SalesDeal.gross_price, decimal.Decimal(unrepresentable))
 
 
 def test_a_date_cursor_that_is_not_midnight_is_refused():
@@ -548,7 +533,9 @@ def test_deals_sorted_by_gross_price_page_past_page_one(client, db_session, dire
     from app.sales.models.deal import SalesDeal
 
     tid = uuid.uuid4()
-    prices = [Decimal("45000.00"), None, Decimal("12500.50"), Decimal("12500.50"), Decimal("0.00"), None]
+    # Four prices and three NULLs: with pages of two, the third page ends on a
+    # NULL row, so the fourth page is asked for with a cursor inside the NULL tail.
+    prices = [Decimal("45000.00"), None, Decimal("12500.50"), Decimal("12500.50"), Decimal("0.00"), None, None]
     for n, price in enumerate(prices):
         db_session.add(
             SalesDeal(tenant_id=tid, entity_type="offer", number=f"O-713-{n}", status="open", gross_price=price)
@@ -559,7 +546,7 @@ def test_deals_sorted_by_gross_price_page_past_page_one(client, db_session, dire
 
     got = [None if r["grossPrice"] is None else Decimal(r["grossPrice"]) for r in rows]
     priced = sorted((p for p in prices if p is not None), reverse=direction == "desc")
-    assert got == [*priced, None, None]  # nulls last in both directions (FR-UI-01)
+    assert got == [*priced, None, None, None]  # nulls last in both directions (FR-UI-01)
     assert len({r["id"] for r in rows}) == len(prices)
 
 
