@@ -43,12 +43,9 @@ the grids are listed by file. Last verified against main@73baf3f (2026-10-25). -
   row; cursor-based lazy loading; maximum density; Shift + wheel scrolls horizontally. The live
   catalogue grid sorts only on the fields the identAPI sorts; a stored sort on another field is
   narrowed away like an unoffered predicate, never sent.
-- **The list-query layer** (KAN-461, ADR-179; `app/core/list_query.py`): an entity declares one column
-  registry; its list takes `sort` over every field and repeatable `filter=field:operator[:value]`, 422 with
-  `details.reason` outside it, and `GET …/grid-schema` serves it. A grid on it derives filter fields
-  (`shared/gridSchema.ts`), `DataGrid`'s `sortableFields` and default visibility from the schema — never a
-  hand list or `meta.sortField`. Stock is on it; Customers, Vehicles and the rest follow (KAN-461 PR-2…4).
-  «zwischen» and «am / vor / nach» a day (Anto, 2026-11-15) are offered only by a field that lists them.
+- **List-query layer** (ADR-179, `app/core/list_query.py`): one column registry per entity; `sort` and
+  `filter=field:op[:value]` over it, 422 outside, served at `…/grid-schema`. A grid on it (Stock; more in
+  KAN-461 PR-2…4) takes filter fields, `sortableFields` and default visibility from the schema.
 - **ADR-056** — grid state (search, filter, sort, tab, scope) lives in the URL, the shareable unit.
   Layout and density stay out of it: they belong on the user preference record.
 - **ADR-058** — views and filters are **one control**, labelled with the current view. A
