@@ -53,12 +53,20 @@ def _refuse_a_merged_record(own: Session, vehicle: "VehicleMdm") -> None:
     a VIN its record does not carry; so the write is refused, nothing
     created, naming the record the car lives on and the VIN it carries."""
 
-    from app.vehicle.services.vehicle_mdm import live_vehicle_mdm
-
     if vehicle.merged_into_vehicle_id is None:
         return
+    raise refusal_naming_merged_record(own, vehicle)
+
+
+def refusal_naming_merged_record(own: Session, vehicle: "VehicleMdm") -> ConflictError:
+    """The 409 `vin_names_merged_vehicle` for merged `vehicle`: the record the
+    car lives on and the VIN it carries. Shared by the VIN resolution above
+    and «VIN korrigieren» (KAN-729), so both refuse a merged record alike."""
+
+    from app.vehicle.services.vehicle_mdm import live_vehicle_mdm
+
     live = live_vehicle_mdm(own, vehicle)
-    raise ConflictError(
+    return ConflictError(
         f"VIN {vehicle.vin} names a vehicle record merged into {live.vehicle_number} (VIN {live.vin}).",
         details={
             "reason": "vin_names_merged_vehicle",
