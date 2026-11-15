@@ -305,6 +305,19 @@ def test_every_sortable_column_is_one_a_cursor_can_be_checked_against():
     ]
     assert unsupported == []
 
+    # KAN-461: a list-query registry's sort columns too (the layer carries a
+    # decimal, a date and a boolean through the preserved cursor format).
+    from app.inventory.services.stock_grid import STOCK_ITEM_COLUMNS
+
+    registries = (STOCK_ITEM_COLUMNS,)
+    unsupported = [
+        spec.api_name
+        for registry in registries
+        for spec in registry
+        if not cursor_column_supported(spec.sort_column if spec.sort_column is not None else spec.column)
+    ]
+    assert unsupported == []
+
 
 def test_every_fixed_sort_declares_its_columns_nullability_truly():
     """A hand-built SortField (a default sort, a fixed order) states

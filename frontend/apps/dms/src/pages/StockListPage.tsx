@@ -54,6 +54,8 @@ import { useDataGridLabels } from '../hooks/useDataGridLabels'
 
 const GRID_KEY = 'inventory.stock.list'
 const DEFAULT_SORT: SortSpec[] = [{ field: 'updatedAt', direction: 'desc' }]
+/** The group stock list's sorts (app/inventory/api/group.py). */
+const GROUP_SORT_FIELDS: ReadonlySet<string> = new Set(['stockNumber', 'vin', 'updatedAt', 'createdAt'])
 
 export function StockListPage() {
   const { t, i18n } = useTranslation()
@@ -123,10 +125,15 @@ export function StockListPage() {
     setAppliedViewId(null)
   }
 
-  // The group grid sorts on the same indexed columns; its sort lives in the
-  // URL alone (its column layout is persisted under its own grid key,
-  // GroupStockGrid, KAN-357).
-  const groupSort = searchParams.get('sort') ? sortSpecFromQueryParam(searchParams.get('sort')) : DEFAULT_SORT
+  // The group grid sorts on its own short list (the backend's
+  // GROUP_STOCK_SORT_FIELDS: no private value orders a sister's rows,
+  // ADR-055); its sort lives in the URL alone (its column layout is persisted
+  // under its own grid key, GroupStockGrid, KAN-357). A sort it cannot apply —
+  // the own grid's price, carried over by a scope switch or a link — is
+  // narrowed away, never sent (KAN-461).
+  const urlGroupSort = searchParams.get('sort') ? sortSpecFromQueryParam(searchParams.get('sort')) : []
+  const offeredGroupSort = urlGroupSort.filter((s) => GROUP_SORT_FIELDS.has(s.field))
+  const groupSort = offeredGroupSort.length > 0 ? offeredGroupSort : DEFAULT_SORT
   const setGroupSort = (next: SortSpec[]) => {
     updateUrl({ sort: sortSpecToQueryParam(next) ?? null })
   }
@@ -230,13 +237,13 @@ export function StockListPage() {
         id: 'vin',
         header: t('stockList.columns.vin'),
         cell: ({ row }) => row.original.vin ?? '—',
-        meta: { defaultVisible: false, mono: true },
+        meta: { mono: true },
       },
       {
         id: 'listPrice',
         header: t('stockList.columns.listPrice'),
         cell: ({ row }) => (row.original.listPrice != null ? formatCurrencyChf(Number(row.original.listPrice)) : '—'),
-        meta: { defaultVisible: false, align: 'right' },
+        meta: { align: 'right' },
       },
       // § ADR-060 — every persisted field is a column; a documented
       // subset (the ones above) is visible by default. These remaining
@@ -265,75 +272,68 @@ export function StockListPage() {
           ) : (
             '—'
           ),
-        meta: { defaultVisible: false },
-      },
+              },
       {
         id: 'basePrice',
         header: t('stockList.columns.basePrice'),
         cell: ({ row }) => (row.original.basePrice != null ? formatCurrencyChf(Number(row.original.basePrice)) : '—'),
-        meta: { defaultVisible: false, align: 'right' },
+        meta: { align: 'right' },
       },
       {
         id: 'purchasePrice',
         header: t('stockList.columns.purchasePrice'),
         cell: ({ row }) => (row.original.purchasePrice != null ? formatCurrencyChf(Number(row.original.purchasePrice)) : '—'),
-        meta: { defaultVisible: false, align: 'right' },
+        meta: { align: 'right' },
       },
       {
         id: 'landedCost',
         header: t('stockList.columns.landedCost'),
         cell: ({ row }) => (row.original.landedCost != null ? formatCurrencyChf(Number(row.original.landedCost)) : '—'),
-        meta: { defaultVisible: false, align: 'right' },
+        meta: { align: 'right' },
       },
       {
         id: 'notionalInputTaxAmount',
         header: t('stockList.columns.notionalInputTaxAmount'),
         cell: ({ row }) => (row.original.notionalInputTaxAmount != null ? formatCurrencyChf(Number(row.original.notionalInputTaxAmount)) : '—'),
-        meta: { defaultVisible: false, align: 'right' },
+        meta: { align: 'right' },
       },
       {
         id: 'isInvoiceable',
         header: t('stockList.columns.isInvoiceable'),
         cell: ({ row }) => yesNo(row.original.isInvoiceable),
-        meta: { defaultVisible: false },
-      },
+              },
       {
         id: 'supplierName',
         header: t('stockList.columns.supplierName'),
         cell: ({ row }) => row.original.supplierName ?? '—',
-        meta: { defaultVisible: false },
-      },
+              },
       {
         id: 'purchaseDate',
         header: t('stockList.columns.purchaseDate'),
         cell: ({ row }) => (row.original.purchaseDate ? formatDateOnly(row.original.purchaseDate, locale) : '—'),
-        meta: { defaultVisible: false },
-      },
+              },
       {
         id: 'orderDate',
         header: t('stockList.columns.orderDate'),
         cell: ({ row }) => (row.original.orderDate ? formatDateOnly(row.original.orderDate, locale) : '—'),
-        meta: { defaultVisible: false },
-      },
+              },
       {
         id: 'expectedDelivery',
         header: t('stockList.columns.expectedDelivery'),
         cell: ({ row }) => (row.original.expectedDelivery ? formatDateOnly(row.original.expectedDelivery, locale) : '—'),
-        meta: { defaultVisible: false },
-      },
+              },
       {
         id: 'pipelineRef',
         header: t('stockList.columns.pipelineRef'),
         cell: ({ row }) => row.original.pipelineRef ?? '—',
-        meta: { defaultVisible: false, mono: true },
+        meta: { mono: true },
       },
       // KAN-190 (ADR-060): the configuration's label, rule 2's copy on the item.
       {
         id: 'configurationLabel',
         header: t('stockList.columns.configuration'),
         cell: ({ row }) => row.original.configurationLabel ?? '—',
-        meta: { defaultVisible: false },
-      },
+              },
       // KAN-461: the persisted fields the grid did not offer before.
       {
         id: 'exteriorColour',
@@ -434,7 +434,8 @@ export function StockListPage() {
       columns.map((c) => ({
         id: String(c.id),
         label: typeof c.header === 'string' ? c.header : String(c.id),
-        defaultVisible: defaultVisible.get(String(c.id)) ?? c.meta?.defaultVisible ?? true,
+        // The served schema decides (KAN-461); a column it does not know is hidden.
+        defaultVisible: defaultVisible.get(String(c.id)) ?? false,
         locked: c.meta?.locked,
       })),
     [columns, defaultVisible]

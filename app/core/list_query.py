@@ -88,6 +88,9 @@ _PERIOD_OF = {"today": "day", "thisWeek": "week", "thisMonth": "month", "thisYea
 # The bounds every N-days condition takes (the customer list's own, KAN-474).
 MAX_FILTER_DAYS = 36500
 MAX_TEXT_FILTER_LENGTH = 200
+# The calendar days a date filter takes — far wider than any stored date.
+MIN_FILTER_YEAR = 1900
+MAX_FILTER_YEAR = 2999
 _NUMBER = re.compile(r"^-?\d{1,12}(\.\d{1,4})?$")
 _MONEY = re.compile(r"^-?\d{1,10}(\.\d{1,2})?$")
 _DAYS = re.compile(r"^\d{1,5}$")
@@ -269,7 +272,12 @@ def _parse_value(spec: ColumnSpec, operator: str, raw: str | None) -> Any:
         try:
             if not _ISO_DATE.fullmatch(raw):
                 raise ValueError(raw)
-            return dt.date.fromisoformat(raw)
+            day = dt.date.fromisoformat(raw)
+            # A day the session zone's arithmetic and the UTC bind can take
+            # (9999-12-31 + 1 day, or year 1 in UTC, overflow into a 500).
+            if not MIN_FILTER_YEAR <= day.year <= MAX_FILTER_YEAR:
+                raise ValueError(raw)
+            return day
         except ValueError:
             raise _refuse("invalid_filter_value", f"A date YYYY-MM-DD for '{field}'.", field=field, value=raw) from None
     if kind == "boolean":

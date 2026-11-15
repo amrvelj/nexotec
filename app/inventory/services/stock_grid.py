@@ -121,7 +121,9 @@ STOCK_ITEM_COLUMNS: Registry = (
 
 # Each persisted column that is not a grid column, and why (ADR-060: a
 # stored field that cannot be put on screen is a defect — these are ids,
-# bookkeeping or a scope, not a business fact of their own).
+# bookkeeping or a scope, not a business fact of their own; the location is
+# the one fact, KAN-739). FR-UI-01's PRD justification: PRD-Stock's delivery
+# line for KAN-461 records this list.
 STOCK_ITEM_EXCLUDED_COLUMNS: dict[str, str] = {
     "id": "the row's identity; the grid opens the car by it",
     "tenant_id": "the list's scope (rule 7), the same for every row",
@@ -136,7 +138,7 @@ STOCK_ITEM_EXCLUDED_COLUMNS: dict[str, str] = {
     "trade_in_customer_id": "a customer id relayed from Sales with no label on the item",
     "valuation_ref_id": "the valuation's id; its amount, source and date are columns",
     "left_stock_at": "always empty in this list: a car that left stock is not in it (FR-I-12)",
-    "location_id": "a location id with no label column on the item yet (its own ticket)",
+    "location_id": "a location id with no label column on the item yet (KAN-739 adds the label and the column)",
 }
 
 DEFAULT_STOCK_ITEM_SORT: tuple[tuple[str, str], ...] = (("updatedAt", "desc"),)

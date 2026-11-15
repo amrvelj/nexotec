@@ -335,6 +335,9 @@ def test_a_text_filter_takes_wildcards_and_colons_literally(client, stock):
         ({"filter": "listPrice:between:9,1"}, "invalid_filter_value"),
         ({"filter": "condition:is:occasion"}, "invalid_filter_value"),
         ({"filter": "updatedAt:on:15.11.2026"}, "invalid_filter_value"),
+        # Review of b7ec3c4: the day after 9999-12-31 and year 1 in UTC overflowed into a 500.
+        ({"filter": "purchaseDate:after:9999-12-31"}, "invalid_filter_value"),
+        ({"filter": "updatedAt:before:0001-01-01"}, "invalid_filter_value"),
         ({"filter": "updatedAt:inTheLastDays:36501"}, "invalid_filter_value"),
         ({"filter": "updatedAt:today:1"}, "invalid_filter_value"),
         ({"filter": "isInvoiceable:is:ja"}, "invalid_filter_value"),
