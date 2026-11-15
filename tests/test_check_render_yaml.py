@@ -43,7 +43,7 @@ def test_a_plan_render_does_not_know_fails_and_is_named(tmp_path: Path) -> None:
 
 
 def test_a_misspelt_service_key_is_named(tmp_path: Path) -> None:
-    problems = check_render_yaml.validate(_blueprint_with(tmp_path, "    plan: free\n", "    planz: free\n"))
+    problems = check_render_yaml.validate(_blueprint_with(tmp_path, "    plan: starter\n", "    planz: starter\n"))
     assert problems, "a key Render does not know must fail validation"
     assert any("services/0" in p and "planz" in p for p in problems), problems
     assert not any("not valid under any of the given schemas" in p for p in problems), problems

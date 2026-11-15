@@ -162,6 +162,87 @@ describe('RecordPurchaseDialog — the VIN comes from the configuration (KAN-510
   })
 })
 
+// KAN-736 (Anto, 2026-11-15): a VIN only a merged duplicate carries (409
+// `vin_names_merged_vehicle`, KAN-723) is refused naming the record the car
+// lives on and its VIN — and, at the booking, the way out.
+describe('RecordPurchaseDialog — a VIN naming a merged record says the way out (KAN-736)', () => {
+  afterEach(async () => {
+    await i18n.changeLanguage('de')
+  })
+
+  const mergedRefusal = () =>
+    new ApiError(409, 'conflict', 'VIN names a vehicle record merged into F-000007 (VIN WVWZZZ1KZAW005102).', {
+      reason: 'vin_names_merged_vehicle',
+      vin: CORRECTED_VIN,
+      vehicleNumber: 'F-000007',
+      vehicleId: 'veh-7',
+    })
+
+  it.each([
+    ['de', 'Korrigieren Sie die VIN mit «Konfiguration bearbeiten».'],
+    ['fr', 'Corrigez le VIN via « Modifier la configuration ».'],
+    ['it', 'Correggere il VIN tramite «Modifica configurazione».'],
+    ['en', 'Correct the VIN with «Edit configuration».'],
+  ])('ends with «Konfiguration bearbeiten» in %s and offers it on the configuration', async (lng, wayOut) => {
+    const user = userEvent.setup()
+    await i18n.changeLanguage(lng)
+    configurationBackend(configurationRead(RECORDED))
+    const onEditConfiguration = vi.fn()
+    renderWithProviders(
+      <RecordPurchaseDialog
+        opened
+        requiresVin
+        configurationId="cfg-1"
+        onClose={() => {}}
+        onEditConfiguration={onEditConfiguration}
+        onSubmit={() => Promise.reject(mergedRefusal())}
+      />,
+    )
+
+    await waitFor(() => expect(vinField().value).toBe(CONFIGURED_VIN))
+    await user.type(field('stockDetail.purchase.fields.supplierName'), 'Hans Muster')
+    await user.type(field('stockDetail.purchase.fields.purchasePrice'), '8000')
+    await user.click(screen.getByRole('button', { name: i18n.t('stockDetail.purchase.submit') }))
+
+    const alert = await screen.findByRole('alert')
+    const text = within(alert).getByText((_, el) => el?.tagName === 'SPAN' && el.textContent?.includes('F-000007') === true).textContent ?? ''
+    // The record's number and its VIN stay in the text (KAN-723); the way out ends it.
+    expect(text).toContain(CORRECTED_VIN)
+    expect(text.endsWith(wayOut)).toBe(true)
+    expect(text).toBe(i18n.t('stockDetail.purchase.vinNamesMergedVehicle', { vehicleNumber: 'F-000007', vin: CORRECTED_VIN }))
+    expect(screen.queryByText(/names a vehicle record/)).not.toBeInTheDocument()
+
+    await user.click(within(alert).getByRole('button', { name: editLabel() }))
+    expect(onEditConfiguration).toHaveBeenCalledTimes(1)
+  })
+
+  it('names «Konfiguration zuordnen» on a car without a configuration, and offers no edit', async () => {
+    const user = userEvent.setup()
+    installFakeBackend([])
+    renderWithProviders(
+      <RecordPurchaseDialog opened requiresVin onClose={() => {}} onSubmit={() => Promise.reject(mergedRefusal())} />,
+    )
+
+    await user.type(vinField(), 'WVWZZZ1KZAW005103')
+    await user.type(field('stockDetail.purchase.fields.supplierName'), 'Hans Muster')
+    await user.type(field('stockDetail.purchase.fields.purchasePrice'), '8000')
+    await user.click(screen.getByRole('button', { name: i18n.t('stockDetail.purchase.submit') }))
+
+    const alert = await screen.findByRole('alert')
+    expect(alert.textContent).toBe(
+      i18n.t('stockDetail.purchase.vinNamesMergedVehicleNoConfiguration', { vehicleNumber: 'F-000007', vin: CORRECTED_VIN }),
+    )
+    expect(alert.textContent?.endsWith('Ordnen Sie dem Fahrzeug über «Konfiguration zuordnen» eine Konfiguration mit der richtigen VIN zu.')).toBe(true)
+    expect(within(alert).queryByRole('button')).toBeNull()
+  })
+
+  it('keeps the shared wording, with no way out, everywhere else («VIN korrigieren» types its VIN)', () => {
+    expect(i18n.t('apiRefusal.reasons.vin_names_merged_vehicle', { vehicleNumber: 'F-000007', vin: CORRECTED_VIN })).not.toMatch(
+      /Konfiguration/,
+    )
+  })
+})
+
 describe('Stock detail — «Konfiguration bearbeiten» (KAN-510)', () => {
   const renderDetails = (canEditConfiguration: boolean, onRecordPurchase = vi.fn()) =>
     renderWithProviders(

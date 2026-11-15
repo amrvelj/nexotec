@@ -152,6 +152,58 @@ def run_reconciliation(
     return run
 
 
+# KAN-402: a check that runs when the web service starts (not nightly) records
+# its run under a context with this prefix, so it never makes the nightly
+# job's age gauge below look fresh.
+ON_START_CONTEXT_PREFIX = "startup."
+
+
+@dataclasses.dataclass(frozen=True)
+class Finding:
+    """One finding of a check that is not a SELECT (KAN-402: a key whose
+    object the store does not hold) — recorded like an orphan, against the
+    row that holds the reference."""
+
+    check_label: str
+    source_table: str
+    source_row_id: uuid.UUID
+    target_table: str
+    dangling_value: uuid.UUID
+
+
+def record_findings(db: Session, *, context: str, checks_run: int, findings: Sequence[Finding]) -> ReconciliationRun:
+    """Persists a run and its findings in the same tables as
+    `run_reconciliation`, commits, then raises ReconciliationAlarm when
+    anything was found — the same record and the same alarm, for a check
+    whose question SQL cannot ask. Detection only, like every check here."""
+
+    now = utcnow()
+    run = ReconciliationRun(context=context, started_at=now, checks_run=checks_run, orphans_found=0)
+    db.add(run)
+    db.flush()
+    orphans = [
+        ReconciliationOrphan(
+            run_id=run.id,
+            context=context,
+            check_label=finding.check_label,
+            source_table=finding.source_table,
+            source_row_id=finding.source_row_id,
+            target_table=finding.target_table,
+            dangling_value=finding.dangling_value,
+            detected_at=now,
+        )
+        for finding in findings
+    ]
+    db.add_all(orphans)
+    run.finished_at = utcnow()
+    run.orphans_found = len(orphans)
+    db.commit()
+    db.refresh(run)
+    if orphans:
+        raise ReconciliationAlarm(run, orphans)
+    return run
+
+
 def seconds_since_last_reconciliation(db: Session) -> float | None:
     """Age in seconds of the most recently finished ReconciliationRun, or
     None if reconciliation has never completed a run.
@@ -168,7 +220,10 @@ def seconds_since_last_reconciliation(db: Session) -> float | None:
 
     newest = db.scalar(
         select(ReconciliationRun.finished_at)
-        .where(ReconciliationRun.finished_at.is_not(None))
+        .where(
+            ReconciliationRun.finished_at.is_not(None),
+            ReconciliationRun.context.not_like(f"{ON_START_CONTEXT_PREFIX}%"),
+        )
         .order_by(ReconciliationRun.finished_at.desc())
         .limit(1)
     )

@@ -31,7 +31,8 @@ against main@73baf3f (2026-10-25). The backend rules are inventory.md. -->
   fields).
 - **The VIN at purchase:** `RecordPurchaseDialog` prefills the configuration's VIN; on a car no
   contract reserves, the `configuration_vin_differs` refusal offers «Konfiguration bearbeiten» (every
-  stock car, pipeline or in stock, trade-ins included). A reserved car — a signed manual
+  stock car, pipeline or in stock, trade-ins included); `vin_names_merged_vehicle` there ends with
+  the way out — «Konfiguration bearbeiten» with the same button, «Konfiguration zuordnen» without one (KAN-736). A reserved car — a signed manual
   configuration's pipeline item — gets «Vertrag bearbeiten» on its configuration card instead,
   disabled with the reason: its contract is signed and frozen, so a wrong VIN there is corrected only
   after that contract is cancelled.

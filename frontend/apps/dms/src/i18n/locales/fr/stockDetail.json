@@ -65,6 +65,8 @@
     "error": "L’achat n’a pas pu être enregistré. Veuillez réessayer.",
     "notRecorded": "Aucun achat saisi pour l'instant.",
     "configurationVinDiffers": "Le VIN diffère de celui de la configuration.",
+    "vinNamesMergedVehicle": "Ce VIN appartient à un véhicule fusionné avec {{vehicleNumber}} dans le fichier des véhicules. Le véhicule porte le VIN {{vin}}. Corrigez le VIN via « Modifier la configuration ».",
+    "vinNamesMergedVehicleNoConfiguration": "Ce VIN appartient à un véhicule fusionné avec {{vehicleNumber}} dans le fichier des véhicules. Le véhicule porte le VIN {{vin}}. Attribuez au véhicule, via « Attribuer une configuration », une configuration portant le bon VIN.",
     "storno": {
       "button": "Annuler l'achat",
       "title": "Annuler l'achat",

@@ -83,6 +83,7 @@
   "leadRouting": {
     "hint": "Wohin Anfragen zu Fahrzeugen dieses Standorts gehen.",
     "leadEmail": "E-Mail für Anfragen",
+    "leadEmailManagerOnlyHint": "Nur die Geschäftsführung ändert die E-Mail für Anfragen – hier und unter Standorte.",
     "leadPhone": "Telefon für Anfragen",
     "createsTask": "Anfrage legt auch eine Aufgabe im DMS an",
     "recipientRole": "Empfänger",
@@ -121,6 +122,7 @@
     "image_too_large": "Das Foto ist zu gross – höchstens 10 MB.",
     "image_too_small": "Das Foto ist zu klein – mindestens 800 px an der langen Seite.",
     "image_unreadable": "Die Bilddatei ist beschädigt.",
+    "lead_email_manager_only": "Die E-Mail für Anfragen ändert nur die Geschäftsführung.",
     "lead_recipient_not_a_user": "Der Empfänger muss ein aktiver Benutzer Ihres Betriebs sein."
   }
 }

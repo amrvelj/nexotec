@@ -16,13 +16,15 @@ interface RecordPurchaseDialogProps {
   /** KAN-446: a pipeline item is bought with its VIN, which puts it on stock. */
   requiresVin?: boolean
   /** KAN-510: the item's configuration. Its VIN prefills the field, and the
-   * booking refuses another (422 `configuration_vin_differs`). */
+   * booking refuses another (422 `configuration_vin_differs`), and is where a
+   * VIN naming a merged record is corrected (409 `vin_names_merged_vehicle`,
+   * KAN-736). */
   configurationId?: string | null
   /** KAN-536: the VIN the contract holds for a trade-in (the item's
    * `tradeInVin`). It prefills the field when the configuration carries
    * none, and the booking refuses another (422 `trade_in_vin_differs`). */
   tradeInVin?: string | null
-  /** KAN-510: offered beside that refusal — opens the configuration for
+  /** KAN-510, KAN-736: offered beside those refusals — opens the configuration for
    * editing, where a wrong VIN is corrected. Omitted when the user's role
    * may not write configurations. */
   onEditConfiguration?: (configuration: ConfigurationRead) => void
@@ -128,6 +130,24 @@ export function RecordPurchaseDialog({
       if (err instanceof ApiError && err.status === 422 && err.details?.reason === 'configuration_vin_differs') {
         setVinDiffers(true)
         setError(t('stockDetail.purchase.configurationVinDiffers'))
+        return
+      }
+      // KAN-736 (Anto, 2026-11-15): a VIN only a merged duplicate carries is
+      // refused naming the record the car lives on (KAN-723); here the text
+      // ends with the way out — the configuration's VIN decides the booking
+      // (KAN-575), so it is corrected there. The shared wording stays for
+      // «VIN korrigieren», where the VIN is typed and this way out is none.
+      if (err instanceof ApiError && err.status === 409 && err.details?.reason === 'vin_names_merged_vehicle') {
+        const params = { vehicleNumber: String(err.details.vehicleNumber ?? '—'), vin: String(err.details.vin ?? '—') }
+        setVinDiffers(configurationId != null)
+        setError(
+          t(
+            configurationId != null
+              ? 'stockDetail.purchase.vinNamesMergedVehicle'
+              : 'stockDetail.purchase.vinNamesMergedVehicleNoConfiguration',
+            params,
+          ),
+        )
         return
       }
       // A VIN the API refuses (KAN-351) is named by its rule, never as a

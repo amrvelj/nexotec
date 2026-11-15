@@ -24,7 +24,7 @@ from app.core.auth import Principal
 from app.core.concurrency import check_version, require_if_match
 from app.core.idempotent_route import IdempotentRoute
 from app.core.object_store import ObjectStore, get_object_store
-from app.core.permissions import require_read, require_write
+from app.core.permissions import may_write, require_read, require_write
 from app.core.tenancy import require_tenant_match
 from app.db import get_db
 from app.platform.organisation.models.branding_asset import PublishingImageKind
@@ -418,11 +418,19 @@ def set_lead_routing(
 ):
     """Replaces the site's lead routing. Its lead e-mail is the location's
     own column (the Locations master data): saved here, it moves the
-    location's version too."""
+    location's version too — and, as on the Locations screen, only the
+    manager may change it (403 `lead_email_manager_only`, KAN-734)."""
 
     require_tenant_match(dealership_id, principal)
     dealership = dealership_service.get_dealership_or_404(db, dealership_id)
     profile = _locked_profile(db, dealership_id, if_match)
     location = get_location_for_update_or_404(db, dealership_id=dealership_id, location_id=location_id)
-    service.set_lead_routing(db, profile=profile, location=location, data=body, actor_id=principal.user_id)
+    service.set_lead_routing(
+        db,
+        profile=profile,
+        location=location,
+        data=body,
+        actor_id=principal.user_id,
+        may_write_lead_email=may_write("locations", roles=principal.roles, is_dealer_manager=principal.is_dealer_manager),
+    )
     return profile_read(db, dealership)
