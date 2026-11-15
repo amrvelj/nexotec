@@ -184,7 +184,12 @@
       "take": "Riprendi nella descrizione",
       "discard": "Scarta",
       "failed": "Non è stato possibile creare una proposta.",
-      "connect": "Collega un fornitore IA"
+      "connect": "Collega un fornitore IA",
+      "tooLong": "La proposta supera i {{count}} caratteri della descrizione. Accorciatela prima di riprenderla.",
+      "replaceTitle": "Sostituire la descrizione esistente?",
+      "replaceBody": "La descrizione contiene già del testo. Riprendendo la proposta, questo testo viene sostituito.",
+      "replaceConfirm": "Sostituisci",
+      "replaceCancel": "Non sostituire"
     }
   },
   "evaluation": {

@@ -333,6 +333,7 @@ export function PublishingTab({ stockItemId, locale, canPublish = true }: Publis
 }
 
 type ListingTextField = 'zusatztitel' | 'bemerkungen' | 'zustandsbeschreibung' | 'haendlerbemerkungen'
+const BEMERKUNGEN_MAX_LENGTH = 4000
 type ListingTextPatch = Partial<Record<ListingTextField, string>>
 
 function ListingTextFields({
@@ -362,9 +363,15 @@ function ListingTextFields({
     <>
       <ListingTextInput {...field('zusatztitel')} maxLength={500} displayLimitCaption={titleDisplayLimitCaption} minRows={1} />
       {/* KAN-227 — the suggestion fills the description only when the user
-          takes it, saved through the same queued PATCH as typing (4000 at most). */}
-      <ListingTextSuggestion stockItemId={stockItemId} onTake={(text) => onSave({ bemerkungen: text.slice(0, 4000) })} />
-      <ListingTextInput {...field('bemerkungen')} maxLength={4000} />
+          takes it (asked first when there is text already, never cut at the
+          limit), saved through the same queued PATCH as typing. */}
+      <ListingTextSuggestion
+        stockItemId={stockItemId}
+        currentText={publishing.bemerkungen ?? ''}
+        maxLength={BEMERKUNGEN_MAX_LENGTH}
+        onTake={(text) => onSave({ bemerkungen: text })}
+      />
+      <ListingTextInput {...field('bemerkungen')} maxLength={BEMERKUNGEN_MAX_LENGTH} />
       <ListingTextInput {...field('zustandsbeschreibung')} maxLength={2000} />
       <ListingTextInput
         {...field('haendlerbemerkungen')}

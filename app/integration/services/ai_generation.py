@@ -3,8 +3,8 @@ one place a prompt meets the Betrieb's AI provider.
 
 Why here and not in `platform.public`, where the ticket first put it:
 platform is the lowest layer and may not call integration, and generation is
-a provider call — so it lives beside the gateway, as `resolve_sender` does for
-mail (the ADR "AI prompts and generation live in integration"). Callers above
+a provider call — so it lives beside the gateway (ADR (KAN-227): AI prompts
+and generation live in integration). Callers above
 (Inventory's «Text vorschlagen») reach it through `integration.public`.
 
 It resolves, in order: the Betrieb's AI connection (below), the prompt of the
@@ -137,10 +137,12 @@ def generate(
             str(exc), details={"reason": "ai_provider_not_configured", "link": "/administration/integrations"}
         ) from exc
     except ProviderGatewayError as exc:
-        # Our own wording only (errors.py): the provider's message never reaches the user.
+        # `failure` is our adapter's own wording of what went wrong (errors.py:
+        # an adapter never passes a provider's or a library's message on); the
+        # screen shows the reason in the UI language, never this field.
         raise UnprocessableEntityError(
             "The AI provider did not deliver a suggestion.",
-            details={"reason": "ai_provider_unavailable", "providerMessage": str(exc)},
+            details={"reason": "ai_provider_unavailable", "failure": str(exc)},
         ) from exc
     if not completion.text:
         raise UnprocessableEntityError(
