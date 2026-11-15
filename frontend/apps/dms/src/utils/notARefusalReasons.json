@@ -1,0 +1,12 @@
+{
+  "confirmed_concurrently": "sales/services/contract.py: a log line's extra",
+  "factor_enrolled": "platform/session_guard.py: session_revoked event",
+  "inactive": "platform/services/identity.py: login_failed event (the 401 is uniform)",
+  "logout": "platform/api/auth.py: session_revoked event",
+  "mfa_removed": "platform/api/auth.py: session_revoked event",
+  "no_credential": "platform/services/identity.py: login_failed event",
+  "not_this_tenants": "valuation/services/contract_carry.py: a log line's extra",
+  "password": "platform/services/identity.py: login_failed event",
+  "signed": "valuation/services/contract_carry.py: a log line's extra",
+  "user": "platform/api/auth.py: session_revoked event"
+}

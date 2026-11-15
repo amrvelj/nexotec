@@ -9,8 +9,10 @@ type Details = Record<string, unknown>
  * KAN-437 — every `details.reason` the API states, and the key that says it
  * in the UI language. A reason whose wording a screen already had (merge,
  * vehicle roles, contract confirmation, business master data) keeps that
- * key; the rest live under `apiRefusal.reasons`. `apiRefusal.test.ts`
- * fails when the API raises a literal reason this table does not know.
+ * key; the rest live under `apiRefusal.reasons`. `apiRefusal.test.ts`, and
+ * its backend-lane twin `tests/test_frontend_knows_backend_refusals.py`
+ * (KAN-679), fail when the API raises a literal reason this table does not
+ * know. The twin reads this table's source: keep one entry per line.
  */
 const REASON_KEYS: Record<string, string> = {
   bad_status: 'contractDetail.errors.confirmRefused.badStatus',

@@ -7,9 +7,9 @@ records that are already merged.
 
 It is now refused as every other write naming a merged record is (KAN-723):
 409 `vin_names_merged_vehicle`, naming the record the car lives on and the VIN
-it carries — whether that survivor is another car or the very car being
-corrected (its own merged duplicate's VIN). Nothing is written either way. On
-Postgres.
+it carries, with nothing written. The very car's own merged duplicate's VIN is
+no longer refused: KAN-730 (Anto, 2026-11-15, option 1) takes it over —
+`tests/test_kan730_vin_taken_over_from_own_merged_duplicate.py`. On Postgres.
 """
 
 import uuid
@@ -51,22 +51,6 @@ def test_a_correction_to_another_cars_merged_duplicate_vin_names_the_live_record
         "vin": SURVIVOR_VIN,
         "vehicleNumber": survivor.vehicle_number,
         "vehicleId": str(survivor.id),
-    }
-    _nothing_written(db_session, item)
-
-
-def test_a_correction_to_the_cars_own_merged_duplicate_vin_names_the_car_itself(client, db_session):
-    item, tenant_id = _bought(client, db_session)
-    car = _merge(db_session, survivor_id=uuid.UUID(item["vehicleId"]), duplicate_vin=DUPLICATE_VIN)
-
-    response = _correct(client, _manager(tenant_id), item, new_vin=DUPLICATE_VIN)
-
-    assert response.status_code == 409, response.text
-    assert response.json()["error"]["details"] == {
-        "reason": "vin_names_merged_vehicle",
-        "vin": VIN,
-        "vehicleNumber": car.vehicle_number,
-        "vehicleId": str(car.id),
     }
     _nothing_written(db_session, item)
 

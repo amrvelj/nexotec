@@ -76,8 +76,10 @@ Last verified against main@73baf3f (2026-10-25). -->
   `vin_correction_needs_vehicle` — a pipeline car corrects its configuration, which wins at booking,
   KAN-575) · the same VIN (422 `vin_unchanged`) · held in stock (409 `vin_already_in_stock`) · a third
   configuration VIN (422 `configuration_vin_differs`) · another record carries it (409
-  `vin_belongs_to_other_vehicle`, `vehicleNumber`: one car, merged with «Zusammenführen mit…», FR-V-12) · only a
-  merged duplicate carries it (409 `vin_names_merged_vehicle`, the survivor and its VIN, KAN-729) · the
+  `vin_belongs_to_other_vehicle`, `vehicleNumber`: one car, merged with «Zusammenführen mit…», FR-V-12) · only another
+  car's merged duplicate carries it (409 `vin_names_merged_vehicle`, the survivor and its VIN, KAN-729) — the car's own
+  merged duplicate gives it up: the two swap VINs in Vehicle's one transaction, both audited and published, the
+  compensation swaps back (KAN-730; Anto, 2026-11-15, option 1) · the
   record changed (409 `vehicle_vin_changed`) or was merged (409 `vehicle_merged`).
 - **A pre-1981 car's chassis number is corrected here too** (KAN-535; Anto, 2026-11-14, option B),
   same row, audit and refusals: `newVin` takes `NormalisedVinOrChassisNumber`; the record keeps its
