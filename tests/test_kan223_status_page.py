@@ -499,14 +499,16 @@ def test_a_source_that_cannot_be_asked_keeps_its_items_so_recovery_is_no_new_deg
     register_status_provider(_IntegrationDown())
     try:
         down = status_notifications.run(db_session)
+        still_down = status_notifications.run(db_session)
     finally:
         register_status_provider(IntegrationStatusProvider())
-    assert down.notified == 0  # the dealer cannot fix an unavailable source
+    assert down.notified == 1  # the blocked «unavailable» item is announced once (exit criterion)
+    assert still_down.notified == 0  # and not again while it stays down
     keys = {row.item_key for row in db_session.scalars(select(StatusItemState))}
     assert f"integration.connection.{connection.id}" in keys  # kept, not gone
 
     assert status_notifications.run(db_session).notified == 0  # recovered, still degraded: no new notice
-    assert len(_degraded_notifications(db_session)) == 1
+    assert len(_degraded_notifications(db_session)) == 2  # the connection once, the outage once
     keys = {row.item_key for row in db_session.scalars(select(StatusItemState))}
     assert "integration.unavailable" not in keys
 

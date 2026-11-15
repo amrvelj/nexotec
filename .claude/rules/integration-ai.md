@@ -24,7 +24,7 @@ paths:
 - **The Azure endpoint is checked before anything is sent** (`ai_providers.azure_endpoint`: https,
   `*.openai.azure.com` / `*.cognitiveservices.azure.com`, nothing after the host) — the server never
   calls a URL a dealer typed.
-- **Prompts are the standard texts' pattern, in integration** (ADR (KAN-227): AI prompts and
+- **Prompts are the standard texts' pattern, in integration** (ADR-181: AI prompts and
   generation live in integration; `integration_ai_prompt`): seeds
   (tenant NULL, `platform_admin` through Translations under `ui_translations`) and the Betrieb's
   overrides (`ai_prompts`, the manager), «the default has changed» derived on read, back to the

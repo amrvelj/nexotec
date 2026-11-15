@@ -3,7 +3,7 @@ one place a prompt meets the Betrieb's AI provider.
 
 Why here and not in `platform.public`, where the ticket first put it:
 platform is the lowest layer and may not call integration, and generation is
-a provider call — so it lives beside the gateway (ADR (KAN-227): AI prompts
+a provider call — so it lives beside the gateway (ADR-181: AI prompts
 and generation live in integration). Callers above
 (Inventory's «Text vorschlagen») reach it through `integration.public`.
 

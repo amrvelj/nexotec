@@ -68,7 +68,7 @@ KAN-614 (2026-11-10) to the invariants; platform.md was verified against main@73
   through `app/core/status.py`, registered in `app/status_registry.py` (integration's connections).
   The daily `platform.status_page.notifications` raises `administration.status_item_degraded` once
   per degradation (`status_item_state`, under a per-Betrieb advisory lock): a warning the source
-  really announced is exempt, the move to blocked never; an unavailable source keeps its rows.
+  really announced is exempt, the move to blocked never; an unavailable source keeps its rows, its own blocked item announced once (ADR-180).
 - `digest` holds rows until the daily `platform.notifications.digest`, which publishes one release
   per user filed under no Betrieb (a digest may span sister Betriebe).
 - The security family hangs on `auth_events.record` (`services/security_alerts.py`): new-device

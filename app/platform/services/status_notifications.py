@@ -19,8 +19,9 @@ someone**:
   — except while its source cannot be asked: a source that raised has its
   items replaced by one `<source>.unavailable` item, and its rows are kept
   (the item is unknown, not gone), so its recovery is not a new degradation.
-  The unavailable item itself is recorded, never notified: the dealer cannot
-  fix it, and the failure is logged at ERROR for Nexotec.
+  The unavailable item is blocked like any other and announced once, as the
+  exit criterion asks (every item that becomes warning or blocked); the
+  failure is also logged at ERROR for Nexotec (ADR-180).
 
 Two runs for one Betrieb never both notify: each takes a transaction-scoped
 advisory lock on the Betrieb first (Postgres; the SQLite fast lane runs one
@@ -123,9 +124,8 @@ def check_dealership(db: Session, dealership: Dealership, *, now: dt.datetime | 
             degraded += 1
         elif not escalated or row.notified_at is not None:
             continue  # still degraded, and the managers were told
-        unavailable = item.source in page.unavailable_sources
         exempt = item.notified_by_source and item.state == StatusState.WARNING
-        if unavailable or exempt:
+        if exempt:
             continue
         row.notified_at = now
         db.flush()
