@@ -70,7 +70,7 @@ def _scene(db_session):
         # A sister's entry that names both Betriebe: it stays, the leaver's name does not.
         "old_by_the_staying_sisters_own": _legacy(
             db_session, customer, sven.id, "old_sven",
-            after={"dealershipId": str(leaving.id), "dealership_id": str(staying.id)},
+            after={"dealershipId": str(leaving.id), "dealership_id": str(staying.id), "advisorId": str(lea.id)},
         ),
         "old_by_no_one": _legacy(db_session, customer, None, "old_system"),
     }
@@ -97,13 +97,19 @@ def test_a_customer_write_records_the_betrieb_it_was_made_in(db_session):
 def test_a_sister_sees_none_of_the_leavers_entries_and_every_other_entry_stays(db_session):
     _, viewer, leaving, staying, customer, entries, (lea, noah, sven) = _scene(db_session)
     assert _history(db_session, customer) == set(entries.values())
+    before = customer_service.history_labels(
+        db_session, group_id=customer.group_id, dealership_id=viewer.id,
+        events=[db_session.get(AuditEvent, entry) for entry in entries.values()],
+    )
+    assert {str(leaving.id), str(lea.id), str(noah.id), str(staying.id), str(sven.id)} <= set(before)
 
     _offboarded(db_session, leaving)
 
     shown = _history(db_session, customer)
     assert shown == {entry for name, entry in entries.items() if name not in _LEAVERS}
     # What stays names neither the leaver nor its users (KAN-218's masking,
-    # kept): Noah's entries stay, his name renders as unknown.
+    # kept): Noah's entries stay, his name renders as unknown; Sven's entry
+    # still names the leaver and Lea (as advisor), and neither is labelled.
     events = [db_session.get(AuditEvent, entry) for entry in shown]
     labels = customer_service.history_labels(
         db_session, group_id=customer.group_id, dealership_id=viewer.id, events=events

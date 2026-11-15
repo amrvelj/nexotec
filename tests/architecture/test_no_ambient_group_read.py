@@ -100,6 +100,14 @@ _ALLOWED_FILES = {
     # Betrieb's entries from its sisters and to put exactly those in its
     # archive. Its own module, like group_labels.py above.
     _APP_ROOT / "platform" / "identity" / "services" / "audit_attribution.py",
+    # KAN-722: the core exporter's half of that rule — a Betrieb's export (and
+    # its last-write and snapshot checks) takes the audit rows of a group
+    # customer's History it wrote: `tenant_id` = the Betrieb's OWN group,
+    # handed in by platform (`ExportScope.group_id`), never another's, and
+    # narrowed to the rows attributed to that Betrieb. The worker's export
+    # only, never a dealer-facing read — the customer exporter's precedent
+    # (customer/services/data_export.py above).
+    _APP_ROOT / "core" / "export_core.py",
     # KAN-467, ADR-039 as amended (Anto, 2026-10-31: "it's on a group
     # level"): the Kontrollschild register is the dealer group's own, like
     # the customer register above — every read and write filters by the

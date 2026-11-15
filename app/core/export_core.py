@@ -39,14 +39,25 @@ NON_WRITE_ACTIONS = frozenset({"break_glass_read", "printed", "secret_resolved",
 _audit = table_of(AuditEvent)
 
 
+def _group_history_rows(scope: ExportScope) -> ColumnElement[bool]:
+    """KAN-722: the rows this Betrieb wrote in a group customer's History —
+    the same rows (`entity_type` customer, the group as tenant, the one
+    attribution rule) the History read hides from its sisters once it is
+    offboarded, so the two sets are equal by construction. The group is
+    the Betrieb's own, handed in by platform (`ExportScope.group_id`)."""
+
+    return and_(
+        _audit.c.entity_type == "customer",
+        _audit.c.tenant_id == scope.group_id,
+        attributed(_audit.c, scope.audit_attribution),
+    )
+
+
 def _own_audit_rows(scope: ExportScope) -> ColumnElement[bool]:
     """The Betrieb's own rows, and the rows it wrote in its group's
-    group-owned records (KAN-722)."""
+    customers' History (KAN-722)."""
 
-    return or_(
-        _audit.c.tenant_id == scope.dealership_id,
-        and_(_audit.c.tenant_id == scope.group_id, attributed(_audit.c, scope.audit_attribution)),
-    )
+    return or_(_audit.c.tenant_id == scope.dealership_id, _group_history_rows(scope))
 
 
 class CoreExporter(TableExporter):
@@ -81,13 +92,7 @@ class CoreExporter(TableExporter):
         if scope.audit_attribution.is_empty():
             return {}
         ids = db.scalars(
-            select(_audit.c.entity_id)
-            .where(
-                _audit.c.tenant_id == scope.group_id,
-                _audit.c.entity_type == "customer",
-                attributed(_audit.c, scope.audit_attribution),
-            )
-            .distinct()
+            select(_audit.c.entity_id).where(_group_history_rows(scope)).distinct()
         )
         return {"customer": frozenset(ids)}
 
