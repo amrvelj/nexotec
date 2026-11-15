@@ -57,6 +57,9 @@ class StatusItemState(PrimaryKeyMixin, Base):
 
     dealership_id: Mapped[uuid.UUID] = mapped_column(GUID(), ForeignKey("dealership.id"), nullable=False)
     item_key: Mapped[str] = mapped_column(String(96), nullable=False)
+    # The source that contributed the item: while that source cannot be asked,
+    # its rows are kept, so its recovery is not a new degradation.
+    source: Mapped[str] = mapped_column(String(32), nullable=False)
     state: Mapped[StatusState] = mapped_column(StoredEnum(StatusState, length=16), nullable=False)
     # When the state last changed (as the job saw it).
     changed_at: Mapped[dt.datetime] = mapped_column(UTCDateTime(), nullable=False, default=utcnow)

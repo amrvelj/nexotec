@@ -25,13 +25,21 @@ const page = (state: 'ok' | 'warning' | 'blocked', attentionCount: number) => ({
   items: [],
 })
 
-function renderShell({ manager, status }: { manager: boolean; status: ReturnType<typeof page> }) {
+function renderShell({
+  manager,
+  status,
+  collapsed = false,
+}: {
+  manager: boolean
+  status: ReturnType<typeof page>
+  collapsed?: boolean
+}) {
   Object.defineProperty(window, 'innerWidth', { configurable: true, writable: true, value: 1920 })
   const backend = installFakeBackend([
     {
       method: 'GET',
       match: /\/me\/preferences\/ui$/,
-      handler: () => ({ payload: { schemaVersion: 1, sidebarCollapsed: false, uiLanguage: 'de', density: 'default' } }),
+      handler: () => ({ payload: { schemaVersion: 1, sidebarCollapsed: collapsed, uiLanguage: 'de', density: 'default' } }),
     },
     {
       method: 'GET',
@@ -81,12 +89,24 @@ describe('DmsShell status indicator (KAN-223)', () => {
     expect(indicator).toHaveAttribute('data-nav-indicator', 'success')
   })
 
+  it('keeps the dot on the icon when the sidebar is collapsed', async () => {
+    renderShell({ manager: true, status: page('warning', 1), collapsed: true })
+    const nav = await screen.findByRole('navigation', { name: t('shell.sidebar.mainNavigation') })
+    const dot = await within(nav).findByRole('status', { name: t('statusPage.indicator.attention', { count: 1 }) })
+    expect(dot).toHaveAttribute('data-nav-indicator', 'warning')
+    expect(within(nav).queryByText(t('shell.nav.status'))).not.toBeInTheDocument() // icons only
+  })
+
   it('shows anyone else the entry but no indicator, and never asks for the page', async () => {
     const backend = renderShell({ manager: false, status: page('blocked', 2) })
     const nav = await screen.findByRole('navigation', { name: t('shell.sidebar.mainNavigation') })
     expect(await within(nav).findByText(t('shell.nav.status'))).toBeInTheDocument()
-    await waitFor(() => expect(backend.calls.some((call) => call.pathname.endsWith('/auth/me'))).toBe(true))
+    // The shell is signed in (the user card) and has started its own queries —
+    // the bell's count is asked in the same render as the status page would be.
+    expect(await screen.findByText('Test Advisor')).toBeInTheDocument()
+    await waitFor(() => expect(backend.callsTo(/\/me\/notifications\/unread-count$/)).not.toHaveLength(0))
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    expect(backend.callsTo(/\/dealerships\/d-1\/status$/)).toHaveLength(0)
     expect(within(nav).queryByRole('status')).not.toBeInTheDocument()
-    expect(backend.calls.some((call) => call.pathname.endsWith('/status'))).toBe(false)
   })
 })

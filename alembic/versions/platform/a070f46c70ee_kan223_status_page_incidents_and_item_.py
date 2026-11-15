@@ -57,6 +57,7 @@ def upgrade() -> None:
         "status_item_state",
         sa.Column("dealership_id", app.core.types.GUID(), nullable=False),
         sa.Column("item_key", sa.String(length=96), nullable=False),
+        sa.Column("source", sa.String(length=32), nullable=False),
         sa.Column("state", sa.String(length=16), nullable=False),
         sa.Column("changed_at", app.core.types.UTCDateTime(timezone=True), nullable=False),
         sa.Column("notified_at", app.core.types.UTCDateTime(timezone=True), nullable=True),

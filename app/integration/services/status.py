@@ -7,9 +7,11 @@ source's health itself.
 - `expired`, or `expires_at` reached → blocked (Anto, 2026-11-14: blocked once
   expired);
 - `expires_at` within 30 days → warning (Anto, 2026-11-14: a warning from 30
-  days before expiry). This context already tells the managers at T-30/14/7
-  (`administration.integration_expiring`, KAN-222), so the item says
-  `notified_by_source` and the status job does not notify again;
+  days before expiry). This context tells the managers only on exactly
+  T-30/14/7 (`administration.integration_expiring`, KAN-222), never at
+  expiry: the item says `notified_by_source` only once such a notice for this
+  expiry was really sent (its `integration_notification` row, sent no earlier
+  than 30 days before `expires_at`) — otherwise the status job announces it;
 - `not_configured` (created or re-enabled, not tested since) → warning: the
   connection has not proved that its credentials work;
 - `connected` → ok.
@@ -23,11 +25,12 @@ Betrieb and are not read. Registered with `app.core.status` by
 import datetime as dt
 import uuid
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.status import StatusItem, StatusState
 from app.integration.models.connection import ConnectionScope, ConnectionStatus, IntegrationConnection
+from app.integration.models.notification import IntegrationNotification, NotificationKind
 from app.integration.models.provider import IntegrationProvider
 
 SOURCE = "integration"
@@ -35,7 +38,18 @@ EXPIRY_WARNING_DAYS = 30
 _LINK = "/administration/integrations"
 
 
-def _item(connection: IntegrationConnection, provider_name: str, now: dt.datetime) -> StatusItem:
+def _expiry_announced(connection: IntegrationConnection, last_warning_sent: dt.date | None) -> bool:
+    """Whether this context already sent an expiry notice for the current
+    expiry — one sent before the 30-day window was about an earlier one."""
+
+    if connection.expires_at is None or last_warning_sent is None:
+        return False
+    return last_warning_sent >= (connection.expires_at - dt.timedelta(days=EXPIRY_WARNING_DAYS)).date()
+
+
+def _item(
+    connection: IntegrationConnection, provider_name: str, now: dt.datetime, last_warning_sent: dt.date | None
+) -> StatusItem:
     params: dict[str, str | int] = {"connection": connection.display_name, "provider": provider_name}
     notified_by_source = False
     expires_at = connection.expires_at
@@ -46,7 +60,7 @@ def _item(connection: IntegrationConnection, provider_name: str, now: dt.datetim
     elif expires_at is not None and expires_at - now <= dt.timedelta(days=EXPIRY_WARNING_DAYS):
         state, message = StatusState.WARNING, "expiring"
         params["days"] = max(0, (expires_at - now).days)
-        notified_by_source = True
+        notified_by_source = _expiry_announced(connection, last_warning_sent)
     elif connection.status == ConnectionStatus.NOT_CONFIGURED:
         state, message = StatusState.WARNING, "notTested"
     else:
@@ -77,4 +91,19 @@ class IntegrationStatusProvider:
             )
             .order_by(IntegrationProvider.display_name, IntegrationConnection.display_name, IntegrationConnection.id)
         ).all()
-        return [_item(connection, provider_name, now) for connection, provider_name in rows]
+        warnings: dict[uuid.UUID, dt.date] = {}
+        if rows:
+            for connection_id, last_sent in db.execute(
+                select(IntegrationNotification.connection_id, func.max(IntegrationNotification.sent_date))
+                .where(
+                    IntegrationNotification.tenant_id == dealership_id,
+                    IntegrationNotification.kind == NotificationKind.EXPIRY_WARNING,
+                    IntegrationNotification.connection_id.in_([connection.id for connection, _ in rows]),
+                )
+                .group_by(IntegrationNotification.connection_id)
+            ).all():
+                if connection_id is not None:
+                    warnings[connection_id] = last_sent
+        return [
+            _item(connection, provider_name, now, warnings.get(connection.id)) for connection, provider_name in rows
+        ]

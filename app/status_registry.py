@@ -4,9 +4,9 @@ under app/, like app.ownership_registry: the one place that may name every
 context's status provider, so that platform's status page asks the registry
 and imports no context, and no context imports platform.
 
-Today: integration's connections. Sending identities (KAN-215) and Google
-Business Profile drift (KAN-226) join here when they ship (Anto, 2026-11-14,
-KAN-223 Q1 A). Platform's own sources (number ranges, Nexotec's status) are
+Today: integration's connections. Sending identities and Google Business
+Profile drift (KAN-226) are later sources: each joins here in a ticket of its
+own (Anto, 2026-11-14, KAN-223 Q1 A). Platform's own sources (number ranges, Nexotec's status) are
 derived by platform itself and are not registered.
 
 Imported by app.main (the API serves the page) and app.worker (the daily

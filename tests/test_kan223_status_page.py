@@ -6,10 +6,12 @@ another; staff write the incidents; the daily job tells the managers once
 per degradation until it clears."""
 
 import datetime as dt
+import threading
 import uuid
 
 import pytest
 from sqlalchemy import select
+from sqlalchemy.orm import sessionmaker
 
 from app.core.audit_model import AuditEvent
 from app.core.auth import AccessRole, create_access_token
@@ -27,7 +29,9 @@ from app.integration.models.connection import (
     ConnectionStatus,
     IntegrationConnection,
 )
+from app.integration.models.notification import IntegrationNotification, NotificationKind
 from app.integration.models.provider import IntegrationProvider
+from app.integration.public import IntegrationStatusProvider
 from app.platform.identity.models.notification import Notification
 from app.platform.identity.services.notification_catalogue import NotificationEventCode
 from app.platform.models.status_page import IncidentSeverity, PlatformStatusIncident, StatusItemState
@@ -37,6 +41,7 @@ from app.platform.organisation.services import number_range as number_range_serv
 from app.platform.services import status_notifications, status_page
 from tests import setup_checklist_support as s
 from tests.identity_support import platform_admin_headers
+from tests.test_customer_vehicle_party_close_rule import _postgres_only, _run, _wait_until_a_backend_waits_on_a_lock
 from tests.token_support import dealer_group_of
 
 NOW = dt.datetime(2026, 11, 15, 10, 0, tzinfo=dt.UTC)
@@ -174,7 +179,7 @@ def test_a_yearly_range_full_last_year_is_green_again(client, db_session):
     [
         (ConnectionStatus.CONNECTED, None, StatusState.OK, "ok", False),
         (ConnectionStatus.CONNECTED, 31, StatusState.OK, "ok", False),
-        (ConnectionStatus.CONNECTED, 30, StatusState.WARNING, "expiring", True),
+        (ConnectionStatus.CONNECTED, 30, StatusState.WARNING, "expiring", False),  # no notice sent yet
         (ConnectionStatus.CONNECTED, 0, StatusState.BLOCKED, "expired", False),
         (ConnectionStatus.EXPIRED, None, StatusState.BLOCKED, "expired", False),
         (ConnectionStatus.ERROR, None, StatusState.BLOCKED, "error", False),
@@ -418,14 +423,136 @@ def test_one_notification_per_degradation_none_while_degraded_and_a_new_one_afte
     assert len(_degraded_notifications(db_session)) == 2
 
 
-def test_an_expiry_the_source_already_announces_is_not_notified_twice(client, db_session):
+def _expiry_notice_sent(db_session, connection, *, days_ago=0, threshold=30):
+    """The record integration writes when it really sends a T-30/14/7 notice."""
+
+    db_session.add(
+        IntegrationNotification(
+            connection_id=connection.id,
+            tenant_id=connection.tenant_id,
+            kind=NotificationKind.EXPIRY_WARNING,
+            threshold_days=threshold,
+            sent_date=dt.datetime.now(dt.UTC).date() - dt.timedelta(days=days_ago),
+            recipient="administration notification",
+            summary="expires",
+        )
+    )
+    db_session.commit()
+
+
+def test_a_warning_the_source_really_announced_is_not_notified_twice_but_its_expiry_is(client, db_session):
     dealership_id, _ = _active(client, db_session)
-    _connection(db_session, dealership_id, expires_at=dt.datetime.now(dt.UTC) + dt.timedelta(days=10))
+    connection = _connection(db_session, dealership_id, expires_at=dt.datetime.now(dt.UTC) + dt.timedelta(days=14))
+    _expiry_notice_sent(db_session, connection, threshold=14)  # integration's T-14 notice went out today
+    item = _items(db_session, dealership_id, now=dt.datetime.now(dt.UTC))[f"integration.connection.{connection.id}"]
+    assert item.notified_by_source is True
     run = status_notifications.run(db_session)
     assert (run.degraded, run.notified) == (1, 0)
-    assert _degraded_notifications(db_session) == []
     row = db_session.scalar(select(StatusItemState))
     assert row.state == StatusState.WARNING and row.notified_at is None
+
+    # It expires: integration says nothing at expiry, so the status job does — once.
+    connection.expires_at = dt.datetime.now(dt.UTC) - dt.timedelta(hours=1)
+    db_session.commit()
+    assert status_notifications.run(db_session).notified == 1
+    assert status_notifications.run(db_session).notified == 0
+    assert [notice.params["state"] for notice in _degraded_notifications(db_session)] == ["blocked"]
+
+
+def test_an_expiry_nobody_announced_is_notified_once_through_to_expired(client, db_session):
+    """Review finding: three days left is no T-30/14/7 day, so integration sends nothing."""
+
+    dealership_id, _ = _active(client, db_session)
+    connection = _connection(db_session, dealership_id, expires_at=dt.datetime.now(dt.UTC) + dt.timedelta(days=3))
+    assert status_notifications.run(db_session).notified == 1
+    connection.expires_at = dt.datetime.now(dt.UTC) - dt.timedelta(hours=1)
+    db_session.commit()
+    assert status_notifications.run(db_session).notified == 0  # told already, at the warning
+    assert [notice.params["state"] for notice in _degraded_notifications(db_session)] == ["warning"]
+
+
+def test_a_notice_for_an_earlier_expiry_does_not_count_for_this_one(client, db_session):
+    dealership_id, _ = _active(client, db_session)
+    connection = _connection(db_session, dealership_id, expires_at=dt.datetime.now(dt.UTC) + dt.timedelta(days=10))
+    _expiry_notice_sent(db_session, connection, days_ago=200)  # the previous credential's expiry
+    item = _items(db_session, dealership_id, now=dt.datetime.now(dt.UTC))[f"integration.connection.{connection.id}"]
+    assert item.notified_by_source is False
+    assert status_notifications.run(db_session).notified == 1
+
+
+class _IntegrationDown:
+    """Integration's source failing: same source name, so it replaces the real one."""
+
+    source = "integration"
+
+    def items(self, db, *, dealership_id, now):
+        raise RuntimeError("integration unavailable")
+
+
+def test_a_source_that_cannot_be_asked_keeps_its_items_so_recovery_is_no_new_degradation(client, db_session):
+    """Review finding: an unavailable source used to drop its rows as «gone»."""
+
+    dealership_id, _ = _active(client, db_session)
+    connection = _connection(db_session, dealership_id, status=ConnectionStatus.ERROR)
+    assert status_notifications.run(db_session).notified == 1
+
+    register_status_provider(_IntegrationDown())
+    try:
+        down = status_notifications.run(db_session)
+    finally:
+        register_status_provider(IntegrationStatusProvider())
+    assert down.notified == 0  # the dealer cannot fix an unavailable source
+    keys = {row.item_key for row in db_session.scalars(select(StatusItemState))}
+    assert f"integration.connection.{connection.id}" in keys  # kept, not gone
+
+    assert status_notifications.run(db_session).notified == 0  # recovered, still degraded: no new notice
+    assert len(_degraded_notifications(db_session)) == 1
+    keys = {row.item_key for row in db_session.scalars(select(StatusItemState))}
+    assert "integration.unavailable" not in keys
+
+
+def test_two_concurrent_runs_for_one_betrieb_notify_once(engine, client, db_session, monkeypatch):
+    """Review finding: two runs both read the row as ok and both notified."""
+
+    _postgres_only(engine)
+    dealership_id, _ = _active(client, db_session)
+    connection = _connection(db_session, dealership_id)
+    status_notifications.run(db_session)  # the row exists as ok
+    connection.status = ConnectionStatus.ERROR
+    db_session.commit()
+
+    reached, release = threading.Event(), threading.Event()
+    real_derive = status_page.derive
+
+    def _derive_then_pause(db, dealership_id, *, now):
+        page = real_derive(db, dealership_id, now=now)
+        if threading.current_thread().name == "status-first":
+            reached.set()
+            release.wait(timeout=10)
+        return page
+
+    monkeypatch.setattr(status_page, "derive", _derive_then_pause)
+    factory = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
+    errors: list[Exception] = []
+
+    def _check():
+        with factory() as session:
+            status_notifications.check_dealership(session, session.get(Dealership, dealership_id))
+            session.commit()
+
+    first = _run("status-first", errors, _check)
+    try:
+        assert reached.wait(timeout=10), "the first run never reached its pause"
+        second = _run("status-second", errors, _check)
+        _wait_until_a_backend_waits_on_a_lock(engine)  # the second waits on the Betrieb's lock
+        release.set()
+        first.join(timeout=10)
+        second.join(timeout=10)
+    finally:
+        release.set()
+    assert errors == []
+    db_session.expire_all()
+    assert len(_degraded_notifications(db_session)) == 1
 
 
 def test_an_item_that_is_gone_drops_its_state(client, db_session):

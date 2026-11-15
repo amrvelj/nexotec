@@ -17,7 +17,8 @@ const STATE_TONE: Record<StatusState, BadgeTone> = {
 
 const SOURCE_ORDER = ['number_ranges', 'integration', 'nexotec']
 
-type Language = 'de' | 'fr' | 'it' | 'en'
+const LANGUAGES = ['de', 'fr', 'it', 'en'] as const
+type Language = (typeof LANGUAGES)[number]
 
 /** The item's sentence: its message key with its params, a number range's
  * document type in the UI language. */
@@ -45,7 +46,9 @@ export function StatusPage() {
   const { activeDealership } = useAuth()
   const status = useStatusPage(activeDealership?.id ?? '', true)
   const itemText = useItemText()
-  const language = (i18n.language as Language) ?? 'de'
+  // An incident carries all four languages (the API refuses one without);
+  // a UI language outside them reads English, the app's fallback — never German.
+  const language: Language = (LANGUAGES as readonly string[]).includes(i18n.language) ? (i18n.language as Language) : 'en'
   const locale = toSwissLocale(i18n.language as SupportedLanguage)
   const data = status.data
 
@@ -99,8 +102,8 @@ export function StatusPage() {
                         <Table.Td>
                           {item.incident ? (
                             <>
-                              <Text fw={600}>{item.incident.title[language] ?? item.incident.title.de}</Text>
-                              <Text fz="sm">{item.incident.body[language] ?? item.incident.body.de}</Text>
+                              <Text fw={600}>{item.incident.title[language]}</Text>
+                              <Text fz="sm">{item.incident.body[language]}</Text>
                               <Text fz="xs" c="dimmed">
                                 {t('statusPage.since', { date: formatDateTime(item.incident.startsAt, locale) })}
                                 {item.incident.endsAt

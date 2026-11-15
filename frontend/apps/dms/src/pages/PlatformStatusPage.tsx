@@ -47,7 +47,7 @@ function phase(row: StatusIncidentRead, now: Date): 'current' | 'ended' | 'sched
 export function PlatformStatusPage() {
   const { t, i18n } = useTranslation()
   const locale = toSwissLocale(i18n.language as SupportedLanguage)
-  const language = (LANGUAGES as readonly string[]).includes(i18n.language) ? (i18n.language as Language) : 'de'
+  const language = (LANGUAGES as readonly string[]).includes(i18n.language) ? (i18n.language as Language) : 'en'
   useSetBreadcrumb([t('shell.nav.administration'), t('statusPage.platform.title')])
   const [editing, setEditing] = useState<StatusIncidentRead | 'new' | null>(null)
   const queryClient = useQueryClient()
