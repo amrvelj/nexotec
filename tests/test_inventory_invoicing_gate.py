@@ -10,7 +10,6 @@ from sqlalchemy import select
 from app.core.audit_model import AuditEvent
 from app.core.errors import ConflictError
 from app.core.outbox_model import OutboxMessage
-from app.core.pagination import SortPageParams
 from app.inventory.models.stock_item import StockItem, StockItemCondition
 from app.inventory.schemas.purchase import RecordPurchaseRequest
 from app.inventory.schemas.stock_item import StockItemCreate
@@ -84,10 +83,7 @@ def test_legitimate_invoice_removes_item_from_active_list_and_emits_sold(db_sess
     )
     assert message is not None
 
-    rows, _, _, _ = list_stock_items(
-        db_session, tenant_id=dealership.id, q=None, lifecycle_status=None,
-        params=SortPageParams(limit=50, cursor=None, sort_fields=[]),
-    )
+    rows, _, _, _ = list_stock_items(db_session, tenant_id=dealership.id, q=None, query=_stock_grid_query(50))
     assert item.id not in {r.id for r in rows}
 
 
@@ -127,3 +123,14 @@ def test_invoice_replay_on_an_already_sold_item_is_a_no_op(db_session):
         )
     )
     assert len(messages) == 1
+
+
+def _stock_grid_query(limit: int):
+    """The Stock grid's request with no filter, default order (KAN-461)."""
+
+    from app.core.list_query import parse_list_query
+    from app.inventory.services.stock_grid import DEFAULT_STOCK_ITEM_SORT, STOCK_ITEM_COLUMNS
+
+    return parse_list_query(
+        STOCK_ITEM_COLUMNS, filters=None, sort=None, default_sort=DEFAULT_STOCK_ITEM_SORT, limit=limit, cursor=None
+    )

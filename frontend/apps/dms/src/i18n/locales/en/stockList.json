@@ -29,7 +29,22 @@
     "orderDate": "Order date",
     "expectedDelivery": "Expected delivery",
     "pipelineRef": "Pipeline reference",
-    "configuration": "Configuration"
+    "configuration": "Configuration",
+    "exteriorColour": "Exterior colour",
+    "bodyStyle": "Body style",
+    "firstRegistrationDate": "First registration",
+    "inStockAt": "In stock since",
+    "tradeInVin": "Trade-in VIN",
+    "tradeInSignedAt": "Trade-in signed",
+    "supplierIsVatRegistered": "Supplier VAT-registered",
+    "purchaseInvoiceRef": "Purchase invoice",
+    "notionalInputTaxApplicable": "Notional input tax applies",
+    "notionalInputTaxRate": "Notional input tax rate",
+    "notionalInputTaxOverridden": "Notional input tax overridden",
+    "valuationRefAmount": "Valuation amount",
+    "valuationRefValuedAt": "Valued on",
+    "valuationRefSource": "Valuation source",
+    "createdAt": "Created"
   },
   "emptyState": {
     "title": "No vehicles in stock",

@@ -418,13 +418,9 @@ def test_a_used_car_bought_in_reaches_a_contract_without_ever_being_configured_i
     )
 
     # Path A: the offer workspace's stock search
-    from app.core.pagination import SortPageParams
-    from app.inventory.api.stock_items import _DEFAULT_STOCK_ITEM_SORT
+    from tests.test_inventory_invoicing_gate import _stock_grid_query
 
-    found, *_ = list_stock_items(
-        db_session, tenant_id=dealership.id, q="Justy", lifecycle_status=None,
-        params=SortPageParams(limit=20, cursor=None, sort_fields=_DEFAULT_STOCK_ITEM_SORT),
-    )
+    found, *_ = list_stock_items(db_session, tenant_id=dealership.id, q="Justy", query=_stock_grid_query(20))
     assert [i.id for i in found] == [item.id]
 
     offer = create_offer(db_session, tenant_id=dealership.id, actor_id=uuid.uuid4())

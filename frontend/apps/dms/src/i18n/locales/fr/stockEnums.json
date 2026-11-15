@@ -31,5 +31,10 @@
     "zusatzerloes": "Produit accessoire",
     "foerderung": "Subvention",
     "sonstige_ertraege": "Autres produits"
+  },
+  "ageingBucket": {
+    "green": "Vert (jusqu'à 60 jours)",
+    "amber": "Orange (61–120 jours)",
+    "red": "Rouge (plus de 120 jours)"
   }
 }
