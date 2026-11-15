@@ -14,11 +14,11 @@ import decimal
 import uuid
 from typing import Any
 
-from sqlalchemy.types import TypeDecorator
+from sqlalchemy.types import Numeric, TypeDecorator
 
 from app.core.enum_type import StoredEnum
 from app.core.errors import BadRequestError, UnprocessableEntityError
-from app.core.pagination import SortCursorPosition, decode_sort_cursor
+from app.core.pagination import SortCursorPosition, SortPageParams, decode_sort_cursor, encode_sort_cursor
 from app.core.types import GUID
 
 _VALID_DIRECTIONS = {"asc", "desc"}
@@ -123,19 +123,33 @@ def _cursor_python_type(column: Any) -> Any:
 _SUPPORTED_PYTHON_TYPES = (bool, int, decimal.Decimal, dt.datetime, dt.date, uuid.UUID, str)
 
 
+def _numeric_scale(column: Any) -> int | None:
+    """The fixed scale of a Numeric column (DECIMAL(12, 2) → 2); None when
+    the column declares none, so no scaled integer is exact for it."""
+
+    column_type = _bind_type(column.property.columns[0].type)
+    scale = column_type.scale if isinstance(column_type, Numeric) else None
+    return scale if isinstance(scale, int) else None
+
+
 def cursor_column_supported(column: Any) -> bool:
-    """Whether a sorted cursor can be checked against `column` at all — the
-    guard every sort allow-list is held to (tests/test_sorted_cursor_must_match_sort.py):
-    a column of another type would refuse every cursor."""
+    """Whether a sorted cursor can be minted and checked against `column` at
+    all — the guard every sort allow-list is held to
+    (tests/test_sorted_cursor_must_match_sort.py): a column of another type
+    would refuse every cursor, and a Numeric column without a fixed scale
+    could not carry its value exactly (KAN-713)."""
 
     expected = _cursor_python_type(column)
+    if expected is decimal.Decimal:
+        return _numeric_scale(column) is not None
     return isinstance(expected, (StoredEnum, GUID)) or expected in _SUPPORTED_PYTHON_TYPES
 
 
 def _cursor_value_fits(value: Any, column: Any) -> bool:
     """Whether a decoded, non-NULL cursor value (a datetime, UUID, bool, int
-    or str — what the cursor's tags carry) binds into a comparison against
-    `column` without a database error."""
+    or str — what the cursor's tags carry) is one `build_page_for_sort` can
+    have minted for `column`: a Numeric column's scaled integer, a Date
+    column's midnight datetime, otherwise a value of the column's own type."""
 
     expected = _cursor_python_type(column)
     if isinstance(expected, StoredEnum):
@@ -146,11 +160,75 @@ def _cursor_value_fits(value: Any, column: Any) -> bool:
         return isinstance(value, bool)
     if expected in (int, decimal.Decimal):
         return isinstance(value, int) and not isinstance(value, bool)
-    if expected in (dt.datetime, dt.date):
+    if expected is dt.datetime:
         return isinstance(value, dt.datetime)
+    if expected is dt.date:
+        return isinstance(value, dt.datetime) and value.time() == dt.time.min
     if expected is str:
         return isinstance(value, str) and "\x00" not in value
     return False
+
+
+# --- Date and money sort values on the cursor (KAN-713) ---------------------
+#
+# The preserved serialiser (`app.core.pagination._serialize_sort_value`)
+# writes None, datetime, UUID, bool, int and str — no `date`, no `Decimal`.
+# A sort on a Date or Numeric column therefore raised TypeError minting its
+# next cursor: page one answered, page two was a 500. Rather than add tags to
+# the preserved file, the two types travel on tags it already has, and this
+# module is the one place that converts them (ADR-179, KAN-713):
+#   - a Numeric value as its scaled integer — value × 10^scale of its column,
+#     so DECIMAL(12, 2)'s 12500.50 is ["int", 1250050]: exact, no float;
+#   - a date as that day's midnight, a naive datetime — ["dt", "2026-03-01T00:00:00"].
+# `decode_cursor_for_sort` turns both back into the column's own type before
+# the keyset comparison binds them. Every sorted list mints its cursor here
+# (`build_page_for_sort`), never with `pagination.build_sorted_page`
+# (tests/architecture/test_sorted_cursor_is_decoded_against_its_sort.py).
+
+
+def _to_cursor_value(value: Any, column: Any) -> Any:
+    if value is None:
+        return None
+    expected = _cursor_python_type(column)
+    if expected is decimal.Decimal:
+        scale = _numeric_scale(column)
+        if scale is None:
+            raise TypeError(f"{column} has no fixed scale; a cursor cannot carry its value exactly.")
+        scaled = decimal.Decimal(value).scaleb(scale)
+        if scaled != scaled.to_integral_value():
+            raise TypeError(f"{value!r} has more digits than the scale of {column}.")
+        return int(scaled)
+    if expected is dt.date and not isinstance(value, dt.datetime):
+        return dt.datetime.combine(value, dt.time.min)
+    return value
+
+
+def _from_cursor_value(value: Any, column: Any) -> Any:
+    if value is None:
+        return None
+    expected = _cursor_python_type(column)
+    if expected is decimal.Decimal:
+        scale = _numeric_scale(column)
+        assert scale is not None  # cursor_column_supported holds every sort allow-list to it
+        return decimal.Decimal(value).scaleb(-scale)
+    if expected is dt.date:
+        return value.date()
+    return value
+
+
+def build_page_for_sort(rows: list[Any], params: SortPageParams) -> tuple[list[Any], str | None]:
+    """`app.core.pagination.build_sorted_page`, with each sort value carried
+    as `decode_cursor_for_sort` reads it back: the page (at most `limit`
+    rows of the `limit + 1` fetched) and the next cursor, None on the last page."""
+
+    has_more = len(rows) > params.limit
+    page_rows = rows[: params.limit]
+    next_cursor = None
+    if has_more and page_rows:
+        last = page_rows[-1]
+        values = tuple(_to_cursor_value(getattr(last, field.column.key), field.column) for field in params.sort_fields)
+        next_cursor = encode_sort_cursor(SortCursorPosition(values=values, id=last.id))
+    return page_rows, next_cursor
 
 
 def _refused() -> BadRequestError:
@@ -161,7 +239,9 @@ def decode_cursor_for_sort(cursor: str | None, sort_fields: list[SortField]) -> 
     """The position `cursor` names, checked against the sort the request
     pages by; None for no cursor. Refuses (400, `cursor_invalid`) a cursor
     that is malformed, that carries other than one value per sort field
-    plus a UUID row id, or a value its column cannot bind."""
+    plus a UUID row id, or a value its column cannot bind. Each value comes
+    back in its column's own type — a Numeric column's scaled integer as a
+    Decimal, a Date column's midnight as a date (KAN-713) — ready to bind."""
 
     if not cursor:
         return None
@@ -177,4 +257,7 @@ def decode_cursor_for_sort(cursor: str | None, sort_fields: list[SortField]) -> 
                 raise _refused()
         elif not _cursor_value_fits(value, field.column):
             raise _refused()
-    return position
+    values = tuple(
+        _from_cursor_value(value, field.column) for field, value in zip(sort_fields, position.values, strict=True)
+    )
+    return SortCursorPosition(values=values, id=position.id)

@@ -352,3 +352,242 @@ def test_every_fixed_sort_declares_its_columns_nullability_truly():
     ]
     assert wrong == []
     assert all(cursor_column_supported(f.column) for f in fixed)
+
+
+# --- KAN-713: a date or money sort pages past page one --------------------------
+#
+# `app.core.pagination._serialize_sort_value` (preserved) writes no `date` and no
+# `Decimal`, so the next cursor of a sort on a Date or Numeric column raised
+# TypeError — the first page answered, the second was a 500. Every sorted list now
+# mints its cursor through `app.core.sorting.build_page_for_sort`, which carries a
+# Numeric value as its scaled integer and a date as a midnight datetime, on the
+# existing tags, and `decode_cursor_for_sort` turns both back.
+
+
+def _sample_value(column):
+    """A value of the type `column` holds, as a row read from the database carries it."""
+
+    import decimal
+
+    from app.core.enum_type import StoredEnum
+    from app.core.sorting import _bind_type, _cursor_python_type
+    from app.core.types import GUID
+
+    expected = _cursor_python_type(column)
+    if isinstance(expected, StoredEnum):
+        return min(expected.values)
+    if isinstance(expected, GUID) or expected is uuid.UUID:
+        return uuid.uuid4()
+    if expected is bool:
+        return True
+    if expected is int:
+        return 7
+    if expected is decimal.Decimal:
+        scale = _bind_type(column.property.columns[0].type).scale
+        return decimal.Decimal("1234.5").quantize(decimal.Decimal(1).scaleb(-scale))
+    if expected is dt.datetime:
+        return dt.datetime(2026, 3, 1, 9, 30, tzinfo=dt.UTC)
+    if expected is dt.date:
+        return dt.date(2026, 3, 1)
+    if expected is str:
+        return "Muster"
+    raise AssertionError(f"no sample for {column}")
+
+
+def _round_trip(column, value):
+    """The value a cursor minted on a row holding `value` decodes back to, under a sort on `column`."""
+
+    from types import SimpleNamespace
+
+    from app.core.pagination import SortPageParams
+    from app.core.sorting import build_page_for_sort
+
+    field = SortField(api_name="x", column=column, direction="asc", nullable=column.property.columns[0].nullable)
+    key = column.key
+    rows = [SimpleNamespace(**{key: value, "id": uuid.uuid4()}) for _ in range(2)]
+    page, cursor = build_page_for_sort(rows, SortPageParams(limit=1, cursor=None, sort_fields=[field]))
+    assert page == rows[:1] and cursor
+    position = decode_cursor_for_sort(cursor, [field])
+    assert position is not None and position.id == rows[0].id
+    return position.values[0]
+
+
+def _all_sort_allow_lists() -> dict[str, dict]:
+    from app.customer.api.customers import CUSTOMER_SORT_FIELDS
+    from app.integration.api.connections import CONNECTION_SORT_FIELDS
+    from app.inventory.api.stock_items import STOCK_ITEM_SORT_FIELDS
+    from app.platform.api.dealership_users import USER_SORT_FIELDS
+    from app.platform.api.recovery import RECOVERY_SORT_FIELDS
+    from app.sales.api.contracts import CONTRACT_SORT_FIELDS
+    from app.sales.api.deals import DEAL_SORT_FIELDS
+    from app.sales.api.offers import OFFER_SORT_FIELDS
+    from app.valuation.api.valuations import VALUATION_SORT_FIELDS
+    from app.vehicle.api.vehicle_mdm import VEHICLE_MDM_SORT_FIELDS
+
+    return {
+        "customers": CUSTOMER_SORT_FIELDS,
+        "connections": CONNECTION_SORT_FIELDS,
+        "stock items": STOCK_ITEM_SORT_FIELDS,
+        "dealership users": USER_SORT_FIELDS,
+        "recovery": RECOVERY_SORT_FIELDS,
+        "contracts": CONTRACT_SORT_FIELDS,
+        "deals": DEAL_SORT_FIELDS,
+        "offers": OFFER_SORT_FIELDS,
+        "valuations": VALUATION_SORT_FIELDS,
+        "vehicle-mdm": VEHICLE_MDM_SORT_FIELDS,
+    }
+
+
+def test_every_sort_allow_list_column_mints_a_cursor_that_decodes_to_its_own_value():
+    """The decode-side guard above checks that a cursor *could* be judged
+    against each column; this one checks that a cursor can be *minted* from a
+    row on it at all, and decodes back to the row's value of the row's type —
+    what KAN-713's four sorts failed."""
+
+    failures = []
+    for name, allowed in _all_sort_allow_lists().items():
+        for api_name, column in allowed.items():
+            value = _sample_value(column)
+            try:
+                back = _round_trip(column, value)
+            except Exception as exc:  # noqa: BLE001 — every failure is reported, not just the first
+                failures.append(f"{name}.{api_name}: {type(exc).__name__}: {exc}")
+                continue
+            if back != value or type(back) is not type(value):
+                failures.append(f"{name}.{api_name}: {value!r} came back as {back!r}")
+    assert failures == []
+
+
+def test_a_null_on_a_nullable_date_or_money_column_round_trips():
+    from app.platform.identity.models.user import User
+    from app.sales.models.deal import SalesDeal
+
+    assert _round_trip(User.valid_to, None) is None
+    assert _round_trip(SalesDeal.gross_price, None) is None
+
+
+def test_a_money_cursor_keeps_every_digit_of_the_column():
+    import decimal
+
+    from app.sales.models.deal import SalesDeal
+
+    for raw in ("0.00", "0.01", "-12.50", "9999999999.99"):
+        value = decimal.Decimal(raw)
+        assert _round_trip(SalesDeal.gross_price, value) == value
+
+
+def test_a_date_cursor_that_is_not_midnight_is_refused():
+    """The encoder writes a date as midnight; any other time is a cursor it
+    never minted, and comparing a date column against it would page by a
+    different day boundary."""
+
+    from app.platform.identity.models.user import User
+
+    field = [SortField(api_name="validFrom", column=User.valid_from, direction="asc", nullable=True)]
+    with pytest.raises(BadRequestError):
+        decode_cursor_for_sort(_raw_cursor([["dt", "2026-03-01T09:30:00"], _row_id()]), field)
+
+
+def _walk(client, path: str, *, params: dict, headers: dict, key: str = "items") -> list[dict]:
+    """Every row of a sorted list, a page of two at a time; each page must answer 200."""
+
+    seen: list[dict] = []
+    cursor = None
+    for _ in range(20):
+        response = client.get(
+            path, params={**params, "limit": 2, **({"cursor": cursor} if cursor else {})}, headers=headers
+        )
+        assert response.status_code == 200, response.text
+        body = response.json()
+        seen += body[key]
+        cursor = body["nextCursor"]
+        if not cursor:
+            return seen
+    raise AssertionError("the list never ended")
+
+
+@pytest.mark.parametrize("direction", ["asc", "desc"])
+def test_valuations_sorted_by_final_offer_page_past_page_one(client, db_session, direction):
+    from tests.vin_support import unique_vin
+
+    tid = uuid.uuid4()
+    token = create_access_token(
+        user_id=uuid.uuid4(), tenant_id=tid, group_id=dealer_group_of(str(tid)), roles=frozenset({AccessRole.SALES})
+    )
+    headers = {"Authorization": f"Bearer {token}"}
+    offers = ["1500.50", "200.25", "99999.99", "200.25", "0.00"]
+    ids = []
+    for offer in offers:
+        created = client.post(
+            "/v1/valuations",
+            json={
+                "vin": unique_vin(),
+                "vehicleMake": "VW",
+                "vehicleModel": "Golf",
+                "finalOffer": offer,
+                "source": "manual",
+            },
+            headers=headers,
+        )
+        assert created.status_code == 201, created.text
+        ids.append(created.json()["id"])
+
+    rows = _walk(client, "/v1/valuations", params={"sort": f"finalOffer:{direction}"}, headers=headers)
+
+    from decimal import Decimal
+
+    got = [Decimal(r["finalOffer"]) for r in rows]
+    assert got == sorted((Decimal(o) for o in offers), reverse=direction == "desc")
+    assert sorted(r["id"] for r in rows) == sorted(ids)  # every row once: none skipped, none repeated
+
+
+@pytest.mark.parametrize("direction", ["asc", "desc"])
+def test_deals_sorted_by_gross_price_page_past_page_one(client, db_session, direction):
+    from decimal import Decimal
+
+    from app.sales.models.deal import SalesDeal
+
+    tid = uuid.uuid4()
+    prices = [Decimal("45000.00"), None, Decimal("12500.50"), Decimal("12500.50"), Decimal("0.00"), None]
+    for n, price in enumerate(prices):
+        db_session.add(
+            SalesDeal(tenant_id=tid, entity_type="offer", number=f"O-713-{n}", status="open", gross_price=price)
+        )
+    db_session.commit()
+
+    rows = _walk(client, "/v1/sales/deals", params={"sort": f"grossPrice:{direction}"}, headers=_manager_headers(tid))
+
+    got = [None if r["grossPrice"] is None else Decimal(r["grossPrice"]) for r in rows]
+    priced = sorted((p for p in prices if p is not None), reverse=direction == "desc")
+    assert got == [*priced, None, None]  # nulls last in both directions (FR-UI-01)
+    assert len({r["id"] for r in rows}) == len(prices)
+
+
+@pytest.mark.parametrize("field", ["validFrom", "validTo"])
+@pytest.mark.parametrize("direction", ["asc", "desc"])
+def test_dealership_users_sorted_by_a_date_page_past_page_one(client, db_session, field, direction):
+    from app.platform.identity.models.user import User
+    from tests.identity_support import create_dealership, create_user
+
+    dealership = create_dealership(client)
+    days = [dt.date(2026, 5, 1), None, dt.date(2025, 1, 31), dt.date(2026, 5, 1), dt.date(2027, 12, 31)]
+    column = "valid_from" if field == "validFrom" else "valid_to"
+    ids = []
+    for n, day in enumerate(days):
+        user = create_user(client, dealership, lastName=f"Datum{n}")
+        row = db_session.get(User, uuid.UUID(user["id"]))
+        setattr(row, column, day)
+        ids.append(user["id"])
+    db_session.commit()
+
+    rows = _walk(
+        client,
+        f"/v1/dealerships/{dealership}/users",
+        params={"sort": f"{field}:{direction}"},
+        headers=platform_admin_headers(),
+    )
+
+    got = [r[field] for r in rows]
+    dated = sorted((d.isoformat() for d in days if d is not None), reverse=direction == "desc")
+    assert got == [*dated, None]
+    assert sorted(r["id"] for r in rows) == sorted(ids)

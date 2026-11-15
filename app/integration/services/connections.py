@@ -17,7 +17,8 @@ from app.core.audit import record_audit_event
 from app.core.base import utcnow
 from app.core.config import get_settings
 from app.core.errors import ConflictError, NotFoundError, UnprocessableEntityError
-from app.core.pagination import SortPageParams, build_sorted_page, count_capped, paginate_query_sorted
+from app.core.pagination import SortPageParams, count_capped, paginate_query_sorted
+from app.core.sorting import build_page_for_sort
 from app.integration.models.call_log import IntegrationCallLog
 from app.integration.models.connection import ConnectionScope, ConnectionStatus, IntegrationConnection
 from app.integration.models.entitlement import EntitlementSource, IntegrationEntitlement
@@ -191,7 +192,7 @@ def list_connections(
     total, total_is_estimate = count_capped(db, stmt, threshold=get_settings().count_exact_threshold)
     stmt = paginate_query_sorted(stmt, model=IntegrationConnection, params=params)
     rows = list(db.scalars(stmt).all())
-    items, next_cursor = build_sorted_page(rows, params)
+    items, next_cursor = build_page_for_sort(rows, params)
     return items, next_cursor, total, total_is_estimate
 
 

@@ -46,7 +46,8 @@ from app.core import outbox
 from app.core.base import utcnow
 from app.core.concurrency import check_version
 from app.core.errors import ConflictError, NotFoundError, UnprocessableEntityError
-from app.core.pagination import SortPageParams, build_sorted_page, paginate_query_sorted
+from app.core.pagination import SortPageParams, paginate_query_sorted
+from app.core.sorting import build_page_for_sort
 from app.platform.identity.models.notification import (
     Notification,
     NotificationEvent,
@@ -207,7 +208,7 @@ def list_inbox(
     if unread_only:
         stmt = stmt.where(Notification.read_at.is_(None))
     rows = list(db.scalars(paginate_query_sorted(stmt, model=Notification, params=params)).all())
-    return build_sorted_page(rows, params)
+    return build_page_for_sort(rows, params)
 
 
 def unread_count(db: Session, *, user_id: uuid.UUID) -> int:

@@ -17,7 +17,8 @@ from app.core.base import utcnow
 from app.core.config import get_settings
 from app.core.errors import ConflictError, NotFoundError
 from app.core.outbox import OutboxEvent, publish
-from app.core.pagination import SortPageParams, build_sorted_page, count_capped, paginate_query_sorted
+from app.core.pagination import SortPageParams, count_capped, paginate_query_sorted
+from app.core.sorting import build_page_for_sort
 from app.customer.public import CustomerLifecycleStatus, get_customer_or_404, has_usable_domicile_address
 from app.db import SessionLocal
 from app.inventory.public import release, reserve_for_contract
@@ -890,5 +891,5 @@ def list_contracts(
     total, total_is_estimate = count_capped(db, stmt, threshold=get_settings().count_exact_threshold)
     stmt = paginate_query_sorted(stmt, model=SalesContract, params=params)
     rows = list(db.scalars(stmt).all())
-    items, next_cursor = build_sorted_page(rows, params)
+    items, next_cursor = build_page_for_sort(rows, params)
     return items, next_cursor, total, total_is_estimate

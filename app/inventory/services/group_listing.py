@@ -32,7 +32,8 @@ from sqlalchemy.orm import Session
 from app.core.auth import Principal
 from app.core.config import get_settings
 from app.core.errors import NotFoundError
-from app.core.pagination import SortPageParams, build_sorted_page, count_capped, paginate_query_sorted
+from app.core.pagination import SortPageParams, count_capped, paginate_query_sorted
+from app.core.sorting import build_page_for_sort
 from app.inventory.models.stock_item import StockItem
 from app.platform.public import DealershipRef, list_group_read_dealerships
 
@@ -122,7 +123,7 @@ def list_group_stock_items(
 
     total, total_is_estimate = count_capped(db, stmt, threshold=get_settings().count_exact_threshold)
     rows = list(db.scalars(paginate_query_sorted(stmt, model=StockItem, params=params)).all())
-    items, next_cursor = build_sorted_page(rows, params)
+    items, next_cursor = build_page_for_sort(rows, params)
 
     # The label is attached in Python from platform's answer above, never
     # joined into the paged statement (rule 2; build_sorted_page also reads

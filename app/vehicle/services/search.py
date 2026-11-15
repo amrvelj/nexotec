@@ -11,7 +11,8 @@ from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
-from app.core.pagination import SortPageParams, build_sorted_page, count_capped, paginate_query_sorted
+from app.core.pagination import SortPageParams, count_capped, paginate_query_sorted
+from app.core.sorting import build_page_for_sort
 from app.core.validators import is_valid_vin, normalise_vin
 from app.vehicle.models.vehicle_mdm import VehicleIdentifierKind, VehicleMdm
 from app.vehicle.schemas.vehicle_mdm import VehiclePickerCandidate
@@ -124,5 +125,5 @@ def filter_vehicles(
     total, total_is_estimate = count_capped(db, stmt, threshold=get_settings().count_exact_threshold)
     stmt = paginate_query_sorted(stmt, model=VehicleMdm, params=params)
     rows = list(db.scalars(stmt).all())
-    page, next_cursor = build_sorted_page(rows, params)
+    page, next_cursor = build_page_for_sort(rows, params)
     return page, next_cursor, total, total_is_estimate

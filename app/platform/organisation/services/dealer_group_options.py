@@ -9,8 +9,8 @@ however many groups are onboarded.
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.core.pagination import SortPageParams, build_sorted_page, paginate_query_sorted
-from app.core.sorting import SortField, decode_cursor_for_sort
+from app.core.pagination import SortPageParams, paginate_query_sorted
+from app.core.sorting import SortField, build_page_for_sort, decode_cursor_for_sort
 from app.platform.organisation.models.dealership import DealerGroup
 
 _BY_NAME = [SortField(api_name="name", column=DealerGroup.name, direction="asc", nullable=False)]
@@ -34,4 +34,4 @@ def list_dealer_group_options(
     if term:
         stmt = stmt.where(DealerGroup.name.ilike(_contains_pattern(term), escape="\\"))
     rows = list(db.scalars(paginate_query_sorted(stmt, model=DealerGroup, params=params)))
-    return build_sorted_page(rows, params)
+    return build_page_for_sort(rows, params)

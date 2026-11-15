@@ -37,7 +37,8 @@ from app.core.audit import record_audit_event
 from app.core.auth import AccessRole
 from app.core.base import utcnow
 from app.core.errors import BadRequestError, ConflictError, ForbiddenError, NotFoundError
-from app.core.pagination import SortPageParams, build_sorted_page, paginate_query_sorted
+from app.core.pagination import SortPageParams, paginate_query_sorted
+from app.core.sorting import build_page_for_sort
 from app.platform.identity.models.auth_event import AuthEvent, AuthEventKind
 from app.platform.identity.models.auth_session import AuthSession
 from app.platform.identity.models.credential import Credential
@@ -117,7 +118,7 @@ def search_users(
     if dealership_id is not None:
         stmt = stmt.where(User.tenant_id == dealership_id)
     rows = list(db.scalars(paginate_query_sorted(stmt, model=User, params=params)).all())
-    return build_sorted_page(rows, params)
+    return build_page_for_sort(rows, params)
 
 
 def account_states(db: Session, users: list[User]) -> dict[uuid.UUID, dict]:
