@@ -107,16 +107,18 @@ services:
     runtime: python
     # KAN-402 (Anto, 2026-10-29 and 2026-11-15; ADR-081 as amended): `starter`
     # (about USD 7/month), not `free` — only a paid instance can carry a
-    # persistent disk, and the object store (signature images, photos, logos,
-    # publishing imagery, AGB, export archives) must survive a deploy. A free
-    # instance's own disk is emptied by every deploy and restart. Applying this
-    # sync needs a payment method on the Render account (Anto's step).
+    # persistent disk, and the object store the web service writes (signature
+    # images, photos, logos, publishing imagery, AGB) must survive a deploy. A
+    # free instance's own disk is emptied by every deploy and restart. Applying
+    # this sync needs a payment method on the Render account (Anto's step).
     plan: starter
     # The disk the object store lives on (DMS_OBJECT_STORE_LOCAL_DIR below), a
     # stop-gap until a Swiss S3-compatible store. Known limits (ADR-081 as
     # amended): one instance only (a disk cannot be shared, so no scaling out),
     # a few seconds of downtime per deploy (Render stops the old instance
-    # before the new one mounts the disk), the worker cannot read it, data in
+    # before the new one mounts the disk), the worker cannot read it — so the
+    # data export the worker builds (KAN-218) cannot use this store until the
+    # KAN-738 settles where it runs — data in
     # Render's region (Oregon, the KAN-440 exception), daily snapshots kept 7
     # days. Production copies this block when it is created; there it is
     # required — the app refuses to start in production unless
