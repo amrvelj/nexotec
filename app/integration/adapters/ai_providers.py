@@ -266,13 +266,21 @@ def azure_endpoint(value: str) -> str:
     `https://<resource>.openai.azure.com` (or `.cognitiveservices.azure.com`)
     and nothing else. Returns it without a trailing slash."""
 
-    parts = urlsplit(value.strip())
-    host = (parts.hostname or "").lower()
+    try:
+        # urlsplit and .port raise ValueError on a malformed address (a bad
+        # port, an unclosed IPv6 bracket): that is the dealer's configuration,
+        # refused uncounted like any other, never a 500 (KAN-227 review).
+        parts = urlsplit(value.strip())
+        host = (parts.hostname or "").lower()
+        port = parts.port
+    except ValueError:
+        port, host, parts = -1, "", None
     if (
-        parts.scheme != "https"
+        parts is None
+        or port is not None
+        or parts.scheme != "https"
         or not host.endswith(_AZURE_HOST_SUFFIXES)
         or host in {suffix.lstrip(".") for suffix in _AZURE_HOST_SUFFIXES}
-        or parts.port is not None
         or parts.username
         or parts.password
         or parts.query

@@ -149,6 +149,8 @@ def test_azure_calls_the_dealers_deployment_with_the_api_key_header(db_session, 
         "https://user:pw@garage.openai.azure.com",  # credentials
         "https://garage.openai.azure.com.evil.example.com",  # a suffix trick
         "https://169.254.169.254",  # the metadata service
+        "https://garage.openai.azure.com:abc",  # a malformed port (was a ValueError, a 500)
+        "https://[garage.openai.azure.com",  # an unclosed IPv6 bracket (likewise)
     ],
 )
 def test_azure_refuses_any_endpoint_but_an_azure_openai_resource(endpoint):
@@ -156,10 +158,11 @@ def test_azure_refuses_any_endpoint_but_an_azure_openai_resource(endpoint):
         azure_endpoint(endpoint)
 
 
-def test_azure_refused_endpoint_sends_nothing(db_session, fake_provider):
+@pytest.mark.parametrize("endpoint", ["https://intranet.local", "https://garage.openai.azure.com:abc"])
+def test_azure_refused_endpoint_sends_nothing(db_session, fake_provider, endpoint):
     recorder = fake_provider(Recorder(body=_openai_answer()))
     connection = _connection(
-        db_session, "azure_openai", {"endpoint": "https://intranet.local", "deployment": "d", "apiVersion": "v"}
+        db_session, "azure_openai", {"endpoint": endpoint, "deployment": "d", "apiVersion": "v"}
     )
     with pytest.raises(ProviderConfigurationError):
         _complete(db_session, connection)
