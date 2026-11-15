@@ -9,9 +9,9 @@ from app.core.auth import Principal, get_current_principal
 from app.core.concurrency import check_version, require_if_match
 from app.core.config import get_settings
 from app.core.idempotent_route import IdempotentRoute
-from app.core.pagination import SortPageParams
+from app.core.list_query import GridSchemaRead, grid_schema, parse_list_query
 from app.core.permissions import ModuleCode, require_entitlement, require_write
-from app.core.sorting import SortField, decode_cursor_for_sort, parse_sort
+from app.core.sorting import SortField
 from app.db import get_db
 from app.inventory.models.stock_item import LifecycleStatus, StockItem, StockItemCondition
 from app.inventory.schemas.purchase import NotionalInputTaxOverrideRequest, PurchaseStornoRequest, RecordPurchaseRequest
@@ -26,20 +26,16 @@ from app.inventory.schemas.stock_item import (
 )
 from app.inventory.services import purchase as purchase_service
 from app.inventory.services import stock_item as stock_item_service
+from app.inventory.services.stock_grid import DEFAULT_STOCK_ITEM_SORT, STOCK_ITEM_COLUMNS
 
 # KAN-198 (D-A-04): the entitlement gate runs before any role check; an
 # unlicensed module is 404 for everyone (router-level, so every route).
 router = APIRouter(tags=["inventory"], route_class=IdempotentRoute, dependencies=[Depends(require_entitlement(ModuleCode.SALES))])
 settings = get_settings()
 
-# U-02/U-03: only indexed columns are offered as sortable — see the
-# create_stock_item migration for stock_number/vin/created_at/updated_at.
-STOCK_ITEM_SORT_FIELDS: dict[str, object] = {
-    "stockNumber": StockItem.stock_number,
-    "vin": StockItem.vin,
-    "updatedAt": StockItem.updated_at,
-    "createdAt": StockItem.created_at,
-}
+# KAN-461: every column sorts and filters through the one registry
+# (services/stock_grid.py; app.core.list_query). The fixed default order,
+# as a hand-built SortField for the callers that page without a request.
 _DEFAULT_STOCK_ITEM_SORT = [
     SortField(api_name="updatedAt", column=StockItem.updated_at, direction="desc", nullable=False)
 ]
@@ -76,36 +72,85 @@ def create_stock_item(
     return _stock_item_read(item)
 
 
+@router.get(
+    "/inventory/stock-items/grid-schema",
+    response_model=GridSchemaRead,
+    description=(
+        "KAN-461: the Stock grid's column registry — every field, its type, the conditions `filter` takes on it, "
+        "whether it sorts, its label key, whether the grid shows it by default and (an enum) its options. The SPA "
+        "derives its columns, sortability and filter fields from it."
+    ),
+)
+def get_stock_item_grid_schema(principal: Principal = Depends(get_current_principal)):
+    return grid_schema(STOCK_ITEM_COLUMNS)
+
+
+def _legacy_filters(
+    lifecycle_status: LifecycleStatus | None,
+    condition: StockItemCondition | None,
+    lifecycle_status_not: LifecycleStatus | None,
+    condition_not: StockItemCondition | None,
+) -> list[str]:
+    """The hand-wired parameters before KAN-461, kept for one release as the
+    registry predicates they always meant."""
+
+    legacy = []
+    if lifecycle_status is not None:
+        legacy.append(f"lifecycleStatus:is:{lifecycle_status.value}")
+    if condition is not None:
+        legacy.append(f"condition:is:{condition.value}")
+    if lifecycle_status_not is not None:
+        legacy.append(f"lifecycleStatus:isNot:{lifecycle_status_not.value}")
+    if condition_not is not None:
+        legacy.append(f"condition:isNot:{condition_not.value}")
+    return legacy
+
+
 @router.get("/inventory/stock-items", response_model=StockItemPage)
 def list_stock_items(
     q: str | None = None,
-    lifecycle_status: LifecycleStatus | None = None,
-    condition: StockItemCondition | None = None,
+    filter: list[str] | None = Query(
+        default=None,
+        description=(
+            "KAN-461: one predicate per parameter, `field:operator[:value]`, repeatable (ANDed). Fields, operators "
+            "and enum values come from `GET /v1/inventory/stock-items/grid-schema`; anything else is 422 "
+            "(`details.reason`: unknown_field, operator_not_allowed, filter_malformed, invalid_filter_value). "
+            "`in` and `between` take comma-separated values; dates are YYYY-MM-DD, money CHF with up to two "
+            "decimals, day counts 0–36500; relative dates resolve in Europe/Zurich."
+        ),
+    ),
+    lifecycle_status: LifecycleStatus | None = Query(
+        default=None, deprecated=True, description="Before KAN-461; use `filter=lifecycleStatus:is:<code>`."
+    ),
+    condition: StockItemCondition | None = Query(
+        default=None, deprecated=True, description="Before KAN-461; use `filter=condition:is:<code>`."
+    ),
     lifecycle_status_not: LifecycleStatus | None = Query(
-        default=None, description="KAN-476: items whose lifecycle status is not this one — the grid's «ist nicht»."
+        default=None, deprecated=True,
+        description="KAN-476's «ist nicht», before KAN-461; use `filter=lifecycleStatus:isNot:<code>`.",
     ),
     condition_not: StockItemCondition | None = Query(
-        default=None, description="KAN-476: items whose condition is not this one (Zustand «ist nicht Occasion»)."
+        default=None, deprecated=True,
+        description="KAN-476's «ist nicht», before KAN-461; use `filter=condition:isNot:<code>`.",
     ),
-    sort: str | None = Query(default=None, description="e.g. 'stockNumber:asc,updatedAt:desc'"),
+    sort: str | None = Query(
+        default=None, description="Any grid-schema field that sorts, e.g. 'listPrice:asc,updatedAt:desc'"
+    ),
     limit: int = Query(default=settings.pagination_default_limit, ge=1, le=settings.pagination_max_limit),
     cursor: str | None = Query(default=None),
     principal: Principal = Depends(get_current_principal),
     db: Session = Depends(get_db),
 ):
-    sort_fields = parse_sort(sort, allowed=STOCK_ITEM_SORT_FIELDS) or _DEFAULT_STOCK_ITEM_SORT
-    params = SortPageParams(
-        limit=limit, cursor=decode_cursor_for_sort(cursor, sort_fields), sort_fields=sort_fields
+    query = parse_list_query(
+        STOCK_ITEM_COLUMNS,
+        filters=[*_legacy_filters(lifecycle_status, condition, lifecycle_status_not, condition_not), *(filter or [])],
+        sort=sort,
+        default_sort=DEFAULT_STOCK_ITEM_SORT,
+        limit=limit,
+        cursor=cursor,
     )
     rows, next_cursor, total, total_is_estimate = stock_item_service.list_stock_items(
-        db,
-        tenant_id=principal.tenant_id,
-        q=q,
-        lifecycle_status=lifecycle_status,
-        condition=condition,
-        lifecycle_status_not=lifecycle_status_not,
-        condition_not=condition_not,
-        params=params,
+        db, tenant_id=principal.tenant_id, q=q, query=query
     )
     return StockItemPage(
         items=[_stock_item_read(r) for r in rows],

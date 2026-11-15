@@ -29,7 +29,22 @@
     "orderDate": "Data ordine",
     "expectedDelivery": "Consegna prevista",
     "pipelineRef": "Riferimento pipeline",
-    "configuration": "Configurazione"
+    "configuration": "Configurazione",
+    "exteriorColour": "Colore esterno",
+    "bodyStyle": "Carrozzeria",
+    "firstRegistrationDate": "1a immatricolazione",
+    "inStockAt": "A magazzino dal",
+    "tradeInVin": "VIN permuta",
+    "tradeInSignedAt": "Permuta firmata il",
+    "supplierIsVatRegistered": "Fornitore assoggettato all'IVA",
+    "purchaseInvoiceRef": "Fattura d'acquisto",
+    "notionalInputTaxApplicable": "Deduzione fittizia applicabile",
+    "notionalInputTaxRate": "Aliquota deduzione fittizia",
+    "notionalInputTaxOverridden": "Deduzione fittizia modificata",
+    "valuationRefAmount": "Importo della valutazione",
+    "valuationRefValuedAt": "Valutato il",
+    "valuationRefSource": "Fonte della valutazione",
+    "createdAt": "Creato"
   },
   "emptyState": {
     "title": "Nessun veicolo a magazzino",

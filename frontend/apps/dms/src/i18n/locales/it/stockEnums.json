@@ -31,5 +31,10 @@
     "zusatzerloes": "Ricavo accessorio",
     "foerderung": "Incentivo",
     "sonstige_ertraege": "Altri ricavi"
+  },
+  "ageingBucket": {
+    "green": "Verde (fino a 60 giorni)",
+    "amber": "Arancione (61–120 giorni)",
+    "red": "Rosso (oltre 120 giorni)"
   }
 }

@@ -1,6 +1,8 @@
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { FilterCondition, PredicateTextParts, ViewsAndFiltersLabels } from '@nexotec/ui-kit'
+import { toSwissLocale, type SupportedLanguage } from '../i18n'
+import { formatDateOnly } from '../utils/format'
 
 /** One entry per condition, spelled out so `tsc` refuses a map that misses
  * one (a condition added to the kit fails here, not at runtime). */
@@ -21,6 +23,10 @@ function perCondition<T>(make: (condition: FilterCondition) => T): Record<Filter
     thisYear: make('thisYear'),
     inTheLastDays: make('inTheLastDays'),
     moreThanDaysAgo: make('moreThanDaysAgo'),
+    between: make('between'),
+    on: make('on'),
+    before: make('before'),
+    after: make('after'),
   }
 }
 
@@ -32,7 +38,7 @@ function perCondition<T>(make: (condition: FilterCondition) => T): Record<Filter
  * own word order (KAN-415).
  */
 export function useViewsAndFiltersLabels(): ViewsAndFiltersLabels {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   return useMemo(
     () => ({
       viewsHeading: t('common.viewsAndFilters.viewsHeading'),
@@ -54,6 +60,10 @@ export function useViewsAndFiltersLabels(): ViewsAndFiltersLabels {
         deleteFilter: t('common.filterBuilder.deleteFilter'),
         dayCount: t('common.filterBuilder.dayCount'),
         invalidDayCount: (min: number, max: number) => t('common.filterBuilder.invalidDayCount', { min, max }),
+        day: t('common.filterBuilder.day'),
+        rangeFrom: t('common.filterBuilder.rangeFrom'),
+        rangeTo: t('common.filterBuilder.rangeTo'),
+        invalidRange: t('common.filterBuilder.invalidRange'),
         conditions: perCondition((c) => t(`common.filterBuilder.conditions.${c}`)),
         // `count` picks the plural form of the two N-days texts; the other
         // conditions have none and ignore it.
@@ -64,8 +74,10 @@ export function useViewsAndFiltersLabels(): ViewsAndFiltersLabels {
         ),
         booleanTrue: (field: string) => t('common.filterBuilder.booleanTrue', { field }),
         booleanFalse: (field: string) => t('common.filterBuilder.booleanFalse', { field }),
+        // KAN-461: «am», «vor», «nach» a day read as the grid shows a day.
+        formatDay: (isoDay: string) => formatDateOnly(isoDay, toSwissLocale(i18n.language as SupportedLanguage)),
       },
     }),
-    [t]
+    [t, i18n.language]
   )
 }

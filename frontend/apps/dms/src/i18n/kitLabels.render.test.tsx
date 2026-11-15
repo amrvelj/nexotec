@@ -98,6 +98,8 @@ describe('kit components speak the UI language on the app\'s screens (KAN-364)',
     expect(screen.getByRole('button', { name: 'Enregistrer la vue' })).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'Nouveau filtre…' }))
+    // KAN-461: every column is a filter field now; pick the stock status.
+    await user.selectOptions(screen.getAllByRole('combobox')[0], 'lifecycleStatus')
     expect(screen.getByRole('button', { name: 'Enregistrer' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Annuler' })).toBeInTheDocument()
     expect(screen.getAllByRole('option', { name: 'est' }).length).toBeGreaterThan(0)

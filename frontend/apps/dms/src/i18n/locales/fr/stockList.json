@@ -29,7 +29,22 @@
     "orderDate": "Date de commande",
     "expectedDelivery": "Livraison prévue",
     "pipelineRef": "Référence pipeline",
-    "configuration": "Configuration"
+    "configuration": "Configuration",
+    "exteriorColour": "Couleur extérieure",
+    "bodyStyle": "Carrosserie",
+    "firstRegistrationDate": "1re mise en circulation",
+    "inStockAt": "En stock depuis",
+    "tradeInVin": "VIN de reprise",
+    "tradeInSignedAt": "Reprise signée le",
+    "supplierIsVatRegistered": "Fournisseur assujetti à la TVA",
+    "purchaseInvoiceRef": "Facture d'achat",
+    "notionalInputTaxApplicable": "Déduction fictive applicable",
+    "notionalInputTaxRate": "Taux de déduction fictive",
+    "notionalInputTaxOverridden": "Déduction fictive modifiée",
+    "valuationRefAmount": "Montant de l'évaluation",
+    "valuationRefValuedAt": "Évalué le",
+    "valuationRefSource": "Source de l'évaluation",
+    "createdAt": "Créé"
   },
   "emptyState": {
     "title": "Aucun véhicule en stock",

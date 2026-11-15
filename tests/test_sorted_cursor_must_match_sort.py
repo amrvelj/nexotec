@@ -287,6 +287,19 @@ def test_every_sortable_column_is_one_a_cursor_can_be_checked_against():
     ]
     assert unsupported == []
 
+    # KAN-461: a list-query registry's sort columns too (the layer carries a
+    # decimal, a date and a boolean through the preserved cursor format).
+    from app.inventory.services.stock_grid import STOCK_ITEM_COLUMNS
+
+    registries = (STOCK_ITEM_COLUMNS,)
+    unsupported = [
+        spec.api_name
+        for registry in registries
+        for spec in registry
+        if not cursor_column_supported(spec.sort_column if spec.sort_column is not None else spec.column)
+    ]
+    assert unsupported == []
+
 
 def test_every_fixed_sort_declares_its_columns_nullability_truly():
     """A hand-built SortField (a default sort, a fixed order) states
@@ -397,7 +410,7 @@ def _round_trip(column, value):
 def _all_sort_allow_lists() -> dict[str, dict]:
     from app.customer.api.customers import CUSTOMER_SORT_FIELDS
     from app.integration.api.connections import CONNECTION_SORT_FIELDS
-    from app.inventory.api.stock_items import STOCK_ITEM_SORT_FIELDS
+    from app.inventory.api.group import GROUP_STOCK_SORT_FIELDS
     from app.platform.api.dealership_users import USER_SORT_FIELDS
     from app.platform.api.recovery import RECOVERY_SORT_FIELDS
     from app.sales.api.contracts import CONTRACT_SORT_FIELDS
@@ -409,7 +422,7 @@ def _all_sort_allow_lists() -> dict[str, dict]:
     return {
         "customers": CUSTOMER_SORT_FIELDS,
         "connections": CONNECTION_SORT_FIELDS,
-        "stock items": STOCK_ITEM_SORT_FIELDS,
+        "group stock": GROUP_STOCK_SORT_FIELDS,
         "dealership users": USER_SORT_FIELDS,
         "recovery": RECOVERY_SORT_FIELDS,
         "contracts": CONTRACT_SORT_FIELDS,

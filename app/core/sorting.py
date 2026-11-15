@@ -1,11 +1,11 @@
 """Server-side sort parameter parsing (U-02, UI/UX Core Principles §
 FR-UI-01): `?sort=field:dir[,field:dir]`.
 
-"Every column declared sortable must have a supporting index. A column
-with no index is not shipped as sortable" (U-03) — that rule is enforced by
-what an entity's allow-list chooses to expose, not by this module; see
-app/api/v1/customers.py's CUSTOMER_SORT_FIELDS for where that judgment call
-is made and which migration backs each column.
+U-03 as amended by U-10 (Anto, 2026-10-26; ADR-179): every column is
+sortable, and an index is added where a measurement against the budget says
+so — no longer a gate on sortability. A grid on the shared list-query layer
+(`app.core.list_query`, KAN-461) sorts through its column registry; the
+hand-built allow-lists below serve the lists not yet on it.
 """
 
 import dataclasses

@@ -1,0 +1,612 @@
+{
+  "/v1/inventory/stock-items": {
+    "fields": [
+      {
+        "defaultVisible": true,
+        "field": "stockNumber",
+        "labelKey": "stockList.columns.stockNumber",
+        "operators": [
+          "contains",
+          "equals",
+          "notEquals"
+        ],
+        "options": null,
+        "sortable": true,
+        "type": "text"
+      },
+      {
+        "defaultVisible": true,
+        "field": "vehicleLabel",
+        "labelKey": "stockList.columns.vehicle",
+        "operators": [
+          "contains",
+          "equals",
+          "notEquals"
+        ],
+        "options": null,
+        "sortable": true,
+        "type": "text"
+      },
+      {
+        "defaultVisible": true,
+        "field": "condition",
+        "labelKey": "stockList.columns.condition",
+        "operators": [
+          "is",
+          "isNot",
+          "in"
+        ],
+        "options": [
+          {
+            "labelKey": "stockEnums.condition.new",
+            "value": "new"
+          },
+          {
+            "labelKey": "stockEnums.condition.used",
+            "value": "used"
+          },
+          {
+            "labelKey": "stockEnums.condition.demo",
+            "value": "demo"
+          },
+          {
+            "labelKey": "stockEnums.condition.tagesz",
+            "value": "tagesz"
+          }
+        ],
+        "sortable": true,
+        "type": "enum"
+      },
+      {
+        "defaultVisible": true,
+        "field": "lifecycleStatus",
+        "labelKey": "stockList.columns.lifecycleStatus",
+        "operators": [
+          "is",
+          "isNot",
+          "in"
+        ],
+        "options": [
+          {
+            "labelKey": "stockEnums.lifecycleStatus.pipeline",
+            "value": "pipeline"
+          },
+          {
+            "labelKey": "stockEnums.lifecycleStatus.in_stock",
+            "value": "in_stock"
+          },
+          {
+            "labelKey": "stockEnums.lifecycleStatus.storno_pending",
+            "value": "storno_pending"
+          }
+        ],
+        "sortable": true,
+        "type": "enum"
+      },
+      {
+        "defaultVisible": true,
+        "field": "reservationState",
+        "labelKey": "stockList.columns.reservationState",
+        "operators": [
+          "is",
+          "isNot",
+          "in"
+        ],
+        "options": [
+          {
+            "labelKey": "stockEnums.reservationState.none",
+            "value": "none"
+          },
+          {
+            "labelKey": "stockEnums.reservationState.reserved",
+            "value": "reserved"
+          }
+        ],
+        "sortable": true,
+        "type": "enum"
+      },
+      {
+        "defaultVisible": true,
+        "field": "odometerKm",
+        "labelKey": "stockList.columns.odometerKm",
+        "operators": [
+          "equals",
+          "greaterThan",
+          "lessThan",
+          "atLeast",
+          "atMost",
+          "between"
+        ],
+        "options": null,
+        "sortable": true,
+        "type": "number"
+      },
+      {
+        "defaultVisible": true,
+        "field": "effectivePrice",
+        "labelKey": "stockList.columns.effectivePrice",
+        "operators": [
+          "equals",
+          "greaterThan",
+          "lessThan",
+          "atLeast",
+          "atMost",
+          "between"
+        ],
+        "options": null,
+        "sortable": true,
+        "type": "money"
+      },
+      {
+        "defaultVisible": true,
+        "field": "updatedAt",
+        "labelKey": "stockList.columns.changed",
+        "operators": [
+          "today",
+          "thisWeek",
+          "thisMonth",
+          "thisYear",
+          "inTheLastDays",
+          "moreThanDaysAgo",
+          "on",
+          "before",
+          "after"
+        ],
+        "options": null,
+        "sortable": true,
+        "type": "datetime"
+      },
+      {
+        "defaultVisible": false,
+        "field": "vin",
+        "labelKey": "stockList.columns.vin",
+        "operators": [
+          "contains",
+          "equals",
+          "notEquals"
+        ],
+        "options": null,
+        "sortable": true,
+        "type": "text"
+      },
+      {
+        "defaultVisible": false,
+        "field": "listPrice",
+        "labelKey": "stockList.columns.listPrice",
+        "operators": [
+          "equals",
+          "greaterThan",
+          "lessThan",
+          "atLeast",
+          "atMost",
+          "between"
+        ],
+        "options": null,
+        "sortable": true,
+        "type": "money"
+      },
+      {
+        "defaultVisible": false,
+        "field": "ageingBucket",
+        "labelKey": "stockList.columns.ageingBucket",
+        "operators": [
+          "is",
+          "isNot",
+          "in"
+        ],
+        "options": [
+          {
+            "labelKey": "stockEnums.ageingBucket.green",
+            "value": "green"
+          },
+          {
+            "labelKey": "stockEnums.ageingBucket.amber",
+            "value": "amber"
+          },
+          {
+            "labelKey": "stockEnums.ageingBucket.red",
+            "value": "red"
+          }
+        ],
+        "sortable": true,
+        "type": "enum"
+      },
+      {
+        "defaultVisible": false,
+        "field": "basePrice",
+        "labelKey": "stockList.columns.basePrice",
+        "operators": [
+          "equals",
+          "greaterThan",
+          "lessThan",
+          "atLeast",
+          "atMost",
+          "between"
+        ],
+        "options": null,
+        "sortable": true,
+        "type": "money"
+      },
+      {
+        "defaultVisible": false,
+        "field": "purchasePrice",
+        "labelKey": "stockList.columns.purchasePrice",
+        "operators": [
+          "equals",
+          "greaterThan",
+          "lessThan",
+          "atLeast",
+          "atMost",
+          "between"
+        ],
+        "options": null,
+        "sortable": true,
+        "type": "money"
+      },
+      {
+        "defaultVisible": false,
+        "field": "landedCost",
+        "labelKey": "stockList.columns.landedCost",
+        "operators": [
+          "equals",
+          "greaterThan",
+          "lessThan",
+          "atLeast",
+          "atMost",
+          "between"
+        ],
+        "options": null,
+        "sortable": true,
+        "type": "money"
+      },
+      {
+        "defaultVisible": false,
+        "field": "notionalInputTaxAmount",
+        "labelKey": "stockList.columns.notionalInputTaxAmount",
+        "operators": [
+          "equals",
+          "greaterThan",
+          "lessThan",
+          "atLeast",
+          "atMost",
+          "between"
+        ],
+        "options": null,
+        "sortable": true,
+        "type": "money"
+      },
+      {
+        "defaultVisible": false,
+        "field": "isInvoiceable",
+        "labelKey": "stockList.columns.isInvoiceable",
+        "operators": [
+          "is"
+        ],
+        "options": null,
+        "sortable": true,
+        "type": "boolean"
+      },
+      {
+        "defaultVisible": false,
+        "field": "supplierName",
+        "labelKey": "stockList.columns.supplierName",
+        "operators": [
+          "contains",
+          "equals",
+          "notEquals"
+        ],
+        "options": null,
+        "sortable": true,
+        "type": "text"
+      },
+      {
+        "defaultVisible": false,
+        "field": "purchaseDate",
+        "labelKey": "stockList.columns.purchaseDate",
+        "operators": [
+          "today",
+          "thisWeek",
+          "thisMonth",
+          "thisYear",
+          "inTheLastDays",
+          "moreThanDaysAgo",
+          "on",
+          "before",
+          "after"
+        ],
+        "options": null,
+        "sortable": true,
+        "type": "date"
+      },
+      {
+        "defaultVisible": false,
+        "field": "orderDate",
+        "labelKey": "stockList.columns.orderDate",
+        "operators": [
+          "today",
+          "thisWeek",
+          "thisMonth",
+          "thisYear",
+          "inTheLastDays",
+          "moreThanDaysAgo",
+          "on",
+          "before",
+          "after"
+        ],
+        "options": null,
+        "sortable": true,
+        "type": "date"
+      },
+      {
+        "defaultVisible": false,
+        "field": "expectedDelivery",
+        "labelKey": "stockList.columns.expectedDelivery",
+        "operators": [
+          "today",
+          "thisWeek",
+          "thisMonth",
+          "thisYear",
+          "inTheLastDays",
+          "moreThanDaysAgo",
+          "on",
+          "before",
+          "after"
+        ],
+        "options": null,
+        "sortable": true,
+        "type": "date"
+      },
+      {
+        "defaultVisible": false,
+        "field": "pipelineRef",
+        "labelKey": "stockList.columns.pipelineRef",
+        "operators": [
+          "contains",
+          "equals",
+          "notEquals"
+        ],
+        "options": null,
+        "sortable": true,
+        "type": "text"
+      },
+      {
+        "defaultVisible": false,
+        "field": "configurationLabel",
+        "labelKey": "stockList.columns.configuration",
+        "operators": [
+          "contains",
+          "equals",
+          "notEquals"
+        ],
+        "options": null,
+        "sortable": true,
+        "type": "text"
+      },
+      {
+        "defaultVisible": false,
+        "field": "exteriorColour",
+        "labelKey": "stockList.columns.exteriorColour",
+        "operators": [
+          "contains",
+          "equals",
+          "notEquals"
+        ],
+        "options": null,
+        "sortable": true,
+        "type": "text"
+      },
+      {
+        "defaultVisible": false,
+        "field": "bodyStyle",
+        "labelKey": "stockList.columns.bodyStyle",
+        "operators": [
+          "contains",
+          "equals",
+          "notEquals"
+        ],
+        "options": null,
+        "sortable": true,
+        "type": "text"
+      },
+      {
+        "defaultVisible": false,
+        "field": "firstRegistrationDate",
+        "labelKey": "stockList.columns.firstRegistrationDate",
+        "operators": [
+          "today",
+          "thisWeek",
+          "thisMonth",
+          "thisYear",
+          "inTheLastDays",
+          "moreThanDaysAgo",
+          "on",
+          "before",
+          "after"
+        ],
+        "options": null,
+        "sortable": true,
+        "type": "date"
+      },
+      {
+        "defaultVisible": false,
+        "field": "inStockAt",
+        "labelKey": "stockList.columns.inStockAt",
+        "operators": [
+          "today",
+          "thisWeek",
+          "thisMonth",
+          "thisYear",
+          "inTheLastDays",
+          "moreThanDaysAgo",
+          "on",
+          "before",
+          "after"
+        ],
+        "options": null,
+        "sortable": true,
+        "type": "datetime"
+      },
+      {
+        "defaultVisible": false,
+        "field": "tradeInVin",
+        "labelKey": "stockList.columns.tradeInVin",
+        "operators": [
+          "contains",
+          "equals",
+          "notEquals"
+        ],
+        "options": null,
+        "sortable": true,
+        "type": "text"
+      },
+      {
+        "defaultVisible": false,
+        "field": "tradeInSignedAt",
+        "labelKey": "stockList.columns.tradeInSignedAt",
+        "operators": [
+          "today",
+          "thisWeek",
+          "thisMonth",
+          "thisYear",
+          "inTheLastDays",
+          "moreThanDaysAgo",
+          "on",
+          "before",
+          "after"
+        ],
+        "options": null,
+        "sortable": true,
+        "type": "datetime"
+      },
+      {
+        "defaultVisible": false,
+        "field": "supplierIsVatRegistered",
+        "labelKey": "stockList.columns.supplierIsVatRegistered",
+        "operators": [
+          "is"
+        ],
+        "options": null,
+        "sortable": true,
+        "type": "boolean"
+      },
+      {
+        "defaultVisible": false,
+        "field": "purchaseInvoiceRef",
+        "labelKey": "stockList.columns.purchaseInvoiceRef",
+        "operators": [
+          "contains",
+          "equals",
+          "notEquals"
+        ],
+        "options": null,
+        "sortable": true,
+        "type": "text"
+      },
+      {
+        "defaultVisible": false,
+        "field": "notionalInputTaxApplicable",
+        "labelKey": "stockList.columns.notionalInputTaxApplicable",
+        "operators": [
+          "is"
+        ],
+        "options": null,
+        "sortable": true,
+        "type": "boolean"
+      },
+      {
+        "defaultVisible": false,
+        "field": "notionalInputTaxRate",
+        "labelKey": "stockList.columns.notionalInputTaxRate",
+        "operators": [
+          "equals",
+          "greaterThan",
+          "lessThan",
+          "atLeast",
+          "atMost",
+          "between"
+        ],
+        "options": null,
+        "sortable": true,
+        "type": "number"
+      },
+      {
+        "defaultVisible": false,
+        "field": "notionalInputTaxOverridden",
+        "labelKey": "stockList.columns.notionalInputTaxOverridden",
+        "operators": [
+          "is"
+        ],
+        "options": null,
+        "sortable": true,
+        "type": "boolean"
+      },
+      {
+        "defaultVisible": false,
+        "field": "valuationRefAmount",
+        "labelKey": "stockList.columns.valuationRefAmount",
+        "operators": [
+          "equals",
+          "greaterThan",
+          "lessThan",
+          "atLeast",
+          "atMost",
+          "between"
+        ],
+        "options": null,
+        "sortable": true,
+        "type": "money"
+      },
+      {
+        "defaultVisible": false,
+        "field": "valuationRefValuedAt",
+        "labelKey": "stockList.columns.valuationRefValuedAt",
+        "operators": [
+          "today",
+          "thisWeek",
+          "thisMonth",
+          "thisYear",
+          "inTheLastDays",
+          "moreThanDaysAgo",
+          "on",
+          "before",
+          "after"
+        ],
+        "options": null,
+        "sortable": true,
+        "type": "datetime"
+      },
+      {
+        "defaultVisible": false,
+        "field": "valuationRefSource",
+        "labelKey": "stockList.columns.valuationRefSource",
+        "operators": [
+          "contains",
+          "equals",
+          "notEquals"
+        ],
+        "options": null,
+        "sortable": true,
+        "type": "text"
+      },
+      {
+        "defaultVisible": false,
+        "field": "createdAt",
+        "labelKey": "stockList.columns.createdAt",
+        "operators": [
+          "today",
+          "thisWeek",
+          "thisMonth",
+          "thisYear",
+          "inTheLastDays",
+          "moreThanDaysAgo",
+          "on",
+          "before",
+          "after"
+        ],
+        "options": null,
+        "sortable": true,
+        "type": "datetime"
+      }
+    ]
+  }
+}
