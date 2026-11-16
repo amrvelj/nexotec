@@ -27,10 +27,11 @@ from app.platform.identity.models.credential import Credential
 from app.platform.identity.models.dealership_auth_config import DealershipAuthConfig
 from app.platform.identity.models.dealership_membership import DealershipMembership
 from app.platform.identity.models.standard_text_delegation import StandardTextDelegation
+from app.platform.identity.models.support_session import SupportSession
 from app.platform.identity.models.user import User
 from app.platform.identity.services.actor_reference import actor_reference_checks
 from app.platform.models.document_template import DocumentTemplate
-from app.platform.models.export_job import ExportJob
+from app.platform.models.export_job import ExportJob, ExportJobStatus
 from app.platform.models.standard_text import StandardText
 from app.platform.models.status_page import PlatformStatusIncident
 from app.platform.organisation.models.branding_asset import BrandingAsset
@@ -83,6 +84,7 @@ ACTOR_TABLES = (
     DealershipContactGroup,  # created_by / updated_by: who switched it on (KAN-466)
     ExportJob,  # created_by / updated_by: who requested the export (KAN-218)
     PlatformStatusIncident,  # created_by / updated_by: the staff user who opened or edited it (KAN-223)
+    SupportSession,  # created_by / updated_by: the staff member or the user who ended it (KAN-221)
 )
 
 # KAN-412 (FR-AU-24, rule 10): a revoked grant's provider end is recorded by
@@ -122,6 +124,24 @@ def _archive_due_for_manual_deletion() -> ColumnElement[bool]:
     )
 
 
+# KAN-738 (ADR-185): the web service's export runner produces a requested
+# export within seconds and deletes a file within a minute of its seven days
+# (Anto's Q1 A). An hour later either is a runner that stopped or keeps failing
+# — what the outbox's dead letter and the daily job's alarm said before.
+_EXPORT_RUNNER_GRACE = dt.timedelta(hours=1)
+
+
+def _export_requested_not_produced() -> ColumnElement[bool]:
+    return and_(ExportJob.status == ExportJobStatus.REQUESTED, ExportJob.created_at < utcnow() - _EXPORT_RUNNER_GRACE)
+
+
+def _export_file_past_its_download_window() -> ColumnElement[bool]:
+    return and_(
+        ExportJob.status == ExportJobStatus.READY,
+        ExportJob.download_expires_at < utcnow() - _EXPORT_RUNNER_GRACE,
+    )
+
+
 CHECKS: list[ReferenceCheck | StateCheck] = [
     *actor_reference_checks(*ACTOR_TABLES),
     StateCheck(
@@ -135,6 +155,18 @@ CHECKS: list[ReferenceCheck | StateCheck] = [
         source_model=Dealership,
         source_row_id_column=Dealership.id,
         where=_archive_due_for_manual_deletion,
+    ),
+    StateCheck(
+        label="export_job.requested_an_hour_ago_and_not_produced",
+        source_model=ExportJob,
+        source_row_id_column=ExportJob.id,
+        where=_export_requested_not_produced,
+    ),
+    StateCheck(
+        label="export_job.file_kept_past_its_download_window",
+        source_model=ExportJob,
+        source_row_id_column=ExportJob.id,
+        where=_export_file_past_its_download_window,
     ),
 ]
 

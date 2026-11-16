@@ -104,6 +104,9 @@ POST_WITHOUT_IF_MATCH = {
     "cars' assignments a move or a Wechselschild changes carry their version in the body (moveFrom / "
     "wechselschildWith: plateId + version, the If-Match of each row), checked under the plate's lock",
     "/v1/vehicle-mdm/{vehicle_id}/accessories": _CHILD_ROW,
+    "/v1/platform/support-sessions/{session_id}/end": "a support session (KAN-221) has no version: it is "
+    "written once at the start and once at the end, the end under the row's FOR UPDATE lock, and a second end "
+    "is 409 support_session_ended — nothing a stale reader could overwrite",
     "/v1/customers/{customer_id}/phones": _CHILD_ROW,
     "/v1/customers/{customer_id}/emails": _CHILD_ROW,
     "/v1/customers/{customer_id}/addresses": _CHILD_ROW,
