@@ -416,6 +416,16 @@ _READS = {
     "app.vehicle.public.resolve_merged_vehicle_id",
     "app.vehicle.public.has_current_energy_rating",
     "app.vehicle.public.match_vehicle",
+    # KAN-123 step 6: what reconciliation checks against `vehicle_mdm` and
+    # `vehicle_configuration`, built by their owner; each reads nothing itself.
+    "app.vehicle.public.configuration_exists",
+    "app.vehicle.public.configuration_reference_check",
+    "app.vehicle.public.configuration_untaken",
+    "app.vehicle.public.configuration_vin_distinct_from",
+    "app.vehicle.public.vehicle_is_merged",
+    "app.vehicle.public.vehicle_reference_check",
+    "app.vehicle.public.vehicle_vin_differs",
+    "app.vehicle.public.vehicle_vin_distinct_from",
 }
 
 

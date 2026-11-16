@@ -28,7 +28,14 @@ from app.inventory.models.website_listing import StockItemWebsiteListing
 from app.platform.public import Dealership, Location, actor_reference_checks
 from app.sales.public import contract_differs_from_projection, contract_reference_check, unprojected_contract_check
 from app.valuation.public import valuation_final_offer_differs, valuation_reference_check
-from app.vehicle.public import VehicleConfiguration, VehicleMdm
+from app.vehicle.public import (
+    configuration_reference_check,
+    configuration_untaken,
+    configuration_vin_distinct_from,
+    vehicle_is_merged,
+    vehicle_reference_check,
+    vehicle_vin_distinct_from,
+)
 
 CONTEXT = "inventory"
 
@@ -84,10 +91,7 @@ def _names_an_untaken_configuration() -> StateCheck:
         label="stock_item.configuration_id names a configuration vehicle has not stamped as taken",
         source_model=StockItem,
         source_row_id_column=StockItem.id,
-        where=lambda: select(VehicleConfiguration.id)
-        .where(VehicleConfiguration.id == StockItem.configuration_id, VehicleConfiguration.first_taken_at.is_(None))
-        .correlate(StockItem)
-        .exists()
+        where=lambda: configuration_untaken(StockItem.configuration_id, correlate=StockItem)
         & (StockItem.updated_at < utcnow() - _OUTBOX_LAG_GRACE),
     )
 
@@ -104,10 +108,7 @@ def _vin_differs_from_its_vehicle() -> StateCheck:
         label="stock_item.vin differs from its vehicle_mdm.vin",
         source_model=StockItem,
         source_row_id_column=StockItem.id,
-        where=lambda: select(VehicleMdm.id)
-        .where(VehicleMdm.id == StockItem.vehicle_id, VehicleMdm.vin.is_distinct_from(StockItem.vin))
-        .correlate(StockItem)
-        .exists()
+        where=lambda: vehicle_vin_distinct_from(StockItem.vehicle_id, StockItem.vin, correlate=StockItem)
         & StockItem.left_stock_at.is_(None),
     )
 
@@ -127,14 +128,9 @@ def _names_a_merged_vehicle() -> StateCheck:
         label="stock_item.vehicle_id names a merged vehicle_mdm record",
         source_model=StockItem,
         source_row_id_column=StockItem.id,
-        where=lambda: select(VehicleMdm.id)
-        .where(
-            VehicleMdm.id == StockItem.vehicle_id,
-            VehicleMdm.merged_into_vehicle_id.is_not(None),
-            VehicleMdm.updated_at < utcnow() - _OUTBOX_LAG_GRACE,
-        )
-        .correlate(StockItem)
-        .exists(),
+        where=lambda: vehicle_is_merged(
+            StockItem.vehicle_id, updated_before=utcnow() - _OUTBOX_LAG_GRACE, correlate=StockItem
+        ),
     )
 
 
@@ -178,14 +174,7 @@ def _vin_differs_from_its_configuration() -> StateCheck:
         label="stock_item.vin differs from its configuration's vin",
         source_model=StockItem,
         source_row_id_column=StockItem.id,
-        where=lambda: select(VehicleConfiguration.id)
-        .where(
-            VehicleConfiguration.id == StockItem.configuration_id,
-            VehicleConfiguration.vin.is_not(None),
-            VehicleConfiguration.vin.is_distinct_from(StockItem.vin),
-        )
-        .correlate(StockItem)
-        .exists()
+        where=lambda: configuration_vin_distinct_from(StockItem.configuration_id, StockItem.vin, correlate=StockItem)
         & StockItem.vehicle_id.is_not(None)
         & StockItem.left_stock_at.is_(None),
     )
@@ -268,13 +257,11 @@ CHECKS: list[ReferenceCheck | StateCheck] = [
         target_model=Dealership,
         target_id_column=Dealership.id,
     ),
-    ReferenceCheck(
+    vehicle_reference_check(
         label="stock_item.vehicle_id -> vehicle_mdm.id",
         source_model=StockItem,
         source_row_id_column=StockItem.id,
         source_fk_column=StockItem.vehicle_id,
-        target_model=VehicleMdm,
-        target_id_column=VehicleMdm.id,
         nullable=True,  # null while lifecycle_status='pipeline' (ADR-045)
     ),
     ReferenceCheck(
@@ -308,13 +295,11 @@ CHECKS: list[ReferenceCheck | StateCheck] = [
         source_fk_column=InventoryCancelledContract.contract_id,
     ),
     # C-F (KAN-10): the configuration it was built or captured in.
-    ReferenceCheck(
+    configuration_reference_check(
         label="stock_item.configuration_id -> vehicle_configuration.id",
         source_model=StockItem,
         source_row_id_column=StockItem.id,
         source_fk_column=StockItem.configuration_id,
-        target_model=VehicleConfiguration,
-        target_id_column=VehicleConfiguration.id,
         nullable=True,
     ),
     # KAN-115 — the pointer a trade-in's pipeline item copies from its
