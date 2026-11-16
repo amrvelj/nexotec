@@ -252,6 +252,12 @@ def test_the_nightly_job_writes_a_timed_out_ending_into_the_row(client, scene, d
     expires_at = row.expires_at
     other_staff = create_user(client, dealership, accessRoles=["platform_admin"], isDealerManager=False)
     running = _start(client, _staff_headers(other_staff, dealership), beat["id"]).json()
+    third_staff = create_user(client, dealership, accessRoles=["platform_admin"], isDealerManager=False)
+    ended = _start(client, _staff_headers(third_staff, dealership), beat["id"]).json()
+    assert _end(client, _staff_headers(third_staff, dealership), ended["id"]).status_code == 200
+    ended_row = db_session.get(SupportSession, uuid.UUID(ended["id"]))
+    ended_row.expires_at = utcnow() - dt.timedelta(minutes=1)  # past its end, but ended by staff
+    db_session.commit()
 
     run_daily_support_session_expiry(db_session)
 
@@ -260,10 +266,12 @@ def test_the_nightly_job_writes_a_timed_out_ending_into_the_row(client, scene, d
     assert closed.ended_by is not None and closed.ended_by.value == "timeout" and closed.ended_at == expires_at
     still = db_session.get(SupportSession, uuid.UUID(running["id"]))
     assert still.ended_at is None
-    ends = db_session.scalars(
-        select(AuditEvent).where(AuditEvent.entity_type == "support_session", AuditEvent.action == "end")
+    by_staff = db_session.get(SupportSession, uuid.UUID(ended["id"]))
+    assert by_staff.ended_by is not None and by_staff.ended_by.value == "staff"
+    timed_out = db_session.scalars(
+        select(AuditEvent).where(AuditEvent.entity_type == "support_session", AuditEvent.reason == "support_session_timed_out")
     ).all()
-    assert [(e.entity_id, e.actor_id, e.reason) for e in ends] == [(closed.id, None, "support_session_timed_out")]
+    assert [(e.entity_id, e.actor_id) for e in timed_out] == [(closed.id, None)]
     # A second run finds nothing more.
     run_daily_support_session_expiry(db_session)
-    assert len(db_session.scalars(select(AuditEvent).where(AuditEvent.action == "end")).all()) == 1
+    assert len(db_session.scalars(select(AuditEvent).where(AuditEvent.action == "end")).all()) == 2
