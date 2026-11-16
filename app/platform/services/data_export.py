@@ -5,16 +5,17 @@ The manager requests an export of the whole Betrieb at any time; platform
 staff produce one from the ten-year archive for a former manager who asks
 support (no dealer login after offboarding), with a reason. Either way the
 request is a row and the fact `platform.data_export.requested` in one
-transaction; the worker's consumer produces the file (`produce`), so a large
-Betrieb never holds a request open. Staging runs no worker (ADR-081): there a
-request stays `requested`.
+transaction; the web service's export runner produces the file (`produce`)
+in the background, so a large Betrieb never holds a request open. The web,
+not the worker, because the object store is the web's disk (KAN-738,
+`data_export_runner.py`) — so staging, which runs no worker, produces too.
 
 The file is one ZIP in the object store (`write_archive` in app.core.export:
 CSV and JSON per entity, `schema.json`, every issued document as PDF, the
 audit log, the uploaded files), read from one consistent snapshot of the
 database whose start is `produced_at` — everything written before it is in
 the file. It is downloadable through the authenticated GET for seven days
-(a signed URL comes with the bucket, KAN-402); then the daily job deletes it
+(a signed URL comes with the bucket, KAN-402); then the runner deletes it
 (`expire_downloads`). A new export can be requested at any time.
 
 Every step is audited on the entity `data_export` (requested, produced,
@@ -142,6 +143,10 @@ def request_export(
     _audit(db, job, "requested", actor_id=actor_id, after={"kind": kind.value}, reason=reason)
     db.commit()
     db.refresh(job)
+    # KAN-738: the web service's runner produces it — now, not at its next look.
+    from app.platform.services import data_export_runner
+
+    data_export_runner.wake()
     return job
 
 
@@ -230,7 +235,7 @@ def acknowledge(db: Session, *, job: ExportJob, actor_id: uuid.UUID) -> ExportJo
     return job
 
 
-# --- production (the worker) ---------------------------------------------------
+# --- production (the web service's runner, KAN-738) -------------------------------
 
 
 def _object_key(job: ExportJob) -> str:
@@ -330,7 +335,7 @@ def produce(db: Session, *, export_id: uuid.UUID, store: ObjectStore | None = No
             raise LookupError("the export's Betrieb is gone")
         scope = _with_references(snapshot, scope_for(snapshot, dealership_row))
         # KAN-715: the archive goes to a temporary file on disk, then to the
-        # store in chunks — never the whole ZIP in the worker's memory.
+        # store in chunks — never the whole ZIP in the web process's memory.
         key = _object_key(job)
         with tempfile.TemporaryFile(prefix="nexotec-export-") as spool:
             archive = write_archive(

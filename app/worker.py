@@ -88,12 +88,10 @@ from app.ownership_registry import register_ownership_providers
 from app.platform.consumers import (
     handle_connected_account_revoked_message,
     handle_connection_expiry_approaching_message,
-    handle_data_export_requested_message,
     handle_digest_released_message,
     handle_notification_delivered_message,
 )
 from app.platform.daily_jobs import (
-    run_daily_data_export_expiry,
     run_daily_notification_digest,
     run_daily_notification_purge,
     run_daily_revoked_grant_repair,
@@ -357,13 +355,9 @@ def register_handlers(transport: InProcessTransport) -> None:
         consumer_name="platform.connected_account_provider_revocation",
         handler=handle_connected_account_revoked_message,
     )
-    # KAN-218 (FR-A-44): the requested export's file is produced here, never
-    # in the request — staging runs no worker (ADR-081), so there it waits.
-    transport.register(
-        "platform.data_export.requested",
-        consumer_name="platform.data_export_production",
-        handler=handle_data_export_requested_message,
-    )
+    # KAN-218's `platform.data_export.requested` has no consumer here: since
+    # KAN-738 the web service produces the export, because the object store
+    # is the web's disk (app/platform/services/data_export_runner.py).
     # KAN-222 (FR-A-22): integration's fact that a connection nears its
     # expiry becomes its Betrieb's managers' `administration` notification —
     # platform raises it on its own session; integration never calls notify
@@ -546,7 +540,7 @@ def register_status() -> None:
 
 
 def register_daily_jobs() -> None:
-    """Twenty daily jobs, run in registration order once per day on this
+    """Nineteen daily jobs, run in registration order once per day on this
     process (app.core.daily_scheduler):
 
     1. ``integration.daily_jobs`` — ADR-025's expiry warnings, ADR-024's
@@ -618,8 +612,9 @@ def register_daily_jobs() -> None:
        is ended at the provider again (an outage longer than the outbox's
        retries, a grant revoked before its revoker was registered). A repair,
        so after reconciliation: the night's report names the grant first.
-    16. ``platform.data_exports.expire`` — KAN-218 (Anto, 2026-11-13, Q1 A):
-       an export's download stays seven days, then its file is deleted.
+    16. (none) — KAN-218's ``platform.data_exports.expire`` left the worker
+       in KAN-738: an export's file is on the web service's disk, so the web
+       deletes it seven days on (app/platform/services/data_export_runner.py).
        No job deletes an offboarded Betrieb's archive (Anto, 2026-11-14):
        reconciliation reports one past its ten years; the deletion is manual.
     17. ``platform.setup_checklist.regressions`` — KAN-214 (D-A-21, FR-A-26):
@@ -666,8 +661,7 @@ def register_daily_jobs() -> None:
     register_daily_job("platform.notifications.purge", run_daily_notification_purge)
     # 15. KAN-559: a revoked grant still holding a reference is ended at the provider.
     register_daily_job("platform.connected_account.repair", run_daily_revoked_grant_repair)
-    # 16. KAN-218 (Q1 A): an export's file goes seven days after it was produced.
-    register_daily_job("platform.data_exports.expire", run_daily_data_export_expiry)
+    # 16. (KAN-738) the export's expiry runs on the web service, beside its disk.
     # 17. KAN-214: one administration notification per checklist item broken after activation.
     register_daily_job("platform.setup_checklist.regressions", run_daily_setup_checklist_regressions)
     # 17b. KAN-223: one administration notification per status-page item that is no longer green.

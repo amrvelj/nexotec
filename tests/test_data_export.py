@@ -2,7 +2,7 @@
 Anto, 2026-11-13: Q1 A seven-day download, Q4 A audit log and uploaded
 files included).
 
-The manager requests an export at any time; the worker produces one ZIP —
+The manager requests an export at any time; the web service produces one ZIP —
 CSV and JSON per entity, `schema.json`, every issued document as PDF with its
 number and date, the Betrieb's audit log and its uploaded files — downloadable
 through the authenticated GET for seven days, then deleted by the daily job.
@@ -200,9 +200,11 @@ def test_the_file_is_there_on_day_six_and_gone_on_day_eight(client, export_store
     assert request_export(client, dealership_id, headers)["status"] == "requested"
 
 
-def test_the_worker_registers_the_expiry_job_and_no_deletion_job():
+def test_the_worker_registers_no_export_expiry_and_no_deletion_job():
     """Anto, 2026-11-14: nothing deletes an offboarded Betrieb automatically —
-    the deletion after ten years is a manual staff step, reported nightly."""
+    the deletion after ten years is a manual staff step, reported nightly.
+    KAN-738: the export's expiry is the web service's (its disk holds the
+    files), so the worker registers none."""
 
     from app.core.daily_scheduler import registered_job_names
     from app.worker import register_daily_jobs
@@ -210,7 +212,7 @@ def test_the_worker_registers_the_expiry_job_and_no_deletion_job():
     register_daily_jobs()
 
     names = registered_job_names()
-    assert "platform.data_exports.expire" in names
+    assert "platform.data_exports.expire" not in names
     assert "platform.dealership_erasure" not in names
     assert not [name for name in names if "erasure" in name]
 

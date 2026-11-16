@@ -653,36 +653,6 @@ def _connected_account_revoked(db_session, engine, monkeypatch):
     return _message(db_session, connected_account.REVOKED_EVENT, account.id), ends_recorded
 
 
-def _data_export_requested(db_session, engine, monkeypatch):
-    """KAN-218 — a requested export, from the real producer: the worker
-    writes its file once and records it once (`produced`); a redelivery
-    finds the export no longer requested."""
-
-    import tempfile
-    from pathlib import Path
-
-    import app.export_registry  # noqa: F401 - the contexts' exporters
-    from app.core import object_store
-    from app.core.audit_model import AuditEvent
-    from app.platform.models.export_job import ExportJobKind
-    from app.platform.services import data_export
-
-    monkeypatch.setattr(object_store, "_store", object_store.LocalDirectoryObjectStore(Path(tempfile.mkdtemp())))
-    dealership = _dealership(db_session)
-    job = data_export.request_export(
-        db_session, dealership=dealership, kind=ExportJobKind.SELF_SERVICE, actor_id=uuid.uuid4()
-    )
-
-    def produced(db: Session) -> int:
-        return db.scalar(
-            select(func.count())
-            .select_from(AuditEvent)
-            .where(AuditEvent.entity_id == job.id, AuditEvent.action == "produced")
-        )
-
-    return _message(db_session, data_export.REQUESTED_EVENT, job.id), produced
-
-
 def _connection_expiry_approaching(db_session, engine, monkeypatch):
     """KAN-222 — integration's fact from the real producer (the daily expiry
     check at T-7): platform raises the manager's `administration`
@@ -935,7 +905,6 @@ def _stock_holding_on_sold(db_session, engine, monkeypatch):
 
 _FIXTURES: dict[str, Fixture] = {
     "platform.connected_account_provider_revocation": _connected_account_revoked,
-    "platform.data_export_production": _data_export_requested,
     "platform.administration_notification_on_connection_expiry": _connection_expiry_approaching,
     "inventory.listings_withdrawn_on_offboarded": _listings_withdrawn_on_offboarded,
     "integration.connections_disabled_on_offboarded": _connections_disabled_on_offboarded,

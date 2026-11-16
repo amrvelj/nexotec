@@ -1,3 +1,5 @@
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import Depends, FastAPI
@@ -18,9 +20,11 @@ from app.core.observability import (
     configure_sentry,
     configure_tracing,
 )
+from app.db import SessionLocal
 from app.export_registry import register_exporters
 from app.ownership_registry import register_ownership_providers
 from app.platform.reference.services.mailer import get_mailer
+from app.platform.services import data_export_runner
 from app.platform.session_guard import enforce_live_session, enforce_open_dealership
 from app.status_registry import register_status_providers
 
@@ -43,10 +47,26 @@ register_status_providers()
 # reaches it, and it runs before the route's own dependencies.
 # KAN-218 (FR-A-45): after it, the archive gate — an offboarded Betrieb's
 # principals get 404 everywhere.
+
+
+@asynccontextmanager
+async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+    """KAN-738: the data export is produced and expired in this process,
+    beside the object store's disk (app/platform/services/data_export_runner.py).
+    The tests' TestClient never enters the lifespan; they call `run_once`."""
+
+    data_export_runner.start(SessionLocal)
+    try:
+        yield
+    finally:
+        data_export_runner.stop()
+
+
 app = FastAPI(
     title="DMS Platform",
     version="0.1.0",
     dependencies=[Depends(enforce_live_session), Depends(enforce_open_dealership)],
+    lifespan=lifespan,
 )
 
 configure_tracing(app)
