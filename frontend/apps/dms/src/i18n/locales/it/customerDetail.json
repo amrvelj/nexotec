@@ -64,7 +64,8 @@
       "newsletter": "Newsletter",
       "tags": "Tag",
       "notes": "Note",
-      "contactGroups": "Gruppi di contatti"
+      "contactGroups": "Gruppi di contatti",
+      "roles": "Ruoli"
     },
     "notSet": "Non impostato",
     "addressRequiredForContract": "Nessun indirizzo registrato — necessario prima di poter confermare un contratto.",
@@ -83,6 +84,12 @@
       "creditBlockTitle": "Blocco creditizio",
       "doNotContactTitle": "Non contattare",
       "doNotContactNote": "Nessun contatto commerciale. L’assistenza e la corrispondenza obbligatoria per legge restano consentite; un’offerta o un contratto no."
+    },
+    "customerRoleFieldsHint": "Stato, consulente e blocco del credito appartengono al ruolo cliente.",
+    "removeCustomerRole": {
+      "title": "Togliere il ruolo cliente?",
+      "body": "Il contatto perde il suo stato e il suo consulente; entrambi appartengono al ruolo cliente. La cronologia registra la modifica.",
+      "confirm": "Togliere il ruolo"
     }
   },
   "contactPoints": {
@@ -245,7 +252,9 @@
       "tagsRepointed": "Tag trasferiti",
       "tagsDropped": "Tag scartati",
       "contactGroupsRepointed": "Gruppi di contatti trasferiti",
-      "contactGroupsDropped": "Gruppi di contatti scartati"
+      "contactGroupsDropped": "Gruppi di contatti scartati",
+      "rolesGained": "Ruoli ripresi",
+      "roleRowsMoved": "Voci di ruolo trasferite"
     }
   },
   "linkVehicle": {

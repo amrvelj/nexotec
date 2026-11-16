@@ -26,7 +26,7 @@ from app.core.pagination import SortPageParams
 from app.core.permissions import require_read, require_write
 from app.core.sorting import SortField, decode_cursor_for_sort, parse_sort
 from app.core.validators import CantonCode
-from app.customer.models.customer import Customer, CustomerLifecycleStatus, CustomerType, Language
+from app.customer.models.customer import ContactRole, Customer, CustomerLifecycleStatus, CustomerType, Language
 from app.customer.schemas.customer import (
     CalendarPeriod,
     CustomerAddressCreate,
@@ -308,6 +308,12 @@ def list_customers(
         max_length=64,
         description="KAN-466: customers not carrying this contact group (customers with none included).",
     ),
+    role: ContactRole | None = Query(
+        default=None, description="KAN-464: contacts holding this role today (`customer`, `supplier`)."
+    ),
+    role_not: ContactRole | None = Query(
+        default=None, alias="roleNot", description="KAN-464: contacts not holding this role today."
+    ),
     sort: str | None = Query(default=None, description="e.g. 'lastName:asc,updatedAt:desc'"),
     limit: int = Query(default=settings.pagination_default_limit, ge=1, le=settings.pagination_max_limit),
     cursor: str | None = Query(default=None),
@@ -342,6 +348,8 @@ def list_customers(
         assigned=assigned,
         contact_group=contact_group,
         contact_group_not=contact_group_not,
+        role=role,
+        role_not=role_not,
     )
     projections_by_id = projections_service.compute_customer_projections_batch(db, [c.id for c in rows])
     items = [

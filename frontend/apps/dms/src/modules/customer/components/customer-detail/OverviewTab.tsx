@@ -16,6 +16,8 @@ import {
   translatedSalutationOptions,
   translatedSourceOptions,
   translatedLegalFormOptions,
+  holdsCustomerRole,
+  translatedLifecycleLabel,
 } from '../../customerOptions'
 import { formatCurrencyChf, formatDate, formatDateOnly } from '../../../../utils/format'
 import type { CountryOption } from '../../../../hooks/useCountryOptions'
@@ -24,6 +26,7 @@ import { useInlineEditRefusal } from '../../../../hooks/useInlineEditRefusal'
 import { ContactPointsEditor, type ContactPointUpdatePatch } from './ContactPointsEditor'
 import { ContactChannelsSummary, PreferredChannelBadge } from './ContactChannelsSummary'
 import { ContactGroupsField } from './ContactGroupsField'
+import { ContactRolesField } from './ContactRolesField'
 import { AddressSearchField } from '../../../../components/AddressSearchField'
 import { PHONE_INPUT_MIN_WIDTH, PhoneInput } from '../../../../components/PhoneInput'
 import type { CustomerEmailRead, CustomerPhoneRead, CustomerRead, CustomerUpdateInput, EmailType, PhoneType } from '../../../../api/types'
@@ -503,6 +506,7 @@ export function OverviewTab({
   // The current advisor's stored label still renders when they are not in
   // this list (e.g. assigned in another Betrieb, or since deactivated).
   const { options: advisorOptions } = useAdvisorOptions()
+  const isCustomer = holdsCustomerRole(customer)
   const advisorSelectOptions =
     customer.advisorId && !advisorOptions.some((o) => o.value === customer.advisorId)
       ? [...advisorOptions, { value: customer.advisorId, label: customer.advisorLabel ?? customer.advisorId }]
@@ -551,7 +555,26 @@ export function OverviewTab({
       </OverviewCard>
 
       <OverviewCard title={t('customerDetail.overview.cards.status')}>
-        <SelectField label={f.lifecycleStatus} value={customer.lifecycleStatus} options={translatedLifecycleOptions(t)} patchKey="lifecycleStatus" {...fieldProps} />
+        <ContactRolesField label={t('customerDetail.overview.fields.roles')} value={customer.roles ?? []} onSaveField={onSaveField} />
+        {/* KAN-464 (Q1): the lifecycle status is the customer role's. A contact
+            without it keeps only do-not-contact, which belongs to every contact. */}
+        {isCustomer ? (
+          <SelectField label={f.lifecycleStatus} value={customer.lifecycleStatus} options={translatedLifecycleOptions(t)} patchKey="lifecycleStatus" {...fieldProps} />
+        ) : (
+          <KeyValueRow label={translatedLifecycleLabel(t, 'do_not_contact')}>
+            <Checkbox
+              aria-label={translatedLifecycleLabel(t, 'do_not_contact')}
+              checked={customer.lifecycleStatus === 'do_not_contact'}
+              onChange={(e) => void onSaveField({ lifecycleStatus: e.currentTarget.checked ? 'do_not_contact' : 'active' })}
+              styles={{ root: { display: 'inline-flex' } }}
+            />
+          </KeyValueRow>
+        )}
+        {!isCustomer && (
+          <Text fz="xs" c="dimmed">
+            {t('customerDetail.overview.customerRoleFieldsHint')}
+          </Text>
+        )}
         <SelectField label={f.source} value={customer.source} options={translatedSourceOptions(t)} patchKey="source" clearable {...fieldProps} />
         <KeyValueRow label={f.marketingConsent}>
           <Checkbox
@@ -600,14 +623,17 @@ export function OverviewTab({
       {/* FR-18 region 5 — "what is our history and what happens next?".
           `website` is spec-region-3; grouped here pending the tab re-order. */}
       <OverviewCard title={t('customerDetail.overview.cards.relationship')}>
-        <SelectField
-          label={f.advisor}
-          value={customer.advisorId}
-          options={advisorSelectOptions}
-          patchKey="advisorId"
-          clearable
-          {...fieldProps}
-        />
+        {/* KAN-464 (Q1): the advisor is the customer role's. */}
+        {isCustomer && (
+          <SelectField
+            label={f.advisor}
+            value={customer.advisorId}
+            options={advisorSelectOptions}
+            patchKey="advisorId"
+            clearable
+            {...fieldProps}
+          />
+        )}
         <DateField label={f.customerSince} value={customer.customerSince} patchKey="customerSince" {...fieldProps} />
         <DateField label={f.nextFollowUp} value={customer.nextFollowUp} patchKey="nextFollowUp" {...fieldProps} />
         <WebsiteField label={f.website} value={customer.website} onSaveField={onSaveField} emptyLabel={fieldProps.emptyLabel} />

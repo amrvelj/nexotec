@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type Dispatch, type ReactNode, type SetStateAction } from 'react'
-import { Checkbox, Group, Select, SimpleGrid, Stack, Text, TextInput, UnstyledButton } from '@mantine/core'
+import { Checkbox, Group, MultiSelect, Select, SimpleGrid, Stack, Text, TextInput, UnstyledButton } from '@mantine/core'
 import { useDebouncedValue } from '@mantine/hooks'
 import { useForm } from '@mantine/form'
 import { useTranslation } from 'react-i18next'
@@ -24,6 +24,7 @@ import {
   translatedSalutationOptions,
   translatedSourceOptions,
   translatedLegalFormOptions,
+  translatedRoleOptions,
 } from '../customerOptions'
 import { SUPPORTED_LANGUAGES } from '../../../i18n'
 import { AddressSearchField } from '../../../components/AddressSearchField'
@@ -33,6 +34,7 @@ import { COMPACT_PHONE_INPUT_MIN_WIDTH, PhoneInput } from '../../../components/P
 import { useCountryOptions } from '../../../hooks/useCountryOptions'
 import { useIdempotencyKey } from '../../../hooks/useIdempotencyKey'
 import type {
+  ContactRole,
   CustomerCreateInput,
   CustomerDuplicateCandidate,
   CustomerDuplicateCandidateList,
@@ -132,6 +134,11 @@ export function CustomerCreateFlow({ onSuccess, onCancel, initialCustomerType, o
   ]
   const [step, setStep] = useState(initialCustomerType ? 1 : 0)
   const [customerType, setCustomerType] = useState<CustomerType>(initialCustomerType ?? 'individual')
+  // KAN-464: the roles the new contact holds — at least one; a customer
+  // unless the user chooses otherwise. Without the customer role the contact
+  // has no lifecycle status of its own (Q1), so the field is not offered.
+  const [roles, setRoles] = useState<ContactRole[]>(['customer'])
+  const holdsCustomer = roles.includes('customer')
   // § ADR-067 — the same RepeatableRowGroup the detail screen uses, in
   // `create` mode: one primary per type-group, marking a new primary
   // unmarks the old in the same interaction, consent on the row. Held in
@@ -218,6 +225,10 @@ export function CustomerCreateFlow({ onSuccess, onCancel, initialCustomerType, o
       setError(t('customerCreate.validation.companyNameRequired'))
       return
     }
+    if (roles.length === 0) {
+      setError(t('customerCreate.validation.roleRequired'))
+      return
+    }
     const hasContactPoint = phones.some((p) => p.value) || emails.some((e) => e.value)
     if (!hasContactPoint) {
       setError(t('customerCreate.validation.contactPointRequired'))
@@ -253,7 +264,8 @@ export function CustomerCreateFlow({ onSuccess, onCancel, initialCustomerType, o
               },
             ]
           : [],
-        lifecycleStatus: values.lifecycleStatus,
+        roles,
+        ...(holdsCustomer ? { lifecycleStatus: values.lifecycleStatus } : {}),
         source: values.source || null,
         marketingConsent: values.marketingConsent,
         ...(customerType === 'individual'
@@ -373,7 +385,16 @@ export function CustomerCreateFlow({ onSuccess, onCancel, initialCustomerType, o
           {onOpenExisting && <DuplicateWarningPanel candidates={duplicates} onOpenExisting={onOpenExisting} />}
 
           <Select label={t('customerCreate.fields.preferredChannel')} data={translatedPreferredChannelOptions(t)} clearable {...form.getInputProps('preferredChannel')} />
-          <Select label={t('customerCreate.fields.lifecycleStatus')} data={translatedLifecycleOptions(t)} {...form.getInputProps('lifecycleStatus')} />
+          <MultiSelect
+            label={t('customerCreate.fields.roles')}
+            data={translatedRoleOptions(t)}
+            value={roles}
+            onChange={(next) => setRoles(next as ContactRole[])}
+            required
+          />
+          {holdsCustomer && (
+            <Select label={t('customerCreate.fields.lifecycleStatus')} data={translatedLifecycleOptions(t)} {...form.getInputProps('lifecycleStatus')} />
+          )}
           <Select label={t('customerCreate.fields.source')} data={translatedSourceOptions(t)} clearable {...form.getInputProps('source')} />
           <Checkbox label={t('customerCreate.fields.hasAddress')} {...form.getInputProps('hasAddress', { type: 'checkbox' })} />
           {form.values.hasAddress && (

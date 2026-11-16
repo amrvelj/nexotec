@@ -147,7 +147,11 @@ Roles, capabilities, the permission matrix and what the SPA may offer: `platform
 - `user_location`: primary + additional (FR-A-02); a deactivated location is refused for a new
   assignment and kept where held.
 
-## Support access (D-A-05, D-A-24) — not built
+## Support access (D-A-05, D-A-24) — the record only (KAN-221 PR-2)
+`support_session`: `POST /v1/platform/support-sessions` (staff, a factor, never under `acting_for`;
+not for a platform_admin, oneself or a non-active user; one running per staff) and `…/{id}/end`
+(staff or the user; others 404). Over at `expires_at`: reads derive `timeout`, the nightly
+`platform.support_sessions.close_expired` writes it (system actor). **It grants nothing yet** — the token is PR 3. The ruling:
 Full write from the start; the token carries `sub` = staff and `actingFor` = the user; the audit
 shows both, never the dealer as actor; a 60-minute box, a mandatory reason, a persistent banner;
 the user ends it; no manager notification, no manager "View as". It never touches credentials, MFA,

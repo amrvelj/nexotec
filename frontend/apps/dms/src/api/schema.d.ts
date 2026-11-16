@@ -4004,6 +4004,46 @@ export interface paths {
         patch: operations["update_status_incident_v1_platform_status_incidents__incident_id__patch"];
         trace?: never;
     };
+    "/v1/platform/support-sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start Support Session
+         * @description KAN-221: a platform staff member starts a 60-minute support session for an active user, with a mandatory reason. Refused for a platform_admin (422 `support_target_platform_admin`), oneself (`support_target_self`), a user who is not active (`support_target_not_active`), and while the staff member's previous session still runs (409 `support_session_already_open`). The token that acts for the user is not built yet: the session is recorded and audited, and grants nothing.
+         */
+        post: operations["start_support_session_v1_platform_support_sessions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/platform/support-sessions/{session_id}/end": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * End Support Session
+         * @description KAN-221 (FR-A-18): the staff member or the user ends a running session. Anyone else gets 404; a session already over is 409 `support_session_ended`.
+         */
+        post: operations["end_support_session_v1_platform_support_sessions__session_id__end_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/platform/ui-translations": {
         parameters: {
             query?: never;
@@ -7108,6 +7148,18 @@ export interface components {
             /** Enabled */
             enabled: boolean;
         };
+        /**
+         * ContactRole
+         * @description The roles a contact holds (KAN-464; Anto, 2026-10-26: one register,
+         *     roles). A contact is never duplicated because it gains a role (ADR-014).
+         *
+         *     Q1 (Anto, 2026-11-14, A): the lifecycle status (prospect / active /
+         *     inactive), the credit block and the advisor belong to the `customer`
+         *     role; contact points, consent, do-not-contact, tags, contact groups and
+         *     the legal basis belong to every contact.
+         * @enum {string}
+         */
+        ContactRole: "customer" | "supplier";
         /** ContractCancelRequest */
         ContractCancelRequest: {
             /** Reason */
@@ -7574,6 +7626,8 @@ export interface components {
             /** Phones */
             phones?: components["schemas"]["CustomerPhoneCreate"][];
             preferredChannel?: components["schemas"]["PreferredChannel"] | null;
+            /** Roles */
+            roles?: components["schemas"]["ContactRole"][];
             salutation?: components["schemas"]["Salutation"] | null;
             source?: components["schemas"]["CustomerSource"] | null;
             /** Sourceref */
@@ -8003,6 +8057,8 @@ export interface components {
             /** Phonework */
             phoneWork?: string | null;
             preferredChannel: components["schemas"]["PreferredChannel"] | null;
+            /** Roles */
+            roles?: components["schemas"]["ContactRole"][];
             salutation: components["schemas"]["Salutation"] | null;
             source: components["schemas"]["CustomerSource"] | null;
             /** Sourceref */
@@ -8088,6 +8144,8 @@ export interface components {
             notes?: string | null;
             paymentTerms?: components["schemas"]["PaymentTerms"] | null;
             preferredChannel?: components["schemas"]["PreferredChannel"] | null;
+            /** Roles */
+            roles?: components["schemas"]["ContactRole"][] | null;
             salutation?: components["schemas"]["Salutation"] | null;
             source?: components["schemas"]["CustomerSource"] | null;
             /** Sourceref */
@@ -12923,6 +12981,67 @@ export interface components {
             reason: string;
         };
         /**
+         * SupportSessionEndedBy
+         * @description Who ended a session (FR-A-18). `timeout` is derived from `expires_at`
+         *     until the nightly job or the staff member's next start writes it.
+         * @enum {string}
+         */
+        SupportSessionEndedBy: "staff" | "user" | "timeout";
+        /** SupportSessionRead */
+        SupportSessionRead: {
+            /** Active */
+            active: boolean;
+            /**
+             * Dealershipid
+             * Format: uuid
+             */
+            dealershipId: string;
+            /** Endedat */
+            endedAt: string | null;
+            endedBy: components["schemas"]["SupportSessionEndedBy"] | null;
+            /**
+             * Expiresat
+             * Format: date-time
+             */
+            expiresAt: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Reason */
+            reason: string;
+            /**
+             * Staffuserid
+             * Format: uuid
+             */
+            staffUserId: string;
+            /**
+             * Startedat
+             * Format: date-time
+             */
+            startedAt: string;
+            /**
+             * Targetuserid
+             * Format: uuid
+             */
+            targetUserId: string;
+        };
+        /**
+         * SupportSessionStart
+         * @description FR-A-15: the user the staff member steps in for, and why — the reason
+         *     is mandatory and is shown to the user on the banner.
+         */
+        SupportSessionStart: {
+            /** Reason */
+            reason: string;
+            /**
+             * Targetuserid
+             * Format: uuid
+             */
+            targetUserId: string;
+        };
+        /**
          * SwissLanguage
          * @description DE/FR/IT/EN — the four languages the application ships translations
          *     for. See this module's own docstring for why this is a second
@@ -15636,6 +15755,10 @@ export interface operations {
                 contactGroup?: string | null;
                 /** @description KAN-466: customers not carrying this contact group (customers with none included). */
                 contactGroupNot?: string | null;
+                /** @description KAN-464: contacts holding this role today (`customer`, `supplier`). */
+                role?: components["schemas"]["ContactRole"] | null;
+                /** @description KAN-464: contacts not holding this role today. */
+                roleNot?: components["schemas"]["ContactRole"] | null;
                 /** @description e.g. 'lastName:asc,updatedAt:desc' */
                 sort?: string | null;
                 limit?: number;
@@ -24741,6 +24864,82 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["StatusIncidentRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    start_support_session_v1_platform_support_sessions_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SupportSessionStart"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SupportSessionRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    end_support_session_v1_platform_support_sessions__session_id__end_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                session_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SupportSessionRead"];
                 };
             };
             /** @description Validation Error */

@@ -40,7 +40,8 @@
     "postalCode": "Postal code",
     "locality": "Locality",
     "country": "Country",
-    "marketingConsent": "Marketing consent"
+    "marketingConsent": "Marketing consent",
+    "roles": "Roles"
   },
   "descriptions": {
     "correspondenceLanguage": "The language this customer's documents and letters are written in."
@@ -57,7 +58,8 @@
   "validation": {
     "individualNameRequired": "Enter a first name and a last name for an individual customer.",
     "companyNameRequired": "Enter a company name for a business customer.",
-    "contactPointRequired": "Add at least one phone number or email address."
+    "contactPointRequired": "Add at least one phone number or email address.",
+    "roleRequired": "Choose at least one role."
   },
   "errors": {
     "createFailed": "The customer could not be created. Check the form and try again."

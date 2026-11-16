@@ -53,7 +53,8 @@
     "customerSince": "Cliente dal",
     "nextFollowUp": "Prossimo richiamo",
     "notes": "Note",
-    "contactGroups": "Gruppi di contatti"
+    "contactGroups": "Gruppi di contatti",
+    "roles": "Ruoli"
   },
   "rowActions": {
     "open": "Apri",

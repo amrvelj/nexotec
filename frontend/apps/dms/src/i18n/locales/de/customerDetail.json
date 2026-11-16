@@ -64,7 +64,8 @@
       "newsletter": "Newsletter",
       "tags": "Tags",
       "notes": "Notizen",
-      "contactGroups": "Kontaktgruppen"
+      "contactGroups": "Kontaktgruppen",
+      "roles": "Rollen"
     },
     "notSet": "Nicht angegeben",
     "addressRequiredForContract": "Keine Adresse hinterlegt — vor einem Vertragsabschluss erforderlich.",
@@ -83,6 +84,12 @@
       "creditBlockTitle": "Kreditgesperrt",
       "doNotContactTitle": "Nicht kontaktieren",
       "doNotContactNote": "Kein kommerzieller Kontakt. Service und gesetzlich vorgeschriebene Korrespondenz sind weiterhin erlaubt; eine Offerte oder ein Vertrag nicht."
+    },
+    "customerRoleFieldsHint": "Status, Betreuer und Kreditsperre gehören zur Rolle Kunde.",
+    "removeCustomerRole": {
+      "title": "Rolle Kunde entfernen?",
+      "body": "Der Kontakt verliert seinen Status und seinen Betreuer; beides gehört zur Rolle Kunde. Der Verlauf hält die Änderung fest.",
+      "confirm": "Rolle entfernen"
     }
   },
   "contactPoints": {
@@ -245,7 +252,9 @@
       "tagsRepointed": "Tags übertragen",
       "tagsDropped": "Tags verworfen",
       "contactGroupsRepointed": "Kontaktgruppen übertragen",
-      "contactGroupsDropped": "Kontaktgruppen verworfen"
+      "contactGroupsDropped": "Kontaktgruppen verworfen",
+      "rolesGained": "Rollen übernommen",
+      "roleRowsMoved": "Rolleneinträge übertragen"
     }
   },
   "linkVehicle": {

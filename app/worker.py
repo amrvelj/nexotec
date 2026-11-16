@@ -97,6 +97,7 @@ from app.platform.daily_jobs import (
     run_daily_revoked_grant_repair,
     run_daily_setup_checklist_regressions,
     run_daily_status_page_notifications,
+    run_daily_support_session_expiry,
     run_daily_user_expiry,
 )
 from app.reconciliation_runner import run_all_daily
@@ -666,6 +667,8 @@ def register_daily_jobs() -> None:
     register_daily_job("platform.setup_checklist.regressions", run_daily_setup_checklist_regressions)
     # 17b. KAN-223: one administration notification per status-page item that is no longer green.
     register_daily_job("platform.status_page.notifications", run_daily_status_page_notifications)
+    # 17c. KAN-221: a support session nobody ended has its timeout written into the row.
+    register_daily_job("platform.support_sessions.close_expired", run_daily_support_session_expiry)
     # 18. KAN-599: a provider quote no valuation references goes ten years after it was fetched.
     register_daily_job("valuation.provider_quotes.purge_unused", run_daily_unused_provider_quote_purge)
     # 19. KAN-270 (registered last): a configuration no host ever took goes after 30 days.

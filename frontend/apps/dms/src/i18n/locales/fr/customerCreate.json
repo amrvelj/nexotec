@@ -40,7 +40,8 @@
     "postalCode": "NPA",
     "locality": "Localité",
     "country": "Pays",
-    "marketingConsent": "Consentement marketing"
+    "marketingConsent": "Consentement marketing",
+    "roles": "Rôles"
   },
   "descriptions": {
     "correspondenceLanguage": "La langue dans laquelle les documents et courriers de ce client sont rédigés."
@@ -57,7 +58,8 @@
   "validation": {
     "individualNameRequired": "Saisissez un prénom et un nom pour un client particulier.",
     "companyNameRequired": "Saisissez une raison sociale pour un client entreprise.",
-    "contactPointRequired": "Ajoutez au moins un numéro de téléphone ou une adresse e-mail."
+    "contactPointRequired": "Ajoutez au moins un numéro de téléphone ou une adresse e-mail.",
+    "roleRequired": "Choisissez au moins un rôle."
   },
   "errors": {
     "createFailed": "Le client n'a pas pu être créé. Vérifiez le formulaire et réessayez."

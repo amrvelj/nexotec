@@ -72,6 +72,7 @@ const OVERVIEW_FIELD_LABEL: Record<string, string> = {
   newsletter: 'customerDetail.overview.fields.newsletter',
   tags: 'customerDetail.overview.fields.tags',
   contactGroups: 'customerDetail.overview.fields.contactGroups',
+  roles: 'customerDetail.overview.fields.roles',
   notes: 'customerDetail.overview.fields.notes',
   customerNumber: 'customerDetail.overview.fields.customerNumber',
   addressStreet: 'customerDetail.overview.addressForm.street',
@@ -125,6 +126,8 @@ const HISTORY_FIELDS = new Set([
   'tagsDropped',
   'contactGroupsRepointed',
   'contactGroupsDropped',
+  'rolesGained',
+  'roleRowsMoved',
 ])
 
 // A field this tab does not know yet is shown under its key exactly as
@@ -236,6 +239,10 @@ function formatValue(
   // KAN-466: contact groups are reference codes — read as their labels.
   if (Array.isArray(v) && camelKey(key) === 'contactGroups' && contactGroupLabel) {
     return v.length === 0 ? '—' : v.map((code) => contactGroupLabel(String(code))).join(', ')
+  }
+  // KAN-464: roles are codes — read as their labels (a merge's gained ones too).
+  if (Array.isArray(v) && (camelKey(key) === 'roles' || camelKey(key) === 'rolesGained')) {
+    return v.length === 0 ? '—' : v.map((code) => t(`customerEnums.role.${String(code)}`)).join(', ')
   }
   // KAN-371: a list of ids (the customers or party rows a merge moved) reads
   // as their names, an id nothing names as the translated marker.

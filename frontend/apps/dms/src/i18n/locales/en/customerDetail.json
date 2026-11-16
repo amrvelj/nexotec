@@ -64,7 +64,8 @@
       "newsletter": "Newsletter",
       "tags": "Tags",
       "notes": "Notes",
-      "contactGroups": "Contact groups"
+      "contactGroups": "Contact groups",
+      "roles": "Roles"
     },
     "notSet": "Not set",
     "addressRequiredForContract": "No address on file — needed before a contract can be confirmed.",
@@ -83,6 +84,12 @@
       "creditBlockTitle": "Credit-blocked",
       "doNotContactTitle": "Do not contact",
       "doNotContactNote": "No commercial contact. Service and legally required correspondence are still allowed; an offer or contract is not."
+    },
+    "customerRoleFieldsHint": "Status, advisor and credit block belong to the customer role.",
+    "removeCustomerRole": {
+      "title": "Remove the customer role?",
+      "body": "The contact loses its status and its advisor; both belong to the customer role. The history records the change.",
+      "confirm": "Remove role"
     }
   },
   "contactPoints": {
@@ -245,7 +252,9 @@
       "tagsRepointed": "Tags moved",
       "tagsDropped": "Tags dropped",
       "contactGroupsRepointed": "Contact groups moved",
-      "contactGroupsDropped": "Contact groups dropped"
+      "contactGroupsDropped": "Contact groups dropped",
+      "rolesGained": "Roles taken over",
+      "roleRowsMoved": "Role entries moved"
     }
   },
   "linkVehicle": {

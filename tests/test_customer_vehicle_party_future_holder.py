@@ -23,7 +23,7 @@ from sqlalchemy import select
 from app.core.auth import AccessRole, create_access_token
 from app.core.base import utcnow
 from app.core.errors import ConflictError
-from app.customer.models.customer import Customer, CustomerType, Language
+from app.customer.models.customer import ContactRole, Customer, CustomerRole, CustomerType, Language
 from app.customer.models.vehicle_party import VehicleParty, VehiclePartyRole
 from app.customer.schemas.customer import CustomerVehicleCreate, CustomerVehicleUpdate
 from app.customer.services.vehicle_party import (
@@ -44,6 +44,9 @@ def _customer(db_session, group_id: uuid.UUID, first_name: str, last_name: str =
         language=Language.DE, first_name=first_name, last_name=last_name,
     )
     db_session.add(customer)
+    db_session.flush()
+    # KAN-464: every customer holds the customer role, as the create path and the migration leave it.
+    db_session.add(CustomerRole(group_id=group_id, customer_id=customer.id, role=ContactRole.CUSTOMER))
     db_session.flush()
     return customer
 

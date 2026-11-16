@@ -79,5 +79,9 @@
     "verein": "Verein",
     "genossenschaft": "Genossenschaft",
     "weitere": "Weitere"
+  },
+  "role": {
+    "customer": "Kunde",
+    "supplier": "Lieferant"
   }
 }

@@ -1,6 +1,8 @@
 import type { DateCondition, FilterFieldDef, FilterPredicate } from '@nexotec/ui-kit'
 import type {
   ConsentScope,
+  ContactRole,
+  CustomerRead,
   ConsentSource,
   CustomerLifecycleStatus,
   CustomerSource,
@@ -90,6 +92,31 @@ export function translatedLifecycleOptions(t: Translate): { value: CustomerLifec
     { value: 'inactive', label: t('customerEnums.lifecycleStatus.inactive') },
     { value: 'do_not_contact', label: t('customerEnums.lifecycleStatus.do_not_contact') },
   ]
+}
+
+// KAN-464: the roles a contact holds (Kunde, Lieferant). Status, advisor and
+// credit block belong to the customer role (Q1, app/customer/services/roles.py).
+export const CONTACT_ROLES: ContactRole[] = ['customer', 'supplier']
+
+export function translatedRoleOptions(t: Translate): { value: ContactRole; label: string }[] {
+  return CONTACT_ROLES.map((value) => ({ value, label: t(`customerEnums.role.${value}`) }))
+}
+
+export function translatedRoleLabel(t: Translate, role: ContactRole): string {
+  return t(`customerEnums.role.${role}`)
+}
+
+/** Whether the contact holds the customer role — the one its status, advisor
+ * and credit block belong to. */
+export function holdsCustomerRole(contact: Pick<CustomerRead, 'roles'>): boolean {
+  return (contact.roles ?? []).includes('customer')
+}
+
+/** Whether the contact's lifecycle status means anything to show: a contact
+ * without the customer role has none, unless it is do-not-contact or merged
+ * (those belong to every contact). */
+export function showsLifecycleStatus(contact: Pick<CustomerRead, 'roles' | 'lifecycleStatus'>): boolean {
+  return holdsCustomerRole(contact) || contact.lifecycleStatus === 'do_not_contact' || contact.lifecycleStatus === 'merged'
 }
 
 export function translatedLifecycleLabel(t: Translate, status: CustomerLifecycleStatus): string {
@@ -288,9 +315,9 @@ export function applyCustomerFilters(params: URLSearchParams, predicates: Filter
       if (paramName === 'advisorUserId') {
         if (predicate.value === UNASSIGNED_ADVISOR) params.set('assigned', 'true')
         else params.set('advisorUserIdNot', predicate.value)
-      } else if (paramName === 'contactGroup') {
-        // KAN-466: camelCase like `advisorUserId`.
-        params.set('contactGroupNot', predicate.value)
+      } else if (paramName === 'contactGroup' || paramName === 'role') {
+        // KAN-466, KAN-464: camelCase like `advisorUserId`.
+        params.set(`${paramName}Not`, predicate.value)
       } else params.set(`${paramName}_not`, predicate.value)
     }
   }

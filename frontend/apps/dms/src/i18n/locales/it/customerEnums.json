@@ -79,5 +79,9 @@
     "verein": "Associazione",
     "genossenschaft": "Società cooperativa",
     "weitere": "Altra"
+  },
+  "role": {
+    "customer": "Cliente",
+    "supplier": "Fornitore"
   }
 }

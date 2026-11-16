@@ -10,7 +10,7 @@ from app.core.idempotency_model import IdempotencyRecord
 from app.core.outbox_model import OutboxMessage
 from app.core.processed_event_model import ProcessedEvent
 from app.core.reconciliation_model import ReconciliationOrphan, ReconciliationRun
-from app.customer.models.customer import Customer, CustomerAddress, CustomerContactGroup, CustomerTag
+from app.customer.models.customer import Customer, CustomerAddress, CustomerContactGroup, CustomerRole, CustomerTag
 from app.customer.models.legal_basis import LegalBasis
 from app.customer.models.stock_item_booking import StockItemBooking
 from app.customer.models.vehicle_party import VehicleParty
@@ -46,6 +46,7 @@ from app.platform.identity.models.notification import (
     UserNotificationPreference,
 )
 from app.platform.identity.models.standard_text_delegation import StandardTextDelegation
+from app.platform.identity.models.support_session import SupportSession
 from app.platform.identity.models.user import User
 from app.platform.identity.models.user_location import UserLocation
 from app.platform.identity.models.user_preference import UserPreference
@@ -123,6 +124,7 @@ __all__ = [
     "Customer",
     "CustomerAddress",
     "CustomerContactGroup",
+    "CustomerRole",
     "CustomerTag",
     "DailyJobRun",
     "DealerGroup",
@@ -206,6 +208,7 @@ __all__ = [
     "StockItemPublishing",
     "StockItemWebsiteListing",
     "StockNumberSequence",
+    "SupportSession",
     "TypeApproval",
     "TyreSpecCache",
     "UiTranslation",

@@ -32,6 +32,7 @@ from app.customer.models.customer import (
     CustomerExternalId,
     CustomerNumberSequence,
     CustomerPhone,
+    CustomerRole,
 )
 from app.db import SessionLocal
 from app.platform.identity.models.user import User
@@ -152,6 +153,14 @@ def main() -> None:
             fail("seeded customer not found")
         if customer.group_id != dealership.dealer_group_id:
             fail("customer.group_id no longer points at the seeded dealership's group")
+        # KAN-464: seeded on main's schema (backfilled by the migration) or on
+        # the branch's (seeded with it), the customer holds exactly the
+        # customer role.
+        open_roles = db.scalars(
+            select(CustomerRole.role).where(CustomerRole.customer_id == customer.id, CustomerRole.valid_to.is_(None))
+        ).all()
+        if [role.value for role in open_roles] != ["customer"]:
+            fail(f"seeded customer should hold the customer role once, holds {[r.value for r in open_roles]}")
 
         approval = db.scalar(
             select(TypeApproval).where(TypeApproval.type_approval_number == _CATALOGUE_TYPE_APPROVAL_NUMBER)

@@ -18,6 +18,7 @@ from app.core.base import utcnow
 from app.core.outbox_model import OutboxMessage
 from app.core.reconciliation import ReconciliationRun, ReferenceCheck, StateCheck, run_reconciliation
 from app.customer.models.customer import (
+    ContactRole,
     Customer,
     CustomerAddress,
     CustomerContactGroup,
@@ -26,6 +27,7 @@ from app.customer.models.customer import (
     CustomerLifecycleStatus,
     CustomerNumberSequence,
     CustomerPhone,
+    CustomerRole,
     CustomerTag,
 )
 from app.customer.models.legal_basis import LegalBasis
@@ -47,6 +49,7 @@ _BOOKING_EVENT_TYPES = ("inventory.stock_item.purchased", "inventory.stock_item.
 ACTOR_TABLES = (
     Customer, CustomerPhone, CustomerEmail, CustomerAddress, CustomerExternalId, CustomerTag, LegalBasis, VehicleParty,
     CustomerContactGroup,  # KAN-466
+    CustomerRole,  # KAN-464
 )
 
 CHECKS: list[ReferenceCheck | StateCheck] = [
@@ -169,6 +172,45 @@ CHECKS: list[ReferenceCheck | StateCheck] = [
             (Customer.lifecycle_status != CustomerLifecycleStatus.MERGED)
             & select(User.id)
             .where(User.id == Customer.advisor_id, User.status == "deactivated")
+            .correlate(Customer)
+            .exists()
+        ),
+    ),
+    StateCheck(
+        # KAN-464 (rule 10): a contact holds at least one role — every write
+        # path keeps it so (create needs one, a PATCH cannot clear them, a
+        # merge moves them); a contact with none is one a writer missed.
+        label="customer holds no open customer_role",
+        source_model=Customer,
+        source_row_id_column=Customer.id,
+        where=lambda: (
+            (Customer.lifecycle_status != CustomerLifecycleStatus.MERGED)
+            & ~select(CustomerRole.id)
+            .where(CustomerRole.customer_id == Customer.id, CustomerRole.valid_to.is_(None))
+            .correlate(Customer)
+            .exists()
+        ),
+    ),
+    StateCheck(
+        # KAN-464 (Q1, rule 10): a contact without the customer role carries
+        # no customer field — no prospect/inactive status, no advisor, no
+        # credit block. Every writer judges it under the customer row's lock;
+        # this says when one did not.
+        label="contact without the customer role carries a customer field",
+        source_model=Customer,
+        source_row_id_column=Customer.id,
+        where=lambda: (
+            # A merged tombstone gave its roles to the survivor and keeps its fields as history.
+            (Customer.lifecycle_status != CustomerLifecycleStatus.MERGED)
+            & (Customer.lifecycle_status.in_([CustomerLifecycleStatus.PROSPECT, CustomerLifecycleStatus.INACTIVE])
+             | Customer.advisor_id.is_not(None)
+             | Customer.credit_block.is_(True))
+            & ~select(CustomerRole.id)
+            .where(
+                CustomerRole.customer_id == Customer.id,
+                CustomerRole.role == ContactRole.CUSTOMER,
+                CustomerRole.valid_to.is_(None),
+            )
             .correlate(Customer)
             .exists()
         ),

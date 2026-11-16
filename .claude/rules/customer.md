@@ -105,6 +105,14 @@ module folders (KAN-611). Last verified against main@73baf3f (2026-10-25). -->
   it is 422 `contact_group_read_only`, never silently kept. A merge moves them all. List filter
   `contactGroup` / `contactGroupNot`.
 
+## Roles (KAN-464; Anto, 2026-10-26 one register, roles; Q1 2026-11-14 A)
+- `customer_role`: `customer` / `supplier`, one open row per role (`valid_to` closes it, never deleted);
+  every customer migrated as `customer`; a create without `roles` is a customer. `services/roles.py`.
+- Lifecycle (prospect/active/inactive), credit block and advisor are the **customer role's**: without it,
+  stored `active` is neutral, no D-24 advisor, setting one is 422 `customer_role_required`; taking the
+  role away resets them (audited), refused while credit-blocked (409 `customer_role_credit_blocked`).
+  Lifecycle filters on those values and the unassigned queue match customers only. A merge unites roles.
+
 ## Blocks and flags
 - **ADR-065 — a credit block stops contract confirmation, not the offer.** **Do-not-contact** is
   the `lifecycleStatus` value `do_not_contact`, not a flag, and stops the offer and the contract. A

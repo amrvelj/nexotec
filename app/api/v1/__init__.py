@@ -41,6 +41,7 @@ from app.platform.identity.api.me import router as me_router
 from app.platform.identity.api.notifications import router as notifications_router
 from app.platform.identity.api.onboarding import router as onboarding_router
 from app.platform.identity.api.recovery import router as platform_recovery_router
+from app.platform.identity.api.support_sessions import router as support_sessions_router
 from app.platform.identity.api.user_preferences import router as user_preferences_router
 from app.platform.organisation.api.contact_groups import router as contact_groups_router
 from app.platform.organisation.api.dealerships import router as dealerships_router
@@ -83,6 +84,7 @@ api_v1_router.include_router(number_ranges_router)
 api_v1_router.include_router(contact_groups_router)
 api_v1_router.include_router(dealer_groups_router)
 api_v1_router.include_router(platform_recovery_router)
+api_v1_router.include_router(support_sessions_router)
 api_v1_router.include_router(reference_data_router)
 api_v1_router.include_router(ui_translations_router)
 api_v1_router.include_router(standard_text_seeds_router)

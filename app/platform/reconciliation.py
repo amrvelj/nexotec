@@ -27,6 +27,7 @@ from app.platform.identity.models.credential import Credential
 from app.platform.identity.models.dealership_auth_config import DealershipAuthConfig
 from app.platform.identity.models.dealership_membership import DealershipMembership
 from app.platform.identity.models.standard_text_delegation import StandardTextDelegation
+from app.platform.identity.models.support_session import SupportSession
 from app.platform.identity.models.user import User
 from app.platform.identity.services.actor_reference import actor_reference_checks
 from app.platform.models.document_template import DocumentTemplate
@@ -83,6 +84,7 @@ ACTOR_TABLES = (
     DealershipContactGroup,  # created_by / updated_by: who switched it on (KAN-466)
     ExportJob,  # created_by / updated_by: who requested the export (KAN-218)
     PlatformStatusIncident,  # created_by / updated_by: the staff user who opened or edited it (KAN-223)
+    SupportSession,  # created_by / updated_by: the staff member or the user who ended it (KAN-221)
 )
 
 # KAN-412 (FR-AU-24, rule 10): a revoked grant's provider end is recorded by

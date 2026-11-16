@@ -37,6 +37,7 @@ from app.customer.models.customer import (
     AddressType,
     ConsentScope,
     ConsentSource,
+    ContactRole,
     CustomerLifecycleStatus,
     CustomerSource,
     CustomerType,
@@ -111,6 +112,15 @@ def _normalise_tags(value: list[str]) -> list[str]:
 # `contact_group` — trimmed, de-duplicated, blanks dropped here; whether the
 # acting Betrieb may set a code is the service's question (it asks platform).
 _MAX_CONTACT_GROUPS = 20
+
+
+def _normalise_roles(value: list[ContactRole]) -> list[ContactRole]:
+    """KAN-464: a contact holds at least one role, each once (sorted)."""
+
+    roles = sorted(set(value), key=lambda role: role.value)
+    if not roles:
+        raise ValueError("A contact holds at least one role.")
+    return roles
 
 
 def _normalise_contact_groups(value: list[str]) -> list[str]:
@@ -396,6 +406,9 @@ class CustomerCreate(CamelModel):
     next_follow_up: dt.date | None = None
     tags: list[str] = Field(default_factory=list)
     contact_groups: list[str] = Field(default_factory=list)
+    # KAN-464: the roles the new contact holds — at least one. Left out, it
+    # is a customer, as every create before roles was (no writer changes).
+    roles: list[ContactRole] = Field(default_factory=lambda: [ContactRole.CUSTOMER])
     notes: str | None = None
 
     @field_validator("website")
@@ -407,6 +420,11 @@ class CustomerCreate(CamelModel):
     @classmethod
     def _clean_tags(cls, value: list[str]) -> list[str]:
         return _normalise_tags(value)
+
+    @field_validator("roles")
+    @classmethod
+    def _clean_roles(cls, value: list[ContactRole]) -> list[ContactRole]:
+        return _normalise_roles(value)
 
     @field_validator("contact_groups")
     @classmethod
@@ -544,6 +562,10 @@ class CustomerUpdate(CamelModel):
     # set is read-only from there: adding one is 422
     # `contact_group_not_enabled`, leaving one out 422 `contact_group_read_only`.
     contact_groups: list[str] | None = None
+    # KAN-464: the full set of the contact's roles (full replace, like
+    # `tags`), at least one; `null` is refused. Taking the `customer` role
+    # away closes its fields (Q1): see services/roles.py.
+    roles: list[ContactRole] | None = None
     notes: str | None = None
 
     @field_validator("website")
@@ -563,6 +585,14 @@ class CustomerUpdate(CamelModel):
     @classmethod
     def _clean_contact_groups(cls, value: list[str] | None) -> list[str]:
         return [] if value is None else _normalise_contact_groups(value)
+
+    @field_validator("roles")
+    @classmethod
+    def _clean_roles(cls, value: list[ContactRole] | None) -> list[ContactRole]:
+        # An explicit null would leave a contact with no role.
+        if value is None:
+            raise ValueError("roles cannot be cleared — a contact holds at least one role.")
+        return _normalise_roles(value)
 
     @field_validator(
         "language",
@@ -654,6 +684,9 @@ class CustomerRead(CamelModel):
     # KAN-466: codes of the platform list `contact_group`, sorted; labels come
     # from GET /v1/dealerships/{id}/contact-groups.
     contact_groups: list[str] = Field(default_factory=list)
+    # KAN-464: the roles the contact holds today (`customer`, `supplier`),
+    # sorted; the closed periods are in the History tab.
+    roles: list[ContactRole] = Field(default_factory=list)
     # Provenance — the dealership that created the record (ADR-014: the
     # GROUP owns the customer). Never scopes a read.
     dealership_id: uuid.UUID | None

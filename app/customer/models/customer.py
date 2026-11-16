@@ -38,7 +38,7 @@ import enum
 import uuid
 from decimal import Decimal
 
-from sqlalchemy import DECIMAL, Boolean, Date, ForeignKey, Index, Integer, String, Text, UniqueConstraint, false
+from sqlalchemy import DECIMAL, Boolean, Date, ForeignKey, Index, Integer, String, Text, UniqueConstraint, false, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.base import PrimaryKeyMixin, TimestampMixin, VersionedMixin, utcnow
@@ -206,6 +206,19 @@ class CustomerLifecycleStatus(str, enum.Enum):
     INACTIVE = "inactive"
     MERGED = "merged"
     DO_NOT_CONTACT = "do_not_contact"
+
+
+class ContactRole(str, enum.Enum):
+    """The roles a contact holds (KAN-464; Anto, 2026-10-26: one register,
+    roles). A contact is never duplicated because it gains a role (ADR-014).
+
+    Q1 (Anto, 2026-11-14, A): the lifecycle status (prospect / active /
+    inactive), the credit block and the advisor belong to the `customer`
+    role; contact points, consent, do-not-contact, tags, contact groups and
+    the legal basis belong to every contact."""
+
+    CUSTOMER = "customer"
+    SUPPLIER = "supplier"
 
 
 class CustomerSource(str, enum.Enum):
@@ -655,3 +668,40 @@ class CustomerContactGroup(PrimaryKeyMixin, TimestampMixin, Base):
         nullable=False,
         comment="Owned by the platform context (reference list contact_group, by value_code). No DB-level FK.",
     )
+
+
+class CustomerRole(PrimaryKeyMixin, TimestampMixin, Base):
+    """A role a contact holds, with the period it held it (KAN-464 PR-1).
+
+    One open row (`valid_to` NULL) per (customer, role): giving a role opens
+    a row, taking it away closes it — the closed rows are the role's history,
+    never deleted. Every customer migrated as `customer`
+    (alembic customer `a4c1e6b9d2f7`); a create without `roles` still gets
+    `customer`, so no existing writer changes.
+
+    The table is `customer_role` until the breaking rename (KAN-464 PR-3)
+    moves every `customer_*` table to `contact_*` together; it sorts after
+    `customer` so a PATCH flushes the customer row first and waits on a
+    merge's lock before inserting a role row (the KAN-390 ordering,
+    `services/customer.py::update_customer`).
+    """
+
+    __tablename__ = "customer_role"
+    __table_args__ = (
+        Index(
+            "uq_customer_role_customer_id_role_open",
+            "customer_id",
+            "role",
+            unique=True,
+            postgresql_where=text("valid_to IS NULL"),
+            sqlite_where=text("valid_to IS NULL"),
+        ),
+    )
+
+    group_id: Mapped[uuid.UUID] = mapped_column(
+        GUID(), nullable=False, index=True, comment="Owned by the platform context (DealerGroup). No DB-level FK."
+    )
+    customer_id: Mapped[uuid.UUID] = mapped_column(GUID(), ForeignKey("customer.id"), nullable=False, index=True)
+    role: Mapped[ContactRole] = mapped_column(StoredEnum(ContactRole, length=16), nullable=False)
+    valid_from: Mapped[dt.datetime] = mapped_column(UTCDateTime(), nullable=False, default=utcnow)
+    valid_to: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)

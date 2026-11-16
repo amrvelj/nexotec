@@ -183,6 +183,7 @@ export type EmailType = Schemas['EmailType']
 export type ConsentScope = Schemas['ConsentScope']
 export type ConsentSource = Schemas['ConsentSource']
 export type CustomerLifecycleStatus = Schemas['CustomerLifecycleStatus']
+export type ContactRole = Schemas['ContactRole']
 export type CustomerSource = Schemas['CustomerSource']
 export type AddressType = Schemas['AddressType']
 // FR-17 / FR-18 stored fields (KAN-50)

@@ -16,6 +16,7 @@ from app.core.sorting import build_page_for_sort
 from app.core.validators import normalise_phone
 from app.customer.models.customer import (
     AddressType,
+    ContactRole,
     Customer,
     CustomerAddress,
     CustomerContactGroup,
@@ -29,6 +30,7 @@ from app.customer.schemas.customer import (
     CalendarPeriod,
 )
 from app.customer.services.customer_common import _DUPLICATE_CHECK_LIMIT, _MIN_PHONE_SEARCH_DIGITS, logger
+from app.customer.services.roles import CUSTOMER_LIFECYCLE_STATUSES, holds_role
 
 
 def _search_predicate(group_id: uuid.UUID, q: str):
@@ -117,6 +119,8 @@ def list_customers(
     assigned: bool = False,
     contact_group: str | None = None,
     contact_group_not: str | None = None,
+    role: ContactRole | None = None,
+    role_not: ContactRole | None = None,
 ) -> tuple[list[Customer], str | None, int, bool]:
     """`advisor_user_id` narrows to one advisor's customers; `unassigned` to
     those with none — the queue FR-A-37 names, which a leaver's hand-over
@@ -138,17 +142,26 @@ def list_customers(
 
     `contact_group` keeps the customers carrying that group (KAN-466);
     `contact_group_not` those that do not — a customer with no group at all
-    included."""
+    included.
+
+    `role` keeps the contacts holding that role today, `role_not` those
+    that do not (KAN-464). Prospect / active / inactive and the advisor are
+    the customer role's (Q1, `services/roles.py`): those lifecycle filters
+    and the unassigned queue match only contacts holding it, and their «ist
+    nicht» keeps a contact without it, which has no such value (ADR-102)."""
 
     stmt = select(Customer).where(Customer.group_id == group_id)
     if advisor_user_id is not None:
         stmt = stmt.where(Customer.advisor_id == advisor_user_id)
     if unassigned:
-        stmt = stmt.where(Customer.advisor_id.is_(None))
+        # FR-A-37's queue is the customers nobody advises; a supplier has no advisor to give.
+        stmt = stmt.where(Customer.advisor_id.is_(None), holds_role(ContactRole.CUSTOMER))
     if q:
         stmt = stmt.where(_search_predicate(group_id, q))
     if lifecycle_status is not None:
         stmt = stmt.where(Customer.lifecycle_status == lifecycle_status)
+        if lifecycle_status in CUSTOMER_LIFECYCLE_STATUSES:
+            stmt = stmt.where(holds_role(ContactRole.CUSTOMER))
     elif not include_merged:
         # A merged record is a tombstone pointing at its survivor. Showing it
         # in normal search results is how staff end up re-opening the record
@@ -179,7 +192,16 @@ def list_customers(
             )
         )
     if lifecycle_status_not is not None:
-        stmt = stmt.where(Customer.lifecycle_status != lifecycle_status_not)
+        if lifecycle_status_not in CUSTOMER_LIFECYCLE_STATUSES:
+            stmt = stmt.where(
+                or_(Customer.lifecycle_status != lifecycle_status_not, ~holds_role(ContactRole.CUSTOMER))
+            )
+        else:
+            stmt = stmt.where(Customer.lifecycle_status != lifecycle_status_not)
+    if role is not None:
+        stmt = stmt.where(holds_role(role))
+    if role_not is not None:
+        stmt = stmt.where(~holds_role(role_not))
     if customer_type_not is not None:
         stmt = stmt.where(Customer.customer_type != customer_type_not)
     if language_not is not None:

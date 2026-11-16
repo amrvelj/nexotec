@@ -53,7 +53,8 @@
     "customerSince": "Customer since",
     "nextFollowUp": "Next follow-up",
     "notes": "Notes",
-    "contactGroups": "Contact groups"
+    "contactGroups": "Contact groups",
+    "roles": "Roles"
   },
   "rowActions": {
     "open": "Open",

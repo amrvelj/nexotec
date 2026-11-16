@@ -58,12 +58,14 @@ from app.core.base import utcnow
 from app.core.types import GUID, EncryptedString
 from app.core.uuid7 import uuid7
 from app.customer.models.customer import (
+    ContactRole,
     Customer,
     CustomerEmail,
     CustomerExternalId,
     CustomerLifecycleStatus,
     CustomerNumberSequence,
     CustomerPhone,
+    CustomerRole,
     CustomerType,
     EmailType,
     Language,
@@ -576,6 +578,12 @@ def _seed_customer_chain_new_schema(db: Session, *, group_id: uuid.UUID) -> uuid
         db.add(customer)
         db.flush()
         customer_id = customer.id
+        # KAN-464: on a schema with roles, the seeded customer holds one, as
+        # every create does; before it, the migration's backfill gives it one
+        # (the verify step asserts both paths end the same).
+        if inspect(db.get_bind()).has_table("customer_role"):
+            db.add(CustomerRole(group_id=group_id, customer_id=customer.id, role=ContactRole.CUSTOMER))
+            db.flush()
     elif _has(db, "customer_has_credit_block_column"):
         # credit_block is live but KAN-50's FR-17 columns are not — the ORM
         # Customer class above always sends gender/newsletter/vat_registered
