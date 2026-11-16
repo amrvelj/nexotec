@@ -11,9 +11,9 @@ and the legal hold, judged for a live session by the session guard.
 import datetime as dt
 
 from app.main import app
+from app.platform.identity.services import legal_documents
+from app.platform.identity.session_guard import _ADMINISTRATION_MODULE_PREFIXES
 from app.platform.organisation.models.dealership import Dealership, DealershipStatus
-from app.platform.services import legal_documents
-from app.platform.session_guard import _ADMINISTRATION_MODULE_PREFIXES
 from tests import setup_checklist_support as s
 from tests.identity_support import PasswordLogin, cookie_headers
 from tests.route_walk import api_routes

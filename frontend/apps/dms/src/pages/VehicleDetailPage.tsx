@@ -29,7 +29,7 @@ import type {
   VehiclePlateRead,
 } from '../api/types'
 import { apiRefusalText } from '../utils/apiRefusal'
-import { stockOpenState } from '../components/stockRowMenu'
+import { stockOpenState } from '../modules/stock'
 import { MergeVehicleDialog } from '../components/vehicle-detail/MergeVehicleDialog'
 
 const DEFAULT_TAB = 'identity'

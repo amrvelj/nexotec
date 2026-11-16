@@ -97,7 +97,7 @@ describe('date-only fields render through formatDateOnly (KAN-333)', () => {
   it('no formatDate / formatDateTime call in apps/dms/src takes a date-only field, and none is rendered raw', () => {
     const files = collectFiles(SRC_ROOT)
     // An empty walk would pass vacuously.
-    expect(files.some((file) => file.endsWith('/pages/StockListPage.tsx'))).toBe(true)
+    expect(files.some((file) => file.endsWith('/modules/stock/pages/StockListPage.tsx'))).toBe(true)
 
     const offenders = files.flatMap((file) =>
       offendingLines(readFileSync(file, 'utf-8')).map((line) => `${file.slice(SRC_ROOT.length + 1)}:${line}`)

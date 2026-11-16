@@ -80,7 +80,12 @@ from app.valuation.public import (
     valuation_not_used,
     valuation_reference_check,
 )
-from app.vehicle.public import VehicleConfiguration, VehicleMdm
+from app.vehicle.public import (
+    configuration_exists,
+    configuration_reference_check,
+    configuration_untaken,
+    vehicle_reference_check,
+)
 
 CONTEXT = "sales"
 
@@ -94,35 +99,28 @@ ACTOR_TABLES = (SalesOffer, SalesContract, SalesDeal, SalesLineItem, SalesDocume
 _Deal = type[SalesOffer] | type[SalesContract]
 
 
-def _in_another_dealership(
-    label: str,
-    deal: _Deal,
-    column: InstrumentedAttribute[Any],
-    target_id: InstrumentedAttribute[Any],
-    target_tenant_id: InstrumentedAttribute[Any],
-    *,
-    only_where: Callable[[], ColumnElement[bool]] | None = None,
-) -> StateCheck:
-    """KAN-259 — the deal's `column` names a target that exists, but none in
-    the deal's own dealership. A target that does not exist at all is the
-    id-only ReferenceCheck's finding, not this one's."""
+def _configuration_in_another_dealership(deal: _Deal, column: InstrumentedAttribute[Any]) -> StateCheck:
+    """KAN-259 — the deal's `column` names a configuration that exists, but
+    none in the deal's own dealership, built from Vehicle's own EXISTS
+    builders (KAN-123 step 6: `vehicle.public` hands out no mapped class). A
+    configuration that does not exist at all is the id-only ReferenceCheck's
+    finding, not this one's."""
 
     def where() -> ColumnElement[bool]:
-        exists_anywhere = select(target_id).where(target_id == column).correlate(deal).exists()
-        exists_in_own_dealership = (
-            select(target_id)
-            .where(target_id == column, target_tenant_id == deal.tenant_id)
-            .correlate(deal)
-            .exists()
+        return configuration_exists(column, correlate=deal) & ~configuration_exists(
+            column, tenant_id=deal.tenant_id, correlate=deal
         )
-        condition = exists_anywhere & ~exists_in_own_dealership
-        return condition if only_where is None else only_where() & condition
 
-    return StateCheck(label=label, source_model=deal, source_row_id_column=deal.id, where=where)
+    return StateCheck(
+        label=f"{deal.__tablename__}.{column.key} names another dealership's configuration",
+        source_model=deal,
+        source_row_id_column=deal.id,
+        where=where,
+    )
 
 
 def _stock_item_in_another_dealership(deal: _Deal, table: str) -> StateCheck:
-    """KAN-259 — `_in_another_dealership` for the stock car, built from Stock's
+    """KAN-259 — the stock car named in another dealership, built from Stock's
     own EXISTS builders (KAN-123 step 3: `inventory.public` hands out no mapped
     class). A stock item that does not exist at all is the id-only
     ReferenceCheck's finding, not this one's."""
@@ -140,7 +138,7 @@ def _stock_item_in_another_dealership(deal: _Deal, table: str) -> StateCheck:
 
 
 def _valuation_in_another_dealership(deal: _Deal, table: str) -> StateCheck:
-    """KAN-259 — `_in_another_dealership` for the trade-in valuation, built from
+    """KAN-259 — the trade-in valuation named in another dealership, built from
     valuation's own EXISTS builders (KAN-123 step 2: `valuation.public` hands out
     no mapped class). A valuation that does not exist at all is the id-only
     ReferenceCheck's finding, not this one's."""
@@ -312,14 +310,8 @@ def _same_dealership_checks(deal: _Deal) -> list[StateCheck]:
     return [
         _customer_outside_the_group(f"{table}.customer_id names a customer outside its dealership's group", deal),
         _stock_item_in_another_dealership(deal, table),
-        _in_another_dealership(
-            f"{table}.configuration_id names another dealership's configuration",
-            deal, deal.configuration_id, VehicleConfiguration.id, VehicleConfiguration.tenant_id,
-        ),
-        _in_another_dealership(
-            f"{table}.trade_in_configuration_id names another dealership's configuration",
-            deal, deal.trade_in_configuration_id, VehicleConfiguration.id, VehicleConfiguration.tenant_id,
-        ),
+        _configuration_in_another_dealership(deal, deal.configuration_id),
+        _configuration_in_another_dealership(deal, deal.trade_in_configuration_id),
         _valuation_in_another_dealership(deal, table),
     ]
 
@@ -336,12 +328,7 @@ def _names_an_untaken_configuration(deal: _Deal, column: InstrumentedAttribute[A
     exists is the reference check's finding, not this one's."""
 
     def where() -> ColumnElement[bool]:
-        untaken = (
-            select(VehicleConfiguration.id)
-            .where(VehicleConfiguration.id == column, VehicleConfiguration.first_taken_at.is_(None))
-            .correlate(deal)
-            .exists()
-        )
+        untaken = configuration_untaken(column, correlate=deal)
         return untaken & (deal.updated_at < utcnow() - _OUTBOX_LAG_GRACE)
 
     return StateCheck(
@@ -414,32 +401,26 @@ CHECKS: list[ReferenceCheck | StateCheck] = [
         nullable=True,
     ),
     # C-F (KAN-10): the configuration it was built or captured in.
-    ReferenceCheck(
+    configuration_reference_check(
         label="sales_offer.configuration_id -> vehicle_configuration.id",
         source_model=SalesOffer,
         source_row_id_column=SalesOffer.id,
         source_fk_column=SalesOffer.configuration_id,
-        target_model=VehicleConfiguration,
-        target_id_column=VehicleConfiguration.id,
         nullable=True,
     ),
-    ReferenceCheck(
+    vehicle_reference_check(
         label="sales_offer.trade_in_vehicle_id -> vehicle_mdm.id",
         source_model=SalesOffer,
         source_row_id_column=SalesOffer.id,
         source_fk_column=SalesOffer.trade_in_vehicle_id,
-        target_model=VehicleMdm,
-        target_id_column=VehicleMdm.id,
         nullable=True,
     ),
     # C-F (KAN-10): the configuration it was built or captured in.
-    ReferenceCheck(
+    configuration_reference_check(
         label="sales_offer.trade_in_configuration_id -> vehicle_configuration.id",
         source_model=SalesOffer,
         source_row_id_column=SalesOffer.id,
         source_fk_column=SalesOffer.trade_in_configuration_id,
-        target_model=VehicleConfiguration,
-        target_id_column=VehicleConfiguration.id,
         nullable=True,
     ),
     valuation_reference_check(
@@ -473,32 +454,26 @@ CHECKS: list[ReferenceCheck | StateCheck] = [
         nullable=True,
     ),
     # C-F (KAN-10): the configuration it was built or captured in.
-    ReferenceCheck(
+    configuration_reference_check(
         label="sales_contract.configuration_id -> vehicle_configuration.id",
         source_model=SalesContract,
         source_row_id_column=SalesContract.id,
         source_fk_column=SalesContract.configuration_id,
-        target_model=VehicleConfiguration,
-        target_id_column=VehicleConfiguration.id,
         nullable=True,
     ),
-    ReferenceCheck(
+    vehicle_reference_check(
         label="sales_contract.trade_in_vehicle_id -> vehicle_mdm.id",
         source_model=SalesContract,
         source_row_id_column=SalesContract.id,
         source_fk_column=SalesContract.trade_in_vehicle_id,
-        target_model=VehicleMdm,
-        target_id_column=VehicleMdm.id,
         nullable=True,
     ),
     # C-F (KAN-10): the configuration it was built or captured in.
-    ReferenceCheck(
+    configuration_reference_check(
         label="sales_contract.trade_in_configuration_id -> vehicle_configuration.id",
         source_model=SalesContract,
         source_row_id_column=SalesContract.id,
         source_fk_column=SalesContract.trade_in_configuration_id,
-        target_model=VehicleConfiguration,
-        target_id_column=VehicleConfiguration.id,
         nullable=True,
     ),
     valuation_reference_check(

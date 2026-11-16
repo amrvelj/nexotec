@@ -11,10 +11,10 @@ from sqlalchemy import select
 from app.core.audit_model import AuditEvent
 from app.core.deployment_environment import DeploymentEnvironment
 from app.core.outbox_model import OutboxMessage
-from app.platform.models.legal import LegalDocumentType
+from app.platform.identity.models.legal import LegalDocumentType
+from app.platform.identity.services import legal_documents
 from app.platform.organisation.models.dealership import Dealership, DealershipStatus
 from app.platform.organisation.models.number_range import NumberRange
-from app.platform.services import legal_documents
 from tests import setup_checklist_support as s
 from tests.identity_support import platform_admin_headers
 

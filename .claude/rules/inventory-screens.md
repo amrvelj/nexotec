@@ -1,20 +1,16 @@
 ---
 paths:
-  - "frontend/apps/dms/src/pages/Stock*"
-  - "frontend/apps/dms/src/pages/stock/**"
-  - "frontend/apps/dms/src/components/stock-detail/**"
-  - "frontend/apps/dms/src/components/stockRowMenu*"
-  - "frontend/apps/dms/src/stockOptions.ts"
+  - "frontend/apps/dms/src/modules/stock/**"
   - "frontend/apps/dms/src/architecture/stock-intake*"
   - "frontend/packages/ui-kit/src/components/Stock*"
 ---
 <!-- Maintainer note. PRD-Stock FR-I-07; ADR-055, ADR-061. Moved out of inventory.md by KAN-615
-(2026-11-13); listed by file until the frontend has module folders (KAN-611). Last verified
+(2026-11-13); its screens in src/modules/stock/ since KAN-636 step 3. Last verified
 against main@73baf3f (2026-10-25). The backend rules are inventory.md. -->
 
 # Stock screens
 
-- **One stock row menu** (ADR-061): `components/stockRowMenu.tsx::buildStockRowMenu` is the one
+- **One stock row menu** (ADR-061): `modules/stock/components/stockRowMenu.tsx::buildStockRowMenu` is the one
   definition the Stock list's ⋯ menu and the stock detail's header (primary «Vertrag erstellen»,
   alternative «Offerte erstellen», overflow) render from. Both purchase actions («Einkauf
   erfassen», «Einkauf stornieren») are always listed, the one that does not apply disabled with its
@@ -22,7 +18,7 @@ against main@73baf3f (2026-10-25). The backend rules are inventory.md. -->
   contract's reservation freezes, is disabled with its reason. The list opens the car with the
   action in the router state; the detail runs it once and drops it.
   `StockRowMenu.render.test.tsx` compares the two menus item by item.
-- **One «Fahrzeug aufnehmen»** (header and empty state, `pages/stock/AddToPipelineButton.tsx`) opens
+- **One «Fahrzeug aufnehmen»** (header and empty state, `modules/stock/components/AddToPipelineButton.tsx`) opens
   the configurator with `build` and `record`; there is no hand-typed form.
 - **Group stock is a scope switch** (`ScopeSwitchMenu`, ADR-055); the dealership is a column, not
   sortable (it lives on platform's table). `GroupStockGrid` offers «Betrieb ist / ist nicht» in its

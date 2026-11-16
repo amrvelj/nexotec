@@ -13,11 +13,11 @@ paths:
   - "tests/test_inventory_vin*.py"
   - "tests/test_inventory_purchase_configuration_vin.py"
   - "tests/test_inventory_create_with_vin_is_pipeline.py"
-  - "frontend/apps/dms/src/components/stock-detail/RecordPurchaseDialog*"
-  - "frontend/apps/dms/src/components/stock-detail/VinCorrectionDialog*"
-  - "frontend/apps/dms/src/components/stock-detail/useStockConfigurationEditor.tsx"
-  - "frontend/apps/dms/src/components/stock-detail/StockConfiguratorContent.tsx"
-  - "frontend/apps/dms/src/components/stockRowMenu.tsx"
+  - "frontend/apps/dms/src/modules/stock/components/stock-detail/RecordPurchaseDialog*"
+  - "frontend/apps/dms/src/modules/stock/components/stock-detail/VinCorrectionDialog*"
+  - "frontend/apps/dms/src/modules/stock/components/stock-detail/useStockConfigurationEditor.tsx"
+  - "frontend/apps/dms/src/modules/stock/components/stock-detail/StockConfiguratorContent.tsx"
+  - "frontend/apps/dms/src/modules/stock/components/stockRowMenu.tsx"
   - "frontend/apps/dms/src/components/configurator/ConfiguratorOverlay.tsx"
 ---
 <!-- Maintainer note. KAN-557 (ADR-116 (2)-(3); Anto's ruling on KAN-544, 2026-11-03), KAN-536

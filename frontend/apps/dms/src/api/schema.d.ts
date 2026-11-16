@@ -1476,8 +1476,8 @@ export interface paths {
         put?: never;
         /**
          * Request Export
-         * @description FR-A-44: a full export of the Betrieb, produced by the worker; the
-         *     response is the requested job (202).
+         * @description FR-A-44: a full export of the Betrieb, produced in the background by
+         *     the web service (KAN-738); the response is the requested job (202).
          */
         post: operations["request_export_v1_dealerships__dealership_id__exports_post"];
         delete?: never;

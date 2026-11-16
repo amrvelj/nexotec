@@ -10,7 +10,7 @@ offboarding date, for everything — the archive is kept through
 deleted) with their sessions, delegations and connected accounts ended, every
 membership into it ended, the audit row, and the fact
 `platform.dealership.offboarded` in the outbox. Operational access ends by
-construction: the gate (`app/platform/session_guard.py::enforce_open_dealership`)
+construction: the gate (`app/platform/identity/session_guard.py::enforce_open_dealership`)
 answers 404 to the Betrieb's principals everywhere, and sister Betriebe no
 longer see it in their group reads (`services/group_read_dealerships.py`). A
 former manager's copy of the archive is staff's archive export.

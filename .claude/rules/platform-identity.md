@@ -4,12 +4,12 @@ paths:
   - "app/core/nul_guard.py"
   - "app/core/config.py"
   - "app/platform/consumers.py"
-  - "app/platform/schemas/auth.py"
+  - "app/platform/identity/schemas/auth.py"
   - "app/platform/identity/schemas/recovery.py"
   - "frontend/apps/dms/src/components/ProtectedRoute.tsx"
-  - "app/platform/session_guard.py"
-  - "app/platform/api/auth.py"
-  - "app/platform/api/recovery.py"
+  - "app/platform/identity/session_guard.py"
+  - "app/platform/identity/api/auth.py"
+  - "app/platform/identity/api/recovery.py"
   - "app/platform/identity/services/identity.py"
   - "app/platform/identity/services/auth_*.py"
   - "app/platform/identity/services/mfa.py"
@@ -50,7 +50,7 @@ paths:
 # Identity and sign-in (Authentication & Identity; D-A-07…D-A-16, D-A-36)
 
 ## One minting path
-- Every session token is minted by `_mint_session` (`app/platform/api/auth.py`): login, the MFA
+- Every session token is minted by `_mint_session` (`app/platform/identity/api/auth.py`): login, the MFA
   step, invitation acceptance, switch-dealership. It refuses a suspended or deactivated user (401),
   authorises the target Betrieb from the home dealership plus `dealership_membership` rows — never
   the token's `memberships` claim (403) — and writes the `session` row the guard checks. No second

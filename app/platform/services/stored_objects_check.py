@@ -11,8 +11,15 @@ worker cannot read; a missing object is what a deploy onto a wrong or empty
 disk produces, so the moment after a start is when it is learnt.
 
 Reports, never repairs: the row keeps its key. Read-only on the store (it
-opens and closes each object, never writes). An export archive is not
-checked: it expires and is deleted by its own lifecycle (KAN-218).
+opens and closes each object, never writes).
+
+KAN-738: an export archive is checked too, while it is downloadable. Its key
+is set only on a `ready` export and cleared in the same commit that deletes
+the file seven days on (KAN-218), so a key present names a file the manager
+can still download; a missing one is a download that would fail. No expiry
+races the check: it runs before uvicorn, and so before this start's export
+runner, and a service with a disk stops its old instance before the new one
+starts (render.yaml).
 """
 
 import uuid
@@ -25,6 +32,7 @@ from sqlalchemy.orm import InstrumentedAttribute, Session
 from app.core.object_store import InvalidObjectKey, ObjectStore
 from app.core.reconciliation import ON_START_CONTEXT_PREFIX, Finding, ReconciliationRun, record_findings
 from app.platform.identity.models.user import User
+from app.platform.models.export_job import ExportJob
 from app.platform.organisation.models.branding_asset import BrandingAsset
 from app.platform.organisation.models.publishing_profile import PublishingProfile
 
@@ -43,12 +51,14 @@ class _KeyColumn:
         return f"{self.table}.{self.key.key} names no stored object"
 
 
-# Every platform column that holds an object-store key and is kept for good.
+# Every platform column that holds an object-store key while its object must
+# be there: kept for good, or (an export) while it is downloadable.
 KEY_COLUMNS: tuple[_KeyColumn, ...] = (
     _KeyColumn("user", User.id, User.signature_image_ref),
     _KeyColumn("user", User.id, User.photo_ref),
     _KeyColumn("branding_asset", BrandingAsset.id, BrandingAsset.object_key),
     _KeyColumn("publishing_profile", PublishingProfile.id, PublishingProfile.agb_object_key),
+    _KeyColumn("export_job", ExportJob.id, ExportJob.object_key),
 )
 
 

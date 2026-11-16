@@ -226,7 +226,6 @@ forbidden_modules = [
     "app.platform.reference_data_seed",
     "app.platform.schemas",
     "app.platform.services",
-    "app.platform.session_guard",
 ]
 allow_indirect_imports = true
 

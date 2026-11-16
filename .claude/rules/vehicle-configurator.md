@@ -29,9 +29,8 @@ paths:
   - "frontend/apps/dms/src/pages/ConfiguratorHosts*"
   - "frontend/apps/dms/src/test/configuratorFixtures.ts"
   - "frontend/apps/dms/src/i18n/locales/*/configurator.json"
-  - "frontend/apps/dms/src/components/stock-detail/*onfigurat*"
-  - "frontend/apps/dms/src/pages/StockDetailPage.attachConfiguration*"
-  - "frontend/apps/dms/src/pages/stock/AddToPipelineButton.tsx"
+  - "frontend/apps/dms/src/modules/stock/**/*onfigurat*"
+  - "frontend/apps/dms/src/modules/stock/components/AddToPipelineButton.tsx"
 ---
 <!-- Maintainer note (stripped before Claude sees it). Summarises PRD-Configurator v1.4 (ADR-068…ADR-072,
 the host/mode matrix), ADR-041, ADR-083, ADR-114, ADR-121. Cut from vehicle.md by KAN-614 (2026-11-10)

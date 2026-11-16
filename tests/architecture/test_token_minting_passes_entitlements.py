@@ -41,7 +41,7 @@ def test_the_scan_finds_the_session_minting_call():
         for p in _APP.rglob("*.py")
         if "create_access_token(" in p.read_text() and not (p.name == "auth.py" and p.parent.name == "core")
     ]
-    assert "app/platform/api/auth.py" in calls, calls
+    assert "app/platform/identity/api/auth.py" in calls, calls
 
 
 def test_every_production_minting_call_passes_entitlements_explicitly():

@@ -28,7 +28,7 @@ _REPO_ROOT = Path(__file__).resolve().parents[2]
 _APP_ROOT = _REPO_ROOT / "app"
 
 _RECOVERY_CODE = (
-    _APP_ROOT / "platform" / "api" / "recovery.py",
+    _APP_ROOT / "platform" / "identity" / "api" / "recovery.py",
     _APP_ROOT / "platform" / "identity" / "services" / "recovery.py",
     _APP_ROOT / "platform" / "identity" / "schemas" / "recovery.py",
 )

@@ -91,8 +91,8 @@ def request_export(
     principal: Principal = Depends(require_write("data_export")),
     db: Session = Depends(get_db),
 ):
-    """FR-A-44: a full export of the Betrieb, produced by the worker; the
-    response is the requested job (202)."""
+    """FR-A-44: a full export of the Betrieb, produced in the background by
+    the web service (KAN-738); the response is the requested job (202)."""
 
     require_tenant_match(dealership_id, principal)
     _the_betriebs_own(principal)

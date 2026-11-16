@@ -1,0 +1,465 @@
+import { useState, type ReactNode } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { Alert, Loader, SegmentedControl, Text } from '@mantine/core'
+import { useTranslation } from 'react-i18next'
+import { CounterTextarea, KeyValueRow, MediaGallery, OverviewCard, semantic, slate, spacing, type MediaGalleryLabels } from '@nexotec/ui-kit'
+import { useFieldHint } from '../../../../hooks/useFieldHint'
+import { api, ApiError } from '../../../../api/client'
+import { BlockingConditionBanner } from './BlockingConditionBanner'
+import { ChannelPublishCard } from './ChannelPublishCard'
+import { ListingTextSuggestion } from './ListingTextSuggestion'
+import { WebsiteListingCard } from './WebsiteListingCard'
+import type { EquipmentRead, MarketplaceChannel, MediaRead, PublishingRead } from '../../../../api/types'
+import { useDealSaveQueue, type DealSaveQueue } from '../../../../hooks/useDealSaveQueue'
+import { useDebouncedTextField } from '../../../../hooks/useDebouncedTextField'
+import { useIdempotencyKey } from '../../../../hooks/useIdempotencyKey'
+import { apiRefusalText } from '../../../../utils/apiRefusal'
+
+const CHANNELS: MarketplaceChannel[] = ['autoscout24', 'carmarket', 'autolina']
+
+// § ADR-062 — per-channel title DISPLAY limits (the stored field itself
+// allows up to 500 characters; only this many render on the channel's
+// own results list).
+const TITLE_DISPLAY_LIMITS: Record<MarketplaceChannel, number> = { autoscout24: 125, carmarket: 80, autolina: 100 }
+const CHANNEL_LABELS: Record<MarketplaceChannel, string> = {
+  autoscout24: 'AutoScout24',
+  carmarket: 'Carmarket',
+  autolina: 'Autolina',
+}
+
+interface PublishingTabProps {
+  stockItemId: string
+  locale: string
+  /** KAN-430: whether the user's role may publish (`marketplace_publishing`).
+   * When not, each channel shows its status without the publish or unpublish
+   * action, and the listing texts and the photos are shown read-only — the
+   * actions are hidden, never what the role may read. The stock detail
+   * passes the session's answer. */
+  canPublish?: boolean
+}
+
+/**
+ * § Publishing tab (ADR-062). One shared blocking-condition banner above
+ * three per-channel cards (confirmed against the live reference
+ * prototype), a channel-selectable listing-text editor (the SAME text
+ * fields can differ per channel — the model is per (stockItem, channel)
+ * — the prototype's own single "DE" language tab is language, not
+ * channel, but the identical selector idiom applies here for channel),
+ * a shared MediaGallery (pictures are item-level, not per-channel), and
+ * a read-only equipment summary sourced from app.vehicle (equipment is a
+ * fact about the car, per ADR-062's own three-concepts rule).
+ */
+export function PublishingTab({ stockItemId, locale, canPublish = true }: PublishingTabProps) {
+  const { t } = useTranslation()
+  const queryClient = useQueryClient()
+  const [activeChannel, setActiveChannel] = useState<MarketplaceChannel>('autoscout24')
+
+  // KAN-27 (PR 2/2) — the outbox worker processes a publish/unpublish
+  // event out-of-process, typically within a second or two; polling only
+  // while transmissionStatus is still 'pending' shows the real outcome
+  // (transmitted/failed) without a manual reload, and stops on its own
+  // the moment the worker resolves it.
+  const refetchWhilePending = (query: { state: { data?: PublishingRead } }) =>
+    query.state.data?.transmissionStatus === 'pending' ? 1500 : false
+
+  // Three explicit calls, not a .map() over CHANNELS — a fixed count of
+  // hooks called in a fixed order, the safe form of "one query per
+  // channel" rather than relying on CHANNELS never changing shape.
+  const autoscout24Query = useQuery({
+    queryKey: ['stock-item', stockItemId, 'publishing', 'autoscout24'],
+    queryFn: () => api.get<PublishingRead>(`/inventory/stock-items/${stockItemId}/publishing/autoscout24`),
+    refetchInterval: refetchWhilePending,
+  })
+  const carmarketQuery = useQuery({
+    queryKey: ['stock-item', stockItemId, 'publishing', 'carmarket'],
+    queryFn: () => api.get<PublishingRead>(`/inventory/stock-items/${stockItemId}/publishing/carmarket`),
+    refetchInterval: refetchWhilePending,
+  })
+  const autolinaQuery = useQuery({
+    queryKey: ['stock-item', stockItemId, 'publishing', 'autolina'],
+    queryFn: () => api.get<PublishingRead>(`/inventory/stock-items/${stockItemId}/publishing/autolina`),
+    refetchInterval: refetchWhilePending,
+  })
+  const publishingByChannel: Partial<Record<MarketplaceChannel, PublishingRead>> = {
+    ...(autoscout24Query.data ? { autoscout24: autoscout24Query.data } : {}),
+    ...(carmarketQuery.data ? { carmarket: carmarketQuery.data } : {}),
+    ...(autolinaQuery.data ? { autolina: autolinaQuery.data } : {}),
+  }
+
+  const mediaQuery = useQuery({
+    queryKey: ['stock-item', stockItemId, 'media'],
+    queryFn: () => api.get<MediaRead[]>(`/inventory/stock-items/${stockItemId}/media`),
+  })
+  const equipmentQuery = useQuery({
+    queryKey: ['stock-item', stockItemId, 'equipment'],
+    queryFn: () => api.get<EquipmentRead>(`/inventory/stock-items/${stockItemId}/equipment`),
+  })
+
+  const invalidatePublishing = (channel: MarketplaceChannel) =>
+    queryClient.invalidateQueries({ queryKey: ['stock-item', stockItemId, 'publishing', channel] })
+  // KAN-266: one Idempotency-Key per submission — a retry after a failed
+  // save reuses it; a different request (another channel, action, photo or
+  // order) gets a new one. Every successful write of a kind renews that
+  // kind's key: a channel's publish or unpublish, a photo's add, removal or
+  // reorder. Otherwise a key left by a write whose response was lost would
+  // replay that first answer, writing nothing, when the same request is sent
+  // again later (an unpublish after a publish would leave the listing live).
+  const channelKey = useIdempotencyKey()
+  const mediaKey = useIdempotencyKey()
+
+  const invalidateMedia = () => queryClient.invalidateQueries({ queryKey: ['stock-item', stockItemId, 'media'] })
+
+  const activePublishing = publishingByChannel[activeChannel]
+  const activePublishingQuery = { autoscout24: autoscout24Query, carmarket: carmarketQuery, autolina: autolinaQuery }[
+    activeChannel
+  ]
+  // Blocking conditions are item-level, not per-channel (compute_blocking_
+  // conditions ignores channel entirely) — any loaded channel's own copy
+  // is the same list, so the first one that's arrived is fine. Cheap
+  // enough to skip memoizing.
+  const blockingConditions = Object.values(publishingByChannel)[0]?.blockingConditions ?? []
+
+  // KAN-396: the listing-text PATCH takes If-Match on the channel's
+  // publishing row. Each field saves on its own, so saves overlap; one queue
+  // per channel (a fixed count of hooks, as above) sends them one after the
+  // other, each with the version the previous save returned (the same queue
+  // as the deal workspaces, KAN-314). A refused save is never resent: someone
+  // else changed the text, so the tab says so and shows their version.
+  const publishingKey = (channel: MarketplaceChannel) => ['stock-item', stockItemId, 'publishing', channel]
+  const cachedPublishing = (channel: MarketplaceChannel) => () =>
+    queryClient.getQueryData<PublishingRead>(publishingKey(channel))
+  const storePublishing = (row: PublishingRead) => queryClient.setQueryData(publishingKey(row.channel), row)
+  const listingTextQueues: Record<MarketplaceChannel, DealSaveQueue<PublishingRead>> = {
+    autoscout24: useDealSaveQueue(cachedPublishing('autoscout24'), storePublishing),
+    carmarket: useDealSaveQueue(cachedPublishing('carmarket'), storePublishing),
+    autolina: useDealSaveQueue(cachedPublishing('autolina'), storePublishing),
+  }
+  const [listingTextError, setListingTextError] = useState<string | null>(null)
+  // KAN-425: each field keeps a local draft and saves on a pause or when
+  // left (useDebouncedTextField). After a refused save the channel's count
+  // discards its drafts, once its current row has been fetched again, so
+  // the tab shows the other person's version — never another channel's.
+  const [listingTextResync, setListingTextResync] = useState<Record<MarketplaceChannel, number>>({
+    autoscout24: 0,
+    carmarket: 0,
+    autolina: 0,
+  })
+
+  const saveListingText = async (channel: MarketplaceChannel, patch: ListingTextPatch) => {
+    setListingTextError(null)
+    try {
+      await listingTextQueues[channel].save((current) =>
+        api.patch<PublishingRead>(`/inventory/stock-items/${stockItemId}/publishing/${channel}`, patch, {
+          'If-Match': String(current.version),
+        })
+      )
+    } catch (err) {
+      setListingTextError(
+        err instanceof ApiError && err.status === 409
+          ? t('stockDetail.publishing.listingTextConflict')
+          : t('stockDetail.publishing.listingTextError')
+      )
+      await invalidatePublishing(channel)
+      setListingTextResync((counts) => ({ ...counts, [channel]: counts[channel] + 1 }))
+    }
+  }
+
+  const publishChannel = async (channel: MarketplaceChannel) => {
+    const path = `/inventory/stock-items/${stockItemId}/publishing/${channel}/publish`
+    await api.post(path, undefined, channelKey.headers([path]))
+    channelKey.renew()
+    void invalidatePublishing(channel)
+  }
+
+  const unpublishChannel = async (channel: MarketplaceChannel) => {
+    const path = `/inventory/stock-items/${stockItemId}/publishing/${channel}/unpublish`
+    const body = { confirm: true }
+    await api.post(path, body, channelKey.headers([path, body]))
+    channelKey.renew()
+    void invalidatePublishing(channel)
+  }
+
+  const mediaItems = (mediaQuery.data ?? []).map((m) => ({ id: m.id, url: m.url, position: m.position }))
+
+  // KAN-272 (ADR-035): a failed photo add, removal or reorder says so above
+  // the gallery. A failed add keeps its URL: the next "add" offers it again,
+  // and sent unchanged it is the same request under the same key.
+  const [mediaError, setMediaError] = useState<string | null>(null)
+  const [unsavedMediaUrl, setUnsavedMediaUrl] = useState<string | null>(null)
+  const saveMedia = async (write: () => Promise<void>, fallbackKey: string) => {
+    setMediaError(null)
+    try {
+      await write()
+      mediaKey.renew()
+      void invalidateMedia()
+    } catch (err) {
+      setMediaError(apiRefusalText(t, err, fallbackKey))
+    }
+  }
+
+  const addMedia = async () => {
+    const url = window.prompt(t('stockDetail.publishing.media.addPrompt'), unsavedMediaUrl ?? undefined)
+    if (!url) return
+    const path = `/inventory/stock-items/${stockItemId}/media`
+    const body = { url }
+    setUnsavedMediaUrl(url)
+    await saveMedia(async () => {
+      await api.post(path, body, mediaKey.headers([path, body]))
+      setUnsavedMediaUrl(null)
+    }, 'stockDetail.publishing.media.addError')
+  }
+  const removeMedia = (mediaId: string) =>
+    saveMedia(async () => {
+      await api.delete(`/inventory/stock-items/${stockItemId}/media/${mediaId}`)
+    }, 'stockDetail.publishing.media.removeError')
+  const reorderMedia = (orderedIds: string[]) => {
+    const path = `/inventory/stock-items/${stockItemId}/media/reorder`
+    const body = { orderedMediaIds: orderedIds }
+    return saveMedia(async () => {
+      await api.post(path, body, mediaKey.headers([path, body]))
+    }, 'stockDetail.publishing.media.reorderError')
+  }
+
+  const mediaLabels: MediaGalleryLabels = {
+    mainImage: t('stockDetail.publishing.media.mainImage'),
+    moveLeft: t('stockDetail.publishing.media.moveLeft'),
+    moveRight: t('stockDetail.publishing.media.moveRight'),
+    remove: t('stockDetail.publishing.media.remove'),
+    addPhoto: t('stockDetail.publishing.media.addPhoto'),
+    countOf: (count, max) => t('stockDetail.publishing.media.countOf', { count, max }),
+  }
+
+  const equipment = equipmentQuery.data
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.lg }}>
+      <WebsiteListingCard stockItemId={stockItemId} canPublish={canPublish} />
+
+      <BlockingConditionBanner conditions={blockingConditions} />
+
+      <div>
+        <div style={{ fontSize: 13, fontWeight: 600, color: slate[7], marginBottom: spacing.sm }}>
+          {t('stockDetail.publishing.channelsTitle')}
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: spacing.md }}>
+          {CHANNELS.map((channel) => (
+            <ChannelPublishCard
+              key={channel}
+              channel={channel}
+              publishing={publishingByChannel[channel]}
+              locale={locale}
+              blocked={blockingConditions.length > 0}
+              canPublish={canPublish}
+              onPublish={() => publishChannel(channel)}
+              onUnpublish={() => unpublishChannel(channel)}
+            />
+          ))}
+        </div>
+      </div>
+
+      <OverviewCard title={t('stockDetail.publishing.listingTextTitle')}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.md }}>
+          <SegmentedControl
+            value={activeChannel}
+            onChange={(v) => setActiveChannel(v as MarketplaceChannel)}
+            data={CHANNELS.map((c) => ({ value: c, label: CHANNEL_LABELS[c] }))}
+          />
+          {listingTextError && canPublish && (
+            <Alert color="red" role="alert">
+              {listingTextError}
+            </Alert>
+          )}
+          {/* Keyed by channel: a draft still waiting when the channel changes
+              is saved to the channel it was typed for. Shown once the
+              channel's row is loaded: a keystroke typed before it would have
+              no version to save against and be lost. */}
+          {activePublishing && !canPublish ? (
+            <ListingTextValues publishing={activePublishing} />
+          ) : activePublishing ? (
+            <ListingTextFields
+              key={activeChannel}
+              stockItemId={stockItemId}
+              publishing={activePublishing}
+              resetKey={String(listingTextResync[activeChannel])}
+              onSave={(patch) => saveListingText(activeChannel, patch)}
+              titleDisplayLimitCaption={t('stockDetail.publishing.titleDisplayLimit', {
+                count: TITLE_DISPLAY_LIMITS[activeChannel],
+              })}
+            />
+          ) : activePublishingQuery.isError ? (
+            <Text c="red" size="sm">
+              {t('stockDetail.publishing.listingTextLoadError')}
+            </Text>
+          ) : (
+            <Loader size="sm" />
+          )}
+        </div>
+      </OverviewCard>
+
+      <OverviewCard title={t('stockDetail.publishing.media.title')}>
+        {mediaError && (
+          <Alert color="red" role="alert" mb="sm">
+            {mediaError}
+          </Alert>
+        )}
+        {canPublish ? (
+          <MediaGallery
+            items={mediaItems}
+            maxItems={16}
+            onAdd={addMedia}
+            onRemove={removeMedia}
+            onReorder={reorderMedia}
+            labels={mediaLabels}
+          />
+        ) : (
+          <MediaGallery items={mediaItems} maxItems={16} labels={mediaLabels} readOnly />
+        )}
+      </OverviewCard>
+
+      {equipment && (
+        <OverviewCard title={t('stockDetail.publishing.equipment.title')}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.md }}>
+            <EquipmentList label={t('stockDetail.publishing.equipment.ausstattung')} items={equipment.ausstattungCodes} />
+            <EquipmentList label={t('stockDetail.publishing.equipment.extras')} items={equipment.extras} />
+            <EquipmentList label={t('stockDetail.publishing.equipment.eigenschaften')} items={equipment.eigenschaften} />
+          </div>
+          <p style={{ fontSize: 12, color: slate[5], marginTop: spacing.sm }}>
+            {t('stockDetail.publishing.equipment.hint')}
+          </p>
+        </OverviewCard>
+      )}
+    </div>
+  )
+}
+
+type ListingTextField = 'zusatztitel' | 'bemerkungen' | 'zustandsbeschreibung' | 'haendlerbemerkungen'
+const BEMERKUNGEN_MAX_LENGTH = 4000
+type ListingTextPatch = Partial<Record<ListingTextField, string>>
+
+function ListingTextFields({
+  stockItemId,
+  publishing,
+  resetKey,
+  onSave,
+  titleDisplayLimitCaption,
+}: {
+  stockItemId: string
+  publishing: PublishingRead
+  resetKey: string
+  onSave: (patch: ListingTextPatch) => Promise<void>
+  titleDisplayLimitCaption: string
+}) {
+  const { t } = useTranslation()
+  const hint = useFieldHint()
+  const field = (name: ListingTextField) => ({
+    label: t(`stockDetail.publishing.fields.${name}`),
+    serverValue: publishing[name] ?? '',
+    // KAN-478: an older copy never replaces newer text.
+    serverVersion: publishing.version,
+    resetKey,
+    onCommit: (value: string) => onSave({ [name]: value }),
+  })
+  return (
+    <>
+      <ListingTextInput {...field('zusatztitel')} maxLength={500} displayLimitCaption={titleDisplayLimitCaption} minRows={1} />
+      {/* KAN-227 — the suggestion fills the description only when the user
+          takes it (asked first when there is text already, never cut at the
+          limit), saved through the same queued PATCH as typing. */}
+      <ListingTextSuggestion
+        stockItemId={stockItemId}
+        currentText={publishing.bemerkungen ?? ''}
+        maxLength={BEMERKUNGEN_MAX_LENGTH}
+        onTake={(text) => onSave({ bemerkungen: text })}
+      />
+      <ListingTextInput {...field('bemerkungen')} maxLength={BEMERKUNGEN_MAX_LENGTH} />
+      <ListingTextInput {...field('zustandsbeschreibung')} maxLength={2000} />
+      <ListingTextInput
+        {...field('haendlerbemerkungen')}
+        {...hint(t('stockDetail.publishing.fields.haendlerbemerkungen'), t('stockDetail.publishing.haendlerbemerkungenHint'))}
+        maxLength={2000}
+      />
+    </>
+  )
+}
+
+/** KAN-430 — the listing texts for a role that may read but not publish:
+ * the same four fields, as text. */
+function ListingTextValues({ publishing }: { publishing: PublishingRead }) {
+  const { t } = useTranslation()
+  const hint = useFieldHint()
+  const fields: ListingTextField[] = ['zusatztitel', 'bemerkungen', 'zustandsbeschreibung', 'haendlerbemerkungen']
+  // KAN-511: read-only, the internal field still says it is internal — the
+  // same hint as its input, the icon with the hint hidden for assistive
+  // technology beside it.
+  const labelOf = (name: ListingTextField) => {
+    const label = t(`stockDetail.publishing.fields.${name}`)
+    if (name !== 'haendlerbemerkungen') return label
+    const hinted = hint(label, t('stockDetail.publishing.haendlerbemerkungenHint'))
+    return (
+      <>
+        {hinted.label}
+        {hinted.description}
+      </>
+    )
+  }
+  return (
+    <>
+      {fields.map((name) => (
+        <KeyValueRow key={name} label={labelOf(name)}>
+          <span style={{ whiteSpace: 'pre-wrap' }}>{publishing[name] || '—'}</span>
+        </KeyValueRow>
+      ))}
+    </>
+  )
+}
+
+function ListingTextInput({
+  serverValue,
+  serverVersion,
+  resetKey,
+  onCommit,
+  ...counterProps
+}: {
+  label: NonNullable<ReactNode>
+  serverValue: string
+  serverVersion: number
+  resetKey: string
+  onCommit: (value: string) => Promise<void>
+  maxLength: number
+  displayLimitCaption?: string
+  description?: ReactNode
+  minRows?: number
+}) {
+  const [value, setValue, flush] = useDebouncedTextField(serverValue, resetKey, onCommit, undefined, serverVersion)
+  return <CounterTextarea {...counterProps} value={value} onChange={setValue} onBlur={flush} />
+}
+
+function EquipmentList({ label, items }: { label: string; items: string[] }) {
+  return (
+    <div>
+      <div style={{ fontSize: 12, fontWeight: 600, color: slate[6], textTransform: 'uppercase', marginBottom: 4 }}>
+        {label}
+      </div>
+      {items.length === 0 ? (
+        <span style={{ fontSize: 13, color: slate[4] }}>—</span>
+      ) : (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+          {items.map((item) => (
+            <span
+              key={item}
+              style={{
+                fontSize: 12,
+                padding: '2px 8px',
+                borderRadius: 9999,
+                backgroundColor: semantic.informational.surface,
+                color: semantic.informational.text,
+              }}
+            >
+              {item}
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}

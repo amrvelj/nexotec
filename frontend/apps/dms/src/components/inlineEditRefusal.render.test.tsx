@@ -12,7 +12,7 @@ import { isStaleVersion } from '../utils/apiRefusal'
 import { OverviewTab } from '../modules/customer/components/customer-detail/OverviewTab'
 import { ExternalIdsTab } from '../modules/customer/components/customer-detail/ExternalIdsTab'
 import { IdentityTab } from './vehicle-detail/IdentityTab'
-import { DetailsTab } from './stock-detail/DetailsTab'
+import { DetailsTab } from '../modules/stock/components/stock-detail/DetailsTab'
 import { ReferenceDataPage } from '../pages/ReferenceDataPage'
 import type { StockItemRead, VehicleMdmRead } from '../api/types'
 

@@ -3,8 +3,8 @@ directly above `organisation` (reference ← organisation ← identity ← docum
 modules import nothing else of platform but `identity` itself, `organisation`, `reference`
 and the frozen `reference_data_seed` (counted as reference). An import of any other
 `app.platform.*` module — the flat `api/`, `models/`, `schemas/` and `services/` still
-holding documents' modules and the ones not yet classified, `session_guard`, `public`,
-`consumers`, … — from `app/platform/identity/` fails by name.
+holding documents' modules and the ones not yet classified, `public`, `consumers`,
+`daily_jobs`, … — from `app/platform/identity/` fails by name.
 
 There is no suppression mechanism: an import that reaches up means the module belongs
 higher, or what it needs belongs lower — the cut changes, never this test. KAN-635's last

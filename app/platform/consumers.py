@@ -16,10 +16,9 @@ register_handlers` lists them:
   registered revoker ends the grant at the provider; a refusal raises, so
   the outbox redelivers and finally dead-letters.
 
-- `platform.data_export.requested` -> `platform.data_export_production`
-  (`handle_data_export_requested_message`, KAN-218): the export's file is
-  written into the object store; a redelivery finds the export no longer
-  `requested` and does nothing.
+- `platform.data_export.requested` has no consumer here since KAN-738: the
+  export is produced by the web service, which holds the object store's disk
+  (`services/data_export_runner.py`, ADR-081 as amended).
 
 - `integration.connection.expiry_approaching` ->
   `platform.administration_notification_on_connection_expiry`
@@ -48,7 +47,6 @@ from app.platform.identity.services import (
 )
 from app.platform.identity.services.notification_catalogue import NotificationEventCode
 from app.platform.reference.services.web_push import PushMessage
-from app.platform.services import data_export
 
 
 def handle_notification_delivered_message(db: Session, message: OutboxMessage) -> None:
@@ -118,8 +116,3 @@ def handle_connection_expiry_approaching_message(db: Session, message: OutboxMes
         )
 
 
-def handle_data_export_requested_message(db: Session, message: OutboxMessage) -> None:
-    """KAN-218 (FR-A-44): produce the requested export. Idempotent by the
-    export's own status, beside the harness's processed-event record."""
-
-    data_export.produce(db, export_id=uuid.UUID(message.payload["exportId"]))

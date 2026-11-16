@@ -1,6 +1,6 @@
 """Helpers for the KAN-218 tests: an object store under a temp dir, a Betrieb
-with its manager, requesting and producing an export the way the worker
-does, and reading the archive back."""
+with its manager, requesting and producing an export the way the web
+service's runner does, and reading the archive back."""
 
 import io
 import json
@@ -21,7 +21,7 @@ from tests.membership_support import bearer, create_dealership, create_user, tok
 
 @pytest.fixture(name="export_store")
 def export_store_fixture(tmp_path, monkeypatch):
-    """One store for the API, the worker's production and the renderer."""
+    """One store for the API, the runner's production and the renderer."""
 
     store = LocalDirectoryObjectStore(tmp_path / "objects")
     monkeypatch.setattr(object_store, "_store", store)
@@ -52,7 +52,7 @@ def request_export(client, dealership_id: str, headers: dict[str, str]) -> dict:
 
 
 def produce(engine, export_id: str) -> None:
-    """What the worker's consumer does, on a session of its own."""
+    """What the web service's runner does for one export, on a session of its own."""
 
     session: Session = sessionmaker(bind=engine, expire_on_commit=False)()
     try:
