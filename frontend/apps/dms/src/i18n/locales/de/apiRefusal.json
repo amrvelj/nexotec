@@ -185,7 +185,7 @@
     "usage_period_reversed": "Das Ende des Zeitraums liegt vor seinem Beginn.",
     "usage_period_too_long": "Ein Zeitraum umfasst höchstens ein Jahr.",
     "provider_has_no_sandbox": "Dieser Anbieter bietet keinen Testzugang. Verbinden Sie ihn als Produktion.",
-    "provider_sandbox_connections_exist": "Zu diesem Anbieter bestehen noch {{count}} Testzugangs-Verbindungen. Löschen Sie diese zuerst.",
+    "provider_sandbox_connections_exist": "Zu diesem Anbieter bestehen noch {{count, number}} Testzugangs-Verbindungen. Löschen Sie diese zuerst.",
     "filter_malformed": "Dieser Filter ist ungültig.",
     "unknown_field": "Nach diesem Feld kann nicht gefiltert oder sortiert werden.",
     "operator_not_allowed": "Diese Bedingung gilt für dieses Feld nicht.",

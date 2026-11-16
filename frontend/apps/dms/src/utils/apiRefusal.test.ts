@@ -74,7 +74,7 @@ describe('apiRefusalText — the API refusal in the UI language, never its Engli
       r.provider_has_no_sandbox,
     )
     expect(apiRefusalText(t, refusal(409, { reason: 'provider_sandbox_connections_exist', count: 2 }), FALLBACK)).toBe(
-      r.provider_sandbox_connections_exist.replace('{{count}}', '2'),
+      r.provider_sandbox_connections_exist.replace('{{count, number}}', '2'),
     )
   })
 
