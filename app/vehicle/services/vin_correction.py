@@ -302,9 +302,12 @@ def _correct_record(
     other = _record_carrying(own, vin=new_vin, kind=kind, make_key=make_key)
     duplicate = None
     if other is not None and other.id != vehicle.id:
-        duplicate = _own_merged_duplicate(own, vehicle=vehicle, other=other, kind=kind)
-        if duplicate is None:
+        found = _own_merged_duplicate(own, vehicle=vehicle, other=other, kind=kind)
+        if isinstance(found, _Raced):
+            raise _refusal_after_race(own, vehicle=vehicle, new_vin=new_vin, kind=kind, make_key=make_key)
+        if found is None:
             raise _carried_by_another_record(own, new_vin, other)
+        duplicate = found
 
     summary_before = summary_fields(vehicle)
     before: dict[str, object] = {"vin": old_vin}
@@ -382,15 +385,25 @@ def _correct_record(
     return True
 
 
+class _Raced:
+    """The duplicate changed between the unlocked read and its lock (KAN-733)."""
+
+
+_RACED = _Raced()
+
+
 def _own_merged_duplicate(
     own: Session, *, vehicle: "VehicleMdm", other: "VehicleMdm", kind: "VehicleIdentifierKind"
-) -> "VehicleMdm | None":
+) -> "VehicleMdm | _Raced | None":
     """KAN-730 (Anto, 2026-11-15, option 1): `other`, locked, when it is a
     record merged into `vehicle` (at the end of its merge chain) of the
     identity kind `vehicle` has and keeps — the merge kept the wrong VIN, and
     the correction takes the right one over from its own dead duplicate.
     None for anything else (another car's duplicate, a live record), which is
-    refused as before."""
+    refused as before. `_RACED` when it was the car's own duplicate on the
+    unlocked read but no longer is under the lock (KAN-733): `other` is then
+    stale, and the refusal is judged again from what the database holds now
+    (`_refusal_after_race`), never from `other`."""
 
     from app.vehicle.models.vehicle_mdm import VehicleMdm
     from app.vehicle.services.vehicle_mdm import live_vehicle_mdm
@@ -400,10 +413,14 @@ def _own_merged_duplicate(
         return None
     if live_vehicle_mdm(own, other).id != vehicle.id:
         return None
-    # Locked after `vehicle` (survivor first): the one other writer locking
-    # both is a merge of the same pair, refused since the duplicate is merged.
-    # Re-read under the lock (the unlocked read above is in the identity map)
-    # and judged again, so a write that slipped in is never overwritten.
+    # Locked after `vehicle` (survivor first). The one other writer locking
+    # both is a merge of the same pair, and `merge_vehicles` refuses that
+    # BEFORE it locks either row (KAN-733: the duplicate is merged, which it
+    # reads unlocked first), so it never holds the duplicate while waiting
+    # for the survivor this correction holds — no lock cycle, whatever the
+    # two ids' order. Re-read under the lock (the unlocked read above is in
+    # the identity map) and judged again, so a write that slipped in is never
+    # overwritten.
     locked = own.scalar(
         select(VehicleMdm)
         .where(VehicleMdm.id == other.id)
@@ -411,8 +428,36 @@ def _own_merged_duplicate(
         .execution_options(populate_existing=True)
     )
     if locked is None or locked.merged_into_vehicle_id is None or locked.vin != other_vin:
-        return None
+        return _RACED
     return locked
+
+
+def _refusal_after_race(
+    own: Session,
+    *,
+    vehicle: "VehicleMdm",
+    new_vin: str,
+    kind: "VehicleIdentifierKind",
+    make_key: str | None,
+) -> ConflictError:
+    """KAN-733: the car's own merged duplicate changed before its lock — its
+    VIN moved, or it was unmerged. Whoever carries `new_vin` NOW is named
+    (a live record: `vin_belongs_to_other_vehicle`; another car's merged
+    duplicate: `vin_names_merged_vehicle`); when nobody does, 409
+    `vehicle_vin_changed` — the records changed meanwhile, a retry judges
+    them afresh. Never the stale row, which named the car itself and its
+    mistyped VIN."""
+
+    # Nothing is written yet on this session: every row it holds is read
+    # again, so the look-up and the refusal see what was committed meanwhile.
+    own.expire_all()
+    carrier = _record_carrying(own, vin=new_vin, kind=kind, make_key=make_key)
+    if carrier is not None and carrier.id != vehicle.id:
+        return _carried_by_another_record(own, new_vin, carrier)
+    return ConflictError(
+        f"The record carrying VIN {new_vin} changed meanwhile; vehicle {vehicle.vehicle_number} was not corrected.",
+        details={"reason": "vehicle_vin_changed", "vehicleId": str(vehicle.id)},
+    )
 
 
 def _vin_in_transit() -> str:
