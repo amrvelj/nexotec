@@ -31,7 +31,7 @@
     },
     "users": {
       "title": "Benutzer eingeladen",
-      "description": "Mindestens eine Geschäftsführerin oder ein Geschäftsführer ist aktiv – in einem Einpersonenbetrieb genügen Sie selbst."
+      "description": "Mindestens ein Geschäftsführer ist aktiv – in einem Einpersonenbetrieb genügen Sie selbst."
     },
     "publishing_profile": {
       "title": "Veröffentlichungsprofil",
@@ -73,7 +73,7 @@
   "acceptance": {
     "title": "Neue Fassung der Rechtstexte",
     "intro": "Es gibt eine neue Fassung der Nutzungsbedingungen oder des Auftragsverarbeitungsvertrags. Bitte lesen und akzeptieren Sie sie im Namen des Betriebs.",
-    "dueBy": "Bitte bis spätestens {{date}} akzeptieren. Danach erreichen Geschäftsführer nur noch diesen Bildschirm; Ihre Kolleginnen und Kollegen arbeiten weiter.",
+    "dueBy": "Bitte bis spätestens {{date}} akzeptieren. Danach erreichen Geschäftsführer nur noch diesen Bildschirm; Ihre Kollegen arbeiten weiter.",
     "held": "Die Frist ist abgelaufen. Bis Sie akzeptieren, erreichen Sie nur diesen Bildschirm.",
     "submit": "Akzeptieren",
     "error": "Die Annahme konnte nicht gespeichert werden.",
@@ -124,7 +124,7 @@
     "legal_document_version_not_newer": "Eine neue Fassung muss eine höhere Version haben als die neueste veröffentlichte.",
     "legal_documents_not_final": "Die Aktivierung wartet auf die endgültigen Fassungen der Rechtstexte (Version 1.0).",
     "legal_documents_unavailable": "Die Rechtstexte sind noch nicht veröffentlicht.",
-    "manager_only": "Das erledigt eine Geschäftsführerin oder ein Geschäftsführer dieses Betriebs.",
+    "manager_only": "Das erledigt ein Geschäftsführer dieses Betriebs.",
     "setup_checklist_incomplete": "Die Checkliste ist noch nicht vollständig.",
     "setup_checklist_item_missing": "Ein Punkt der Einrichtung fehlt: «{{item}}». Erledigen Sie ihn in der Verwaltung › Einrichtung."
   }

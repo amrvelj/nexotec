@@ -343,6 +343,10 @@ const REASON_KEYS: Record<string, string> = {
       'unknown_location',
       'usage_period_reversed',
       'usage_period_too_long',
+      // KAN-741 — a sandbox connection to a provider without test access, and
+      // a provider flipped to «no sandbox» while sandbox connections remain.
+      'provider_has_no_sandbox',
+      'provider_sandbox_connections_exist',
     ].map((reason) => [reason, `apiRefusal.reasons.${reason}`]),
   ),
 }
@@ -394,6 +398,8 @@ const REASON_PARAMS: Record<string, (details: Details, t: TFunction) => Record<s
       : '—',
   }),
   offer_has_contract: (d) => ({ contractNumber: String(d.contractNumber ?? '—') }),
+  // KAN-741: how many sandbox connections still hold the provider.
+  provider_sandbox_connections_exist: (d) => ({ count: typeof d.count === 'number' ? d.count : '—' }),
   provider_code_already_mapped: (d) => ({
     mapping: d.canonicalListCode != null && d.canonicalValueCode != null ? `${String(d.canonicalListCode)}/${String(d.canonicalValueCode)}` : '—',
   }),

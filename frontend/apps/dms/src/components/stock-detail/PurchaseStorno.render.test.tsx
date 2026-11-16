@@ -29,7 +29,7 @@ const BOUGHT: StockItemRead = {
   condition: 'used', lifecycleStatus: 'in_stock', reservationState: 'reserved', ageingBucket: 'green',
   odometerKm: 12500, listPrice: '42500.00', effectivePrice: '41900.50', basePrice: null, bodyStyle: null,
   exteriorColour: null, firstRegistrationDate: '2021-04-01', inStockAt: NOW, leftStockAt: null, isInvoiceable: true,
-  landedCost: null, locationId: null, notionalInputTaxAmount: null, notionalInputTaxApplicable: false,
+  landedCost: null, locationId: null, locationLabel: null, notionalInputTaxAmount: null, notionalInputTaxApplicable: false,
   notionalInputTaxOverridden: false, notionalInputTaxRate: null, orderDate: null, expectedDelivery: null,
   pipelineRef: null, purchaseDate: '2026-09-15', purchaseInvoiceRef: null, purchasePrice: '20000.00',
   supplierIsVatRegistered: true, supplierName: 'Auto Grossist AG', valuationRefAmount: null, valuationRefId: null,

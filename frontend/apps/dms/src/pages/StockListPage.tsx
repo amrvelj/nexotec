@@ -236,6 +236,12 @@ export function StockListPage() {
         cell: ({ row }) => formatDate(row.original.updatedAt, locale),
         meta: { align: 'right' },
       },
+      // KAN-739: the location's name (rule 2's copy beside locationId).
+      {
+        id: 'locationLabel',
+        header: t('stockList.columns.location'),
+        cell: ({ row }) => row.original.locationLabel ?? '—',
+      },
       // ADR-060: every persisted field is a column — VIN hidden by default
       // (already ride-alongs as vehicleLabel's secondary line above).
       {

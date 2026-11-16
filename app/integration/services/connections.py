@@ -20,7 +20,12 @@ from app.core.errors import ConflictError, NotFoundError, UnprocessableEntityErr
 from app.core.pagination import SortPageParams, count_capped, paginate_query_sorted
 from app.core.sorting import build_page_for_sort
 from app.integration.models.call_log import IntegrationCallLog
-from app.integration.models.connection import ConnectionScope, ConnectionStatus, IntegrationConnection
+from app.integration.models.connection import (
+    ConnectionEnvironment,
+    ConnectionScope,
+    ConnectionStatus,
+    IntegrationConnection,
+)
 from app.integration.models.entitlement import EntitlementSource, IntegrationEntitlement
 from app.integration.models.provider import IntegrationProvider
 from app.integration.models.secret_ref import IntegrationSecretRef, SecretSlot
@@ -92,6 +97,20 @@ def _validate_required_config(provider: IntegrationProvider, config: dict) -> No
         raise UnprocessableEntityError(
             f"Connection config for '{provider.provider_code}' is missing required field(s): {', '.join(missing)}.",
             details={"reason": "missing_config_fields", "missingConfigKeys": missing},
+        )
+
+
+def _refuse_sandbox_without_one(provider: IntegrationProvider, environment: ConnectionEnvironment) -> None:
+    """KAN-741: a provider that offers no test access (`supports_sandbox`
+    false — AutoScout24, DAT, every AI provider) cannot hold a sandbox
+    connection; it could never answer a call. Refused at creation, where the
+    environment is chosen (a connection's environment never changes after),
+    rather than learnt at the first call."""
+
+    if environment == ConnectionEnvironment.SANDBOX and not provider.supports_sandbox:
+        raise UnprocessableEntityError(
+            f"{provider.display_name} offers no sandbox; connect it as production.",
+            details={"reason": "provider_has_no_sandbox", "providerCode": provider.provider_code},
         )
 
 
@@ -226,6 +245,7 @@ def create_connection(
     """
 
     provider = provider_service.get_provider_or_404(db, data.provider_id)
+    _refuse_sandbox_without_one(provider, data.environment)
     _validate_required_config(provider, data.config)
 
     if data.scope == ConnectionScope.PLATFORM:

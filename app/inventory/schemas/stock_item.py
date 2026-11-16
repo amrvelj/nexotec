@@ -167,6 +167,8 @@ class StockItemRead(CamelModel):
     reservation_state: ReservationState
     condition: StockItemCondition
     location_id: uuid.UUID | None
+    # KAN-739: the location's name (rule 2's copy, platform's), «Standort».
+    location_label: str | None
     odometer_km: int | None
     exterior_colour: str | None
     body_style: str | None

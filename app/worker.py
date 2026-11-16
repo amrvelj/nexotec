@@ -79,7 +79,9 @@ from app.inventory.daily_jobs import run_daily_reservation_sweep
 from app.inventory.public import (
     SALES_CONTRACT_PROJECTION_CONSUMERS,
     oldest_configuration_label_age_seconds,
+    oldest_stock_location_label_age_seconds,
     refresh_configuration_labels,
+    refresh_stock_location_labels,
 )
 from app.inventory.public import referenced_configuration_ids as referenced_by_stock_items
 from app.ownership_registry import register_ownership_providers
@@ -445,6 +447,8 @@ def _heartbeat(db, transport: InProcessTransport) -> None:
     record_label_age_seconds("sales.customer", customer_label_age)
     configuration_label_age = oldest_configuration_label_age_seconds(db)
     record_label_age_seconds("inventory.configuration", configuration_label_age)
+    stock_location_label_age = oldest_stock_location_label_age_seconds(db)
+    record_label_age_seconds("inventory.location", stock_location_label_age)
     location_label_age = oldest_location_label_age_seconds(db)
     record_label_age_seconds("integration.location", location_label_age)
 
@@ -506,6 +510,15 @@ def _refresh_configuration_labels(db: Session) -> None:
     logger.info("inventory.configuration_labels: %d stock item(s) relabelled", changed)
 
 
+def _refresh_stock_location_labels(db: Session) -> None:
+    report = refresh_stock_location_labels(db)
+    logger.info(
+        "inventory.location_labels: %d stock item(s) relabelled, %d left alone (no location of the item's Betrieb)",
+        len(report.changed),
+        len(report.unresolved),
+    )
+
+
 def _refresh_location_labels(db: Session) -> None:
     changed = refresh_location_labels(db)
     logger.info("integration.location_labels: %d connection(s) relabelled", changed)
@@ -565,6 +578,9 @@ def register_daily_jobs() -> None:
        edited after it was attached («Konfiguration bearbeiten», KAN-510)
        shows its new label in the stock list's «Konfiguration» column within
        a day. The item's own ``vehicle_label`` («Fahrzeug») is not touched.
+    6b. ``inventory.location_labels`` — KAN-739: the same for Stock's copy
+       of each stock item's location name, through app.platform.public, so a
+       renamed site shows in the stock list's «Standort» column within a day.
     7. ``integration.location_labels`` — KAN-222: the same for a
        connection's copy of the name of the location it is bound to
        (FR-A-21), through app.platform.public, so a renamed site shows on
@@ -635,6 +651,7 @@ def register_daily_jobs() -> None:
     register_daily_job("sales.owner_labels", _refresh_owner_labels)
     register_daily_job("sales.customer_labels", _refresh_customer_labels)
     register_daily_job("inventory.configuration_labels", _refresh_configuration_labels)
+    register_daily_job("inventory.location_labels", _refresh_stock_location_labels)
     register_daily_job("integration.location_labels", _refresh_location_labels)
     register_daily_job("reconciliation.run_all", run_all_daily)
     register_daily_job("inventory.orphaned_reservations.release", run_daily_reservation_sweep)

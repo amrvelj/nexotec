@@ -56,6 +56,10 @@ from app.inventory.services.configuration_label import (
 from app.inventory.services.configuration_reference import referenced_configuration_ids
 from app.inventory.services.data_export import InventoryExporter
 from app.inventory.services.group_listing import get_stock_items_for_vehicles
+from app.inventory.services.location_labels import (
+    oldest_location_label_age_seconds as oldest_stock_location_label_age_seconds,
+)
+from app.inventory.services.location_labels import refresh_location_labels as refresh_stock_location_labels
 from app.inventory.services.pricing import get_stock_item_pricing
 from app.inventory.services.reconciliation_targets import (
     held_stock_item_check,
@@ -95,10 +99,12 @@ __all__ = [
     "list_held_vehicle_records",
     "listed_on_website_check",
     "oldest_configuration_label_age_seconds",
+    "oldest_stock_location_label_age_seconds",
     "purchased_stock_item_check",
     "record_backfill",
     "referenced_configuration_ids",
     "refresh_configuration_labels",
+    "refresh_stock_location_labels",
     "release",
     "reserve",
     "reserve_for_contract",

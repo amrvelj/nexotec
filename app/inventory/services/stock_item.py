@@ -26,6 +26,7 @@ from app.inventory.models.stock_item import (
 )
 from app.inventory.schemas.stock_item import StockItemCreate, StockItemUpdate, StockItemVinCorrectionRequest
 from app.inventory.services import commercial_change, website_listing
+from app.inventory.services.location_labels import location_label_for, set_location
 from app.vehicle.public import (
     CONFIGURATION_MODE_BUILD,
     CONFIGURATION_MODE_RECORD,
@@ -343,6 +344,10 @@ def _build_and_flush_stock_item(
         ),
         condition=data.condition,
         location_id=data.location_id,
+        # KAN-739: the location's name beside its id (rule 2), read through
+        # platform's public door; another Betrieb's location is 422.
+        location_label=location_label_for(db, tenant_id=tenant_id, location_id=data.location_id),
+        location_label_refreshed_at=utcnow() if data.location_id is not None else None,
         odometer_km=data.odometer_km,
         list_price=data.list_price,
         effective_price=data.effective_price,
@@ -592,6 +597,11 @@ def update_stock_item(
     # KAN-553 (ADR-115): a price, colour or odometer change reaches the open
     # offers and pending contracts on this car.
     commercial_before = commercial_change.commercial_state(db, item)
+    if "location_id" in changes:
+        # KAN-739: the id never moves without its name (rule 2).
+        location_id = changes.pop("location_id")
+        if location_id != item.location_id:
+            set_location(db, item, location_id)
     for field, value in changes.items():
         setattr(item, field, value)
     item.updated_by = actor_id

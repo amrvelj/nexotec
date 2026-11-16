@@ -5,10 +5,11 @@ catalogue, same posture as `app.vehicle.services.catalogue_admin`'s own
 
 import uuid
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.errors import ConflictError, NotFoundError
+from app.integration.models.connection import ConnectionEnvironment, IntegrationConnection
 from app.integration.models.provider import IntegrationProvider
 from app.integration.schemas.provider import ProviderCreate, ProviderUpdate
 
@@ -57,7 +58,25 @@ def create_provider(db: Session, *, data: ProviderCreate) -> IntegrationProvider
 
 
 def update_provider(db: Session, *, provider: IntegrationProvider, data: ProviderUpdate) -> IntegrationProvider:
-    for field, value in data.model_dump(exclude_unset=True).items():
+    changes = data.model_dump(exclude_unset=True)
+    if changes.get("supports_sandbox") is False and provider.supports_sandbox:
+        # KAN-741: the other way into a sandbox connection on a provider without
+        # one. Its sandbox connections are deleted first (by the Betriebe that
+        # hold them, or by platform staff), never silently left unusable.
+        held = db.scalar(
+            select(func.count())
+            .select_from(IntegrationConnection)
+            .where(
+                IntegrationConnection.provider_id == provider.id,
+                IntegrationConnection.environment == ConnectionEnvironment.SANDBOX,
+            )
+        )
+        if held:
+            raise ConflictError(
+                f"{held} sandbox connection(s) to '{provider.provider_code}' still exist; delete them first.",
+                details={"reason": "provider_sandbox_connections_exist", "count": held},
+            )
+    for field, value in changes.items():
         setattr(provider, field, value)
     provider.version += 1
     db.commit()

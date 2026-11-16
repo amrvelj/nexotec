@@ -184,6 +184,8 @@
     "unknown_location": "Ce site n'appartient pas à votre entreprise.",
     "usage_period_reversed": "La fin de la période précède son début.",
     "usage_period_too_long": "Une période couvre au plus une année.",
+    "provider_has_no_sandbox": "Ce fournisseur n'offre pas d'accès de test. Connectez-le en production.",
+    "provider_sandbox_connections_exist": "{{count, number}} connexions d'accès de test à ce fournisseur existent encore. Supprimez-les d'abord.",
     "filter_malformed": "Ce filtre n'est pas valable.",
     "unknown_field": "Ce champ ne peut être ni filtré ni trié.",
     "operator_not_allowed": "Cette condition ne s'applique pas à ce champ.",

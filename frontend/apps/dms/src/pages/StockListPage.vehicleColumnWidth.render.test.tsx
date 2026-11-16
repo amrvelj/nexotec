@@ -27,7 +27,7 @@ const ITEM: StockItemRead = {
   vehicleId: null, condition: 'used', lifecycleStatus: 'in_stock', reservationState: 'none', ageingBucket: 'green',
   odometerKm: 23000, listPrice: null, effectivePrice: null, basePrice: null, bodyStyle: null, exteriorColour: null,
   firstRegistrationDate: null, inStockAt: NOW, leftStockAt: null, isInvoiceable: false, landedCost: null,
-  locationId: null, notionalInputTaxAmount: null, notionalInputTaxApplicable: null, notionalInputTaxOverridden: false,
+  locationId: null, locationLabel: null, notionalInputTaxAmount: null, notionalInputTaxApplicable: null, notionalInputTaxOverridden: false,
   notionalInputTaxRate: null, orderDate: null, expectedDelivery: null, pipelineRef: null, purchaseDate: null,
   purchaseInvoiceRef: null, purchasePrice: null, supplierIsVatRegistered: null, supplierName: null,
   valuationRefAmount: null, valuationRefId: null, valuationRefSource: null, valuationRefValuedAt: null,

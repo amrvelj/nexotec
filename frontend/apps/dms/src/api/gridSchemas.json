@@ -157,6 +157,19 @@
         "type": "datetime"
       },
       {
+        "defaultVisible": true,
+        "field": "locationLabel",
+        "labelKey": "stockList.columns.location",
+        "operators": [
+          "contains",
+          "equals",
+          "notEquals"
+        ],
+        "options": null,
+        "sortable": true,
+        "type": "text"
+      },
+      {
         "defaultVisible": false,
         "field": "vin",
         "labelKey": "stockList.columns.vin",

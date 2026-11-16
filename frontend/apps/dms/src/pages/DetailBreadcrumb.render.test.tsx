@@ -107,7 +107,7 @@ describe('Vehicle and Stock detail breadcrumbs never show the raw UUID (KAN-63)'
       inStockAt: null,
       leftStockAt: null,
       pipelineRef: null,
-      locationId: null,
+      locationId: null, locationLabel: null,
       valuationRefId: null,
       valuationRefSource: null,
       valuationRefAmount: null,

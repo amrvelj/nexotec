@@ -47,7 +47,10 @@ def merge_vehicle_records(
     """`POST /v1/vehicle-mdm/{duplicate}/merge` (KAN-524, FR-V-12): folds the
     duplicate into the survivor for good.
 
-    Both rows are locked in id order before anything is read from them, so two
+    An already-merged record is refused (409 `vehicle_merged`) on an unlocked
+    read first, before any lock (KAN-733, ADR-182: a «VIN korrigieren» holding
+    the survivor never waits on a re-merge holding the duplicate). Then both
+    rows are locked in id order before anything else is read from them, so two
     merges of one pair (or of A→B and B→A) serialise instead of crossing. Then,
     nothing written: the same record twice (422 `vehicle_merge_same_record`);
     a VIN record into a chassis-number record (422
@@ -66,6 +69,14 @@ def merge_vehicle_records(
             "A vehicle record cannot be merged into itself.",
             details={"field": "survivorId", "reason": "vehicle_merge_same_record"},
         )
+    # KAN-733: an already-merged record is refused BEFORE either row is
+    # locked. «VIN korrigieren» holds the survivor and then locks its own
+    # merged duplicate (vin_correction._own_merged_duplicate); a re-merge of
+    # that pair locking both in id order would hold the duplicate (lower id)
+    # while waiting for the survivor — a lock cycle Postgres breaks with a
+    # 500. Read unlocked here, as committed; the check under the locks below
+    # stays for a merge committed in between.
+    _refuse_merged(db, record_ids=(duplicate_id, survivor_id))
     rows = {
         row.id: row
         for row in db.scalars(
@@ -95,14 +106,7 @@ def merge_vehicle_records(
         )
     for record in (duplicate, survivor):
         if record.merged_into_vehicle_id is not None:
-            raise ConflictError(
-                f"Vehicle {record.vehicle_number} was already merged into another record.",
-                details={
-                    "reason": "vehicle_merged",
-                    "vehicleId": str(record.id),
-                    "mergedIntoVehicleId": str(resolve_merged_id(db, record.id)),
-                },
-            )
+            raise _already_merged(db, record)
     held_duplicate = held_stock_item(db, tenant_id=tenant_id, vehicle_id=duplicate.id)
     held_survivor = held_stock_item(db, tenant_id=tenant_id, vehicle_id=survivor.id)
     if (
@@ -119,6 +123,29 @@ def merge_vehicle_records(
             },
         )
     return merge_vehicles(db, survivor_id=survivor.id, duplicate_id=duplicate.id, actor_id=actor_id)
+
+
+def _already_merged(db: Session, record: VehicleMdm) -> ConflictError:
+    return ConflictError(
+        f"Vehicle {record.vehicle_number} was already merged into another record.",
+        details={
+            "reason": "vehicle_merged",
+            "vehicleId": str(record.id),
+            "mergedIntoVehicleId": str(resolve_merged_id(db, record.id)),
+        },
+    )
+
+
+def _refuse_merged(db: Session, *, record_ids: tuple[uuid.UUID, uuid.UUID]) -> None:
+    """The unlocked half of the already-merged refusal (KAN-733), in the
+    order the locked check below reads them (duplicate, then survivor)."""
+
+    for record_id in record_ids:
+        record = db.scalar(
+            select(VehicleMdm).where(VehicleMdm.id == record_id).execution_options(populate_existing=True)
+        )
+        if record is not None and record.merged_into_vehicle_id is not None:
+            raise _already_merged(db, record)
 
 
 def merge_vehicles(db: Session, *, survivor_id: uuid.UUID, duplicate_id: uuid.UUID, actor_id: uuid.UUID) -> VehicleMdm:

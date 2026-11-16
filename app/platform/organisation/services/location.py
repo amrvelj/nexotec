@@ -131,10 +131,12 @@ class LocationLabel:
 
 def get_location_labels(db: Session, location_ids: Collection[uuid.UUID]) -> dict[uuid.UUID, LocationLabel]:
     """Each location's name and Betrieb, for the nightly label refreshes of the
-    contexts that store a location id. Not scoped to a tenant: it serves a
-    daily job, never a request — the caller compares `dealership_id` with
-    its own row's tenant and leaves a mismatch alone. An id that names no
-    location is absent from the result."""
+    contexts that store a location id, and for Stock's write of a stock
+    item's location (KAN-739). Not scoped to a tenant: the caller compares
+    `dealership_id` with its own row's tenant — a nightly job leaves a
+    mismatch alone, a request refuses it exactly as an unknown id (422
+    `unknown_location`), so nothing about another Betrieb's location reaches
+    the caller. An id that names no location is absent from the result."""
 
     if not location_ids:
         return {}

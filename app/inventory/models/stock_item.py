@@ -204,6 +204,12 @@ class StockItem(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, TimestampMix
     location_id: Mapped[uuid.UUID | None] = mapped_column(
         GUID(), nullable=True, comment="Owned by the platform context (Location.id). No DB-level FK."
     )
+    # KAN-739 (rule 2's three-column pattern): the location's name beside its
+    # id, read through `app.platform.public.get_location_labels` whenever the
+    # id is set or changed, and kept current by the nightly
+    # `inventory.location_labels`. What the Stock grid's «Standort» shows.
+    location_label: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    location_label_refreshed_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)
 
     odometer_km: Mapped[int | None] = mapped_column(Integer, nullable=True)
     # KAN-27 — a genuine, previously-undiscovered gap: no field anywhere in

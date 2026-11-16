@@ -184,6 +184,8 @@
     "unknown_location": "This location does not belong to your business.",
     "usage_period_reversed": "The period ends before it starts.",
     "usage_period_too_long": "A period covers one year at most.",
+    "provider_has_no_sandbox": "This provider offers no test access. Connect it as production.",
+    "provider_sandbox_connections_exist": "{{count, number}} test-access connections to this provider still exist. Delete them first.",
     "filter_malformed": "This filter is not valid.",
     "unknown_field": "This field cannot be filtered or sorted.",
     "operator_not_allowed": "This condition does not apply to this field.",
