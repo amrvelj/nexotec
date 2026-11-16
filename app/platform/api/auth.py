@@ -75,7 +75,7 @@ from app.platform.schemas.auth import (
     TotpConfirmRequest,
     TotpEnrolmentRead,
 )
-from app.platform.schemas.setup import LegalAcceptanceDue, acceptance_due
+from app.platform.schemas.legal import LegalAcceptanceDue, acceptance_due
 from app.platform.services import legal_documents
 
 # The front door sets or clears the session cookie on `Response`, which the

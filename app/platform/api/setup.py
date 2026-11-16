@@ -35,8 +35,7 @@ from app.platform.models.legal import LegalAcceptance
 from app.platform.organisation.models.dealership import Dealership
 from app.platform.organisation.services import number_range as number_range_service
 from app.platform.organisation.services.dealership import get_dealership_for_update_or_404, get_dealership_or_404
-from app.platform.schemas.setup import (
-    ActivationRead,
+from app.platform.schemas.legal import (
     CurrentLegalDocuments,
     LegalAcceptanceList,
     LegalAcceptanceRead,
@@ -44,11 +43,10 @@ from app.platform.schemas.setup import (
     LegalDocumentList,
     LegalDocumentPublish,
     LegalDocumentRead,
-    SetupChecklistItemRead,
-    SetupChecklistRead,
     acceptance_due,
     document_read,
 )
+from app.platform.schemas.setup import ActivationRead, SetupChecklistItemRead, SetupChecklistRead
 from app.platform.services import activation as activation_service
 from app.platform.services import legal_documents, setup_checklist
 
