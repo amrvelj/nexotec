@@ -19,7 +19,7 @@ paths:
   - "frontend/apps/dms/src/modules/customer/components/customer-detail/OverviewTab.tsx"
   - "frontend/apps/dms/src/modules/customer/components/customer-detail/contactChannels*"
   - "frontend/apps/dms/src/modules/customer/components/customer-detail/address*"
-  - "frontend/apps/dms/src/components/stock-detail/DetailsTab.tsx"
+  - "frontend/apps/dms/src/modules/stock/components/stock-detail/DetailsTab.tsx"
   - "frontend/apps/dms/src/components/vehicle-detail/IdentityTab.tsx"
   - "frontend/apps/dms/src/hooks/useFieldHint.ts"
   - "frontend/apps/dms/src/hooks/useInlineEditRefusal.ts"

@@ -39,7 +39,7 @@ describe("today's date is the local calendar day (KAN-358)", () => {
   it('no file in apps/dms/src takes the UTC day from toISOString()', () => {
     const files = collectFiles(SRC_ROOT)
     // An empty walk would pass vacuously.
-    expect(files.some((file) => file.endsWith('/components/stock-detail/RecordPurchaseDialog.tsx'))).toBe(true)
+    expect(files.some((file) => file.endsWith('/modules/stock/components/stock-detail/RecordPurchaseDialog.tsx'))).toBe(true)
 
     const offenders = files.flatMap((file) =>
       offendingLines(readFileSync(file, 'utf-8')).map((line) => `${file.slice(SRC_ROOT.length + 1)}:${line}`)

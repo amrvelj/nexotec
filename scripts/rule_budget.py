@@ -63,7 +63,8 @@ SCENARIOS: dict[str, list[tuple[str, ...]]] = {
         # the customer's tab - what a deal-workspace ticket opens on the way.
         ("app/sales/services/trade_in.py",),
         ("app/sales/services/numbering.py",),
-        ("frontend/apps/dms/src/components/deal-workspace/StockNumberLink.tsx",),
+        ("frontend/apps/dms/src/components/deal-workspace/InventoryNumberLink.tsx",
+         "frontend/apps/dms/src/components/deal-workspace/StockNumberLink.tsx"),
         ("frontend/apps/dms/src/pages/OfferWorkspace.configurator.render.test.tsx",),
         ("frontend/apps/dms/src/modules/customer/components/customer-detail/OffersContractsTab.tsx",
          "frontend/apps/dms/src/components/customer-detail/OffersContractsTab.tsx"),

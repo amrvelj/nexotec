@@ -48,7 +48,7 @@ describe('one configuration summary card', () => {
     const usesDealContainers = /from ['"][^'"]*\/deal-workspace\/DealWorkspaceContainers['"]/
     expect(host('pages/OfferWorkspacePage.tsx')).toMatch(usesDealContainers)
     expect(host('pages/ContractDetailPage.tsx')).toMatch(usesDealContainers)
-    expect(importsHostCard(host('components/stock-detail/DetailsTab.tsx'))).toBe(true)
+    expect(importsHostCard(host('modules/stock/components/stock-detail/DetailsTab.tsx'))).toBe(true)
     expect(importsHostCard(host('modules/valuation/pages/ValuationDetailPage.tsx'))).toBe(true)
     // Vehicle 360
     expect(host('pages/VehicleDetailPage.tsx')).toMatch(/from ['"]\.\.\/components\/vehicle-detail\/SpecificationTab['"]/)

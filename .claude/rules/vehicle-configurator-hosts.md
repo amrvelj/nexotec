@@ -15,10 +15,8 @@ paths:
   - "frontend/apps/dms/src/components/configurator/configuratorOverlayProps.ts"
   - "frontend/apps/dms/src/pages/ConfiguratorHosts*"
   - "frontend/apps/dms/src/pages/OfferWorkspace.configurator*"
-  - "frontend/apps/dms/src/components/stock-detail/*onfigurat*"
-  - "frontend/apps/dms/src/components/stock-detail/useAttachConfiguration.tsx"
-  - "frontend/apps/dms/src/pages/StockDetailPage.attachConfiguration*"
-  - "frontend/apps/dms/src/pages/stock/AddToPipeline*"
+  - "frontend/apps/dms/src/modules/stock/**/*onfigurat*"
+  - "frontend/apps/dms/src/modules/stock/components/AddToPipeline*"
 ---
 <!-- Maintainer note. PRD-Configurator v1.4 (the host/mode matrix), ADR-083. Moved out of
 vehicle-configurator.md by KAN-615 (2026-11-13) for the hosts' own files. Cut from vehicle.md

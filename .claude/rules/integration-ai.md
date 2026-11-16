@@ -8,7 +8,7 @@ paths:
   - "tests/test_ai_*.py"
   - "frontend/apps/dms/src/pages/AiAdministrationPage*.tsx"
   - "frontend/apps/dms/src/components/translations/AiPromptSeedsPanel.tsx"
-  - "frontend/apps/dms/src/components/stock-detail/ListingTextSuggestion.tsx"
+  - "frontend/apps/dms/src/modules/stock/components/stock-detail/ListingTextSuggestion.tsx"
 ---
 
 # The Betrieb's own AI provider (KAN-227, D-A-33)

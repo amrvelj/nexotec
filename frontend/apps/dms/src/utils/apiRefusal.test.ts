@@ -233,7 +233,7 @@ describe('the blocking-condition banner knows every field the API names', () => 
   it('has a sentence for each field listing_conditions.py names a condition by', () => {
     const here = dirname(fileURLToPath(import.meta.url))
     const publishing = readFileSync(join(here, '..', '..', '..', '..', '..', 'app', 'inventory', 'services', 'listing_conditions.py'), 'utf-8')
-    const banner = readFileSync(join(here, '..', 'components', 'stock-detail', 'BlockingConditionBanner.tsx'), 'utf-8')
+    const banner = readFileSync(join(here, '..', 'modules', 'stock', 'components', 'stock-detail', 'BlockingConditionBanner.tsx'), 'utf-8')
     const named = [...publishing.matchAll(/BlockingCondition\(\s*field="([^"]+)"/g)].map((m) => m[1])
     const known = banner.match(/const BLOCKING_FIELDS = new Set\(\[([^\]]*)\]\)/)?.[1] ?? ''
     expect(named.length).toBeGreaterThan(0)

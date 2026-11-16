@@ -46,6 +46,7 @@ const MOVES_DIR = join(APP_ROOT, 'scripts', 'module-moves')
 /** Each module folder → the words its file names carry (camelCase, capitalised). */
 const MODULE_WORDS: Record<string, string[]> = {
   customer: ['Customer'],
+  stock: ['Stock'],
   valuation: ['Valuation'],
 }
 
@@ -194,11 +195,11 @@ describe('frontend modules keep their boundary (KAN-636, ADR-161)', () => {
     expect(boundaryViolations(realFiles)).toEqual([])
     // Not vacuous: another module's screens do use valuation, through its door.
     const throughTheDoor = [...realFiles].filter(
-      ([path, source]) => moduleOf(path) !== 'valuation' && !isTestCode(path) && importsOf(path, source).some(({ specifier }) => /(^|\/)modules\/valuation$/.test(specifier)),
+      ([path, source]) => moduleOf(path) !== 'valuation' && !isTestCode(path) && importsOf(path, source).some(({ specifier }) => resolveImport(path, specifier, (p) => realFiles.has(p)) === 'modules/valuation/index.ts'),
     )
     expect(throughTheDoor.map(([path]) => path).sort()).toEqual([
       'components/deal-workspace/DealWorkspaceContainers.tsx',
-      'components/stock-detail/EvaluationTab.tsx',
+      'modules/stock/components/stock-detail/EvaluationTab.tsx',
       'pages/ContractDetailPage.tsx',
     ])
     // And customer's: the Vehicle 360, the deal workspace, the contract page, the offer workspace and valuation.
@@ -212,6 +213,16 @@ describe('frontend modules keep their boundary (KAN-636, ADR-161)', () => {
       'modules/valuation/pages/ValuationDetailPage.tsx',
       'pages/ContractDetailPage.tsx',
       'pages/OfferWorkspacePage.tsx',
+    ])
+    // And stock's: the Vehicle 360, the offer detail, the offer workspace and the contract page.
+    const throughStocksDoor = [...realFiles].filter(
+      ([path, source]) => moduleOf(path) !== 'stock' && !isTestCode(path) && importsOf(path, source).some(({ specifier }) => resolveImport(path, specifier, (p) => realFiles.has(p)) === 'modules/stock/index.ts'),
+    )
+    expect(throughStocksDoor.map(([path]) => path).sort()).toEqual([
+      'pages/ContractDetailPage.tsx',
+      'pages/OfferDetailPage.tsx',
+      'pages/OfferWorkspacePage.tsx',
+      'pages/VehicleDetailPage.tsx',
     ])
   })
 

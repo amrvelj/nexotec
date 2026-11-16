@@ -3,7 +3,7 @@ paths:
   - "frontend/apps/dms/src/pages/Offer*"
   - "frontend/apps/dms/src/pages/Contract*"
   - "frontend/apps/dms/src/pages/SalesListPage*"
-  - "frontend/apps/dms/src/pages/StockDetailPage.salesActions*"
+  - "frontend/apps/dms/src/modules/stock/pages/StockDetailPage.salesActions*"
   - "frontend/apps/dms/src/modules/*/pages/*.createOffer.render.test.tsx"
   - "frontend/apps/dms/src/modules/customer/pages/customerScreens.salesEntitlement*"
   - "frontend/apps/dms/src/components/deal-workspace/**"

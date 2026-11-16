@@ -9,10 +9,10 @@ paths:
   - "app/inventory/models/stock_item_ledger.py"
   - "tests/test_inventory_purchase*.py"
   - "tests/test_inventory_ledger.py"
-  - "frontend/apps/dms/src/components/stock-detail/PurchaseStorno*"
-  - "frontend/apps/dms/src/components/stock-detail/RecordPurchaseDialog*"
-  - "frontend/apps/dms/src/components/stock-detail/RecordCostDialog*"
-  - "frontend/apps/dms/src/components/stock-detail/WagenbuchTab.tsx"
+  - "frontend/apps/dms/src/modules/stock/components/stock-detail/PurchaseStorno*"
+  - "frontend/apps/dms/src/modules/stock/components/stock-detail/RecordPurchaseDialog*"
+  - "frontend/apps/dms/src/modules/stock/components/stock-detail/RecordCostDialog*"
+  - "frontend/apps/dms/src/modules/stock/components/stock-detail/WagenbuchTab.tsx"
 ---
 <!-- Maintainer note. PRD-Stock FR-I-05; ADR-052, ADR-103; Anto's rulings on KAN-146 and KAN-572.
 Moved out of inventory.md by KAN-615 (2026-11-13). Last verified against main@73baf3f (2026-10-25). -->
