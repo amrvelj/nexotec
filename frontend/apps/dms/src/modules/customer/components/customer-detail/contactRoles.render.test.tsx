@@ -74,6 +74,27 @@ describe('the 360 shows the contact roles (KAN-464)', () => {
   })
 })
 
+describe('taking the customer role away is confirmed first (KAN-464)', () => {
+  it('opens a confirmation and sends the PATCH only after it', async () => {
+    const user = userEvent.setup()
+    const backend = installFakeBackend([
+      ...routes({ roles: ['customer', 'supplier'], lifecycleStatus: 'active' }),
+      { method: 'PATCH', match: /^\/customers\/c1$/, handler: (req) => customer({ id: 'c1', ...(req.body as object) }) },
+    ])
+    renderDetail()
+    await screen.findAllByText(i18n.t('customerDetail.overview.cards.relationship'))
+    await user.click(screen.getByRole('textbox', { name: i18n.t('customerDetail.overview.fields.roles') }))
+    const listbox = await screen.findByRole('listbox')
+    await user.click(within(listbox).getByRole('option', { name: role('customer') }))
+
+    const dialog = await screen.findByRole('dialog', { name: i18n.t('customerDetail.overview.removeCustomerRole.title') })
+    expect(backend.callsTo(/^\/customers\/c1$/, 'PATCH')).toHaveLength(0)
+    await user.click(within(dialog).getByRole('button', { name: i18n.t('customerDetail.overview.removeCustomerRole.confirm') }))
+    await waitFor(() => expect(backend.callsTo(/^\/customers\/c1$/, 'PATCH')).toHaveLength(1))
+    expect(backend.callsTo(/^\/customers\/c1$/, 'PATCH')[0].body).toEqual({ roles: ['supplier'] })
+  })
+})
+
 describe('the row menu offers a credit block only to the customer role (KAN-464)', () => {
   const t = (key: string) => key
   const handlers = {

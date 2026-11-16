@@ -85,7 +85,12 @@
       "doNotContactTitle": "Ne pas contacter",
       "doNotContactNote": "Aucun contact commercial. Le service et la correspondance légalement requise restent autorisés ; pas une offre ni un contrat."
     },
-    "customerRoleFieldsHint": "Le statut, le conseiller et le blocage de crédit relèvent du rôle client."
+    "customerRoleFieldsHint": "Le statut, le conseiller et le blocage de crédit relèvent du rôle client.",
+    "removeCustomerRole": {
+      "title": "Retirer le rôle client ?",
+      "body": "Le contact perd son statut et son conseiller ; tous deux relèvent du rôle client. L’historique conserve la modification.",
+      "confirm": "Retirer le rôle"
+    }
   },
   "contactPoints": {
     "phoneNumbers": "Numéros de téléphone",

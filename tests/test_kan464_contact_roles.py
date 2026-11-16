@@ -293,11 +293,11 @@ def test_a_supplier_only_contact_is_refused_a_customer_field_on_update(client):
         ({"lifecycleStatus": "prospect"}, "lifecycleStatus"),
         ({"lifecycleStatus": "inactive"}, "lifecycleStatus"),
         ({"advisorId": str(uuid.uuid4())}, "advisorId"),
-        # The same change with the role taken away in the same PATCH.
     ):
         response = _patch(client, dealership, supplier, **body)
         assert response.status_code == 422, response.text
         assert response.json()["error"]["details"] == {"reason": "customer_role_required", "field": field}
+    # The same change with the role taken away in the same PATCH.
     both = _created(client, dealership, roles=["customer", "supplier"])
     response = _patch(client, dealership, both, roles=["supplier"], lifecycleStatus="prospect")
     assert response.status_code == 422, response.text
@@ -431,3 +431,28 @@ def test_reconciliation_reports_a_contact_without_a_role(client, engine):
         session.close()
     assert uuid.UUID(lost["id"]) in found
     assert uuid.UUID(kept["id"]) not in found
+
+
+def test_reconciliation_reports_a_contact_without_the_customer_role_that_carries_a_customer_field(client, engine):
+    """Q1's invariant, monitored (rule 10): a supplier-only contact with an
+    advisor, a credit block or a prospect/inactive status is a finding; a
+    plain supplier and a customer are not."""
+
+    dealership = create_dealership(client)
+    clean = _created(client, dealership, roles=["supplier"])
+    customer = _created(client, dealership)
+    broken = _created(client, dealership, roles=["supplier"])
+    check = next(
+        c for c in CHECKS
+        if isinstance(c, StateCheck) and c.label == "contact without the customer role carries a customer field"
+    )
+    session = sessionmaker(bind=engine)()
+    try:
+        row = session.get(Customer, uuid.UUID(broken["id"]))
+        row.lifecycle_status = CustomerLifecycleStatus.INACTIVE
+        session.commit()
+        found = {row_id for row_id, _ in find_rows_in_state(session, check)}
+    finally:
+        session.close()
+    assert uuid.UUID(broken["id"]) in found
+    assert uuid.UUID(clean["id"]) not in found and uuid.UUID(customer["id"]) not in found

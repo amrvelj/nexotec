@@ -85,7 +85,12 @@
       "doNotContactTitle": "Nicht kontaktieren",
       "doNotContactNote": "Kein kommerzieller Kontakt. Service und gesetzlich vorgeschriebene Korrespondenz sind weiterhin erlaubt; eine Offerte oder ein Vertrag nicht."
     },
-    "customerRoleFieldsHint": "Status, Betreuer und Kreditsperre gehören zur Rolle Kunde."
+    "customerRoleFieldsHint": "Status, Betreuer und Kreditsperre gehören zur Rolle Kunde.",
+    "removeCustomerRole": {
+      "title": "Rolle Kunde entfernen?",
+      "body": "Der Kontakt verliert seinen Status und seinen Betreuer; beides gehört zur Rolle Kunde. Der Verlauf hält die Änderung fest.",
+      "confirm": "Rolle entfernen"
+    }
   },
   "contactPoints": {
     "phoneNumbers": "Telefonnummern",

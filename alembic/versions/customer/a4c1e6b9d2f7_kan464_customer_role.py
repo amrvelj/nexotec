@@ -1,9 +1,9 @@
 """KAN-464 PR-1: customer_role — the roles a contact holds; every customer migrated as `customer`
 
 One open row (valid_to NULL) per customer and role; a closed row is the
-role's history. Every existing customer — merged ones included, so a
-merged record's survivor keeps its history whole — gets an open `customer`
-row valid from the customer's own `created_at`.
+role's history. Every existing customer gets an open `customer` row valid
+from the customer's own `created_at` — a merged tombstone too (it was a
+customer); its row stays on the tombstone, which no list shows.
 
 Revision ID: a4c1e6b9d2f7
 Revises: fdf7c90750b7

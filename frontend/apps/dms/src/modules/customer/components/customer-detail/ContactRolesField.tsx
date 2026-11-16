@@ -1,6 +1,7 @@
-import { MultiSelect } from '@mantine/core'
+import { useState } from 'react'
+import { MultiSelect, Text } from '@mantine/core'
 import type { ContactRole, CustomerUpdateInput } from '../../../../api/types'
-import { KeyValueRow } from '@nexotec/ui-kit'
+import { FormDialog, KeyValueRow } from '@nexotec/ui-kit'
 import { useTranslation } from 'react-i18next'
 import { translatedRoleOptions } from '../../customerOptions'
 
@@ -9,7 +10,7 @@ import { translatedRoleOptions } from '../../customerOptions'
  * (full replace). A contact holds at least one: clearing the last one is not
  * sent. Taking the customer role away closes the customer's status and
  * advisor in the same save (the API's rule; a credit block refuses it,
- * `customer_role_credit_blocked`).
+ * `customer_role_credit_blocked`), so the user confirms it first.
  */
 export function ContactRolesField({
   label,
@@ -21,6 +22,20 @@ export function ContactRolesField({
   onSaveField: (patch: Partial<CustomerUpdateInput>) => Promise<unknown> | void
 }) {
   const { t } = useTranslation()
+  const [pending, setPending] = useState<ContactRole[] | null>(null)
+  const [saving, setSaving] = useState(false)
+
+  const confirm = async () => {
+    if (!pending) return
+    setSaving(true)
+    try {
+      await onSaveField({ roles: pending })
+    } finally {
+      setSaving(false)
+      setPending(null)
+    }
+  }
+
   return (
     <KeyValueRow label={label}>
       <MultiSelect
@@ -28,11 +43,26 @@ export function ContactRolesField({
         aria-label={label}
         data={translatedRoleOptions(t)}
         value={value}
-        onChange={(next) => {
-          if (next.length > 0) void onSaveField({ roles: next as ContactRole[] })
+        onChange={(raw) => {
+          const next = raw as ContactRole[]
+          if (next.length === 0) return
+          if (value.includes('customer') && !next.includes('customer')) setPending(next)
+          else void onSaveField({ roles: next })
         }}
         comboboxProps={{ withinPortal: true }}
       />
+      <FormDialog
+        opened={pending !== null}
+        onClose={() => setPending(null)}
+        title={t('customerDetail.overview.removeCustomerRole.title')}
+        onSubmit={confirm}
+        submitLabel={t('customerDetail.overview.removeCustomerRole.confirm')}
+        cancelLabel={t('common.cancel')}
+        submitting={saving}
+        destructive
+      >
+        <Text fz="sm">{t('customerDetail.overview.removeCustomerRole.body')}</Text>
+      </FormDialog>
     </KeyValueRow>
   )
 }

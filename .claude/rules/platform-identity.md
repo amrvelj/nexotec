@@ -99,8 +99,8 @@ The session guard, its idle and absolute ends and what revokes a session: `platf
   one secret in the database (`EncryptedString`, ADR-099).
 - `dealership_auth_config.mfa_enforced` (default **on**, the manager's switch) decides per Betrieb;
   **platform staff are always enforced** — `require_mfa_session()` refuses a staff principal whose
-  token's `mfa` claim is false (the recovery door has its own gate; the impersonation endpoints
-  will carry it).
+  token's `mfa` claim is false (the recovery door and the support-session start, KAN-221, have
+  their own equivalent gates).
 - A session that owes a factor reaches only `/v1/auth/*`, `/v1/me/preferences` and its own
   Betrieb's `auth-config` (never a staff session); the rest of `/v1/` is 403
   `details.mfaEnrolmentRequired`, and the SPA sends it to `/account/security`. The guard reads the

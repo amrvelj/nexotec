@@ -35,6 +35,9 @@ KAN-223 adds `run_daily_status_page_notifications`: a status-page item that is
 no longer green raises one `administration` notification to the Betrieb's
 managers until it clears (`services/status_notifications.py`).
 
+KAN-221 adds `run_daily_support_session_expiry`: a support session nobody
+ended has its `timeout` ending written into the row.
+
 Runs where `python -m app.worker` runs; staging runs no worker (ADR-081).
 """
 
@@ -52,7 +55,13 @@ from app.core.permissions import AccessRole
 from app.db import SessionLocal
 from app.platform.identity.models.user import User, UserStatus
 from app.platform.identity.schemas.user import UserUpdate
-from app.platform.identity.services import connected_account, notifications, ownership, push_subscriptions
+from app.platform.identity.services import (
+    connected_account,
+    notifications,
+    ownership,
+    push_subscriptions,
+    support_sessions,
+)
 from app.platform.identity.services import user as user_service
 from app.platform.identity.services import user_reads as user_reads_service
 from app.platform.services import setup_checklist_regressions, status_notifications
@@ -251,3 +260,14 @@ def run_daily_status_page_notifications(db: Session) -> None:
     notifies the managers once, until it is green again."""
 
     status_notifications.run(db)
+
+
+def run_daily_support_session_expiry(db: Session) -> None:
+    """`platform.support_sessions.close_expired` (KAN-221): a support session
+    nobody ended gets its `timeout` ending written into the row (reads derive
+    it from `expires_at` at once; this makes the row and the Betrieb's export
+    say so), audited as a system write."""
+
+    closed = support_sessions.close_timed_out_sessions(db)
+    db.commit()
+    logger.info("platform.support_sessions.close_expired: %d session(s) closed by timeout", closed)

@@ -15,6 +15,7 @@ from app.core.audit_model import AuditEvent
 from app.core.auth import AccessRole, Principal, get_current_principal
 from app.core.base import utcnow
 from app.main import app
+from app.platform.daily_jobs import run_daily_support_session_expiry
 from app.platform.identity.models.support_session import SupportSession
 from app.platform.services.data_export_tables import PlatformExporter
 from tests.identity_support import (
@@ -176,7 +177,10 @@ def test_one_running_session_at_a_time_and_an_expired_one_closes_as_timeout(clie
     ends = db_session.scalars(
         select(AuditEvent).where(AuditEvent.entity_id == closed.id, AuditEvent.action == "end")
     ).all()
-    assert [e.after["endedBy"] for e in ends] == ["timeout"]
+    # Nobody ended it: a system write, never the staff member as actor.
+    assert [(e.after["endedBy"], e.actor_id, e.reason) for e in ends] == [
+        ("timeout", None, "support_session_timed_out")
+    ]
 
 
 def test_the_user_ends_it(client, scene, login, db_session):
@@ -232,3 +236,34 @@ def test_nobody_else_learns_the_session_exists(client, scene, login):
 def test_the_betriebs_export_carries_its_support_sessions():
     tables = {exported.table.name for exported in PlatformExporter().exported_tables()}
     assert "support_session" in tables
+
+
+def test_the_nightly_job_writes_a_timed_out_ending_into_the_row(client, scene, db_session):
+    """`platform.support_sessions.close_expired`: a session nobody ended is
+    closed at its `expires_at` by `timeout`, audited as a system write; a
+    running one and an ended one are left alone."""
+
+    dealership, staff, beat = scene
+    headers = _staff_headers(staff, dealership)
+    ran_out = _start(client, headers, beat["id"]).json()
+    row = db_session.get(SupportSession, uuid.UUID(ran_out["id"]))
+    row.expires_at = utcnow() - dt.timedelta(minutes=5)
+    db_session.commit()
+    expires_at = row.expires_at
+    other_staff = create_user(client, dealership, accessRoles=["platform_admin"], isDealerManager=False)
+    running = _start(client, _staff_headers(other_staff, dealership), beat["id"]).json()
+
+    run_daily_support_session_expiry(db_session)
+
+    db_session.expire_all()
+    closed = db_session.get(SupportSession, uuid.UUID(ran_out["id"]))
+    assert closed.ended_by is not None and closed.ended_by.value == "timeout" and closed.ended_at == expires_at
+    still = db_session.get(SupportSession, uuid.UUID(running["id"]))
+    assert still.ended_at is None
+    ends = db_session.scalars(
+        select(AuditEvent).where(AuditEvent.entity_type == "support_session", AuditEvent.action == "end")
+    ).all()
+    assert [(e.entity_id, e.actor_id, e.reason) for e in ends] == [(closed.id, None, "support_session_timed_out")]
+    # A second run finds nothing more.
+    run_daily_support_session_expiry(db_session)
+    assert len(db_session.scalars(select(AuditEvent).where(AuditEvent.action == "end")).all()) == 1

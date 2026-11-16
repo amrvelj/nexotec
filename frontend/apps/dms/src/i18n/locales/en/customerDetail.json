@@ -85,7 +85,12 @@
       "doNotContactTitle": "Do not contact",
       "doNotContactNote": "No commercial contact. Service and legally required correspondence are still allowed; an offer or contract is not."
     },
-    "customerRoleFieldsHint": "Status, advisor and credit block belong to the customer role."
+    "customerRoleFieldsHint": "Status, advisor and credit block belong to the customer role.",
+    "removeCustomerRole": {
+      "title": "Remove the customer role?",
+      "body": "The contact loses its status and its advisor; both belong to the customer role. The history records the change.",
+      "confirm": "Remove role"
+    }
   },
   "contactPoints": {
     "phoneNumbers": "Phone numbers",

@@ -499,7 +499,10 @@ def update_customer(
     # KAN-464: the roles first — taking the customer role away closes the
     # customer fields in this same write (services/roles.py), so the advisor
     # and lifecycle handling below see the closing in `changes`.
-    if "roles" in changes:
+    if changes.keys() & roles_service.CUSTOMER_ROLE_FIELDS:
+        # A PATCH setting a customer field is judged against the roles as
+        # they are under the lock, so it cannot slip past one taking the
+        # customer role away (or the other way round).
         _lock_for_role_change(db, customer)
     current_roles = roles_service.open_roles(db, customer.id)
     new_roles = [role.value for role in changes.pop("roles")] if "roles" in changes else current_roles

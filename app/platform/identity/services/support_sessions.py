@@ -6,8 +6,11 @@
   (FR-A-17: `platform_admin` cannot be impersonated) and is not the staff
   member. A stated reason is mandatory. 60 minutes, then it is over.
 - **One at a time:** a staff member with a session still running is refused
-  a second (409 `support_session_already_open`); one that ran out is closed
-  with `timeout` in the new start's transaction.
+  a second (409 `support_session_already_open`).
+- **Expiry:** a session nobody ended is over at `expires_at`. Reads derive
+  it at once (`state_of`); the nightly `platform.support_sessions.close_expired`
+  and the staff member's next start write it into the row — `ended_by
+  timeout`, audited as a system write with reason `support_session_timed_out`.
 - **End** — by the staff member or by the user (FR-A-18: the user ends it
   from the banner). Anyone else is told it does not exist (404, rule 7). A
   session already over is 409 `support_session_ended`.
@@ -39,7 +42,17 @@ from app.platform.identity.models.user import User, UserStatus
 from app.platform.identity.schemas.support_session import SupportSessionRead
 
 ENTITY_TYPE = "support_session"
+# The audit reason of an ending nobody wrote: the 60 minutes ran out.
+TIMEOUT_REASON = "support_session_timed_out"
 OPEN_CONSTRAINT = "uq_support_session_staff_open"
+
+
+def _violated(exc: IntegrityError) -> str | None:
+    diag = getattr(getattr(exc, "orig", None), "diag", None)
+    name = getattr(diag, "constraint_name", None)
+    if name:
+        return str(name)
+    return OPEN_CONSTRAINT if OPEN_CONSTRAINT in str(exc.orig) or "support_session.staff_user_id" in str(exc.orig) else None
 
 
 def state_of(row: SupportSession, now: dt.datetime) -> tuple[dt.datetime | None, SupportSessionEndedBy | None, bool]:
@@ -69,11 +82,7 @@ def to_read(row: SupportSession, now: dt.datetime | None = None) -> SupportSessi
     )
 
 
-def _refuse(reason: str, message: str) -> UnprocessableEntityError:
-    return UnprocessableEntityError(message, details={"reason": reason})
-
-
-def _audit_end(db: Session, row: SupportSession, *, actor_id: uuid.UUID) -> None:
+def _audit_end(db: Session, row: SupportSession, *, actor_id: uuid.UUID | None, reason: str | None = None) -> None:
     record_audit_event(
         db,
         entity_type=ENTITY_TYPE,
@@ -81,12 +90,41 @@ def _audit_end(db: Session, row: SupportSession, *, actor_id: uuid.UUID) -> None
         tenant_id=row.dealership_id,
         action="end",
         actor_id=actor_id,
+        reason=reason,
         before={"endedAt": None},
         after={
             "endedAt": row.ended_at.isoformat() if row.ended_at else None,
             "endedBy": row.ended_by.value if row.ended_by else None,
         },
     )
+
+
+def _close_timed_out(db: Session, row: SupportSession) -> None:
+    """Write a run-out session's ending into its row: at `expires_at`, by
+    `timeout`, audited as a system write (no actor — nobody ended it)."""
+
+    row.ended_at = row.expires_at
+    row.ended_by = SupportSessionEndedBy.TIMEOUT
+    row.updated_by = None
+    _audit_end(db, row, actor_id=None, reason=TIMEOUT_REASON)
+
+
+def close_timed_out_sessions(db: Session, now: dt.datetime | None = None) -> int:
+    """The expiry job's step (`platform.support_sessions.close_expired`):
+    every session past its `expires_at` that nobody ended gets its ending
+    written, so the row — and the Betrieb's export of it — says so. Reads
+    derive the same ending before the job has run (`state_of`). The caller
+    commits. Returns how many were closed."""
+
+    rows = db.scalars(
+        select(SupportSession)
+        .where(SupportSession.ended_at.is_(None), SupportSession.expires_at <= (now or utcnow()))
+        .order_by(SupportSession.id)
+        .with_for_update(skip_locked=True)
+    ).all()
+    for row in rows:
+        _close_timed_out(db, row)
+    return len(rows)
 
 
 def start_support_session(
@@ -96,11 +134,20 @@ def start_support_session(
     if target is None:
         raise NotFoundError("User not found.")
     if target.id == staff.user_id:
-        raise _refuse("support_target_self", "A staff member cannot start a support session for themselves.")
+        raise UnprocessableEntityError(
+            "A staff member cannot start a support session for themselves.",
+            details={"reason": "support_target_self"},
+        )
     if AccessRole.PLATFORM_ADMIN.value in (target.access_roles or []):
-        raise _refuse("support_target_platform_admin", "A platform_admin cannot be impersonated (FR-A-17).")
+        raise UnprocessableEntityError(
+            "A platform_admin cannot be impersonated (FR-A-17).",
+            details={"reason": "support_target_platform_admin"},
+        )
     if target.status != UserStatus.ACTIVE:
-        raise _refuse("support_target_not_active", "Only an active user can be supported in a session.")
+        raise UnprocessableEntityError(
+            "Only an active user can be supported in a session.",
+            details={"reason": "support_target_not_active"},
+        )
 
     now = utcnow()
     still_open = db.scalars(
@@ -114,9 +161,7 @@ def start_support_session(
                 "End the running support session before starting another.",
                 details={"reason": "support_session_already_open", "supportSessionId": str(still_open.id)},
             )
-        still_open.ended_at = still_open.expires_at
-        still_open.ended_by = SupportSessionEndedBy.TIMEOUT
-        _audit_end(db, still_open, actor_id=staff.user_id)
+        _close_timed_out(db, still_open)
 
     row = SupportSession(
         staff_user_id=staff.user_id,
@@ -133,6 +178,8 @@ def start_support_session(
         db.flush()
     except IntegrityError as exc:
         db.rollback()
+        if _violated(exc) != OPEN_CONSTRAINT:
+            raise
         # Two starts of one staff member at once: the second is the first's twin.
         raise ConflictError(
             "End the running support session before starting another.",

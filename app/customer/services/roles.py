@@ -47,6 +47,8 @@ OPEN_ROLE_CONSTRAINT = "uq_customer_role_customer_id_role_open"
 CUSTOMER_LIFECYCLE_STATUSES = frozenset(
     {CustomerLifecycleStatus.PROSPECT, CustomerLifecycleStatus.ACTIVE, CustomerLifecycleStatus.INACTIVE}
 )
+# The PATCH keys judged against the roles (and so taken under the row lock).
+CUSTOMER_ROLE_FIELDS = frozenset({"roles", "lifecycle_status", "advisor_id"})
 # What a contact without the customer role stores as its lifecycle status.
 NEUTRAL_LIFECYCLE_STATUS = CustomerLifecycleStatus.ACTIVE
 

@@ -18,6 +18,7 @@ from app.core.base import utcnow
 from app.core.outbox_model import OutboxMessage
 from app.core.reconciliation import ReconciliationRun, ReferenceCheck, StateCheck, run_reconciliation
 from app.customer.models.customer import (
+    ContactRole,
     Customer,
     CustomerAddress,
     CustomerContactGroup,
@@ -186,6 +187,30 @@ CHECKS: list[ReferenceCheck | StateCheck] = [
             (Customer.lifecycle_status != CustomerLifecycleStatus.MERGED)
             & ~select(CustomerRole.id)
             .where(CustomerRole.customer_id == Customer.id, CustomerRole.valid_to.is_(None))
+            .correlate(Customer)
+            .exists()
+        ),
+    ),
+    StateCheck(
+        # KAN-464 (Q1, rule 10): a contact without the customer role carries
+        # no customer field — no prospect/inactive status, no advisor, no
+        # credit block. Every writer judges it under the customer row's lock;
+        # this says when one did not.
+        label="contact without the customer role carries a customer field",
+        source_model=Customer,
+        source_row_id_column=Customer.id,
+        where=lambda: (
+            # A merged tombstone gave its roles to the survivor and keeps its fields as history.
+            (Customer.lifecycle_status != CustomerLifecycleStatus.MERGED)
+            & (Customer.lifecycle_status.in_([CustomerLifecycleStatus.PROSPECT, CustomerLifecycleStatus.INACTIVE])
+             | Customer.advisor_id.is_not(None)
+             | Customer.credit_block.is_(True))
+            & ~select(CustomerRole.id)
+            .where(
+                CustomerRole.customer_id == Customer.id,
+                CustomerRole.role == ContactRole.CUSTOMER,
+                CustomerRole.valid_to.is_(None),
+            )
             .correlate(Customer)
             .exists()
         ),
