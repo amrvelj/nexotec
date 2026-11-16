@@ -23,9 +23,9 @@ from app.core.observability import (
 from app.db import SessionLocal
 from app.export_registry import register_exporters
 from app.ownership_registry import register_ownership_providers
+from app.platform.identity.session_guard import enforce_live_session, enforce_open_dealership
 from app.platform.reference.services.mailer import get_mailer
 from app.platform.services import data_export_runner
-from app.platform.session_guard import enforce_live_session, enforce_open_dealership
 from app.status_registry import register_status_providers
 
 configure_logging()

@@ -30,12 +30,9 @@ from app.core.idempotent_route import IdempotentRoute
 from app.core.permissions import require_read
 from app.core.tenancy import require_tenant_match
 from app.db import get_db
-from app.platform.api.auth import client_ip
-from app.platform.models.legal import LegalAcceptance
-from app.platform.organisation.models.dealership import Dealership
-from app.platform.organisation.services import number_range as number_range_service
-from app.platform.organisation.services.dealership import get_dealership_for_update_or_404, get_dealership_or_404
-from app.platform.schemas.legal import (
+from app.platform.identity.api.auth import client_ip
+from app.platform.identity.models.legal import LegalAcceptance
+from app.platform.identity.schemas.legal import (
     CurrentLegalDocuments,
     LegalAcceptanceList,
     LegalAcceptanceRead,
@@ -46,9 +43,13 @@ from app.platform.schemas.legal import (
     acceptance_due,
     document_read,
 )
+from app.platform.identity.services import legal_documents
+from app.platform.organisation.models.dealership import Dealership
+from app.platform.organisation.services import number_range as number_range_service
+from app.platform.organisation.services.dealership import get_dealership_for_update_or_404, get_dealership_or_404
 from app.platform.schemas.setup import ActivationRead, SetupChecklistItemRead, SetupChecklistRead
 from app.platform.services import activation as activation_service
-from app.platform.services import legal_documents, setup_checklist
+from app.platform.services import setup_checklist
 
 router = APIRouter(tags=["setup-checklist"], route_class=IdempotentRoute)
 

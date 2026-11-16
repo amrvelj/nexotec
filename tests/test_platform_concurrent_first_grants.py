@@ -15,8 +15,7 @@ import uuid
 import pytest
 from sqlalchemy import func, select
 
-from app.platform.api import dealership_identity, dealership_users
-from app.platform.identity.api import dealership_memberships
+from app.platform.identity.api import dealership_identity, dealership_memberships, dealership_users
 from app.platform.identity.models.dealership_membership import DealershipMembership
 from app.platform.identity.models.standard_text_delegation import StandardTextDelegation
 from app.platform.identity.services import auth_sessions
@@ -232,7 +231,7 @@ def test_every_recovery_action_takes_the_user_row_first(route):
     credential, the tokens, the factors or the sessions (KAN-380's order) —
     the routes it replaced read the row unlocked."""
 
-    from app.platform.api import recovery as recovery_api
+    from app.platform.identity.api import recovery as recovery_api
 
     source = inspect.getsource(getattr(recovery_api, route))
     assert "get_user_for_recovery_or_404(" in source

@@ -26,7 +26,7 @@ from app.core.idempotent_route import IdempotentRoute
 from app.core.pagination import SortPageParams
 from app.core.sorting import SortField, decode_cursor_for_sort, parse_sort
 from app.db import get_db
-from app.platform.api.auth import client_ip
+from app.platform.identity.api.auth import client_ip
 from app.platform.identity.models.auth_event import AuthEvent
 from app.platform.identity.models.user import User
 from app.platform.identity.schemas.recovery import (

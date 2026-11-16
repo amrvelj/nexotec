@@ -14,7 +14,7 @@ from app.core.auth import Principal, require_access_role, require_mfa_session
 from app.core.config import get_settings
 from app.core.idempotent_route import IdempotentRoute
 from app.db import get_db
-from app.platform.api.auth import client_ip
+from app.platform.identity.api.auth import client_ip
 from app.platform.identity.schemas.onboarding import (
     DealerGroupOption,
     DealerGroupOptionList,

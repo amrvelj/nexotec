@@ -319,9 +319,9 @@ def test_every_fixed_sort_declares_its_columns_nullability_truly():
     from app.integration.api.connections import _DEFAULT_CONNECTION_SORT
     from app.inventory.api.group import _DEFAULT_GROUP_STOCK_SORT
     from app.inventory.api.stock_items import _DEFAULT_STOCK_ITEM_SORT
-    from app.platform.api.dealership_users import _DEFAULT_USER_SORT
-    from app.platform.api.recovery import _DEFAULT_SORT
+    from app.platform.identity.api.dealership_users import _DEFAULT_USER_SORT
     from app.platform.identity.api.notifications import _INBOX_ORDER
+    from app.platform.identity.api.recovery import _DEFAULT_SORT
     from app.platform.organisation.services.dealer_group_options import _BY_NAME
     from app.sales.api.contracts import _DEFAULT_CONTRACT_SORT
     from app.sales.api.deals import _DEFAULT_DEAL_SORT

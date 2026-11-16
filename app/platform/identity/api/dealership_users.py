@@ -29,7 +29,7 @@ from app.core.permissions import (
 from app.core.sorting import SortField, decode_cursor_for_sort, parse_sort
 from app.core.tenancy import require_tenant_match
 from app.db import get_db, get_session_factory
-from app.platform.api.auth import client_ip
+from app.platform.identity.api.auth import client_ip
 from app.platform.identity.models.user import User, UserStatus
 from app.platform.identity.schemas.user import (
     OwnedGroupRead,

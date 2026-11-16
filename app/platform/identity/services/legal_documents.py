@@ -16,7 +16,7 @@ FR-A-39, D-A-34; Anto, 2026-11-13: Q1 A, Q3 A).
   current version is *due*; it is prompted at every login of its managers
   until `effective_date + acceptance_grace_days` (30 by default, Q1 A), and
   after that its managers are *held*: the session guard lets them reach only
-  the acceptance screen (`app/platform/session_guard.py`). Colleagues are
+  the acceptance screen (`app/platform/identity/session_guard.py`). Colleagues are
   never held. A Betrieb still `pending_onboarding` is never held: its
   acceptance is part of activation.
 - **Production refuses a draft** (Q3 A): activation in production is refused
@@ -39,7 +39,7 @@ from app.core.config import get_settings
 from app.core.deployment_environment import DeploymentEnvironment, current_deployment_environment
 from app.core.errors import ConflictError, NotFoundError, UnprocessableEntityError
 from app.core.i18n import SwissLanguage
-from app.platform.models.legal import LegalAcceptance, LegalDocument, LegalDocumentType
+from app.platform.identity.models.legal import LegalAcceptance, LegalDocument, LegalDocumentType
 from app.platform.organisation.models.dealership import Dealership, DealershipStatus
 
 _VERSION = re.compile(r"^\d{1,3}(\.\d{1,3}){0,2}$")

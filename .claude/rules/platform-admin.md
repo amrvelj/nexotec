@@ -1,6 +1,6 @@
 ---
 paths:
-  - "app/platform/api/dealership*.py"
+  - "app/platform/identity/api/dealership*.py"
   - "app/platform/organisation/**"
   - "app/platform/api/branding.py"
   - "app/platform/reference/api/reference_data.py"

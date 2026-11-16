@@ -7,8 +7,8 @@ import uuid
 from pydantic import Field
 
 from app.core.schemas import CamelModel
+from app.platform.identity.schemas.legal import LegalAcceptanceDue
 from app.platform.organisation.models.dealership import DealershipStatus
-from app.platform.schemas.legal import LegalAcceptanceDue
 
 
 class SetupChecklistItemRead(CamelModel):

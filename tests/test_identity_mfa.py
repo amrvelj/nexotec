@@ -584,7 +584,7 @@ def test_parallel_wrong_answers_never_exceed_the_attempt_limit(client, login, db
 
     from concurrent.futures import ThreadPoolExecutor
 
-    from app.platform.api.auth import MFA_MAX_ATTEMPTS
+    from app.platform.identity.api.auth import MFA_MAX_ATTEMPTS
     from app.platform.identity.models.credential import Credential
 
     dealership = create_dealership(client)

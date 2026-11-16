@@ -22,7 +22,7 @@ paths:
   - "tests/test_platform_concurrent_*.py"
   - "tests/test_platform_idempotency.py"
   - "tests/test_platform_chain_renders_offline.py"
-  - "app/platform/api/dealership*.py"
+  - "app/platform/identity/api/dealership*.py"
   - "app/platform/identity/api/dealership*.py"
   - "app/platform/organisation/api/dealerships.py"
   - "app/api/v1/dealer_groups.py"

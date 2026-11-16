@@ -4,7 +4,7 @@
 Every `created_by` / `updated_by` — TimestampMixin's, and the same-named
 columns a few append-only tables declare themselves — holds the id of the
 platform `User` who made the change: the access token's subject, which is
-only ever minted for a `User` row (`app.platform.api.auth._mint_session`).
+only ever minted for a `User` row (`app.platform.identity.api.auth._mint_session`).
 It is null when no user made it: a consumer, a scheduled job, a provider
 sync, a migration, a seed's system write (KAN-345,
 `app.platform.reference.services.system_writes.system_write_reason`) or a legacy import (the deleted transaction import wrote null). Null names nobody, so it is never an orphan. There is no

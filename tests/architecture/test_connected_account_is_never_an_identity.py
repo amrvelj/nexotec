@@ -35,8 +35,8 @@ _IDENTITY_AND_SESSION_LAYER = (
     _APP_ROOT / "platform" / "identity" / "services" / "auth_sessions.py",
     _APP_ROOT / "platform" / "identity" / "services" / "auth_tokens.py",
     _APP_ROOT / "platform" / "identity" / "services" / "mfa.py",
-    _APP_ROOT / "platform" / "session_guard.py",
-    _APP_ROOT / "platform" / "api" / "auth.py",
+    _APP_ROOT / "platform" / "identity" / "session_guard.py",
+    _APP_ROOT / "platform" / "identity" / "api" / "auth.py",
 )
 
 # Any mention of the model, its table, its module or its service.

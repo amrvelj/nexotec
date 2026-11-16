@@ -10,8 +10,8 @@ from pydantic import Field
 
 from app.core.i18n import SwissLanguage
 from app.core.schemas import CamelModel
-from app.platform.models.legal import DEFAULT_ACCEPTANCE_GRACE_DAYS, LegalDocument, LegalDocumentType
-from app.platform.services import legal_documents
+from app.platform.identity.models.legal import DEFAULT_ACCEPTANCE_GRACE_DAYS, LegalDocument, LegalDocumentType
+from app.platform.identity.services import legal_documents
 
 
 class LegalDocumentSummary(CamelModel):
