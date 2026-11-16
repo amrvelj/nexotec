@@ -86,7 +86,7 @@ Decided rulings live in the PRD; built only where a bullet says so — check the
   auto-fill, AI translations, training mode.
 
 ## Data export and offboarding (KAN-218)
-- The manager's export is a job (`export_job`; the web's runner writes the ZIP, KAN-738), downloadable 7 days via
+- The manager's export is a job (`export_job`; the web writes the ZIP), downloadable 7 days via
   the authenticated GET (signed URL: KAN-402).
 - Staff offboard (`POST /v1/platform/dealerships/{id}/offboard`) only after an acknowledged export
   newer than the last write and than its id floor (KAN-716, `test_kan716_*`); the Betrieb's
