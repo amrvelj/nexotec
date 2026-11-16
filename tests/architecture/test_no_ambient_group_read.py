@@ -27,6 +27,7 @@ into app.core.tenancy.get_group_read_or_404 as the ticket's own preferred
 option asked for, and that decision is explained where it's made.
 """
 
+import ast
 import re
 from pathlib import Path
 
@@ -53,6 +54,12 @@ _ALLOWED_FILES = {
     _APP_ROOT / "customer" / "services" / "vehicle_party.py",
     _APP_ROOT / "customer" / "services" / "vehicle_party_locks.py",
     _APP_ROOT / "customer" / "services" / "vehicle_party_reads.py",
+    # KAN-524's vehicle merge, found by KAN-737's right-hand pattern: after the
+    # merge moves the duplicate's party rows onto the survivor, each role is
+    # settled per customer group — `groups.get(party.customer_id) == group_id`
+    # partitions rows ALREADY loaded for the one merged vehicle, in Python, by
+    # each party's own customer's group. No query, no wider read.
+    _APP_ROOT / "customer" / "services" / "vehicle_merge.py",
     # The ADR-030 compliance layer built on top of tenancy.py's helper.
     _APP_ROOT / "customer" / "services" / "legal_basis.py",
     # KAN-218 (FR-A-44, ADR-014, ADR-166): the export of ONE Betrieb's
@@ -108,6 +115,12 @@ _ALLOWED_FILES = {
     # only, never a dealer-facing read — the customer exporter's precedent
     # (customer/services/data_export.py above).
     _APP_ROOT / "core" / "export_core.py",
+    # KAN-218, found by KAN-737's right-hand pattern: platform's half of the
+    # Betrieb export takes the ONE dealer_group row that is the Betrieb's own
+    # group (`group.c.id == scope.group_id`, the group handed in by
+    # platform's own ExportScope), never another's. The worker's export only,
+    # never a dealer-facing read — the exporters' precedent above.
+    _APP_ROOT / "platform" / "services" / "data_export_tables.py",
     # KAN-467, ADR-039 as amended (Anto, 2026-10-31: "it's on a group
     # level"): the Kontrollschild register is the dealer group's own, like
     # the customer register above — every read and write filters by the
@@ -143,7 +156,50 @@ _PATTERNS: dict[str, re.Pattern[str]] = {
     # caught; none exist in this codebase today (see the module
     # docstring's own check before adding this pattern).
     "raw SQL (text(…))": re.compile(rf"\btext\([^)]*\b{_GROUP_COLUMN}\s*="),
+    # KAN-737: the group id on the RIGHT of the comparison —
+    # `Audit.tenant_id == principal.group_id`, `Group.id == scope.group_id`,
+    # `Row.owner_id == group_id`. Another column compared to a group id is a
+    # group-scoped predicate just the same; the left-hand pattern above never
+    # saw it. The optional prefix is the operand's own dotted name ending in a
+    # dot, so `plate_group_id` (no dot before `group_id`) stays out, as above.
+    "group id on the right (== …group_id)": re.compile(rf"==\s*(?:[A-Za-z_][\w.]*\.)?{_GROUP_COLUMN}\b"),
 }
+
+# KAN-737: a group id handed to a helper AS its tenant — `list_audit_events(…,
+# tenant_id=principal.group_id)` — scopes that helper's read to the whole group
+# without one `==` in sight. A call spans lines, so this is an AST check, not a
+# line pattern. The callees below are WRITES that file a group-owned record's
+# row under its group (ADR-014: a group customer's audit row and outbox event
+# carry the group as tenant), never a read; any other callee — a new read helper
+# above all — is a finding unless its file is allow-listed above.
+_GROUP_TENANT_WRITERS = frozenset({"record_audit_event", "OutboxEvent"})
+_GROUP_TENANT_KWARG = "tenant_id=<group id> in a call"
+
+
+def _is_group_id(node: ast.expr) -> bool:
+    if isinstance(node, ast.Name):
+        return node.id in {"group_id", "dealer_group_id"}
+    return isinstance(node, ast.Attribute) and node.attr in {"group_id", "dealer_group_id"}
+
+
+def _callee_name(node: ast.expr) -> str:
+    if isinstance(node, ast.Name):
+        return node.id
+    if isinstance(node, ast.Attribute):
+        return node.attr
+    return ""
+
+
+def _group_tenant_kwargs(source: str) -> list[tuple[int, str]]:
+    hits = []
+    for node in ast.walk(ast.parse(source)):
+        if not isinstance(node, ast.Call) or _callee_name(node.func) in _GROUP_TENANT_WRITERS:
+            continue
+        for keyword in node.keywords:
+            if keyword.arg == "tenant_id" and _is_group_id(keyword.value):
+                call = f"{_callee_name(node.func)}(tenant_id={ast.unparse(keyword.value)})"
+                hits.append((keyword.value.lineno, call))
+    return hits
 
 
 def _find_violations(pattern: re.Pattern[str]) -> list[str]:
@@ -163,6 +219,11 @@ def test_no_ambient_group_filter_outside_the_sanctioned_files():
     for label, pattern in _PATTERNS.items():
         for violation in _find_violations(pattern):
             all_violations.append(f"[{label}] {violation}")
+    for path in sorted(_APP_ROOT.rglob("*.py")):
+        if path in _ALLOWED_FILES:
+            continue
+        for lineno, call in _group_tenant_kwargs(path.read_text(encoding="utf-8")):
+            all_violations.append(f"[{_GROUP_TENANT_KWARG}] {path.relative_to(_REPO_ROOT)}:{lineno}: {call}")
 
     assert not all_violations, (
         "Found a group-scoped filter predicate (group_id or dealer_group_id) outside "
@@ -212,6 +273,13 @@ _VIOLATIONS_BY_SPELLING = {
     "raw SQL (text(…))": [
         'db.execute(text("SELECT * FROM customer WHERE group_id = :gid"), {"gid": other_group_id})',
     ],
+    "group id on the right (== …group_id)": [
+        # KAN-737's two real shapes: export_core's audit predicate and
+        # data_export_tables' group row, plus a bare name.
+        "_audit.c.tenant_id == scope.group_id,",
+        "stmt = stmt.where(AuditEvent.tenant_id == principal.group_id)",
+        "stmt = stmt.where(Row.owner_id == dealer_group_id)",
+    ],
 }
 
 _SAFE_WRITES_BY_SPELLING = {
@@ -219,6 +287,10 @@ _SAFE_WRITES_BY_SPELLING = {
     "membership (.in_())": ['stmt = stmt.where(Customer.id.in_(ids))'],
     "filter_by(group_id=…)": ['customer = Customer(group_id=group_id, first_name="Anna")'],
     "raw SQL (text(…))": ['db.execute(text("SELECT 1"))'],
+    "group id on the right (== …group_id)": [
+        "stmt = stmt.where(AuditEvent.tenant_id == principal.tenant_id)",
+        "same = other.plate_group_id == this.plate_group_id",
+    ],
 }
 
 
@@ -245,3 +317,21 @@ def test_plate_group_id_is_never_confused_with_group_id():
     line = "shares_group = plate_group_id is not None and other.plate_group_id == plate_group_id"
     for label, pattern in _PATTERNS.items():
         assert not pattern.search(line), f"[{label}] falsely matched plate_group_id: {line!r}"
+
+
+def test_a_group_id_handed_to_a_read_as_its_tenant_is_caught():
+    """KAN-737: customers.py before KAN-722 called
+    `list_audit_events(…, tenant_id=principal.group_id)` — over several
+    lines, no `==` anywhere. The AST check must see it; the group-owned
+    WRITES (an audit row, an outbox event) must stay unflagged."""
+
+    read = "rows = list_audit_events(\n    db,\n    entity_id=customer.id,\n    tenant_id=principal.group_id,\n)\n"
+    assert _group_tenant_kwargs(read) == [(4, "list_audit_events(tenant_id=principal.group_id)")]
+    bare = "rows = audit.list_events(db, tenant_id=group_id)\n"
+    assert _group_tenant_kwargs(bare) == [(1, "list_events(tenant_id=group_id)")]
+    writes = (
+        "record_audit_event(db, tenant_id=customer.group_id, action='x')\n"
+        "db.add(OutboxEvent(tenant_id=group_id, event_type='customer.created'))\n"
+        "list_audit_events(db, tenant_id=principal.tenant_id)\n"
+    )
+    assert _group_tenant_kwargs(writes) == []
