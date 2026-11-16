@@ -27,7 +27,12 @@ from app.sales.public import (
 from app.valuation.models.contract_carry import ContractCarryState, ValuationContractCarry
 from app.valuation.models.valuation import Valuation, ValuationDeduction, ValuationProviderQuote
 from app.valuation.services.valuation import CONFIRMATION_GRACE
-from app.vehicle.public import VehicleConfiguration, VehicleMdm
+from app.vehicle.public import (
+    configuration_reference_check,
+    configuration_untaken,
+    vehicle_reference_check,
+    vehicle_vin_differs,
+)
 
 CONTEXT = "valuation"
 
@@ -146,10 +151,7 @@ def _names_an_untaken_configuration() -> StateCheck:
         label="valuation.configuration_id names a configuration vehicle has not stamped as taken",
         source_model=Valuation,
         source_row_id_column=Valuation.id,
-        where=lambda: select(VehicleConfiguration.id)
-        .where(VehicleConfiguration.id == Valuation.configuration_id, VehicleConfiguration.first_taken_at.is_(None))
-        .correlate(Valuation)
-        .exists()
+        where=lambda: configuration_untaken(Valuation.configuration_id, correlate=Valuation)
         & (Valuation.updated_at < utcnow() - _OUTBOX_LAG_GRACE),
     )
 
@@ -210,13 +212,11 @@ CHECKS: list[ReferenceCheck | StateCheck] = [
         target_model=Dealership,
         target_id_column=Dealership.id,
     ),
-    ReferenceCheck(
+    vehicle_reference_check(
         label="valuation.vehicle_id -> vehicle_mdm.id",
         source_model=Valuation,
         source_row_id_column=Valuation.id,
         source_fk_column=Valuation.vehicle_id,
-        target_model=VehicleMdm,
-        target_id_column=VehicleMdm.id,
         nullable=True,  # creatable with no vehicle in the register (confirmed live)
     ),
     customer_reference_check(
@@ -227,13 +227,11 @@ CHECKS: list[ReferenceCheck | StateCheck] = [
         nullable=True,  # "Ohne Kunde" (confirmed live filter chip)
     ),
     # C-F (KAN-10): the configuration it was built or captured in.
-    ReferenceCheck(
+    configuration_reference_check(
         label="valuation.configuration_id -> vehicle_configuration.id",
         source_model=Valuation,
         source_row_id_column=Valuation.id,
         source_fk_column=Valuation.configuration_id,
-        target_model=VehicleConfiguration,
-        target_id_column=VehicleConfiguration.id,
         nullable=True,
     ),
     StateCheck(
@@ -259,16 +257,14 @@ CHECKS: list[ReferenceCheck | StateCheck] = [
         label="valuation.vehicle_vin differs from its vehicle_mdm.vin",
         source_model=Valuation,
         source_row_id_column=Valuation.id,
-        where=lambda: select(VehicleMdm.id)
-        .where(
-            VehicleMdm.id == Valuation.vehicle_id,
-            Valuation.vehicle_vin.is_not(None),
-            # vehicle-mdm stores a VIN upper-cased; an old valuation row may
-            # not (FR-V-15), and a spelling is not a different car. (17
-            # characters leave no room for a space in a VIN.)
-            VehicleMdm.vin != func.upper(Valuation.vehicle_vin),
+        # vehicle-mdm stores a VIN upper-cased; an old valuation row may not
+        # (FR-V-15), and a spelling is not a different car. (17 characters
+        # leave no room for a space in a VIN.)
+        where=lambda: vehicle_vin_differs(
+            Valuation.vehicle_id,
+            func.upper(Valuation.vehicle_vin),
+            only_where=Valuation.vehicle_vin.is_not(None),
         )
-        .exists()
         & ~_vin_the_car_carried_before_a_correction(),
     ),
     # KAN-552: a quote belongs to a Betrieb. Its configuration_id is not

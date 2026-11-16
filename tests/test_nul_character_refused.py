@@ -190,7 +190,7 @@ def test_the_login_door_is_the_one_exemption_and_reads_no_other_string():
 
     from app.core.nul_guard import NulCharacterGuard
     from app.main import app
-    from app.platform.schemas.auth import LoginRequest
+    from app.platform.identity.schemas.auth import LoginRequest
 
     exempt = {path for m in app.user_middleware if m.cls is NulCharacterGuard for path in m.kwargs["exempt_paths"]}
     assert exempt == {"/v1/auth/login"}

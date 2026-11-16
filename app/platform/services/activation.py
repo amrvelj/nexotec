@@ -33,10 +33,11 @@ from app.core.audit import record_audit_event
 from app.core.base import utcnow
 from app.core.errors import ConflictError
 from app.core.outbox import OutboxEvent, publish
+from app.platform.identity.services import legal_documents
 from app.platform.organisation.models.dealership import Dealership, DealershipStatus
 from app.platform.organisation.models.number_range import NumberRange
 from app.platform.organisation.services import number_range as number_range_service
-from app.platform.services import legal_documents, setup_checklist
+from app.platform.services import setup_checklist
 
 ACTIVATED_EVENT_TYPE = "platform.dealership.activated"
 ACTIVATION_REASON = "dealership_activated"

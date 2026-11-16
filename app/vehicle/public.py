@@ -16,13 +16,11 @@ from collections.abc import Iterable, Sequence
 
 from sqlalchemy.orm import Session
 
-from app.vehicle.models.configuration import VehicleConfiguration
 from app.vehicle.models.spec_block import (
     SPEC_BLOCK_ALL_FIELDS,
     spec_block_as_dict,
     spec_block_field_names,
 )
-from app.vehicle.models.vehicle_mdm import VehicleMdm
 from app.vehicle.services.data_export import VehicleExporter
 from app.vehicle.services.host_configuration import BUILD as CONFIGURATION_MODE_BUILD
 from app.vehicle.services.host_configuration import RECORD as CONFIGURATION_MODE_RECORD
@@ -40,6 +38,16 @@ from app.vehicle.services.merge import resolve_merged_id as _resolve_merged_id
 from app.vehicle.services.merge_chain import merged_vehicle_chain
 from app.vehicle.services.plate import PlateRecordingCheck, PlateVersionRef
 from app.vehicle.services.plate_lookup_cache import purge_expired_plate_lookups
+from app.vehicle.services.reconciliation_targets import (
+    configuration_exists,
+    configuration_reference_check,
+    configuration_untaken,
+    configuration_vin_distinct_from,
+    vehicle_is_merged,
+    vehicle_reference_check,
+    vehicle_vin_differs,
+    vehicle_vin_distinct_from,
+)
 from app.vehicle.services.stock_holding import CONSUMERS as STOCK_HOLDING_CONSUMERS
 from app.vehicle.services.stock_holding import apply_backfilled_holding
 from app.vehicle.services.vin_correction import VIN_CORRECTED_EVENT, CorrectedVehicleVin
@@ -69,10 +77,12 @@ logger = logging.getLogger(__name__)
 # one. Deferred to call time, well after both modules have finished
 # loading at process startup. (Since KAN-634 the schemas no longer import
 # customer, so the cycle is gone; the deferral is kept, harmless.)
-def get_vehicle_mdm_or_404(db: Session, vehicle_id: uuid.UUID) -> VehicleMdm:
+# KAN-123 step 6 (ADR-162): it answers the record's id and VIN, never the row.
+def get_vehicle_mdm_or_404(db: Session, vehicle_id: uuid.UUID) -> ResolvedVehicleMdm:
     from app.vehicle.services.vehicle_mdm import get_vehicle_mdm_or_404 as _get_vehicle_mdm_or_404
 
-    return _get_vehicle_mdm_or_404(db, vehicle_id)
+    record = _get_vehicle_mdm_or_404(db, vehicle_id)
+    return ResolvedVehicleMdm(id=record.id, vin=record.vin)
 
 
 def resolve_merged_vehicle_id(db: Session, vehicle_id: uuid.UUID) -> uuid.UUID:
@@ -119,6 +129,7 @@ def get_vehicle_summaries(db: Session, vehicle_ids: Iterable[uuid.UUID]) -> dict
     from sqlalchemy.orm import joinedload
 
     from app.vehicle.models.catalogue import ModelGroup, ModelVariant
+    from app.vehicle.models.vehicle_mdm import VehicleMdm
 
     ids = list(dict.fromkeys(vehicle_ids))
     summaries: dict[uuid.UUID, VehicleSummary] = {}
@@ -147,7 +158,7 @@ def get_vehicle_summaries(db: Session, vehicle_ids: Iterable[uuid.UUID]) -> dict
 
 def create_or_get_vehicle_mdm(
     db: Session, *, vin: str, catalogue_variant_id: uuid.UUID | None = None, actor_id: uuid.UUID | None = None
-) -> tuple[VehicleMdm, bool]:
+) -> tuple[ResolvedVehicleMdm, bool]:
     """Found or created on the session it is handed, committing it — for
     Vehicle's own callers and test set-up only. Another context resolves a
     VIN through `resolve_vehicle_mdm_by_vin` below, which runs this on a
@@ -158,7 +169,11 @@ def create_or_get_vehicle_mdm(
 
     from app.vehicle.services.vehicle_mdm import create_or_get_vehicle_mdm as _create_or_get_vehicle_mdm
 
-    return _create_or_get_vehicle_mdm(db, vin=vin, catalogue_variant_id=catalogue_variant_id, actor_id=actor_id)
+    record, created = _create_or_get_vehicle_mdm(
+        db, vin=vin, catalogue_variant_id=catalogue_variant_id, actor_id=actor_id
+    )
+    # KAN-123 step 6 (ADR-162): plain data, never the row.
+    return ResolvedVehicleMdm(id=record.id, vin=record.vin), created
 
 
 def resolve_vehicle_mdm_by_vin(
@@ -469,12 +484,14 @@ __all__ = [
     "PlateVersionRef",
     "ProviderValuationInput",
     "ResolvedVehicleMdm",
-    "VehicleConfiguration",
     "VehicleExporter",
-    "VehicleMdm",
     "VehicleSummary",
     "apply_backfilled_holding",
     "check_plate_handover",
+    "configuration_exists",
+    "configuration_reference_check",
+    "configuration_untaken",
+    "configuration_vin_distinct_from",
     "copy_configuration_for_host",
     "correct_vehicle_vin",
     "create_or_get_vehicle_mdm",
@@ -497,4 +514,8 @@ __all__ = [
     "run_daily_plate_lookup_purge",
     "spec_block_as_dict",
     "spec_block_field_names",
+    "vehicle_is_merged",
+    "vehicle_reference_check",
+    "vehicle_vin_differs",
+    "vehicle_vin_distinct_from",
 ]

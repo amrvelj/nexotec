@@ -11,9 +11,9 @@ import { ContactPointsEditor } from '../modules/customer/components/customer-det
 import { CustomerCreateFlow } from '../modules/customer/components/CustomerCreateFlow'
 import { SalesDocumentsSection } from '../components/SalesDocumentsSection'
 import { ValuationCreateDialog } from '../modules/valuation/components/ValuationCreateDialog'
-import { DetailsTab } from '../components/stock-detail/DetailsTab'
+import { DetailsTab } from '../modules/stock/components/stock-detail/DetailsTab'
 import { DmsShell } from '../layout/DmsShell'
-import { StockListPage } from '../pages/StockListPage'
+import { StockListPage } from '../modules/stock/pages/StockListPage'
 
 // KAN-364 — four kit components merged English defaults under optional
 // labels, and no screen passed the views-and-filters panel any: every list

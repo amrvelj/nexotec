@@ -49,7 +49,7 @@ describe('the stock intake is the configurator', () => {
 
   it('names the create path in the configurator intake alone', () => {
     expect(files.filter((f) => CREATE_PATH_LITERAL.test(f.source)).map((f) => f.file)).toEqual([
-      'pages/stock/AddToPipelineButton.tsx',
+      'modules/stock/components/AddToPipelineButton.tsx',
     ])
     expect(files.filter((f) => CREATE_POST_WITH_QUERY.test(f.source)).map((f) => f.file)).toEqual([])
   })
@@ -77,7 +77,7 @@ describe('the stock intake is the configurator', () => {
   })
 
   it('types the create body as the request that requires a configuration', () => {
-    const intake = files.find((f) => f.file === 'pages/stock/AddToPipelineButton.tsx')!.source
+    const intake = files.find((f) => f.file === 'modules/stock/components/AddToPipelineButton.tsx')!.source
     expect(intake).toMatch(/api\.post<StockItemRead>\('\/inventory\/stock-items', body,/)
     expect(intake).toMatch(/const body: StockItemCreateRequest = \{/)
     expect(intake).toMatch(/configurationId: configuration\.id/)

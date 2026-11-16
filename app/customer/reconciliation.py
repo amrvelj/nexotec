@@ -34,7 +34,7 @@ from app.customer.models.stock_item_booking import StockItemBooking
 from app.customer.models.vehicle_party import VehicleParty
 from app.inventory.public import stock_item_reference_check
 from app.platform.public import DealerGroup, Dealership, User, actor_reference_checks
-from app.vehicle.public import VehicleMdm
+from app.vehicle.public import vehicle_is_merged, vehicle_reference_check
 
 CONTEXT = "customer"
 
@@ -91,18 +91,16 @@ CHECKS: list[ReferenceCheck | StateCheck] = [
             .exists()
         ),
     ),
-    ReferenceCheck(
+    vehicle_reference_check(
         # WP-5 PR-2 (ADR-021): a VehicleParty links a customer to the
         # physical vehicle, which in the three-layer model is VehicleMdm,
         # not the legacy `vehicle` table this used to target (retired by
-        # KAN-79, ADR-153). VehicleMdm comes through app.vehicle.public —
-        # the only door.
+        # KAN-79, ADR-153). Vehicle builds the check (KAN-123 step 6,
+        # ADR-162): app.vehicle.public hands out no mapped class.
         label="vehicle_party.vehicle_id -> vehicle_mdm.id",
         source_model=VehicleParty,
         source_row_id_column=VehicleParty.id,
         source_fk_column=VehicleParty.vehicle_id,
-        target_model=VehicleMdm,
-        target_id_column=VehicleMdm.id,
     ),
     ReferenceCheck(
         label="customer.group_id -> dealer_group.id",
@@ -159,10 +157,7 @@ CHECKS: list[ReferenceCheck | StateCheck] = [
         source_row_id_column=VehicleParty.id,
         where=lambda: (
             VehicleParty.merged_into_vehicle_id.is_(None)
-            & select(VehicleMdm.id)
-            .where(VehicleMdm.id == VehicleParty.vehicle_id, VehicleMdm.merged_into_vehicle_id.is_not(None))
-            .correlate(VehicleParty)
-            .exists()
+            & vehicle_is_merged(VehicleParty.vehicle_id, correlate=VehicleParty)
         ),
     ),
     StateCheck(

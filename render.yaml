@@ -117,8 +117,9 @@ services:
     # amended): one instance only (a disk cannot be shared, so no scaling out),
     # a few seconds of downtime per deploy (Render stops the old instance
     # before the new one mounts the disk), the worker cannot read it — so the
-    # data export the worker builds (KAN-218) cannot use this store until the
-    # KAN-738 settles where it runs — data in
+    # data export (KAN-218) is produced and expired by this web service, in a
+    # background thread beside the disk (KAN-738,
+    # app/platform/services/data_export_runner.py) — data in
     # Render's region (Oregon, the KAN-440 exception), daily snapshots kept 7
     # days. Production copies this block when it is created; there it is
     # required — the app refuses to start in production unless

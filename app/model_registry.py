@@ -37,6 +37,7 @@ from app.platform.identity.models.connected_account import UserConnectedAccount
 from app.platform.identity.models.credential import Credential
 from app.platform.identity.models.dealership_auth_config import DealershipAuthConfig
 from app.platform.identity.models.dealership_membership import DealershipMembership
+from app.platform.identity.models.legal import LegalAcceptance, LegalDocument
 from app.platform.identity.models.mfa import MfaPasskey, MfaRecoveryCode, MfaTotp
 from app.platform.identity.models.notification import (
     Notification,
@@ -51,7 +52,6 @@ from app.platform.identity.models.user_location import UserLocation
 from app.platform.identity.models.user_preference import UserPreference
 from app.platform.models.document_template import DocumentTemplate
 from app.platform.models.export_job import ExportJob
-from app.platform.models.legal import LegalAcceptance, LegalDocument
 from app.platform.models.setup_checklist import SetupChecklistRegression
 from app.platform.models.standard_text import StandardText
 from app.platform.models.status_page import PlatformStatusIncident, StatusItemState

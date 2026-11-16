@@ -1476,8 +1476,8 @@ export interface paths {
         put?: never;
         /**
          * Request Export
-         * @description FR-A-44: a full export of the Betrieb, produced by the worker; the
-         *     response is the requested job (202).
+         * @description FR-A-44: a full export of the Betrieb, produced in the background by
+         *     the web service (KAN-738); the response is the requested job (202).
          */
         post: operations["request_export_v1_dealerships__dealership_id__exports_post"];
         delete?: never;
@@ -4002,6 +4002,46 @@ export interface paths {
          *     Audited with before and after. An incident is never deleted.
          */
         patch: operations["update_status_incident_v1_platform_status_incidents__incident_id__patch"];
+        trace?: never;
+    };
+    "/v1/platform/support-sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start Support Session
+         * @description KAN-221: a platform staff member starts a 60-minute support session for an active user, with a mandatory reason. Refused for a platform_admin (422 `support_target_platform_admin`), oneself (`support_target_self`), a user who is not active (`support_target_not_active`), and while the staff member's previous session still runs (409 `support_session_already_open`). The token that acts for the user is not built yet: the session is recorded and audited, and grants nothing.
+         */
+        post: operations["start_support_session_v1_platform_support_sessions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/platform/support-sessions/{session_id}/end": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * End Support Session
+         * @description KAN-221 (FR-A-18): the staff member or the user ends a running session. Anyone else gets 404; a session already over is 409 `support_session_ended`.
+         */
+        post: operations["end_support_session_v1_platform_support_sessions__session_id__end_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/v1/platform/ui-translations": {
@@ -12939,6 +12979,67 @@ export interface components {
             newVin: string;
             /** Reason */
             reason: string;
+        };
+        /**
+         * SupportSessionEndedBy
+         * @description Who ended a session (FR-A-18). `timeout` is read from `expires_at`
+         *     until the staff member's next start closes the row with it.
+         * @enum {string}
+         */
+        SupportSessionEndedBy: "staff" | "user" | "timeout";
+        /** SupportSessionRead */
+        SupportSessionRead: {
+            /** Active */
+            active: boolean;
+            /**
+             * Dealershipid
+             * Format: uuid
+             */
+            dealershipId: string;
+            /** Endedat */
+            endedAt: string | null;
+            endedBy: components["schemas"]["SupportSessionEndedBy"] | null;
+            /**
+             * Expiresat
+             * Format: date-time
+             */
+            expiresAt: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Reason */
+            reason: string;
+            /**
+             * Staffuserid
+             * Format: uuid
+             */
+            staffUserId: string;
+            /**
+             * Startedat
+             * Format: date-time
+             */
+            startedAt: string;
+            /**
+             * Targetuserid
+             * Format: uuid
+             */
+            targetUserId: string;
+        };
+        /**
+         * SupportSessionStart
+         * @description FR-A-15: the user the staff member steps in for, and why — the reason
+         *     is mandatory and is shown to the user on the banner.
+         */
+        SupportSessionStart: {
+            /** Reason */
+            reason: string;
+            /**
+             * Targetuserid
+             * Format: uuid
+             */
+            targetUserId: string;
         };
         /**
          * SwissLanguage
@@ -24763,6 +24864,82 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["StatusIncidentRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    start_support_session_v1_platform_support_sessions_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SupportSessionStart"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SupportSessionRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    end_support_session_v1_platform_support_sessions__session_id__end_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                session_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SupportSessionRead"];
                 };
             };
             /** @description Validation Error */

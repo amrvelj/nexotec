@@ -1,7 +1,7 @@
 """The dealer group a test token carries (KAN-424).
 
 A real session carries its Betrieb's own dealer group: `_mint_session`
-(`app/platform/api/auth.py`) is the only app caller of `create_access_token`,
+(`app/platform/identity/api/auth.py`) is the only app caller of `create_access_token`,
 and it passes `dealership.dealer_group_id`. A customer is stored with the
 token's `group_id`, and the customer hand-over compares it with the groups a
 colleague works in (KAN-423), so a test token with a made-up group makes

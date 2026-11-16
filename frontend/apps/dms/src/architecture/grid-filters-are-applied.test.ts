@@ -7,7 +7,7 @@ import { dirname, join, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import ts from 'typescript'
 import { conditionsForField, type FilterFieldDef, type FilterPredicate } from '@nexotec/ui-kit'
-import { applyGroupStockFilters, applyStockFilters, buildGroupStockFilterFields, buildStockFilterFields } from '../stockOptions'
+import { applyGroupStockFilters, applyStockFilters, buildGroupStockFilterFields, buildStockFilterFields } from '../modules/stock/stockOptions'
 import { applyCustomerFilters } from '../modules/customer/customerOptions'
 import { applyCatalogueFilters, buildCatalogueFilterFields, CATALOGUE_FILTER_SCOPE, FACET_LIST_CODE } from '../catalogueOptions'
 import type { CatalogueFacetsRead, GridSchemaRead } from '../api/types'
@@ -42,16 +42,16 @@ type Mapper = (params: URLSearchParams, predicates: FilterPredicate[]) => void
 
 /** Grid file (relative to src) → the mapper it must call. */
 const COVERED_GRIDS: Record<string, string> = {
-  'pages/StockListPage.tsx': 'applyStockFilters',
-  'pages/stock/GroupStockGrid.tsx': 'applyGroupStockFilters',
+  'modules/stock/pages/StockListPage.tsx': 'applyStockFilters',
+  'modules/stock/components/GroupStockGrid.tsx': 'applyGroupStockFilters',
   'modules/customer/pages/CustomersListPage.tsx': 'applyCustomerFilters',
   'components/catalogue/CatalogueBrowseGrid.tsx': 'applyCatalogueFilters',
 }
 
 /** Mapper → the module that defines it and the list endpoint it feeds. */
 const MAPPERS: Record<string, { module: string; endpoint: string }> = {
-  applyStockFilters: { module: 'stockOptions.ts', endpoint: '/v1/inventory/stock-items' },
-  applyGroupStockFilters: { module: 'stockOptions.ts', endpoint: '/v1/inventory/groups/mine/stock-items' },
+  applyStockFilters: { module: 'modules/stock/stockOptions.ts', endpoint: '/v1/inventory/stock-items' },
+  applyGroupStockFilters: { module: 'modules/stock/stockOptions.ts', endpoint: '/v1/inventory/groups/mine/stock-items' },
   applyCustomerFilters: { module: 'modules/customer/customerOptions.ts', endpoint: '/v1/customers' },
   applyCatalogueFilters: { module: 'catalogueOptions.ts', endpoint: '/v1/catalogue/variants' },
 }

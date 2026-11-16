@@ -26,7 +26,7 @@ import uuid
 import pytest
 from sqlalchemy import select
 
-from app.platform.api import auth as auth_api
+from app.platform.identity.api import auth as auth_api
 from app.platform.identity.models.auth_session import AuthSession
 from app.platform.identity.models.mfa import MfaRecoveryCode, MfaTotp
 from app.platform.identity.services import auth_sessions, auth_tokens, mfa
@@ -259,7 +259,7 @@ def test_staffs_session_and_mfa_resets_take_the_user_row_lock_first():
     the user row first (`tests/test_platform_concurrent_first_grants.py`
     pins every recovery route)."""
 
-    from app.platform.api import recovery as recovery_api
+    from app.platform.identity.api import recovery as recovery_api
 
     source = inspect.getsource(recovery_api.recover_user)
     assert "get_user_for_recovery_or_404(" in source

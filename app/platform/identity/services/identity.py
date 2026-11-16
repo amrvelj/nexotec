@@ -5,7 +5,7 @@ D-A-11, D-A-12, FR-AU-01…16).
 in, a resolved user out or a refusal. `LocalPasswordProvider` is the only
 implementation enabled in v1; `EntraOidcProvider` (D-A-11) is [P3]. Whichever
 provider authenticates, the session is minted identically by
-app.platform.api.auth (A-RULE-AU-1).
+app.platform.identity.api.auth (A-RULE-AU-1).
 
 What the local provider guarantees:
 

@@ -9,9 +9,9 @@ import pytest
 
 from app.core.deployment_environment import DeploymentEnvironment
 from app.core.i18n import SwissLanguage
-from app.platform.models.legal import LegalAcceptance, LegalAcceptanceIsAppendOnly, LegalDocumentType
+from app.platform.identity.models.legal import LegalAcceptance, LegalAcceptanceIsAppendOnly, LegalDocumentType
+from app.platform.identity.services import legal_documents
 from app.platform.organisation.models.dealership import Dealership, DealershipStatus
-from app.platform.services import legal_documents
 from tests import setup_checklist_support as s
 from tests.identity_support import platform_admin_headers
 

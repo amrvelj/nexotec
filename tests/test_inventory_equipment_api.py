@@ -7,7 +7,7 @@ import uuid
 from app.core.auth import AccessRole, create_access_token
 from app.inventory.services.pipeline import promote_to_vehicle_mdm
 from app.inventory.services.stock_item import get_stock_item_or_404
-from app.vehicle.public import get_vehicle_mdm_or_404
+from app.vehicle.services.vehicle_mdm import get_vehicle_mdm_or_404  # the row itself: test set-up
 from tests.configuration_test_support import stock_configuration_id
 from tests.token_support import dealer_group_of
 

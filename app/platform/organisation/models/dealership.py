@@ -243,7 +243,7 @@ class Dealership(PrimaryKeyMixin, VersionedMixin, TimestampMixin, Base):
     # KAN-218 (FR-A-45; Anto, 2026-11-13, Q3 A): offboarding sets `offboarded`
     # and starts the ten-year read-only archive — ten full years from the
     # offboarding date, for everything. The read-only flag IS the status: the
-    # gate (app/platform/session_guard.py) answers 404 to the Betrieb's
+    # gate (app/platform/identity/session_guard.py) answers 404 to the Betrieb's
     # principals everywhere, and the Betrieb drops out of every group read
     # (Anto, 2026-11-14, Q2 A). `retention_until` is the archive's last day.
     # Nothing deletes automatically (Anto, 2026-11-14): once it has passed,
