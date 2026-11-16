@@ -184,6 +184,8 @@
     "unknown_location": "Questa sede non appartiene alla sua azienda.",
     "usage_period_reversed": "La fine del periodo precede il suo inizio.",
     "usage_period_too_long": "Un periodo copre al massimo un anno.",
+    "provider_has_no_sandbox": "Questo fornitore non offre un accesso di prova. Lo colleghi come produzione.",
+    "provider_sandbox_connections_exist": "Esistono ancora {{count}} connessioni di accesso di prova a questo fornitore. Le elimini prima.",
     "filter_malformed": "Questo filtro non è valido.",
     "unknown_field": "Questo campo non può essere filtrato né ordinato.",
     "operator_not_allowed": "Questa condizione non vale per questo campo.",

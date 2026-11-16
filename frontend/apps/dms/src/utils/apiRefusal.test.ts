@@ -68,6 +68,14 @@ describe('apiRefusalText — the API refusal in the UI language, never its Engli
     expect(
       apiRefusalText(t, refusal(422, { reason: 'missing_config_fields', missingConfigKeys: ['username', 'notAKnownKey'] }, 'unprocessable_entity'), FALLBACK),
     ).toBe(r.missing_config_fields.replace('{{fields}}', `${fr.integrationEnums.configKey.username}, notAKnownKey`))
+    // KAN-741: a sandbox connection to a provider without test access; a provider flipped
+    // to «no sandbox» while sandbox connections to it remain, with their count.
+    expect(apiRefusalText(t, refusal(422, { reason: 'provider_has_no_sandbox', providerCode: 'autoscout24' }, 'unprocessable_entity'), FALLBACK)).toBe(
+      r.provider_has_no_sandbox,
+    )
+    expect(apiRefusalText(t, refusal(409, { reason: 'provider_sandbox_connections_exist', count: 2 }), FALLBACK)).toBe(
+      r.provider_sandbox_connections_exist.replace('{{count}}', '2'),
+    )
   })
 
   it("names the access window's days in the user's locale, as calendar days", async () => {
