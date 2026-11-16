@@ -279,26 +279,30 @@ def test_every_sortable_column_is_one_a_cursor_can_be_checked_against():
     The allow-lists are `_all_sort_allow_lists()`, shared with KAN-713's minting
     guard below, so a new sorted list is named once."""
 
-    unsupported = [
-        f"{column}"
-        for allowed in _all_sort_allow_lists().values()
-        for column in allowed.values()
-        if not cursor_column_supported(column)
-    ]
-    assert unsupported == []
+    assert _unsupported_columns(_all_sort_allow_lists()) == []
 
     # KAN-461: a list-query registry's sort columns too (the layer carries a
-    # decimal, a date and a boolean through the preserved cursor format).
-    from app.inventory.services.stock_grid import STOCK_ITEM_COLUMNS
+    # decimal, a date and a boolean through the preserved cursor format) —
+    # every registry in app/, found by _discover_sort_allow_lists (KAN-744).
+    assert _unsupported_registry_columns(_discover_sort_allow_lists()[1]) == []
 
-    registries = (STOCK_ITEM_COLUMNS,)
-    unsupported = [
-        spec.api_name
-        for registry in registries
+
+def _unsupported_columns(allow_lists: dict[str, dict]) -> list[str]:
+    return [
+        f"{name}.{api_name}"
+        for name, allowed in allow_lists.items()
+        for api_name, column in allowed.items()
+        if not cursor_column_supported(column)
+    ]
+
+
+def _unsupported_registry_columns(registries: dict[str, tuple]) -> list[str]:
+    return [
+        f"{name}.{spec.api_name}"
+        for name, registry in registries.items()
         for spec in registry
         if not cursor_column_supported(spec.sort_column if spec.sort_column is not None else spec.column)
     ]
-    assert unsupported == []
 
 
 def test_every_fixed_sort_declares_its_columns_nullability_truly():
@@ -411,37 +415,123 @@ def _round_trip(column, value):
     return back.value if isinstance(back, BindParameter) else back
 
 
-def _all_sort_allow_lists() -> dict[str, dict]:
-    from app.customer.api.customers import CUSTOMER_SORT_FIELDS
-    from app.integration.api.connections import CONNECTION_SORT_FIELDS
-    from app.inventory.api.group import GROUP_STOCK_SORT_FIELDS
-    from app.inventory.services.stock_grid import STOCK_ITEM_COLUMNS
-    from app.platform.api.dealership_users import USER_SORT_FIELDS
-    from app.platform.api.recovery import RECOVERY_SORT_FIELDS
-    from app.sales.api.contracts import CONTRACT_SORT_FIELDS
-    from app.sales.api.deals import DEAL_SORT_FIELDS
-    from app.sales.api.offers import OFFER_SORT_FIELDS
-    from app.valuation.api.valuations import VALUATION_SORT_FIELDS
-    from app.vehicle.api.vehicle_mdm import VEHICLE_MDM_SORT_FIELDS
+def _app_modules() -> list:
+    """Every module under app/, imported: where a sort allow-list or a
+    list-query registry can live."""
 
-    return {
-        "customers": CUSTOMER_SORT_FIELDS,
-        "connections": CONNECTION_SORT_FIELDS,
-        "group stock": GROUP_STOCK_SORT_FIELDS,
-        "dealership users": USER_SORT_FIELDS,
-        "recovery": RECOVERY_SORT_FIELDS,
-        "contracts": CONTRACT_SORT_FIELDS,
-        "deals": DEAL_SORT_FIELDS,
-        "offers": OFFER_SORT_FIELDS,
-        "valuations": VALUATION_SORT_FIELDS,
-        "vehicle-mdm": VEHICLE_MDM_SORT_FIELDS,
-        # A grid on the list-query layer (ADR-179) sorts by its registry's sortable columns.
-        "stock grid (list-query registry)": {
+    import importlib
+    import pkgutil
+
+    import app
+
+    return [importlib.import_module(info.name) for info in pkgutil.walk_packages(app.__path__, "app.")]
+
+
+def _discover_sort_allow_lists(modules=None) -> tuple[dict[str, dict], dict[str, tuple]]:
+    """KAN-744: every sort allow-list (a module-level dict named
+    `*_SORT_FIELDS`) and every list-query `Registry` (a module-level,
+    non-empty tuple of `ColumnSpec`) in `modules` — by default every module
+    under app/. Found by scanning, so a new grid on the layer, or a new sorted
+    list, is held to the guards below without editing this test. A value
+    re-exported by another module is counted once, under its first name."""
+
+    from app.core.list_query import ColumnSpec
+
+    allow_lists: dict[str, dict] = {}
+    registries: dict[str, tuple] = {}
+    seen: set[int] = set()
+    for module in _app_modules() if modules is None else modules:
+        for attr, value in sorted(vars(module).items()):
+            if id(value) in seen:
+                continue
+            label = f"{module.__name__}.{attr}"
+            if attr.endswith("_SORT_FIELDS") and isinstance(value, dict):
+                allow_lists[label] = value
+            elif isinstance(value, tuple) and value and all(isinstance(spec, ColumnSpec) for spec in value):
+                registries[label] = value
+            else:
+                continue
+            seen.add(id(value))
+    return allow_lists, registries
+
+
+def _all_sort_allow_lists(modules=None) -> dict[str, dict]:
+    """Every sortable column of every sorted list: the allow-lists as they
+    are, and a grid on the list-query layer (ADR-179) by its registry's
+    sortable columns."""
+
+    allow_lists, registries = _discover_sort_allow_lists(modules)
+    for name, registry in registries.items():
+        allow_lists[f"{name} (list-query registry)"] = {
             spec.api_name: spec.sort_column if spec.sort_column is not None else spec.column
-            for spec in STOCK_ITEM_COLUMNS
+            for spec in registry
             if spec.sortable
-        },
-    }
+        }
+    return allow_lists
+
+
+def _mint_failures(allow_lists: dict[str, dict]) -> list[str]:
+    failures = []
+    for name, allowed in allow_lists.items():
+        for api_name, column in allowed.items():
+            try:
+                value = _sample_value(column)
+                back = _round_trip(column, value)
+            except Exception as exc:  # noqa: BLE001 — every failure is reported, not just the first
+                failures.append(f"{name}.{api_name}: {type(exc).__name__}: {exc}")
+                continue
+            if back != value or type(back) is not type(value):
+                failures.append(f"{name}.{api_name}: {value!r} came back as {back!r}")
+    return failures
+
+
+def test_discovery_finds_every_list_the_hand_list_named():
+    """The scan finds at least what the hand list of KAN-713 named, so moving
+    to it dropped no list."""
+
+    allow_lists, registries = _discover_sort_allow_lists()
+    found = {name.rsplit(".", 1)[1] for name in [*allow_lists, *registries]}
+    assert {
+        "CUSTOMER_SORT_FIELDS",
+        "CONNECTION_SORT_FIELDS",
+        "GROUP_STOCK_SORT_FIELDS",
+        "USER_SORT_FIELDS",
+        "RECOVERY_SORT_FIELDS",
+        "CONTRACT_SORT_FIELDS",
+        "DEAL_SORT_FIELDS",
+        "OFFER_SORT_FIELDS",
+        "VALUATION_SORT_FIELDS",
+        "VEHICLE_MDM_SORT_FIELDS",
+        "STOCK_ITEM_COLUMNS",
+    } <= found
+
+
+def test_a_registry_and_an_allow_list_no_one_named_are_still_checked():
+    """KAN-744's red case: a module the guards were never told about, holding
+    a list-query registry and a sort allow-list on a column no cursor can be
+    minted for (JSON). Both guards report both."""
+
+    import types
+
+    from app.core.list_query import ColumnSpec
+    from app.sales.models.contract import SalesContract
+
+    probe = types.ModuleType("tests.kan744_probe")
+    probe.PROBE_GRID_COLUMNS = (
+        ColumnSpec(api_name="snapshot", column=SalesContract.vehicle_snapshot, value_type="text", label_key="x"),
+    )
+    probe.PROBE_SORT_FIELDS = {"snapshot": SalesContract.vehicle_snapshot}
+
+    allow_lists, registries = _discover_sort_allow_lists([probe])
+    assert list(allow_lists) == ["tests.kan744_probe.PROBE_SORT_FIELDS"]
+    assert list(registries) == ["tests.kan744_probe.PROBE_GRID_COLUMNS"]
+
+    assert _unsupported_columns(_all_sort_allow_lists([probe])) == [
+        "tests.kan744_probe.PROBE_SORT_FIELDS.snapshot",
+        "tests.kan744_probe.PROBE_GRID_COLUMNS (list-query registry).snapshot",
+    ]
+    assert _unsupported_registry_columns(registries) == ["tests.kan744_probe.PROBE_GRID_COLUMNS.snapshot"]
+    assert len(_mint_failures(_all_sort_allow_lists([probe]))) == 2
 
 
 def test_every_sort_allow_list_column_mints_a_cursor_that_decodes_to_its_own_value():
@@ -450,18 +540,7 @@ def test_every_sort_allow_list_column_mints_a_cursor_that_decodes_to_its_own_val
     row on it at all, and decodes back to the row's value of the row's type —
     what KAN-713's four sorts failed."""
 
-    failures = []
-    for name, allowed in _all_sort_allow_lists().items():
-        for api_name, column in allowed.items():
-            value = _sample_value(column)
-            try:
-                back = _round_trip(column, value)
-            except Exception as exc:  # noqa: BLE001 — every failure is reported, not just the first
-                failures.append(f"{name}.{api_name}: {type(exc).__name__}: {exc}")
-                continue
-            if back != value or type(back) is not type(value):
-                failures.append(f"{name}.{api_name}: {value!r} came back as {back!r}")
-    assert failures == []
+    assert _mint_failures(_all_sort_allow_lists()) == []
 
 
 def test_a_null_on_a_nullable_date_or_money_column_round_trips():
