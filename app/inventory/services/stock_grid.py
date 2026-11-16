@@ -5,7 +5,7 @@ it is not a column. `tests/test_kan461_stock_grid.py` holds the two lists to
 the model: a new column fails until someone decides.
 
 The default-visible set is the grid's documented one (unchanged by
-KAN-461). Stock's technical columns (fuel, power …) are not here: they need
+KAN-461; KAN-739 adds «Standort», Anto's ruling of 2026-11-15). Stock's technical columns (fuel, power …) are not here: they need
 inventory's own specification snapshot (a separate ticket) — Stock never
 reads vehicle-mdm's tables (rule 2)."""
 
@@ -72,6 +72,9 @@ STOCK_ITEM_COLUMNS: Registry = (
     ColumnSpec("odometerKm", StockItem.odometer_km, "number", _L + "odometerKm", default_visible=True),
     ColumnSpec("effectivePrice", StockItem.effective_price, "money", _L + "effectivePrice", default_visible=True),
     ColumnSpec("updatedAt", StockItem.updated_at, "datetime", _L + "changed", default_visible=True),
+    # KAN-739 (Anto, 2026-11-15): «Standort» joins the documented default-visible
+    # set — the location's name, rule 2's copy beside `location_id`.
+    ColumnSpec("locationLabel", StockItem.location_label, "text", _L + "location", default_visible=True),
     # Every other persisted field, one click away.
     ColumnSpec("vin", StockItem.vin, "text", _L + "vin"),
     ColumnSpec("listPrice", StockItem.list_price, "money", _L + "listPrice"),
@@ -121,8 +124,7 @@ STOCK_ITEM_COLUMNS: Registry = (
 
 # Each persisted column that is not a grid column, and why (ADR-060: a
 # stored field that cannot be put on screen is a defect — these are ids,
-# bookkeeping or a scope, not a business fact of their own; the location is
-# the one fact, KAN-739). FR-UI-01's PRD justification: PRD-Stock's delivery
+# bookkeeping or a scope, not a business fact of their own). FR-UI-01's PRD justification: PRD-Stock's delivery
 # line for KAN-461 records this list.
 STOCK_ITEM_EXCLUDED_COLUMNS: dict[str, str] = {
     "id": "the row's identity; the grid opens the car by it",
@@ -138,7 +140,8 @@ STOCK_ITEM_EXCLUDED_COLUMNS: dict[str, str] = {
     "trade_in_customer_id": "a customer id relayed from Sales with no label on the item",
     "valuation_ref_id": "the valuation's id; its amount, source and date are columns",
     "left_stock_at": "always empty in this list: a car that left stock is not in it (FR-I-12)",
-    "location_id": "a location id with no label column on the item yet (KAN-739 adds the label and the column)",
+    "location_id": "the location's id; shown by `locationLabel` (KAN-739)",
+    "location_label_refreshed_at": "label-refresh bookkeeping (the three-column pattern)",
 }
 
 DEFAULT_STOCK_ITEM_SORT: tuple[tuple[str, str], ...] = (("updatedAt", "desc"),)

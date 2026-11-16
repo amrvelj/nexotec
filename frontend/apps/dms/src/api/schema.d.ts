@@ -12821,6 +12821,8 @@ export interface components {
             listPrice: string | null;
             /** Locationid */
             locationId: string | null;
+            /** Locationlabel */
+            locationLabel: string | null;
             /** Notionalinputtaxamount */
             notionalInputTaxAmount: string | null;
             /** Notionalinputtaxapplicable */

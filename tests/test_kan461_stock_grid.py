@@ -75,6 +75,8 @@ def test_the_grid_schema_serves_the_registry(client):
     assert {name for name, field in fields.items() if field["defaultVisible"]} == {
         "stockNumber", "vehicleLabel", "condition", "lifecycleStatus", "reservationState", "odometerKm",
         "effectivePrice", "updatedAt",
+        # KAN-739 (Anto, 2026-11-15): «Standort» is visible by default.
+        "locationLabel",
     }
 
 
