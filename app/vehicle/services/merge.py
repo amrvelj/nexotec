@@ -47,7 +47,10 @@ def merge_vehicle_records(
     """`POST /v1/vehicle-mdm/{duplicate}/merge` (KAN-524, FR-V-12): folds the
     duplicate into the survivor for good.
 
-    Both rows are locked in id order before anything is read from them, so two
+    An already-merged record is refused (409 `vehicle_merged`) on an unlocked
+    read first, before any lock (KAN-733, ADR-182: a «VIN korrigieren» holding
+    the survivor never waits on a re-merge holding the duplicate). Then both
+    rows are locked in id order before anything else is read from them, so two
     merges of one pair (or of A→B and B→A) serialise instead of crossing. Then,
     nothing written: the same record twice (422 `vehicle_merge_same_record`);
     a VIN record into a chassis-number record (422

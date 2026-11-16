@@ -79,7 +79,9 @@ platform.md (verified against main@73baf3f, 2026-10-25) by KAN-614, 2026-11-10; 
   configuration.
 - Group-scoped reads live only in the files `tests/architecture/test_no_ambient_group_read.py`
   allow-lists; a new one is an ADR plus an entry. The test sees `group_id`/`dealer_group_id` in
-  `==`, `.in_(`, `filter_by(…=)` and single-line `text(…)` — a multi-line `text()` escapes it.
+  `==`, `.in_(`, `filter_by(…=)` and single-line `text(…)` — a multi-line `text()` escapes it —
+  and, since KAN-737, a group id on the right of `==` and a group id handed to a call as
+  `tenant_id=` (the group-owned writes `record_audit_event` and `OutboxEvent` aside).
   `platform.public.list_group_read_dealerships` has one ruled caller, Stock's group listing
   (`test_group_read_dealerships_callers.py`). Cross-tenant reads are 404, never 403.
 - **A membership may cross dealer groups** (ADR-106): `grant_membership` does not ask for the

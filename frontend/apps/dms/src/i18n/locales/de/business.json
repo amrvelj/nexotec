@@ -168,7 +168,7 @@
   "security": {
     "title": "Sicherheit",
     "mfaEnforced": "Zweiten Faktor für alle Benutzer verlangen",
-    "mfaEnforcedHint": "Jeder Benutzer dieses Betriebs muss sich zusätzlich zum Passwort mit einer Authenticator-App oder einem Passkey anmelden. Für Nexotec-Mitarbeitende gilt das immer.",
+    "mfaEnforcedHint": "Jeder Benutzer dieses Betriebs muss sich zusätzlich zum Passwort mit einer Authenticator-App oder einem Passkey anmelden. Für Nexotec-Mitarbeiter gilt das immer.",
     "idleMinutes": "Abmeldung bei Inaktivität nach",
     "idleMinutesHint": "Zwischen {{min, number}} und {{max, number}} Minuten. Leer lassen für den Wert von Nexotec.",
     "idlePlaceholder": "{{minutes, number}} Minuten (Nexotec)",

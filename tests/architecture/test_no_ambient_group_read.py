@@ -18,6 +18,11 @@ and `dealer_group_id` entirely (a genuinely different column that
 `app/inventory/services/group_listing.py` filtered on — exempt only by
 accident of spelling, not by decision).
 
+KAN-737 added the two spellings with the group id on the other side: a
+column compared TO a group id (`X.tenant_id == scope.group_id`), and a group
+id handed to a call as its `tenant_id=` (an AST check, since a call spans
+lines; the group-owned writes `record_audit_event` and `OutboxEvent` aside).
+
 An exact file allowlist, not a directory-level one: a directory exemption
 would let a second, unrelated function anywhere in one of these packages
 slip through unnoticed. Each entry's reason is inline below, and the
