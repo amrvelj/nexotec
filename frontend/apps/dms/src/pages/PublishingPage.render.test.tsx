@@ -5,7 +5,7 @@ import userEvent from '@testing-library/user-event'
 import { renderWithProviders } from '../test/renderWithProviders'
 import { installFakeBackend, type FakeRoute } from '../test/fakeBackend'
 import { PublishingPage } from './PublishingPage'
-import { WebsiteListingCard } from '../components/stock-detail/WebsiteListingCard'
+import { WebsiteListingCard } from '../modules/stock/components/stock-detail/WebsiteListingCard'
 
 // KAN-225 — Dealer Administration › Publishing: the Betrieb's sections and
 // the validation panel in the dealer's words; a save sends only what changed

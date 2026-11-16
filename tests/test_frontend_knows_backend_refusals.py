@@ -29,7 +29,7 @@ APP = ROOT / "app"
 DMS_SRC = ROOT / "frontend" / "apps" / "dms" / "src"
 API_REFUSAL_TS = DMS_SRC / "utils" / "apiRefusal.ts"
 NOT_A_REFUSAL_JSON = DMS_SRC / "utils" / "notARefusalReasons.json"
-BANNER_TSX = DMS_SRC / "components" / "stock-detail" / "BlockingConditionBanner.tsx"
+BANNER_TSX = DMS_SRC / "modules" / "stock" / "components" / "stock-detail" / "BlockingConditionBanner.tsx"
 LISTING_CONDITIONS = APP / "inventory" / "services" / "listing_conditions.py"
 
 # The three literal forms apiRefusal.test.ts reads, verbatim (its REASON_LITERALS; a vitest case pins the two lists).

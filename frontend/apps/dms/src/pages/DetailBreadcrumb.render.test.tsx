@@ -7,7 +7,7 @@ import { renderWithProviders } from '../test/renderWithProviders'
 import { installFakeBackend } from '../test/fakeBackend'
 import type { StockItemRead, VehicleMdmRead } from '../api/types'
 import { VehicleDetailPage } from './VehicleDetailPage'
-import { StockDetailPage } from './StockDetailPage'
+import { StockDetailPage } from '../modules/stock/pages/StockDetailPage'
 
 // KAN-63 — both pages used to pass the raw route param (the UUIDv7 primary
 // key) straight into useSetBreadcrumb, so the breadcrumb's last segment was
