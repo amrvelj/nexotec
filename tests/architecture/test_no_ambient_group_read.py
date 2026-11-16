@@ -116,14 +116,14 @@ _ALLOWED_FILES = {
     # its last-write and snapshot checks) takes the audit rows of a group
     # customer's History it wrote: `tenant_id` = the Betrieb's OWN group,
     # handed in by platform (`ExportScope.group_id`), never another's, and
-    # narrowed to the rows attributed to that Betrieb. The worker's export
+    # narrowed to the rows attributed to that Betrieb. The export job's read
     # only, never a dealer-facing read — the customer exporter's precedent
     # (customer/services/data_export.py above).
     _APP_ROOT / "core" / "export_core.py",
     # KAN-218, found by KAN-737's right-hand pattern: platform's half of the
     # Betrieb export takes the ONE dealer_group row that is the Betrieb's own
     # group (`group.c.id == scope.group_id`, the group handed in by
-    # platform's own ExportScope), never another's. The worker's export only,
+    # platform's own ExportScope), never another's. The export job's read only,
     # never a dealer-facing read — the exporters' precedent above.
     _APP_ROOT / "platform" / "services" / "data_export_tables.py",
     # KAN-467, ADR-039 as amended (Anto, 2026-10-31: "it's on a group

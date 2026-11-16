@@ -50,7 +50,6 @@ logger = logging.getLogger(__name__)
 
 DOWNLOAD_WINDOW = dt.timedelta(days=7)
 REQUESTED_EVENT = "platform.data_export.requested"
-CONSUMER_NAME = "platform.data_export_production"
 PRODUCER = "platform"
 ENTITY_TYPE = "data_export"
 CONTENT_TYPE = "application/zip"

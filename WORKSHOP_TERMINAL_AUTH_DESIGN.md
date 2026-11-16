@@ -16,7 +16,7 @@ has fewer open questions.
 
 Nexotec owns staff authentication (D-A-07; KAN-196 removed WP-4's Zitadel front
 door): an office user signs in with e-mail and password at `POST /v1/auth/login`
-(`app/platform/api/auth.py`), checked by `LocalPasswordProvider`
+(`app/platform/identity/api/auth.py`), checked by `LocalPasswordProvider`
 (`app/platform/identity/services/identity.py`), with the second factor in the `mfa_*` tables
 and the signed-in session in `session`. Shared workshop terminals are a
 deliberately **separate, local, device-scoped** realm (D-A-13) — ADR-028's own text
@@ -81,7 +81,7 @@ Two steps, in order — the device authenticates itself before any technician do
 ## Never a manager, by construction
 
 **Decided by ADR-110 (KAN-254, option A):** the terminal session is minted by the
-same `_mint_session` (`app/platform/api/auth.py`) every staff sign-in passes
+same `_mint_session` (`app/platform/identity/api/auth.py`) every staff sign-in passes
 through, called with the realm `terminal` (the office's is `staff`). In the
 terminal realm it:
 
@@ -111,7 +111,7 @@ skips the checks and writes no session row).
 in the same `session` table the staff sign-in writes, judged by the same
 guard, with an idle window of its own.** Since KAN-196 every staff session is a
 `session` row (`app/platform/identity/services/auth_sessions.py`), and the app-level
-dependency `app/platform/session_guard.py::enforce_live_session` refuses a
+dependency `app/platform/identity/session_guard.py::enforce_live_session` refuses a
 token whose row is revoked, idle (`session_idle_minutes`, 120 for the office)
 or past its absolute end, touching the row at most once a minute. The terminal
 reuses that, nothing new:
@@ -154,7 +154,7 @@ reviewed before someone has to invent it under deadline pressure.
 ## Bolt-on point
 
 What this reuses from the staff login is the one session-minting path,
-`_mint_session` (`app/platform/api/auth.py`), in its `terminal` realm (ADR-110) —
+`_mint_session` (`app/platform/identity/api/auth.py`), in its `terminal` realm (ADR-110) —
 and through it the session layer's token, `create_access_token()`, which already
 takes every parameter needed. `app/core/auth.py` is untouched: the preserved-file
 guarantee (`get_current_principal`'s contract) holds for this future work as it

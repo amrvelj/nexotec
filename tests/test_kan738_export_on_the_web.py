@@ -186,9 +186,7 @@ def test_a_downloadable_export_whose_file_is_gone_is_a_start_up_finding(client, 
     data_export_runner.run_once(factory, store=export_store)
     expired = request_export(client, dealership_id, headers)
     data_export_runner.run_once(factory, store=export_store)
-    data_export.expire_downloads(
-        db_session, now=utcnow() + dt.timedelta(days=8), store=export_store
-    )  # both expire ...
+    data_export.expire_downloads(db_session, now=utcnow() + dt.timedelta(days=8), store=export_store)  # both expire ...
     db_session.execute(
         update(ExportJob)
         .where(ExportJob.id == uuid.UUID(lost["id"]))
@@ -203,3 +201,109 @@ def test_a_downloadable_export_whose_file_is_gone_is_a_start_up_finding(client, 
         ("export_job.object_key names no stored object", "export_job", uuid.UUID(lost["id"]))
     ]
     assert uuid.UUID(expired["id"]) not in {o.source_row_id for o in alarm.value.orphans}
+
+
+# --- KAN-738 review: one failure never holds the others or the expiry back ------------
+
+
+def test_an_export_that_escapes_production_is_left_requested_and_the_rest_still_run(
+    client, export_store, engine, db_session, monkeypatch, caplog
+):
+    """`produce` records its own failures; one that still escapes it (the
+    database, the commit) leaves that export `requested` for the next pass —
+    and this pass still produces the others and runs the expiry."""
+
+    dealership_id, _, headers = betrieb_with_manager(client)
+    first = request_export(client, dealership_id, headers)
+    second = request_export(client, dealership_id, headers)
+    factory = sessionmaker(bind=engine, expire_on_commit=False)
+    expired: list[bool] = []
+    real_produce, real_expire = data_export.produce, data_export.expire_downloads
+
+    def produce(db, *, export_id, store=None):
+        if str(export_id) == first["id"]:
+            raise RuntimeError("the database went away")
+        return real_produce(db, export_id=export_id, store=store)
+
+    def expire(db, *, now=None, store=None):
+        expired.append(True)
+        return real_expire(db, now=now, store=store)
+
+    monkeypatch.setattr(data_export, "produce", produce)
+    monkeypatch.setattr(data_export, "expire_downloads", expire)
+
+    assert data_export_runner.run_once(factory, store=export_store) == 1
+
+    assert get_export(client, dealership_id, first["id"], headers)["status"] == "requested"
+    assert get_export(client, dealership_id, second["id"], headers)["status"] == "ready"
+    assert expired == [True]
+    assert any("left requested for the next pass" in record.getMessage() for record in caplog.records)
+
+    monkeypatch.setattr(data_export, "produce", real_produce)
+    assert data_export_runner.run_once(factory, store=export_store) == 1
+    assert get_export(client, dealership_id, first["id"], headers)["status"] == "ready"
+
+
+def test_a_failing_expiry_is_logged_and_never_raises(client, export_store, engine, monkeypatch, caplog):
+    def expire(db, *, now=None, store=None):
+        raise RuntimeError("the store went away")
+
+    monkeypatch.setattr(data_export, "expire_downloads", expire)
+
+    assert data_export_runner.run_once(sessionmaker(bind=engine, expire_on_commit=False), store=export_store) == 0
+    assert any("the expiry pass failed" in record.getMessage() for record in caplog.records)
+
+
+def test_the_nightly_reconciliation_reports_a_stuck_request_and_an_overdue_file(
+    client, export_store, engine, db_session
+):
+    """Rule 10: what the outbox's dead letter and the daily job's alarm said
+    before — an export still `requested` an hour on, a file kept an hour past
+    its seven days."""
+
+    from app.core.reconciliation import StateCheck, find_rows_in_state
+    from app.platform import reconciliation
+
+    dealership_id, _, headers = betrieb_with_manager(client)
+    stuck = request_export(client, dealership_id, headers)
+    overdue = request_export(client, dealership_id, headers)
+    fresh = request_export(client, dealership_id, headers)
+    factory = sessionmaker(bind=engine, expire_on_commit=False)
+    db_session.execute(
+        update(ExportJob)
+        .where(ExportJob.id.in_([uuid.UUID(stuck["id"]), uuid.UUID(overdue["id"])]))
+        .values(created_at=utcnow() - dt.timedelta(hours=2))
+    )
+    db_session.commit()
+    # Produce `overdue` only, then age its window; `stuck` stays requested.
+    holder = factory()
+    holder.execute(
+        update(ExportJob).where(ExportJob.id == uuid.UUID(stuck["id"])).values(reason="held")
+    )  # a row lock: the pass skips it
+    try:
+        data_export_runner.run_once(factory, store=export_store)
+    finally:
+        holder.rollback()
+        holder.close()
+    db_session.execute(
+        update(ExportJob)
+        .where(ExportJob.id == uuid.UUID(overdue["id"]))
+        .values(download_expires_at=utcnow() - dt.timedelta(hours=2))
+    )
+    db_session.commit()
+
+    by_label = {
+        check.label: check
+        for check in reconciliation.CHECKS
+        if isinstance(check, StateCheck) and check.label.startswith("export_job.")
+    }
+
+    assert [
+        row for row, _ in find_rows_in_state(db_session, by_label["export_job.requested_an_hour_ago_and_not_produced"])
+    ] == [uuid.UUID(stuck["id"])]
+    assert [
+        row for row, _ in find_rows_in_state(db_session, by_label["export_job.file_kept_past_its_download_window"])
+    ] == [uuid.UUID(overdue["id"])]
+    assert uuid.UUID(fresh["id"]) not in {
+        row for check in by_label.values() for row, _ in find_rows_in_state(db_session, check)
+    }

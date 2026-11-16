@@ -40,14 +40,6 @@ register_exporters()
 # the registry (app.core.status) and imports no context itself.
 register_status_providers()
 
-# KAN-196 (FR-AU-17/18): every request carrying a session token is checked
-# against its `session` row — revoked, idle or past its absolute end is 401
-# before any route runs. An app-level dependency, not middleware: it resolves
-# the database through get_db like every route, so the tests' override
-# reaches it, and it runs before the route's own dependencies.
-# KAN-218 (FR-A-45): after it, the archive gate — an offboarded Betrieb's
-# principals get 404 everywhere.
-
 
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
@@ -62,6 +54,13 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         data_export_runner.stop()
 
 
+# KAN-196 (FR-AU-17/18): every request carrying a session token is checked
+# against its `session` row — revoked, idle or past its absolute end is 401
+# before any route runs. An app-level dependency, not middleware: it resolves
+# the database through get_db like every route, so the tests' override
+# reaches it, and it runs before the route's own dependencies.
+# KAN-218 (FR-A-45): after it, the archive gate — an offboarded Betrieb's
+# principals get 404 everywhere.
 app = FastAPI(
     title="DMS Platform",
     version="0.1.0",

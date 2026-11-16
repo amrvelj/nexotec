@@ -29,6 +29,7 @@ export back to it is that follow-up's decision.
 
 import logging
 import threading
+import uuid
 from collections.abc import Callable
 
 from sqlalchemy import select
@@ -43,26 +44,33 @@ logger = logging.getLogger(__name__)
 POLL_INTERVAL_SECONDS = 30.0
 
 
-def _claim_next(db: Session):
-    return db.scalar(
-        select(ExportJob.id)
-        .where(ExportJob.status == ExportJobStatus.REQUESTED)
-        .order_by(ExportJob.created_at, ExportJob.id)
-        .limit(1)
-        .with_for_update(skip_locked=True)
-    )
+def _claim_next(db: Session, *, skip: set[uuid.UUID] | None = None) -> uuid.UUID | None:
+    query = select(ExportJob.id).where(ExportJob.status == ExportJobStatus.REQUESTED)
+    if skip:
+        query = query.where(ExportJob.id.not_in(skip))
+    return db.scalar(query.order_by(ExportJob.created_at, ExportJob.id).limit(1).with_for_update(skip_locked=True))
 
 
 def run_once(session_factory: Callable[[], Session], *, store: ObjectStore | None = None) -> int:
     """One pass: every requested export produced, one per transaction, then
     every expired file deleted. Returns the number of exports produced or
-    recorded as failed. An export another pass holds is skipped."""
+    recorded as failed. An export another pass holds is skipped.
+
+    One export's failure never holds the others or the expiry back (KAN-738
+    review): `produce` records its own failures as `failed`; anything that
+    still escapes it (the database, the commit) is logged at ERROR, that
+    export is left `requested` for the next pass, and this pass goes on
+    without it. The expiry runs whatever the productions did. An export left
+    `requested` for an hour, or a file kept past its window, is reported by
+    the nightly reconciliation (`app/platform/reconciliation.py`)."""
 
     handled = 0
+    failed: set[uuid.UUID] = set()
     while True:
         db = session_factory()
+        export_id = None
         try:
-            export_id = _claim_next(db)
+            export_id = _claim_next(db, skip=failed)
             if export_id is None:
                 db.rollback()
                 break
@@ -71,12 +79,23 @@ def run_once(session_factory: Callable[[], Session], *, store: ObjectStore | Non
             handled += 1
         except Exception:
             db.rollback()
-            raise
+            if export_id is None:
+                logger.exception("data export runner: could not claim a requested export")
+                break
+            failed.add(export_id)
+            logger.exception(
+                "data export runner: export %s left requested for the next pass",
+                export_id,
+                extra={"exportId": str(export_id)},
+            )
         finally:
             db.close()
     db = session_factory()
     try:
         data_export.expire_downloads(db, store=store)
+    except Exception:
+        db.rollback()
+        logger.exception("data export runner: the expiry pass failed")
     finally:
         db.close()
     return handled
