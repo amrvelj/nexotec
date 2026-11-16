@@ -12,7 +12,7 @@ import { buildDealTakeOverAction, useTakeOverDeal } from '../components/dealRowM
 import { SalesDocumentsSection } from '../components/SalesDocumentsSection'
 import { useIdempotencyKey } from '../hooks/useIdempotencyKey'
 import { OfferWorkspaceContent } from './OfferWorkspacePage'
-import { StockDetailContent } from './StockDetailPage'
+import { StockDetailContent } from '../components/stock-detail/StockDetailContent'
 import type { SalesOfferRead } from '../api/types'
 import { apiRefusalText } from '../utils/apiRefusal'
 import { VehicleChangedBanner } from '../components/deal-workspace/VehicleChangedBanner'
