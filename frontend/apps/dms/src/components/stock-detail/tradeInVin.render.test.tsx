@@ -32,7 +32,7 @@ const TRADE_IN_ITEM: StockItemRead = {
   condition: 'used', lifecycleStatus: 'pipeline', reservationState: 'none', ageingBucket: 'green',
   odometerKm: null, listPrice: null, effectivePrice: null, basePrice: null, bodyStyle: null,
   exteriorColour: null, firstRegistrationDate: null, inStockAt: null, leftStockAt: null, isInvoiceable: false,
-  landedCost: null, locationId: null, notionalInputTaxAmount: null, notionalInputTaxApplicable: null,
+  landedCost: null, locationId: null, locationLabel: null, notionalInputTaxAmount: null, notionalInputTaxApplicable: null,
   notionalInputTaxOverridden: false, notionalInputTaxRate: null, orderDate: null, expectedDelivery: null,
   pipelineRef: 'contract:k-1:trade_in', purchaseDate: null, purchaseInvoiceRef: null, purchasePrice: null,
   supplierIsVatRegistered: null, supplierName: null, valuationRefAmount: null, valuationRefId: null,

@@ -44,7 +44,7 @@ const STOCK_ITEM: StockItemRead = {
   condition: 'used', lifecycleStatus: 'in_stock', reservationState: 'none', ageingBucket: 'green',
   odometerKm: 12500, listPrice: '42500.00', effectivePrice: '41900.50', basePrice: null, bodyStyle: null,
   exteriorColour: null, firstRegistrationDate: '2021-04-01', inStockAt: NOW, leftStockAt: null, isInvoiceable: true,
-  landedCost: null, locationId: null, notionalInputTaxAmount: null, notionalInputTaxApplicable: null,
+  landedCost: null, locationId: null, locationLabel: null, notionalInputTaxAmount: null, notionalInputTaxApplicable: null,
   notionalInputTaxOverridden: false, notionalInputTaxRate: null, orderDate: null,
   expectedDelivery: null, pipelineRef: null, purchaseDate: null, purchaseInvoiceRef: null,
   purchasePrice: null, supplierIsVatRegistered: null, supplierName: null, valuationRefAmount: null,
