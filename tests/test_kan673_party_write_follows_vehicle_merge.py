@@ -277,7 +277,9 @@ def test_a_merge_committed_after_the_request_read_its_vehicle_is_still_followed(
     factory = sessionmaker(bind=engine, autoflush=False, autocommit=False, expire_on_commit=False)
 
     with factory() as request, factory() as merge:
-        assert get_vehicle_mdm_or_404(request, duplicate.id).merged_into_vehicle_id is None
+        get_vehicle_mdm_or_404(request, duplicate.id)  # the route's 404 read, as it runs
+        # It leaves the session a copy of the row, read before the merge.
+        assert request.get(VehicleMdm, duplicate.id).merged_into_vehicle_id is None
         merge_vehicles(merge, survivor_id=survivor.id, duplicate_id=duplicate.id, actor_id=uuid.uuid4())
         party = allocate_vehicle_party(
             request, vehicle_id=duplicate.id, customer_id=customer.id, role=OWNER, group_id=group_id,
