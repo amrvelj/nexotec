@@ -27,6 +27,7 @@ from app.customer.models.customer import (
     CustomerExternalId,
     CustomerNumberSequence,
     CustomerPhone,
+    CustomerRole,
     CustomerTag,
 )
 from app.customer.models.legal_basis import LegalBasis
@@ -76,6 +77,7 @@ class CustomerExporter(TableExporter):
             _child(CustomerExternalId),
             _child(CustomerTag),
             _child(CustomerContactGroup),
+            _child(CustomerRole),
             _child(VehicleParty),
             _child(LegalBasis),
             ExportedTable(table=_booking, scope=lambda scope: _booking.c.tenant_id == scope.dealership_id),

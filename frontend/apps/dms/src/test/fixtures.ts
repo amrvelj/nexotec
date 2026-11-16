@@ -53,6 +53,7 @@ export function customer(overrides: Partial<CustomerRead> = {}): CustomerRead {
     nextFollowUp: null,
     notes: null,
     tags: [],
+    roles: ['customer'],
     dealershipId: null,
     createdBy: null,
     updatedBy: null,

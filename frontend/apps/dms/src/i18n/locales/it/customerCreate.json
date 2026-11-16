@@ -40,7 +40,8 @@
     "postalCode": "CAP",
     "locality": "Località",
     "country": "Paese",
-    "marketingConsent": "Consenso marketing"
+    "marketingConsent": "Consenso marketing",
+    "roles": "Ruoli"
   },
   "descriptions": {
     "correspondenceLanguage": "La lingua in cui vengono redatti i documenti e le lettere di questo cliente."
@@ -57,7 +58,8 @@
   "validation": {
     "individualNameRequired": "Inserisci un nome e un cognome per un cliente privato.",
     "companyNameRequired": "Inserisci una ragione sociale per un cliente aziendale.",
-    "contactPointRequired": "Aggiungi almeno un numero di telefono o un indirizzo e-mail."
+    "contactPointRequired": "Aggiungi almeno un numero di telefono o un indirizzo e-mail.",
+    "roleRequired": "Scegliete almeno un ruolo."
   },
   "errors": {
     "createFailed": "Impossibile creare il cliente. Controlla il modulo e riprova."

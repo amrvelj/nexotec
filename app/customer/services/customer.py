@@ -23,6 +23,7 @@ from app.core.audit import record_audit_event
 from app.core.audit_attribution import attributed
 from app.core.audit_model import AuditEvent
 from app.core.base import utcnow
+from app.core.concurrency import check_version
 from app.core.errors import BadRequestError, ConflictError, UnprocessableEntityError
 from app.core.outbox import OutboxEvent
 from app.core.outbox import publish as publish_event
@@ -31,6 +32,7 @@ from app.core.redact import REDACTED_PLACEHOLDER, is_secret_field
 from app.core.validators import normalise_phone
 from app.customer.models.customer import (
     AddressType,
+    ContactRole,
     Customer,
     CustomerAddress,
     CustomerEmail,
@@ -46,6 +48,7 @@ from app.customer.schemas.customer import (
     CustomerUpdate,
 )
 from app.customer.services import contact_groups as contact_groups_service
+from app.customer.services import roles as roles_service
 from app.customer.services.contact_channels import _consent_create_kwargs
 from app.customer.services.customer_common import (
     _EVENT_PRODUCER,
@@ -346,6 +349,12 @@ def create_customer(
             },
         },
     )
+    # KAN-464: a contact created without the customer role carries no
+    # customer field (Q1, services/roles.py).
+    lifecycle_status = roles_service.check_create(
+        data.roles, fields_set=data.model_fields_set, lifecycle_status=data.lifecycle_status, advisor_id=data.advisor_id
+    )
+    holds_customer = ContactRole.CUSTOMER in data.roles
     customer = Customer(
         group_id=group_id,
         customer_number=_allocate_customer_number(db, group_id),
@@ -362,7 +371,7 @@ def create_customer(
         legal_form=data.legal_form,
         tax_id=data.tax_id,
         preferred_channel=data.preferred_channel,
-        lifecycle_status=data.lifecycle_status,
+        lifecycle_status=lifecycle_status,
         source=data.source,
         source_ref=data.source_ref,
         marketing_consent=data.marketing_consent,
@@ -386,7 +395,8 @@ def create_customer(
     # explicit id is rejected; a default that cannot be resolved (a
     # back-office / migration actor who is not a dealership user) leaves the
     # customer unassigned rather than failing the whole create.
-    advisor_id = data.advisor_id if data.advisor_id is not None else actor_id
+    # D-24 is a customer rule: a supplier-only contact gets no advisor.
+    advisor_id = data.advisor_id if data.advisor_id is not None else (actor_id if holds_customer else None)
     if advisor_id is not None:
         try:
             _apply_advisor(
@@ -407,6 +417,7 @@ def create_customer(
         db, dealership_id=dealership_id, current=set(), wanted=set(data.contact_groups)
     )
     contact_groups_service.replace_customer_contact_groups(db, customer, data.contact_groups, actor_id=actor_id)
+    roles_service.replace_roles(db, customer, data.roles, actor_id=actor_id)
     try:
         db.flush()
     except IntegrityError as exc:
@@ -421,6 +432,7 @@ def create_customer(
     after = {field: _redact(field, getattr(customer, field)) for field in _AUDITED_FIELDS}
     after["tags"] = sorted(data.tags)
     after[contact_groups_service.AUDIT_FIELD] = sorted(data.contact_groups)
+    after[roles_service.AUDIT_FIELD] = [role.value for role in data.roles]
     record_audit_event(
         db,
         entity_type="customer",
@@ -447,6 +459,19 @@ def create_customer(
     return customer
 
 
+def _lock_for_role_change(db: Session, customer: Customer) -> None:
+    """KAN-464: a change of roles and a credit block judge each other (the
+    block is the customer role's), so both take the customer row FOR UPDATE
+    and re-read it: the second waits for the first and sees its outcome. A
+    write that committed in between (another version) is a 409, as the
+    If-Match check would have answered."""
+
+    version_read = customer.version
+    db.execute(select(Customer.id).where(Customer.id == customer.id).with_for_update())
+    db.refresh(customer)
+    check_version(customer.version, version_read, entity_name="Customer")
+
+
 def update_customer(
     db: Session,
     *,
@@ -470,6 +495,24 @@ def update_customer(
 
     before: dict[str, Any] = {}
     after: dict[str, Any] = {}
+
+    # KAN-464: the roles first — taking the customer role away closes the
+    # customer fields in this same write (services/roles.py), so the advisor
+    # and lifecycle handling below see the closing in `changes`.
+    if "roles" in changes:
+        _lock_for_role_change(db, customer)
+    current_roles = roles_service.open_roles(db, customer.id)
+    new_roles = [role.value for role in changes.pop("roles")] if "roles" in changes else current_roles
+    roles_service.apply_role_rules_on_update(
+        customer,
+        holds_customer_after=ContactRole.CUSTOMER.value in new_roles,
+        held_customer_before=ContactRole.CUSTOMER.value in current_roles,
+        changes=changes,
+    )
+    if new_roles != current_roles:
+        before[roles_service.AUDIT_FIELD] = current_roles
+        after[roles_service.AUDIT_FIELD] = new_roles
+        roles_service.replace_roles(db, customer, [ContactRole(role) for role in new_roles], actor_id=actor_id)
 
     # advisor_id is handled out of the generic loop — it drives two more
     # denormalised columns and (D-24) is never re-defaulted on update: an
@@ -527,11 +570,13 @@ def update_customer(
     # merge into this customer (KAN-372 holds it FOR SHARE) can move a
     # duplicate's tag of the same name onto it while this PATCH waits; the
     # insert then hits uq_customer_tag_customer_id_tag, a conflict (409), not
-    # a 500. Tags and contact groups (KAN-466: the same race on
+    # a 500. Tags, roles and contact groups (KAN-466: the same race on
     # uq_customer_contact_group_customer_id_value_code, 409
     # customer_contact_group_exists) are this function's only child rows. The
     # PATCH waits before inserting any of them because the flush writes
-    # `customer` before `customer_contact_group` and `customer_tag` —
+    # `customer` before `customer_contact_group`, `customer_role` (KAN-464:
+    # the same race on uq_customer_role_customer_id_role_open, 409
+    # customer_role_exists) and `customer_tag` —
     # SQLAlchemy orders these unrelated mappers by name, not by a
     # relationship — so it never holds a child row the merge needs.
     try:
@@ -539,6 +584,14 @@ def update_customer(
     except IntegrityError as exc:
         db.rollback()
         violated = _violated_constraint(exc)
+        if violated == roles_service.OPEN_ROLE_CONSTRAINT:
+            # The same race (KAN-390): a merge gave this contact the role
+            # while the PATCH waited.
+            raise ConflictError(
+                "A role in this change is already held by the contact: it changed in the meantime (a contact may"
+                " have been merged into it). Reload it and try again.",
+                details={"reason": "customer_role_exists"},
+            ) from exc
         if violated == "uq_customer_contact_group_customer_id_value_code":
             # The same race as a tag's (KAN-390): a merge moved a duplicate's
             # group onto this customer while the PATCH waited.
@@ -636,6 +689,12 @@ def set_credit_block(
 
     if blocked and not reason:
         raise ConflictError("A reason is required to place a credit block.")
+    if blocked:
+        # KAN-464 (Q1): the credit block is the customer role's. Locked
+        # first, so a PATCH taking the role away cannot slip in between.
+        _lock_for_role_change(db, customer)
+        if ContactRole.CUSTOMER.value not in roles_service.open_roles(db, customer.id):
+            raise roles_service.customer_role_required("creditBlock")
 
     before = {"creditBlock": customer.credit_block, "creditBlockReason": customer.credit_block_reason}
     customer.credit_block = blocked

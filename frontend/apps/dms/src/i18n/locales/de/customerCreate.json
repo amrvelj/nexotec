@@ -40,7 +40,8 @@
     "postalCode": "PLZ",
     "locality": "Ort",
     "country": "Land",
-    "marketingConsent": "Marketing-Einwilligung"
+    "marketingConsent": "Marketing-Einwilligung",
+    "roles": "Rollen"
   },
   "descriptions": {
     "correspondenceLanguage": "Die Sprache, in der die Dokumente und Briefe dieses Kunden verfasst werden."
@@ -57,7 +58,8 @@
   "validation": {
     "individualNameRequired": "Geben Sie Vor- und Nachnamen der Privatperson ein.",
     "companyNameRequired": "Geben Sie den Namen der Firma ein.",
-    "contactPointRequired": "Fügen Sie mindestens eine Telefonnummer oder E-Mail-Adresse hinzu."
+    "contactPointRequired": "Fügen Sie mindestens eine Telefonnummer oder E-Mail-Adresse hinzu.",
+    "roleRequired": "Wählen Sie mindestens eine Rolle."
   },
   "errors": {
     "createFailed": "Der Kunde konnte nicht erstellt werden. Prüfen Sie das Formular und versuchen Sie es erneut."

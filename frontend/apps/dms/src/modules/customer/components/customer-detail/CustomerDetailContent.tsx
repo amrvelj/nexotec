@@ -22,7 +22,7 @@ import { useAuth } from '../../../../auth/AuthContext'
 import { useCanWrite } from '../../../../auth/useCanWrite'
 import { holdsNowOrLater } from '../../../../utils/vehicleParty'
 import { toSwissLocale, type SupportedLanguage } from '../../../../i18n'
-import { translatedCustomerTypeLabel, translatedLifecycleLabel } from '../../customerOptions'
+import { showsLifecycleStatus, translatedCustomerTypeLabel, translatedLifecycleLabel, translatedRoleLabel } from '../../customerOptions'
 import { buildCustomerRowMenu } from '../customerRowMenu'
 import { OverviewTab, type AddressDraft } from './OverviewTab'
 import { useContactGroups } from '../../../../hooks/useContactGroups'
@@ -520,7 +520,15 @@ export function CustomerDetailContent({ customerId: id, embedded = false }: Cust
         badges={
           <>
             <CustomerTypeBadge type={customer.customerType} label={translatedCustomerTypeLabel(t, customer.customerType)} />
-            <LifecycleStatusBadge status={customer.lifecycleStatus} label={translatedLifecycleLabel(t, customer.lifecycleStatus)} />
+            {/* KAN-464: the roles the contact holds; the lifecycle status only where it means something (Q1). */}
+            {(customer.roles ?? []).map((role) => (
+              <Badge key={role} tone="informational">
+                {translatedRoleLabel(t, role)}
+              </Badge>
+            ))}
+            {showsLifecycleStatus(customer) && (
+              <LifecycleStatusBadge status={customer.lifecycleStatus} label={translatedLifecycleLabel(t, customer.lifecycleStatus)} />
+            )}
             <LanguageBadge language={customer.language} />
             {(customer.contactGroups ?? []).map((code) => (
               <Badge key={code} tone="purple">

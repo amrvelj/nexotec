@@ -54,6 +54,9 @@ import {
   translatedGenderLabel,
   LANGUAGE_OPTIONS,
   translatedLifecycleLabel,
+  showsLifecycleStatus,
+  translatedRoleLabel,
+  translatedRoleOptions,
   translatedLifecycleOptions,
   translatedPaymentTermsLabel,
   translatedPreferredChannelLabel,
@@ -286,12 +289,32 @@ export function CustomersListPage() {
       {
         id: 'lifecycleStatus',
         header: t('customersList.columns.status'),
-        cell: ({ row }) => (
-          <LifecycleStatusBadge status={row.original.lifecycleStatus} label={translatedLifecycleLabel(t, row.original.lifecycleStatus)} />
-        ),
+        // KAN-464 (Q1): a contact without the customer role has no lifecycle
+        // status — only do-not-contact, which belongs to every contact.
+        cell: ({ row }) =>
+          showsLifecycleStatus(row.original) ? (
+            <LifecycleStatusBadge status={row.original.lifecycleStatus} label={translatedLifecycleLabel(t, row.original.lifecycleStatus)} />
+          ) : (
+            '—'
+          ),
         meta: {
           filter: { type: 'select', param: 'lifecycle_status', options: translatedLifecycleOptions(t), conditions: ['is', 'isNot'] },
-          exportValue: (row) => translatedLifecycleLabel(t, row.lifecycleStatus),
+          exportValue: (row) => (showsLifecycleStatus(row) ? translatedLifecycleLabel(t, row.lifecycleStatus) : ''),
+        },
+      },
+      // KAN-464 — the roles a contact holds (Kunde, Lieferant), filterable
+      // (`role` / `roleNot`): suppliers are contacts filtered by role.
+      {
+        id: 'roles',
+        header: t('customersList.columns.roles'),
+        cell: ({ row }) => {
+          const roles = row.original.roles ?? []
+          return roles.length > 0 ? roles.map((role) => translatedRoleLabel(t, role)).join(', ') : '—'
+        },
+        meta: {
+          defaultVisible: false,
+          filter: { type: 'select', param: 'role', options: translatedRoleOptions(t), conditions: ['is', 'isNot'] },
+          exportValue: (row) => (row.roles ?? []).map((role) => translatedRoleLabel(t, role)).join(', '),
         },
       },
       // KAN-51 Half 2 (partial) — advisor and tags are already stored

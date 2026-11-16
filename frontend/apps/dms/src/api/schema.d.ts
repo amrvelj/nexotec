@@ -7108,6 +7108,18 @@ export interface components {
             /** Enabled */
             enabled: boolean;
         };
+        /**
+         * ContactRole
+         * @description The roles a contact holds (KAN-464; Anto, 2026-10-26: one register,
+         *     roles). A contact is never duplicated because it gains a role (ADR-014).
+         *
+         *     Q1 (Anto, 2026-11-14, A): the lifecycle status (prospect / active /
+         *     inactive), the credit block and the advisor belong to the `customer`
+         *     role; contact points, consent, do-not-contact, tags, contact groups and
+         *     the legal basis belong to every contact.
+         * @enum {string}
+         */
+        ContactRole: "customer" | "supplier";
         /** ContractCancelRequest */
         ContractCancelRequest: {
             /** Reason */
@@ -7574,6 +7586,8 @@ export interface components {
             /** Phones */
             phones?: components["schemas"]["CustomerPhoneCreate"][];
             preferredChannel?: components["schemas"]["PreferredChannel"] | null;
+            /** Roles */
+            roles?: components["schemas"]["ContactRole"][];
             salutation?: components["schemas"]["Salutation"] | null;
             source?: components["schemas"]["CustomerSource"] | null;
             /** Sourceref */
@@ -8003,6 +8017,8 @@ export interface components {
             /** Phonework */
             phoneWork?: string | null;
             preferredChannel: components["schemas"]["PreferredChannel"] | null;
+            /** Roles */
+            roles?: components["schemas"]["ContactRole"][];
             salutation: components["schemas"]["Salutation"] | null;
             source: components["schemas"]["CustomerSource"] | null;
             /** Sourceref */
@@ -8088,6 +8104,8 @@ export interface components {
             notes?: string | null;
             paymentTerms?: components["schemas"]["PaymentTerms"] | null;
             preferredChannel?: components["schemas"]["PreferredChannel"] | null;
+            /** Roles */
+            roles?: components["schemas"]["ContactRole"][] | null;
             salutation?: components["schemas"]["Salutation"] | null;
             source?: components["schemas"]["CustomerSource"] | null;
             /** Sourceref */
@@ -15636,6 +15654,10 @@ export interface operations {
                 contactGroup?: string | null;
                 /** @description KAN-466: customers not carrying this contact group (customers with none included). */
                 contactGroupNot?: string | null;
+                /** @description KAN-464: contacts holding this role today (`customer`, `supplier`). */
+                role?: components["schemas"]["ContactRole"] | null;
+                /** @description KAN-464: contacts not holding this role today. */
+                roleNot?: components["schemas"]["ContactRole"] | null;
                 /** @description e.g. 'lastName:asc,updatedAt:desc' */
                 sort?: string | null;
                 limit?: number;

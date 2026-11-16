@@ -22,6 +22,7 @@ from app.customer.schemas.customer import (
 )
 from app.customer.services.contact_groups import contact_groups_by_customer
 from app.customer.services.customer_common import _is_usable_row
+from app.customer.services.roles import roles_by_customer
 
 _EMPTY_PROJECTIONS: dict[str, Any] = {
     "phone_mobile": None,
@@ -32,6 +33,7 @@ _EMPTY_PROJECTIONS: dict[str, Any] = {
     "address": None,
     "tags": [],
     "contact_groups": [],
+    "roles": [],
 }
 
 
@@ -126,6 +128,7 @@ def compute_customer_projections_batch(db: Session, customer_ids: list[uuid.UUID
         tags_by_customer.setdefault(row.customer_id, []).append(row.tag)
 
     contact_groups = contact_groups_by_customer(db, customer_ids)
+    roles = roles_by_customer(db, customer_ids)
 
     def _primary_of_type(rows: list[Any], type_column: str, type_value: Any) -> Any | None:
         of_type = [r for r in rows if getattr(r, type_column) == type_value]
@@ -153,5 +156,6 @@ def compute_customer_projections_batch(db: Session, customer_ids: list[uuid.UUID
             "address": CustomerAddressRead.model_validate(address_domicile) if address_domicile else None,
             "tags": sorted(tags_by_customer.get(customer_id, [])),
             "contact_groups": contact_groups.get(customer_id, []),
+            "roles": roles.get(customer_id, []),
         }
     return result

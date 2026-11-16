@@ -60,11 +60,14 @@ type T = (key: string, options?: Record<string, unknown>) => string
 
 export function buildCustomerRowMenu(
   t: T,
-  customer: Pick<CustomerRead, 'lifecycleStatus' | 'creditBlock' | 'creditBlockReason'>,
+  customer: Pick<CustomerRead, 'lifecycleStatus' | 'creditBlock' | 'creditBlockReason'> & Partial<Pick<CustomerRead, 'roles'>>,
   handlers: CustomerRowMenuHandlers,
 ): CustomerRowMenu {
   const isDoNotContact = customer.lifecycleStatus === 'do_not_contact'
   const isBlocked = customer.creditBlock
+  // KAN-464 (Q1): a credit block is the customer role's — a contact without
+  // it is offered none (a block already standing can always be lifted).
+  const canBeBlocked = isBlocked || customer.roles === undefined || customer.roles.includes('customer')
   const isMerged = customer.lifecycleStatus === 'merged'
 
   const newOfferDisabledReason = isDoNotContact ? t('customerRowMenu.newOfferDisabledDoNotContact') : undefined
@@ -115,11 +118,15 @@ export function buildCustomerRowMenu(
       icon: <Ban size={16} />,
       onClick: handlers.onToggleDoNotContact,
     },
-    {
-      label: isBlocked ? t('customerRowMenu.removeCreditBlock') : t('customerRowMenu.setCreditBlock'),
-      icon: <Lock size={16} />,
-      onClick: handlers.onManageCreditBlock,
-    },
+    ...(canBeBlocked
+      ? [
+          {
+            label: isBlocked ? t('customerRowMenu.removeCreditBlock') : t('customerRowMenu.setCreditBlock'),
+            icon: <Lock size={16} />,
+            onClick: handlers.onManageCreditBlock,
+          },
+        ]
+      : []),
   ]
 
   const createFrom: RowMenuGroups['createFrom'] = [

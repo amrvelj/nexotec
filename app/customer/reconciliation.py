@@ -26,6 +26,7 @@ from app.customer.models.customer import (
     CustomerLifecycleStatus,
     CustomerNumberSequence,
     CustomerPhone,
+    CustomerRole,
     CustomerTag,
 )
 from app.customer.models.legal_basis import LegalBasis
@@ -47,6 +48,7 @@ _BOOKING_EVENT_TYPES = ("inventory.stock_item.purchased", "inventory.stock_item.
 ACTOR_TABLES = (
     Customer, CustomerPhone, CustomerEmail, CustomerAddress, CustomerExternalId, CustomerTag, LegalBasis, VehicleParty,
     CustomerContactGroup,  # KAN-466
+    CustomerRole,  # KAN-464
 )
 
 CHECKS: list[ReferenceCheck | StateCheck] = [
@@ -174,6 +176,21 @@ CHECKS: list[ReferenceCheck | StateCheck] = [
             (Customer.lifecycle_status != CustomerLifecycleStatus.MERGED)
             & select(User.id)
             .where(User.id == Customer.advisor_id, User.status == "deactivated")
+            .correlate(Customer)
+            .exists()
+        ),
+    ),
+    StateCheck(
+        # KAN-464 (rule 10): a contact holds at least one role — every write
+        # path keeps it so (create needs one, a PATCH cannot clear them, a
+        # merge moves them); a contact with none is one a writer missed.
+        label="customer holds no open customer_role",
+        source_model=Customer,
+        source_row_id_column=Customer.id,
+        where=lambda: (
+            (Customer.lifecycle_status != CustomerLifecycleStatus.MERGED)
+            & ~select(CustomerRole.id)
+            .where(CustomerRole.customer_id == Customer.id, CustomerRole.valid_to.is_(None))
             .correlate(Customer)
             .exists()
         ),

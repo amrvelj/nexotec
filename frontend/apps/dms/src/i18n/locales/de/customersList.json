@@ -53,7 +53,8 @@
     "customerSince": "Kunde seit",
     "nextFollowUp": "Nächste Nachfassung",
     "notes": "Notizen",
-    "contactGroups": "Kontaktgruppen"
+    "contactGroups": "Kontaktgruppen",
+    "roles": "Rollen"
   },
   "rowActions": {
     "open": "Öffnen",
