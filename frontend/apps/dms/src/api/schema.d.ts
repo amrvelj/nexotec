@@ -12982,8 +12982,8 @@ export interface components {
         };
         /**
          * SupportSessionEndedBy
-         * @description Who ended a session (FR-A-18). `timeout` is read from `expires_at`
-         *     until the staff member's next start closes the row with it.
+         * @description Who ended a session (FR-A-18). `timeout` is derived from `expires_at`
+         *     until the nightly job or the staff member's next start writes it.
          * @enum {string}
          */
         SupportSessionEndedBy: "staff" | "user" | "timeout";
