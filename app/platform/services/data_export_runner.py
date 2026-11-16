@@ -1,5 +1,5 @@
 """Where the data export is produced and expired (KAN-738; ADR-081 as
-amended by KAN-402, ADR-187).
+amended by KAN-402; ADR-185).
 
 The object store is the web service's persistent disk (KAN-402), and a
 Render disk belongs to one service: the worker can neither write an archive

@@ -1,4 +1,4 @@
-"""KAN-738 (ADR-081 as amended by KAN-402; the KAN-738 ADR): the object store
+"""KAN-738 (ADR-081 as amended by KAN-402; ADR-185): the object store
 is the web service's disk, which no worker can reach, so the web service
 produces and expires the data export (app/platform/services/data_export_runner.py)
 and the worker does neither.
