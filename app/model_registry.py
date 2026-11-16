@@ -45,6 +45,7 @@ from app.platform.identity.models.notification import (
     UserNotificationPreference,
 )
 from app.platform.identity.models.standard_text_delegation import StandardTextDelegation
+from app.platform.identity.models.support_session import SupportSession
 from app.platform.identity.models.user import User
 from app.platform.identity.models.user_location import UserLocation
 from app.platform.identity.models.user_preference import UserPreference
@@ -207,6 +208,7 @@ __all__ = [
     "StockItemPublishing",
     "StockItemWebsiteListing",
     "StockNumberSequence",
+    "SupportSession",
     "TypeApproval",
     "TyreSpecCache",
     "UiTranslation",

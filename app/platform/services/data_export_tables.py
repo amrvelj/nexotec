@@ -24,6 +24,7 @@ from app.platform.identity.models.notification import (
     UserNotificationPreference,
 )
 from app.platform.identity.models.standard_text_delegation import StandardTextDelegation
+from app.platform.identity.models.support_session import SupportSession
 from app.platform.identity.models.user import User
 from app.platform.identity.models.user_location import UserLocation
 from app.platform.identity.models.user_preference import UserPreference
@@ -171,6 +172,10 @@ class PlatformExporter(TableExporter):
                 table=table_of(Notification), scope=_by_dealership(table_of(Notification)), marks_write=False
             ),
             ExportedTable(table=table_of(AuthEvent), scope=_by_dealership(table_of(AuthEvent)), marks_write=False),
+            # KAN-221: the support sessions held in the Betrieb (staff, user, reason, how they ended).
+            ExportedTable(
+                table=table_of(SupportSession), scope=_by_dealership(table_of(SupportSession)), marks_write=False
+            ),
             # The Betrieb's, never in the archive.
             ExportedTable(
                 table=session,
