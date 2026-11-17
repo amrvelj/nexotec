@@ -72,6 +72,7 @@ from app.platform.public import (
     dealership_exists,
     dealership_group_of,
     dealership_reference_check,
+    location_reference_check,
     user_is_deactivated,
     user_reference_check,
 )
@@ -546,6 +547,14 @@ CHECKS: list[ReferenceCheck | StateCheck] = [
         source_model=SalesDocument,
         source_row_id_column=SalesDocument.id,
         source_fk_column=SalesDocument.tenant_id,
+    ),
+    location_reference_check(
+        # KAN-717: the site the document prints for; null prints for the seat.
+        label="sales_document.location_id -> location.id",
+        source_model=SalesDocument,
+        source_row_id_column=SalesDocument.id,
+        source_fk_column=SalesDocument.location_id,
+        nullable=True,
     ),
     user_reference_check(
         # The signed-in user who generated it; null for a system render.
