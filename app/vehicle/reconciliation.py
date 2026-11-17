@@ -21,7 +21,12 @@ from app.inventory.public import (
     stock_item_differs_from_holding,
     stock_item_reference_check,
 )
-from app.platform.public import DealerGroup, Dealership, actor_reference_checks
+from app.platform.public import (
+    actor_reference_checks,
+    dealer_group_reference_check,
+    dealership_outside_group,
+    dealership_reference_check,
+)
 from app.vehicle.models.catalogue import (
     Brand,
     ModelGroup,
@@ -152,139 +157,107 @@ CHECKS: list[ReferenceCheck | StateCheck] = [
         source_row_id_column=VehicleStockHolding.id,
         source_fk_column=VehicleStockHolding.stock_item_id,
     ),
-    ReferenceCheck(
+    dealership_reference_check(
         label="vehicle_stock_holding.tenant_id -> dealership.id",
         source_model=VehicleStockHolding,
         source_row_id_column=VehicleStockHolding.id,
         source_fk_column=VehicleStockHolding.tenant_id,
-        target_model=Dealership,
-        target_id_column=Dealership.id,
     ),
     # --- PR-7 additions: every cross-context GUID column PR-1 through
     # PR-6 introduced, none of which had a check before this PR. ---
-    ReferenceCheck(
+    dealership_reference_check(
         label="vehicle_plate.recording_tenant_id -> dealership.id",
         source_model=VehiclePlate,
         source_row_id_column=VehiclePlate.id,
         source_fk_column=VehiclePlate.recording_tenant_id,
-        target_model=Dealership,
-        target_id_column=Dealership.id,
     ),
     # KAN-467 (ADR-039 as amended): the register a plate is kept in is its
     # dealer group's. The group must exist, and it must be the group of the
     # Betrieb that recorded the plate — a session minted for a Betrieb carries
     # that Betrieb's group (ADR-106), so a difference means a write named the
     # wrong register.
-    ReferenceCheck(
+    dealer_group_reference_check(
         label="vehicle_plate.group_id -> dealer_group.id",
         source_model=VehiclePlate,
         source_row_id_column=VehiclePlate.id,
         source_fk_column=VehiclePlate.group_id,
-        target_model=DealerGroup,
-        target_id_column=DealerGroup.id,
     ),
     StateCheck(
         label="vehicle_plate kept in a group that is not its recording Betrieb's",
         source_model=VehiclePlate,
         source_row_id_column=VehiclePlate.id,
-        where=lambda: (
-            select(Dealership.id)
-            .where(Dealership.id == VehiclePlate.recording_tenant_id)
-            .where(Dealership.dealer_group_id.is_distinct_from(VehiclePlate.group_id))
-            .correlate(VehiclePlate)
-            .exists()
+        where=lambda: dealership_outside_group(
+            VehiclePlate.recording_tenant_id, VehiclePlate.group_id, correlate=VehiclePlate
         ),
     ),
-    ReferenceCheck(
+    dealership_reference_check(
         label="vehicle_odometer_reading.recording_tenant_id -> dealership.id",
         source_model=VehicleOdometerReading,
         source_row_id_column=VehicleOdometerReading.id,
         source_fk_column=VehicleOdometerReading.recording_tenant_id,
-        target_model=Dealership,
-        target_id_column=Dealership.id,
     ),
-    ReferenceCheck(
+    dealership_reference_check(
         label="vehicle_accessory.recording_tenant_id -> dealership.id",
         source_model=VehicleAccessory,
         source_row_id_column=VehicleAccessory.id,
         source_fk_column=VehicleAccessory.recording_tenant_id,
-        target_model=Dealership,
-        target_id_column=Dealership.id,
     ),
-    ReferenceCheck(
+    dealership_reference_check(
         label="vehicle_mdm_custody_event.partner_id -> dealership.id",
         source_model=VehicleMdmCustodyEvent,
         source_row_id_column=VehicleMdmCustodyEvent.id,
         source_fk_column=VehicleMdmCustodyEvent.partner_id,
-        target_model=Dealership,
-        target_id_column=Dealership.id,
     ),
-    ReferenceCheck(
+    dealership_reference_check(
         label="vehicle_dealer_plate.tenant_id -> dealership.id",
         source_model=DealerPlate,
         source_row_id_column=DealerPlate.id,
         source_fk_column=DealerPlate.tenant_id,
-        target_model=Dealership,
-        target_id_column=Dealership.id,
     ),
-    ReferenceCheck(
+    dealership_reference_check(
         label="vehicle_dealer_plate_assignment.tenant_id -> dealership.id",
         source_model=DealerPlateAssignment,
         source_row_id_column=DealerPlateAssignment.id,
         source_fk_column=DealerPlateAssignment.tenant_id,
-        target_model=Dealership,
-        target_id_column=Dealership.id,
     ),
     # --- WP-6 PR-4: the catalogue-mirror tenant-partitioning retrofit and
     # its new tables, all tenant-scoped, none had a check before this PR.
-    ReferenceCheck(
+    dealership_reference_check(
         label="vehicle_variant_option.tenant_id -> dealership.id",
         source_model=VariantOption,
         source_row_id_column=VariantOption.id,
         source_fk_column=VariantOption.tenant_id,
-        target_model=Dealership,
-        target_id_column=Dealership.id,
     ),
     # KAN-250: an option's raw SuchCode list is tenant-scoped like the option itself.
-    ReferenceCheck(
+    dealership_reference_check(
         label="vehicle_variant_option_provider_code.tenant_id -> dealership.id",
         source_model=VariantOptionProviderCode,
         source_row_id_column=VariantOptionProviderCode.id,
         source_fk_column=VariantOptionProviderCode.tenant_id,
-        target_model=Dealership,
-        target_id_column=Dealership.id,
     ),
-    ReferenceCheck(
+    dealership_reference_check(
         label="vehicle_colour_cache.tenant_id -> dealership.id",
         source_model=ColourCache,
         source_row_id_column=ColourCache.id,
         source_fk_column=ColourCache.tenant_id,
-        target_model=Dealership,
-        target_id_column=Dealership.id,
     ),
-    ReferenceCheck(
+    dealership_reference_check(
         label="vehicle_tyre_spec_cache.tenant_id -> dealership.id",
         source_model=TyreSpecCache,
         source_row_id_column=TyreSpecCache.id,
         source_fk_column=TyreSpecCache.tenant_id,
-        target_model=Dealership,
-        target_id_column=Dealership.id,
     ),
-    ReferenceCheck(
+    dealership_reference_check(
         label="vehicle_image_ref.tenant_id -> dealership.id",
         source_model=ImageRef,
         source_row_id_column=ImageRef.id,
         source_fk_column=ImageRef.tenant_id,
-        target_model=Dealership,
-        target_id_column=Dealership.id,
     ),
-    ReferenceCheck(
+    dealership_reference_check(
         label="vehicle_variant_detail_state.tenant_id -> dealership.id",
         source_model=VariantDetailState,
         source_row_id_column=VariantDetailState.id,
         source_fk_column=VariantDetailState.tenant_id,
-        target_model=Dealership,
-        target_id_column=Dealership.id,
     ),
     *actor_reference_checks(*ACTOR_TABLES),
 ]
