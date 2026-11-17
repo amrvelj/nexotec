@@ -15,6 +15,13 @@ paths:
   - "frontend/apps/dms/src/hooks/useSavedViews.ts"
   - "frontend/apps/dms/src/hooks/*ersistedPreference*"
   - "frontend/apps/dms/src/hooks/useSortInUrl*"
+  - "frontend/apps/dms/src/hooks/useGridPreferences.ts"
+  - "frontend/apps/dms/src/components/dataExport/ExportsGrid*"
+  - "frontend/apps/dms/src/components/translations/UiStringsPanel*"
+  - "frontend/apps/dms/src/components/translations/MissingTranslationsCard*"
+  - "frontend/apps/dms/src/components/translations/StandardTextSeedsPanel*"
+  - "frontend/apps/dms/src/pages/ReferenceDataPage*"
+  - "frontend/apps/dms/src/pages/StandardTextsPage*"
   - "frontend/apps/dms/src/architecture/grid-filters*"
 ---
 <!-- Maintainer note. ADR-056, ADR-058, ADR-102, ADR-179. Split out of ui-grid.md by KAN-743

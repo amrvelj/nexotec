@@ -161,7 +161,7 @@ def _resolve_advisor_label(db: Session, *, dealership_id: uuid.UUID, user_id: uu
         raise UnprocessableEntityError(
             "advisorId is not an active user of your dealership.", details={"advisorId": str(user_id)}
         )
-    return f"{user.first_name} {user.last_name}".strip()
+    return user.label
 
 
 def list_advisor_options(db: Session, *, dealership_id: uuid.UUID) -> list[dict[str, Any]]:
@@ -171,7 +171,7 @@ def list_advisor_options(db: Session, *, dealership_id: uuid.UUID) -> list[dict[
     Customer.advisor_label."""
 
     return [
-        {"id": user.id, "label": f"{user.first_name} {user.last_name}".strip()}
+        {"id": user.id, "label": user.label}
         for user in list_active_users_acting_in(db, dealership_id=dealership_id)
     ]
 

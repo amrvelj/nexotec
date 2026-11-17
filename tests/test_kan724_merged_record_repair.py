@@ -144,3 +144,55 @@ def test_the_worker_registers_the_repair_after_reconciliation():
         daily_scheduler._REGISTRY.clear()
         daily_scheduler._REGISTRY.update(saved)
     assert names.index("inventory.merged_record_items.repair") > names.index("reconciliation.run_all")
+
+
+def test_a_failing_record_is_rolled_back_counted_and_never_stops_the_others(client, db_session, engine, monkeypatch):
+    """Two merged records each holding a live item the consumer never moved: the first record's
+    move raises — it is rolled back and counted as failed, not as blocked — and the second
+    still moves and commits."""
+
+    from app.inventory.services import vehicle_merge
+    from tests.test_kan524_vehicle_merge import SURVIVOR_VIN
+
+    token_of_betrieb, first, second = _oldtimers_of_one_betrieb(client, db_session)
+    survivors = [_record(db_session, SURVIVOR_VIN), _record(db_session, SURVIVOR_VIN.replace("100", "102"))]
+    records = [uuid.UUID(first["vehicleId"]), uuid.UUID(second["vehicleId"])]
+    for record_id, survivor in zip(records, survivors, strict=True):
+        assert _merge(client, token_of_betrieb, db_session, record_id, survivor.id).status_code == 200
+    failing = min(records)  # the repair walks the records in id order
+    real_move = vehicle_merge.move_stock_items_on_vehicle_merge
+
+    def move(db, *, duplicate_vehicle_id, survivor_vehicle_id):
+        moved = real_move(db, duplicate_vehicle_id=duplicate_vehicle_id, survivor_vehicle_id=survivor_vehicle_id)
+        if duplicate_vehicle_id == failing:
+            raise RuntimeError("the move failed after writing")
+        return moved
+
+    monkeypatch.setattr(vehicle_merge, "move_stock_items_on_vehicle_merge", move)
+
+    result = repair_items_left_on_merged_records(db_session)
+
+    assert (result.records, result.moved, result.still_blocked, result.failed) == (2, 1, 0, (failing,))
+    db_session.expire_all()
+    by_record = {uuid.UUID(item["vehicleId"]): uuid.UUID(item["id"]) for item in (first, second)}
+    assert db_session.get(StockItem, by_record[failing]).vehicle_id == failing  # rolled back
+    other = next(record_id for record_id in records if record_id != failing)
+    assert db_session.get(StockItem, by_record[other]).vehicle_id != other  # moved and committed
+
+
+def test_the_daily_job_logs_a_failed_record_at_error(client, db_session, engine, monkeypatch, caplog):
+    from app.inventory.services import vehicle_merge
+
+    _left_id, _blocker_id, duplicate_id, _survivor_id = _left_on_the_duplicate(client, db_session, engine)
+
+    def move(db, **_kwargs):
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(vehicle_merge, "move_stock_items_on_vehicle_merge", move)
+    with caplog.at_level(logging.INFO, logger="app.inventory.daily_jobs"):
+        run_daily_merged_record_repair(db_session)
+
+    errors = [record for record in caplog.records if record.name == "app.inventory.daily_jobs"]
+    assert errors and errors[-1].levelno == logging.ERROR
+    assert f"failed_vehicle_ids={duplicate_id}" in errors[-1].getMessage()
+    assert "still_blocked=0 failed=1" in errors[-1].getMessage()

@@ -265,13 +265,15 @@ def repair_items_left_on_merged_records(db: Session) -> MergedRecordRepair:
             db.rollback()
             logger.exception("stock items on merged record %s could not be moved (KAN-724)", duplicate_id)
             failed.append(duplicate_id)
+    # Blocked means the move ran and had to leave the item; a failed record's items are counted in `failed`.
+    moved_records = [vehicle_id for vehicle_id in merged if vehicle_id not in failed]
     still_blocked = (
         len(
             db.scalars(
-                select(StockItem.id).where(StockItem.vehicle_id.in_(merged), StockItem.left_stock_at.is_(None))
+                select(StockItem.id).where(StockItem.vehicle_id.in_(moved_records), StockItem.left_stock_at.is_(None))
             ).all()
         )
-        if merged
+        if moved_records
         else 0
     )
     db.rollback()
