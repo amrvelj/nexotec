@@ -61,7 +61,7 @@ Target Architecture's "Roadmap to the target" table (Stages A–F) is superseded
 - Run it: the desktop preview (`.claude/launch.json`; stop Docker's `app` first, both want :8000), or `make up`
 - Gates: `scripts/dev/gate status` shows what the push and the hand-over still need
 
-CI (Route B, KAN-610): the merge gate is the session's `scripts/dev/check`; GitHub runs `pr-light` (`pr.yml`) per PR, drafts too, and the full suite nightly on `main` (`test.yml`; a red night opens an issue).
+CI (Route B): the merge gate is the session's `scripts/dev/check`; GitHub runs `pr-light` (`pr.yml`) per PR, drafts too, and the full suite nightly on `main` (`test.yml`; a red night opens an issue).
 
 ## How we work
 
@@ -76,7 +76,7 @@ CI (Route B, KAN-610): the merge gate is the session's `scripts/dev/check`; GitH
 - A decision taken while building is an ADR in the Target Architecture, not a PR comment. A defect or open question found while building gets its own Kanban ticket at once.
 - **Work is not done when the code merges:** the module PRD's status says what shipped and the
   Gap Analysis cites the new head — every time, whether or not the ticket names them; make those edits in the same session.
-- **Notion writes need no click from Anto** (his ruling, 2026-10-11): write directly, and say in one plain sentence which page changed and how. Edit spec pages in place: if an `old_str` no longer matches, re-fetch and edit what is there, never replace the page (KAN-685).
+- **Notion writes need no click from Anto** (his ruling, 2026-10-11): write directly, and say in one plain sentence which page changed and how. Edit spec pages in place: if an `old_str` no longer matches, re-fetch and edit what is there, never replace the page.
 - Commit messages and PR descriptions are claims. Never round a partial up: say which exit criteria are met and which are **not**, and what you did not verify.
 - "Verified" means a check you ran, on this code — and a screenshot: the changed screen; for a
   fix, the reproduction that no longer reproduces; for work with no screen of its own, the
@@ -103,15 +103,15 @@ Lowest layer first (ADR-131); peers: parts and inventory, aftersales and sales.
 |---|---|
 | `platform` | tenants/dealers, users, auth, roles, module entitlements, feature flags, reference data, locations, document templates |
 | `integration` | the integration registry (connections, write-only secret refs, entitlements, call log, retention) + provider-gateway adapters; AI (ADR-181) |
-| `vehicle` | physical vehicles, catalogue (canonical taxonomy + per-tenant provider mirror), plates, odometer, custody, provenance, the configurator |
-| `customer` | customers (**group-scoped**, ADR-014), contact channels as child collections (ADR-067), external IDs, duplicates/merges, `VehicleParty` |
+| `vehicle` | physical vehicles, catalogue, plates, odometer, custody, provenance, the configurator |
+| `customer` | customers (**group-scoped**, ADR-014), contact channels (ADR-067), external IDs, duplicates/merges, `VehicleParty` |
 | `valuation` | the standalone valuation application (ADR-066), tenant-private (ADR-029) |
 | `inventory` | stock items, pipeline vehicles, reservation, Wagenbuch, marketplace publishing |
 | `parts` | *(stub)* part master, stock, suppliers, purchase orders |
 | `sales` | offers and contracts, pricing build-up, trade-ins, the offer workspace, documents |
 | `aftersales` | *(stub)* service orders, appointments, labour, technicians |
 | `finance` | *(stub)* invoicing and payment matching — **not a ledger** (ADR-037) |
-| `reporting` | projections from events (public stock, KAN-225) |
+| `reporting` | projections from events (public stock) |
 | `compliance` | *(stub)* audit, revDSG, retention |
 
 Stubs keep every context in the contract: never delete one or put its concerns elsewhere.
@@ -148,8 +148,7 @@ Stubs keep every context in the contract: never delete one or put its concerns e
 12. **A write spanning two contexts is a call with a compensating action, never a shared
     transaction** (ADR-047) — each side commits its own work. It would work today because everything
     shares one database; that is why it is forbidden. The import-linter cannot catch it; `test_adr_047_no_shared_transaction.py`
-    does. Ruled exceptions: ADR-109 (number allocation: `platform.public.allocate_number`), ADR-140 (two CI fixtures). A customer merge
-    reaches Sales only through `customer.merged`.
+    does (its ruled exceptions: `tests-architecture.md`). A customer merge reaches Sales only through `customer.merged`.
 
 ## Preserve verbatim — already correct, do not "improve"
 
@@ -168,30 +167,20 @@ Edits to these `app/core/` files ask Anto first, whichever tool makes them.
 
 ## API conventions
 
-Path-versioned `/v1` · camelCase JSON and query parameters (KAN-477; the legacy snake_case ones, frozen in `test_query_parameters_are_camel_case.py`,
+Path-versioned `/v1` · camelCase JSON and query parameters (the legacy snake_case ones, frozen in `test_query_parameters_are_camel_case.py`,
 gain a camelCase alias when their endpoint is next touched) · cursor pagination · `If-Match` on every mutation of a versioned entity
-(reasoned exceptions: `test_versioned_mutations_take_if_match.py`) · `Idempotency-Key` honoured, never required, on every POST — nine ratified
-`/v1/auth/` exemptions aside (`test_every_post_accepts_idempotency_key.py`) · OpenAPI per service (one today). A newly required request field is a breaking contract change: it needs an explicit decision, never a side effect of a fix.
+(reasoned exceptions: `test_versioned_mutations_take_if_match.py`) · `Idempotency-Key` honoured, never required, on every POST (exemptions:
+`test_every_post_accepts_idempotency_key.py`) · OpenAPI per service (one today). A newly required request field is a breaking contract change: it needs an explicit decision, never a side effect of a fix.
 
 ## Domain rules that apply everywhere
 
-- **Organisation** (ADR-014): group → dealership → location. The **dealership** is the tenant.
-  The tenant is **Betrieb** in the UI (FR *entreprise*, IT *azienda*, EN *business*); `dealership` stays the table and code name (D-A-10).
-  Customers are group-scoped (`group_id`); stock and customer history are dealership-owned but
-  readable group-wide. Cost, margin, commission, discount, trade-in purchase price and valuations
-  stay private to the legal entity. All writes require switching the active dealership.
-- **One administration surface (A-RULE-0):** every setting a dealership owns is configured in
-  Dealer Administration. No module ships its own settings screen.
-- **Vehicle identity:** VIN is mandatory in vehicle-mdm (pre-1981 chassis numbers aside,
-  KAN-535); a licence plate is never an
-  identifier (details in `.claude/rules/vehicle-mdm.md`).
-- **VAT** (ADR-057): one price — gross, CHF incl. MwSt; no net line or VAT breakdown on
-  screen, VAT is one line on the printed document only. **There is no `vatTreatment`** — no
-  field, enum, column, badge or switch, anywhere; `test_no_vat_treatment_field.py` enforces it
-  in `app/` and frontend sources (not `alembic/` or locale JSON).
-- **i18n:** DE, FR, IT, EN are all first class, reference data included. No user-visible
-  string is hardcoded; every key is in all four bundles (`localeKeyParity.test.ts`), and a key in
-  none renders a loud marker, never a German fallback; the customer's correspondence language is not the user's UI language.
+Each line ends in the `.claude/rules/` file that holds the detail.
+
+- **Tenant** (ADR-014): group → dealership → location; the **dealership** is the tenant, **Betrieb** in the UI, `dealership` in table and code (D-A-10); customers are group-scoped (`group_id`), stock and customer history dealership-owned but readable group-wide; cost, margin, commission, discount, trade-in purchase price and valuations stay private to the legal entity; all writes require switching the active dealership — `platform-users.md`.
+- **One administration surface (A-RULE-0):** every setting a dealership owns is configured in Dealer Administration; no module ships its own settings screen — `platform-admin.md`.
+- **Vehicle identity:** a licence plate is never an identifier — `vehicle-mdm.md`.
+- **VAT** (ADR-057): one price, gross CHF incl. MwSt; no net line or VAT breakdown on screen; **there is no `vatTreatment`** — no field, enum, column, badge or switch, anywhere (`test_no_vat_treatment_field.py`) — `sales-pricing.md`.
+- **i18n:** DE, FR, IT, EN are all first class, reference data included; no user-visible string is hardcoded; the customer's correspondence language is not the user's UI language — `ui-i18n.md`.
 
 ## Reference material outside the repository
 
