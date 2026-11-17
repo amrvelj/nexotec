@@ -32,36 +32,19 @@ paths:
   - "frontend/apps/dms/src/modules/customer/components/customer-detail/offersContracts*"
   - "frontend/apps/dms/src/modules/stock/components/stock-detail/WagenbuchTab.tsx"
 ---
-<!-- Maintainer note. ADR-056, ADR-058, ADR-060, ADR-092, ADR-102; UI/UX Core Principles (grids).
-Split out of ui.md by KAN-615 (2026-11-13); the frontend has no module folders yet (KAN-611), so
-the grids are listed by file. Last verified against main@73baf3f (2026-10-25). -->
+<!-- Maintainer note. ADR-060, ADR-092; UI/UX Core Principles (grids).
+Split out of ui.md by KAN-615 (2026-11-13); filters, views and URL state split out to
+ui-grid-filters.md by KAN-743 (2026-11-17), so a plain grid (a Customer 360 tab) loads only this. -->
 
 # Data grids
+
+Filters, saved views, URL state and the list-query layer: `ui-grid-filters.md`.
 
 - **Every grid** (UI/UX Core Principles): every column sortable server-side (the short administration lists sort in the browser: kit `sortRowsInBrowser`, sort in the URL via `useSortInUrl`; ADR-158, KAN-516); column order,
   visibility, width and pinning configurable and persisted per user; a three-dots row menu on every
   row; cursor-based lazy loading; maximum density; Shift + wheel scrolls horizontally. The live
   catalogue grid sorts only on the fields the identAPI sorts; a stored sort on another field is
   narrowed away like an unoffered predicate, never sent.
-- **List-query layer** (ADR-179, `app/core/list_query.py`): one column registry per entity; `sort` and
-  `filter=field:op[:value]` over it, 422 outside, served at `…/grid-schema`. A grid on it (Stock; more in
-  KAN-461 PR-2…4) takes filter fields, `sortableFields` and default visibility from the schema.
-- **ADR-056** — grid state (search, filter, sort, tab, scope) lives in the URL, the shareable unit.
-  Layout and density stay out of it: they belong on the user preference record.
-- **ADR-058** — views and filters are **one control**, labelled with the current view. A
-  user-defined filter is **one predicate** (field, operator, value), never a typed expression.
-  Every filter is a chip (FR-UI-06).
-- **ADR-102 — a grid shows only the filters it applies:** it narrows what it reads (URL, saved
-  view) with the kit's `offeredPredicates` — an unoffered field or condition is neither sent nor
-  shown, quietly; a view so narrowed shows the unsaved-changes dot and no tick (the grid passes
-  `narrowPredicates`). **A field holds one filter**, ranges included (the builder replaces it,
-  offers no «duplicate»; a link or view with two keeps the first). A field offers only the
-  conditions its endpoint applies exactly: inclusive `…Min`/`…Max` are «mindestens»/«höchstens», a
-  select's «ist nicht» is its endpoint's exclusion, the live catalogue offers «ist» only; a record
-  without a value is kept. An N-days count is a whole number within `MIN_FILTER_DAYS`…
-  `MAX_FILTER_DAYS` (the builder refuses another and holds Save back; a link or view drops it).
-  `src/architecture/grid-filters-are-applied.test.ts` checks each grid's mapper against its
-  endpoint; a new filterable grid adds its mapper there.
 - **ADR-060** — every persisted field is available as a column; a documented subset is visible by
   default; a stored field that cannot be put on screen is a defect. A grid with a Columns panel
   passes `gridPrefs.columnLayout ?? defaultColumnLayout(columnRegistry)` to both `DataGrid` and the
@@ -69,7 +52,4 @@ the grids are listed by file. Last verified against main@73baf3f (2026-10-25). -
   (`src/architecture/grid-default-column-layout.test.ts`, which accepts only a `const` bound to
   that expression). `DataGrid` itself stays layout-agnostic: a grid without a panel shows every
   column (ADR-092).
-- A number filter's saved text is formatted by its `FilterFieldDef.numberFormat` (`grouped`, `chf`,
-  `ungrouped` for a year), never guessed from the label; a `chf` field's value is entered through
-  `ChfInput` and stored as a plain number.
 - Group stock is a scope switch, not a second grid with columns removed (`inventory.md`).

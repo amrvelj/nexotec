@@ -24,7 +24,7 @@ ui-detail, ui-i18n, ui-formats, ui-shell, each with narrow globs. Last verified 
 # Anything a user can see
 
 The failure these rules prevent is silent: a screen that works, passes review, and looks like it
-came from a different product. The concern files: `ui-grid.md` · `ui-forms.md` · `ui-detail.md` ·
+came from a different product. The concern files: `ui-grid.md` (filters: `ui-grid-filters.md`) · `ui-forms.md` · `ui-detail.md` ·
 `ui-i18n.md` · `ui-formats.md` · `ui-shell.md`.
 
 ## Two binding references, in this order
