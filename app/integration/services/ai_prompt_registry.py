@@ -1,7 +1,7 @@
 """The closed registry of AI prompt codes and their placeholders, and the
 prompt renderer (KAN-227, D-A-33).
 
-- **Closed, like the standard texts' placeholders** (`platform/services/
+- **Closed, like the standard texts' placeholders** (`platform/documents/services/
   standard_text_placeholders.py`, A-RULE-4): a code is one feature that calls
   `integration.public.generate`, and lists the `{{ token }}` names its caller
   supplies. A prompt using a token its code does not list, or a stray `{{` /

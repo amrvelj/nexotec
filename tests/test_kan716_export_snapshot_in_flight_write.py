@@ -16,9 +16,9 @@ from sqlalchemy import text
 from sqlalchemy.orm import sessionmaker
 
 from app.core.base import utcnow
-from app.platform.models.export_job import ExportJob
+from app.platform.administration.models.export_job import ExportJob
+from app.platform.administration.services.data_export import xid_floor
 from app.platform.organisation.models.dealership import Dealership
-from app.platform.services.data_export import xid_floor
 from tests.data_export_support import (
     betrieb_with_manager,
     export_store_fixture,  # noqa: F401 - registers the export_store fixture

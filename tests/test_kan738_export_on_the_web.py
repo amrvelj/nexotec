@@ -1,6 +1,6 @@
 """KAN-738 (ADR-081 as amended by KAN-402; ADR-185): the object store
 is the web service's disk, which no worker can reach, so the web service
-produces and expires the data export (app/platform/services/data_export_runner.py)
+produces and expires the data export (app/platform/administration/services/data_export_runner.py)
 and the worker does neither.
 
 The production-like setup: the web with the disk (the `export_store`
@@ -16,8 +16,8 @@ from sqlalchemy import update
 from sqlalchemy.orm import sessionmaker
 
 from app.core.base import utcnow
-from app.platform.models.export_job import ExportJob, ExportJobStatus
-from app.platform.services import data_export, data_export_runner, stored_objects_check
+from app.platform.administration.models.export_job import ExportJob, ExportJobStatus
+from app.platform.administration.services import data_export, data_export_runner, stored_objects_check
 from tests.data_export_support import (
     betrieb_with_manager,
     download,

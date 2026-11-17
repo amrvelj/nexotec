@@ -14,7 +14,7 @@ import app.export_registry  # noqa: F401 - every context's exporter, as app.main
 from app.core import object_store
 from app.core.object_store import LocalDirectoryObjectStore, get_object_store
 from app.main import app as fastapi_app
-from app.platform.services import data_export
+from app.platform.administration.services import data_export
 from tests.identity_support import platform_admin_headers
 from tests.membership_support import bearer, create_dealership, create_user, token
 

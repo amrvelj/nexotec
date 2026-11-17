@@ -22,7 +22,7 @@ from sqlalchemy.orm import Session
 from app.core.base import utcnow
 from app.core.reconciliation import ReconciliationRun, ReferenceCheck, StateCheck, run_reconciliation
 from app.inventory.public import listed_on_website_check, website_listing_exists, website_listing_revision_ahead
-from app.platform.public import Dealership
+from app.platform.public import dealership_reference_check
 from app.reporting.models.public_stock_listing import PublicStockListing
 
 CONTEXT = "reporting"
@@ -61,13 +61,11 @@ CHECKS: list[ReferenceCheck | StateCheck] = [
             changed_before=utcnow() - _OUTBOX_LAG_GRACE,
         ).correlate(PublicStockListing),
     ),
-    ReferenceCheck(
+    dealership_reference_check(
         label="public_stock_listing.tenant_id -> dealership.id",
         source_model=PublicStockListing,
         source_row_id_column=PublicStockListing.id,
         source_fk_column=PublicStockListing.tenant_id,
-        target_model=Dealership,
-        target_id_column=Dealership.id,
     ),
 ]
 

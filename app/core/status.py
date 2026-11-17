@@ -1,8 +1,8 @@
 """The status page's contribution port (KAN-223; Dealer Administration
 D-A-38, FR-A-43).
 
-The status page («Alles grün») is platform's (`app/platform/services/
-status_page.py`): one derived screen per Betrieb that names every item that
+The status page («Alles grün») is platform's (`app/platform/administration/
+services/status_page.py`): one derived screen per Betrieb that names every item that
 is not green and links to the screen that fixes it. Platform derives its own
 items (number ranges, Nexotec's own status), but some sources are owned by a
 context above platform — the integration connections are the first, sending

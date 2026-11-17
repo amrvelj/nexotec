@@ -101,3 +101,23 @@ def set_locations(
             changed = True
     db.flush()
     return changed
+
+
+def get_primary_location_id(db: Session, *, dealership_id: uuid.UUID, user_id: uuid.UUID) -> uuid.UUID | None:
+    """The site a document of this Betrieb prints for when this user is its
+    responsible seller (KAN-717; Anto, 2026-11-15, B): the user's primary
+    location — only when it is an active location of `dealership_id` itself.
+    A seller homed in another Betrieb of the group (a member here) has a
+    primary site of that Betrieb, and a deactivated site prints nothing new;
+    both answer None, so the document prints for the seat. A SELECT only."""
+
+    return db.scalar(
+        select(UserLocation.location_id)
+        .join(Location, Location.id == UserLocation.location_id)
+        .where(
+            UserLocation.user_id == user_id,
+            UserLocation.is_primary.is_(True),
+            Location.tenant_id == dealership_id,
+            Location.is_active.is_(True),
+        )
+    )

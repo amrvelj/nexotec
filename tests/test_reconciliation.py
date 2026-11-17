@@ -608,6 +608,7 @@ def _document(db_session, dealer_id, **columns):
         (_line_item, "updated_by", "sales_line_item.updated_by -> user.id", {}),
         (_document, "tenant_id", "sales_document.tenant_id -> dealership.id", {}),
         (_document, "rendered_by", "sales_document.rendered_by -> user.id", {}),
+        (_document, "location_id", "sales_document.location_id -> location.id", {}),
         (_document, "created_by", "sales_document.created_by -> user.id", {}),
         (_document, "updated_by", "sales_document.updated_by -> user.id", {}),
     ],

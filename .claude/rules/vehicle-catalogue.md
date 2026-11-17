@@ -26,7 +26,7 @@ paths:
   - "scripts/import_bfe_energy_ratings.py"
   - "frontend/apps/dms/src/**/*atalogue*"
   - "frontend/apps/dms/src/**/*atalogue*/**"
-  - "frontend/apps/dms/src/components/MappingGapsQueue.tsx"
+  - "frontend/apps/dms/src/modules/vehicle/components/MappingGapsQueue.tsx"
 ---
 <!-- Maintainer note (stripped before Claude sees it). Summarises ADR-013 as amended by ADR-075,
 ADR-042, ADR-044, ADR-072, ADR-111, ADR-112, ADR-123 and the identAPI test agreement's single-lookup

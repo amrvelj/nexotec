@@ -22,7 +22,7 @@ import { CustomerDetailContent } from '../modules/customer'
 import { StockDetailContent } from '../modules/stock'
 import type { SalesOfferRead } from '../api/types'
 import { apiRefusalText } from '../utils/apiRefusal'
-import { VehicleChangedBanner } from '../components/deal-workspace/VehicleChangedBanner'
+import { VehicleChangedBanner } from '../components/deal-workspace/InventoryChangedBanner'
 
 /**
  * `/sales/offers/:id` while status=draft — the container-based generation

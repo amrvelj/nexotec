@@ -1,5 +1,5 @@
 """The AI prompt library (KAN-227, D-A-33, FR-A-38) — the standard texts'
-seed-and-override pattern (`app/platform/services/standard_text.py`), on a
+seed-and-override pattern (`app/platform/documents/services/standard_text.py`), on a
 closed set of codes.
 
 **Resolution**: for a code, the language asked for, then the Betrieb's

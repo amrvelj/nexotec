@@ -14,7 +14,7 @@ import re
 from pathlib import Path
 
 _APP_ROOT = Path(__file__).resolve().parent.parent.parent / "app"
-_ALLOWED_FILE = _APP_ROOT / "platform" / "services" / "document_render.py"
+_ALLOWED_FILE = _APP_ROOT / "platform" / "documents" / "services" / "document_render.py"
 
 _WEASYPRINT_IMPORT = re.compile(r"^\s*(import weasyprint\b|from weasyprint\b)", re.MULTILINE)
 _HTML_TAG_LITERAL = re.compile(r"<(table|div|style|html)\b", re.IGNORECASE)

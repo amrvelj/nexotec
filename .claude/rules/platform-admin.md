@@ -2,7 +2,7 @@
 paths:
   - "app/platform/identity/api/dealership*.py"
   - "app/platform/organisation/**"
-  - "app/platform/api/branding.py"
+  - "app/platform/documents/api/branding.py"
   - "app/platform/reference/api/reference_data.py"
   - "app/platform/reference/services/reference_data.py"
   - "app/platform/identity/*/dealership*.py"

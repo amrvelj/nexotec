@@ -21,7 +21,7 @@ from app.integration.models.entitlement import IntegrationEntitlement
 from app.integration.models.notification import IntegrationNotification
 from app.integration.models.provider import IntegrationProvider
 from app.integration.models.secret_ref import IntegrationSecretRef
-from app.platform.public import Dealership, Location, actor_reference_checks
+from app.platform.public import actor_reference_checks, dealership_reference_check, location_reference_check
 
 CONTEXT = "integration"
 
@@ -56,25 +56,21 @@ def _not_a_deleted_connection() -> ColumnElement[bool]:
 
 
 CHECKS = [
-    ReferenceCheck(
+    dealership_reference_check(
         label="integration_connection.tenant_id -> dealership.id",
         source_model=IntegrationConnection,
         source_row_id_column=IntegrationConnection.id,
         source_fk_column=IntegrationConnection.tenant_id,
-        target_model=Dealership,
-        target_id_column=Dealership.id,
         nullable=True,  # platform-scoped connections have no tenant
     ),
     # KAN-222: a bound connection names one of platform's locations (rule 2;
     # the nightly `integration.location_labels` refresh leaves an id naming
     # nothing alone, so this check is where it shows).
-    ReferenceCheck(
+    location_reference_check(
         label="integration_connection.location_id -> location.id",
         source_model=IntegrationConnection,
         source_row_id_column=IntegrationConnection.id,
         source_fk_column=IntegrationConnection.location_id,
-        target_model=Location,
-        target_id_column=Location.id,
         nullable=True,  # an unbound connection serves the whole Betrieb
     ),
     ReferenceCheck(

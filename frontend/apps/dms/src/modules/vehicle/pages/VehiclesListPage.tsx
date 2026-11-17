@@ -1,0 +1,348 @@
+import { useEffect, useMemo, useState } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
+import { Alert, Badge, Button, Group, Stack, Title } from '@mantine/core'
+import { useDebouncedValue } from '@mantine/hooks'
+import { useInfiniteQuery } from '@tanstack/react-query'
+import { AlertTriangle, Car, Copy, ExternalLink, Info } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
+import {
+  ActionBar,
+  DataGrid,
+  type GridColumnDef,
+  Picker,
+  SelectionBar,
+  type SortSpec,
+  sortSpecFromQueryParam,
+  sortSpecToQueryParam,
+  useSetBreadcrumb,
+} from '@nexotec/ui-kit'
+import { useUiPreferencesContext } from '../../../hooks/UiPreferencesContext'
+import { useAuth } from '../../../auth/AuthContext'
+import { useCanWrite } from '../../../auth/useCanWrite'
+import { api } from '../../../api/client'
+import { VehicleCreateDialog } from '../components/VehicleCreateDialog'
+import { buildVehicleRowMenu, vehicleOpenState, type VehicleOpenAction } from '../components/vehicleRowMenu'
+import type { VehicleMdmRead, VehicleSearchResult } from '../../../api/types'
+import { useActionBarLabels } from '../../../hooks/useActionBarLabels'
+import { useDataGridLabels } from '../../../hooks/useDataGridLabels'
+
+const GRID_KEY = 'mdm.vehicles.list'
+
+/**
+ * FR-V-06/FR-V-16: ONE search box on the vehicle list, and that one box
+ * ALSO resolves identifiers. A Kontrollschild, VIN, Stammnummer or
+ * vehicle number resolves and the hit is shown ABOVE the grid; anything
+ * else filters the grid. There is deliberately no second search field
+ * and no separate plate-lookup screen anywhere in this app — see the
+ * WP-5 PR-9 commit message for why the prototype's old #/vehicles/lookup
+ * nav entry was removed rather than kept alongside this.
+ */
+export function VehiclesListPage() {
+  const { t } = useTranslation()
+  const dataGridLabels = useDataGridLabels()
+  const actionBarLabels = useActionBarLabels()
+  useSetBreadcrumb([t('shell.nav.masterData'), t('shell.nav.vehicles')])
+  const navigate = useNavigate()
+  const { density, setDensity } = useUiPreferencesContext()
+  const { entitlements } = useAuth()
+  // KAN-198 / D-A-04: valuations are a Sales-module surface.
+  const salesEntitled = entitlements.includes('sales')
+  // KAN-524: «Zusammenführen mit…» opens Vehicle 360's merge dialog for users who may edit vehicles.
+  const canMerge = useCanWrite('vehicle_mdm')
+
+  // § ADR-056 — search and sort live in the URL, as on Customers and
+  // Stock, so a vehicle search can be bookmarked, shared and reloaded.
+  const [searchParams, setSearchParams] = useSearchParams()
+  const updateUrl = (patch: Record<string, string | null>) => {
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev)
+        for (const [key, value] of Object.entries(patch)) {
+          if (value === null) next.delete(key)
+          else next.set(key, value)
+        }
+        return next
+      },
+      { replace: true }
+    )
+  }
+
+  const [query, setQuery] = useState(() => searchParams.get('q') ?? '')
+  const [debouncedQuery] = useDebouncedValue(query, 250)
+  useEffect(() => {
+    updateUrl({ q: debouncedQuery || null })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedQuery])
+
+  const sort: SortSpec[] = searchParams.get('sort') ? sortSpecFromQueryParam(searchParams.get('sort')) : []
+  const setSort = (next: SortSpec[]) => {
+    updateUrl({ sort: sortSpecToQueryParam(next) ?? null })
+  }
+  const [createOpen, setCreateOpen] = useState(false)
+  // KAN-7 — every other list grid (Customers already shipped; Sales gets
+  // the same fix alongside this one) offers selection + a bulk action.
+  // Vehicles had neither, which reads as an omission rather than a
+  // decision. Same minimal, honest "copy IDs" action as Customers' own
+  // precedent — proving the contract, not a real export feature this
+  // screen doesn't own.
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+
+  // KAN-161 — sorted server-side and loaded page by page by cursor, like
+  // every other list grid. A query that resolves as an identifier comes
+  // back as one page — the hit or the picker, no grid rows (KAN-82).
+  const sortParam = sortSpecToQueryParam(sort)
+  const fetchPage = (q: string, cursor: string | null) => {
+    const params = new URLSearchParams({ q, limit: '50' })
+    if (sortParam) params.set('sort', sortParam)
+    if (cursor) params.set('cursor', cursor)
+    return api.get<VehicleSearchResult>(`/vehicle-mdm/search?${params.toString()}`)
+  }
+  const searchQuery = useInfiniteQuery({
+    queryKey: [GRID_KEY, debouncedQuery, sortParam],
+    queryFn: ({ pageParam }: { pageParam: string | null }) => fetchPage(debouncedQuery, pageParam),
+    initialPageParam: null as string | null,
+    getNextPageParam: (lastPage) => lastPage.filtered.nextCursor,
+  })
+
+  const result = searchQuery.data?.pages[0]
+
+  // KAN-82 — an identifier hit resolves ABOVE the grid, and the grid
+  // "stays where it was" (FR-V-06): the hit's own response carries no rows
+  // (an unrelated page there misled global search), so the grid reads the
+  // unfiltered list — the same cache entry as an empty search box. An
+  // identifier that matches nothing has neither hit nor picker; its
+  // `filtered` page is filtered by that identifier, so a real one shows the
+  // no-match state (there is no such car) and a half-typed one still
+  // filters.
+  const showsHit = Boolean(result && (result.resolved || result.pickerCandidates.length > 0))
+  const unfilteredQuery = useInfiniteQuery({
+    queryKey: [GRID_KEY, '', sortParam],
+    queryFn: ({ pageParam }: { pageParam: string | null }) => fetchPage('', pageParam),
+    initialPageParam: null as string | null,
+    getNextPageParam: (lastPage) => lastPage.filtered.nextCursor,
+    enabled: showsHit,
+  })
+  const gridQuery = showsHit ? unfilteredQuery : searchQuery
+  const gridPage = gridQuery.data?.pages[0]
+  const rows = useMemo(() => gridQuery.data?.pages.flatMap((page) => page.filtered.items) ?? [], [gridQuery.data])
+
+  const columns: GridColumnDef<VehicleMdmRead>[] = useMemo(
+    () => [
+      {
+        id: 'vehicleNumber',
+        header: t('vehiclesList.columns.vehicleNumber'),
+        cell: ({ row }) => row.original.vehicleNumber,
+        meta: { sortField: 'vehicleNumber', pinned: 'left', mono: true },
+      },
+      {
+        id: 'vin',
+        header: t('vehiclesList.columns.vin'),
+        cell: ({ row }) => row.original.vin,
+        meta: { sortField: 'vin', mono: true },
+      },
+      {
+        id: 'stammnummer',
+        header: t('vehiclesList.columns.stammnummer'),
+        cell: ({ row }) => row.original.stammnummer ?? <NotSet />,
+        meta: { sortField: 'stammnummer' },
+      },
+      {
+        id: 'catalogueMatchStatus',
+        header: t('vehiclesList.columns.matchStatus'),
+        cell: ({ row }) => (
+          <Badge variant="light" color={row.original.catalogueMatchStatus === 'matched' ? 'grape' : 'gray'}>
+            {t(`vehiclesList.matchStatus.${row.original.catalogueMatchStatus}`)}
+          </Badge>
+        ),
+        meta: { sortField: 'catalogueMatchStatus' },
+      },
+      {
+        id: 'vehicleStatus',
+        header: t('vehiclesList.columns.status'),
+        cell: ({ row }) => <Badge variant="light">{t(`vehiclesList.status.${row.original.vehicleStatus}`)}</Badge>,
+        meta: { sortField: 'vehicleStatus' },
+      },
+    ],
+    [t],
+  )
+
+  return (
+    <Stack gap="md">
+      <Group justify="space-between">
+        <Title order={2}>{t('vehiclesList.title')}</Title>
+        <Button onClick={() => setCreateOpen(true)}>{t('vehiclesList.newVehicle')}</Button>
+      </Group>
+
+      <ActionBar
+        searchValue={query}
+        onSearchChange={setQuery}
+        searchPlaceholder={t('vehiclesList.searchPlaceholder')}
+        density={density}
+        onDensityChange={setDensity}
+        onRefresh={() => {
+          void searchQuery.refetch()
+          if (showsHit) void unfilteredQuery.refetch()
+        }}
+        refreshing={searchQuery.isRefetching || (showsHit && unfilteredQuery.isRefetching)}
+        labels={actionBarLabels}
+      />
+
+      {selectedIds.size > 0 && (
+        <SelectionBar
+          count={selectedIds.size}
+          onClear={() => setSelectedIds(new Set())}
+          countLabel={(n) => t('vehiclesList.selection.count', { count: n })}
+          clearLabel={t('vehiclesList.selection.clear')}
+          actions={[
+            {
+              label: t('vehiclesList.selection.copyIds'),
+              icon: <Copy size={14} />,
+              onClick: () => navigator.clipboard.writeText([...selectedIds].join(', ')),
+            },
+          ]}
+        />
+      )}
+
+      {result?.resolved && (
+        <Alert icon={<Car size={16} />} color="grape" title={t('vehiclesList.resolved.title')}>
+          <Group justify="space-between">
+            <div>
+              <strong>{result.resolved.vehicleNumber}</strong> — <span style={{ fontFamily: 'monospace' }}>{result.resolved.vin}</span>
+            </div>
+            <Button
+              size="xs"
+              variant="light"
+              leftSection={<ExternalLink size={14} />}
+              onClick={() => navigate(`/vehicles/${result.resolved!.id}`)}
+            >
+              {t('vehiclesList.resolved.open')}
+            </Button>
+          </Group>
+        </Alert>
+      )}
+
+      {result && result.pickerCandidates.length > 0 && (
+        // ADR-114 (KAN-191 q2, KAN-547): a Wechselschild is legitimate and
+        // informational — blue, as in the configurator's picker; only a
+        // genuine conflict is a warning.
+        <Alert
+          icon={isWechselschild(result) ? <Info size={16} /> : <AlertTriangle size={16} />}
+          color={isWechselschild(result) ? 'blue' : 'yellow'}
+          data-testid={isWechselschild(result) ? 'plate-picker-wechselschild' : 'plate-picker-conflict'}
+          title={pickerTitle(t, result)}
+        >
+          <Picker
+            rows={result.pickerCandidates.map((c) => ({
+              id: c.id,
+              identifier: c.vehicleNumber,
+              label: c.vin,
+              sublabel: c.plate ?? undefined,
+            }))}
+            query=""
+            onQueryChange={() => {}}
+            onSelect={(row) => navigate(`/vehicles/${row.id}`)}
+            autoFocus={false}
+            emptyLabel={t('vehiclesList.picker.empty')}
+          />
+        </Alert>
+      )}
+
+      <DataGrid<VehicleMdmRead>
+        columns={columns}
+        rows={rows}
+        getRowId={(row) => row.id}
+        sort={sort}
+        onSortChange={setSort}
+        density={density}
+        rowHref={(row) => `/vehicles/${row.id}`}
+        rowActions={(row) => {
+          // KAN-503 / ADR-061 — the SAME builder Vehicle 360's header uses,
+          // so the list and the detail cannot drift apart (FR-V-16: the
+          // actions on a vehicle in the list are the actions on its own
+          // screen). The ones that need the detail's own state — the
+          // customer picker, the odometer and accessory forms — open the
+          // car right there.
+          const openAt = (action: VehicleOpenAction) =>
+            navigate(`/vehicles/${row.id}`, { state: vehicleOpenState(action) })
+          const menu = buildVehicleRowMenu(t, {
+            onAllocate: () => openAt('allocate'),
+            onRecordOdometer: () => openAt('recordOdometer'),
+            onRecordAccessory: () => openAt('recordAccessory'),
+            onRecordPlate: () => openAt('recordPlate'),
+            onCopyVin: () => void navigator.clipboard.writeText(row.vin),
+            onRequestValuation: salesEntitled ? () => navigate(`/valuations/new?vehicle=${row.id}`) : undefined,
+            onMerge: canMerge ? () => openAt('merge') : undefined,
+          })
+          return {
+            navigate: [
+              {
+                label: t('vehiclesList.rowActions.open'),
+                icon: <ExternalLink size={16} />,
+                onClick: () => navigate(`/vehicles/${row.id}`),
+              },
+            ],
+            ...menu.overflow,
+          }
+        }}
+        selection={{
+            selectedIds,
+            onSelectionChange: setSelectedIds,
+            selectAllLabel: t('common.selectAllLabel'),
+            selectRowLabel: (row) => t('common.selectRowLabel', { label: `${row.vehicleNumber} · ${row.vin}` }),
+          }}
+        loading={searchQuery.isLoading || (showsHit && unfilteredQuery.isLoading)}
+        refetching={gridQuery.isRefetching && !gridQuery.isLoading}
+        fetchingNextPage={gridQuery.isFetchingNextPage}
+        hasNextPage={Boolean(gridQuery.hasNextPage)}
+        onLoadMore={() => gridQuery.fetchNextPage()}
+        error={searchQuery.isError || gridQuery.isError ? t('vehiclesList.loadError') : null}
+        onRetry={() => {
+          void searchQuery.refetch()
+          if (showsHit) void unfilteredQuery.refetch()
+        }}
+        total={gridPage?.filtered.total ?? null}
+        totalIsEstimate={gridPage?.filtered.totalIsEstimate ?? false}
+        isFiltered={debouncedQuery.length > 0 && !showsHit}
+        labels={dataGridLabels}
+        emptyState={{
+          icon: <Car size={24} />,
+          title: t('vehiclesList.emptyState.title'),
+          description: t('vehiclesList.emptyState.description'),
+          action: <Button onClick={() => setCreateOpen(true)}>{t('vehiclesList.newVehicle')}</Button>,
+        }}
+        emptyFilteredState={{
+          icon: <Car size={24} />,
+          title: t('vehiclesList.emptyFilteredState.title'),
+          description: t('vehiclesList.emptyFilteredState.description'),
+          action: (
+            <Button variant="default" onClick={() => setQuery('')}>
+              {t('vehiclesList.emptyFilteredState.action')}
+            </Button>
+          ),
+        }}
+      />
+
+      <VehicleCreateDialog
+        opened={createOpen}
+        onClose={() => setCreateOpen(false)}
+        onCreated={(vehicle) => {
+          setCreateOpen(false)
+          navigate(`/vehicles/${vehicle.id}`)
+        }}
+      />
+    </Stack>
+  )
+}
+
+function NotSet() {
+  const { t } = useTranslation()
+  return <span style={{ fontStyle: 'italic', color: 'var(--mantine-color-gray-5)' }}>{t('common.notSet')}</span>
+}
+
+function isWechselschild(result: VehicleSearchResult): boolean {
+  return result.pickerCandidates.every((c) => !c.isConflict)
+}
+
+function pickerTitle(t: (key: string) => string, result: VehicleSearchResult): string {
+  return isWechselschild(result) ? t('vehiclesList.picker.wechselschildTitle') : t('vehiclesList.picker.conflictTitle')
+}

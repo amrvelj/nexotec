@@ -14,10 +14,10 @@ from sqlalchemy.orm import sessionmaker
 from app.core.audit_model import AuditEvent
 from app.core.auth import AccessRole
 from app.core.permissions import ModuleCode
-from app.platform.models.standard_text import StandardText
+from app.platform.administration.services import configuration_copy as copy_service
+from app.platform.documents.models.standard_text import StandardText
 from app.platform.organisation.models.module_entitlement import ModuleEntitlement
 from app.platform.organisation.models.number_range import NumberRange, NumberRangeDocumentType
-from app.platform.services import configuration_copy as copy_service
 from tests.membership_support import bearer, create_dealership, create_user, grant, platform_admin, token
 from tests.postgres_only import ROW_LOCKS
 
@@ -353,13 +353,13 @@ def test_a_location_variant_is_not_copied(client, engine, standard_text_seeds):
 
 def test_a_text_the_target_cannot_take_is_skipped_and_the_rest_is_copied(client, engine, standard_text_seeds):
     from app.core.i18n import SwissLanguage
-    from app.platform.identity.models.standard_text_delegation import StandardTextCategory
-    from app.platform.models.standard_text import (
+    from app.platform.documents.models.standard_text import (
         StandardTextAppliesTo,
         StandardTextScope,
         StandardTextSlot,
         StandardTextSource,
     )
+    from app.platform.identity.models.standard_text_delegation import StandardTextCategory
 
     source, target, _, in_target, in_source = _pair(client, engine)
     _set_header_note(client, source, in_source, "Kopfzeile")
@@ -443,7 +443,7 @@ def test_an_empty_source_note_never_clears_the_targets(client, engine, standard_
 
 
 def test_the_review_state_of_an_adaptation_travels_with_the_copy(client, engine, standard_text_seeds):
-    from app.platform.services import standard_text as text_service
+    from app.platform.documents.services import standard_text as text_service
 
     source, target, _, in_target, in_source = _pair(client, engine)
     adapted, _, _ = _configure_source(client, source, in_source)
@@ -482,13 +482,13 @@ def test_a_copy_that_changes_no_range_writes_no_range_row(client, engine, standa
 
 def test_a_whatsapp_templates_provider_approval_and_id_stay_with_the_source(client, engine, standard_text_seeds):
     from app.core.i18n import SwissLanguage
-    from app.platform.identity.models.standard_text_delegation import StandardTextCategory
-    from app.platform.models.standard_text import (
+    from app.platform.documents.models.standard_text import (
         StandardTextAppliesTo,
         StandardTextScope,
         StandardTextSlot,
         StandardTextSource,
     )
+    from app.platform.identity.models.standard_text_delegation import StandardTextCategory
 
     source, target, _, in_target, _ = _pair(client, engine)
     session = sessionmaker(bind=engine)()
@@ -596,13 +596,13 @@ def test_the_target_text_is_locked_while_the_copy_writes_it(client, engine, stan
 @pytest.mark.parametrize("approved", [True, False], ids=["approved", "submitted"])
 def test_an_overwritten_whatsapp_text_loses_the_targets_approval(client, engine, standard_text_seeds, approved):
     from app.core.i18n import SwissLanguage
-    from app.platform.identity.models.standard_text_delegation import StandardTextCategory
-    from app.platform.models.standard_text import (
+    from app.platform.documents.models.standard_text import (
         StandardTextAppliesTo,
         StandardTextScope,
         StandardTextSlot,
         StandardTextSource,
     )
+    from app.platform.identity.models.standard_text_delegation import StandardTextCategory
 
     source, target, _, in_target, _ = _pair(client, engine)
     session = sessionmaker(bind=engine)()

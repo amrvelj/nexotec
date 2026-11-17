@@ -23,8 +23,8 @@ from app.core.audit_model import AuditEvent
 from app.core.auth import AccessRole
 from app.core.base import utcnow
 from app.customer.models.customer import Customer
-from app.platform.models.export_job import ExportJob, ExportJobStatus
-from app.platform.services import data_export
+from app.platform.administration.models.export_job import ExportJob, ExportJobStatus
+from app.platform.administration.services import data_export
 from app.sales.models.document import DocumentOwnerType, SalesDocument
 from app.sales.services.offer import create_offer
 from tests.data_export_support import (

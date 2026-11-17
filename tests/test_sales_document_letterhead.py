@@ -11,8 +11,8 @@ import pytest
 
 from app.core.i18n import SwissLanguage
 from app.core.object_store import LocalDirectoryObjectStore
+from app.platform.documents.schemas.document_content import DocumentWatermark, SignatureBlock
 from app.platform.identity.models.user import User, UserRole, UserStatus
-from app.platform.schemas.document_content import DocumentWatermark, SignatureBlock
 from app.sales.models.offer import OfferStatus
 from app.sales.services.document import (
     build_contract_content,
@@ -86,8 +86,8 @@ def _seller(db_session, tenant_id: uuid.UUID, key: str) -> User:
 
 def _printed_html(db_session, document, store) -> str:
     with (
-        patch("app.platform.services.document_render.get_object_store", return_value=store),
-        patch("app.platform.services.document_render.write_pdf", return_value=b"%PDF-stub") as write_pdf,
+        patch("app.platform.documents.services.document_render.get_object_store", return_value=store),
+        patch("app.platform.documents.services.document_render.write_pdf", return_value=b"%PDF-stub") as write_pdf,
     ):
         render_document_pdf(db_session, document=document, dealership_id=document.tenant_id)
     (html_string,) = write_pdf.call_args.args

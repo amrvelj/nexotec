@@ -53,6 +53,7 @@ from app.core.config import get_settings
 from app.core.errors import BadRequestError
 from app.core.permissions import AccessRole
 from app.db import SessionLocal
+from app.platform.administration.services import setup_checklist_regressions, status_notifications
 from app.platform.identity.models.user import User, UserStatus
 from app.platform.identity.schemas.user import UserUpdate
 from app.platform.identity.services import (
@@ -64,7 +65,6 @@ from app.platform.identity.services import (
 )
 from app.platform.identity.services import user as user_service
 from app.platform.identity.services import user_reads as user_reads_service
-from app.platform.services import setup_checklist_regressions, status_notifications
 
 logger = logging.getLogger(__name__)
 

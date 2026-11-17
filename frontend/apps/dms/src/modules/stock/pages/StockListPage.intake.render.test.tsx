@@ -5,7 +5,7 @@ import userEvent from '@testing-library/user-event'
 import i18n from '../../../i18n'
 import { renderWithProviders } from '../../../test/renderWithProviders'
 import { ALL_ENTITLEMENTS, installFakeBackend, type FakeRoute } from '../../../test/fakeBackend'
-import { CODED_REFERENCE_ROUTES } from '../../../test/configuratorFixtures'
+import { CODED_REFERENCE_ROUTES } from '../../vehicle/test/configuratorFixtures'
 import { StockListPage } from './StockListPage'
 
 // KAN-463 — the Stock list has one intake, «Fahrzeug aufnehmen», in its

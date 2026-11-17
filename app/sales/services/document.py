@@ -70,6 +70,7 @@ from app.platform.public import (
     StandardTextSlot,
     get_dealership_default_correspondence_language,
     get_dealership_or_404,
+    get_primary_location_id,
     render_document,
     render_standard_text,
 )
@@ -388,6 +389,16 @@ def contract_footer(db: Session, *, contract: SalesContract, language: SwissLang
     return rendered.text if rendered is not None else None
 
 
+def _print_location(db: Session, *, tenant_id: uuid.UUID, seller_id: uuid.UUID | None) -> uuid.UUID | None:
+    """KAN-717 (Anto, 2026-11-15, B): an offer or contract prints for its
+    responsible seller's primary location in this Betrieb; with no seller, or
+    none there, for the seat (None). Read once, when the document is made."""
+
+    if seller_id is None:
+        return None
+    return get_primary_location_id(db, dealership_id=tenant_id, user_id=seller_id)
+
+
 def generate_offer_document(db: Session, *, offer: SalesOffer, actor_id: uuid.UUID | None) -> SalesDocument:
     # KAN-495 (Anto, 2026-10-29, option a): an offer with a live contract
     # prints no new offer document — the contract is the live record (ADR-083)
@@ -413,6 +424,7 @@ def generate_offer_document(db: Session, *, offer: SalesOffer, actor_id: uuid.UU
         content_definition=content.model_dump(mode="json"),
         rendered_at=utcnow(),
         rendered_by=actor_id,
+        location_id=_print_location(db, tenant_id=offer.tenant_id, seller_id=offer.owner_user_id),
     )
     db.add(document)
     # The grid's document count is the deal row's (ADR-060): a new document
@@ -442,6 +454,7 @@ def generate_contract_document(db: Session, *, contract: SalesContract, actor_id
         content_definition=content.model_dump(mode="json"),
         rendered_at=utcnow(),
         rendered_by=actor_id,
+        location_id=_print_location(db, tenant_id=contract.tenant_id, seller_id=contract.owner_user_id),
     )
     db.add(document)
     upsert_deal_projection(db, contract=contract)  # the grid's document count (KAN-408)
@@ -492,6 +505,7 @@ def render_document_pdf(db: Session, *, document: SalesDocument, dealership_id: 
         correspondence_language=language,
         content=content,
         watermark=DocumentWatermark.DRAFT if _is_draft(db, document) else None,
+        location_id=document.location_id,
     )
 
 

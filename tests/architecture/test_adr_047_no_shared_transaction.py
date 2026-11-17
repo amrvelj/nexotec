@@ -331,6 +331,9 @@ _READS = {
     # KAN-722: the offboarded Betriebe of a group and their sole authors, which the
     # History tab of a group customer hides; a SELECT only.
     "app.platform.public.get_offboarded_audit_attribution",
+    # KAN-717: the responsible seller's primary site in the printing Betrieb, for a sales
+    # document's letterhead; a SELECT only.
+    "app.platform.public.get_primary_location_id",
     # KAN-222: locations' names and Betriebe for integration's nightly location-label
     # refresh; a SELECT only.
     "app.platform.public.get_location_labels",
@@ -426,6 +429,21 @@ _READS = {
     "app.vehicle.public.vehicle_reference_check",
     "app.vehicle.public.vehicle_vin_differs",
     "app.vehicle.public.vehicle_vin_distinct_from",
+    # KAN-123 step 7: what reconciliation checks against `dealer_group`,
+    # `dealership`, `location` and `user`, built by platform so its mapped
+    # classes never leave it — a ReferenceCheck, an EXISTS or a scalar
+    # subquery, each reading nothing itself; and two plain SELECTs by id for
+    # Customers' vehicle-party stamp classification, no commit.
+    "app.platform.public.dealer_group_reference_check",
+    "app.platform.public.dealership_exists",
+    "app.platform.public.dealership_group_of",
+    "app.platform.public.dealership_outside_group",
+    "app.platform.public.dealership_reference_check",
+    "app.platform.public.find_dealer_group_ids",
+    "app.platform.public.find_dealership_group_ids",
+    "app.platform.public.location_reference_check",
+    "app.platform.public.user_is_deactivated",
+    "app.platform.public.user_reference_check",
 }
 
 

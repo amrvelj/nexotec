@@ -959,7 +959,7 @@ def test_reload_is_the_dealer_managers_and_platform_staffs_only(client, db_sessi
 
 def test_every_note_a_present_detail_can_carry_has_its_line_on_screen():
     """KAN-598: the SPA translates a `present` detail's note through
-    `DETAIL_NOTE_I18N_KEY` (frontend/apps/dms/src/components/configurator/
+    `DETAIL_NOTE_I18N_KEY` (frontend/apps/dms/src/modules/vehicle/components/configurator/
     detailState.ts). Each note the loader writes on purpose — and the 400/422
     refusal's class name, which `_load_one` writes as the note — must be a key
     there, or a renamed constant or exception class silently reads on screen
@@ -970,7 +970,7 @@ def test_every_note_a_present_detail_can_carry_has_its_line_on_screen():
     from app.integration.errors import ProviderRequestError
 
     source = (
-        Path(__file__).resolve().parent.parent / "frontend/apps/dms/src/components/configurator/detailState.ts"
+        Path(__file__).resolve().parent.parent / "frontend/apps/dms/src/modules/vehicle/components/configurator/detailState.ts"
     ).read_text()
     for note in (
         catalogue_details.ENTITLEMENT_ABSENT,

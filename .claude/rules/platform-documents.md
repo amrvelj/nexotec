@@ -1,19 +1,20 @@
 ---
 paths:
-  - "app/platform/api/document_template.py"
-  - "app/platform/api/standard_text*.py"
+  - "app/platform/documents/api/document_template.py"
+  - "app/platform/documents/api/standard_text*.py"
   - "app/platform/organisation/api/number_ranges.py"
-  - "app/platform/services/document_*.py"
-  - "app/platform/services/standard_text*.py"
+  - "app/platform/documents/services/document_*.py"
+  - "app/platform/documents/services/standard_text*.py"
+  - "app/platform/services/standard_text_seed.py"
   - "app/platform/identity/services/text_delegation.py"
   - "app/platform/organisation/services/number_range.py"
-  - "app/platform/models/document_template.py"
-  - "app/platform/models/standard_text*.py"
+  - "app/platform/documents/models/document_template.py"
+  - "app/platform/documents/models/standard_text*.py"
   - "app/platform/identity/models/standard_text*.py"
   - "app/platform/organisation/models/number_range.py"
   - "app/platform/public.py"
-  - "app/platform/schemas/document_*.py"
-  - "app/platform/schemas/standard_text.py"
+  - "app/platform/documents/schemas/document_*.py"
+  - "app/platform/documents/schemas/standard_text.py"
   - "app/platform/organisation/schemas/number_range.py"
   - "tests/test_document_*.py"
   - "tests/test_standard_texts.py"
@@ -30,6 +31,7 @@ paths:
   - "frontend/apps/dms/src/pages/LetterheadPage*"
   - "frontend/apps/dms/src/components/letterhead/**"
   - "tests/test_sales_document_letterhead.py"
+  - "tests/test_kan717_sales_document_location.py"
 ---
 <!-- Maintainer note (stripped before Claude sees it). Summarises ADR-047, ADR-051, ADR-109 and the
 Dealer Administration PRD's standard texts (FR-A-28, D-A-23, A-RULE-4) and number ranges (D-A-17,
@@ -39,7 +41,7 @@ against main@73baf3f on 2026-10-25 - this cut was not re-verified against the co
 # Documents, standard texts and number ranges
 
 ## Document templates (ADR-051)
-- One shared template layer. WeasyPrint only in `app/platform/services/document_render.py`; no
+- One shared template layer. WeasyPrint only in `app/platform/documents/services/document_render.py`; no
   HTML-tag string literal (`<table`, `<div`, `<style`, `<html`) elsewhere in `app/`
   (`test_no_layout_code_outside_document_render.py`). One template, two consumers: the ui-kit
   `DocumentPreview` only displays the PDF the renderer produced — never a second renderer.
@@ -54,7 +56,8 @@ against main@73baf3f on 2026-10-25 - this cut was not re-verified against the co
   `document_letterhead.py`, four languages, in the document's language.
 - **Per location: address block and logo only** (A-27): `location.letterhead_address_override` as
   written, `branding_asset.location_id`'s logo, and the site's own bank account in the banking column
-  (ADR-051 addendum); the company column is always the legal entity. Sales passes no location yet.
+  (ADR-051 addendum); the company column is always the legal entity. Sales prints for the responsible seller's primary site in the Betrieb, frozen on
+  `sales_document.location_id` at generation; none prints for the seat (Anto, KAN-717).
 - The header logo is the site's, else the primary branding asset, while `document_header` is on.
   A `SignatureBlock` freezes the signer's user id; the image is read at render time (Q2 A).
   `render_document(watermark=DRAFT)` prints the draft mark only while the template has it on.

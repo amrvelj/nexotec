@@ -18,8 +18,8 @@ from app.core.reconciliation import (
     ReconciliationRun,
     seconds_since_last_reconciliation,
 )
+from app.platform.administration.services import stored_objects_check
 from app.platform.identity.models.user import User, UserRole, UserStatus
-from app.platform.services import stored_objects_check
 from tests.test_document_render import _make_dealership
 
 

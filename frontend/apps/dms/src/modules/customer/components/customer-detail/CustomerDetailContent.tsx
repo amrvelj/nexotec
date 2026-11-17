@@ -20,7 +20,7 @@ import {
 import { api } from '../../../../api/client'
 import { useAuth } from '../../../../auth/AuthContext'
 import { useCanWrite } from '../../../../auth/useCanWrite'
-import { holdsNowOrLater } from '../../../../utils/vehicleParty'
+import { holdsNowOrLater } from '../../../../shared/partyPeriod'
 import { toSwissLocale, type SupportedLanguage } from '../../../../i18n'
 import { showsLifecycleStatus, translatedCustomerTypeLabel, translatedLifecycleLabel, translatedRoleLabel } from '../../customerOptions'
 import { buildCustomerRowMenu } from '../customerRowMenu'

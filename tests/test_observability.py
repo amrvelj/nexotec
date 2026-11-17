@@ -133,7 +133,7 @@ def test_readyz_is_200_when_the_database_is_reachable(client):
 
 def test_readyz_is_503_when_the_database_is_unreachable():
     app = FastAPI()
-    from app.platform.api.health import router
+    from app.platform.health import router
 
     app.include_router(router, prefix="/v1")
 

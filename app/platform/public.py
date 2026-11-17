@@ -3,8 +3,31 @@ contract allows `app.<other-context>` to import `app.platform.public`, never
 `app.platform.models` / `app.platform.services` / `app.platform.api` directly.
 """
 
+from app.platform.administration.services.data_export_tables import PlatformExporter
+from app.platform.administration.services.publishing_readiness import (
+    PublishingMissingItem,
+    publishing_profile_missing_items,
+    publishing_profile_ready,
+)
+from app.platform.administration.services.setup_checklist import BlockedAction as SetupBlockedAction
+from app.platform.administration.services.setup_checklist import require_item_for as require_setup_item_for
+from app.platform.documents.models.standard_text import StandardTextAppliesTo, StandardTextSlot
+from app.platform.documents.schemas.document_content import (
+    Addressee,
+    ContentDefinition,
+    DocumentLine,
+    DocumentWatermark,
+    KeyValueBlock,
+    KeyValueRow,
+    LineItemsBlock,
+    LineStyle,
+    ParagraphBlock,
+    SignatureBlock,
+)
+from app.platform.documents.services.document_render import render_document
+from app.platform.documents.services.standard_text import RenderedStandardText, render_standard_text
+from app.platform.documents.services.standard_text_placeholders import PLACEHOLDER_UNRESOLVED, Placeholder
 from app.platform.identity.models.standard_text_delegation import StandardTextCategory
-from app.platform.identity.models.user import User
 from app.platform.identity.services.actor_reference import actor_reference_checks
 from app.platform.identity.services.audit_attribution import get_offboarded_audit_attribution
 from app.platform.identity.services.connected_account import (
@@ -17,6 +40,8 @@ from app.platform.identity.services.connected_account import (
 from app.platform.identity.services.group_labels import get_group_display_labels
 from app.platform.identity.services.notification_catalogue import NotificationEventCode
 from app.platform.identity.services.notifications import NotificationSubject, UnknownNotificationEvent, notify
+from app.platform.identity.services.reconciliation_targets import user_is_deactivated, user_reference_check
+from app.platform.identity.services.user_location import get_primary_location_id
 from app.platform.identity.services.user_preference import ui_language_of
 from app.platform.identity.services.user_reads import (
     UserDisplayLabel,
@@ -27,8 +52,6 @@ from app.platform.identity.services.user_reads import (
     list_user_dealer_group_ids,
     list_user_dealership_ids,
 )
-from app.platform.models.standard_text import StandardTextAppliesTo, StandardTextSlot
-from app.platform.organisation.models.dealership import DealerGroup, Dealership, Location
 from app.platform.organisation.models.number_range import NumberRangeDocumentType
 from app.platform.organisation.schemas.dealership import DealerGroupRead
 from app.platform.organisation.services.contact_group import ContactGroupCodes, contact_group_codes
@@ -41,30 +64,17 @@ from app.platform.organisation.services.dealership import (
 from app.platform.organisation.services.group_read_dealerships import DealershipRef, list_group_read_dealerships
 from app.platform.organisation.services.location import LocationLabel, get_location_labels, get_location_or_404
 from app.platform.organisation.services.number_range import allocate_number
+from app.platform.organisation.services.reconciliation_targets import (
+    dealer_group_reference_check,
+    dealership_exists,
+    dealership_group_of,
+    dealership_outside_group,
+    dealership_reference_check,
+    find_dealer_group_ids,
+    find_dealership_group_ids,
+    location_reference_check,
+)
 from app.platform.reference.services.reference_data import get_active_reference_value_codes
-from app.platform.schemas.document_content import (
-    Addressee,
-    ContentDefinition,
-    DocumentLine,
-    DocumentWatermark,
-    KeyValueBlock,
-    KeyValueRow,
-    LineItemsBlock,
-    LineStyle,
-    ParagraphBlock,
-    SignatureBlock,
-)
-from app.platform.services.data_export_tables import PlatformExporter
-from app.platform.services.document_render import render_document
-from app.platform.services.publishing_readiness import (
-    PublishingMissingItem,
-    publishing_profile_missing_items,
-    publishing_profile_ready,
-)
-from app.platform.services.setup_checklist import BlockedAction as SetupBlockedAction
-from app.platform.services.setup_checklist import require_item_for as require_setup_item_for
-from app.platform.services.standard_text import RenderedStandardText, render_standard_text
-from app.platform.services.standard_text_placeholders import PLACEHOLDER_UNRESOLVED, Placeholder
 
 # WP-6b: Addressee/ContentDefinition/.../render_document are the shared
 # document-render layer's public contract — every future module that
@@ -122,9 +132,7 @@ __all__ = [
     "ConnectedAccountProvider",
     "ContactGroupCodes",
     "ContentDefinition",
-    "DealerGroup",
     "DealerGroupRead",
-    "Dealership",
     "DealershipRef",
     "DocumentLine",
     "DocumentWatermark",
@@ -133,7 +141,6 @@ __all__ = [
     "KeyValueRow",
     "LineItemsBlock",
     "LineStyle",
-    "Location",
     "LocationLabel",
     "NotificationEventCode",
     "NotificationSubject",
@@ -150,12 +157,18 @@ __all__ = [
     "StandardTextCategory",
     "StandardTextSlot",
     "UnknownNotificationEvent",
-    "User",
     "UserDisplayLabel",
     "actor_reference_checks",
     "allocate_number",
     "contact_group_codes",
+    "dealer_group_reference_check",
+    "dealership_exists",
+    "dealership_group_of",
+    "dealership_outside_group",
+    "dealership_reference_check",
     "enable_group_read",
+    "find_dealer_group_ids",
+    "find_dealership_group_ids",
     "get_active_reference_value_codes",
     "get_active_user_acting_in",
     "get_dealer_group_or_404",
@@ -165,12 +178,14 @@ __all__ = [
     "get_location_labels",
     "get_location_or_404",
     "get_offboarded_audit_attribution",
+    "get_primary_location_id",
     "get_user_display_labels",
     "list_active_users_acting_in",
     "list_dealer_manager_emails",
     "list_group_read_dealerships",
     "list_user_dealer_group_ids",
     "list_user_dealership_ids",
+    "location_reference_check",
     "notify",
     "publishing_profile_missing_items",
     "publishing_profile_ready",
@@ -180,4 +195,6 @@ __all__ = [
     "require_setup_item_for",
     "ui_language_of",
     "unregister_grant_revoker",
+    "user_is_deactivated",
+    "user_reference_check",
 ]

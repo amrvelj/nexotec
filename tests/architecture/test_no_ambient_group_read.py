@@ -125,7 +125,7 @@ _ALLOWED_FILES = {
     # group (`group.c.id == scope.group_id`, the group handed in by
     # platform's own ExportScope), never another's. The export job's read only,
     # never a dealer-facing read — the exporters' precedent above.
-    _APP_ROOT / "platform" / "services" / "data_export_tables.py",
+    _APP_ROOT / "platform" / "administration" / "services" / "data_export_tables.py",
     # KAN-467, ADR-039 as amended (Anto, 2026-10-31: "it's on a group
     # level"): the Kontrollschild register is the dealer group's own, like
     # the customer register above — every read and write filters by the

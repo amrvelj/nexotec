@@ -36,13 +36,14 @@ only when a context is extracted. It is an exception for reads alone: an
 refused there too. The exemption is structural (the module's path), not a
 list of convenient files, and it covers nothing else in the package.
 
-A model reached through an imported module (`from app.platform import
-public as p; select(p.Dealership)`, `import app.platform.public as p`), a
-builder imported under another name (`from sqlalchemy import select as s`)
+A model reached through an imported module (`from app.platform.organisation.services
+import location as p; select(p.Location)`, `import app.platform.organisation.services.location
+as p`), a builder imported under another name (`from sqlalchemy import select as s`)
 and SQLAlchemy under another name (`import sqlalchemy as sqla`) are seen
-too. `test_import_resolution_from_source_text` resolves them from source
+too (no `public` module binds a mapped class since KAN-123, so the examples
+name a module that does). `test_import_resolution_from_source_text` resolves them from source
 text; under pytest `app.main` is already loaded, so the submodule fallback
-for `from app.platform import public as p` (needed in a fresh interpreter)
+for `from app.platform.organisation.services import location as p` (needed in a fresh interpreter)
 is exercised there only by
 `test_submodule_alias_resolves_in_a_fresh_interpreter`, which runs a
 separate Python process.
@@ -52,9 +53,9 @@ helper by keyword (`ReferenceCheck(target_model=Dealership)` in a
 reconciliation module — exempt anyway), a query built from a string
 (`text("SELECT … FROM dealership")`), and a foreign model reached through
 a variable that is not its imported name, a model spelled out through an
-unaliased module import (`app.platform.public.Dealership`), a model
+unaliased module import (`app.platform.organisation.models.dealership.Dealership`), a model
 reached through the package (`from app import platform as plat;
-plat.public.Dealership`), a builder reached through a SQLAlchemy submodule
+plat.organisation.models.dealership.Dealership`), a builder reached through a SQLAlchemy submodule
 (`from sqlalchemy import sql as s; s.select(...)`), and names brought in
 by `from … import *`.
 """
@@ -371,19 +372,21 @@ def test_import_resolution_from_source_text():
     """`_foreign_models` itself, on source text: the module-alias forms resolve
     to platform's mapped class, and the gate then reports the query."""
 
-    from app.platform.organisation.models.dealership import Dealership
+    from app.platform.organisation.models.dealership import Location
 
     for source in (
-        "from app.platform import public as p\nq = select(p.Dealership.id)\n",
-        "import app.platform.public as p\nq = select(p.Dealership.id)\n",
-        "from app.platform.public import Dealership as D\nq = select(D.id)\n",
+        "from app.platform.organisation.services import location as p\nq = select(p.Location.id)\n",
+        "import app.platform.organisation.services.location as p\nq = select(p.Location.id)\n",
+        "from app.platform.organisation.models.dealership import Location as L\nq = select(L.id)\n",
     ):
         tree = ast.parse(source)
         foreign = _foreign_models(tree, "inventory")
-        assert Dealership in foreign.values(), source
+        assert Location in foreign.values(), source
         assert _violations_in_source(source, context="inventory", foreign=foreign, reconciliation=False), source
     # Platform's own module importing its own model is not foreign.
-    assert _foreign_models(ast.parse("from app.platform.public import Dealership\n"), "platform") == {}
+    assert _foreign_models(ast.parse("from app.platform.organisation.models.dealership import Location\n"), "platform") == {}
+    # Since KAN-123, `public` binds no mapped class: importing from it brings no foreign model.
+    assert _foreign_models(ast.parse("from app.platform import public as p\n"), "inventory") == {}
 
 
 def test_submodule_alias_resolves_in_a_fresh_interpreter():
@@ -396,9 +399,10 @@ def test_submodule_alias_resolves_in_a_fresh_interpreter():
     code = (
         "import ast, sys; import app.platform as pkg; "
         "from tests.architecture.test_no_cross_context_orm_query import _foreign_models; "
-        "assert 'app.platform.public' not in sys.modules, 'already loaded: the fallback would not run'; "
-        "found = _foreign_models(ast.parse('from app.platform import public as p'), 'inventory'); "
-        "assert 'p.Dealership' in found, sorted(found)"
+        "name = 'app.platform.organisation.services.location'; "
+        "assert name not in sys.modules, 'already loaded: the fallback would not run'; "
+        "found = _foreign_models(ast.parse('from app.platform.organisation.services import location as p'), 'inventory'); "
+        "assert 'p.Location' in found, sorted(found)"
     )
     result = subprocess.run([sys.executable, "-c", code], cwd=_REPO_ROOT, capture_output=True, text=True, check=False)
     assert result.returncode == 0, result.stderr[-2000:]

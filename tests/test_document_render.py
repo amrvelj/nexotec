@@ -14,9 +14,8 @@ import pytest
 
 from app.core.errors import NotFoundError
 from app.core.i18n import SwissLanguage
-from app.platform.models.document_template import DocumentTemplate
-from app.platform.organisation.models.dealership import DealerGroup, Dealership, FranchiseType, Location
-from app.platform.schemas.document_content import (
+from app.platform.documents.models.document_template import DocumentTemplate
+from app.platform.documents.schemas.document_content import (
     Addressee,
     ContentDefinition,
     DocumentLine,
@@ -27,7 +26,8 @@ from app.platform.schemas.document_content import (
     ParagraphBlock,
     SignatureBlock,
 )
-from app.platform.services.document_render import _compose_html, render_document
+from app.platform.documents.services.document_render import _compose_html, render_document
+from app.platform.organisation.models.dealership import DealerGroup, Dealership, FranchiseType, Location
 from tests.dealership_support import valid_uid
 
 
@@ -361,7 +361,7 @@ def test_render_document_refuses_another_betriebs_location(db_session):
     db_session.add(foreign)
     db_session.flush()
 
-    with patch("app.platform.services.document_render.write_pdf") as write_pdf, pytest.raises(NotFoundError):
+    with patch("app.platform.documents.services.document_render.write_pdf") as write_pdf, pytest.raises(NotFoundError):
         render_document(
             db_session,
             dealership_id=ours.id,
@@ -388,7 +388,7 @@ def test_render_document_prints_its_own_betriebs_location(db_session):
     db_session.add(own)
     db_session.flush()
 
-    with patch("app.platform.services.document_render.write_pdf", return_value=b"%PDF-stub") as write_pdf:
+    with patch("app.platform.documents.services.document_render.write_pdf", return_value=b"%PDF-stub") as write_pdf:
         render_document(
             db_session,
             dealership_id=ours.id,

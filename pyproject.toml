@@ -143,7 +143,7 @@ warn_redundant_casts = true
 module = "infisical_sdk.*"
 ignore_missing_imports = true
 
-# Same reasoning — no stubs shipped; app/platform/services/document_render.py
+# Same reasoning — no stubs shipped; app/platform/documents/services/document_render.py
 # is the only importer (WP-6b), enforced by tests/architecture/
 # test_no_layout_code_outside_document_render.py.
 [[tool.mypy.overrides]]
@@ -215,16 +215,16 @@ source_modules = [
     "app.compliance",
 ]
 forbidden_modules = [
-    "app.platform.api",
+    "app.platform.administration",
     "app.platform.consumers",
     "app.platform.daily_jobs",
+    "app.platform.documents",
+    "app.platform.health",
     "app.platform.identity",
-    "app.platform.models",
     "app.platform.organisation",
     "app.platform.reconciliation",
     "app.platform.reference",
     "app.platform.reference_data_seed",
-    "app.platform.schemas",
     "app.platform.services",
 ]
 allow_indirect_imports = true

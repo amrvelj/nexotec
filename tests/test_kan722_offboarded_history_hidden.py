@@ -19,8 +19,8 @@ from app.core.export import read_rows
 from app.core.export_core import CoreExporter
 from app.customer.services import customer as customer_service
 from app.customer.services.data_export import CustomerExporter
+from app.platform.administration.services import data_export
 from app.platform.identity.models.dealership_membership import DealershipMembership
-from app.platform.services import data_export
 from tests.membership_support import bearer, token
 from tests.test_customer_vehicle_party_future_holder import _customer
 from tests.test_kan218_offboarded_betrieb_leaves_group_reads import _group, _offboarded, _user

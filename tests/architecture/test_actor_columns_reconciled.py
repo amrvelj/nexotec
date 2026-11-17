@@ -28,7 +28,7 @@ import app.model_registry  # noqa: F401  (registers every mapped class on Base)
 from app import reconciliation_runner
 from app.core.reconciliation import ReferenceCheck, StateCheck
 from app.db import Base
-from app.platform.public import User
+from app.platform.identity.models.user import User
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 _APP_ROOT = _REPO_ROOT / "app"

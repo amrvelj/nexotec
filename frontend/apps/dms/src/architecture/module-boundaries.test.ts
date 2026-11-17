@@ -21,7 +21,9 @@ import ts from 'typescript'
 // 3. Once a module has moved, none of its files stays behind: no file outside
 //    src/modules/ (src/api and src/i18n are shared, src/architecture holds the
 //    guards) carries one of the module's words in its name, and no path a move
-//    mapping in scripts/module-moves/ moved away from exists again.
+//    mapping in scripts/module-moves/ moved away from exists again. Every
+//    path a mapping moved to exists, unless a later mapping moved it on
+//    (step 3 renamed a Vehicle 360 test, step 4 moved it into vehicle).
 // 4. A module's index.ts never re-exports (or imports) from its own pages/.
 //    Rollup keeps a re-exported module even when its exports go unused, so a
 //    door that names a page pulls the page into every chunk that imports the
@@ -48,6 +50,7 @@ const MODULE_WORDS: Record<string, string[]> = {
   customer: ['Customer'],
   stock: ['Stock'],
   valuation: ['Valuation'],
+  vehicle: ['Vehicle', 'Catalogue', 'Configurator'],
 }
 
 /** Outside src/modules/, these folders may carry a module's word: shared API types, bundles, the guards. */
@@ -208,9 +211,9 @@ describe('frontend modules keep their boundary (KAN-636, ADR-161)', () => {
     )
     expect(throughCustomersDoor.map(([path]) => path).sort()).toEqual([
       'components/deal-workspace/DealWorkspaceContainers.tsx',
-      'components/vehicle-detail/IdentityTab.tsx',
       'modules/valuation/components/ValuationCreateDialog.tsx',
       'modules/valuation/pages/ValuationDetailPage.tsx',
+      'modules/vehicle/components/vehicle-detail/IdentityTab.tsx',
       'pages/ContractDetailPage.tsx',
       'pages/OfferWorkspacePage.tsx',
     ])
@@ -219,10 +222,26 @@ describe('frontend modules keep their boundary (KAN-636, ADR-161)', () => {
       ([path, source]) => moduleOf(path) !== 'stock' && !isTestCode(path) && importsOf(path, source).some(({ specifier }) => resolveImport(path, specifier, (p) => realFiles.has(p)) === 'modules/stock/index.ts'),
     )
     expect(throughStocksDoor.map(([path]) => path).sort()).toEqual([
+      'modules/vehicle/pages/VehicleDetailPage.tsx',
       'pages/ContractDetailPage.tsx',
       'pages/OfferDetailPage.tsx',
       'pages/OfferWorkspacePage.tsx',
-      'pages/VehicleDetailPage.tsx',
+    ])
+    // And vehicle's: the configurator's hosts (stock, valuation, the deal workspace) and the invoice request's plate holders.
+    const throughVehiclesDoor = [...realFiles].filter(
+      ([path, source]) => moduleOf(path) !== 'vehicle' && !isTestCode(path) && importsOf(path, source).some(({ specifier }) => resolveImport(path, specifier, (p) => realFiles.has(p)) === 'modules/vehicle/index.ts'),
+    )
+    expect(throughVehiclesDoor.map(([path]) => path).sort()).toEqual([
+      'components/contract-detail/RequestInvoiceDialog.tsx',
+      'components/deal-workspace/DealWorkspaceContainers.tsx',
+      'modules/stock/components/AddToPipelineButton.tsx',
+      'modules/stock/components/stock-detail/DetailsTab.tsx',
+      'modules/stock/components/stock-detail/StockConfiguratorContent.tsx',
+      'modules/stock/components/stock-detail/useAttachConfiguration.tsx',
+      'modules/valuation/components/NewValuationButton.tsx',
+      'modules/valuation/components/ValuationCreateDialog.tsx',
+      'modules/valuation/pages/ValuationCreatePage.tsx',
+      'modules/valuation/pages/ValuationDetailPage.tsx',
     ])
   })
 
@@ -246,7 +265,18 @@ describe('frontend modules keep their boundary (KAN-636, ADR-161)', () => {
     const mappings = moveMappings()
     expect(mappings.map((m) => m.module).sort()).toEqual([...moduleFolders].sort())
     const backAgain = mappings.flatMap((m) => m.moves.filter(([from]) => existsSync(join(APP_ROOT, from))).map(([from]) => from))
-    const notThere = mappings.flatMap((m) => m.moves.filter(([, to]) => !existsSync(join(APP_ROOT, to))).map(([, to]) => to))
+    // A target a later mapping moved on is followed to the end of its chain, which must exist;
+    // a chain that comes back on itself never ends at a file and fails.
+    const next = new Map(mappings.flatMap((m) => m.moves.map(([from, to]) => [from, to] as const)))
+    const endsAtAFile = (start: string) => {
+      const seen = new Set<string>()
+      for (let at: string | undefined = start; at !== undefined && !seen.has(at); at = next.get(at)) {
+        if (existsSync(join(APP_ROOT, at))) return true
+        seen.add(at)
+      }
+      return false
+    }
+    const notThere = mappings.flatMap((m) => m.moves.filter(([, to]) => !endsAtAFile(to)).map(([, to]) => to))
     expect(backAgain).toEqual([])
     expect(notThere).toEqual([])
   })

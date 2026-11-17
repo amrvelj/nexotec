@@ -702,7 +702,7 @@ def _offboarded_betrieb(db_session, monkeypatch):
     and its connection, and the real producer's `platform.dealership.offboarded` row."""
 
     from app.inventory.services import marketplace_transmission
-    from app.platform.services import offboarding
+    from app.platform.administration.services import offboarding
 
     dealership = _dealership(db_session)
     connection = _make_connection(db_session, _make_provider(db_session), tenant_id=dealership.id)

@@ -534,7 +534,7 @@ def standard_text_seeds(engine) -> int:
     installs it — every test starts with empty tables, so a test that needs
     the seeds asks for them."""
 
-    from app.platform.services.standard_text import install_platform_seeds
+    from app.platform.documents.services.standard_text import install_platform_seeds
 
     session = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)()
     try:

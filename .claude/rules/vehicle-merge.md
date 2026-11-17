@@ -4,7 +4,7 @@ paths:
   - "app/vehicle/services/stock_holding.py"
   - "app/customer/services/vehicle_merge.py"
   - "app/inventory/services/vehicle_merge.py"
-  - "frontend/apps/dms/src/components/vehicle-detail/MergeVehicleDialog*"
+  - "frontend/apps/dms/src/modules/vehicle/components/vehicle-detail/MergeVehicleDialog*"
   - "tests/test_vehicle_merge.py"
   - "tests/test_kan524_vehicle_merge.py"
   - "tests/test_kan680_vehicle_merge_party_rest.py"

@@ -32,13 +32,13 @@ from app.integration.models.connection import (
 from app.integration.models.notification import IntegrationNotification, NotificationKind
 from app.integration.models.provider import IntegrationProvider
 from app.integration.public import IntegrationStatusProvider
+from app.platform.administration.models.status_page import IncidentSeverity, PlatformStatusIncident, StatusItemState
+from app.platform.administration.services import status_notifications, status_page
 from app.platform.identity.models.notification import Notification
 from app.platform.identity.services.notification_catalogue import NotificationEventCode
-from app.platform.models.status_page import IncidentSeverity, PlatformStatusIncident, StatusItemState
 from app.platform.organisation.models.dealership import Dealership, DealershipStatus
 from app.platform.organisation.models.number_range import NumberRangeDocumentType
 from app.platform.organisation.services import number_range as number_range_service
-from app.platform.services import status_notifications, status_page
 from tests import setup_checklist_support as s
 from tests.identity_support import platform_admin_headers
 from tests.test_customer_vehicle_party_close_rule import _postgres_only, _run, _wait_until_a_backend_waits_on_a_lock

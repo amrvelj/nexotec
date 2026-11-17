@@ -12,7 +12,7 @@ import { OfferWorkspacePage } from './OfferWorkspacePage'
 // KAN-266 — the trade-in saved by VIN carries an Idempotency-Key beside its
 // If-Match, so a save whose response was lost is replayed instead of
 // answered with a version conflict. The valuation attach's key is pinned in
-// OfferWorkspace.configurator.render.test.tsx, the one test that drives it.
+// OfferWorkspace.configuration.render.test.tsx, the one test that drives it.
 
 const OFFER = {
   id: 'o1', offerNumber: 'ANG-2026-0001', status: 'draft', customerId: null, customerLabel: null,

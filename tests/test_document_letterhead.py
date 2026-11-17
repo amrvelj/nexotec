@@ -17,12 +17,8 @@ import pytest
 
 from app.core.i18n import SwissLanguage
 from app.core.object_store import LocalDirectoryObjectStore
-from app.platform.identity.models.user import User, UserRole, UserStatus
-from app.platform.models.document_template import AddressWindow, DocumentTemplate, HeaderLayout, LogoSize
-from app.platform.organisation.models.branding_asset import BrandingAsset, BrandingAssetKind
-from app.platform.organisation.models.dealership import Location
-from app.platform.organisation.models.dealership_bank_account import DealershipBankAccount
-from app.platform.schemas.document_content import (
+from app.platform.documents.models.document_template import AddressWindow, DocumentTemplate, HeaderLayout, LogoSize
+from app.platform.documents.schemas.document_content import (
     Addressee,
     ContentDefinition,
     DocumentLine,
@@ -32,14 +28,18 @@ from app.platform.schemas.document_content import (
     ParagraphBlock,
     SignatureBlock,
 )
-from app.platform.services import document_letterhead as letterhead
-from app.platform.services.document_render import (
+from app.platform.documents.services import document_letterhead as letterhead
+from app.platform.documents.services.document_render import (
     FOLD_MARK_CLASS,
     WINDOW_CLASS,
     _compose_html,
     compose_document_html,
     layout_document,
 )
+from app.platform.identity.models.user import User, UserRole, UserStatus
+from app.platform.organisation.models.branding_asset import BrandingAsset, BrandingAssetKind
+from app.platform.organisation.models.dealership import Location
+from app.platform.organisation.models.dealership_bank_account import DealershipBankAccount
 from tests.test_document_render import _make_dealership
 
 _PX_TO_MM = 25.4 / 96

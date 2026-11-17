@@ -15,7 +15,7 @@ import { OfferWorkspaceContent } from './OfferWorkspacePage'
 import { StockDetailContent } from '../modules/stock'
 import type { SalesOfferRead } from '../api/types'
 import { apiRefusalText } from '../utils/apiRefusal'
-import { VehicleChangedBanner } from '../components/deal-workspace/VehicleChangedBanner'
+import { VehicleChangedBanner } from '../components/deal-workspace/InventoryChangedBanner'
 
 /** `/sales/offers/new` — the confirmed reference prototype allocates a
  * number and opens an empty draft before anything is chosen; this route

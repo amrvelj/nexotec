@@ -9,7 +9,7 @@ import type { SalesDealRead, StockItemPage, StockItemRead, ValuationRead } from 
 import { StockListPage } from '../modules/stock/pages/StockListPage'
 import { SalesListPage } from './SalesListPage'
 import { ValuationsListPage } from '../modules/valuation/pages/ValuationsListPage'
-import { CatalogueBrowsePage } from './CatalogueBrowsePage'
+import { CatalogueBrowsePage } from '../modules/vehicle/pages/CatalogueBrowsePage'
 
 // KAN-361 — Stock, Sales, Valuations and Catalogue passed
 // `gridPrefs.columnLayout ?? undefined` to DataGrid, so a user who never
