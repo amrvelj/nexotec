@@ -3,6 +3,7 @@ merge itself imports (the identity PATCH's stock-holding read) can use them.
 """
 
 import uuid
+from collections.abc import Collection
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -47,3 +48,18 @@ def records_living_on(db: Session, vehicle_id: uuid.UUID) -> tuple[uuid.UUID, ..
         found.extend(merged)
         frontier = merged
     return tuple(found)
+
+
+def find_merged_vehicle_ids(db: Session, vehicle_ids: Collection[uuid.UUID]) -> set[uuid.UUID]:
+    """KAN-724 — which of `vehicle_ids` name a record merged into another, in
+    one query. Read-only. Stock's daily repair asks it for the records its live
+    items name, then follows each with `resolve_merged_id`."""
+
+    ids = set(vehicle_ids)
+    if not ids:
+        return set()
+    return set(
+        db.scalars(
+            select(VehicleMdm.id).where(VehicleMdm.id.in_(ids), VehicleMdm.merged_into_vehicle_id.is_not(None))
+        ).all()
+    )

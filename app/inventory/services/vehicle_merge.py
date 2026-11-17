@@ -27,12 +27,20 @@ Betrieb is an index (KAN-535). It stays on the duplicate, and inventory's nightl
 check «stock_item.vehicle_id names a merged vehicle_mdm record» (KAN-706) names
 it to that Betrieb.
 
+A blocked item does not wait for the next merge: Stock's daily repair
+`inventory.merged_record_items.repair` (`repair_items_left_on_merged_records`,
+KAN-724; registered after `reconciliation.run_all`, ADR-047 addendum) runs the
+same move again for every merged record a live item still names, so once the
+Betrieb has cancelled or sold the other car the left item follows — with the
+same audit row and VIN take-over as the consumer's.
+
 Each moved item gets an audit row naming the merge (`vehicle_merged`, the
 system actor) and its version bumped; one that took a VIN also publishes
 `inventory.stock_item.vin_corrected`, as «VIN korrigieren» does. Commit-free: the consumer harness commits
 with the processed-event row, so a redelivery finds nothing left to move.
 """
 
+import dataclasses
 import logging
 import re
 import uuid
@@ -46,7 +54,12 @@ from app.core.outbox import OutboxEvent, publish
 from app.core.outbox_model import OutboxMessage
 from app.core.validators import normalise_vin
 from app.inventory.models.stock_item import ISO_VIN_PATTERN, StockItem
-from app.vehicle.public import follow_vehicle_merge_on_configuration, get_vehicle_summaries, resolve_merged_vehicle_id
+from app.vehicle.public import (
+    find_merged_vehicle_ids,
+    follow_vehicle_merge_on_configuration,
+    get_vehicle_summaries,
+    resolve_merged_vehicle_id,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -207,3 +220,59 @@ def handle_vehicle_merged_message(db: Session, message: OutboxMessage) -> None:
     move_stock_items_on_vehicle_merge(
         db, duplicate_vehicle_id=message.aggregate_id, survivor_vehicle_id=uuid.UUID(survivor)
     )
+
+
+@dataclasses.dataclass(frozen=True)
+class MergedRecordRepair:
+    """One run of the repair: the merged records it found holding a live item,
+    the items it moved, the items still blocked, and the records whose move failed."""
+
+    records: int
+    moved: int
+    still_blocked: int
+    failed: tuple[uuid.UUID, ...]
+
+
+def repair_items_left_on_merged_records(db: Session) -> MergedRecordRepair:
+    """KAN-724: every merged vehicle-mdm record a live stock item still names
+    gets the consumer's move again (`move_stock_items_on_vehicle_merge`, onto
+    the record it lives on now). An item the move had to leave there — its
+    Betrieb held the survivor live under a chassis number (KAN-535's index) —
+    follows as soon as nothing blocks it; one still blocked stays, and the
+    nightly check keeps naming it. Each record commits on its own, so one
+    failing move never rolls back another; a failure is rolled back, counted
+    and tried again the next night."""
+
+    held = set(
+        db.scalars(
+            select(StockItem.vehicle_id)
+            .where(StockItem.left_stock_at.is_(None), StockItem.vehicle_id.is_not(None))
+            .distinct()
+        ).all()
+    )
+    merged = sorted(find_merged_vehicle_ids(db, {vehicle_id for vehicle_id in held if vehicle_id is not None}))
+    db.rollback()  # the reads above end here; each record below is its own transaction
+    moved = 0
+    failed: list[uuid.UUID] = []
+    for duplicate_id in merged:
+        try:
+            # The duplicate as both ids: `resolve_merged_vehicle_id` finds the record it lives on now.
+            moved += move_stock_items_on_vehicle_merge(
+                db, duplicate_vehicle_id=duplicate_id, survivor_vehicle_id=duplicate_id
+            )
+            db.commit()
+        except Exception:
+            db.rollback()
+            logger.exception("stock items on merged record %s could not be moved (KAN-724)", duplicate_id)
+            failed.append(duplicate_id)
+    still_blocked = (
+        len(
+            db.scalars(
+                select(StockItem.id).where(StockItem.vehicle_id.in_(merged), StockItem.left_stock_at.is_(None))
+            ).all()
+        )
+        if merged
+        else 0
+    )
+    db.rollback()
+    return MergedRecordRepair(records=len(merged), moved=moved, still_blocked=still_blocked, failed=tuple(failed))

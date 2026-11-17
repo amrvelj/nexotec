@@ -400,6 +400,8 @@ _READS = {
     "app.valuation.public.valuation_reference_check",
     # KAN-10: offer, stock item and valuation read the configuration they reference.
     "app.vehicle.public.get_configuration_for_host",
+    # KAN-724: Stock's daily repair asks which records its live items name are merged; a SELECT only.
+    "app.vehicle.public.find_merged_vehicle_ids",
     # KAN-535: promotion asks whether a pre-1981 car already has its record before it writes; a SELECT only.
     "app.vehicle.public.find_vehicle_mdm_by_chassis_number",
     # KAN-535: «VIN korrigieren» asks which record a corrected chassis number would collide with; a SELECT only.
