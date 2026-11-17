@@ -4,7 +4,7 @@ ADR-044's tier decision, made explicit: these ~14 strings are UI chrome —
 fixed, identical for every dealership, never admin-editable — not
 canonical reference data (the `reference_list`/`reference_value` DB
 tables) and not per-dealership wording (the header note on
-`app.platform.models.document_template.DocumentTemplate`, and since KAN-208
+`app.platform.documents.models.document_template.DocumentTemplate`, and since KAN-208
 the standard-text library — the offer's introduction and footer — which a
 dealer DOES customize per language). UI chrome
 lives in the code repository as static data, same tier the frontend's own

@@ -38,7 +38,7 @@ export type DocumentPreviewProps = DocumentPreviewBaseProps & DocumentPreviewDow
  * § Component Contracts — The document renderer. This is the frontend
  * presentation shell only: it accepts a PDF blob/URL and renders it full-
  * bleed and chrome-free, exactly as ADR-063 describes. Every PDF it shows
- * comes from the one template layer (`app.platform.services.document_render.
+ * comes from the one template layer (`app.platform.documents.services.document_render.
  * render_document`): a sales document, the branding preview, and (KAN-206)
  * the letterhead template's preview. Building a second renderer instead of
  * showing that function's output here is the mistake this component's own

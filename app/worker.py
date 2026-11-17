@@ -358,7 +358,7 @@ def register_handlers(transport: InProcessTransport) -> None:
     )
     # KAN-218's `platform.data_export.requested` has no consumer here: since
     # KAN-738 the web service produces the export, because the object store
-    # is the web's disk (app/platform/services/data_export_runner.py).
+    # is the web's disk (app/platform/administration/services/data_export_runner.py).
     # KAN-222 (FR-A-22): integration's fact that a connection nears its
     # expiry becomes its Betrieb's managers' `administration` notification —
     # platform raises it on its own session; integration never calls notify
@@ -615,7 +615,7 @@ def register_daily_jobs() -> None:
        so after reconciliation: the night's report names the grant first.
     16. (none) — KAN-218's ``platform.data_exports.expire`` left the worker
        in KAN-738: an export's file is on the web service's disk, so the web
-       deletes it seven days on (app/platform/services/data_export_runner.py).
+       deletes it seven days on (app/platform/administration/services/data_export_runner.py).
        No job deletes an offboarded Betrieb's archive (Anto, 2026-11-14):
        reconciliation reports one past its ten years; the deletion is manual.
     17. ``platform.setup_checklist.regressions`` — KAN-214 (D-A-21, FR-A-26):

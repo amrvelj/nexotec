@@ -9,8 +9,8 @@ from unittest.mock import patch
 import pytest
 
 from app.core.auth import AccessRole
-from app.platform.schemas.document_content import DocumentWatermark
-from app.platform.services import document_render
+from app.platform.documents.schemas.document_content import DocumentWatermark
+from app.platform.documents.services import document_render
 from tests.test_branding import _SVG, _audit, _manager, _role, object_store  # noqa: F401  (fixture)
 from tests.test_dealership import _bearer, _create_dealership, _token
 
@@ -124,7 +124,7 @@ def test_the_preview_is_a_sample_pdf_through_render_document(client, object_stor
     did = dealership["id"]
     location = _first_location(client, did)
     real = document_render.render_document
-    with patch("app.platform.api.document_template.render_document", wraps=real) as render:
+    with patch("app.platform.documents.api.document_template.render_document", wraps=real) as render:
         response = client.get(
             f"/v1/dealerships/{did}/document-template/preview",
             params={"document": document, "location": location["id"]},
@@ -144,7 +144,7 @@ def test_the_preview_prints_the_saved_template_and_the_sample(client, object_sto
     dealership = _create_dealership(client)
     did = dealership["id"]
     _patch(client, did, {"addressWindow": "left", "headerLayout": "logo_right"}, version=0)
-    with patch("app.platform.services.document_render.write_pdf", return_value=b"%PDF-stub") as write_pdf:
+    with patch("app.platform.documents.services.document_render.write_pdf", return_value=b"%PDF-stub") as write_pdf:
         response = client.get(
             f"/v1/dealerships/{did}/document-template/preview", params={"document": "invoice"}, headers=_manager(did)
         )

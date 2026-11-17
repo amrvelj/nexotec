@@ -14,18 +14,15 @@ from app.core.auth import AccessRole
 from app.core.base import utcnow
 from app.core.errors import UnprocessableEntityError
 from app.core.i18n import SwissLanguage
-from app.platform.identity.models.standard_text_delegation import StandardTextCategory
-from app.platform.models.standard_text import (
+from app.platform.documents.models.standard_text import (
     StandardText,
     StandardTextAppliesTo,
     StandardTextScope,
     StandardTextSlot,
     StandardTextSource,
 )
-from app.platform.organisation.models.dealership import DealerGroup, Dealership, FranchiseType, Location
-from app.platform.public import PLACEHOLDER_UNRESOLVED, render_standard_text
-from app.platform.services import standard_text as service
-from app.platform.services.standard_text_placeholders import (
+from app.platform.documents.services import standard_text as service
+from app.platform.documents.services.standard_text_placeholders import (
     PLACEHOLDER_INVALID,
     TARGETS,
     Placeholder,
@@ -33,6 +30,9 @@ from app.platform.services.standard_text_placeholders import (
     target_for,
     validate_body,
 )
+from app.platform.identity.models.standard_text_delegation import StandardTextCategory
+from app.platform.organisation.models.dealership import DealerGroup, Dealership, FranchiseType, Location
+from app.platform.public import PLACEHOLDER_UNRESOLVED, render_standard_text
 from app.platform.services.standard_text_seed import SEED_CODES, SEED_TEXTS
 from tests.dealership_support import valid_uid
 from tests.membership_support import bearer, create_dealership, create_user, manager_of, platform_admin, token

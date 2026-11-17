@@ -23,9 +23,9 @@ from app.core.observability import (
 from app.db import SessionLocal
 from app.export_registry import register_exporters
 from app.ownership_registry import register_ownership_providers
+from app.platform.administration.services import data_export_runner
 from app.platform.identity.session_guard import enforce_live_session, enforce_open_dealership
 from app.platform.reference.services.mailer import get_mailer
-from app.platform.services import data_export_runner
 from app.status_registry import register_status_providers
 
 configure_logging()
@@ -44,7 +44,7 @@ register_status_providers()
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     """KAN-738: the data export is produced and expired in this process,
-    beside the object store's disk (app/platform/services/data_export_runner.py).
+    beside the object store's disk (app/platform/administration/services/data_export_runner.py).
     The tests' TestClient never enters the lifespan; they call `run_once`."""
 
     data_export_runner.start(SessionLocal)

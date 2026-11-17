@@ -1,7 +1,7 @@
 """The setup checklist's contribution port (KAN-214; Dealer Administration
 D-A-21, FR-A-26).
 
-The checklist is platform's (`app/platform/services/setup_checklist.py`), but
+The checklist is platform's (`app/platform/administration/services/setup_checklist.py`), but
 some of its items are owned by a context above platform — the publishing
 profile (inventory, KAN-225) is the first. Platform is the lowest layer and
 never calls up (ADR-131), so such an item arrives here: the owning context

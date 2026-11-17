@@ -12,7 +12,7 @@ to touch real data.
 
 The sample ContentDefinition below is WP-6b's own exit-criterion
 demonstration only — never imported by a real module, and it names no real
-document type (see app.platform.schemas.document_content's own docstring
+document type (see app.platform.documents.schemas.document_content's own docstring
 for why this package carries no content vocabulary of its own).
 
 Usage: python scripts/render_wp6b_demo.py [output_dir]
@@ -50,9 +50,8 @@ from sqlalchemy.orm import Session
 import app.model_registry  # noqa: F401  registers every table on Base.metadata
 from app.core.i18n import SwissLanguage
 from app.db import Base
-from app.platform.models.document_template import DocumentTemplate
-from app.platform.organisation.models.dealership import DealerGroup, Dealership, FranchiseType
-from app.platform.schemas.document_content import (
+from app.platform.documents.models.document_template import DocumentTemplate
+from app.platform.documents.schemas.document_content import (
     Addressee,
     ContentDefinition,
     DocumentLine,
@@ -63,7 +62,8 @@ from app.platform.schemas.document_content import (
     ParagraphBlock,
     SignatureBlock,
 )
-from app.platform.services.document_render import render_document
+from app.platform.documents.services.document_render import render_document
+from app.platform.organisation.models.dealership import DealerGroup, Dealership, FranchiseType
 
 
 class _DemoStrings(TypedDict):

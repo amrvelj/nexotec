@@ -3,6 +3,30 @@ contract allows `app.<other-context>` to import `app.platform.public`, never
 `app.platform.models` / `app.platform.services` / `app.platform.api` directly.
 """
 
+from app.platform.administration.services.data_export_tables import PlatformExporter
+from app.platform.administration.services.publishing_readiness import (
+    PublishingMissingItem,
+    publishing_profile_missing_items,
+    publishing_profile_ready,
+)
+from app.platform.administration.services.setup_checklist import BlockedAction as SetupBlockedAction
+from app.platform.administration.services.setup_checklist import require_item_for as require_setup_item_for
+from app.platform.documents.models.standard_text import StandardTextAppliesTo, StandardTextSlot
+from app.platform.documents.schemas.document_content import (
+    Addressee,
+    ContentDefinition,
+    DocumentLine,
+    DocumentWatermark,
+    KeyValueBlock,
+    KeyValueRow,
+    LineItemsBlock,
+    LineStyle,
+    ParagraphBlock,
+    SignatureBlock,
+)
+from app.platform.documents.services.document_render import render_document
+from app.platform.documents.services.standard_text import RenderedStandardText, render_standard_text
+from app.platform.documents.services.standard_text_placeholders import PLACEHOLDER_UNRESOLVED, Placeholder
 from app.platform.identity.models.standard_text_delegation import StandardTextCategory
 from app.platform.identity.models.user import User
 from app.platform.identity.services.actor_reference import actor_reference_checks
@@ -27,7 +51,6 @@ from app.platform.identity.services.user_reads import (
     list_user_dealer_group_ids,
     list_user_dealership_ids,
 )
-from app.platform.models.standard_text import StandardTextAppliesTo, StandardTextSlot
 from app.platform.organisation.models.dealership import DealerGroup, Dealership, Location
 from app.platform.organisation.models.number_range import NumberRangeDocumentType
 from app.platform.organisation.schemas.dealership import DealerGroupRead
@@ -42,29 +65,6 @@ from app.platform.organisation.services.group_read_dealerships import Dealership
 from app.platform.organisation.services.location import LocationLabel, get_location_labels, get_location_or_404
 from app.platform.organisation.services.number_range import allocate_number
 from app.platform.reference.services.reference_data import get_active_reference_value_codes
-from app.platform.schemas.document_content import (
-    Addressee,
-    ContentDefinition,
-    DocumentLine,
-    DocumentWatermark,
-    KeyValueBlock,
-    KeyValueRow,
-    LineItemsBlock,
-    LineStyle,
-    ParagraphBlock,
-    SignatureBlock,
-)
-from app.platform.services.data_export_tables import PlatformExporter
-from app.platform.services.document_render import render_document
-from app.platform.services.publishing_readiness import (
-    PublishingMissingItem,
-    publishing_profile_missing_items,
-    publishing_profile_ready,
-)
-from app.platform.services.setup_checklist import BlockedAction as SetupBlockedAction
-from app.platform.services.setup_checklist import require_item_for as require_setup_item_for
-from app.platform.services.standard_text import RenderedStandardText, render_standard_text
-from app.platform.services.standard_text_placeholders import PLACEHOLDER_UNRESOLVED, Placeholder
 
 # WP-6b: Addressee/ContentDefinition/.../render_document are the shared
 # document-render layer's public contract — every future module that

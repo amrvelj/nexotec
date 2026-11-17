@@ -1,6 +1,6 @@
 """KAN-402 (Anto, 2026-11-15, option A): the start-up check that every object
 key a platform row holds names a stored object
-(`app/platform/services/stored_objects_check.py`). render.yaml's
+(`app/platform/administration/services/stored_objects_check.py`). render.yaml's
 startCommand runs it on every start of the web service — after each deploy
 and restart — before uvicorn, and never lets it hold the start up
 (`|| true`): a finding is recorded in reconciliation_run /
@@ -20,7 +20,7 @@ from app.core.object_store import get_object_store
 from app.core.observability import configure_logging, configure_sentry
 from app.core.reconciliation import ReconciliationAlarm
 from app.db import SessionLocal
-from app.platform.services import stored_objects_check
+from app.platform.administration.services import stored_objects_check
 
 logger = logging.getLogger("scripts.check_stored_objects")
 

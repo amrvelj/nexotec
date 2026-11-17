@@ -36,7 +36,7 @@ from app.inventory.models.stock_item_publishing import (
 from app.inventory.services import marketplace_transmission
 from app.inventory.services.listing_withdrawal import ListingWithdrawalBlocked, withdraw_live_listings
 from app.inventory.services.publishing import publish
-from app.platform.services import offboarding
+from app.platform.administration.services import offboarding
 from tests.test_inventory_marketplace_transmission import (
     FakeMarketplaceAdapter,
     _make_connection,

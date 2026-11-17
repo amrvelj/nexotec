@@ -22,8 +22,8 @@ from sqlalchemy import select
 from app.core.audit_model import AuditEvent
 from app.core.object_store import LocalDirectoryObjectStore
 from app.main import app as fastapi_app
-from app.platform.models.export_job import ExportJob
-from app.platform.services import data_export
+from app.platform.administration.models.export_job import ExportJob
+from app.platform.administration.services import data_export
 from tests.data_export_support import (
     betrieb_with_manager,
     export_store_fixture,  # noqa: F401 - registers the export_store fixture

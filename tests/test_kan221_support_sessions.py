@@ -15,9 +15,9 @@ from app.core.audit_model import AuditEvent
 from app.core.auth import AccessRole, Principal, get_current_principal
 from app.core.base import utcnow
 from app.main import app
+from app.platform.administration.services.data_export_tables import PlatformExporter
 from app.platform.daily_jobs import run_daily_support_session_expiry
 from app.platform.identity.models.support_session import SupportSession
-from app.platform.services.data_export_tables import PlatformExporter
 from tests.identity_support import (
     PasswordLogin,
     cookie_headers,

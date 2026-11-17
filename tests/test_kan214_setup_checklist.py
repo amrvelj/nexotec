@@ -13,10 +13,10 @@ from app.core.setup_checklist import (
     register_checklist_contribution,
     unregister_checklist_contribution,
 )
+from app.platform.administration.services import setup_checklist
 from app.platform.identity.models.user import User, UserStatus
 from app.platform.organisation.models.dealership import Dealership
 from app.platform.organisation.models.dealership_bank_account import DealershipBankAccount
-from app.platform.services import setup_checklist
 from tests import setup_checklist_support as s
 
 ALL_ITEMS = {"branding", "vat_and_rounding", "bank_account", "number_ranges", "location_opening_hours", "users"}

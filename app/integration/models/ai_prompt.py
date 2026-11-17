@@ -1,7 +1,7 @@
 """IntegrationAiPrompt — the prompt library of the Betrieb's own AI provider
 (KAN-227; Dealer Administration PRD D-A-33, FR-A-36/38).
 
-The pattern is the standard texts' (KAN-208, `app/platform/models/standard_text.py`),
+The pattern is the standard texts' (KAN-208, `app/platform/documents/models/standard_text.py`),
 on purpose — the admin panel must not grow a second kind of override:
 
 - a **seed** (`source = platform_seed`, `tenant_id` NULL): the prompt Nexotec

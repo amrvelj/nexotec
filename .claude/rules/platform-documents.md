@@ -1,19 +1,20 @@
 ---
 paths:
-  - "app/platform/api/document_template.py"
-  - "app/platform/api/standard_text*.py"
+  - "app/platform/documents/api/document_template.py"
+  - "app/platform/documents/api/standard_text*.py"
   - "app/platform/organisation/api/number_ranges.py"
-  - "app/platform/services/document_*.py"
-  - "app/platform/services/standard_text*.py"
+  - "app/platform/documents/services/document_*.py"
+  - "app/platform/documents/services/standard_text*.py"
+  - "app/platform/services/standard_text_seed.py"
   - "app/platform/identity/services/text_delegation.py"
   - "app/platform/organisation/services/number_range.py"
-  - "app/platform/models/document_template.py"
-  - "app/platform/models/standard_text*.py"
+  - "app/platform/documents/models/document_template.py"
+  - "app/platform/documents/models/standard_text*.py"
   - "app/platform/identity/models/standard_text*.py"
   - "app/platform/organisation/models/number_range.py"
   - "app/platform/public.py"
-  - "app/platform/schemas/document_*.py"
-  - "app/platform/schemas/standard_text.py"
+  - "app/platform/documents/schemas/document_*.py"
+  - "app/platform/documents/schemas/standard_text.py"
   - "app/platform/organisation/schemas/number_range.py"
   - "tests/test_document_*.py"
   - "tests/test_standard_texts.py"
@@ -39,7 +40,7 @@ against main@73baf3f on 2026-10-25 - this cut was not re-verified against the co
 # Documents, standard texts and number ranges
 
 ## Document templates (ADR-051)
-- One shared template layer. WeasyPrint only in `app/platform/services/document_render.py`; no
+- One shared template layer. WeasyPrint only in `app/platform/documents/services/document_render.py`; no
   HTML-tag string literal (`<table`, `<div`, `<style`, `<html`) elsewhere in `app/`
   (`test_no_layout_code_outside_document_render.py`). One template, two consumers: the ui-kit
   `DocumentPreview` only displays the PDF the renderer produced — never a second renderer.

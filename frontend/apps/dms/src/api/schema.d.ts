@@ -8727,7 +8727,7 @@ export interface components {
          * DocumentTemplateRead
          * @description Returned even when no row exists yet for the dealership — id/
          *     timestamps are null in that case
-         *     (app.platform.services.document_template.get_document_template_or_default),
+         *     (app.platform.documents.services.document_template.get_document_template_or_default),
          *     matching the "absent, not 404" convention
          *     app.platform.identity.api.user_preferences already established for "nothing
          *     customized here yet". `version` is `0` (never null) in that case rather

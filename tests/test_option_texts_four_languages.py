@@ -13,7 +13,7 @@ from decimal import Decimal
 import pytest
 
 from app.core.i18n import SwissLanguage
-from app.platform.schemas.document_content import LineItemsBlock
+from app.platform.documents.schemas.document_content import LineItemsBlock
 from app.sales.models.line_item import SalesLineItem
 from app.sales.schemas.offer import OfferUpdate
 from app.sales.services.document import _included_option_lines, build_offer_content

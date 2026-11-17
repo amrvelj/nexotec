@@ -13,7 +13,7 @@ from sqlalchemy import select
 from app.core.audit_model import AuditEvent
 from app.core.auth import AccessRole
 from app.core.i18n import SwissLanguage
-from app.platform.models.standard_text import StandardText
+from app.platform.documents.models.standard_text import StandardText
 from app.platform.services.standard_text_seed import SEED_CODES, SEED_TEXTS
 from tests.membership_support import bearer, create_dealership, create_user, manager_of, platform_admin, token
 
