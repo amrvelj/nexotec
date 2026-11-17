@@ -581,12 +581,12 @@ def _notification_delivered(db_session, engine, monkeypatch):
     from app.platform.identity.services.notification_catalogue import NotificationEventCode
 
     user, sent = _push_user(db_session, monkeypatch)
-    row = notifications.notify(
+    notification_id = notifications.notify(
         db_session, NotificationEventCode.ACCOUNT_LOCKED, user_id=user.id, dealership_id=user.tenant_id,
         subject=notifications.NotificationSubject(type="user", id=user.id, link="/account/security"),
     )
     db_session.commit()
-    return _message(db_session, notifications.DELIVERED_EVENT, row.id), lambda db: len(sent)
+    return _message(db_session, notifications.DELIVERED_EVENT, notification_id), lambda db: len(sent)
 
 
 def _digest_released(db_session, engine, monkeypatch):
