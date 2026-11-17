@@ -331,6 +331,9 @@ _READS = {
     # KAN-722: the offboarded Betriebe of a group and their sole authors, which the
     # History tab of a group customer hides; a SELECT only.
     "app.platform.public.get_offboarded_audit_attribution",
+    # KAN-717: the responsible seller's primary site in the printing Betrieb, for a sales
+    # document's letterhead; a SELECT only.
+    "app.platform.public.get_primary_location_id",
     # KAN-222: locations' names and Betriebe for integration's nightly location-label
     # refresh; a SELECT only.
     "app.platform.public.get_location_labels",

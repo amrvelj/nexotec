@@ -41,6 +41,7 @@ from app.platform.identity.services.connected_account import (
 from app.platform.identity.services.group_labels import get_group_display_labels
 from app.platform.identity.services.notification_catalogue import NotificationEventCode
 from app.platform.identity.services.notifications import NotificationSubject, UnknownNotificationEvent, notify
+from app.platform.identity.services.user_location import get_primary_location_id
 from app.platform.identity.services.user_preference import ui_language_of
 from app.platform.identity.services.user_reads import (
     UserDisplayLabel,
@@ -165,6 +166,7 @@ __all__ = [
     "get_location_labels",
     "get_location_or_404",
     "get_offboarded_audit_attribution",
+    "get_primary_location_id",
     "get_user_display_labels",
     "list_active_users_acting_in",
     "list_dealer_manager_emails",

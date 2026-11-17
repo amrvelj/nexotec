@@ -48,3 +48,13 @@ class SalesDocument(PrimaryKeyMixin, TenantScopedMixin, TimestampMixin, Base):
     content_definition: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
     rendered_at: Mapped[dt.datetime] = mapped_column(UTCDateTime(), nullable=False)
     rendered_by: Mapped[uuid.UUID | None] = mapped_column(GUID(), nullable=True)
+    # KAN-717 (Anto, 2026-11-15, B): the site the document prints for — its
+    # logo, address block and bank account (KAN-206). Platform's location id
+    # (owner: platform; no FK, rule 2), fixed at generation from the
+    # responsible seller's primary location in this Betrieb, so a reprint
+    # prints the same site; None prints for the seat (and every document made
+    # before KAN-717). Never shown, so it carries no label: the renderer reads
+    # the location itself (as `rendered_by` names a user).
+    location_id: Mapped[uuid.UUID | None] = mapped_column(
+        GUID(), nullable=True, comment="Owned by the platform context (Location). No DB-level FK."
+    )
