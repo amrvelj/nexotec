@@ -77,7 +77,7 @@ def _bundle_config_keys(language: str) -> set[str]:
 def test_every_required_config_key_of_every_migrated_provider_has_a_label_in_all_four_bundles(migrated_url):
     providers = _migrated_config_keys(migrated_url)
     # The registry is seeded: an empty read would make this test pass vacuously.
-    assert "autoscout24" in providers and providers["autoscout24"], providers
+    assert providers.get("autoscout24"), providers
     missing = sorted(
         (language, code, key)
         for language in _LANGUAGES
