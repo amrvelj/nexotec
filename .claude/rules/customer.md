@@ -117,8 +117,8 @@ module folders (KAN-611). Last verified against main@73baf3f (2026-10-25). -->
   taking the role, a changed prospect/active/inactive on a customer (lifting do-not-contact included;
   setting it is every writer's), a changed advisor, the credit block, and a merge where either contact holds the role —
   else 403 `customer_role_not_permitted`, judged under the role rules' locks. Inventory creates
-  suppliers; one number sequence for every contact (Q2 A), labelled «Kontaktnummer». The advisor, credit
-  block and merge parts are derived from Q1+Q3, pending Anto's confirmation on the ticket. The services'
+  suppliers; one number sequence for every contact (Q2 A), labelled «Kontaktnummer». Anto confirmed the
+  advisor, credit block, status and merge parts (2026-11-17, option 1: restrictive). The services'
   `may_write_customer_role` defaults to trusted for tests; every call in `app/` passes it
   (`test_kan464_contact_permissions.py`).
 
