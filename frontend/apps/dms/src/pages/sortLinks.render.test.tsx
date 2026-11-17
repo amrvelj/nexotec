@@ -5,7 +5,7 @@ import { renderWithProviders } from '../test/renderWithProviders'
 import { installFakeBackend } from '../test/fakeBackend'
 import { SalesListPage } from './SalesListPage'
 import { ValuationsListPage } from '../modules/valuation/pages/ValuationsListPage'
-import { CatalogueBrowseGrid } from '../components/catalogue/CatalogueBrowseGrid'
+import { CatalogueBrowseGrid } from '../modules/vehicle/components/catalogue/CatalogueBrowseGrid'
 
 // KAN-701 — the list screens read and write their `?sort=` link through the
 // kit's `sortSpecFromQueryParam` / `sortSpecToQueryParam` (ADR-056), not a

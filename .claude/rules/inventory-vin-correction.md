@@ -18,7 +18,7 @@ paths:
   - "frontend/apps/dms/src/modules/stock/components/stock-detail/useStockConfigurationEditor.tsx"
   - "frontend/apps/dms/src/modules/stock/components/stock-detail/StockConfiguratorContent.tsx"
   - "frontend/apps/dms/src/modules/stock/components/stockRowMenu.tsx"
-  - "frontend/apps/dms/src/components/configurator/ConfiguratorOverlay.tsx"
+  - "frontend/apps/dms/src/modules/vehicle/components/configurator/ConfiguratorOverlay.tsx"
 ---
 <!-- Maintainer note. KAN-557 (ADR-116 (2)-(3); Anto's ruling on KAN-544, 2026-11-03), KAN-536
 (Anto, 2026-11-12); the VINs-in-stock section moved here from inventory.md by KAN-615 (2026-11-13).

@@ -36,7 +36,9 @@ paths:
   - "tests/architecture/test_shared_identity_lookup_response_shape.py"
   - "scripts/repair_configuration_vins.py"
   - "frontend/apps/dms/src/**/*ehicle*"
-  - "frontend/apps/dms/src/**/*ehicle*/**"
+  - "frontend/apps/dms/src/modules/vehicle/components/vehicle-detail/**"
+  - "frontend/apps/dms/src/shared/party*"
+  - "frontend/apps/dms/src/**/*nventoryChanged*"
   - "frontend/apps/dms/src/utils/vin.ts"
 ---
 <!-- Maintainer note (stripped before Claude sees it). Summarises PRD-Vehicles, ADR-039 as amended,

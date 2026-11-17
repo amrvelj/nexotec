@@ -24,8 +24,8 @@ paths:
   - "tests/test_sales_vehicle_changed_in_stock.py"
   - "tests/test_inventory_sales_contract_projection.py"
   - "tests/sales_contract_projection_support.py"
-  - "frontend/apps/dms/src/components/deal-workspace/VehicleChangedBanner*"
-  - "frontend/apps/dms/src/pages/SalesListPage.vehicleChanged.render.test.tsx"
+  - "frontend/apps/dms/src/components/deal-workspace/InventoryChangedBanner*"
+  - "frontend/apps/dms/src/pages/SalesListPage.inventoryChanged.render.test.tsx"
 ---
 <!-- Maintainer note. ADR-115, ADR-131, ADR-145. Moved out of events.md by KAN-615 (2026-11-13).
 Last verified against main@73baf3f (2026-10-25); the projection lines with KAN-630's code. -->

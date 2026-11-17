@@ -8,7 +8,7 @@ import { ChfInput, FormDialog, Picker, type PickerRow } from '@nexotec/ui-kit'
 import { ApiError, api } from '../../../api/client'
 import { useIdempotencyKey } from '../../../hooks/useIdempotencyKey'
 import { CustomerCreateDialog } from '../../customer'
-import { ConfigurationSummaryCard } from '../../../components/configurator/ConfigurationSummaryCard'
+import { ConfigurationSummaryCard } from '../../vehicle'
 import { ProviderQuoteCard } from './ProviderQuoteCard'
 import { ValuationSourceMarker } from './ValuationSourceMarker'
 import type {

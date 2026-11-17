@@ -10,7 +10,7 @@ import { translatedVehiclePartyRoleLabel } from '../../customerOptions'
 import type { CustomerVehicleRead } from '../../../../api/types'
 import { vehicleLabel } from './vehicleLabel'
 import { useDataGridLabels } from '../../../../hooks/useDataGridLabels'
-import { holdsNowOrLater, isPlannedNeverStarted, isUpcoming } from '../../../../utils/vehicleParty'
+import { holdsNowOrLater, isPlannedNeverStarted, isUpcoming } from '../../../../shared/partyPeriod'
 
 // FR-06 Vehicles tab: "use the same data grid component as the overview
 // screens." Per-customer relationship lists are small (no server-side

@@ -6,7 +6,7 @@ import { BreadcrumbProvider, type BreadcrumbSegment } from '@nexotec/ui-kit'
 import { renderWithProviders } from '../test/renderWithProviders'
 import { installFakeBackend } from '../test/fakeBackend'
 import type { StockItemRead, VehicleMdmRead } from '../api/types'
-import { VehicleDetailPage } from './VehicleDetailPage'
+import { VehicleDetailPage } from '../modules/vehicle/pages/VehicleDetailPage'
 import { StockDetailPage } from '../modules/stock/pages/StockDetailPage'
 
 // KAN-63 — both pages used to pass the raw route param (the UUIDv7 primary

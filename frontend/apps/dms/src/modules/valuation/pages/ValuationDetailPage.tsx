@@ -19,7 +19,7 @@ import { toSwissLocale, type SupportedLanguage } from '../../../i18n'
 import { formatCurrencyChf, formatDate, formatDateOnly, formatNumber } from '../../../utils/format'
 import { translatedValuationStatusLabel } from '../valuationOptions'
 import { CustomerDetailContent } from '../../customer'
-import { HostConfigurationCard } from '../../../components/configurator/HostConfigurationCard'
+import { HostConfigurationCard } from '../../vehicle'
 import type { ValuationRead } from '../../../api/types'
 import { apiRefusalText } from '../../../utils/apiRefusal'
 

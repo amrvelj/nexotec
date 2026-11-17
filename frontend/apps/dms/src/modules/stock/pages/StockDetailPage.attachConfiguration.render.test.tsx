@@ -6,7 +6,7 @@ import userEvent from '@testing-library/user-event'
 import i18n from '../../../i18n'
 import { renderWithProviders } from '../../../test/renderWithProviders'
 import { installFakeBackend, status, type FakeRoute } from '../../../test/fakeBackend'
-import { CODED_REFERENCE_ROUTES, configurationRead, pickCodedFields } from '../../../test/configuratorFixtures'
+import { CODED_REFERENCE_ROUTES, configurationRead, pickCodedFields } from '../../vehicle/test/configuratorFixtures'
 import type { StockItemRead } from '../../../api/types'
 import { StockDetailPage } from './StockDetailPage'
 

@@ -37,7 +37,7 @@ import { formatCurrencyChf, formatDate } from '../utils/format'
 import type { SalesContractRead, ValuationRead } from '../api/types'
 import { apiRefusalText } from '../utils/apiRefusal'
 import { toSwissLocale, type SupportedLanguage } from '../i18n'
-import { VehicleChangedBanner } from '../components/deal-workspace/VehicleChangedBanner'
+import { VehicleChangedBanner } from '../components/deal-workspace/InventoryChangedBanner'
 
 export function ContractDetailPage() {
   const { id } = useParams<{ id: string }>()
