@@ -23,7 +23,7 @@ from app.core.concurrency import check_version, require_if_match
 from app.core.config import get_settings
 from app.core.idempotent_route import IdempotentRoute
 from app.core.pagination import SortPageParams
-from app.core.permissions import require_read, require_write
+from app.core.permissions import may_write, require_read, require_write
 from app.core.sorting import SortField, decode_cursor_for_sort, parse_sort
 from app.core.validators import CantonCode
 from app.customer.models.customer import ContactRole, Customer, CustomerLifecycleStatus, CustomerType, Language
@@ -70,6 +70,7 @@ from app.customer.services import customer_search as customer_search_service
 from app.customer.services import external_ids as external_ids_service
 from app.customer.services import legal_basis as legal_basis_service
 from app.customer.services import projections as projections_service
+from app.customer.services import roles as roles_service
 from app.customer.services import vehicle_party as vehicle_party_service
 from app.customer.services import vehicle_party_reads as vehicle_party_reads_service
 from app.db import get_db
@@ -96,6 +97,15 @@ CUSTOMER_SORT_FIELDS: dict[str, object] = {
 _DEFAULT_CUSTOMER_SORT = [
     SortField(api_name="updatedAt", column=Customer.updated_at, direction="desc", nullable=False)
 ]
+
+
+def _may_write_customer_role(principal: Principal) -> bool:
+    """KAN-464 Q3: the matrix cell of `contact_customer_role` — who may
+    give the customer role and write its data (services/roles.py)."""
+
+    return may_write(
+        roles_service.CUSTOMER_ROLE_CAPABILITY, roles=principal.roles, is_dealer_manager=principal.is_dealer_manager
+    )
 
 
 def _customer_read(db: Session, customer: Customer) -> CustomerRead:
@@ -129,6 +139,7 @@ def create_customer(
         data=body,
         actor_id=principal.user_id,
         acting_dealership_id=principal.tenant_id,
+        may_write_customer_role=_may_write_customer_role(principal),
         dealership_id=principal.tenant_id,
     )
     return _customer_read(db, customer)
@@ -191,6 +202,7 @@ def update_customer(
         data=body,
         actor_id=principal.user_id,
         acting_dealership_id=principal.tenant_id,
+        may_write_customer_role=_may_write_customer_role(principal),
         dealership_id=principal.tenant_id,
     )
     return _customer_read(db, customer)
@@ -215,6 +227,7 @@ def set_credit_block(
         reason=body.reason,
         actor_id=principal.user_id,
         acting_dealership_id=principal.tenant_id,
+        may_write_customer_role=_may_write_customer_role(principal),
     )
     return _customer_read(db, customer)
 
@@ -235,6 +248,7 @@ def merge_customer(
         duplicate_of_customer_id=body.duplicate_of_customer_id,
         actor_id=principal.user_id,
         acting_dealership_id=principal.tenant_id,
+        may_write_customer_role=_may_write_customer_role(principal),
     )
     return _customer_read(db, customer)
 

@@ -47,7 +47,7 @@
       "address": "Adresse",
       "canton": "Canton",
       "cantonDerived": "Canton (dérivé)",
-      "customerNumber": "Numéro de client",
+      "customerNumber": "Numéro de contact",
       "created": "Créé",
       "lastChanged": "Dernière modification",
       "title": "Titre",
@@ -274,7 +274,7 @@
   "merge": {
     "title": "Fusionner un client en double",
     "intro": "Recherchez le client avec lequel <name/> doit être fusionné. Cet enregistrement est conservé ; celui-ci est marqué comme fusionné.",
-    "searchPlaceholder": "Rechercher par nom, e-mail, téléphone, numéro de client…",
+    "searchPlaceholder": "Rechercher par nom, e-mail, téléphone, numéro de contact…",
     "noMatches": "Aucun résultat.",
     "searchFailed": "La recherche a échoué. Veuillez réessayer.",
     "chooseDifferent": "← Choisir un autre client conservé",
@@ -294,6 +294,7 @@
     "alreadyMerged": "Ce client a déjà été fusionné.",
     "survivorConflict": "La fusion entre en conflit avec un enregistrement du client conservé. Rechargez les deux clients et réessayez.",
     "vehiclePartyBusy": "Un véhicule de ce client est en cours de modification. Relancez la fusion.",
-    "staleVersion": "Ce client a été modifié entre-temps. Rechargez la page et réessayez."
+    "staleVersion": "Ce client a été modifié entre-temps. Rechargez la page et réessayez.",
+    "customerRoleNotPermitted": "Un contact ayant le rôle client est fusionné par la vente ou l’après-vente. Votre rôle ne fusionne que des contacts sans ce rôle."
   }
 }

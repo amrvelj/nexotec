@@ -338,7 +338,12 @@ def create_customer(
     actor_id: uuid.UUID,
     acting_dealership_id: uuid.UUID | None,
     dealership_id: uuid.UUID,
+    may_write_customer_role: bool = True,
 ) -> Customer:
+    # KAN-464 Q3: only who may write the customer role gives it
+    # (services/roles.py). The API passes the principal's matrix cell.
+    if ContactRole.CUSTOMER in data.roles and not may_write_customer_role:
+        raise roles_service.customer_role_not_permitted("roles")
     _validate_country_codes(
         db,
         {
@@ -480,6 +485,7 @@ def update_customer(
     actor_id: uuid.UUID,
     acting_dealership_id: uuid.UUID | None,
     dealership_id: uuid.UUID,
+    may_write_customer_role: bool = True,
 ) -> Customer:
     if customer.lifecycle_status in _TERMINAL_LIFECYCLE_STATUSES:
         raise ConflictError(
@@ -506,6 +512,15 @@ def update_customer(
         _lock_for_role_change(db, customer)
     current_roles = roles_service.open_roles(db, customer.id)
     new_roles = [role.value for role in changes.pop("roles")] if "roles" in changes else current_roles
+    # KAN-464 Q3: judged under the same lock as the role rules — every
+    # field it judges is in CUSTOMER_ROLE_FIELDS.
+    roles_service.check_customer_role_write_on_update(
+        customer,
+        may_write_customer_role=may_write_customer_role,
+        held_customer_before=ContactRole.CUSTOMER.value in current_roles,
+        holds_customer_after=ContactRole.CUSTOMER.value in new_roles,
+        changes=changes,
+    )
     roles_service.apply_role_rules_on_update(
         customer,
         holds_customer_after=ContactRole.CUSTOMER.value in new_roles,
@@ -683,6 +698,7 @@ def set_credit_block(
     reason: str | None,
     actor_id: uuid.UUID,
     acting_dealership_id: uuid.UUID | None,
+    may_write_customer_role: bool = True,
 ) -> Customer:
     """WP-8 PR-6 (ADR-065/S-D19) — stops a CONTRACT from being confirmed,
     never an offer (quoting a blocked customer is often how the block gets
@@ -690,6 +706,10 @@ def set_credit_block(
     "disabled-with-explanation, never bare" posture elsewhere.
     """
 
+    # KAN-464 Q3: the credit block is the customer role's data — placing
+    # and lifting it alike.
+    if not may_write_customer_role:
+        raise roles_service.customer_role_not_permitted("creditBlock")
     if blocked and not reason:
         raise ConflictError("A reason is required to place a credit block.")
     if blocked:

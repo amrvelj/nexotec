@@ -112,6 +112,15 @@ module folders (KAN-611). Last verified against main@73baf3f (2026-10-25). -->
   stored `active` is neutral, no D-24 advisor, setting one is 422 `customer_role_required`; taking the
   role away resets them (audited), refused while credit-blocked (409 `customer_role_credit_blocked`).
   Lifecycle filters on those values and the unassigned queue match customers only. A merge unites roles.
+- **Who gives which role** (Q3, 2026-11-14 A): `customers` write is sales, aftersales and inventory; the
+  matrix row `contact_customer_role` (sales, aftersales) writes the customer role's data — giving or
+  taking the role, a changed prospect/active/inactive on a customer (lifting do-not-contact included;
+  setting it is every writer's), a changed advisor, the credit block, and a merge where either contact holds the role —
+  else 403 `customer_role_not_permitted`, judged under the role rules' locks. Inventory creates
+  suppliers; one number sequence for every contact (Q2 A), labelled «Kontaktnummer». Anto confirmed the
+  advisor, credit block, status and merge parts (2026-11-17, option 1: restrictive). The services'
+  `may_write_customer_role` defaults to trusted for tests; every call in `app/` passes it
+  (`test_kan464_contact_permissions.py`).
 
 ## Blocks and flags
 - **ADR-065 — a credit block stops contract confirmation, not the offer.** **Do-not-contact** is

@@ -402,6 +402,7 @@ def merge_customer(
     duplicate_of_customer_id: uuid.UUID,
     actor_id: uuid.UUID,
     acting_dealership_id: uuid.UUID | None,
+    may_write_customer_role: bool = True,
 ) -> Customer:
     """Merges `customer` (the duplicate) into the survivor (FR-09).
 
@@ -468,6 +469,13 @@ def merge_customer(
     contact_groups_repointed, contact_groups_dropped = contact_groups_service.repoint_contact_groups(
         db, duplicate_id=customer.id, target_id=target.id
     )
+    # KAN-464 Q3: a merge moves the customer role and its fields, so a
+    # contact holding it is merged only by who may write that role. Judged
+    # here, under both customer-row locks (taken with the vehicle parties
+    # above), so a role given meanwhile is seen; a refusal rolls back the
+    # whole merge.
+    if not may_write_customer_role and roles_service.holds_customer_role_any(db, (customer.id, target.id)):
+        raise roles_service.customer_role_not_permitted("merge")
     # KAN-464: the survivor holds every role either contact held.
     roles_gained, role_rows_moved = roles_service.repoint_roles(db, duplicate_id=customer.id, target_id=target.id)
     earlier_merges_repointed, party_copies_repointed = _repoint_earlier_merges(

@@ -22,6 +22,7 @@ import {
 import { formatCurrencyChf, formatDate, formatDateOnly } from '../../../../utils/format'
 import type { CountryOption } from '../../../../hooks/useCountryOptions'
 import { useAdvisorOptions } from '../../../../hooks/useAdvisorOptions'
+import { useCanWrite } from '../../../../auth/useCanWrite'
 import { useInlineEditRefusal } from '../../../../hooks/useInlineEditRefusal'
 import { ContactPointsEditor, type ContactPointUpdatePatch } from './ContactPointsEditor'
 import { ContactChannelsSummary, PreferredChannelBadge } from './ContactChannelsSummary'
@@ -163,8 +164,24 @@ function SelectField({
   describeError,
   reloadLabel,
   emptyLabel,
-}: FieldProps & { label: string; value: string | null; options: { value: string; label: string }[]; patchKey: keyof CustomerUpdateInput; clearable?: boolean }) {
+  readOnly,
+}: FieldProps & {
+  label: string
+  value: string | null
+  options: { value: string; label: string }[]
+  patchKey: keyof CustomerUpdateInput
+  clearable?: boolean
+  /** Shown, never edited — a field the user's role may not write (KAN-464 Q3). */
+  readOnly?: boolean
+}) {
   const displayLabel = options.find((o) => o.value === value)?.label
+  if (readOnly) {
+    return (
+      <KeyValueRow label={label}>
+        <Text fz="sm">{displayLabel ?? emptyLabel}</Text>
+      </KeyValueRow>
+    )
+  }
   return (
     <KeyValueRow label={label}>
       <InlineEditField
@@ -507,6 +524,9 @@ export function OverviewTab({
   // this list (e.g. assigned in another Betrieb, or since deactivated).
   const { options: advisorOptions } = useAdvisorOptions()
   const isCustomer = holdsCustomerRole(customer)
+  // KAN-464 Q3: the customer role's fields are shown read-only to a user who
+  // may not write them (inventory); do-not-contact stays every writer's.
+  const mayWriteCustomerRole = useCanWrite('contact_customer_role')
   const advisorSelectOptions =
     customer.advisorId && !advisorOptions.some((o) => o.value === customer.advisorId)
       ? [...advisorOptions, { value: customer.advisorId, label: customer.advisorLabel ?? customer.advisorId }]
@@ -559,7 +579,7 @@ export function OverviewTab({
         {/* KAN-464 (Q1): the lifecycle status is the customer role's. A contact
             without it keeps only do-not-contact, which belongs to every contact. */}
         {isCustomer ? (
-          <SelectField label={f.lifecycleStatus} value={customer.lifecycleStatus} options={translatedLifecycleOptions(t)} patchKey="lifecycleStatus" {...fieldProps} />
+          <SelectField label={f.lifecycleStatus} value={customer.lifecycleStatus} options={translatedLifecycleOptions(t)} patchKey="lifecycleStatus" readOnly={!mayWriteCustomerRole} {...fieldProps} />
         ) : (
           <KeyValueRow label={translatedLifecycleLabel(t, 'do_not_contact')}>
             <Checkbox
@@ -631,6 +651,7 @@ export function OverviewTab({
             options={advisorSelectOptions}
             patchKey="advisorId"
             clearable
+            readOnly={!mayWriteCustomerRole}
             {...fieldProps}
           />
         )}

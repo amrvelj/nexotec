@@ -4,7 +4,7 @@
   "searchPlaceholder": "Rechercher par nom, e-mail, téléphone…",
   "loadError": "Impossible de charger les clients.",
   "columns": {
-    "customerNumber": "N° client",
+    "customerNumber": "N° contact",
     "name": "Nom",
     "type": "Type",
     "language": "Langue",
@@ -58,7 +58,7 @@
   },
   "rowActions": {
     "open": "Ouvrir",
-    "copyCustomerNumber": "Copier le numéro de client"
+    "copyCustomerNumber": "Copier le numéro de contact"
   },
   "emptyState": {
     "title": "Aucun client pour l'instant",

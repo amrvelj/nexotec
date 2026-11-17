@@ -4,7 +4,7 @@
   "searchPlaceholder": "Suche nach Name, E-Mail, Telefon…",
   "loadError": "Kunden konnten nicht geladen werden.",
   "columns": {
-    "customerNumber": "Kundennr.",
+    "customerNumber": "Kontaktnr.",
     "name": "Name",
     "type": "Typ",
     "language": "Sprache",
@@ -58,7 +58,7 @@
   },
   "rowActions": {
     "open": "Öffnen",
-    "copyCustomerNumber": "Kundennummer kopieren"
+    "copyCustomerNumber": "Kontaktnummer kopieren"
   },
   "emptyState": {
     "title": "Noch keine Kunden",

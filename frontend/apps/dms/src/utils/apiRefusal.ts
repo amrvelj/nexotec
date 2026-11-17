@@ -173,6 +173,7 @@ const REASON_KEYS: Record<string, string> = {
       'customer_role_credit_blocked',
       'customer_role_exists',
       'customer_role_required',
+      'customer_role_not_permitted',
       'support_session_already_open',
       'support_session_ended',
       'support_target_not_active',

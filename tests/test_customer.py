@@ -130,7 +130,9 @@ def test_sales_can_create_customer(client):
     assert response.status_code == 201, response.text
 
 
-@pytest.mark.parametrize("role", [AccessRole.INVENTORY, AccessRole.AUDITOR])
+# Inventory creates suppliers since KAN-464 PR-2 (a customer it may not give:
+# tests/test_kan464_contact_permissions.py).
+@pytest.mark.parametrize("role", [AccessRole.PARTS, AccessRole.FINANCE, AccessRole.AUDITOR])
 def test_non_write_roles_cannot_create_customer(client, role):
     dealer_id = _create_dealer(client)
     token = _token(role, tenant_id=uuid.UUID(dealer_id))
@@ -373,7 +375,9 @@ def test_patch_cannot_set_lifecycle_status_merged_directly(client):
     assert response.status_code == 422
 
 
-@pytest.mark.parametrize("role", [AccessRole.INVENTORY, AccessRole.AUDITOR])
+# Inventory writes contacts since KAN-464 PR-2 (Anto, Q3 of 2026-11-14, A):
+# tests/test_kan464_contact_permissions.py covers what it may and may not.
+@pytest.mark.parametrize("role", [AccessRole.PARTS, AccessRole.FINANCE, AccessRole.AUDITOR])
 def test_non_write_roles_cannot_patch_customer(client, role):
     dealer_id = _create_dealer(client)
     customer = _create_customer(client, dealer_id)

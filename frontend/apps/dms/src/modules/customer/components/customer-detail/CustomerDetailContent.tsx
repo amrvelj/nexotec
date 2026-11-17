@@ -167,6 +167,7 @@ export function CustomerDetailContent({ customerId: id, embedded = false }: Cust
   // KAN-583 (ruling 2A): «Eintrag beenden» on the Vehicles tab — Disconnect,
   // which ends a current entry now and cancels a planned one.
   const canEndVehicleEntry = useCanWrite('customer_vehicle_links')
+  const mayWriteCustomerRole = useCanWrite('contact_customer_role')
   const endVehicleEntry = async (row: CustomerVehicleRead) => {
     await api.delete(`/customers/${id}/vehicles/${row.id}`)
     void queryClient.invalidateQueries({ queryKey: ['customer', id, 'vehicles'] })
@@ -494,7 +495,7 @@ export function CustomerDetailContent({ customerId: id, embedded = false }: Cust
     onManageCreditBlock: () => setCreditBlockOpen(true),
     onMergeInto: () => setMergeModalOpen(true),
     onLinkVehicle: () => setLinkVehicleOpen(true),
-  })
+  }, { mayWriteCustomerRole })
 
   // buildCustomerRowMenu has no concept of an in-flight request (it's a
   // pure function of customer business state, shared with the list's row

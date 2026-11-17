@@ -11,5 +11,6 @@
   "removeCreditBlock": "Kreditsperre aufheben",
   "mergeInto": "In einen anderen Kunden zusammenführen…",
   "mergeDisabledMerged": "Dieser Datensatz wurde bereits mit einem anderen zusammengeführt.",
-  "copyCustomerNumber": "Kundennummer kopieren"
+  "copyCustomerNumber": "Kontaktnummer kopieren",
+  "removeDoNotContactCustomerRole": "Bei einem Kunden heben Verkauf oder Kundendienst «Nicht kontaktieren» auf."
 }
