@@ -1,5 +1,7 @@
-"""The daily job `app/worker.py` registers for inventory (KAN-122): the
-orphan-reservation sweep (app.inventory.services.reservation_sweep). A
+"""The daily jobs `app/worker.py` registers for inventory: the
+orphan-reservation sweep (KAN-122, app.inventory.services.reservation_sweep)
+and the repair of stock items left on a merged vehicle record (KAN-724,
+app.inventory.services.vehicle_merge). A
 context-level module, like app.integration.daily_jobs, so the worker never
 reaches into this context's services.
 
@@ -18,6 +20,7 @@ import logging
 from sqlalchemy.orm import Session
 
 from app.inventory.services.reservation_sweep import release_orphaned_reservations
+from app.inventory.services.vehicle_merge import repair_items_left_on_merged_records
 
 logger = logging.getLogger(__name__)
 
@@ -46,3 +49,30 @@ def run_daily_reservation_sweep(db: Session) -> None:
         )
         return
     logger.info("inventory.reservation_sweep: %s", summary, extra=counts)
+
+
+def run_daily_merged_record_repair(db: Session) -> None:
+    """KAN-724: one log line per run with its counts, ERROR when a record's
+    move failed (the alarm; the next night tries it again, as the sweep)."""
+
+    result = repair_items_left_on_merged_records(db)
+    counts = {
+        "records": result.records,
+        "moved": result.moved,
+        "stillBlocked": result.still_blocked,
+        "failed": len(result.failed),
+    }
+    summary = (
+        f"records={counts['records']} moved={counts['moved']} still_blocked={counts['stillBlocked']} "
+        f"failed={counts['failed']}"
+    )
+    if result.failed:
+        failed_ids = [str(vehicle_id) for vehicle_id in result.failed]
+        logger.error(
+            "inventory.merged_record_items.repair: %s failed_vehicle_ids=%s",
+            summary,
+            ",".join(failed_ids),
+            extra={**counts, "failedVehicleIds": failed_ids},
+        )
+        return
+    logger.info("inventory.merged_record_items.repair: %s", summary, extra=counts)

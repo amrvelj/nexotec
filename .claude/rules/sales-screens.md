@@ -1,24 +1,15 @@
 ---
 paths:
-  - "frontend/apps/dms/src/pages/Offer*"
-  - "frontend/apps/dms/src/pages/Contract*"
-  - "frontend/apps/dms/src/pages/SalesListPage*"
+  - "frontend/apps/dms/src/modules/sales/**"
   - "frontend/apps/dms/src/modules/stock/pages/StockDetailPage.salesActions*"
   - "frontend/apps/dms/src/modules/*/pages/*.createOffer.render.test.tsx"
   - "frontend/apps/dms/src/modules/customer/pages/customerScreens.salesEntitlement*"
-  - "frontend/apps/dms/src/components/deal-workspace/**"
-  - "frontend/apps/dms/src/components/contract-detail/**"
-  - "frontend/apps/dms/src/components/dealRowMenu.tsx"
-  - "frontend/apps/dms/src/components/PriceBuildUp.tsx"
-  - "frontend/apps/dms/src/components/Offer*"
-  - "frontend/apps/dms/src/components/SalesDocumentsSection*"
   - "frontend/apps/dms/src/modules/valuation/components/CreateOfferFromValuationAlert.tsx"
   - "frontend/apps/dms/src/modules/customer/components/customer-detail/OffersContractsTab.tsx"
   - "frontend/apps/dms/src/modules/customer/components/customer-detail/offersContracts*"
   - "frontend/apps/dms/src/hooks/useDebouncedNumberField.ts"
-  - "frontend/apps/dms/src/hooks/useDealSaveQueue.ts"
+  - "frontend/apps/dms/src/shared/useSaveQueue.ts"
   - "frontend/apps/dms/src/modules/valuation/hooks/useCreateOfferFromValuation.ts"
-  - "frontend/apps/dms/src/salesOptions.ts"
   - "frontend/packages/ui-kit/src/components/Sales*"
   - "frontend/packages/ui-kit/src/components/DocumentPreview.tsx"
 ---
@@ -28,7 +19,7 @@ against main@73baf3f (2026-10-25). The backend rules are sales.md. -->
 
 # Sales screens: the offer workspace, the contract page, the Sales list
 
-- **Both deal workspaces send their saves through `hooks/useDealSaveQueue.ts`**: one after the
+- **Both deal workspaces send their saves through `shared/useSaveQueue.ts`**: one after the
   other, each with the version the previous one returned, a refused save said and never retried
   (the server refuses the second of two saves sent with one version).
 - **Nothing is signed or generated over an unsaved figure** (ADR-063): «Vertrag bestätigen» stays
@@ -48,7 +39,7 @@ against main@73baf3f (2026-10-25). The backend rules are sales.md. -->
   and «Übernehmen» are disabled before the click (`OfferRead.liveContractId`/`Number`), and
   «Dokument erzeugen» is disabled and says why.
 - **The responsible seller:** `DealOwnerSelect` on the offer workspace, the sent offer and the
-  pending contract; «Übernehmen» is one action (`components/dealRowMenu.tsx`) in the Sales list's
+  pending contract; «Übernehmen» is one action (`modules/sales/components/dealRowMenu.tsx`) in the Sales list's
   row menu and both detail overflows (ADR-061) and takes an unassigned open deal for the signed-in
   user. The Sales list has the «Nicht zugewiesen» chip and the «Verantwortlich» column.
 - **The stock number is on screen** (Anto): «Lagernummer S-…» (`StockNumberLink`) beside the car

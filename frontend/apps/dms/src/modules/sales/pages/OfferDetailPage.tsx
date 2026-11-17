@@ -1,0 +1,248 @@
+import { useEffect, useRef, useState } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { Alert, Button, Loader, Stack } from '@mantine/core'
+import { Copy, Handshake } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
+import { DetailHeader, useOverlay, useSetBreadcrumb } from '@nexotec/ui-kit'
+import { api } from '../../../api/client'
+import { DealOwnerSelect } from '../components/deal-workspace/DealOwnerSelect'
+import { StockNumberLink } from '../components/deal-workspace/InventoryNumberLink'
+import { buildDealTakeOverAction, useTakeOverDeal } from '../components/dealRowMenu'
+import { SalesDocumentsSection } from '../components/SalesDocumentsSection'
+import { useIdempotencyKey } from '../../../hooks/useIdempotencyKey'
+import { OfferWorkspaceContent } from './OfferWorkspacePage'
+import { StockDetailContent } from '../../stock'
+import type { SalesOfferRead } from '../../../api/types'
+import { apiRefusalText } from '../../../utils/apiRefusal'
+import { VehicleChangedBanner } from '../components/deal-workspace/InventoryChangedBanner'
+
+/** `/sales/offers/new` — the confirmed reference prototype allocates a
+ * number and opens an empty draft before anything is chosen; this route
+ * does exactly that (POST, then redirect to the real id) rather than
+ * rendering a separate "new" form. The container-based generation
+ * workspace itself (Kunde/Fahrzeug/Preisaufbau/Eintauschfahrzeug/Leasing)
+ * is PR-2 — this page is the minimal PR-1 shell that makes an offer
+ * viewable at all.
+ */
+export function OfferCreateRedirectPage() {
+  const { t } = useTranslation()
+  const navigate = useNavigate()
+  // KAN-266 — the create carries the mount's key, and the mount sends it
+  // once: StrictMode runs this effect twice in development, and a second
+  // POST made a second empty offer (and, under the same key, would be a 409
+  // while the first is in flight, leaving this page on its loader).
+  const idempotency = useIdempotencyKey()
+  const created = useRef<Promise<SalesOfferRead> | null>(null)
+  // KAN-273 (ADR-035) — a failed create says so instead of leaving the page
+  // on its loader for good. "Retry" sends the create again under the same
+  // key, so a create whose response was lost replays that offer.
+  // The failure itself, not its text: worded at render, so switching the UI
+  // language rewords it without running the create again.
+  const [failure, setFailure] = useState<{ error: unknown } | null>(null)
+  const [attempt, setAttempt] = useState(0)
+  useEffect(() => {
+    let cancelled = false
+    created.current ??= api.post<SalesOfferRead>('/sales/offers', undefined, idempotency.headers())
+    created.current.then(
+      (offer) => {
+        if (!cancelled) navigate(`/sales/offers/${offer.id}`, { replace: true })
+      },
+      (err: unknown) => {
+        if (cancelled) return
+        created.current = null
+        setFailure({ error: err })
+      },
+    )
+    return () => {
+      cancelled = true
+    }
+  }, [navigate, idempotency, attempt])
+
+  if (failure) {
+    return (
+      <Stack gap="sm" align="flex-start">
+        {/* The title says what failed; the body says why, or that the request
+            itself did not get through. */}
+        <Alert color="red" role="alert" title={t('offerDetail.errors.createFailed')}>
+          {apiRefusalText(t, failure.error, 'common.requestFailed')}
+        </Alert>
+        <Button
+          onClick={() => {
+            setFailure(null)
+            setAttempt((n) => n + 1)
+          }}
+        >
+          {t('common.retry')}
+        </Button>
+      </Stack>
+    )
+  }
+  return <Loader />
+}
+
+export function OfferDetailPage() {
+  const { id } = useParams<{ id: string }>()
+  if (!id) return null
+  return <OfferDetailContent offerId={id} />
+}
+
+export interface OfferDetailContentProps {
+  offerId: string
+  /** § ADR-059 — true when rendered as an Overlay rather than the real
+   * `/sales/offers/:id` route. */
+  embedded?: boolean
+}
+
+/** PR-1's minimal offer detail — header + business key + status only.
+ * Containers (PR-2), pricing (PR-3), trade-in (PR-5), the two-step
+ * generation/review flow (PR-8) all extend this same shell.
+ */
+export function OfferDetailContent({ offerId: id, embedded = false }: OfferDetailContentProps) {
+  const { t } = useTranslation()
+  const navigate = useNavigate()
+  const [copying, setCopying] = useState(false)
+  const [copyError, setCopyError] = useState<string | null>(null)
+  const overlay = useOverlay()
+  // KAN-266 — a copy retried after a lost response replays the first copy;
+  // a successful copy renews the key (this screen stays mounted when it
+  // navigates to the copy).
+  const copyKey = useIdempotencyKey()
+
+  const offerQuery = useQuery({
+    queryKey: ['sales-offer', id],
+    queryFn: () => api.get<SalesOfferRead>(`/sales/offers/${id}`),
+    enabled: Boolean(id),
+  })
+
+  // KAN-12 / PRD-Sales v2's own lifecycle table: "Pending Offer -> ...
+  // Copy Offer (new offerId, prefilled)". This detail shell had NO
+  // actions at all before this fix — Copy Offer is the one this ticket
+  // asked for; Generate Contract/Cancel Offer (the same lifecycle row)
+  // are a separate, unticketed gap, not built here.
+  // KAN-273 (ADR-035): a failed copy says so; the retry carries its key.
+  const copyOffer = async () => {
+    setCopying(true)
+    setCopyError(null)
+    try {
+      const path = `/sales/offers/${id}/copy`
+      const copy = await api.post<SalesOfferRead>(path, undefined, copyKey.headers([path]))
+      copyKey.renew()
+      navigate(`/sales/offers/${copy.id}`)
+    } catch (err) {
+      setCopyError(apiRefusalText(t, err, 'offerDetail.errors.copyFailed'))
+    } finally {
+      setCopying(false)
+    }
+  }
+
+  // KAN-405 (Anto, 2026-10-28, option A): a sent offer is read-only, but its
+  // responsible seller may change — a PATCH of `ownerUserId` alone. No save
+  // queue here: this shell sends nothing else.
+  const queryClient = useQueryClient()
+  const [ownerError, setOwnerError] = useState<string | null>(null)
+  const changeOwner = async (ownerUserId: string | null) => {
+    const current = offerQuery.data
+    if (!current) return
+    setOwnerError(null)
+    try {
+      const updated = await api.patch<SalesOfferRead>(`/sales/offers/${id}`, { ownerUserId }, { 'If-Match': String(current.version) })
+      queryClient.setQueryData(['sales-offer', id], updated)
+      void queryClient.invalidateQueries({ queryKey: ['sales-deals'] })
+    } catch (err) {
+      setOwnerError(apiRefusalText(t, err, 'dealOwner.errors.saveFailed'))
+      void offerQuery.refetch()
+      throw err
+    }
+  }
+  const takeOver = useTakeOverDeal()
+
+  useSetBreadcrumb(embedded ? null : [{ label: t('shell.nav.sales'), href: '/sales' }, offerQuery.data?.offerNumber ?? id])
+
+  if (offerQuery.isLoading) return <Loader />
+  if (offerQuery.isError || !offerQuery.data) {
+    return (
+      <Alert color="red" title={t('offerDetail.errors.failedToLoad')}>
+        {apiRefusalText(t, offerQuery.error, 'offerDetail.errors.somethingWentWrong')}
+      </Alert>
+    )
+  }
+
+  const offer = offerQuery.data
+
+  // While a draft, the container workspace (PR-2) IS the detail screen —
+  // there is nothing else to show yet. Once it leaves draft (PR-6), this
+  // minimal header shell takes over; PR-8's two-step generation/review
+  // extends it further.
+  if (offer.status === 'draft' && !embedded) {
+    return <OfferWorkspaceContent offerId={id} />
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      <DetailHeader
+        labels={{ moreActions: t('common.moreActions') }}
+        entityMark={<Handshake size={24} />}
+        title={offer.vehicleLabel ?? t('offerDetail.untitled')}
+        businessKey={offer.offerNumber}
+        badges={
+          // KAN-570: the stock car's number beside the car (the title), the
+          // stock detail opened as an overlay (ADR-059).
+          offer.stockItemId && offer.stockItemLabel ? (
+            <StockNumberLink
+              stockNumber={offer.stockItemLabel}
+              onOpen={() =>
+                overlay.push({
+                  key: `stock-overlay-${offer.stockItemId}`,
+                  content: <StockDetailContent stockItemId={offer.stockItemId as string} embedded />,
+                })
+              }
+            />
+          ) : (
+            <></>
+          )
+        }
+        primaryAction={{
+          label: t('offerDetail.actions.copy'),
+          icon: <Copy size={16} />,
+          onClick: () => void copyOffer(),
+          disabled: copying,
+        }}
+        overflowActions={{
+          edit: [buildDealTakeOverAction(t, { entityType: 'offer', ...offer }, takeOver.currentUserId, () => void takeOver.takeOver('offer', id, offer))],
+        }}
+      />
+
+      {takeOver.error && (
+        <Alert color="red" role="alert" withCloseButton closeButtonLabel={t('common.dismiss')} onClose={takeOver.clearError}>
+          {takeOver.error}
+        </Alert>
+      )}
+      {ownerError && (
+        <Alert color="red" role="alert" withCloseButton closeButtonLabel={t('common.dismiss')} onClose={() => setOwnerError(null)}>
+          {ownerError}
+        </Alert>
+      )}
+      {/* KAN-553 (ADR-115): a sent offer says it, without actions. */}
+      {offer.status === 'open' && <VehicleChangedBanner vehicleChangedAt={offer.vehicleChangedAt} vehicleChangedFields={offer.vehicleChangedFields} />}
+      {offer.status === 'open' && (
+        <DealOwnerSelect
+          deal={offer}
+          onChange={changeOwner}
+          // KAN-492: the live contract carries the seller (KAN-408); disabled
+          // before the click. Disabled is disabled — no reason line under a
+          // field (Anto, 2026-10-29); «Übernehmen» names the contract.
+          disabled={offer.liveContractNumber != null}
+        />
+      )}
+
+      {copyError && (
+        <Alert color="red" role="alert" withCloseButton closeButtonLabel={t('common.dismiss')} onClose={() => setCopyError(null)}>
+          {copyError}
+        </Alert>
+      )}
+
+      <SalesDocumentsSection ownerType="offer" ownerId={id} liveContractNumber={offer.liveContractNumber} />
+    </div>
+  )
+}

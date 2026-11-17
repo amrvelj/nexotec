@@ -8,10 +8,14 @@ The sources are `DemoWidget` (a test-only table with `tenant_id` and
 `Customer` (`group_id`, `advisor_id`, the columns Customers' own checks use).
 """
 
+import dataclasses
 import uuid
+from decimal import Decimal
 
+import pytest
 from sqlalchemy import select
 
+from app.core.errors import BadRequestError, NotFoundError
 from app.core.reconciliation import StateCheck, find_orphans, find_rows_in_state
 from app.customer.models.customer import Customer, CustomerType, Language
 from app.platform import public
@@ -167,3 +171,94 @@ def test_the_plain_reads_hand_back_values(db_session):
     assert public.find_dealership_group_ids(db_session, [group.id, dealership.id, unknown]) == {
         dealership.id: group.id
     }
+
+
+# --- KAN-123 step 8: the seven reads that handed out live rows --------------------------
+
+
+def _location(db, dealership: Dealership, name: str = "Filiale Winterthur") -> Location:
+    location = Location(tenant_id=dealership.id, name=name, code=f"L{uuid.uuid4().hex[:4]}")
+    db.add(location)
+    db.flush()
+    return location
+
+
+def _is_frozen_value(value) -> bool:
+    return dataclasses.is_dataclass(value) and type(value).__dataclass_params__.frozen  # type: ignore[attr-defined]
+
+
+def test_the_dealership_and_location_reads_hand_out_frozen_values(db_session):
+    group = _group(db_session)
+    dealership = _dealership(db_session, group)
+    dealership.vat_rate = Decimal("8.10")
+    other = _dealership(db_session, group)
+    location = _location(db_session, dealership)
+    db_session.flush()
+
+    summary = public.get_dealership_or_404(db_session, dealership.id)
+    assert summary == public.DealershipSummary(id=dealership.id, dealer_group_id=group.id, vat_rate=Decimal("8.10"))
+    assert _is_frozen_value(summary)
+    with pytest.raises(dataclasses.FrozenInstanceError):
+        summary.vat_rate = Decimal(0)  # type: ignore[misc]
+    with pytest.raises(NotFoundError):
+        public.get_dealership_or_404(db_session, uuid.uuid4())
+
+    found = public.get_location_or_404(db_session, dealership_id=dealership.id, location_id=location.id)
+    assert found == public.LocationSummary(id=location.id, dealership_id=dealership.id, name="Filiale Winterthur")
+    assert _is_frozen_value(found)
+    # Another Betrieb's location is a 404 (rule 7), as before.
+    with pytest.raises(NotFoundError):
+        public.get_location_or_404(db_session, dealership_id=other.id, location_id=location.id)
+
+
+def test_the_dealer_group_reads_hand_out_the_read_model_and_flip_on_platforms_own_row(db_session):
+    group = _group(db_session)
+    db_session.commit()
+
+    read = public.get_dealer_group_or_404(db_session, group.id)
+    assert isinstance(read, public.DealerGroupRead) and read.id == group.id and read.group_read_enabled is False
+    with pytest.raises(NotFoundError):
+        public.get_dealer_group_or_404(db_session, uuid.uuid4())
+    with pytest.raises(BadRequestError):
+        public.enable_group_read(db_session, dealer_group_id=group.id, actor_id=uuid.uuid4(), legal_basis_recorded=False)
+
+    enabled = public.enable_group_read(
+        db_session, dealer_group_id=group.id, actor_id=uuid.uuid4(), legal_basis_recorded=True
+    )
+    assert isinstance(enabled, public.DealerGroupRead) and enabled.group_read_enabled is True
+    db_session.expire_all()
+    assert db_session.get(DealerGroup, group.id).group_read_enabled is True
+
+
+def test_the_acting_user_reads_hand_out_frozen_values(db_session):
+    group = _group(db_session)
+    dealership = _dealership(db_session, group)
+    active = _user(db_session, dealership, UserStatus.ACTIVE)
+    suspended = _user(db_session, dealership, UserStatus.SUSPENDED)
+
+    acting = public.get_active_user_acting_in(db_session, dealership_id=dealership.id, user_id=active.id)
+    assert acting == public.ActingUser(id=active.id, first_name="Ada", last_name="Lovelace", email=active.email)
+    assert acting.label == "Ada Lovelace"
+    assert _is_frozen_value(acting)
+    assert public.get_active_user_acting_in(db_session, dealership_id=dealership.id, user_id=suspended.id) is None
+
+    listed = public.list_active_users_acting_in(db_session, dealership_id=dealership.id)
+    assert [user.id for user in listed] == [active.id]
+    assert all(isinstance(user, public.ActingUser) for user in listed)
+
+
+def test_notify_hands_out_the_inbox_rows_id(db_session):
+    from app.platform.identity.models.notification import Notification
+
+    group = _group(db_session)
+    dealership = _dealership(db_session, group)
+    user = _user(db_session, dealership, UserStatus.ACTIVE)
+
+    notification_id = public.notify(
+        db_session,
+        public.NotificationEventCode.ACCOUNT_LOCKED,
+        user_id=user.id,
+        subject=public.NotificationSubject(type="user", id=user.id, link="/account/security"),
+    )
+    assert isinstance(notification_id, uuid.UUID)
+    assert db_session.get(Notification, notification_id).user_id == user.id

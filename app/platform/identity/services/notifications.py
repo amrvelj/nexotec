@@ -152,9 +152,11 @@ def notify(
     subject: NotificationSubject,
     dealership_id: uuid.UUID | None = None,
     params: dict | None = None,
-) -> Notification | None:
-    """Raise one notification for one user. Returns the inbox row, or None
-    when the user switched the family off. Does not commit."""
+) -> uuid.UUID | None:
+    """Raise one notification for one user. Returns the inbox row's id, or
+    None when the user switched the family off. Does not commit. It hands out
+    the id, never the row: `platform.public` re-exports this function, and a
+    public door hands out values (KAN-123 step 8, ADR-162)."""
 
     code = _code_value(event_code)
     event = catalogue_event(db, code)
@@ -191,7 +193,7 @@ def notify(
                 occurred_at=now,
             ),
         )
-    return row
+    return row.id
 
 
 # --- the user's inbox (FR-A-50) ---------------------------------------------------------

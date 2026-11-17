@@ -33,7 +33,7 @@ small; ADR-047 addendum, ADR-081, ADR-107. Last verified against main@73baf3f (2
   inert while its `DMS_*` variable is unset, as its own service `<DMS_OTEL_SERVICE_NAME>-worker`
   beside the web's.
 - **Repairs today** (each the owner's daily job with its own record): Stock's orphan-reservation
-  sweep `inventory.orphaned_reservations.release` (`inventory.md`); `platform.user_expiry`'s
+  sweep `inventory.orphaned_reservations.release` (`inventory.md`); Stock's `inventory.merged_record_items.repair` (KAN-724: re-runs the merge consumer's move for an item left on a merged record, once nothing blocks it); `platform.user_expiry`'s
   retry of a hand-over a module refused (30 days; the Sales and Customers StateChecks name the
   record meanwhile); `platform.connected_account.repair`, ending at the provider a revoked grant
   still holding a reference (the platform StateCheck names it first).

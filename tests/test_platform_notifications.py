@@ -128,6 +128,13 @@ def _subscribe(client, cookie: str, endpoint: str = "https://push.example.test/s
     return response.json()
 
 
+def notify_row(db, *args, **kwargs):
+    """`notify` hands out the inbox row's id (KAN-123 step 8); these tests read the row it wrote."""
+
+    notification_id = notify(db, *args, **kwargs)
+    return db.get(Notification, notification_id) if notification_id is not None else None
+
+
 # --- the catalogue and notify() (FR-A-47) ------------------------------------------------
 
 
@@ -141,7 +148,7 @@ def test_a_code_outside_the_catalogue_cannot_be_sent(client, db_session):
 
 def test_notify_writes_the_inbox_row_and_its_outbox_row_in_the_callers_transaction(client, db_session):
     anna = create_user(client, create_dealership(client))
-    row = notify(db_session, NotificationEventCode.ACCOUNT_LOCKED, user_id=uuid.UUID(anna["id"]), subject=_SUBJECT)
+    row = notify_row(db_session, NotificationEventCode.ACCOUNT_LOCKED, user_id=uuid.UUID(anna["id"]), subject=_SUBJECT)
     assert row is not None and row.delivered_at is not None
     # Nothing commits on its own: a rolled-back action owes nobody a notification.
     db_session.rollback()
@@ -185,7 +192,7 @@ def test_the_inbox_lists_my_notifications_newest_first_and_marks_them_read(clien
     bob = create_user(client, anna["dealershipId"])
     for code in (NotificationEventCode.ACCOUNT_LOCKED, NotificationEventCode.PASSWORD_CHANGED):
         notify(db_session, code, user_id=uuid.UUID(anna["id"]), subject=_SUBJECT)
-    bobs = notify(db_session, NotificationEventCode.ACCOUNT_LOCKED, user_id=uuid.UUID(bob["id"]), subject=_SUBJECT)
+    bobs = notify_row(db_session, NotificationEventCode.ACCOUNT_LOCKED, user_id=uuid.UUID(bob["id"]), subject=_SUBJECT)
     db_session.commit()
 
     page = client.get("/v1/me/notifications", headers=cookie_headers(cookie))
@@ -234,8 +241,8 @@ def test_the_inbox_pages_with_a_cursor(client, login, db_session):
 
 def test_the_purge_keeps_ninety_days(client, db_session):
     anna = create_user(client, create_dealership(client))
-    old = notify(db_session, NotificationEventCode.ACCOUNT_LOCKED, user_id=uuid.UUID(anna["id"]), subject=_SUBJECT)
-    recent = notify(db_session, NotificationEventCode.PASSWORD_CHANGED, user_id=uuid.UUID(anna["id"]), subject=_SUBJECT)
+    old = notify_row(db_session, NotificationEventCode.ACCOUNT_LOCKED, user_id=uuid.UUID(anna["id"]), subject=_SUBJECT)
+    recent = notify_row(db_session, NotificationEventCode.PASSWORD_CHANGED, user_id=uuid.UUID(anna["id"]), subject=_SUBJECT)
     old.created_at = old.created_at - dt.timedelta(days=91)
     recent.created_at = recent.created_at - dt.timedelta(days=89)
     db_session.commit()
@@ -323,7 +330,7 @@ def test_off_writes_nothing_and_digest_holds_until_the_daily_job(client, login, 
         ).status_code
         == 200
     )
-    held = notify(db_session, probe_event, user_id=user_id, subject=_SUBJECT)
+    held = notify_row(db_session, probe_event, user_id=user_id, subject=_SUBJECT)
     # A security event in the same day is not held: it is not switchable.
     notify(db_session, NotificationEventCode.ACCOUNT_LOCKED, user_id=user_id, subject=_SUBJECT)
     db_session.commit()
@@ -367,8 +374,8 @@ def test_a_digest_spanning_two_betriebe_is_one_event_filed_under_no_betrieb(clie
         ).status_code
         == 200
     )
-    home = notify(db_session, probe_event, user_id=user_id, subject=_SUBJECT, dealership_id=uuid.UUID(home_betrieb))
-    elsewhere = notify(db_session, probe_event, user_id=user_id, subject=_SUBJECT, dealership_id=sister)
+    home = notify_row(db_session, probe_event, user_id=user_id, subject=_SUBJECT, dealership_id=uuid.UUID(home_betrieb))
+    elsewhere = notify_row(db_session, probe_event, user_id=user_id, subject=_SUBJECT, dealership_id=sister)
     assert home is not None and elsewhere is not None and home.delivered_at is None
     db_session.commit()
     assert {home.dealership_id, elsewhere.dealership_id} == {uuid.UUID(home_betrieb), sister}
@@ -495,7 +502,7 @@ def _delivered_message(db_session, row: Notification) -> OutboxMessage:
 def test_a_delivered_notification_pushes_its_title_and_link_to_live_subscriptions(client, login, db_session, sender):
     anna, cookie = _user_row(client, login)
     _subscribe(client, cookie)
-    row = notify(db_session, NotificationEventCode.FACTOR_REMOVED, user_id=uuid.UUID(anna["id"]), subject=_SUBJECT)
+    row = notify_row(db_session, NotificationEventCode.FACTOR_REMOVED, user_id=uuid.UUID(anna["id"]), subject=_SUBJECT)
     db_session.commit()
 
     consumers.handle_notification_delivered_message(db_session, _delivered_message(db_session, row))
@@ -511,7 +518,7 @@ def test_the_push_title_follows_the_ui_language(client, login, db_session, sende
     put = client.put("/v1/me/preferences/ui", json={"uiLanguage": "fr"}, headers=cookie_headers(cookie))
     assert put.status_code in (200, 204), put.text
     _subscribe(client, cookie)
-    row = notify(db_session, NotificationEventCode.FACTOR_REMOVED, user_id=uuid.UUID(anna["id"]), subject=_SUBJECT)
+    row = notify_row(db_session, NotificationEventCode.FACTOR_REMOVED, user_id=uuid.UUID(anna["id"]), subject=_SUBJECT)
     db_session.commit()
     consumers.handle_notification_delivered_message(db_session, _delivered_message(db_session, row))
     assert sender.sent[0][1].title == "Deuxième facteur supprimé"
@@ -523,7 +530,7 @@ def test_no_push_for_a_read_notification_a_family_without_push_or_no_sender(
     anna, cookie = _user_row(client, login)
     _subscribe(client, cookie)
     user_id = uuid.UUID(anna["id"])
-    read = notify(db_session, NotificationEventCode.ACCOUNT_LOCKED, user_id=user_id, subject=_SUBJECT)
+    read = notify_row(db_session, NotificationEventCode.ACCOUNT_LOCKED, user_id=user_id, subject=_SUBJECT)
     read.read_at = read.created_at
     db_session.commit()
     consumers.handle_notification_delivered_message(db_session, _delivered_message(db_session, read))
@@ -536,13 +543,13 @@ def test_no_push_for_a_read_notification_a_family_without_push_or_no_sender(
         ).status_code
         == 200
     )
-    silent = notify(db_session, probe_event, user_id=user_id, subject=_SUBJECT)
+    silent = notify_row(db_session, probe_event, user_id=user_id, subject=_SUBJECT)
     db_session.commit()
     consumers.handle_notification_delivered_message(db_session, _delivered_message(db_session, silent))
     assert sender.sent == []
 
     sender.key = None  # no VAPID key: nothing is sent at all
-    pushed = notify(db_session, NotificationEventCode.ACCOUNT_LOCKED, user_id=user_id, subject=_SUBJECT)
+    pushed = notify_row(db_session, NotificationEventCode.ACCOUNT_LOCKED, user_id=user_id, subject=_SUBJECT)
     db_session.commit()
     consumers.handle_notification_delivered_message(db_session, _delivered_message(db_session, pushed))
     assert sender.sent == []
@@ -552,7 +559,7 @@ def test_a_subscription_the_push_service_reports_gone_is_deleted(client, login, 
     anna, cookie = _user_row(client, login)
     _subscribe(client, cookie)
     sender.outcome = PushOutcome.GONE
-    row = notify(db_session, NotificationEventCode.ACCOUNT_LOCKED, user_id=uuid.UUID(anna["id"]), subject=_SUBJECT)
+    row = notify_row(db_session, NotificationEventCode.ACCOUNT_LOCKED, user_id=uuid.UUID(anna["id"]), subject=_SUBJECT)
     db_session.commit()
     consumers.handle_notification_delivered_message(db_session, _delivered_message(db_session, row))
     db_session.commit()
@@ -787,7 +794,7 @@ def test_a_session_that_ran_out_gets_no_push_and_loses_its_subscription_daily(cl
     )
     db_session.commit()
 
-    row = notify(db_session, NotificationEventCode.ACCOUNT_LOCKED, user_id=uuid.UUID(anna["id"]), subject=_SUBJECT)
+    row = notify_row(db_session, NotificationEventCode.ACCOUNT_LOCKED, user_id=uuid.UUID(anna["id"]), subject=_SUBJECT)
     db_session.commit()
     consumers.handle_notification_delivered_message(db_session, _delivered_message(db_session, row))
     assert [target.endpoint for target, _ in sender.sent] == ["https://push.example.test/send/live"]

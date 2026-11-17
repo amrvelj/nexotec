@@ -12,7 +12,7 @@ import {
 } from '@nexotec/ui-kit'
 import { useUiPreferencesContext } from '../../../../hooks/UiPreferencesContext'
 import { formatDate, formatCurrencyChf } from '../../../../utils/format'
-import { translatedSalesDealStatusLabel, translatedSalesEntityTypeLabel } from '../../../../salesOptions'
+import { translatedSalesDealStatusLabel, translatedSalesEntityTypeLabel } from '../../../sales'
 import type { SalesContractRead, SalesOfferRead } from '../../../../api/types'
 import { useDataGridLabels } from '../../../../hooks/useDataGridLabels'
 

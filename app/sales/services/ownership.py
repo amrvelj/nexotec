@@ -25,7 +25,7 @@ from sqlalchemy.orm import Session
 from app.core.base import utcnow
 from app.core.errors import UnprocessableEntityError
 from app.core.ownership import OwnedGroup, OwnershipRefusal, OwnershipTransfer
-from app.platform.public import get_active_user_acting_in, list_user_dealership_ids
+from app.platform.public import ActingUser, get_active_user_acting_in, list_user_dealership_ids
 from app.sales.models.contract import ContractStatus, SalesContract
 from app.sales.models.offer import OfferStatus, SalesOffer
 from app.sales.services.deal_projection import upsert_deal_projection
@@ -59,7 +59,7 @@ def offer_is_open() -> ColumnElement[bool]:
 _NO_OWNER: dict[str, Any] = {"owner_user_id": None, "owner_label": None, "owner_label_refreshed_at": None}
 
 
-def _seller_in(db: Session, *, tenant_id: uuid.UUID, user_id: uuid.UUID | None) -> Any | None:
+def _seller_in(db: Session, *, tenant_id: uuid.UUID, user_id: uuid.UUID | None) -> ActingUser | None:
     """The user when they act in this dealership — homed there or an active
     member (a sister-Betrieb member sells there too) — and still hold or
     await access: a suspended or deactivated user cannot be responsible for
@@ -72,10 +72,6 @@ def _seller_in(db: Session, *, tenant_id: uuid.UUID, user_id: uuid.UUID | None) 
     return get_active_user_acting_in(db, dealership_id=tenant_id, user_id=user_id)
 
 
-def _label(user: Any) -> str:
-    return f"{user.first_name} {user.last_name}".strip()
-
-
 def default_owner(db: Session, *, tenant_id: uuid.UUID, actor_id: uuid.UUID | None) -> dict[str, Any]:
     """The columns a new offer or contract starts with: the creator as the
     responsible seller when they act in the dealership."""
@@ -83,7 +79,7 @@ def default_owner(db: Session, *, tenant_id: uuid.UUID, actor_id: uuid.UUID | No
     user = _seller_in(db, tenant_id=tenant_id, user_id=actor_id)
     if user is None:
         return dict(_NO_OWNER)
-    return {"owner_user_id": actor_id, "owner_label": _label(user), "owner_label_refreshed_at": utcnow()}
+    return {"owner_user_id": actor_id, "owner_label": user.label, "owner_label_refreshed_at": utcnow()}
 
 
 def inherited_owner(db: Session, *, tenant_id: uuid.UUID, offer: SalesOffer, actor_id: uuid.UUID | None) -> dict[str, Any]:
@@ -114,7 +110,7 @@ def resolve_owner_change(db: Session, *, tenant_id: uuid.UUID, owner_user_id: uu
         raise UnprocessableEntityError(
             "ownerUserId is not an active user of your dealership.", details={"ownerUserId": str(owner_user_id)}
         )
-    return {"owner_user_id": owner_user_id, "owner_label": _label(user), "owner_label_refreshed_at": utcnow()}
+    return {"owner_user_id": owner_user_id, "owner_label": user.label, "owner_label_refreshed_at": utcnow()}
 
 
 def apply_owner(deal: SalesOffer | SalesContract, owner: dict[str, Any]) -> None:

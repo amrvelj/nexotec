@@ -20,9 +20,9 @@ paths:
   - "tests/test_trade_in_valuation_reconciliation.py"
   - "tests/test_valuation_contract_carry.py"
   - "tests/test_inventory_valuation_ref.py"
-  - "frontend/apps/dms/src/components/deal-workspace/DealWorkspaceContainers.tsx"
+  - "frontend/apps/dms/src/modules/sales/components/deal-workspace/DealWorkspaceContainers.tsx"
   - "frontend/apps/dms/src/modules/stock/components/stock-detail/EvaluationTab*"
-  - "frontend/apps/dms/src/pages/OfferWorkspace.tradeIn*"
+  - "frontend/apps/dms/src/modules/sales/pages/OfferWorkspace.tradeIn*"
 ---
 <!-- Maintainer note. ADR-047, ADR-066, ADR-070, ADR-074; FR-S-08. Moved out of valuation.md by
 KAN-615 (2026-11-13) for the Sales and Stock files that use a valuation. Last verified against

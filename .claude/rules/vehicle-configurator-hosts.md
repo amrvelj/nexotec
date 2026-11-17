@@ -12,7 +12,7 @@ paths:
   - "frontend/apps/dms/src/modules/vehicle/components/configurator/?onfiguratorOverlay*"
   - "frontend/apps/dms/src/modules/vehicle/components/configurator/HostConfigurationCard*"
   - "frontend/apps/dms/src/modules/vehicle/components/configurator/?onfigurat*Hosts*"
-  - "frontend/apps/dms/src/pages/OfferWorkspace.configuration*"
+  - "frontend/apps/dms/src/modules/sales/pages/OfferWorkspace.configuration*"
   - "frontend/apps/dms/src/modules/stock/**/*onfigurat*"
   - "frontend/apps/dms/src/modules/stock/components/AddToPipeline*"
 ---

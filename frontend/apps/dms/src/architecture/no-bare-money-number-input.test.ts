@@ -105,8 +105,8 @@ describe('a CHF amount is never typed into a bare NumberInput (KAN-168)', () => 
     const chfUses = files.filter((file) => /<ChfInput\b|chfInlineEditor\(/.test(readFileSync(file, 'utf8')))
     expect(chfUses.map((file) => relative(APP_ROOT, file)).sort()).toEqual(
       [
-        'components/OfferAccessoriesAndOptions.tsx',
-        'components/PriceBuildUp.tsx',
+        'modules/sales/components/OfferAccessoriesAndOptions.tsx',
+        'modules/sales/components/PriceBuildUp.tsx',
         'modules/vehicle/components/configurator/ColourWheelsTab.tsx',
         'modules/vehicle/components/configurator/ConfiguratorOverlay.tsx',
         'modules/vehicle/components/configurator/IdentificationPanel.tsx',
@@ -116,7 +116,7 @@ describe('a CHF amount is never typed into a bare NumberInput (KAN-168)', () => 
         'modules/stock/components/stock-detail/RecordCostDialog.tsx',
         'modules/stock/components/stock-detail/RecordPurchaseDialog.tsx',
         'modules/valuation/components/ValuationCreateDialog.tsx',
-        'pages/OfferWorkspacePage.tsx',
+        'modules/sales/pages/OfferWorkspacePage.tsx',
       ].sort(),
     )
   })
@@ -125,7 +125,7 @@ describe('a CHF amount is never typed into a bare NumberInput (KAN-168)', () => 
     // The discount label covers a percentage (NumberInput) and an amount
     // (ChfInput): exactly one of each, so the amount cannot turn back into
     // a NumberInput unnoticed.
-    const priceBuildUp = readFileSync(join(APP_ROOT, 'components/PriceBuildUp.tsx'), 'utf8')
+    const priceBuildUp = readFileSync(join(APP_ROOT, 'modules/sales/components/PriceBuildUp.tsx'), 'utf8')
     const discountLabel = /label=\{t\('offerWorkspace\.pricing\.discountValue'\)\}/
     const elements = [...priceBuildUp.matchAll(/<(ChfInput|NumberInput)\b/g)].map((m) =>
       priceBuildUp.slice(m.index ?? 0, priceBuildUp.indexOf('/>', m.index ?? 0)),

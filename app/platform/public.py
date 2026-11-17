@@ -38,6 +38,11 @@ from app.platform.identity.services.connected_account import (
     unregister_grant_revoker,
 )
 from app.platform.identity.services.group_labels import get_group_display_labels
+from app.platform.identity.services.identity_refs import (
+    ActingUser,
+    get_active_user_acting_in,
+    list_active_users_acting_in,
+)
 from app.platform.identity.services.notification_catalogue import NotificationEventCode
 from app.platform.identity.services.notifications import NotificationSubject, UnknownNotificationEvent, notify
 from app.platform.identity.services.reconciliation_targets import user_is_deactivated, user_reference_check
@@ -45,9 +50,7 @@ from app.platform.identity.services.user_location import get_primary_location_id
 from app.platform.identity.services.user_preference import ui_language_of
 from app.platform.identity.services.user_reads import (
     UserDisplayLabel,
-    get_active_user_acting_in,
     get_user_display_labels,
-    list_active_users_acting_in,
     list_dealer_manager_emails,
     list_user_dealer_group_ids,
     list_user_dealership_ids,
@@ -55,15 +58,18 @@ from app.platform.identity.services.user_reads import (
 from app.platform.organisation.models.number_range import NumberRangeDocumentType
 from app.platform.organisation.schemas.dealership import DealerGroupRead
 from app.platform.organisation.services.contact_group import ContactGroupCodes, contact_group_codes
-from app.platform.organisation.services.dealership import (
+from app.platform.organisation.services.dealership import get_dealership_default_correspondence_language
+from app.platform.organisation.services.group_read_dealerships import DealershipRef, list_group_read_dealerships
+from app.platform.organisation.services.location import LocationLabel, get_location_labels
+from app.platform.organisation.services.number_range import allocate_number
+from app.platform.organisation.services.organisation_refs import (
+    DealershipSummary,
+    LocationSummary,
     enable_group_read,
     get_dealer_group_or_404,
-    get_dealership_default_correspondence_language,
     get_dealership_or_404,
+    get_location_or_404,
 )
-from app.platform.organisation.services.group_read_dealerships import DealershipRef, list_group_read_dealerships
-from app.platform.organisation.services.location import LocationLabel, get_location_labels, get_location_or_404
-from app.platform.organisation.services.number_range import allocate_number
 from app.platform.organisation.services.reconciliation_targets import (
     dealer_group_reference_check,
     dealership_exists,
@@ -128,12 +134,14 @@ from app.platform.reference.services.reference_data import get_active_reference_
 # context read or write a connected account.
 __all__ = [
     "PLACEHOLDER_UNRESOLVED",
+    "ActingUser",
     "Addressee",
     "ConnectedAccountProvider",
     "ContactGroupCodes",
     "ContentDefinition",
     "DealerGroupRead",
     "DealershipRef",
+    "DealershipSummary",
     "DocumentLine",
     "DocumentWatermark",
     "GrantRevoker",
@@ -142,6 +150,7 @@ __all__ = [
     "LineItemsBlock",
     "LineStyle",
     "LocationLabel",
+    "LocationSummary",
     "NotificationEventCode",
     "NotificationSubject",
     "NumberRangeDocumentType",

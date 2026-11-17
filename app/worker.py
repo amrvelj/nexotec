@@ -75,7 +75,7 @@ from app.inventory.consumers import (
 from app.inventory.consumers import (
     handle_vehicle_merged_message as move_stock_items_on_vehicle_merged,
 )
-from app.inventory.daily_jobs import run_daily_reservation_sweep
+from app.inventory.daily_jobs import run_daily_merged_record_repair, run_daily_reservation_sweep
 from app.inventory.public import (
     SALES_CONTRACT_PROJECTION_CONSUMERS,
     oldest_configuration_label_age_seconds,
@@ -592,6 +592,12 @@ def register_daily_jobs() -> None:
        reconciliation; after it, so that, when reconciliation ran first that
        day, a reservation naming a missing contract is recorded as a
        dangling reference before it is released.
+    9b. ``inventory.merged_record_items.repair`` — KAN-724: a stock item the
+       consumer of ``vehicle.vehicle_mdm.merged`` had to leave on the merged
+       record (its Betrieb held the survivor live under a chassis number,
+       KAN-535) is moved onto the live record once nothing blocks it, with the
+       consumer's audit row and VIN take-over. A repair, so after
+       reconciliation: the night's report names the item first.
     10. ``vehicle.plate_lookup_cache.purge`` — deletes plate-lookup cache rows
        past their 30-day TTL (KAN-42, FR-C-02; revDSG data minimisation).
     11. ``core.idempotency_records.purge`` — deletes the Idempotency-Key
@@ -651,6 +657,8 @@ def register_daily_jobs() -> None:
     register_daily_job("integration.location_labels", _refresh_location_labels)
     register_daily_job("reconciliation.run_all", run_all_daily)
     register_daily_job("inventory.orphaned_reservations.release", run_daily_reservation_sweep)
+    # 9b. KAN-724: a stock item a vehicle merge had to leave on the duplicate follows once nothing blocks it.
+    register_daily_job("inventory.merged_record_items.repair", run_daily_merged_record_repair)
     register_daily_job("vehicle.plate_lookup_cache.purge", run_daily_plate_lookup_purge)
     register_daily_job("core.idempotency_records.purge", run_daily_idempotency_record_purge)
     # 12. KAN-200 (FR-A-12): a user whose `valid_to` has passed is deactivated

@@ -464,7 +464,7 @@ export type SalesContractRead = Omit<Schemas['ContractRead'], 'vehicleSource' | 
 export type SalesContractPage = Omit<Schemas['ContractPage'], 'items'> & { items: SalesContractRead[] }
 
 // KAN-67 (ADR-083) — an offer draft and a pending contract are edited by
-// the same containers (components/deal-workspace/); either read model
+// the same containers (modules/sales/components/deal-workspace/); either read model
 // carries every field they touch.
 export type SalesDealOwnerType = 'offer' | 'contract'
 export type SalesPricedDealRead = SalesOfferRead | SalesContractRead

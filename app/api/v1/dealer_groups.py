@@ -33,10 +33,9 @@ def enable_group_read(
     db: Session = Depends(get_db),
 ):
     dealer_group = platform.get_dealer_group_or_404(db, dealer_group_id)
-    dealer_group = platform.enable_group_read(
+    return platform.enable_group_read(
         db,
-        dealer_group=dealer_group,
+        dealer_group_id=dealer_group.id,
         actor_id=principal.user_id,
         legal_basis_recorded=has_any_basis_for_group(db, group_id=dealer_group.id),
     )
-    return platform.DealerGroupRead.model_validate(dealer_group, from_attributes=True)

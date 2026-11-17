@@ -7,7 +7,7 @@ import { renderWithProviders } from '../test/renderWithProviders'
 import { installFakeBackend, type FakeRoute } from '../test/fakeBackend'
 import type { SalesDealRead, StockItemPage, StockItemRead, ValuationRead } from '../api/types'
 import { StockListPage } from '../modules/stock/pages/StockListPage'
-import { SalesListPage } from './SalesListPage'
+import { SalesListPage } from '../modules/sales/pages/SalesListPage'
 import { ValuationsListPage } from '../modules/valuation/pages/ValuationsListPage'
 import { CatalogueBrowsePage } from '../modules/vehicle/pages/CatalogueBrowsePage'
 

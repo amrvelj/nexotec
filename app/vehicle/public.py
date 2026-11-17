@@ -35,7 +35,7 @@ from app.vehicle.services.host_configuration import (
 from app.vehicle.services.merge import MERGED_EVENT as VEHICLE_MERGED_EVENT
 from app.vehicle.services.merge import follow_vehicle_merge_on_configuration
 from app.vehicle.services.merge import resolve_merged_id as _resolve_merged_id
-from app.vehicle.services.merge_chain import merged_vehicle_chain
+from app.vehicle.services.merge_chain import find_merged_vehicle_ids, merged_vehicle_chain
 from app.vehicle.services.plate import PlateRecordingCheck, PlateVersionRef
 from app.vehicle.services.plate_lookup_cache import purge_expired_plate_lookups
 from app.vehicle.services.reconciliation_targets import (
@@ -496,6 +496,7 @@ __all__ = [
     "correct_vehicle_vin",
     "create_or_get_vehicle_mdm",
     "discard_configuration_copy",
+    "find_merged_vehicle_ids",
     "find_vehicle_mdm_by_chassis_number",
     "find_vehicle_mdm_carrying_corrected_vin",
     "follow_vehicle_merge_on_configuration",

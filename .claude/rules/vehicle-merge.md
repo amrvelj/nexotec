@@ -32,7 +32,8 @@ KAN-672, KAN-673, KAN-680, KAN-706; ADR-131, ADR-160. -->
   (`follow_vehicle_merge_on_configuration`, audited `vin_corrected_by_merge`) — unless its Betrieb
   already holds the survivor live: it keeps its VIN and inventory reports «two live stock items of one
   Betrieb name one vehicle_mdm record» (a chassis-number car stays on the duplicate: one per record
-  and Betrieb is an index; KAN-706's check names it); one that took a VIN publishes
+  and Betrieb is an index; KAN-706's check names it, and Stock's daily `inventory.merged_record_items.repair`
+  moves it once nothing blocks it, KAN-724); one that took a VIN publishes
   `inventory.stock_item.vin_corrected`. No Händlerschild assignment is written (removed until specified). Customer's
   `customer.vehicle_parties_on_vehicle_merged` (`app/customer/services/vehicle_merge.py`, KAN-634)
   then moves every party row naming the duplicate (every group's, open or closed) onto the survivor,
