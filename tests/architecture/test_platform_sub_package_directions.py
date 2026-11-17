@@ -104,8 +104,11 @@ def _platform_sources() -> dict[str, str]:
 
 def test_platform_sub_packages_import_only_their_own_layer_or_lower():
     sources = _platform_sources()
-    for top in ("reference", "organisation", "identity", "documents", "administration"):
-        assert sum(path.startswith(f"app/platform/{top}/") for path in sources) > 5, (
+    # Floors well under today's counts (reference 17, organisation 42, identity 75, documents 20,
+    # administration 31 files): an emptied sub-package would make the guard pass vacuously.
+    floors = {"reference": 10, "organisation": 30, "identity": 50, "documents": 15, "administration": 25}
+    for top, floor in floors.items():
+        assert sum(path.startswith(f"app/platform/{top}/") for path in sources) > floor, (
             f"app/platform/{top}/ is (nearly) empty: the guard would pass vacuously"
         )
 
@@ -124,6 +127,13 @@ def test_every_top_level_name_of_platform_is_classified():
     }
     assert on_disk - {"__init__"} <= set(_LAYERS), sorted(on_disk - set(_LAYERS) - {"__init__"})
     assert set(_LAYERS) - {""} <= on_disk, "a layer entry names nothing on disk: delete it"
+
+
+def test_the_flat_services_folder_holds_only_the_frozen_seed():
+    # `services` counts as documents only because it holds the seed the shipped migration
+    # imports (ADR-133); a new module there would escape its sub-package's classification.
+    held = sorted(path.name for path in (_PLATFORM / "services").iterdir() if path.suffix == ".py")
+    assert held == ["__init__.py", "standard_text_seed.py"], held
 
 
 def test_the_guard_reports_upward_and_unclassified_imports():

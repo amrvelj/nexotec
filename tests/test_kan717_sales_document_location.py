@@ -3,6 +3,7 @@ responsible seller's primary location; with none, for the seat. The site is
 fixed when the document is made, so a reprint prints the same letterhead. The
 footer's legal-entity columns stay the seat's (A-27); one renderer (ADR-051)."""
 
+import re
 import uuid
 from unittest.mock import patch
 
@@ -140,6 +141,8 @@ def test_the_printed_letterhead_is_the_sites_and_the_footer_stays_the_seats(db_s
         render_document_pdf(db_session, document=document, dealership_id=document.tenant_id)
     (html_string,) = write_pdf.call_args.args
 
-    assert "Technikumstrasse 9" in html_string
-    # The legal-entity footer stays the seat's (A-27).
-    assert "Bahnhofstrasse" in html_string
+    # The address block is the site's; the legal-entity footer stays the seat's (A-27).
+    sender = re.search(r'<div class="doc-dealer">(.*?)</div>', html_string, re.DOTALL).group(1)
+    footer = re.search(r'<div class="doc-footer-columns">(.*?)</div></div>', html_string, re.DOTALL).group(1)
+    assert "Technikumstrasse 9" in sender and "Bahnhofstrasse" not in sender
+    assert "Bahnhofstrasse" in footer and "Technikumstrasse" not in footer

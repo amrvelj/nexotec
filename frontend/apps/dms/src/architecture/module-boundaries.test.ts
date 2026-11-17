@@ -265,8 +265,18 @@ describe('frontend modules keep their boundary (KAN-636, ADR-161)', () => {
     const mappings = moveMappings()
     expect(mappings.map((m) => m.module).sort()).toEqual([...moduleFolders].sort())
     const backAgain = mappings.flatMap((m) => m.moves.filter(([from]) => existsSync(join(APP_ROOT, from))).map(([from]) => from))
-    const movedOn = new Set(mappings.flatMap((m) => m.moves.map(([from]) => from)))
-    const notThere = mappings.flatMap((m) => m.moves.filter(([, to]) => !existsSync(join(APP_ROOT, to)) && !movedOn.has(to)).map(([, to]) => to))
+    // A target a later mapping moved on is followed to the end of its chain, which must exist;
+    // a chain that comes back on itself never ends at a file and fails.
+    const next = new Map(mappings.flatMap((m) => m.moves.map(([from, to]) => [from, to] as const)))
+    const endsAtAFile = (start: string) => {
+      const seen = new Set<string>()
+      for (let at: string | undefined = start; at !== undefined && !seen.has(at); at = next.get(at)) {
+        if (existsSync(join(APP_ROOT, at))) return true
+        seen.add(at)
+      }
+      return false
+    }
+    const notThere = mappings.flatMap((m) => m.moves.filter(([, to]) => !endsAtAFile(to)).map(([, to]) => to))
     expect(backAgain).toEqual([])
     expect(notThere).toEqual([])
   })
