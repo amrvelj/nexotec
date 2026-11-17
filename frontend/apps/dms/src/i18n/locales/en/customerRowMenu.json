@@ -11,5 +11,6 @@
   "removeCreditBlock": "Remove credit block",
   "mergeInto": "Merge into another customer…",
   "mergeDisabledMerged": "This record has already been merged into another.",
-  "copyCustomerNumber": "Copy contact number"
+  "copyCustomerNumber": "Copy contact number",
+  "removeDoNotContactCustomerRole": "For a customer, sales or aftersales remove do-not-contact."
 }

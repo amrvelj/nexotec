@@ -131,6 +131,15 @@ describe('the row menu without the customer role\'s write (KAN-464 Q3)', () => {
     expect(labels(menu({ ...base, creditBlock: true, roles: ['customer'] }, false))).not.toContain('customerRowMenu.removeCreditBlock')
     expect(labels(menu({ ...base, roles: ['supplier'] }, false))).toContain('customerRowMenu.mergeInto')
 
+    // Lifting do-not-contact on a customer chooses its status: disabled, with the reason.
+    const lift = (roles: ('customer' | 'supplier')[], may: boolean) =>
+      (menu({ ...base, lifecycleStatus: 'do_not_contact', roles }, may).overflow.edit ?? []).find(
+        (a) => a.label === 'customerRowMenu.removeDoNotContact',
+      )!
+    expect(lift(['customer'], false)).toMatchObject({ disabled: true, disabledReason: 'customerRowMenu.removeDoNotContactCustomerRole' })
+    expect(lift(['supplier'], false).disabled).toBeFalsy()
+    expect(lift(['customer'], true).disabled).toBeFalsy()
+
     const salesMenu = labels(menu({ ...base, roles: ['customer'] }, true))
     expect(salesMenu).toContain('customerRowMenu.setCreditBlock')
     expect(salesMenu).toContain('customerRowMenu.mergeInto')

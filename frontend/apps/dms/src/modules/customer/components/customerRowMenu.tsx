@@ -123,6 +123,11 @@ export function buildCustomerRowMenu(
       label: isDoNotContact ? t('customerRowMenu.removeDoNotContact') : t('customerRowMenu.setDoNotContact'),
       icon: <Ban size={16} />,
       onClick: handlers.onToggleDoNotContact,
+      // KAN-464 Q3: lifting it on a customer chooses the customer's status,
+      // which only who may write the customer role does; setting it is open.
+      ...(isDoNotContact && holdsCustomer && !mayWriteCustomerRole
+        ? { disabled: true, disabledReason: t('customerRowMenu.removeDoNotContactCustomerRole') }
+        : {}),
     },
     ...(canBeBlocked
       ? [

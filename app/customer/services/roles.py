@@ -34,7 +34,8 @@ who may write the customer role's data — giving or taking the role, the
 lifecycle values that are the role's, the advisor, the credit block, and a
 merge of a contact that holds it (the merge moves the role and its
 fields). Anyone the `customers` row lets write does the rest: contact
-points, consent, do-not-contact, tags, contact groups, the supplier role.
+points, consent, setting do-not-contact (lifting it on a customer is the
+customer role's), tags, contact groups, the supplier role.
 Outside it a write is 403 `customer_role_not_permitted` and changes
 nothing. The API passes the principal's cell as `may_write_customer_role`;
 the service judges it against the roles read under the same locks as the
@@ -99,15 +100,13 @@ def check_customer_role_write_on_update(
         raise customer_role_not_permitted("roles")
     if not held_customer_before:
         return
-    # Do-not-contact is every contact's: setting it, and lifting it to the
-    # neutral `active` (what «Nicht kontaktieren» does), are open to every
-    # writer. Any other move to prospect / active / inactive chooses a value
-    # of the customer role's.
+    # Do-not-contact is every contact's, so every writer sets it. Lifting it
+    # on a customer chooses a value of the customer role's (prospect /
+    # active / inactive) — else setting and lifting it would turn a prospect
+    # into an active customer in two steps. On a supplier-only contact
+    # (returned above) every writer lifts it.
     status = changes.get("lifecycle_status")
-    lifts_do_not_contact = (
-        customer.lifecycle_status == CustomerLifecycleStatus.DO_NOT_CONTACT and status == NEUTRAL_LIFECYCLE_STATUS
-    )
-    if status in CUSTOMER_LIFECYCLE_STATUSES and status != customer.lifecycle_status and not lifts_do_not_contact:
+    if status in CUSTOMER_LIFECYCLE_STATUSES and status != customer.lifecycle_status:
         raise customer_role_not_permitted("lifecycleStatus")
     if "advisor_id" in changes and changes["advisor_id"] != customer.advisor_id:
         raise customer_role_not_permitted("advisorId")

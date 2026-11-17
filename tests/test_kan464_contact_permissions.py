@@ -142,7 +142,7 @@ def test_inventory_edits_a_customers_contact_data_but_not_its_customer_fields(cl
     assert _get(client, sales, customer["id"])["lifecycleStatus"] == "prospect"
 
 
-def test_do_not_contact_is_every_writers(client):
+def test_do_not_contact_is_set_by_every_writer_and_lifted_on_a_customer_by_sales(client):
     dealership = create_dealership(client)
     sales = _as(dealership, AccessRole.SALES)
     inventory = _as(dealership, AccessRole.INVENTORY)
@@ -150,13 +150,19 @@ def test_do_not_contact_is_every_writers(client):
 
     response = _patch(client, inventory, customer, lifecycleStatus="do_not_contact")
     assert response.status_code == 200, response.text
-    # Lifted to the neutral `active` — what «Nicht kontaktieren» does.
+    # Lifting it chooses a customer value: else a prospect would become an
+    # active customer in two steps.
+    _refused(_patch(client, inventory, response.json(), lifecycleStatus="active"), "lifecycleStatus")
+    _refused(_patch(client, inventory, response.json(), lifecycleStatus="prospect"), "lifecycleStatus")
+    lifted = _patch(client, sales, response.json(), lifecycleStatus="prospect")
+    assert lifted.status_code == 200, lifted.text
+
+    # A supplier-only contact has no customer value: every writer lifts it.
+    supplier = _created(client, inventory, roles=["supplier"])
+    response = _patch(client, inventory, supplier, lifecycleStatus="do_not_contact")
+    assert response.status_code == 200, response.text
     response = _patch(client, inventory, response.json(), lifecycleStatus="active")
     assert response.status_code == 200, response.text
-    blocked_again = _patch(client, sales, response.json(), lifecycleStatus="do_not_contact")
-    assert blocked_again.status_code == 200, blocked_again.text
-    # Any other way out chooses a value of the customer role's.
-    _refused(_patch(client, inventory, blocked_again.json(), lifecycleStatus="prospect"), "lifecycleStatus")
 
 
 def test_the_credit_block_is_written_by_sales_and_aftersales_only(client):
@@ -201,6 +207,10 @@ def test_inventory_merges_suppliers_but_not_a_customer(client):
     # Either side holding the customer role refuses it; nothing is merged.
     _refused(_merge(client, inventory, supplier, customer), "merge")
     _refused(_merge(client, inventory, customer, supplier), "merge")
+    # The refusal comes after the child rows moved; they are back on the duplicate.
+    for contact in (supplier, customer):
+        emails = client.get(f"/v1/customers/{contact['id']}/emails", headers=sales).json()["items"]
+        assert len(emails) == 1, contact
     assert _get(client, sales, supplier["id"])["lifecycleStatus"] == "active"
     assert _get(client, sales, customer["id"])["lifecycleStatus"] != "merged"
     assert _merge(client, sales, supplier, customer).status_code == 200
@@ -218,3 +228,29 @@ def test_a_supplier_takes_its_number_from_the_customers_sequence(client):
     assert [int(number.removeprefix("K-")) for number in numbers] == list(
         range(int(numbers[0].removeprefix("K-")), int(numbers[0].removeprefix("K-")) + 3)
     )
+
+
+def test_every_call_in_app_passes_the_customer_role_cell():
+    """The services default `may_write_customer_role` to trusted (tests and
+    scripts); a call in `app/` that left it out would grant the customer
+    role to anyone who writes contacts."""
+
+    import ast
+    import pathlib
+
+    guarded = {"create_customer", "update_customer", "set_credit_block", "merge_customer"}
+    root = pathlib.Path(__file__).resolve().parents[1] / "app"
+    calls = []
+    for path in root.rglob("*.py"):
+        for node in ast.walk(ast.parse(path.read_text())):
+            if isinstance(node, ast.Call):
+                name = getattr(node.func, "attr", None) or getattr(node.func, "id", None)
+                if name in guarded:
+                    calls.append((path, node))
+    assert calls, "the guarded services are called from app/"
+    missing = [
+        f"{path.relative_to(root.parent)}:{node.lineno}"
+        for path, node in calls
+        if "may_write_customer_role" not in {kw.arg for kw in node.keywords}
+    ]
+    assert missing == []

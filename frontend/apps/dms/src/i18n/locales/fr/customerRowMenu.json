@@ -11,5 +11,6 @@
   "removeCreditBlock": "Retirer le blocage de crédit",
   "mergeInto": "Fusionner avec un autre client…",
   "mergeDisabledMerged": "Cet enregistrement a déjà été fusionné avec un autre.",
-  "copyCustomerNumber": "Copier le numéro de contact"
+  "copyCustomerNumber": "Copier le numéro de contact",
+  "removeDoNotContactCustomerRole": "Pour un client, la vente ou l’après-vente retirent « ne pas contacter »."
 }
