@@ -5,7 +5,7 @@ import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import i18n from '../../../i18n'
 import { renderWithProviders } from '../../../test/renderWithProviders'
-import { installFakeBackend, type FakeRoute } from '../../../test/fakeBackend'
+import { ALL_GATED_CAPABILITIES, installFakeBackend, type FakeRoute } from '../../../test/fakeBackend'
 import { customer, customerPage } from '../../../test/fixtures'
 import { CustomerDetailPage } from './CustomerDetailPage'
 import { CustomersListPage } from './CustomersListPage'
@@ -44,6 +44,9 @@ const session = (entitlements: string[]): FakeRoute => ({
     activeDealership: { id: 'd-1', legalName: 'Garage Nord AG' },
     memberships: [{ id: 'd-1', legalName: 'Garage Nord AG' }],
     entitlements,
+    // Everything a screen may ask about: this file is about the entitlement,
+    // not the role (KAN-464 PR-2 gates the merge of a customer on one).
+    writableCapabilities: ALL_GATED_CAPABILITIES,
   }),
 })
 

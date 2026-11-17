@@ -14,6 +14,7 @@ import {
   type WizardStep,
 } from '@nexotec/ui-kit'
 import { useFieldHint } from '../../../hooks/useFieldHint'
+import { useCanWrite } from '../../../auth/useCanWrite'
 import { api } from '../../../api/client'
 import {
   LANGUAGE_OPTIONS,
@@ -137,7 +138,15 @@ export function CustomerCreateFlow({ onSuccess, onCancel, initialCustomerType, o
   // KAN-464: the roles the new contact holds — at least one; a customer
   // unless the user chooses otherwise. Without the customer role the contact
   // has no lifecycle status of its own (Q1), so the field is not offered.
-  const [roles, setRoles] = useState<ContactRole[]>(['customer'])
+  // Q3: a user who may not give the customer role (inventory) creates
+  // suppliers — the customer option is shown, not selectable.
+  const mayWriteCustomerRole = useCanWrite('contact_customer_role')
+  // Until the user picks, the default follows the session (it may still be loading).
+  const [chosenRoles, setRoles] = useState<ContactRole[] | null>(null)
+  const roles: ContactRole[] = chosenRoles ?? (mayWriteCustomerRole ? ['customer'] : ['supplier'])
+  const roleOptions = translatedRoleOptions(t).map((option) =>
+    option.value === 'customer' && !mayWriteCustomerRole ? { ...option, disabled: true } : option,
+  )
   const holdsCustomer = roles.includes('customer')
   // § ADR-067 — the same RepeatableRowGroup the detail screen uses, in
   // `create` mode: one primary per type-group, marking a new primary
@@ -387,7 +396,7 @@ export function CustomerCreateFlow({ onSuccess, onCancel, initialCustomerType, o
           <Select label={t('customerCreate.fields.preferredChannel')} data={translatedPreferredChannelOptions(t)} clearable {...form.getInputProps('preferredChannel')} />
           <MultiSelect
             label={t('customerCreate.fields.roles')}
-            data={translatedRoleOptions(t)}
+            data={roleOptions}
             value={roles}
             onChange={(next) => setRoles(next as ContactRole[])}
             required

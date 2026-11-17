@@ -40,6 +40,7 @@ import { useAdvisorOptions } from '../../../hooks/useAdvisorOptions'
 import { useContactGroups } from '../../../hooks/useContactGroups'
 import { api, ApiError } from '../../../api/client'
 import { useAuth } from '../../../auth/AuthContext'
+import { useCanWrite } from '../../../auth/useCanWrite'
 import { buildCustomerRowMenu } from '../components/customerRowMenu'
 import { CreditBlockDialog } from '../components/customer-detail/CreditBlockDialog'
 import { CustomerCreateDialog } from '../components/CustomerCreateDialog'
@@ -97,6 +98,8 @@ export function CustomersListPage() {
   const { t, i18n } = useTranslation()
   const dataGridLabels = useDataGridLabels()
   const locale = toSwissLocale(i18n.language as SupportedLanguage)
+  // KAN-464 Q3: whether the row menu offers the customer role's actions.
+  const mayWriteCustomerRole = useCanWrite('contact_customer_role')
   useSetBreadcrumb([t('shell.nav.masterData'), t('shell.nav.customers')])
   const navigate = useNavigate()
   // KAN-377 (D-A-04): "New offer" / "New contract" only for a Betrieb that
@@ -828,7 +831,7 @@ export function CustomersListPage() {
               onCopyCustomerNumber: () => void navigator.clipboard.writeText(row.customerNumber),
               onToggleDoNotContact: () => void toggleDoNotContact(row),
               onManageCreditBlock: () => setBlockDialogCustomer(row),
-            })
+            }, { mayWriteCustomerRole })
             return {
               navigate: [
                 {

@@ -47,7 +47,7 @@
       "address": "Adresse",
       "canton": "Kanton",
       "cantonDerived": "Kanton (abgeleitet)",
-      "customerNumber": "Kundennummer",
+      "customerNumber": "Kontaktnummer",
       "created": "Erstellt",
       "lastChanged": "Zuletzt geändert",
       "title": "Titel",
@@ -274,7 +274,7 @@
   "merge": {
     "title": "Doppelten Kunden zusammenführen",
     "intro": "Suchen Sie den Kunden, mit dem <name/> zusammengeführt werden soll. Jener Datensatz bleibt bestehen, dieser wird als zusammengeführt markiert.",
-    "searchPlaceholder": "Nach Name, E-Mail, Telefon, Kundennummer suchen…",
+    "searchPlaceholder": "Nach Name, E-Mail, Telefon, Kontaktnummer suchen…",
     "noMatches": "Keine Treffer.",
     "searchFailed": "Die Suche ist fehlgeschlagen. Bitte erneut versuchen.",
     "chooseDifferent": "← Anderen verbleibenden Kunden wählen",
@@ -294,6 +294,7 @@
     "alreadyMerged": "Dieser Kunde wurde bereits zusammengeführt.",
     "survivorConflict": "Die Zusammenführung kollidiert mit einem Datensatz beim verbleibenden Kunden. Laden Sie beide Kunden neu und versuchen Sie es erneut.",
     "vehiclePartyBusy": "Ein Fahrzeug dieses Kunden wird gerade geändert. Senden Sie die Zusammenführung erneut.",
-    "staleVersion": "Dieser Kunde wurde inzwischen geändert. Laden Sie die Seite neu und versuchen Sie es erneut."
+    "staleVersion": "Dieser Kunde wurde inzwischen geändert. Laden Sie die Seite neu und versuchen Sie es erneut.",
+    "customerRoleNotPermitted": "Einen Kontakt mit der Rolle Kunde führen Verkauf und Kundendienst zusammen. Ihre Rolle führt nur Kontakte ohne diese Rolle zusammen."
   }
 }

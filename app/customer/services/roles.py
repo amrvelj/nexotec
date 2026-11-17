@@ -26,6 +26,19 @@ Taking the customer role away closes those fields in the same audited
 write: prospect / inactive become `active`, the advisor is cleared. A
 credit block is a deliberate fact someone must lift first: taking the role
 away from a blocked customer is 409 `customer_role_credit_blocked`.
+
+**Who may give which role** (Q3, Anto, 2026-11-14, A): sales and
+aftersales give both roles; inventory (purchasing) writes contacts too but
+gives only the supplier role. The matrix row `contact_customer_role` says
+who may write the customer role's data — giving or taking the role, the
+lifecycle values that are the role's, the advisor, the credit block, and a
+merge of a contact that holds it (the merge moves the role and its
+fields). Anyone the `customers` row lets write does the rest: contact
+points, consent, do-not-contact, tags, contact groups, the supplier role.
+Outside it a write is 403 `customer_role_not_permitted` and changes
+nothing. The API passes the principal's cell as `may_write_customer_role`;
+the service judges it against the roles read under the same locks as the
+rules above.
 """
 
 import uuid
@@ -36,7 +49,7 @@ from sqlalchemy import ColumnElement, select
 from sqlalchemy.orm import Session
 
 from app.core.base import utcnow
-from app.core.errors import ConflictError, UnprocessableEntityError
+from app.core.errors import ConflictError, ForbiddenError, UnprocessableEntityError
 from app.customer.models.customer import ContactRole, Customer, CustomerLifecycleStatus, CustomerRole
 
 AUDIT_FIELD = "roles"
@@ -60,12 +73,65 @@ def customer_role_required(field: str) -> UnprocessableEntityError:
     )
 
 
+CUSTOMER_ROLE_CAPABILITY = "contact_customer_role"
+
+
+def customer_role_not_permitted(field: str) -> ForbiddenError:
+    return ForbiddenError(
+        f"'{field}' belongs to the customer role, which this user may not write.",
+        details={"reason": "customer_role_not_permitted", "field": field},
+    )
+
+
+def check_customer_role_write_on_update(
+    customer: Customer, *, may_write_customer_role: bool, held_customer_before: bool, holds_customer_after: bool,
+    changes: dict[str, Any],
+) -> None:
+    """Q3: a PATCH by someone who may not write the customer role's data
+    must leave it alone — the role itself, and on a contact holding it a
+    changed lifecycle value of the role's or a changed advisor. `changes`
+    is the PATCH's `model_dump(exclude_unset=True)` before the roles are
+    popped; a field sent unchanged is no write."""
+
+    if may_write_customer_role:
+        return
+    if held_customer_before != holds_customer_after:
+        raise customer_role_not_permitted("roles")
+    if not held_customer_before:
+        return
+    # Do-not-contact is every contact's: setting it, and lifting it to the
+    # neutral `active` (what «Nicht kontaktieren» does), are open to every
+    # writer. Any other move to prospect / active / inactive chooses a value
+    # of the customer role's.
+    status = changes.get("lifecycle_status")
+    lifts_do_not_contact = (
+        customer.lifecycle_status == CustomerLifecycleStatus.DO_NOT_CONTACT and status == NEUTRAL_LIFECYCLE_STATUS
+    )
+    if status in CUSTOMER_LIFECYCLE_STATUSES and status != customer.lifecycle_status and not lifts_do_not_contact:
+        raise customer_role_not_permitted("lifecycleStatus")
+    if "advisor_id" in changes and changes["advisor_id"] != customer.advisor_id:
+        raise customer_role_not_permitted("advisorId")
+
+
 def open_roles(db: Session, customer_id: uuid.UUID) -> list[str]:
     return sorted(
         role.value
         for role in db.scalars(
             select(CustomerRole.role).where(CustomerRole.customer_id == customer_id, CustomerRole.valid_to.is_(None))
         ).all()
+    )
+
+
+def holds_customer_role_any(db: Session, customer_ids: Iterable[uuid.UUID]) -> bool:
+    return (
+        db.scalar(
+            select(CustomerRole.id).where(
+                CustomerRole.customer_id.in_(list(customer_ids)),
+                CustomerRole.role == ContactRole.CUSTOMER,
+                CustomerRole.valid_to.is_(None),
+            ).limit(1)
+        )
+        is not None
     )
 
 

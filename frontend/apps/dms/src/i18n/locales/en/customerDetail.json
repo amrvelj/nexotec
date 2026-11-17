@@ -47,7 +47,7 @@
       "address": "Address",
       "canton": "Canton",
       "cantonDerived": "Canton (derived)",
-      "customerNumber": "Customer number",
+      "customerNumber": "Contact number",
       "created": "Created",
       "lastChanged": "Last changed",
       "title": "Title",
@@ -274,7 +274,7 @@
   "merge": {
     "title": "Merge duplicate customer",
     "intro": "Search for the customer that <name/> should be merged into. That record survives; this one is marked merged.",
-    "searchPlaceholder": "Search by name, email, phone, customer number…",
+    "searchPlaceholder": "Search by name, email, phone, contact number…",
     "noMatches": "No matches.",
     "searchFailed": "The search failed. Please try again.",
     "chooseDifferent": "← Choose a different survivor",
@@ -294,6 +294,7 @@
     "alreadyMerged": "This customer has already been merged.",
     "survivorConflict": "The merge conflicts with a record on the survivor. Reload both customers and try again.",
     "vehiclePartyBusy": "A vehicle of this customer is being changed right now. Send the merge again.",
-    "staleVersion": "This customer was changed in the meantime. Reload the page and try again."
+    "staleVersion": "This customer was changed in the meantime. Reload the page and try again.",
+    "customerRoleNotPermitted": "A contact with the customer role is merged by sales or aftersales. Your role merges only contacts without that role."
   }
 }

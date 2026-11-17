@@ -154,6 +154,8 @@ export function MergeCustomerModal({ opened, onClose, customer, phones, emails, 
         return t('customerDetail.mergeRefused.survivorConflict')
       case 'merge_vehicle_party_busy':
         return t('customerDetail.mergeRefused.vehiclePartyBusy')
+      case 'customer_role_not_permitted':
+        return t('customerDetail.mergeRefused.customerRoleNotPermitted')
       default:
         return t('customerDetail.merge.error')
     }

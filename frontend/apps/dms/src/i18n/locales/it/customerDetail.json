@@ -47,7 +47,7 @@
       "address": "Indirizzo",
       "canton": "Cantone",
       "cantonDerived": "Cantone (derivato)",
-      "customerNumber": "Numero cliente",
+      "customerNumber": "Numero contatto",
       "created": "Creato",
       "lastChanged": "Ultima modifica",
       "title": "Titolo",
@@ -274,7 +274,7 @@
   "merge": {
     "title": "Unisci cliente duplicato",
     "intro": "Cerca il cliente a cui unire <name/>. Quel record resta; questo viene contrassegnato come unito.",
-    "searchPlaceholder": "Cerca per nome, e-mail, telefono, numero cliente…",
+    "searchPlaceholder": "Cerca per nome, e-mail, telefono, numero contatto…",
     "noMatches": "Nessun risultato.",
     "searchFailed": "La ricerca non è riuscita. Riprovare.",
     "chooseDifferent": "← Scegli un altro cliente da mantenere",
@@ -294,6 +294,7 @@
     "alreadyMerged": "Questo cliente è già stato unito.",
     "survivorConflict": "L'unione è in conflitto con un record del cliente che resta. Ricarica entrambi i clienti e riprova.",
     "vehiclePartyBusy": "Un veicolo di questo cliente è in fase di modifica. Invia di nuovo l'unione.",
-    "staleVersion": "Questo cliente è stato modificato nel frattempo. Ricarica la pagina e riprova."
+    "staleVersion": "Questo cliente è stato modificato nel frattempo. Ricarica la pagina e riprova.",
+    "customerRoleNotPermitted": "Un contatto con il ruolo cliente viene unito dalla vendita o dall’assistenza. Il vostro ruolo unisce solo contatti senza questo ruolo."
   }
 }

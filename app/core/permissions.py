@@ -98,7 +98,12 @@ _S, _AS, _P, _I, _F, _AU = (
 # `manager_can_write=False` = the matrix's "Nobody" cell.
 CAPABILITY_MATRIX: dict[str, Capability] = {
     # --- shipped modules --------------------------------------------------
-    "customers": Capability(read_roles=_ANY, write_roles=frozenset({_S, _AS})),
+    # KAN-464 Q3 (Anto, 2026-11-14, A): inventory (purchasing) writes
+    # contacts too and gives the supplier role; the customer role and its
+    # data (lifecycle, advisor, credit block, a merge of a customer) stay
+    # with sales and aftersales — the next row.
+    "customers": Capability(read_roles=_ANY, write_roles=frozenset({_S, _AS, _I})),
+    "contact_customer_role": Capability(read_roles=_ANY, write_roles=frozenset({_S, _AS})),
     "vehicle_mdm": Capability(read_roles=_ANY, write_roles=frozenset({_S, _AS, _I})),
     "customer_vehicle_links": Capability(read_roles=_ANY, write_roles=frozenset({_S, _AS})),
     # "Stock and pipeline vehicles": inventory AND sales write (Anto,

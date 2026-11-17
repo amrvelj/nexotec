@@ -10,6 +10,7 @@ export const GATED_CAPABILITIES = [
   'ai_prompts',
   'branding',
   'configurations',
+  'contact_customer_role',
   'customer_vehicle_links',
   'data_export',
   'dealership_settings',
