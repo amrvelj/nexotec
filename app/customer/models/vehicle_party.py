@@ -33,7 +33,7 @@ import datetime as dt
 import enum
 import uuid
 
-from sqlalchemy import Integer, String, UniqueConstraint
+from sqlalchemy import CheckConstraint, Integer, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.base import PrimaryKeyMixin, TimestampMixin, utcnow
@@ -63,6 +63,9 @@ class VehicleParty(PrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "vehicle_party"
     __table_args__ = (
         UniqueConstraint("vehicle_id", "customer_id", "role", "effective_from", name="uq_vehicle_party_scope"),
+        # KAN-643: a period never ends before it starts (ADR-064). A merge copy
+        # closed at its own start (effective_to = effective_from, KAN-177) is allowed.
+        CheckConstraint("effective_to IS NULL OR effective_to >= effective_from", name="ck_vehicle_party_period"),
     )
 
     vehicle_id: Mapped[uuid.UUID] = mapped_column(

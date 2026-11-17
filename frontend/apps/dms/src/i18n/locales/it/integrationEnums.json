@@ -23,6 +23,9 @@
     "model": "Modello",
     "endpoint": "Endpoint",
     "deployment": "Deployment",
-    "apiVersion": "Versione API"
+    "apiVersion": "Versione API",
+    "kundennummer": "Numero cliente",
+    "ftpHost": "Server FTP",
+    "ftpUsername": "Nome utente FTP"
   }
 }
