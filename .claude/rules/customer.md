@@ -145,5 +145,5 @@ module folders (KAN-611). Last verified against main@73baf3f (2026-10-25). -->
   never persisted or logged; the picked address is written through the same POST/PATCH as a typed
   one. Off, the forms are unchanged.
 - **Merge and link refusals are said in the user's language** (`ui-i18n.md`): every one carries a
-  `details.reason`, mapped in `MergeCustomerModal` and `utils/vehiclePartyRefusal.ts`; a new
+  `details.reason`, mapped in `MergeCustomerModal` and `shared/partyAllocationRefusal.ts`; a new
   refusal adds its reason and translations.

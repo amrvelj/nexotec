@@ -1,7 +1,7 @@
 import { useEffect, useId, useState } from 'react'
 import { Button, Group, Text } from '@mantine/core'
 import { FieldLabel, InlineEditField, KeyValueRow, OverviewCard, ProgressiveDisclosure, SpecGrid, chfInlineEditor, slate } from '@nexotec/ui-kit'
-import { HostConfigurationCard } from '../../../../components/configurator/HostConfigurationCard'
+import { HostConfigurationCard } from '../../../vehicle'
 import { useTranslation } from 'react-i18next'
 import { useQueryClient } from '@tanstack/react-query'
 import { api } from '../../../../api/client'

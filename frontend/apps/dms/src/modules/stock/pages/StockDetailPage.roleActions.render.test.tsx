@@ -7,7 +7,7 @@ import i18n from '../../../i18n'
 import { renderWithProviders } from '../../../test/renderWithProviders'
 import { ALL_ENTITLEMENTS, installFakeBackend, type FakeRoute } from '../../../test/fakeBackend'
 import type { StockItemRead } from '../../../api/types'
-import { CODED_REFERENCE_ROUTES, configurationRead } from '../../../test/configuratorFixtures'
+import { CODED_REFERENCE_ROUTES, configurationRead } from '../../vehicle/test/configuratorFixtures'
 import { StockDetailPage } from './StockDetailPage'
 
 // KAN-430 (Anto, 2026-10-30, option A) — since KAN-376 a salesperson creates

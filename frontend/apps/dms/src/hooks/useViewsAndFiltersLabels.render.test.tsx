@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { renderHook } from '@testing-library/react'
 import { describePredicate, type FilterFieldDef, type FilterPredicate } from '@nexotec/ui-kit'
 import i18n from '../i18n'
-import { buildCatalogueFilterFields } from '../catalogueOptions'
+import { buildCatalogueFilterFields } from '../modules/vehicle/catalogueOptions'
 import { useViewsAndFiltersLabels } from './useViewsAndFiltersLabels'
 
 // KAN-415 — a saved filter's text comes from the bundles, one template per

@@ -6,7 +6,7 @@ import userEvent from '@testing-library/user-event'
 import i18n from '../i18n'
 import { renderWithProviders } from '../test/renderWithProviders'
 import { installFakeBackend, status, type FakeRoute } from '../test/fakeBackend'
-import { CODED_REFERENCE_ROUTES, configurationRead, pickCodedFields } from '../test/configuratorFixtures'
+import { CODED_REFERENCE_ROUTES, configurationRead, pickCodedFields } from '../modules/vehicle/test/configuratorFixtures'
 import { pickOptionWithoutOpening } from '../test/pickOption'
 import type { SalesContractRead } from '../api/types'
 import { ContractDetailPage } from './ContractDetailPage'
@@ -19,7 +19,7 @@ import { nameValuationCar } from '../modules/valuation/test/nameValuationCar'
 // frozen and they are gone.
 
 // The configurator's grid virtualises its rows; jsdom has no layout, so it
-// renders every row instead (as OfferWorkspace.configurator.render.test.tsx).
+// renders every row instead (as OfferWorkspace.configuration.render.test.tsx).
 vi.mock('@tanstack/react-virtual', () => ({
   useVirtualizer: ({ count, estimateSize }: { count: number; estimateSize: () => number }) => {
     const size = estimateSize()

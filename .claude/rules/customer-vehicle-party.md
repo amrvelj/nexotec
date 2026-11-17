@@ -36,7 +36,7 @@ paths:
   - "frontend/apps/dms/src/modules/customer/components/customer-detail/LinkVehicle*"
   - "frontend/apps/dms/src/modules/customer/components/customer-detail/vehicleLabel.ts"
   - "frontend/apps/dms/src/modules/customer/components/customer-detail/MergeCustomer*"
-  - "frontend/apps/dms/src/utils/vehicleParty*"
+  - "frontend/apps/dms/src/shared/party*"
   - "frontend/apps/dms/src/pages/*mergedBuyer*"
 ---
 <!-- Maintainer note. ADR-022, ADR-064 (as amended 2026-10-13), rule 2, rule 12; Anto's rulings on

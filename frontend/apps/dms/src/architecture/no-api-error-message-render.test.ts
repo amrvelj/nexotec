@@ -36,7 +36,7 @@ const KIT_ROOT = join(SRC_ROOT, '..', '..', '..', 'packages', 'ui-kit', 'src')
 const ALLOWED: Record<string, number> = {
   // HostCommitError, always built from t(...) by its hosts — translated, so it
   // stays (KAN-437 converted every other site).
-  'components/configurator/ConfiguratorOverlay.tsx': 2,
+  'modules/vehicle/components/configurator/ConfiguratorOverlay.tsx': 2,
   // FormDialogExistingRecordNotice.message — a field of the caller's notice,
   // built from t(...) (VehicleCreateDialog), never an error.
   'ui-kit/components/FormDialog.tsx': 1,

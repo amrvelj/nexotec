@@ -19,7 +19,7 @@ import { CustomerDetailPage } from '../modules/customer/pages/CustomerDetailPage
 // offer workspace must still be there after the customer overlay opens,
 // is used, and closes. (C-F, KAN-10: this used the manual vehicle-label
 // field, which FR-C-12 replaced with the configurator overlay; the
-// configurator's own round trip is OfferWorkspace.configurator.render.test.)
+// configurator's own round trip is OfferWorkspace.configuration.render.test.)
 
 const draftOffer = (): SalesOfferRead => ({
   id: 'o1',

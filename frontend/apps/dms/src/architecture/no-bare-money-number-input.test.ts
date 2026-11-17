@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest'
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { dirname, join, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { ALL_SPEC_FIELDS } from '../configurationOptions'
+import { ALL_SPEC_FIELDS } from '../modules/vehicle/configurationOptions'
 
 // KAN-168 / ADR-076: every CHF amount reads `CHF 12'500.00`, inputs included.
 // A CHF input is the kit's ChfInput (or `chfInlineEditor` inside an
@@ -107,9 +107,9 @@ describe('a CHF amount is never typed into a bare NumberInput (KAN-168)', () => 
       [
         'components/OfferAccessoriesAndOptions.tsx',
         'components/PriceBuildUp.tsx',
-        'components/configurator/ColourWheelsTab.tsx',
-        'components/configurator/ConfiguratorOverlay.tsx',
-        'components/configurator/IdentificationPanel.tsx',
+        'modules/vehicle/components/configurator/ColourWheelsTab.tsx',
+        'modules/vehicle/components/configurator/ConfiguratorOverlay.tsx',
+        'modules/vehicle/components/configurator/IdentificationPanel.tsx',
         'modules/customer/components/customer-detail/OverviewTab.tsx',
         'components/publishing/ProfileSections.tsx',
         'modules/stock/components/stock-detail/DetailsTab.tsx',

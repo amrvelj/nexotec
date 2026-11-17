@@ -1,0 +1,165 @@
+// @vitest-environment jsdom
+import { describe, expect, it } from 'vitest'
+import { render, screen, within } from '@testing-library/react'
+import { MantineProvider } from '@mantine/core'
+import { testTheme } from '../../../../test/testTheme'
+import i18n from '../../../../i18n'
+import { ImagesTab, type ImagesTabProps } from './ImagesTab'
+import type { CatalogueSpecificationRead } from '../../../../api/types'
+import { detailsPresent } from '../../test/catalogueDetails'
+
+// KAN-43 (C-E) / FR-C-09: small(210px)/large(1200px), exterior/interior,
+// entitlement-gated. No fabricated "upload" affordance — no upload
+// endpoint exists anywhere in the backend yet.
+
+function buildSpec(over: Partial<CatalogueSpecificationRead> = {}): CatalogueSpecificationRead {
+  return {
+    hasCatalogueMatch: true,
+    hasProviderConnection: true,
+    packagesAvailable: true,
+    imagesAvailable: true,
+    dealerCanUploadImages: false,
+    details: detailsPresent,
+    options: [],
+    optionRelations: [],
+    colours: [],
+    tyreSpecs: [],
+    images: [
+      { imageKey: 'fz1-front.jpg', bildTyp: 'S', bildArt: 'A', sequence: 1, imageUrl: 'https://images.autoi.ch/img/fz1-front.jpg' },
+      { imageKey: 'fz1-interior.jpg', bildTyp: 'L', bildArt: 'I', sequence: 0, imageUrl: null },
+    ],
+    ...over,
+  }
+}
+
+function renderTab(props: Partial<ImagesTabProps> = {}) {
+  render(
+    <MantineProvider theme={testTheme}>
+      <ImagesTab spec={buildSpec()} isLoading={false} isManual={false} {...props} />
+    </MantineProvider>,
+  )
+}
+
+describe('ImagesTab', () => {
+  it('renders each image with its type/area badges, ordered by sequence', () => {
+    renderTab()
+    const grid = screen.getByTestId('images-tab')
+    const cards = within(grid).getAllByTestId(/^image-/)
+    expect(cards).toHaveLength(2)
+    // sequence 0 (interior) comes before sequence 1 (front/exterior)
+    expect(cards[0].dataset.testid).toBe('image-fz1-interior.jpg')
+    expect(within(cards[0]).getByText(i18n.t('configurator.images.bildArt.interior'))).toBeInTheDocument()
+    expect(within(cards[0]).getByText(i18n.t('configurator.images.bildTyp.large'))).toBeInTheDocument()
+    expect(within(cards[1]).getByText(i18n.t('configurator.images.bildArt.exterior'))).toBeInTheDocument()
+    expect(within(cards[1]).getByText(i18n.t('configurator.images.bildTyp.small'))).toBeInTheDocument()
+  })
+
+  it('renders a real <img> when imageUrl is present', () => {
+    renderTab()
+    const card = screen.getByTestId('image-fz1-front.jpg')
+    const img = within(card).getByRole('img')
+    expect(img).toHaveAttribute('src', 'https://images.autoi.ch/img/fz1-front.jpg')
+  })
+
+  it('falls back to a text reference when imageUrl is missing (a pre-fix synced row)', () => {
+    renderTab()
+    const card = screen.getByTestId('image-fz1-interior.jpg')
+    expect(within(card).queryByRole('img')).not.toBeInTheDocument()
+    expect(within(card).getByText('fz1-interior.jpg')).toBeInTheDocument()
+  })
+
+  it('shows the entitlement notice, never a fake upload button, when images are unavailable', () => {
+    renderTab({ spec: buildSpec({ imagesAvailable: false, images: [], dealerCanUploadImages: true }) })
+    expect(screen.getByTestId('images-entitlement-notice')).toBeInTheDocument()
+    expect(screen.queryByRole('button')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('images-tab')).not.toBeInTheDocument()
+  })
+
+  it('shows the upload note only when the dealer is entitled to add their own photos', () => {
+    renderTab({ spec: buildSpec({ imagesAvailable: false, images: [], dealerCanUploadImages: true }) })
+    expect(screen.getByText(i18n.t('configurator.images.unavailable.uploadNote'))).toBeInTheDocument()
+  })
+
+  it('omits the upload note when the dealer cannot add their own photos', () => {
+    renderTab({ spec: buildSpec({ imagesAvailable: false, images: [], dealerCanUploadImages: false }) })
+    expect(screen.queryByText(i18n.t('configurator.images.unavailable.uploadNote'))).not.toBeInTheDocument()
+  })
+
+  it('never renders an empty badge for an image with no bildArt/bildTyp code', () => {
+    renderTab({
+      spec: buildSpec({
+        images: [{ imageKey: 'fz1-unknown.jpg', bildTyp: '', bildArt: '', sequence: 0, imageUrl: null }],
+      }),
+    })
+    const card = screen.getByTestId('image-fz1-unknown.jpg')
+    expect(card.querySelectorAll('[class*="mantine-Badge-root"]')).toHaveLength(0)
+  })
+
+  it('shows an empty-state message when the variant has no images', () => {
+    renderTab({ spec: buildSpec({ images: [] }) })
+    expect(screen.getByText(i18n.t('configurator.images.empty'))).toBeInTheDocument()
+  })
+
+  it('shows the no-catalogue-variant message for a manual configuration', () => {
+    renderTab({ isManual: true, spec: undefined })
+    expect(screen.getByTestId('images-no-catalogue-variant')).toBeInTheDocument()
+  })
+
+  it('shows a loading state while the specification query is in flight', () => {
+    renderTab({ isLoading: true, spec: undefined })
+    expect(screen.getByText(i18n.t('common.loading'))).toBeInTheDocument()
+  })
+
+  // KAN-211 / KAN-212 (ADR-123), exit criterion 6: photos the licence
+  // refused are marked «Nicht in Ihrem Vertrag», never an empty gallery.
+  it('marks the photos «Nicht in Ihrem Vertrag» when the licence refused them, even with the probe entitled', () => {
+    renderTab({
+      spec: buildSpec({
+        images: [],
+        imagesAvailable: true,
+        details: { ...detailsPresent, images: { state: 'notInContract', loadedAt: '2026-11-08T10:00:00Z' } },
+      }),
+    })
+    const notice = screen.getByTestId('detail-state-images')
+    expect(notice).toHaveTextContent(i18n.t('configurator.details.notInContract.title'))
+    expect(screen.queryByText(i18n.t('configurator.images.empty'))).not.toBeInTheDocument()
+    expect(screen.queryByTestId('images-entitlement-notice')).not.toBeInTheDocument()
+  })
+
+  it('says the provider did not deliver the photos and that the next open retries', () => {
+    renderTab({
+      spec: buildSpec({ images: [], details: { ...detailsPresent, images: { state: 'unavailable', loadedAt: '2026-11-08T10:00:00Z' } } }),
+    })
+    expect(screen.getByTestId('detail-state-images')).toHaveTextContent(i18n.t('configurator.details.unavailable.title'))
+    expect(screen.queryByText(i18n.t('configurator.images.empty'))).not.toBeInTheDocument()
+  })
+
+  it('keeps the stored photos visible under the notice when a reload failed (as OptionsTab keeps its list)', () => {
+    renderTab({ spec: buildSpec({ details: { ...detailsPresent, images: { state: 'unavailable', loadedAt: '2026-11-08T10:00:00Z' } } }) })
+    expect(screen.getByTestId('detail-state-images')).toBeInTheDocument()
+    expect(screen.getByTestId('images-tab')).toBeInTheDocument()
+    expect(screen.getByTestId('image-fz1-front.jpg')).toBeInTheDocument()
+  })
+
+  it('renders no state notice when the photos are loaded', () => {
+    renderTab()
+    expect(screen.queryByTestId('detail-state-images')).not.toBeInTheDocument()
+  })
+
+  it('says «noch nicht geladen» for a Betrieb that never asked, and «empty» only once loaded', () => {
+    renderTab({ spec: buildSpec({ images: [], details: { ...detailsPresent, images: { state: 'notLoaded' } } }) })
+    expect(screen.getByTestId('detail-state-images')).toHaveTextContent(i18n.t('configurator.details.notLoaded.title'))
+    expect(screen.queryByText(i18n.t('configurator.images.empty'))).not.toBeInTheDocument()
+  })
+})
+
+// KAN-598 (Anto, 2026-11-11, option A): a refused request is said, never «keine Bilder».
+describe('ImagesTab — a refused request (KAN-598)', () => {
+  it('says auto-i-dat refused the image request instead of the empty state', () => {
+    renderTab({ spec: buildSpec({ images: [], details: { ...detailsPresent, images: { state: 'present', loadedAt: '2026-11-08T10:00:00Z', note: 'ProviderRequestError' } } }) })
+    const notice = screen.getByTestId('detail-state-images')
+    expect(notice).toHaveTextContent(i18n.t('configurator.details.notes.providerRequestRefused'))
+    expect(notice).not.toHaveTextContent('ProviderRequestError')
+    expect(screen.queryByText(i18n.t('configurator.images.empty'))).not.toBeInTheDocument()
+  })
+})

@@ -7,7 +7,7 @@ import { useTranslation } from 'react-i18next'
 import { api } from '../../../api/client'
 import { apiRefusalText } from '../../../utils/apiRefusal'
 import { ValuationCreateDialog } from '../components/ValuationCreateDialog'
-import { ConfiguratorOverlay } from '../../../components/configurator/ConfiguratorOverlay'
+import { ConfiguratorOverlay } from '../../vehicle'
 import type { CatalogueVariantRead, ConfigurationRead, ValuationRead, VehicleMdmRead } from '../../../api/types'
 
 /** `/valuations/new` (optionally `?supersedes=<id>` for "Neu bewerten", or

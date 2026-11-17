@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next'
 import { api } from '../../../../api/client'
 import { useIdempotencyKey } from '../../../../hooks/useIdempotencyKey'
 import { translatedVehiclePartyRoleLabel } from '../../customerOptions'
-import { vehiclePartyRefusalMessage } from '../../../../utils/vehiclePartyRefusal'
+import { vehiclePartyRefusalMessage } from '../../../../shared/partyAllocationRefusal'
 import type { VehicleMdmRead, VehiclePartyRole, VehicleSearchResult } from '../../../../api/types'
 
 export interface LinkVehicleModalProps {

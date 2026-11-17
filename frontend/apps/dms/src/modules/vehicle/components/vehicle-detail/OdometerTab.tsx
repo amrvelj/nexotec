@@ -1,0 +1,128 @@
+import { useEffect, useRef, useState } from 'react'
+import { Alert, Badge, Button, Group, Loader, NumberInput, Select, Stack, Table, TextInput } from '@mantine/core'
+import { AlertTriangle, Plus } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
+import { toSwissLocale, type SupportedLanguage } from '../../../../i18n'
+import { formatDateOnly, formatNumber } from '../../../../utils/format'
+import type { OdometerSource, VehicleOdometerReadingRead } from '../../../../api/types'
+import { apiRefusalText } from '../../../../utils/apiRefusal'
+
+interface OdometerTabProps {
+  readings: VehicleOdometerReadingRead[]
+  loading: boolean
+  onAdd: (value: number, readingDate: string, source: OdometerSource) => Promise<void>
+  /** KAN-468 — the header's «record …» action asks for the form: the first
+   * input takes the focus, then the request is handed back. */
+  focusRequested?: boolean
+  onFocusHandled?: () => void
+}
+
+const SOURCES: OdometerSource[] = ['service_visit', 'sale', 'valuation', 'manual', 'import']
+
+/**
+ * Amended FR-V-07: a decreasing reading is accepted AND FLAGGED, never
+ * rejected and never hidden — the flag is visible on the reading itself,
+ * with no toggle to hide it, matching the response boundary the backend
+ * already guarantees (GET .../odometer-readings has no filter parameter
+ * that could exclude one).
+ */
+export function OdometerTab({ readings, loading, onAdd, focusRequested = false, onFocusHandled }: OdometerTabProps) {
+  const { t, i18n } = useTranslation()
+  const locale = toSwissLocale(i18n.language as SupportedLanguage)
+  const [value, setValue] = useState<number | ''>('')
+  const valueInput = useRef<HTMLInputElement>(null)
+  useEffect(() => {
+    if (!focusRequested) return
+    valueInput.current?.focus()
+    onFocusHandled?.()
+  }, [focusRequested, onFocusHandled])
+  const [date, setDate] = useState('')
+  const [source, setSource] = useState<OdometerSource>('manual')
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  // KAN-269 (ADR-035): a failed save says so and keeps what was typed, so
+  // the retry — under the same Idempotency-Key — is one click away.
+  const submit = async () => {
+    if (value === '' || !date) return
+    setSubmitting(true)
+    setError(null)
+    try {
+      await onAdd(value, date, source)
+      setValue('')
+      setDate('')
+    } catch (err) {
+      setError(apiRefusalText(t, err, 'vehicleDetail.odometer.saveError'))
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <Stack gap="md">
+      <Group align="flex-end">
+        <NumberInput ref={valueInput} label={t('vehicleDetail.odometer.value')} value={value} onChange={(v) => setValue(typeof v === 'number' ? v : '')} min={0} />
+        <TextInput label={t('vehicleDetail.odometer.date')} type="date" value={date} onChange={(e) => setDate(e.currentTarget.value)} />
+        <Select
+          label={t('vehicleDetail.odometer.source')}
+          data={SOURCES.map((s) => ({ value: s, label: t(`vehicleDetail.odometer.sourceLabel.${s}`) }))}
+          value={source}
+          onChange={(v) => setSource((v as OdometerSource) ?? 'manual')}
+        />
+        <Button leftSection={<Plus size={14} />} onClick={() => void submit()} loading={submitting} disabled={value === '' || !date}>
+          {t('vehicleDetail.odometer.record')}
+        </Button>
+      </Group>
+
+      {error && (
+        <Alert color="red" role="alert">
+          {error}
+        </Alert>
+      )}
+
+      {loading ? (
+        <Loader size="sm" />
+      ) : (
+        <Table>
+          <Table.Thead>
+            <Table.Tr>
+              <Table.Th>{t('vehicleDetail.odometer.value')}</Table.Th>
+              <Table.Th>{t('vehicleDetail.odometer.date')}</Table.Th>
+              <Table.Th>{t('vehicleDetail.odometer.source')}</Table.Th>
+              <Table.Th></Table.Th>
+            </Table.Tr>
+          </Table.Thead>
+          <Table.Tbody>
+            {readings.length === 0 && (
+              <Table.Tr>
+                <Table.Td colSpan={4} style={{ fontStyle: 'italic', color: 'var(--mantine-color-gray-5)' }}>
+                  {t('vehicleDetail.odometer.none')}
+                </Table.Td>
+              </Table.Tr>
+            )}
+            {readings.map((r) => (
+              <Table.Tr key={r.id}>
+                <Table.Td>{formatNumber(r.value)}</Table.Td>
+                <Table.Td>{formatDateOnly(r.readingDate, locale)}</Table.Td>
+                <Table.Td>{t(`vehicleDetail.odometer.sourceLabel.${r.source}`)}</Table.Td>
+                <Table.Td>
+                  {r.implausible && (
+                    <Badge color="yellow" variant="light" leftSection={<AlertTriangle size={14} />}>
+                      {t('vehicleDetail.odometer.implausible')}
+                    </Badge>
+                  )}
+                </Table.Td>
+              </Table.Tr>
+            ))}
+          </Table.Tbody>
+        </Table>
+      )}
+
+      {readings.some((r) => r.implausible) && (
+        <Alert color="yellow" icon={<AlertTriangle size={16} />}>
+          {t('vehicleDetail.odometer.implausibleNotice')}
+        </Alert>
+      )}
+    </Stack>
+  )
+}
