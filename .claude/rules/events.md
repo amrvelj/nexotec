@@ -41,7 +41,8 @@ flows events-stock-sales.md (KAN-615). Last verified against main@73baf3f (2026-
   where `python -m app.worker` runs, so "works on staging" proves nothing about them.
 - **Reconciliation reads across, never writes** (ADR-107): `app/<context>/reconciliation.py` is
   the one place a context's SQL names another context's model
-  (`test_no_cross_context_orm_query.py`). It **monitors, never repairs**: derived state is
+  (`test_no_cross_context_orm_query.py`), via the owner's `public` builders (KAN-123). It
+  **monitors, never repairs**: derived state is
   derived on read, dead letters alert. A repair is a daily job of the owning context with its
   own record, registered after `reconciliation.run_all` (ADR-047 addendum). A label refresh is
   not a repair (`events-worker.md`).

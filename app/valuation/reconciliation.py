@@ -15,7 +15,7 @@ from app.core.audit_model import AuditEvent
 from app.core.base import utcnow
 from app.core.reconciliation import ReconciliationRun, ReferenceCheck, StateCheck, run_reconciliation
 from app.customer.public import customer_reference_check
-from app.platform.public import Dealership, actor_reference_checks
+from app.platform.public import actor_reference_checks, dealership_reference_check
 from app.sales.public import (
     CarryState,
     contract_carries_valuation,
@@ -196,21 +196,17 @@ CHECKS: list[ReferenceCheck | StateCheck] = [
         source_fk_column=ValuationContractCarry.contract_id,
         source_where=lambda: ValuationContractCarry.state != ContractCarryState.RELEASED,
     ),
-    ReferenceCheck(
+    dealership_reference_check(
         label="valuation_contract_carry.tenant_id -> dealership.id",
         source_model=ValuationContractCarry,
         source_row_id_column=ValuationContractCarry.id,
         source_fk_column=ValuationContractCarry.tenant_id,
-        target_model=Dealership,
-        target_id_column=Dealership.id,
     ),
-    ReferenceCheck(
+    dealership_reference_check(
         label="valuation.tenant_id -> dealership.id",
         source_model=Valuation,
         source_row_id_column=Valuation.id,
         source_fk_column=Valuation.tenant_id,
-        target_model=Dealership,
-        target_id_column=Dealership.id,
     ),
     vehicle_reference_check(
         label="valuation.vehicle_id -> vehicle_mdm.id",
@@ -271,13 +267,11 @@ CHECKS: list[ReferenceCheck | StateCheck] = [
     # checked: a quote the advisor never turned into a valuation names a
     # configuration no host took, which the purge removes after 30 days
     # (KAN-270) — that is retention, not a broken reference.
-    ReferenceCheck(
+    dealership_reference_check(
         label="valuation_provider_quote.tenant_id -> dealership.id",
         source_model=ValuationProviderQuote,
         source_row_id_column=ValuationProviderQuote.id,
         source_fk_column=ValuationProviderQuote.tenant_id,
-        target_model=Dealership,
-        target_id_column=Dealership.id,
     ),
     *actor_reference_checks(*ACTOR_TABLES),
 ]

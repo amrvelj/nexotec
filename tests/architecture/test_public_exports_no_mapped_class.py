@@ -9,14 +9,15 @@ and `VehicleParty.vehicle` happened (KAN-121, KAN-122, KAN-84). `public` is
 the contract a remote service would offer (ADR-015), and a contract that hands
 out table mappings is the database, not an API.
 
-The exports go one exporting context per PR (KAN-123, exit criterion 3).
-Until the last one, `_DEBT` names each mapped class a `public` module still
-binds, and it may only shrink: a new mapped-class export fails by name, and so
-does an entry whose class is no longer there (the PR that removes the export
-deletes its line). Every name a module binds counts, not only `__all__`:
-`from app.<context>.public import <Model>` works for any of them. Reconciliation
-modules keep reading other contexts' tables (ADR-107); when their context's
-entries go, they take the class from where ADR-107 lets them.
+The exports went one exporting context per PR (KAN-123, exit criterion 3):
+integration, valuation, inventory, sales, customer, vehicle, and platform
+last (`DealerGroup`, `Dealership`, `Location`, `User`), which emptied the
+shrink-only debt list this test kept until then. There is no list now: any
+mapped class a `public` module binds fails by name. Every name a module binds
+counts, not only `__all__`: `from app.<context>.public import <Model>` works
+for any of them. Reconciliation modules keep reading other contexts' tables
+(ADR-107) through the builders each owner hands out from its `public`
+(`services/reconciliation_targets.py`), never through the class.
 """
 
 import importlib
@@ -46,20 +47,6 @@ _CONTEXTS = (
     "compliance",
 )
 
-# Shrink-only. Integration's two (IntegrationConnection, IntegrationEntitlement)
-# went first, in KAN-123's first PR: `ConnectionRef` and `EntitlementState` took
-# their place. Sales' `Transaction` went with its table (KAN-555). Valuation's
-# `Valuation` went in the second (ADR-162), inventory's `StockItem` in the third.
-_DEBT = frozenset(
-    {
-        "app.platform.public.DealerGroup",
-        "app.platform.public.Dealership",
-        "app.platform.public.Location",
-        "app.platform.public.User",
-    }
-)
-
-
 def _is_mapped_class(value: object) -> bool:
     return isinstance(value, type) and isinstance(inspect(value, raiseerr=False), Mapper)
 
@@ -80,17 +67,39 @@ def _exported() -> set[str]:
     return set().union(*(_mapped_exports(module) for module in _public_modules()))
 
 
-def test_no_public_module_exports_a_mapped_class_beyond_the_debt() -> None:
-    new = sorted(_exported() - _DEBT)
-    assert new == [], (
+def _offenders(modules: list[types.ModuleType]) -> list[str]:
+    return sorted(set().union(*(_mapped_exports(module) for module in modules)))
+
+
+def test_no_public_module_exports_a_mapped_class() -> None:
+    offenders = _offenders(_public_modules())
+    assert offenders == [], (
         "A context's public module binds a mapped class. Hand out a function, an enum or a plain "
-        f"value (a dataclass, a Pydantic model) instead (KAN-123): {new}"
+        f"value (a dataclass, a Pydantic model) instead (KAN-123): {offenders}"
     )
 
 
-def test_the_debt_only_shrinks() -> None:
-    gone = sorted(_DEBT - _exported())
-    assert gone == [], f"No longer exported: delete these lines from _DEBT in the same PR: {gone}"
+def test_platform_hands_out_values_only() -> None:
+    # KAN-123 step 7: the last four went; the builders took their place.
+    platform = importlib.import_module("app.platform.public")
+
+    assert _mapped_exports(platform) == set()
+    assert not {"DealerGroup", "Dealership", "Location", "User"} & set(vars(platform))
+    assert {"dealership_reference_check", "user_reference_check"} <= set(platform.__all__)
+
+
+def test_self_test_a_mapped_class_export_is_reported_by_name() -> None:
+    # Red before green: a public module binding a mapped class — under its
+    # own name or another, in __all__ or not — is reported, by name.
+    from app.platform.identity.models.user import User
+    from app.platform.organisation.models.dealership import Dealership
+
+    fake = types.ModuleType("app.platform.public")
+    fake.Dealership = Dealership  # type: ignore[attr-defined]
+    fake.Staff = User  # type: ignore[attr-defined]
+    fake.__all__ = ["Staff"]  # type: ignore[attr-defined]
+
+    assert _offenders([*_public_modules(), fake]) == ["app.platform.public.Dealership", "app.platform.public.Staff"]
 
 
 def test_integration_hands_out_values_only() -> None:

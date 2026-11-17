@@ -25,7 +25,7 @@ from app.inventory.models.stock_item import StockItem
 from app.inventory.models.stock_item_ledger import StockItemLedger
 from app.inventory.models.stock_item_publishing import PublishingState, StockItemPublishing, TransmissionStatus
 from app.inventory.models.website_listing import StockItemWebsiteListing
-from app.platform.public import Dealership, Location, actor_reference_checks
+from app.platform.public import actor_reference_checks, dealership_reference_check, location_reference_check
 from app.sales.public import contract_differs_from_projection, contract_reference_check, unprojected_contract_check
 from app.valuation.public import valuation_final_offer_differs, valuation_reference_check
 from app.vehicle.public import (
@@ -241,21 +241,17 @@ CHECKS: list[ReferenceCheck | StateCheck] = [
         source_row_id_column=InventorySalesContract.id,
         source_fk_column=InventorySalesContract.contract_id,
     ),
-    ReferenceCheck(
+    dealership_reference_check(
         label="inventory_sales_contract.tenant_id -> dealership.id",
         source_model=InventorySalesContract,
         source_row_id_column=InventorySalesContract.id,
         source_fk_column=InventorySalesContract.tenant_id,
-        target_model=Dealership,
-        target_id_column=Dealership.id,
     ),
-    ReferenceCheck(
+    dealership_reference_check(
         label="stock_item.tenant_id -> dealership.id",
         source_model=StockItem,
         source_row_id_column=StockItem.id,
         source_fk_column=StockItem.tenant_id,
-        target_model=Dealership,
-        target_id_column=Dealership.id,
     ),
     vehicle_reference_check(
         label="stock_item.vehicle_id -> vehicle_mdm.id",
@@ -264,13 +260,11 @@ CHECKS: list[ReferenceCheck | StateCheck] = [
         source_fk_column=StockItem.vehicle_id,
         nullable=True,  # null while lifecycle_status='pipeline' (ADR-045)
     ),
-    ReferenceCheck(
+    location_reference_check(
         label="stock_item.location_id -> location.id",
         source_model=StockItem,
         source_row_id_column=StockItem.id,
         source_fk_column=StockItem.location_id,
-        target_model=Location,
-        target_id_column=Location.id,
         nullable=True,
     ),
     contract_reference_check(
@@ -280,13 +274,11 @@ CHECKS: list[ReferenceCheck | StateCheck] = [
         source_fk_column=StockItem.reserved_by_contract_id,
         nullable=True,  # only set while reservation_state='reserved'
     ),
-    ReferenceCheck(
+    dealership_reference_check(
         label="inventory_cancelled_contract.tenant_id -> dealership.id",
         source_model=InventoryCancelledContract,
         source_row_id_column=InventoryCancelledContract.id,
         source_fk_column=InventoryCancelledContract.tenant_id,
-        target_model=Dealership,
-        target_id_column=Dealership.id,
     ),
     contract_reference_check(
         label="inventory_cancelled_contract.contract_id -> sales_contract.id",

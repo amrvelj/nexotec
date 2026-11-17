@@ -67,7 +67,14 @@ from app.inventory.public import (
     stock_item_reference_check,
     stock_item_reservation_exists,
 )
-from app.platform.public import Dealership, User, actor_reference_checks
+from app.platform.public import (
+    actor_reference_checks,
+    dealership_exists,
+    dealership_group_of,
+    dealership_reference_check,
+    user_is_deactivated,
+    user_reference_check,
+)
 from app.sales.models.contract import ContractStatus, SalesContract
 from app.sales.models.deal import SalesDeal, SalesNumberSequence
 from app.sales.models.document import DocumentOwnerType, SalesDocument
@@ -162,12 +169,10 @@ def _customer_outside_the_group(label: str, deal: _Deal) -> StateCheck:
 
     def where() -> ColumnElement[bool]:
         customer_named = customer_exists(deal.customer_id).correlate(deal)
-        dealership_exists = select(Dealership.id).where(Dealership.id == deal.tenant_id).correlate(deal).exists()
-        dealerships_group = (
-            select(Dealership.dealer_group_id).where(Dealership.id == deal.tenant_id).correlate(deal).scalar_subquery()
-        )
+        dealership_named = dealership_exists(deal.tenant_id, correlate=deal)
+        dealerships_group = dealership_group_of(deal.tenant_id, correlate=deal)
         in_group = customer_in_group(deal.customer_id, dealerships_group).correlate(deal)
-        return customer_named & dealership_exists & ~in_group
+        return customer_named & dealership_named & ~in_group
 
     return StateCheck(label=label, source_model=deal, source_row_id_column=deal.id, where=where)
 
@@ -292,9 +297,7 @@ def _owned_by_a_deactivated_user(deal: _Deal, is_open: Callable[[], ColumnElemen
     table = deal.__tablename__
 
     def where() -> ColumnElement[bool]:
-        deactivated = (
-            select(User.id).where(User.id == deal.owner_user_id, User.status == "deactivated").correlate(deal).exists()
-        )
+        deactivated = user_is_deactivated(deal.owner_user_id, correlate=deal)
         return is_open() & deactivated
 
     return StateCheck(
@@ -378,13 +381,11 @@ def _stock_price_moved_unflagged(deal: _Deal, is_open: Callable[[], ColumnElemen
 
 CHECKS: list[ReferenceCheck | StateCheck] = [
     # --- sales_offer (KAN-145) ---
-    ReferenceCheck(
+    dealership_reference_check(
         label="sales_offer.tenant_id -> dealership.id",
         source_model=SalesOffer,
         source_row_id_column=SalesOffer.id,
         source_fk_column=SalesOffer.tenant_id,
-        target_model=Dealership,
-        target_id_column=Dealership.id,
     ),
     customer_reference_check(
         label="sales_offer.customer_id -> customer.id",
@@ -431,13 +432,11 @@ CHECKS: list[ReferenceCheck | StateCheck] = [
         nullable=True,
     ),
     # --- sales_contract (KAN-145) ---
-    ReferenceCheck(
+    dealership_reference_check(
         label="sales_contract.tenant_id -> dealership.id",
         source_model=SalesContract,
         source_row_id_column=SalesContract.id,
         source_fk_column=SalesContract.tenant_id,
-        target_model=Dealership,
-        target_id_column=Dealership.id,
     ),
     customer_reference_check(
         label="sales_contract.customer_id -> customer.id",
@@ -523,13 +522,11 @@ CHECKS: list[ReferenceCheck | StateCheck] = [
         & (SalesContract.signed_at < utcnow() - _OUTBOX_LAG_GRACE),
     ),
     # --- Sales' other tables (KAN-243) ---
-    ReferenceCheck(
+    dealership_reference_check(
         label="sales_deal.tenant_id -> dealership.id",
         source_model=SalesDeal,
         source_row_id_column=SalesDeal.id,
         source_fk_column=SalesDeal.tenant_id,
-        target_model=Dealership,
-        target_id_column=Dealership.id,
     ),
     customer_reference_check(
         label="sales_deal.customer_id -> customer.id",
@@ -538,49 +535,39 @@ CHECKS: list[ReferenceCheck | StateCheck] = [
         source_fk_column=SalesDeal.customer_id,
         nullable=True,
     ),
-    ReferenceCheck(
+    dealership_reference_check(
         label="sales_line_item.tenant_id -> dealership.id",
         source_model=SalesLineItem,
         source_row_id_column=SalesLineItem.id,
         source_fk_column=SalesLineItem.tenant_id,
-        target_model=Dealership,
-        target_id_column=Dealership.id,
     ),
-    ReferenceCheck(
+    dealership_reference_check(
         label="sales_document.tenant_id -> dealership.id",
         source_model=SalesDocument,
         source_row_id_column=SalesDocument.id,
         source_fk_column=SalesDocument.tenant_id,
-        target_model=Dealership,
-        target_id_column=Dealership.id,
     ),
-    ReferenceCheck(
+    user_reference_check(
         # The signed-in user who generated it; null for a system render.
         label="sales_document.rendered_by -> user.id",
         source_model=SalesDocument,
         source_row_id_column=SalesDocument.id,
         source_fk_column=SalesDocument.rendered_by,
-        target_model=User,
-        target_id_column=User.id,
         nullable=True,
     ),
-    ReferenceCheck(
+    dealership_reference_check(
         label="sales_stock_item_purchase.tenant_id -> dealership.id",
         source_model=SalesStockItemPurchase,
         source_row_id_column=SalesStockItemPurchase.id,
         source_fk_column=SalesStockItemPurchase.tenant_id,
-        target_model=Dealership,
-        target_id_column=Dealership.id,
     ),
-    ReferenceCheck(
+    dealership_reference_check(
         # Keyed by (tenant_id, series): the finding names the row by its
         # tenant_id, the only id it has.
         label="sales_number_sequence.tenant_id -> dealership.id",
         source_model=SalesNumberSequence,
         source_row_id_column=SalesNumberSequence.tenant_id,
         source_fk_column=SalesNumberSequence.tenant_id,
-        target_model=Dealership,
-        target_id_column=Dealership.id,
     ),
     # --- the purchase replica against Stock's fact (KAN-100, KAN-145) ---
     stock_item_reference_check(
@@ -672,13 +659,11 @@ CHECKS: list[ReferenceCheck | StateCheck] = [
     *actor_reference_checks(*ACTOR_TABLES),
     # --- the responsible seller (KAN-200): a platform User id on three tables ---
     *(
-        ReferenceCheck(
+        user_reference_check(
             label=f"{model.__tablename__}.owner_user_id -> user.id",
             source_model=model,
             source_row_id_column=model.id,
             source_fk_column=model.owner_user_id,
-            target_model=User,
-            target_id_column=User.id,
             nullable=True,  # unassigned is a state, not a dangling reference
         )
         for model in (SalesOffer, SalesContract, SalesDeal)

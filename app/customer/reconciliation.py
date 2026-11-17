@@ -34,7 +34,14 @@ from app.customer.models.legal_basis import LegalBasis
 from app.customer.models.stock_item_booking import StockItemBooking
 from app.customer.models.vehicle_party import VehicleParty
 from app.inventory.public import stock_item_reference_check
-from app.platform.public import DealerGroup, Dealership, User, actor_reference_checks
+from app.platform.public import (
+    actor_reference_checks,
+    dealer_group_reference_check,
+    dealership_reference_check,
+    find_dealer_group_ids,
+    find_dealership_group_ids,
+    user_is_deactivated,
+)
 from app.vehicle.public import vehicle_is_merged, vehicle_reference_check
 
 CONTEXT = "customer"
@@ -62,13 +69,11 @@ CHECKS: list[ReferenceCheck | StateCheck] = [
         source_row_id_column=StockItemBooking.event_id,
         source_fk_column=StockItemBooking.stock_item_id,
     ),
-    ReferenceCheck(
+    dealership_reference_check(
         label="customer_stock_item_booking.tenant_id -> dealership.id",
         source_model=StockItemBooking,
         source_row_id_column=StockItemBooking.event_id,
         source_fk_column=StockItemBooking.tenant_id,
-        target_model=Dealership,
-        target_id_column=Dealership.id,
     ),
     StateCheck(
         # KAN-632 (rule 10): every purchase or storno event of a Betrieb has
@@ -103,45 +108,35 @@ CHECKS: list[ReferenceCheck | StateCheck] = [
         source_row_id_column=VehicleParty.id,
         source_fk_column=VehicleParty.vehicle_id,
     ),
-    ReferenceCheck(
+    dealer_group_reference_check(
         label="customer.group_id -> dealer_group.id",
         source_model=Customer,
         source_row_id_column=Customer.id,
         source_fk_column=Customer.group_id,
-        target_model=DealerGroup,
-        target_id_column=DealerGroup.id,
     ),
-    ReferenceCheck(
+    dealer_group_reference_check(
         label="customer_number_sequence.group_id -> dealer_group.id",
         source_model=CustomerNumberSequence,
         source_row_id_column=CustomerNumberSequence.group_id,
         source_fk_column=CustomerNumberSequence.group_id,
-        target_model=DealerGroup,
-        target_id_column=DealerGroup.id,
     ),
-    ReferenceCheck(
+    dealer_group_reference_check(
         label="customer_phone.group_id -> dealer_group.id",
         source_model=CustomerPhone,
         source_row_id_column=CustomerPhone.id,
         source_fk_column=CustomerPhone.group_id,
-        target_model=DealerGroup,
-        target_id_column=DealerGroup.id,
     ),
-    ReferenceCheck(
+    dealer_group_reference_check(
         label="customer_email.group_id -> dealer_group.id",
         source_model=CustomerEmail,
         source_row_id_column=CustomerEmail.id,
         source_fk_column=CustomerEmail.group_id,
-        target_model=DealerGroup,
-        target_id_column=DealerGroup.id,
     ),
-    ReferenceCheck(
+    dealer_group_reference_check(
         label="customer_external_id.group_id -> dealer_group.id",
         source_model=CustomerExternalId,
         source_row_id_column=CustomerExternalId.id,
         source_fk_column=CustomerExternalId.group_id,
-        target_model=DealerGroup,
-        target_id_column=DealerGroup.id,
     ),
     *actor_reference_checks(*ACTOR_TABLES),
     StateCheck(
@@ -170,10 +165,7 @@ CHECKS: list[ReferenceCheck | StateCheck] = [
         source_row_id_column=Customer.id,
         where=lambda: (
             (Customer.lifecycle_status != CustomerLifecycleStatus.MERGED)
-            & select(User.id)
-            .where(User.id == Customer.advisor_id, User.status == "deactivated")
-            .correlate(Customer)
-            .exists()
+            & user_is_deactivated(Customer.advisor_id, correlate=Customer)
         ),
     ),
     StateCheck(
@@ -383,13 +375,8 @@ def _classify_vehicle_party_stamps(
     known_groups: set[uuid.UUID] = set()
     dealership_groups: dict[uuid.UUID, uuid.UUID] = {}
     for batch in _chunks(stamps):
-        known_groups.update(db.scalars(select(DealerGroup.id).where(DealerGroup.id.in_(batch))).all())
-        dealership_groups.update(
-            (dealership_id, group_id)
-            for dealership_id, group_id in db.execute(
-                select(Dealership.id, Dealership.dealer_group_id).where(Dealership.id.in_(batch))
-            )
-        )
+        known_groups.update(find_dealer_group_ids(db, batch))
+        dealership_groups.update(find_dealership_group_ids(db, batch))
 
     rows: list[VehiclePartyStamp] = []
     for source, row_id, at, customer_id, stamped in raw:
