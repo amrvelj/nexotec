@@ -1,0 +1,176 @@
+import { useEffect } from 'react'
+import { Group, NumberInput, Select, Stack, Text } from '@mantine/core'
+import { useTranslation } from 'react-i18next'
+import { ChfInput } from '@nexotec/ui-kit'
+import { asFigure, numberFieldError, useDebouncedNumberField } from '../../../hooks/useDebouncedNumberField'
+import { formatCurrencyChf } from '../../../utils/format'
+import type { SalesPricedDealRead } from '../../../api/types'
+
+export interface PriceBuildUpProps {
+  /** An offer draft or a pending contract (KAN-67) — the same build-up. */
+  deal: SalesPricedDealRead
+  /** Each returns its save, if it has one, refusal included (a rejected
+   * promise): a field shows a newer server copy only once its own saves have
+   * settled, and the server's copy when one is refused (KAN-442). */
+  onDiscountChange: (patch: { discountType: string | null; discountValue: number | null }) => void | Promise<unknown>
+  onManualBasePriceChange?: (value: number | null) => void | Promise<unknown>
+  /** KAN-288 — told whether a typed figure is still waiting to be saved, so a
+   * host that ends the edit (signing a contract) can wait for it. */
+  onUnsavedChange?: (unsaved: boolean) => void
+  /** KAN-426 — the offer has a live contract: every input is disabled by its
+   * own prop, and a NumberInput shows no steppers (they act on pointer-down,
+   * which a disabled fieldset does not stop). */
+  disabled?: boolean
+}
+
+function row(label: string, value: string, opts?: { bold?: boolean; negative?: boolean }) {
+  return (
+    <Group justify="space-between" py={4}>
+      <Text size="sm" c={opts?.bold ? undefined : 'dimmed'} fw={opts?.bold ? 600 : 400}>
+        {label}
+      </Text>
+      <Text size="sm" fw={opts?.bold ? 700 : 500} c={opts?.negative ? 'red' : undefined}>
+        {value}
+      </Text>
+    </Group>
+  )
+}
+
+/**
+ * WP-8 PR-3 — base -> options -> list -> accessories -> total -> discount
+ * -> price (FR-S's own level order), confirmed live against the reference
+ * prototype's own Preisaufbau tab. The "NUR INTERN — NICHT AUF DEM
+ * DOKUMENT" block (margin/cost) is visually separated and rendered only
+ * because this whole page is a seller-facing screen — the customer
+ * document (PR-7) is built from a completely separate ContentDefinition
+ * that never includes these fields at all (see
+ * tests/architecture/test_margin_never_in_rendered_document.py).
+ */
+export function PriceBuildUp({ deal, onDiscountChange, onManualBasePriceChange, onUnsavedChange, disabled = false }: PriceBuildUpProps) {
+  const { t } = useTranslation()
+
+  // KAN-8 — local, debounced state; see useDebouncedNumberField's own
+  // docstring for why a NumberInput bound straight to a per-keystroke
+  // autosave silently drops digits.
+  const [manualBasePrice, setManualBasePrice, manualBasePriceUnsaved, manualBasePriceInvalid, onManualBasePriceBlur] = useDebouncedNumberField(
+    deal.manualBasePrice != null ? Number(deal.manualBasePrice) : null,
+    deal.id,
+    (value) => onManualBasePriceChange?.(value),
+    undefined,
+    deal.version,
+    true // KAN-493: never negative (the API's ge=0, KAN-482)
+  )
+  const [discountValue, setDiscountValue, discountValueUnsaved, discountValueInvalid, onDiscountValueBlur] = useDebouncedNumberField(
+    deal.discountValue != null ? Number(deal.discountValue) : null,
+    deal.id,
+    (value) => onDiscountChange({ discountType: deal.discountType, discountValue: value }),
+    undefined,
+    // KAN-478: an older copy never replaces a newer figure.
+    deal.version,
+    true // KAN-493: never negative (the API's ge=0, KAN-482)
+  )
+
+  const discountFigure = asFigure(discountValue)
+  const unsaved = manualBasePriceUnsaved || discountValueUnsaved
+  useEffect(() => {
+    onUnsavedChange?.(unsaved)
+  }, [unsaved, onUnsavedChange])
+  // Unmounting with nothing left to save: the host must not wait for us.
+  useEffect(() => () => onUnsavedChange?.(false), [onUnsavedChange])
+
+  if (deal.vehicleSnapshotFrozenAt == null && deal.vehicleSource !== 'manual') {
+    return (
+      <Text size="sm" c="dimmed">
+        {t('offerWorkspace.pricing.emptyHint')}
+      </Text>
+    )
+  }
+
+  return (
+    <Stack gap="xs">
+      {deal.vehicleSource === 'manual' ? (
+        <ChfInput
+          label={t('offerWorkspace.pricing.manualBasePrice')}
+          disabled={disabled}
+          hideControls={disabled}
+          value={manualBasePrice}
+          error={numberFieldError(t, manualBasePriceInvalid)}
+          onChange={setManualBasePrice}
+          onBlur={onManualBasePriceBlur}
+        />
+      ) : (
+        row(t('offerWorkspace.pricing.basePrice'), deal.basePrice != null ? formatCurrencyChf(Number(deal.basePrice)) : '—')
+      )}
+      {deal.optionsTotal != null && Number(deal.optionsTotal) > 0 &&
+        row(t('offerWorkspace.pricing.optionsTotal'), formatCurrencyChf(Number(deal.optionsTotal)))}
+      {row(t('offerWorkspace.pricing.listPrice'), deal.listPrice != null ? formatCurrencyChf(Number(deal.listPrice)) : '—', { bold: true })}
+      {deal.accessoriesTotal != null && Number(deal.accessoriesTotal) > 0 &&
+        row(t('offerWorkspace.pricing.accessoriesTotal'), formatCurrencyChf(Number(deal.accessoriesTotal)))}
+
+      <Group grow>
+        <Select
+          label={t('offerWorkspace.pricing.discountType')}
+          disabled={disabled}
+          data={[
+            { value: '', label: t('offerWorkspace.pricing.noDiscount') },
+            { value: 'percent', label: t('offerWorkspace.pricing.discountPercent') },
+            { value: 'amount', label: t('offerWorkspace.pricing.discountAmount') },
+          ]}
+          value={deal.discountType ?? ''}
+          // Not a debounced field: the host shows a refusal, so it only must not go unhandled.
+          // A discount value that is not yet a number is not sent: the saved one goes with
+          // the new type instead (KAN-480 — NaN would arrive as null and clear it).
+          onChange={(v) =>
+            void Promise.resolve(
+              onDiscountChange({
+                discountType: v || null,
+                discountValue: discountValueInvalid
+                  ? deal.discountValue != null ? Number(deal.discountValue) : null
+                  : discountFigure === '' ? null : discountFigure,
+              })
+            ).catch(() => undefined)
+          }
+        />
+        {/* KAN-168: an amount discount is CHF and reads like every CHF
+            amount; a percentage is not, so it stays a plain number. */}
+        {deal.discountType === 'amount' ? (
+          <ChfInput
+            label={t('offerWorkspace.pricing.discountValue')}
+            disabled={disabled}
+            hideControls={disabled}
+            value={discountValue}
+            error={numberFieldError(t, discountValueInvalid)}
+            onChange={setDiscountValue}
+            onBlur={onDiscountValueBlur}
+          />
+        ) : (
+          <NumberInput
+            label={t('offerWorkspace.pricing.discountValue')}
+            disabled={disabled || !deal.discountType}
+            hideControls={disabled}
+            suffix={deal.discountType === 'percent' ? ' %' : undefined}
+            value={discountValue}
+            error={numberFieldError(t, discountValueInvalid)}
+            onChange={setDiscountValue}
+            onBlur={onDiscountValueBlur}
+          />
+        )}
+      </Group>
+      {deal.discountAmount != null &&
+        Number(deal.discountAmount) > 0 &&
+        row(t('offerWorkspace.pricing.discountAmount'), `− ${formatCurrencyChf(Number(deal.discountAmount))}`, { negative: true })}
+
+      {row(t('offerWorkspace.pricing.grossPrice'), deal.grossPrice != null ? formatCurrencyChf(Number(deal.grossPrice)) : '—', { bold: true })}
+
+      {deal.margin != null && (
+        <Stack gap={2} mt="xs" p="xs" style={{ border: '1px dashed var(--mantine-color-red-4)', borderRadius: 6 }}>
+          <Text size="xs" fw={700} c="red">
+            {t('offerWorkspace.pricing.internalOnly')}
+          </Text>
+          {row(t('offerWorkspace.pricing.costBasis'), deal.costBasis != null ? formatCurrencyChf(Number(deal.costBasis)) : '—')}
+          {row(t('offerWorkspace.pricing.margin'), formatCurrencyChf(Number(deal.margin)), { bold: true })}
+        </Stack>
+      )}
+    </Stack>
+  )
+}

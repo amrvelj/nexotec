@@ -8,7 +8,7 @@ import { installFakeBackend } from '../test/fakeBackend'
 import { customer } from '../test/fixtures'
 import { CustomerDetailPage } from '../modules/customer/pages/CustomerDetailPage'
 import type { SalesContractRead, SalesDealRead, SalesOfferRead, ValuationRead } from '../api/types'
-import { SalesListPage } from './SalesListPage'
+import { SalesListPage } from '../modules/sales/pages/SalesListPage'
 import { ValuationsListPage } from '../modules/valuation/pages/ValuationsListPage'
 
 // KAN-334 — ValuationStatusBadge and SalesTypeBadge were rendered without a

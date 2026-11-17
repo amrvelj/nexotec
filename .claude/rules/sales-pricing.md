@@ -14,8 +14,8 @@ paths:
   - "tests/test_sales_offer_pricing_bounds.py"
   - "tests/test_sales_documents.py"
   - "tests/architecture/test_no_vat_treatment_field.py"
-  - "frontend/apps/dms/src/components/PriceBuildUp.tsx"
-  - "frontend/apps/dms/src/pages/OfferWorkspace.pricing*"
+  - "frontend/apps/dms/src/modules/sales/components/PriceBuildUp.tsx"
+  - "frontend/apps/dms/src/modules/sales/pages/OfferWorkspace.pricing*"
 ---
 <!-- Maintainer note. ADR-033, ADR-053, ADR-057, ADR-098. Moved out of sales.md by KAN-615 (2026-11-13)
 for the pricing and document files. Last verified against main@73baf3f (2026-10-25). -->

@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { waitFor } from '@testing-library/react'
 import { renderWithProviders } from '../test/renderWithProviders'
 import { installFakeBackend } from '../test/fakeBackend'
-import { SalesListPage } from './SalesListPage'
+import { SalesListPage } from '../modules/sales/pages/SalesListPage'
 import { ValuationsListPage } from '../modules/valuation/pages/ValuationsListPage'
 import { CatalogueBrowseGrid } from '../modules/vehicle/components/catalogue/CatalogueBrowseGrid'
 

@@ -4,7 +4,7 @@ paths:
   - "frontend/packages/ui-kit/src/datagrid/FilterBuilder*"
   - "frontend/apps/dms/src/utils/format*"
   - "frontend/apps/dms/src/components/chfInputs*"
-  - "frontend/apps/dms/src/components/PriceBuildUp.tsx"
+  - "frontend/apps/dms/src/modules/sales/components/PriceBuildUp.tsx"
   - "frontend/apps/dms/src/i18n/swissNumberInterpolation*"
   - "frontend/apps/dms/src/**/*dateOnly*"
   - "frontend/apps/dms/src/architecture/no-bare-money*"

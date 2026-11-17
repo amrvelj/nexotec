@@ -12,12 +12,11 @@ paths:
   - "frontend/apps/dms/src/modules/*/pages/*CreatePage*"
   - "frontend/apps/dms/src/pages/DetailHeader*"
   - "frontend/apps/dms/src/pages/DetailBreadcrumb*"
-  - "frontend/apps/dms/src/pages/OfferWorkspace*"
+  - "frontend/apps/dms/src/modules/sales/pages/OfferWorkspace*"
   - "frontend/apps/dms/src/**/*owMenu*"
-  - "frontend/apps/dms/src/components/*-detail/**"
   - "frontend/apps/dms/src/modules/*/components/*-detail/**"
-  - "frontend/apps/dms/src/components/deal-workspace/**"
-  - "frontend/apps/dms/src/components/OfferGenerateReviewModal*"
+  - "frontend/apps/dms/src/modules/sales/components/deal-workspace/**"
+  - "frontend/apps/dms/src/modules/sales/components/OfferGenerateReviewModal*"
   - "frontend/apps/dms/src/architecture/detail-header*"
 ---
 <!-- Maintainer note. ADR-059, ADR-061, ADR-063; FR-UI-07 (breadcrumb). Split out of ui.md by

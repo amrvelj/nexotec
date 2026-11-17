@@ -1,0 +1,592 @@
+import { useEffect, useState } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { Alert, Button, Group, Modal, Stack, Text, TextInput, UnstyledButton } from '@mantine/core'
+import { useDebouncedValue } from '@mantine/hooks'
+import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
+import { OverviewCard, Picker, SalesStatusBadge, useOverlay, type PickerRow } from '@nexotec/ui-kit'
+import { api, ApiError } from '../../../../api/client'
+import { CustomerCreateDialog } from '../../../customer'
+import { OfferAccessoriesAndOptions } from '../OfferAccessoriesAndOptions'
+import { PriceBuildUp } from '../PriceBuildUp'
+import { ValuationCreateDialog, ValuationSourceMarker } from '../../../valuation'
+import { ConfiguratorOverlay, HostCommitError, HostConfigurationCard } from '../../../vehicle'
+import { useIdempotencyKey } from '../../../../hooks/useIdempotencyKey'
+import { LockedWhile } from './LockedWhile'
+import { StockNumberLink } from './InventoryNumberLink'
+import type { DealSaveQueue } from '../../../../shared/useSaveQueue'
+import { customerName } from '../../../../shared/displayNames'
+import { formatCurrencyChf } from '../../../../utils/format'
+import { apiRefusalText } from '../../../../utils/apiRefusal'
+import { isVinRefusal } from '../../../../utils/vin'
+import type {
+  ConfigurationRead,
+  CustomerPage,
+  CustomerRead,
+  SalesDealOwnerType,
+  SalesPricedDealRead,
+  StockItemPage,
+  StockItemRead,
+  ValuationRead,
+} from '../../../../api/types'
+
+/**
+ * KAN-67 (ADR-083) — the vehicle, price build-up and trade-in containers of
+ * FR-S-05's workspace, shared by the offer draft (OfferWorkspacePage) and a
+ * pending contract (ContractDetailPage). The backend runs one edit path for
+ * both (app/sales/services/deal_editing.py); these run one screen for both.
+ * `ownerType` picks the route; every request body is the same.
+ *
+ * `patch` is the host's own autosave PATCH, sent through `save`. It rejects
+ * when the server refuses the edit, and the host says why in the UI
+ * language (confirmed elsewhere, stale version). The fire-and-forget
+ * callers here only stop the rejection going unhandled; the configurator
+ * turns it into its own error.
+ *
+ * `save` is the host's save queue (KAN-314, `useDealSaveQueue`): every
+ * write that bumps the deal's version — the PATCH, line items, trade-in,
+ * trade-in valuation — goes through it, so overlapping saves reach the
+ * server one after the other, each with the version the previous one
+ * returned, and a host that ends the edit (signing a contract) can wait for
+ * them (KAN-288). It reads the deal's current version when the save is
+ * sent, never from a render's closure, which is what lets the configurator
+ * overlay call it from a closure that outlives the render it was made in.
+ */
+export interface DealContainerProps<D extends SalesPricedDealRead> {
+  ownerType: SalesDealOwnerType
+  deal: D
+  patch: (patch: Record<string, unknown>) => Promise<void>
+  save: DealSaveQueue<D>['save']
+}
+
+const routeSegment = (ownerType: SalesDealOwnerType) => (ownerType === 'offer' ? 'offers' : 'contracts')
+const reportedByHost = () => undefined
+
+// KAN-426 — a save refused because the offer has a live contract (KAN-408)
+// says so in every container, through the one refusal helper (apiRefusalText,
+// the words the workspace's own banner uses); null for any other failure,
+// which keeps the container's own message.
+const liveContractRefusal = (t: TFunction, err: unknown): string | null =>
+  err instanceof ApiError && err.status === 409 && err.details?.reason === 'offer_has_contract'
+    ? apiRefusalText(t, err, 'offerWorkspace.errors.saveRefused.generic')
+    : null
+
+export function RequirementBadge({ requirement }: { requirement: string }) {
+  const { t } = useTranslation()
+  return (
+    <SalesStatusBadge
+      status={requirement === 'required' ? 'open' : 'draft'}
+      label={requirement === 'required' ? t('offerWorkspace.requirement.required') : t('offerWorkspace.requirement.optional')}
+    />
+  )
+}
+
+function requirementOf(deal: SalesPricedDealRead, id: string, fallback: string) {
+  return (deal.containers ?? []).find((c) => c.id === id)?.requirement ?? fallback
+}
+
+/** The buyer a deal's customer container shows: the customer record, for its
+ * credit-block and do-not-contact warnings. One query key with the hosts,
+ * which read the same record to gate their primary action. */
+export function useDealCustomer(customerId: string | null | undefined) {
+  return useQuery({
+    queryKey: ['customer', customerId],
+    queryFn: () => api.get<CustomerRead>(`/customers/${customerId}`),
+    enabled: customerId != null,
+  })
+}
+
+/** Kunde — the buyer, picked from the customers or created on the spot.
+ * The offer workspace's own container, shared since KAN-307 (Anto,
+ * 2026-10-12, amending ADR-083): a pending contract picks its buyer the
+ * same way, and cannot be signed without one. `onOpenCustomer` opens the
+ * record over the deal (ADR-059), never instead of it. `readOnly` (an offer
+ * with a live contract, KAN-426) disables picking a buyer but keeps the
+ * selected customer's overlay a click away: it only shows (KAN-501). */
+export function DealCustomerContainer<D extends SalesPricedDealRead>({
+  ownerType,
+  deal,
+  patch,
+  onOpenCustomer,
+  readOnly = false,
+}: Pick<DealContainerProps<D>, 'ownerType' | 'deal' | 'patch'> & { onOpenCustomer: () => void; readOnly?: boolean }) {
+  const { t } = useTranslation()
+  const selectedCustomer = useDealCustomer(deal.customerId).data ?? null
+  const [pickerOpen, setPickerOpen] = useState(false)
+  const [createOpen, setCreateOpen] = useState(false)
+  const [query, setQuery] = useState('')
+  const [debouncedQuery] = useDebouncedValue(query, 250)
+  const search = useQuery({
+    queryKey: ['customer-search', debouncedQuery],
+    queryFn: () => api.get<CustomerPage>(`/customers?q=${encodeURIComponent(debouncedQuery)}&limit=10`),
+    enabled: pickerOpen && debouncedQuery.length > 0,
+  })
+  // KAN-656 — a customer merged into another is refused as the buyer (409
+  // `customer_merged`, from a stale search result or a list opened before the
+  // merge). The host's banner says why; here the survivor the API names is
+  // offered in its place. `undefined` = no refusal; `null` = refused, the
+  // survivor unknown or unreadable.
+  const [mergedSurvivor, setMergedSurvivor] = useState<CustomerRead | null | undefined>(undefined)
+  useEffect(() => setMergedSurvivor(undefined), [deal.customerId])
+  const choose = (customerId: string) => {
+    setMergedSurvivor(undefined)
+    patch({ customerId }).catch(async (err: unknown) => {
+      if (!(err instanceof ApiError) || err.details?.reason !== 'customer_merged') return reportedByHost()
+      const survivorId = err.details.mergedIntoCustomerId
+      let survivor: CustomerRead | null = null
+      if (typeof survivorId === 'string') {
+        try {
+          survivor = await api.get<CustomerRead>(`/customers/${survivorId}`)
+        } catch {
+          // Unreadable survivor: the notice below still says what to do.
+        }
+      }
+      setMergedSurvivor(survivor)
+    })
+  }
+  const survivorName = mergedSurvivor ? customerName(mergedSurvivor) || mergedSurvivor.customerNumber : ''
+  const mergedNotice = mergedSurvivor !== undefined && (
+    <Alert color="orange" title={t('offerWorkspace.customer.mergedTitle')} py="xs">
+      <Stack gap="xs">
+        <Text size="sm">
+          {mergedSurvivor
+            ? t('offerWorkspace.customer.mergedInto', { name: survivorName, customerNumber: mergedSurvivor.customerNumber })
+            : t('offerWorkspace.customer.mergedIntoUnknown')}
+        </Text>
+        {mergedSurvivor && (
+          <Group>
+            <Button size="xs" variant="light" disabled={readOnly} onClick={() => choose(mergedSurvivor.id)}>
+              {t('offerWorkspace.customer.useSurvivor', { name: survivorName })}
+            </Button>
+          </Group>
+        )}
+      </Stack>
+    </Alert>
+  )
+
+  return (
+    <OverviewCard title={t('offerWorkspace.containers.customer')} badge={<RequirementBadge requirement={requirementOf(deal, 'customer', 'required')} />}>
+      {deal.customerId ? (
+        <Stack gap={4}>
+          <UnstyledButton onClick={onOpenCustomer}>
+            <Text fw={600} c="purple">{deal.customerLabel}</Text>
+          </UnstyledButton>
+          {selectedCustomer?.creditBlock && (
+            <Alert color="orange" title={t('offerWorkspace.customer.creditBlockTitle')} py="xs">
+              {t('offerWorkspace.customer.creditBlockBody', { reason: selectedCustomer.creditBlockReason ?? '—' })}
+            </Alert>
+          )}
+          {selectedCustomer?.lifecycleStatus === 'do_not_contact' && (
+            <Alert color="red" title={t('offerWorkspace.customer.doNotContactTitle')} py="xs">
+              {t('offerWorkspace.customer.doNotContactBody')}
+            </Alert>
+          )}
+          {mergedNotice}
+        </Stack>
+      ) : (
+        <Stack gap="xs">
+          <Text size="sm" c="dimmed">
+            {ownerType === 'contract' ? t('offerWorkspace.customer.emptyHintContract') : t('offerWorkspace.customer.emptyHint')}
+          </Text>
+          <Group gap="xs">
+            <Button variant="default" size="xs" disabled={readOnly} onClick={() => setPickerOpen(true)}>
+              {t('offerWorkspace.customer.search')}
+            </Button>
+            <Button variant="subtle" size="xs" disabled={readOnly} onClick={() => setCreateOpen(true)}>
+              {t('offerWorkspace.customer.createNew')}
+            </Button>
+          </Group>
+          {mergedNotice}
+        </Stack>
+      )}
+
+      <Modal opened={pickerOpen} onClose={() => setPickerOpen(false)} title={t('offerWorkspace.customer.search')}>
+        <Picker
+          rows={(search.data?.items ?? []).map(
+            (c: CustomerRead): PickerRow => ({
+              id: c.id,
+              identifier: c.customerNumber,
+              label: c.companyName ?? [c.firstName, c.lastName].filter(Boolean).join(' '),
+            })
+          )}
+          query={query}
+          onQueryChange={setQuery}
+          onSelect={(row) => {
+            choose(row.id)
+            setPickerOpen(false)
+          }}
+          loading={search.isFetching}
+          placeholder={t('offerWorkspace.customer.search')}
+          emptyLabel={t('common.noMatches')}
+        />
+      </Modal>
+
+      <CustomerCreateDialog
+        opened={createOpen}
+        onClose={() => setCreateOpen(false)}
+        onCreated={(customer) => {
+          choose(customer.id)
+          setCreateOpen(false)
+        }}
+      />
+    </OverviewCard>
+  )
+}
+
+/** Fahrzeug — FR-S-05 Path A (stock search) or Path B (the configurator,
+ * `build` mode only, PRD v1.4: a used car being sold comes from stock).
+ * A stock car shows its stock number beside it (KAN-570), opening the stock
+ * detail through the host's `onOpenStockItem`. `readOnly` disables every
+ * write in it (the configuration card's edit, the stock search, the
+ * configurator) under a disabled fieldset, while the stock number, which only
+ * opens the car, stays outside it and live (KAN-501, KAN-570). */
+export function DealVehicleContainer<D extends SalesPricedDealRead>({
+  ownerType,
+  deal,
+  patch,
+  onOpenStockItem,
+  readOnly = false,
+}: DealContainerProps<D> & { onOpenStockItem?: () => void; readOnly?: boolean }) {
+  const { t } = useTranslation()
+  const queryClient = useQueryClient()
+  const overlay = useOverlay()
+  const [vehicleMode, setVehicleMode] = useState<'idle' | 'search'>('idle')
+  const [vehicleQuery, setVehicleQuery] = useState('')
+  const [debouncedVehicleQuery] = useDebouncedValue(vehicleQuery, 250)
+  const vehicleSearch = useQuery({
+    queryKey: ['stock-item-search', debouncedVehicleQuery],
+    queryFn: () => api.get<StockItemPage>(`/inventory/stock-items?q=${encodeURIComponent(debouncedVehicleQuery)}&limit=10`),
+    enabled: vehicleMode === 'search' && debouncedVehicleQuery.length > 0,
+  })
+
+  // FR-C-12 — Path B is the configurator, as an overlay (ADR-059): the
+  // half-built deal underneath is never navigated away from.
+  const openConfigurator = (existing: ConfigurationRead | null = null) =>
+    overlay.push({
+      key: `configurator-${ownerType}-vehicle`,
+      content: (
+        <ConfiguratorOverlay
+          allowedModes={['build']}
+          existing={existing}
+          onCommitted={async (configuration) => {
+            try {
+              await patch({ configurationId: configuration.id })
+            } catch (err) {
+              throw new HostCommitError(liveContractRefusal(t, err) ?? t('offerWorkspace.vehicle.attachError'))
+            }
+            await queryClient.invalidateQueries({ queryKey: ['configuration', configuration.id] })
+            overlay.pop()
+          }}
+          onClose={() => overlay.pop()}
+        />
+      ),
+    })
+
+  const stockNumber =
+    deal.stockItemId && deal.stockItemLabel ? <StockNumberLink stockNumber={deal.stockItemLabel} onOpen={onOpenStockItem} /> : null
+
+  return (
+    <OverviewCard
+      title={t('offerWorkspace.containers.vehicle')}
+      badge={<RequirementBadge requirement={requirementOf(deal, 'vehicle', 'required')} />}
+    >
+      {deal.configurationId ? (
+        <Stack gap={4} data-testid="offer-vehicle-configured">
+          <Text size="xs" c="dimmed">{t('offerWorkspace.vehicle.configured')}</Text>
+          <LockedWhile readOnly={readOnly}>
+            <HostConfigurationCard configurationId={deal.configurationId} onOpenConfigurator={openConfigurator} />
+          </LockedWhile>
+          {stockNumber}
+        </Stack>
+      ) : deal.vehicleLabel ? (
+        <Group gap="sm" align="baseline" wrap="wrap">
+          <Text fw={600}>{deal.vehicleLabel}</Text>
+          {stockNumber}
+        </Group>
+      ) : vehicleMode === 'search' ? (
+        <LockedWhile readOnly={readOnly}>
+          <Picker
+            rows={(vehicleSearch.data?.items ?? []).map(
+              (item: StockItemRead): PickerRow => ({ id: item.id, identifier: item.stockNumber, label: item.vehicleLabel, sublabel: item.vin ?? undefined })
+            )}
+            query={vehicleQuery}
+            onQueryChange={setVehicleQuery}
+            onSelect={(row) =>
+              void patch({ vehicleSource: 'stock', stockItemId: row.id, vehicleLabel: row.label })
+                .then(() => setVehicleMode('idle'))
+                .catch(reportedByHost)
+            }
+            loading={vehicleSearch.isFetching}
+            placeholder={t('offerWorkspace.vehicle.searchPlaceholder')}
+            emptyLabel={t('common.noMatches')}
+          />
+        </LockedWhile>
+      ) : (
+        <LockedWhile readOnly={readOnly}>
+          <Stack gap="xs">
+            <Text size="sm" c="dimmed">{t('offerWorkspace.vehicle.emptyHint')}</Text>
+            <Group gap="xs">
+              <Button variant="default" size="xs" onClick={() => setVehicleMode('search')}>
+                {t('offerWorkspace.vehicle.search')}
+              </Button>
+              <Button variant="subtle" size="xs" onClick={() => openConfigurator()}>
+                {t('offerWorkspace.vehicle.configure')}
+              </Button>
+            </Group>
+          </Stack>
+        </LockedWhile>
+      )}
+    </OverviewCard>
+  )
+}
+
+/** Preisaufbau — the build-up, the seller's discount and base price, the
+ * option and accessory lines. Needs a vehicle first (FR-S-05). `readOnly`
+ * disables every write in it — the build-up's inputs by their own prop, the
+ * line items under a disabled fieldset — while «zum Lagerfahrzeug», which
+ * only opens the car, stays outside it and live (KAN-501). */
+export function DealPricingContainer<D extends SalesPricedDealRead>({
+  ownerType,
+  deal,
+  patch,
+  save,
+  onOpenStockItem,
+  onUnsavedChange,
+  readOnly = false,
+}: DealContainerProps<D> & { onOpenStockItem?: () => void; onUnsavedChange?: (unsaved: boolean) => void; readOnly?: boolean }) {
+  const { t } = useTranslation()
+  const pricingStatus = (deal.containers ?? []).find((c) => c.id === 'pricing')?.status
+  return (
+    <OverviewCard
+      title={t('offerWorkspace.containers.pricing')}
+      badge={<RequirementBadge requirement={requirementOf(deal, 'pricing', 'required')} />}
+    >
+      {pricingStatus === 'in_progress' && (
+        <Alert color="orange" title={t('offerWorkspace.pricing.noPriceTitle')} py="xs" mb="xs">
+          <Stack gap={4}>
+            <Text size="sm">{t('offerWorkspace.pricing.noPriceBody')}</Text>
+            {deal.stockItemId && onOpenStockItem && (
+              <UnstyledButton onClick={onOpenStockItem}>
+                <Text size="sm" fw={600} c="purple">{t('offerWorkspace.pricing.noPriceLink')}</Text>
+              </UnstyledButton>
+            )}
+          </Stack>
+        </Alert>
+      )}
+      <fieldset disabled={readOnly} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
+        <PriceBuildUp
+          deal={deal}
+          // The save itself, refusal included: the field handles both (KAN-442).
+          onDiscountChange={(change) => patch({ discountType: change.discountType, discountValue: change.discountValue })}
+          onManualBasePriceChange={(value) => patch({ manualBasePrice: value })}
+          onUnsavedChange={onUnsavedChange}
+          disabled={readOnly}
+        />
+        <OfferAccessoriesAndOptions ownerType={ownerType} deal={deal} save={save} />
+      </fieldset>
+    </OverviewCard>
+  )
+}
+
+/** Eintauschfahrzeug — a VIN-identified trade-in, or the valuation path:
+ * the configurator in `record` mode, then a valuation the deal references
+ * (FR-C-12's carve-out; Path A could never find the customer's own car). */
+export function DealTradeInContainer<D extends SalesPricedDealRead>({
+  ownerType,
+  deal,
+  save,
+}: DealContainerProps<D>) {
+  const { t } = useTranslation()
+  const overlay = useOverlay()
+  const basePath = `/sales/${routeSegment(ownerType)}/${deal.id}`
+  const [tradeInMode, setTradeInMode] = useState(false)
+  const [tradeInVin, setTradeInVin] = useState('')
+  const [tradeInLabel, setTradeInLabel] = useState('')
+  const [tradeInConfiguration, setTradeInConfiguration] = useState<ConfigurationRead | null>(null)
+  const [tradeInError, setTradeInError] = useState<string | null>(null)
+  // KAN-351 — a VIN the API refuses (422 on `vin`) is said at the VIN input,
+  // in the user's language; any other failure keeps the generic save error.
+  const [tradeInVinError, setTradeInVinError] = useState<string | null>(null)
+  // KAN-266 — one key per kind, passed the request: a retry keeps its key
+  // and replays its success; another VIN or valuation gets a new one. Each
+  // success renews its kind's key.
+  const tradeInKey = useIdempotencyKey()
+  const valuationKey = useIdempotencyKey()
+
+  // KAN-101 — the trade-in figure is marked manual where it is (ADR-048).
+  const tradeInValuationId = deal.tradeInValuationId ?? null
+  const tradeInValuationQuery = useQuery({
+    queryKey: ['valuation', tradeInValuationId],
+    queryFn: () => api.get<ValuationRead>(`/valuations/${tradeInValuationId}`),
+    enabled: tradeInValuationId != null,
+  })
+
+  const openTradeInConfigurator = () =>
+    overlay.push({
+      key: `configurator-${ownerType}-trade-in`,
+      content: (
+        <ConfiguratorOverlay
+          allowedModes={['record']}
+          onCommitted={(configuration) => {
+            setTradeInConfiguration(configuration)
+            overlay.pop()
+          }}
+          onClose={() => overlay.pop()}
+        />
+      ),
+    })
+
+  const attachTradeInValuation = async (valuation: ValuationRead) => {
+    setTradeInError(null)
+    try {
+      const path = `${basePath}/trade-in/valuation`
+      const body = { valuationId: valuation.id }
+      const updated = await save((current) =>
+        api.post<D>(path, body, {
+          'If-Match': String(current.version),
+          ...valuationKey.headers([path, body]),
+        })
+      )
+      if (!updated) return
+      valuationKey.renew()
+      setTradeInConfiguration(null)
+    } catch (err) {
+      // KAN-584 — the refusal's own reason (`trade_in_valuation_names_no_car`, a live
+      // contract, …) through the one helper; the screen's sentence only as its fallback.
+      setTradeInError(apiRefusalText(t, err, 'offerWorkspace.tradeIn.attachError'))
+    }
+  }
+
+  const submitTradeIn = async (body: {
+    vin: string | null
+    plate: string | null
+    canton: string | null
+    vehicleLabel: string
+  }) => {
+    const path = `${basePath}/trade-in`
+    const updated = await save((current) =>
+      api.post<D>(path, body, {
+        'If-Match': String(current.version),
+        ...tradeInKey.headers([path, body]),
+      })
+    )
+    if (updated) tradeInKey.renew()
+  }
+
+  // KAN-382 — a trade-in on a deal that still pointed at a merged customer
+  // was refused 409 `customer_merged` (KAN-365). Since KAN-189 the trade-in
+  // allocates no party, so this server never sends it; the branch stays for
+  // an instance still on the older code during a rolling deploy, and reads
+  // the survivor when the API names one. Any other failure keeps the generic
+  // save error.
+  const tradeInRefusalMessage = async (err: unknown): Promise<string> => {
+    const live = liveContractRefusal(t, err)
+    if (live) return live
+    if (!(err instanceof ApiError) || err.details?.reason !== 'customer_merged') {
+      return t('offerWorkspace.tradeIn.saveError')
+    }
+    const survivorId = err.details.mergedIntoCustomerId
+    if (typeof survivorId === 'string') {
+      try {
+        const survivor = await api.get<CustomerRead>(`/customers/${survivorId}`)
+        const name = customerName(survivor)
+        if (name) {
+          return t('offerWorkspace.tradeIn.customerMergedInto', { name, customerNumber: survivor.customerNumber })
+        }
+      } catch {
+        // Unreadable survivor: the message below still says what to do.
+      }
+    }
+    return t('offerWorkspace.tradeIn.customerMerged')
+  }
+
+  return (
+    <OverviewCard title={t('offerWorkspace.containers.tradeIn')} badge={<RequirementBadge requirement="optional" />}>
+      {deal.tradeInVehicleId || deal.tradeInConfigurationId || deal.tradeInVin ? (
+        <Stack gap={4}>
+          <Text fw={600}>{deal.tradeInLabel}</Text>
+          {deal.tradeInConfigurationId && <HostConfigurationCard configurationId={deal.tradeInConfigurationId} />}
+          {deal.tradeInValue != null && (
+            <Group gap="xs">
+              <Text size="sm" c="dimmed">
+                {t('offerWorkspace.tradeIn.value')}: {formatCurrencyChf(Number(deal.tradeInValue))}
+              </Text>
+              {tradeInValuationQuery.data && <ValuationSourceMarker source={tradeInValuationQuery.data.source} />}
+            </Group>
+          )}
+          {deal.tradeInValuationId && (
+            <Text size="xs" c="dimmed">
+              {t('offerWorkspace.tradeIn.fromExistingValuation')}
+            </Text>
+          )}
+        </Stack>
+      ) : tradeInMode ? (
+        <Stack gap="xs">
+          <TextInput
+            label={t('offerWorkspace.tradeIn.vinLabel')}
+            placeholder={t('offerWorkspace.tradeIn.vinPlaceholder')}
+            value={tradeInVin}
+            onChange={(e) => {
+              setTradeInVin(e.currentTarget.value)
+              setTradeInVinError(null)
+            }}
+            error={tradeInVinError}
+          />
+          <TextInput
+            label={t('offerWorkspace.tradeIn.labelLabel')}
+            value={tradeInLabel}
+            onChange={(e) => setTradeInLabel(e.currentTarget.value)}
+          />
+          {tradeInError && <Alert color="red" py="xs">{tradeInError}</Alert>}
+          <Group gap="xs">
+            <Button
+              size="xs"
+              disabled={!tradeInVin || !tradeInLabel}
+              onClick={() => {
+                setTradeInError(null)
+                setTradeInVinError(null)
+                submitTradeIn({ vin: tradeInVin, plate: null, canton: null, vehicleLabel: tradeInLabel })
+                  .then(() => setTradeInMode(false))
+                  .catch(async (err: unknown) =>
+                    isVinRefusal(err)
+                      ? setTradeInVinError(t('common.invalidVin'))
+                      : setTradeInError(await tradeInRefusalMessage(err)),
+                  )
+              }}
+            >
+              {t('common.save')}
+            </Button>
+            <Button variant="subtle" size="xs" onClick={() => setTradeInMode(false)}>
+              {t('common.cancel')}
+            </Button>
+          </Group>
+        </Stack>
+      ) : (
+        <Stack gap="xs">
+          <Text size="sm" c="dimmed">
+            {deal.customerId ? t('offerWorkspace.tradeIn.readyHint') : t('offerWorkspace.tradeIn.emptyHint')}
+          </Text>
+          {tradeInError && <Alert color="red" py="xs">{tradeInError}</Alert>}
+          <Group gap="xs">
+            <Button variant="default" size="xs" onClick={openTradeInConfigurator}>
+              {t('offerWorkspace.tradeIn.valueWithConfigurator')}
+            </Button>
+            <Button variant="subtle" size="xs" onClick={() => setTradeInMode(true)}>
+              {t('offerWorkspace.tradeIn.add')}
+            </Button>
+          </Group>
+        </Stack>
+      )}
+
+      {tradeInConfiguration && (
+        <ValuationCreateDialog
+          key={tradeInConfiguration.id}
+          opened
+          configuration={tradeInConfiguration}
+          onClose={() => setTradeInConfiguration(null)}
+          onCreated={(valuation) => void attachTradeInValuation(valuation)}
+        />
+      )}
+    </OverviewCard>
+  )
+}
