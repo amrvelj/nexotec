@@ -63,7 +63,9 @@ _ALLOWED: dict[str, str] = {
     ),
     "scripts/retire_staging_shared_demo_user.py::run": "the staging demo Betrieb, by its legal name",
     "scripts/seed_staging_demo.py::_ensure_dealership": "the staging demo Betrieb, by its legal name",
-    "scripts/verify_migration_smoke_test_seed.py::main": "the smoke test's own Betriebe, by legal name",
+    "scripts/verify_migration_smoke_test_seed.py::main": (
+        "the smoke test's own Betriebe — counted by kind and by legal name (a CI fixture, ADR-140: it imports no service)"
+    ),
 }
 
 

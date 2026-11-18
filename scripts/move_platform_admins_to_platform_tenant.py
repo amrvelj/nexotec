@@ -15,14 +15,14 @@ This script acts only on the rows of a confirmation file, one per line:
 
 Lines that are empty or start with `#` are skipped. **Dry run by default**:
 it reads, checks every row and prints what it would do, and writes nothing.
-`--apply` writes, one transaction per row: the new account (invited, the
+`--commit` writes (the scripts' convention, `migrations-scripts.md`), one transaction per row: the new account (invited, the
 invitation mailed to the new address by the platform sender), then the
 Betrieb account without `platform_admin` — both audited with the confirming
 staff member (`--actor`) as actor. A row that does not hold is refused and
 reported, and the other rows go on. Never run from a migration.
 
     python scripts/move_platform_admins_to_platform_tenant.py --actor <staff user id> confirmed.csv
-    python scripts/move_platform_admins_to_platform_tenant.py --actor <staff user id> confirmed.csv --apply
+    python scripts/move_platform_admins_to_platform_tenant.py --actor <staff user id> confirmed.csv --commit
 
 Exit status: 0 when every row held (or would hold), 1 when a row was
 refused, 2 when the run cannot start (no platform tenant, no such actor,
@@ -157,7 +157,7 @@ def _move(db: Session, *, user: User, new_email: str, actor_id: uuid.UUID, maile
 
 
 def run(
-    db: Session, rows: list[Row], *, actor_id: uuid.UUID, apply: bool, mailer: PlatformMailer
+    db: Session, rows: list[Row], *, actor_id: uuid.UUID, commit: bool, mailer: PlatformMailer
 ) -> list[Outcome]:
     if db.get(Dealership, PLATFORM_DEALERSHIP_ID) is None:
         raise CannotStart("the platform tenant does not exist — run `alembic upgrade heads` first")
@@ -181,7 +181,7 @@ def run(
             continue
         assert row.new_email is not None
         seen.add(row.new_email)
-        if not apply:
+        if not commit:
             outcomes.append(Outcome(row.line, label, False, f"would move: new platform account {row.new_email}"))
             continue
         try:
@@ -200,7 +200,7 @@ def main(argv: list[str] | None = None, *, session_factory: Callable[[], Session
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("confirmation_file", type=Path)
     parser.add_argument("--actor", required=True, type=uuid.UUID, help="the confirming staff member's user id")
-    parser.add_argument("--apply", action="store_true", help="write (default: dry run)")
+    parser.add_argument("--commit", action="store_true", help="write (default: dry run)")
     args = parser.parse_args(argv)
     try:
         rows = parse_confirmation_file(args.confirmation_file.read_text(encoding="utf-8"))
@@ -209,7 +209,7 @@ def main(argv: list[str] | None = None, *, session_factory: Callable[[], Session
         return 2
     db = session_factory()
     try:
-        outcomes = run(db, rows, actor_id=args.actor, apply=args.apply, mailer=get_mailer())
+        outcomes = run(db, rows, actor_id=args.actor, commit=args.commit, mailer=get_mailer())
     except CannotStart as exc:
         print(f"KAN-221: {exc}")
         return 2
@@ -217,7 +217,7 @@ def main(argv: list[str] | None = None, *, session_factory: Callable[[], Session
         db.close()
     for outcome in outcomes:
         print(f"KAN-221 line {outcome.line}: {outcome.user_id} {outcome.message}")
-    mode = "applied" if args.apply else "dry run, nothing written"
+    mode = "committed" if args.commit else "dry run, nothing written"
     print(f"KAN-221: {len(outcomes)} row(s), {sum(o.moved for o in outcomes)} moved ({mode})")
     return 1 if any(o.message.startswith("refused") for o in outcomes) else 0
 

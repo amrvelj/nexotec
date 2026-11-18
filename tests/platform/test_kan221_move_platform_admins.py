@@ -44,7 +44,7 @@ def _with_dealer_role(client, user: dict) -> None:
 
 def _run(db_session, mailbox, text: str, actor: dict, *, apply: bool):
     rows = move.parse_confirmation_file(text)
-    return move.run(db_session, rows, actor_id=uuid.UUID(actor["id"]), apply=apply, mailer=_Mailer(mailbox))
+    return move.run(db_session, rows, actor_id=uuid.UUID(actor["id"]), commit=apply, mailer=_Mailer(mailbox))
 
 
 class _Mailer:
@@ -191,7 +191,7 @@ def test_main_is_a_dry_run_unless_asked_and_exits_1_on_a_refused_row(
     db_session.expire_all()
     assert _users_with_email(db_session, "lea@nexotec.ch") == []
 
-    assert move.main([str(confirmed), "--actor", actor["id"], "--apply"], session_factory=lambda: db_session) == 0
-    assert "1 moved (applied)" in capsys.readouterr().out
-    assert move.main([str(confirmed), "--actor", actor["id"], "--apply"], session_factory=lambda: db_session) == 1
+    assert move.main([str(confirmed), "--actor", actor["id"], "--commit"], session_factory=lambda: db_session) == 0
+    assert "1 moved (committed)" in capsys.readouterr().out
+    assert move.main([str(confirmed), "--actor", actor["id"], "--commit"], session_factory=lambda: db_session) == 1
     assert move.main([str(tmp_path / "missing.csv"), "--actor", actor["id"]], session_factory=lambda: db_session) == 2
