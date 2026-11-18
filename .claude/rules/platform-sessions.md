@@ -9,9 +9,9 @@ paths:
   - "app/platform/identity/services/auth_*.py"
   - "app/platform/identity/models/auth_*.py"
   - "app/platform/identity/models/dealership_auth_config.py"
-  - "tests/test_auth.py"
-  - "tests/test_login.py"
-  - "tests/test_identity_*.py"
+  - "tests/platform/test_auth.py"
+  - "tests/platform/test_login.py"
+  - "tests/platform/test_identity_*.py"
   - "frontend/apps/dms/src/auth/**"
   - "frontend/apps/dms/src/components/ProtectedRoute.tsx"
 ---

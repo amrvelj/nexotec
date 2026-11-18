@@ -23,7 +23,7 @@ from app.vehicle.services.catalogue_browse import FACET_FIELDS, BrowseSort, Vari
 from tests import identapi_fixtures as fix
 from tests import identapi_support as fx
 from tests.identapi_support import FakeAutoi
-from tests.test_provider_code_map_seed import _seed_migration
+from tests.vehicle.test_provider_code_map_seed import _seed_migration
 
 KIND = "passenger_car"
 BRAND = "Testmarke"

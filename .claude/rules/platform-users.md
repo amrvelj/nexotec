@@ -16,9 +16,9 @@ paths:
   - "app/platform/identity/schemas/me.py"
   - "app/platform/reference/schemas/patch.py"
   - "alembic/versions/platform/**"
-  - "tests/test_platform_concurrent_*.py"
-  - "tests/test_platform_idempotency.py"
-  - "tests/test_platform_chain_renders_offline.py"
+  - "tests/platform/test_platform_concurrent_*.py"
+  - "tests/platform/test_platform_idempotency.py"
+  - "tests/platform/test_platform_chain_renders_offline.py"
   - "app/platform/identity/api/dealership*.py"
   - "app/platform/identity/api/dealership*.py"
   - "app/platform/organisation/api/dealerships.py"
@@ -37,15 +37,15 @@ paths:
   - "app/platform/organisation/services/group_read_dealerships.py"
   - "app/platform/identity/models/user*.py"
   - "app/platform/identity/models/dealership_membership.py"
-  - "tests/test_user*.py"
-  - "tests/test_memberships.py"
+  - "tests/platform/test_user*.py"
+  - "tests/platform/test_memberships.py"
   - "tests/membership_support.py"
-  - "tests/test_membership_across_dealer_groups.py"
-  - "tests/test_my_account.py"
-  - "tests/test_tenancy.py"
-  - "tests/test_permission*.py"
+  - "tests/platform/test_membership_across_dealer_groups.py"
+  - "tests/platform/test_my_account.py"
+  - "tests/core/test_tenancy.py"
+  - "tests/platform/test_permission*.py"
   - "tests/fixtures/permission_matrix.json"
-  - "tests/test_report_platform_admins_homed_in_dealerships.py"
+  - "tests/platform/test_report_platform_admins_homed_in_dealerships.py"
   - "tests/architecture/test_no_ambient_group_read.py"
   - "tests/architecture/test_group_read_dealerships_callers.py"
   - "scripts/report_platform_admins_homed_in_dealerships.py"
@@ -84,7 +84,7 @@ platform.md (verified against main@73baf3f, 2026-10-25) by KAN-614, 2026-11-10; 
 - **A membership may cross dealer groups** (ADR-106): `grant_membership` does not ask for the
   target's group, and switch-dealership mints the **target's** `group_id` — while switched the
   person reads that group's customers, never the home group's
-  (`tests/test_membership_across_dealer_groups.py`).
+  (`tests/platform/test_membership_across_dealer_groups.py`).
 
 ## Managers and memberships (D-A-01)
 - No group-level administrator. The manager flag is held per Betrieb: `User.is_dealer_manager` for
@@ -98,7 +98,7 @@ platform.md (verified against main@73baf3f, 2026-10-25) by KAN-614, 2026-11-10; 
   «Weitere Betriebe»; a 404 reads «not yours to manage», an empty list never «no access»).
 - **Every route that writes a user's memberships, delegations or user row locks the user row first**
   (`user_reads_service.get_user_for_update_or_404`, FOR NO KEY UPDATE) before any child row —
-  `tests/test_platform_concurrent_first_grants.py` pins them; a new such route joins it. (Lock order: `platform-identity.md`.)
+  `tests/platform/test_platform_concurrent_first_grants.py` pins them; a new such route joins it. (Lock order: `platform-identity.md`.)
 - `LoginResponse.user.isDealerManager` is the **home** flag — never gate a screen on it; the
   session's own flag is `LoginResponse.isActiveDealershipManager`.
 

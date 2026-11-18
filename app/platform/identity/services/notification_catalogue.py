@@ -9,9 +9,9 @@ A module that raises a notification registers its events here **and** in a
 migration of the platform chain that inserts the `notification_event` rows,
 in the same PR (A-RULE-6 applied to notifications). Three tests keep the
 copies in step: the migrated rows equal `CATALOGUE`
-(`tests/test_migrated_notification_catalogue.py`), every title and body key
+(`tests/platform/test_migrated_notification_catalogue.py`), every title and body key
 is in the SPA's four bundles and every push title below is the bundle's text
-word for word (`tests/test_notification_catalogue.py`), and every `notify`
+word for word (`tests/platform/test_notification_catalogue.py`), and every `notify`
 call site in `app/` names a code declared here
 (`tests/architecture/test_notify_call_sites_use_registered_codes.py`).
 

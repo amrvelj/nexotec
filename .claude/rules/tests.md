@@ -14,6 +14,12 @@ tests-frontend.md carry the detail (KAN-615). Last verified against main@73baf3f
   "tested" means Postgres. `pytest` uses this checkout's own `dms_test_<checkout>` (each `-n`
   worker its own copy): take the database from the `engine` fixture or `DMS_TEST_DATABASE_URL`,
   never a fixed name, port or path.
+- **Layout (KAN-637):** `tests/<context>/` holds the tests of one context's code (the
+  configurator's are `vehicle/`); `core/` tests `app/core`; `cross_context/` a flow whose
+  assertions span two or more contexts, whatever its name says; `architecture/` the rulings.
+  `tests/` itself keeps the support modules, `conftest.py` and the tests of the repository as a
+  whole (tooling, the test harness, all migration chains at once, SPA-file consistency).
+  `scripts/dev/check` still runs the whole Postgres suite (KAN-637's ruling).
 - Every test starts with empty tables. **Close every session a test opens** — one left open
   holding a lock fails the test or blocks the next. A test-only model sits on `DemoBase`
   (`tests/demo_models.py`), never `app.db.Base`. Harness detail: `tests-harness.md`.

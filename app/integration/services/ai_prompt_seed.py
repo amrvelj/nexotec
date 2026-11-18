@@ -5,7 +5,7 @@ in DE/FR/IT/EN (Swiss German spelling, «ss» never «ß»).
 What the application reads as «the shipped wording»: the Translations panel
 diffs a seed against it and a revert restores it. The rows themselves are
 installed by the integration migration `e7a2c91d4b60` as **literals** (ADR-133)
-— `tests/test_ai_prompts.py` keeps the two equal; a later edition of these
+— `tests/integration/test_ai_prompts.py` keeps the two equal; a later edition of these
 prompts is a new data migration and a change here together, never this module
 alone.
 

@@ -446,7 +446,7 @@ RSA_MAX_EXPONENT_BITS = 64
 # exactly that, base64url.
 CREDENTIAL_ID_MAX_BYTES = 1023
 # The builtin exceptions `verify_registration_response` lets out on a
-# hand-crafted attestation (KAN-386; `tests/test_identity_mfa.py` names each
+# hand-crafted attestation (KAN-386; `tests/platform/test_identity_mfa.py` names each
 # shape): cryptography's DER/ASN.1 parsers raise ValueError, a buffer of the
 # wrong type TypeError, a missing CBOR field KeyError or AttributeError.
 _MALFORMED_ATTESTATION_ERRORS = (TypeError, ValueError, KeyError, IndexError, AttributeError, OverflowError)

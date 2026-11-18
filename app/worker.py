@@ -408,7 +408,7 @@ def _register_ci_smoke_test_probe(transport: InProcessTransport) -> None:
     nothing beyond succeeding: outbox_message.status and processed_event
     are both real production tables, so no domain-side-effect table is
     needed for this specific proof — that coverage already lives in
-    tests/test_outbox.py, which uses tests/demo_models.py's DemoWidget.
+    tests/core/test_outbox.py, which uses tests/demo_models.py's DemoWidget.
     """
 
     def _probe_handler(db, message):

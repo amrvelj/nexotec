@@ -1,0 +1,626 @@
+import uuid
+
+import pytest
+
+from app.core.auth import AccessRole, create_access_token
+from tests.dealership_support import INVALID_CHECK_DIGIT_UID, VALID_UID, valid_uid
+from tests.token_support import dealer_group_of
+
+VALID_ADDRESS = {
+    "street": "Bahnhofstrasse",
+    "houseNumber": "1",
+    "postalCode": "8001",
+    "locality": "Zürich",
+    "canton": "ZH",
+}
+
+
+def _dealership_payload(**overrides):
+    payload = {
+        "legalName": "Garage Musterbetrieb AG",
+        "franchiseType": "independent",
+        "address": VALID_ADDRESS,
+        "phone": "+41441234567",
+        "uid": valid_uid(),
+    }
+    payload.update(overrides)
+    return payload
+
+
+def _token(
+    role: AccessRole | None = None,
+    tenant_id: uuid.UUID | None = None,
+    user_id: uuid.UUID | None = None,
+    *,
+    is_dealer_manager: bool = False,
+) -> str:
+    _tid = tenant_id or uuid.uuid4()
+    return create_access_token(
+        user_id=user_id or uuid.uuid4(),
+        tenant_id=_tid,
+        group_id=dealer_group_of(str(_tid)),
+        roles=frozenset({role}) if role is not None else frozenset(),
+        is_dealer_manager=is_dealer_manager,
+    )
+
+
+def _bearer(token: str) -> dict[str, str]:
+    return {"Authorization": f"Bearer {token}"}
+
+
+def _create_dealership(client, **overrides):
+    token = _token(AccessRole.PLATFORM_ADMIN)
+    response = client.post("/v1/dealerships", json=_dealership_payload(**overrides), headers=_bearer(token))
+    assert response.status_code == 201, response.text
+    return response.json()
+
+
+# --- creation / access control -------------------------------------------
+
+
+def test_platform_admin_can_create_dealership(client):
+    body = _create_dealership(client)
+    assert body["status"] == "pending_onboarding"
+    assert body["version"] == 1
+    assert "taxId" not in body
+    assert body["uid"].startswith("CHE-")
+    assert body["vatLiable"] is False
+    assert body["vatNumber"] is None
+    assert body["correspondenceAddress"] is None
+    assert body["billingAddress"] is None
+
+
+def test_dealership_creation_defaults_to_a_new_group_of_one(client):
+    """Omitting dealerGroupId (the common case — onboarding a standalone
+    dealer) creates a fresh dealer_group rather than requiring one upfront.
+    """
+
+    body = _create_dealership(client)
+    assert body["dealerGroupId"] is not None
+
+
+@pytest.mark.parametrize("role", [AccessRole.SALES, AccessRole.INVENTORY, AccessRole.AUDITOR])
+def test_non_platform_admin_cannot_create_dealership(client, role):
+    token = _token(role)
+    response = client.post("/v1/dealerships", json=_dealership_payload(), headers=_bearer(token))
+    assert response.status_code == 403
+
+
+def test_a_dealer_manager_cannot_create_a_dealership(client):
+    """is_dealer_manager grants administration of ITS OWN dealership only —
+    dealership onboarding is platform_admin-only and the manager flag
+    doesn't cross that boundary, same as it doesn't cross the group boundary.
+    """
+    token = _token(is_dealer_manager=True)
+    response = client.post("/v1/dealerships", json=_dealership_payload(), headers=_bearer(token))
+    assert response.status_code == 403
+    assert response.json()["error"]["code"] == "forbidden"
+
+
+def test_create_dealership_requires_authentication(client):
+    response = client.post("/v1/dealerships", json=_dealership_payload())
+    assert response.status_code == 401
+
+
+# --- field validation ------------------------------------------------------
+
+
+def test_invalid_canton_code_is_rejected(client):
+    token = _token(AccessRole.PLATFORM_ADMIN)
+    payload = _dealership_payload(address={**VALID_ADDRESS, "canton": "XX"})
+    response = client.post("/v1/dealerships", json=payload, headers=_bearer(token))
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "unprocessable_entity"
+
+
+def test_invalid_postal_code_is_rejected(client):
+    token = _token(AccessRole.PLATFORM_ADMIN)
+    payload = _dealership_payload(address={**VALID_ADDRESS, "postalCode": "abc"})
+    response = client.post("/v1/dealerships", json=payload, headers=_bearer(token))
+    assert response.status_code == 422
+
+
+def test_invalid_phone_is_rejected(client):
+    token = _token(AccessRole.PLATFORM_ADMIN)
+    payload = _dealership_payload(phone="0441234567")  # missing '+' country code
+    response = client.post("/v1/dealerships", json=payload, headers=_bearer(token))
+    assert response.status_code == 422
+
+
+# --- KAN-197 (D-A-22): uid is public, validated, unique; vat_number; trade_name ---
+
+
+def test_uid_is_returned_normalised_and_stored_in_plain(client, db_session):
+    from sqlalchemy import text
+
+    body = _create_dealership(client, uid=" che-123.456.788 ")
+    assert body["uid"] == VALID_UID
+    token = _token(AccessRole.PLATFORM_ADMIN)
+    response = client.get(f"/v1/dealerships/{body['id']}", headers=_bearer(token))
+    assert response.status_code == 200
+    assert response.json()["uid"] == VALID_UID
+
+    raw = db_session.execute(text("select uid from dealership where id = :id"), {"id": body["id"]}).scalar()
+    assert raw == VALID_UID  # plain — the UID is public (Zefix), never encrypted
+
+
+def test_uid_with_wrong_check_digit_is_rejected(client):
+    token = _token(AccessRole.PLATFORM_ADMIN)
+    response = client.post(
+        "/v1/dealerships", json=_dealership_payload(uid=INVALID_CHECK_DIGIT_UID), headers=_bearer(token)
+    )
+    assert response.status_code == 422
+    assert "check digit" in response.json()["error"]["details"]["errors"][0]["msg"]
+
+
+def test_duplicate_uid_is_a_409_conflict(client):
+    _create_dealership(client, uid=VALID_UID)
+    token = _token(AccessRole.PLATFORM_ADMIN)
+    response = client.post("/v1/dealerships", json=_dealership_payload(uid=VALID_UID), headers=_bearer(token))
+    assert response.status_code == 409, response.text
+    assert response.json()["error"]["code"] == "conflict"
+    assert response.json()["error"]["details"]["uid"] == VALID_UID
+
+
+def test_patching_uid_to_another_dealerships_uid_is_a_409(client):
+    _create_dealership(client, uid=VALID_UID)
+    body = _create_dealership(client)
+    token = _token(AccessRole.PLATFORM_ADMIN)
+    response = client.patch(
+        f"/v1/dealerships/{body['id']}",
+        json={"uid": VALID_UID, "confirmation": True},
+        headers={**_bearer(token), "If-Match": "1"},
+    )
+    assert response.status_code == 409, response.text
+
+
+def test_vat_number_trade_name_and_vat_liable_round_trip(client):
+    body = _create_dealership(
+        client, uid=VALID_UID, vatNumber="che-123.456.788 mwst", vatLiable=True, tradeName="Garage Muster"
+    )
+    assert body["vatNumber"] == "CHE-123.456.788 MWST"
+    assert body["vatLiable"] is True
+    assert body["tradeName"] == "Garage Muster"
+
+
+def test_vat_number_with_a_bad_uid_part_is_rejected(client):
+    token = _token(AccessRole.PLATFORM_ADMIN)
+    response = client.post(
+        "/v1/dealerships",
+        json=_dealership_payload(vatNumber=f"{INVALID_CHECK_DIGIT_UID} MWST"),
+        headers=_bearer(token),
+    )
+    assert response.status_code == 422
+
+
+def test_uid_cannot_be_cleared(client):
+    body = _create_dealership(client)
+    token = _token(AccessRole.PLATFORM_ADMIN)
+    response = client.patch(
+        f"/v1/dealerships/{body['id']}", json={"uid": None}, headers={**_bearer(token), "If-Match": "1"}
+    )
+    assert response.status_code == 422
+
+
+# --- KAN-197 (D-A-25): one registered seat, nullable correspondence and billing overrides ---
+
+
+def test_correspondence_and_billing_overrides_are_set_and_cleared(client):
+    body = _create_dealership(client)
+    token = _token(AccessRole.PLATFORM_ADMIN)
+    override = {**VALID_ADDRESS, "street": "Postfach", "houseNumber": "12", "postalCode": "8021"}
+
+    set_response = client.patch(
+        f"/v1/dealerships/{body['id']}",
+        json={"correspondenceAddress": override},
+        headers={**_bearer(token), "If-Match": "1"},
+    )
+    assert set_response.status_code == 200, set_response.text
+    assert set_response.json()["correspondenceAddress"] == {**override, "country": "CH"}
+    assert set_response.json()["billingAddress"] is None
+    assert set_response.json()["address"] == {**VALID_ADDRESS, "country": "CH"}
+
+    clear_response = client.patch(
+        f"/v1/dealerships/{body['id']}",
+        json={"correspondenceAddress": None},
+        headers={**_bearer(token), "If-Match": "2"},
+    )
+    assert clear_response.status_code == 200, clear_response.text
+    assert clear_response.json()["correspondenceAddress"] is None
+
+
+FOREIGN_OVERRIDE = {
+    "street": "Marienplatz",
+    "houseNumber": "8",
+    "postalCode": "80331",
+    "locality": "München",
+    "country": "de",
+}
+
+
+def test_foreign_override_address_has_no_canton_and_fits_twelve_characters(client):
+    body = _create_dealership(client, billingAddress=FOREIGN_OVERRIDE)
+    assert body["billingAddress"]["postalCode"] == "80331"
+    assert body["billingAddress"]["country"] == "DE"  # upper-cased
+    assert body["billingAddress"]["canton"] is None
+
+
+def test_foreign_override_address_with_a_swiss_canton_is_rejected(client):
+    token = _token(AccessRole.PLATFORM_ADMIN)
+    payload = _dealership_payload(billingAddress={**FOREIGN_OVERRIDE, "canton": "ZH"})
+    response = client.post("/v1/dealerships", json=payload, headers=_bearer(token))
+    assert response.status_code == 422
+
+
+def test_swiss_override_address_without_a_canton_is_rejected(client):
+    token = _token(AccessRole.PLATFORM_ADMIN)
+    override = {k: v for k, v in VALID_ADDRESS.items() if k != "canton"}
+    response = client.post(
+        "/v1/dealerships", json=_dealership_payload(correspondenceAddress=override), headers=_bearer(token)
+    )
+    assert response.status_code == 422
+
+
+def test_vat_number_must_carry_the_dealerships_own_uid(client):
+    token = _token(AccessRole.PLATFORM_ADMIN)
+    response = client.post(
+        "/v1/dealerships",
+        json=_dealership_payload(uid=VALID_UID, vatNumber="CHE-987.654.326 MWST"),
+        headers=_bearer(token),
+    )
+    assert response.status_code == 422, response.text
+    assert response.json()["error"]["code"] == "unprocessable_entity"
+
+    body = _create_dealership(client, uid=VALID_UID)
+    response = client.patch(
+        f"/v1/dealerships/{body['id']}",
+        json={"vatNumber": "CHE-987.654.326 MWST", "confirmation": True},  # KAN-203: past the confirmation gate
+        headers={**_bearer(token), "If-Match": "1"},
+    )
+    assert response.status_code == 422, response.text
+    assert response.json()["error"]["details"] == {"uid": VALID_UID, "vatNumber": "CHE-987.654.326 MWST"}
+
+
+def test_a_row_the_old_api_accepted_with_an_empty_house_number_still_reads(client, db_session):
+    from sqlalchemy import text
+
+    body = _create_dealership(client)
+    db_session.execute(text("update dealership set address_house_number = '' where id = :id"), {"id": body["id"]})
+    db_session.commit()
+    token = _token(AccessRole.PLATFORM_ADMIN)
+    response = client.get(f"/v1/dealerships/{body['id']}", headers=_bearer(token))
+    assert response.status_code == 200, response.text
+    assert response.json()["address"]["houseNumber"] == ""
+
+
+def test_swiss_postal_code_still_has_to_be_four_digits(client):
+    token = _token(AccessRole.PLATFORM_ADMIN)
+    payload = _dealership_payload(address={**VALID_ADDRESS, "postalCode": "80331"})
+    response = client.post("/v1/dealerships", json=payload, headers=_bearer(token))
+    assert response.status_code == 422
+
+
+# --- cross-tenant isolation --------------------------------------------------
+
+
+def test_dealer_manager_can_read_own_dealership(client):
+    body = _create_dealership(client)
+    dealership_id = body["id"]
+    own_manager_token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealership_id))
+    response = client.get(f"/v1/dealerships/{dealership_id}", headers=_bearer(own_manager_token))
+    assert response.status_code == 200
+
+
+def test_dealer_manager_cannot_read_other_dealership(client):
+    body = _create_dealership(client)
+    dealership_id = body["id"]
+    other_manager_token = _token(is_dealer_manager=True)  # random, different tenant_id
+    response = client.get(f"/v1/dealerships/{dealership_id}", headers=_bearer(other_manager_token))
+    assert response.status_code == 404
+    assert response.json()["error"]["code"] == "not_found"
+
+
+def test_get_unknown_dealership_is_404(client):
+    token = _token(AccessRole.PLATFORM_ADMIN)
+    response = client.get(f"/v1/dealerships/{uuid.uuid4()}", headers=_bearer(token))
+    assert response.status_code == 404
+
+
+def test_list_dealerships_is_platform_admin_only(client):
+    _create_dealership(client)
+    dealer_manager_token = _token(is_dealer_manager=True)
+    response = client.get("/v1/dealerships", headers=_bearer(dealer_manager_token))
+    assert response.status_code == 403
+
+
+# --- optimistic concurrency ---------------------------------------------------
+
+
+def test_patch_without_if_match_is_400(client):
+    body = _create_dealership(client)
+    token = _token(AccessRole.PLATFORM_ADMIN)
+    response = client.patch(f"/v1/dealerships/{body['id']}", json={"status": "active"}, headers=_bearer(token))
+    assert response.status_code == 400
+
+
+def test_patch_with_stale_if_match_is_409(client):
+    body = _create_dealership(client)
+    token = _token(AccessRole.PLATFORM_ADMIN)
+    headers = {**_bearer(token), "If-Match": "1"}
+    first = client.patch(f"/v1/dealerships/{body['id']}", json={"tradeName": "Musterbetrieb"}, headers=headers)
+    assert first.status_code == 200
+    assert first.json()["version"] == 2
+
+    stale = client.patch(f"/v1/dealerships/{body['id']}", json={"tradeName": "Muster"}, headers=headers)
+    assert stale.status_code == 409
+    assert stale.json()["error"]["code"] == "conflict"
+
+
+def test_patch_updates_dealership_and_bumps_version(client):
+    body = _create_dealership(client)
+    token = _token(AccessRole.PLATFORM_ADMIN)
+    response = client.patch(
+        f"/v1/dealerships/{body['id']}",
+        json={"legalName": "New Legal Name", "confirmation": True},  # KAN-203: legal identity needs a confirmation
+        headers={**_bearer(token), "If-Match": "1"},
+    )
+    assert response.status_code == 200
+    assert response.json()["legalName"] == "New Legal Name"
+    assert response.json()["version"] == 2
+
+
+# --- lifecycle: offboarded is terminal ----------------------------------------
+
+
+def test_offboarded_dealership_status_is_terminal(client, db_session):
+    body = _create_dealership(client)
+    token = _token(AccessRole.PLATFORM_ADMIN)
+    headers = _bearer(token)
+    # KAN-712: the PATCH no longer offboards (the procedure does, KAN-218);
+    # the row is put there directly to prove the status stays terminal.
+    from app.platform.organisation.models.dealership import Dealership, DealershipStatus
+
+    db_session.get(Dealership, uuid.UUID(body["id"])).status = DealershipStatus.OFFBOARDED
+    db_session.commit()
+
+    r2 = client.patch(
+        f"/v1/dealerships/{body['id']}", json={"status": "active"}, headers={**headers, "If-Match": "1"}
+    )
+    assert r2.status_code == 409
+
+
+# --- audit logging ----------------------------------------------------------
+
+
+def test_legal_identity_and_status_changes_are_audit_logged(client):
+    body = _create_dealership(client)
+    token = _token(AccessRole.PLATFORM_ADMIN)
+    headers = {**_bearer(token), "If-Match": "1"}
+    client.patch(
+        f"/v1/dealerships/{body['id']}",
+        json={"uid": VALID_UID, "vatLiable": True, "confirmation": True},
+        headers=headers,
+    )
+
+    log = client.get(f"/v1/dealerships/{body['id']}/audit-log", headers=_bearer(token))
+    assert log.status_code == 200
+    items = log.json()["items"]
+    actions = [item["action"] for item in items]
+    assert "create" in actions
+    assert "update" in actions
+    update_event = next(item for item in items if item["action"] == "update")
+    assert update_event["after"]["uid"] == VALID_UID
+    assert update_event["before"]["uid"] == body["uid"]
+    assert update_event["after"]["vat_liable"] is True
+
+
+def test_uid_audit_entries_are_in_plain_because_the_uid_is_public(client):
+    body = _create_dealership(client)
+    token = _token(AccessRole.PLATFORM_ADMIN)
+
+    log = client.get(f"/v1/dealerships/{body['id']}/audit-log", headers=_bearer(token))
+    # KAN-204: the first location is created (and audited) with the Betrieb.
+    create_event = next(
+        item for item in log.json()["items"] if item["action"] == "create" and item["entityType"] == "dealership"
+    )
+    assert create_event["after"]["uid"] == body["uid"]
+    assert "tax_id" not in create_event["after"]
+
+
+def test_dealership_audit_log_requires_dealer_manager_or_auditor_or_platform_admin(client):
+    body = _create_dealership(client)
+    sales_token = _token(AccessRole.SALES, tenant_id=uuid.UUID(body["id"]))
+    response = client.get(f"/v1/dealerships/{body['id']}/audit-log", headers=_bearer(sales_token))
+    assert response.status_code == 403
+
+
+# --- pagination ---------------------------------------------------------------
+
+
+def test_list_dealerships_paginates(client):
+    for i in range(3):
+        _create_dealership(client, legalName=f"Garage {i} AG")
+
+    token = _token(AccessRole.PLATFORM_ADMIN)
+    first_page = client.get("/v1/dealerships?limit=2", headers=_bearer(token))
+    assert first_page.status_code == 200
+    first_body = first_page.json()
+    assert len(first_body["items"]) == 2
+    assert first_body["nextCursor"] is not None
+
+    second_page = client.get(
+        f"/v1/dealerships?limit=2&cursor={first_body['nextCursor']}", headers=_bearer(token)
+    )
+    assert second_page.status_code == 200
+    second_body = second_page.json()
+    assert len(second_body["items"]) == 1
+    assert second_body["nextCursor"] is None
+
+    first_ids = {item["id"] for item in first_body["items"]}
+    second_ids = {item["id"] for item in second_body["items"]}
+    assert first_ids.isdisjoint(second_ids)
+
+
+# --- WP-6b: branding + default correspondence language -----------------------------
+
+
+def test_new_dealership_defaults_to_the_shipped_brand_colour_and_german(db_session):
+    """logo_url/brand_primary_color/default_correspondence_language (WP-6b
+    PR-1) are placeholders every real dealership admin is expected to
+    override — this only pins the Python-level defaults new rows get,
+    matching the migration's own backfill for pre-existing rows.
+    """
+    from app.core.i18n import SwissLanguage
+    from app.platform.organisation.models.dealership import DealerGroup, Dealership, FranchiseType
+
+    group = DealerGroup(name="Garage AG group")
+    db_session.add(group)
+    db_session.flush()
+
+    dealership = Dealership(
+        dealer_group_id=group.id,
+        legal_name="Garage AG",
+        franchise_type=FranchiseType.INDEPENDENT,
+        address_street="Bahnhofstrasse",
+        address_house_number="1",
+        address_postal_code="8001",
+        address_locality="Zürich",
+        address_canton="ZH",
+        phone="+41441234567",
+        uid=valid_uid(),
+    )
+    db_session.add(dealership)
+    db_session.flush()
+    db_session.refresh(dealership)
+
+    assert dealership.logo_url is None
+    assert dealership.brand_primary_color == "#7C3AED"
+    assert dealership.default_correspondence_language == SwissLanguage.DE
+def test_migration_backfill_language_is_the_enum_member_name_not_its_value():
+    """Regression: the migration's server_default originally spelled the
+    lowercase enum VALUE ('de'), not the member NAME ('DE') SQLAlchemy's
+    Enum(native_enum=False) actually persists (same convention this
+    codebase already documents for FranchiseType/DealershipStatus in
+    scripts/seed_migration_smoke_test.py's own comments) — invisible to
+    every test in this fast SQLite lane, since none of them exercise the
+    migration itself, only caught by the "alembic upgrade from previously-
+    deployed revision" CI job reading a backfilled row back through the
+    ORM. This loads the migration module directly (same idiom
+    tests/vehicle/test_vehicle_catalogue.py already uses) so a future regression
+    here fails fast, without needing Postgres.
+    """
+    import importlib.util
+    from pathlib import Path
+
+    from app.core.i18n import SwissLanguage
+
+    migration_path = (
+        Path(__file__).resolve().parent.parent.parent
+        / "alembic"
+        / "versions"
+        / "platform"
+        / "1688c10efea9_dealership_branding_and_default_language.py"
+    )
+    spec = importlib.util.spec_from_file_location("wp6b_pr1_migration", migration_path)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    assert module._DEFAULT_LANGUAGE in {member.name for member in SwissLanguage}
+
+
+def test_get_dealership_default_correspondence_language_returns_each_dealerships_own_value(db_session):
+    """WP-6b PR-4: the one half of the "customer, else dealership default"
+    rule app.platform actually owns — proven here to return each
+    dealership's own configured value, not a hardcoded one.
+    """
+    from app.core.i18n import SwissLanguage
+    from app.platform.organisation.models.dealership import DealerGroup, Dealership, FranchiseType
+    from app.platform.organisation.services.dealership import get_dealership_default_correspondence_language
+
+    group = DealerGroup(name="Garage AG group")
+    db_session.add(group)
+    db_session.flush()
+
+    de_dealership = Dealership(
+        dealer_group_id=group.id,
+        legal_name="Garage Deutsch AG",
+        franchise_type=FranchiseType.INDEPENDENT,
+        address_street="Bahnhofstrasse",
+        address_house_number="1",
+        address_postal_code="8001",
+        address_locality="Zürich",
+        address_canton="ZH",
+        phone="+41441234567",
+        uid=valid_uid(),
+    )
+    fr_dealership = Dealership(
+        dealer_group_id=group.id,
+        legal_name="Garage Français SA",
+        franchise_type=FranchiseType.INDEPENDENT,
+        address_street="Rue du Rhône",
+        address_house_number="10",
+        address_postal_code="1204",
+        address_locality="Genève",
+        address_canton="GE",
+        phone="+41221234567",
+        uid=valid_uid(),
+        default_correspondence_language=SwissLanguage.FR,
+    )
+    db_session.add_all([de_dealership, fr_dealership])
+    db_session.flush()
+
+    assert get_dealership_default_correspondence_language(db_session, de_dealership.id) == SwissLanguage.DE
+    assert get_dealership_default_correspondence_language(db_session, fr_dealership.id) == SwissLanguage.FR
+
+
+# --- KAN-312: an explicit null on a NOT NULL field is a 422 -----------------
+
+
+@pytest.mark.parametrize(
+    "field",
+    ["legalName", "franchiseType", "address", "phone", "uid", "vatLiable", "status"],
+)
+def test_patching_a_not_null_field_to_null_is_a_422_and_changes_nothing(client, field):
+    body = _create_dealership(client)
+    token = _token(AccessRole.PLATFORM_ADMIN)
+
+    response = client.patch(
+        f"/v1/dealerships/{body['id']}", json={field: None}, headers={**_bearer(token), "If-Match": "1"}
+    )
+
+    assert response.status_code == 422, response.text
+    error = response.json()["error"]
+    assert error["code"] == "unprocessable_entity"
+    assert field in error["details"]["errors"][0]["msg"]
+    assert client.get(f"/v1/dealerships/{body['id']}", headers=_bearer(token)).json() == body
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("tradeName", "Garage Muster"),
+        ("oemAffiliations", ["VW"]),
+        ("vatRate", "8.10"),
+        ("ageingAlertThresholds", [60]),
+        ("vatNumber", "CHE-123.456.788 MWST"),
+        ("billingAddress", {**VALID_ADDRESS, "country": "CH"}),
+    ],
+)
+def test_patching_a_nullable_field_to_null_still_clears_it(client, field, value):
+    body = _create_dealership(client, uid=VALID_UID)
+    token = _token(AccessRole.PLATFORM_ADMIN)
+    # KAN-203: the VAT number is legal identity — its change (and its clearing) needs the confirmation.
+    confirm = {"confirmation": True} if field == "vatNumber" else {}
+    set_response = client.patch(
+        f"/v1/dealerships/{body['id']}", json={field: value, **confirm}, headers={**_bearer(token), "If-Match": "1"}
+    )
+    assert set_response.status_code == 200, set_response.text
+    assert set_response.json()[field] is not None
+
+    response = client.patch(
+        f"/v1/dealerships/{body['id']}", json={field: None, **confirm}, headers={**_bearer(token), "If-Match": "2"}
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json()[field] is None

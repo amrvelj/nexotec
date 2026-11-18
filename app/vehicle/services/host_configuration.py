@@ -16,7 +16,7 @@ from app.integration.public import ConnectionRef
 
 # Literals, not `ConfigurationMode.X.value`: the ADR-047 guard
 # (tests/architecture/test_adr_047_no_shared_transaction.py) cannot follow a
-# public export assigned from an attribute. tests/test_configurator_hosts.py
+# public export assigned from an attribute. tests/cross_context/test_configurator_hosts.py
 # pins both to the enum.
 BUILD = "build"
 RECORD = "record"

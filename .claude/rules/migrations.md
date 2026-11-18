@@ -7,7 +7,7 @@ paths:
   - "app/model_registry.py"
   - "app/core/enum_type.py"
   - "app/db.py"
-  - "tests/test_migrated_*.py"
+  - "tests/**/test_migrated_*.py"
   - "scripts/check_concurrent_alembic_upgrade.py"
 ---
 <!-- Maintainer note. ADR-015 (PR-3 chains), ADR-011, ADR-021, ADR-088, ADR-133, ADR-134, rule 2. KAN-615
@@ -46,7 +46,7 @@ verified against main@73baf3f (2026-10-25). -->
   them — README's "Database migrations" names what renders.
 - **A migration's seed rows are literals in the migration** (ADR-133), never read from an
   application module that keeps moving; keep an equality test between them and the application's
-  declaration (`tests/test_migrated_notification_catalogue.py` is the pattern). Four shipped platform
+  declaration (`tests/platform/test_migrated_notification_catalogue.py` is the pattern). Four shipped platform
   migrations import their rows; their sources are frozen by digest
   (`tests/architecture/test_migration_seed_sources_are_frozen.py`, which also refuses a migration
   importing a bounded context). A change to a frozen source is a new data migration with its own

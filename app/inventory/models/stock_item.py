@@ -15,7 +15,7 @@ table (revised 2026-08-16, citing ADR-054) is authoritative here over an
 earlier, stale four-value draft that included "sold": a sold (invoiced)
 vehicle is never a lifecycle value, it is simply absent from the active
 list (FR-I-12) — enforced by `left_stock_at IS NOT NULL` (PR-5), not a
-fourth enum member. Reinforced by tests/test_inventory_stock_item.py's
+fourth enum member. Reinforced by tests/inventory/test_inventory_stock_item.py's
 own enum-shape assertion, so a future migration can't silently reintroduce
 one.
 """
@@ -118,7 +118,7 @@ class StockItem(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, TimestampMix
         # car's chassis number is unique per make (Anto, option A), so two
         # cars of two makes may share one; such a car is in the dealership's
         # stock at most once by its vehicle-mdm record instead. The pattern is
-        # `app.core.validators._VIN_RE`'s (tests/test_kan535_chassis_number_purchase.py
+        # `app.core.validators._VIN_RE`'s (tests/inventory/test_kan535_chassis_number_purchase.py
         # keeps them equal). SQLite (the fast lane) has no `~`: it keeps the
         # older, wider VIN predicate.
         Index(

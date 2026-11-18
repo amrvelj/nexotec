@@ -136,7 +136,7 @@ def _numeric_scale(column: Any) -> int | None:
 def cursor_column_supported(column: Any) -> bool:
     """Whether a sorted cursor can be minted and checked against `column` at
     all — the guard every sort allow-list is held to
-    (tests/test_sorted_cursor_must_match_sort.py): a column of another type
+    (tests/cross_context/test_sorted_cursor_must_match_sort.py): a column of another type
     would refuse every cursor, and a Numeric column without a fixed scale
     could not carry its value exactly (KAN-713)."""
 

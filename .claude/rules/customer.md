@@ -3,9 +3,9 @@ paths:
   - "app/customer/**"
   - "app/core/postal_codes.py"
   - "alembic/versions/customer/**"
-  - "tests/test_customer*.py"
-  - "tests/test_legal_basis.py"
-  - "tests/test_*preferred_channel*.py"
+  - "tests/customer/test_customer*.py"
+  - "tests/customer/test_legal_basis.py"
+  - "tests/customer/test_*preferred_channel*.py"
   - "frontend/apps/dms/src/modules/customer/pages/Customer*"
   - "frontend/apps/dms/src/modules/customer/components/customer-detail/CustomerDetailContent*"
   - "frontend/apps/dms/src/modules/customer/pages/customerScreens*"
@@ -139,7 +139,7 @@ module folders (KAN-611). Last verified against main@73baf3f (2026-10-25). -->
   those are in its archive export — one rule, `app/core/audit_attribution.py`: the row's
   `acting_dealership_id`, else (older rows) an author whose only Betrieb in the group is that one.
   Every customer History write passes `acting_dealership_id` by name (`None` only for a write no
-  Betrieb made); `tests/test_kan722_offboarded_history_hidden.py` refuses one that does not.
+  Betrieb made); `tests/customer/test_kan722_offboarded_history_hidden.py` refuses one that does not.
 - `advisor_label` follows a rename within a day (`customer.advisor_labels`, `events-worker.md`);
   its batches skip a customer another writer holds, which could otherwise deadlock against a merge.
 

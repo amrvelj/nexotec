@@ -1,7 +1,7 @@
 ---
 paths:
   - "app/sales/**"
-  - "tests/test_sales_*.py"
+  - "tests/sales/test_sales_*.py"
   - "tests/architecture/test_margin_never_in_rendered_document.py"
   - "tests/architecture/test_adr_047_no_shared_transaction.py"
   - "alembic/versions/sales/**"

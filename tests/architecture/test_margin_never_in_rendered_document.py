@@ -15,7 +15,7 @@ must never even be read by the document-building code, the same
 structural guarantee the module docstring describes ("enforced
 structurally by these functions simply never reading those fields").
 
-tests/test_sales_documents.py's own sentinel-value tests are the
+tests/sales/test_sales_documents.py's own sentinel-value tests are the
 complementary, behavioural half of this guarantee (build a document
 against an offer/contract carrying magic sentinel values for these three
 fields, assert the sentinels never appear in the dumped content) — this

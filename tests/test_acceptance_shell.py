@@ -9,8 +9,8 @@ acceptance criteria, and doesn't re-derive what's already covered there.
 The shell's fourth entity, the legacy Sales `transaction`, is gone (ADR-050
 retired its writes; KAN-555 dropped the table, ADR-117): the sale and
 trade-in walkthroughs of AC4 and AC8's cancel live on as Sales' offer and
-contract flows (tests/test_sales_lifecycle_reservation.py,
-tests/test_sales_trade_in.py), and AC7 and AC9 assert on a sales offer, the
+contract flows (tests/sales/test_sales_lifecycle_reservation.py,
+tests/sales/test_sales_trade_in.py), and AC7 and AC9 assert on a sales offer, the
 record that replaced it.
 """
 
@@ -168,7 +168,7 @@ def test_ac2_to_4_full_shell_walkthrough_sale(client, mailbox):
     custodian update" step went with the legacy table (ADR-050, KAN-555):
     Sales' confirm_contract flow supersedes it on StockItem/VehicleMdm
     (WP-5/7); the connected sale scenario lives in
-    tests/test_sales_lifecycle_reservation.py. What is left here is that the
+    tests/sales/test_sales_lifecycle_reservation.py. What is left here is that the
     retired route is gone.
     """
 

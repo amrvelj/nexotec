@@ -23,13 +23,13 @@ paths:
   - "app/platform/identity/models/mfa.py"
   - "app/platform/identity/models/connected_account.py"
   - "app/platform/identity/models/dealership_auth_config.py"
-  - "tests/test_auth.py"
-  - "tests/test_login.py"
-  - "tests/test_identity_*.py"
+  - "tests/platform/test_auth.py"
+  - "tests/platform/test_login.py"
+  - "tests/platform/test_identity_*.py"
   - "tests/identity_support.py"
-  - "tests/test_platform_account_lock_order.py"
-  - "tests/test_platform_recovery.py"
-  - "tests/test_platform_connected_account_provider_revocation.py"
+  - "tests/platform/test_platform_account_lock_order.py"
+  - "tests/platform/test_platform_recovery.py"
+  - "tests/platform/test_platform_connected_account_provider_revocation.py"
   - "tests/architecture/test_no_password_credential_storage.py"
   - "tests/architecture/test_connected_account_is_never_an_identity.py"
   - "tests/architecture/test_recovery_never_touches_a_password.py"
@@ -66,7 +66,7 @@ paths:
 - Nexotec owns authentication (D-A-07). `LocalPasswordProvider` behind the `IdentityProvider` seam
   is the only implementation (D-A-08, D-A-11; Entra OIDC is [P3]).
 - **Every refusal is the same 401 body with the same argon2 work** (a dummy verify for an unknown
-  address) — never a reason-specific message (`tests/test_identity_login_policy.py` counts the
+  address) — never a reason-specific message (`tests/platform/test_identity_login_policy.py` counts the
   verifies); a NUL character there is the same 401 (`platform-sessions.md`).
 - Per-account backoff from the third failure, soft lockout after `auth_lockout_failures` (a reset
   clears it); per-IP backoff on the **last** X-Forwarded-For entry, never the first. Wrong
@@ -76,7 +76,7 @@ paths:
   lock; the front door (invitation acceptance, reset confirm) locks the user before it consumes its
   token; the account's MFA routes take `user_reads_service.get_own_user_for_update_or_404`, staff
   recovery `recovery.get_user_for_recovery_or_404`, the reset request `lock_user_for_login` (an
-  address changed meanwhile is answered like an unknown one). `tests/test_platform_account_lock_order.py`.
+  address changed meanwhile is answered like an unknown one). `tests/platform/test_platform_account_lock_order.py`.
   A single-row write (logout, revoking one's own session, the guard's touch) takes no user lock.
 - `credential` holds the hash and the last five; **no other column may be password-shaped**
   (`test_no_password_credential_storage.py`; the terminal PIN's `device_technician_pin` is the one

@@ -1,7 +1,7 @@
 """The Stock grid's column registry (KAN-461; ADR-060, FR-UI-01, U-10): every
 persisted `stock_item` field a column, each sortable and filterable through
 `app.core.list_query`, or on `STOCK_ITEM_EXCLUDED_COLUMNS` with the reason
-it is not a column. `tests/test_kan461_stock_grid.py` holds the two lists to
+it is not a column. `tests/inventory/test_kan461_stock_grid.py` holds the two lists to
 the model: a new column fails until someone decides.
 
 The default-visible set is the grid's documented one (unchanged by

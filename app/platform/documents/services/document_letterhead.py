@@ -8,7 +8,7 @@ like (ADR-051, `test_no_layout_code_outside_document_render.py`). Here:
 - **The envelope window** (Q1 B): left or right per Betrieb, default right,
   with a fold mark. The millimetre values are Swiss Post's (see
   `WINDOW_GEOMETRY`); the renderer places the addressee there absolutely and
-  `tests/test_document_letterhead.py` measures WeasyPrint's laid-out box
+  `tests/platform/test_document_letterhead.py` measures WeasyPrint's laid-out box
   against them.
 - **The logo size** S/M/L — 30/40/50 mm wide at most, 20 mm high at most.
 - **The footer's four columns**, resolved from master data at render time

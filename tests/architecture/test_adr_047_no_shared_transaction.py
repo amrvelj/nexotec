@@ -254,7 +254,7 @@ _OWN_COMMIT_WRITES = {
     ),
     # Every provider call writes exactly one integration_call_log row,
     # committed in record_call on the gateway's OWN session, never the
-    # caller's (KAN-90; tests/test_integration_gateway.py pins that the
+    # caller's (KAN-90; tests/integration/test_integration_gateway.py pins that the
     # caller's rows are left to the caller). A captured payload commits
     # again, only sometimes — which is why the commit's home is named.
     "app.integration.public.call_capability": (

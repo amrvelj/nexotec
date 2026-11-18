@@ -43,7 +43,7 @@ SCENARIOS: dict[str, list[tuple[str, ...]]] = {
         ("app/sales/public.py",),
         ("app/core/permissions.py",),
         ("app/main.py",),
-        ("tests/test_sales_contract.py",),
+        ("tests/sales/test_sales_contract.py",),
         ("alembic/versions/sales/e7a3c5d1b9f4_kan570_deal_stock_item_label.py",),
     ],
     "full-stack sales ticket": [
@@ -52,7 +52,7 @@ SCENARIOS: dict[str, list[tuple[str, ...]]] = {
         ("app/sales/public.py",),
         ("app/core/permissions.py",),
         ("app/main.py",),
-        ("tests/test_sales_contract.py",),
+        ("tests/sales/test_sales_contract.py",),
         ("alembic/versions/sales/e7a3c5d1b9f4_kan570_deal_stock_item_label.py",),
         ("frontend/apps/dms/src/modules/sales/pages/OfferWorkspacePage.tsx", "frontend/apps/dms/src/pages/OfferWorkspacePage.tsx"),
         ("frontend/apps/dms/src/modules/sales/components/deal-workspace/DealWorkspaceContainers.tsx",

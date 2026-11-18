@@ -3,8 +3,8 @@ channel accepts, and a car in stock ready to list there."""
 
 from app.platform.organisation.models.dealership import Dealership
 from app.platform.organisation.models.publishing_profile import PublishingProfile
-from tests.test_inventory_invoicing_gate import _make_dealership
-from tests.test_inventory_marketplace_transmission import _make_ready_item
+from tests.inventory.test_inventory_invoicing_gate import _make_dealership
+from tests.inventory.test_inventory_marketplace_transmission import _make_ready_item
 from tests.vin_support import unique_vin
 
 

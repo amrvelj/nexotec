@@ -8,10 +8,10 @@ paths:
   - "app/inventory/consumers.py"
   - "app/inventory/daily_jobs.py"
   - "scripts/backfill_manual_configuration_reservations.py"
-  - "tests/test_inventory_reservation*.py"
-  - "tests/test_inventory_manual_*.py"
-  - "tests/test_inventory_pipeline_consumer.py"
-  - "tests/test_sales_lifecycle_reservation.py"
+  - "tests/inventory/test_inventory_reservation*.py"
+  - "tests/inventory/test_inventory_manual_*.py"
+  - "tests/inventory/test_inventory_pipeline_consumer.py"
+  - "tests/sales/test_sales_lifecycle_reservation.py"
 ---
 <!-- Maintainer note. PRD-Stock K-12, FR-I-11; ADR-047 (Pattern B). Moved out of inventory.md by
 KAN-615 (2026-11-13). Last verified against main@73baf3f (2026-10-25). -->

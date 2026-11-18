@@ -4,9 +4,9 @@ paths:
   - "app/sales/services/deal_projection.py"
   - "app/sales/services/stock_item_purchase.py"
   - "app/sales/models/**"
-  - "tests/test_sales_invoiceable_replica.py"
-  - "tests/test_sales_deal_follows_live_entity.py"
-  - "tests/test_trade_in_valuation_reconciliation.py"
+  - "tests/sales/test_sales_invoiceable_replica.py"
+  - "tests/sales/test_sales_deal_follows_live_entity.py"
+  - "tests/cross_context/test_trade_in_valuation_reconciliation.py"
   - "tests/architecture/test_actor_columns_reconciled.py"
 ---
 <!-- Maintainer note. Rule 10; ADR-052, ADR-107. Moved out of sales.md by KAN-615 (2026-11-13).

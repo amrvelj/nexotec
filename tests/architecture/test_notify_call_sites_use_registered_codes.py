@@ -7,7 +7,7 @@ refusal at review time, for every path — including the ones no test walks.
 A call site must pass its code as a literal: `NotificationEventCode.<MEMBER>`
 or a string constant, and the code must be declared in
 `app/platform/identity/services/notification_catalogue.py` (whose rows the platform
-migration seeds — `tests/test_migrated_notification_catalogue.py`). A code
+migration seeds — `tests/platform/test_migrated_notification_catalogue.py`). A code
 computed at run time cannot be checked, so it fails here too.
 
 A call is `notify` imported from `app.platform.public` or

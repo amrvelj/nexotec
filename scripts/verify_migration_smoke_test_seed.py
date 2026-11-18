@@ -84,7 +84,7 @@ def _verify_auto_i_dat_code_map(db) -> None:
     auto_i_dat mapping is present with the seeded target (the row counts above
     prove execution, not content). The R-C-5 invariant — 112 is a stroke
     count, never a drivetrain — is asserted where it is defined:
-    tests/test_provider_code_map_seed.py.
+    tests/vehicle/test_provider_code_map_seed.py.
     """
 
     seed = _load_code_map_seed_migration()

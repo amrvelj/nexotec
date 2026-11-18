@@ -10,7 +10,7 @@ Every row here is consistent on purpose — no dangling references. This
 seed exists to prove the round trip works on healthy data, matching the
 condition under which a real downgrade would ever be run (immediately
 after the corresponding upgrade, before anything could have gone stale).
-It is not a reconciliation test; see tests/test_reconciliation.py for that.
+It is not a reconciliation test; see tests/cross_context/test_reconciliation.py for that.
 
 KAN-79 retired the legacy `vehicle` table, and with it this seed's legacy car,
 its `vehicle_party` row, its `transaction` row and its custody event. None can

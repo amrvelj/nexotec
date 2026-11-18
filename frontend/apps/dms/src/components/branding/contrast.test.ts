@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { contrastRatio, judgeBrandColors } from './contrast'
 
-// KAN-205 — the same vectors as tests/test_branding.py::test_the_contrast_ratio_is_wcags,
+// KAN-205 — the same vectors as tests/platform/test_branding.py::test_the_contrast_ratio_is_wcags,
 // so the verdict shown while picking is the one the save returns.
 const VECTORS: [string, string, number][] = [
   ['#000000', '#FFFFFF', 21.0],

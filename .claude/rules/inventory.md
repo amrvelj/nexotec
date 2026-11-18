@@ -5,8 +5,8 @@ paths:
   - "app/integration/adapters/marketplace_base.py"
   - "scripts/backfill_manual_configuration_reservations.py"
   - "alembic/versions/inventory/**"
-  - "tests/test_inventory_*.py"
-  - "tests/test_kan513_one_configuration_one_stock_item.py"
+  - "tests/inventory/test_inventory_*.py"
+  - "tests/inventory/test_kan513_one_configuration_one_stock_item.py"
   - "tests/stock_support.py"
 ---
 <!-- Maintainer note. PRD-Stock; ADR-045/049/052/054/055/057/062/070/074/087/103/116/117. KAN-615
@@ -52,7 +52,7 @@ verified against main@73baf3f (2026-10-25). -->
   `invoicing_gate.py::apply_finance_invoice_issued` has no caller until Finance issues invoices
   (WP-9), so `request_invoice` leaves the car in stock. `storno_pending` is set by nothing.
 - **ADR-055 — group-readable stock is its own enumerated projection** (`StockItemGroupRead`), never
-  the tenant grid with columns removed; `tests/test_inventory_group_listing.py` asserts by name that
+  the tenant grid with columns removed; `tests/inventory/test_inventory_group_listing.py` asserts by name that
   prices, landed cost, notional input tax, purchase, supplier, invoicing and valuation fields are
   absent (`listPrice` is deliberately present). The dealership filter narrows the group's own roster
   only — an id outside it matches nothing, never a 403/404. Which Betriebe are in the group, and
@@ -62,7 +62,7 @@ verified against main@73baf3f (2026-10-25). -->
 - **Licensed with `sales`** (D-A-04): every inventory router carries the gate (404, before any
   role check; `test_sales_routers_carry_entitlement_gate.py`). Every write checks `require_write` on
   its own matrix row (`stock_items`, `stock_acquisition`, `stock_condition`,
-  `marketplace_publishing`, `stock_reservation`; `tests/test_inventory_write_capabilities.py`), so
+  `marketplace_publishing`, `stock_reservation`; `tests/inventory/test_inventory_write_capabilities.py`), so
   widening one row opens no other.
 
 ## Facts other contexts read
@@ -83,7 +83,7 @@ verified against main@73baf3f (2026-10-25). -->
   (`services/purchase.py::record_purchase`) from the purchase price and the dealership's `vat_rate`,
   independent of `landed_cost`, and can be overridden (audited). Stock owns it; Sales only reads it.
   **There is no `vatTreatment`** (ADR-057; `test_no_vat_treatment_field.py`, and by name on the
-  stock-item schemas in `tests/test_inventory_purchase.py`).
+  stock-item schemas in `tests/inventory/test_inventory_purchase.py`).
 
 ## Reservations, the sweep, marketplaces, numbers
 - A manual configuration's pipeline item is created reserved for its contract; a stock car's

@@ -2,10 +2,10 @@
 paths:
   - "app/integration/**"
   - "alembic/versions/integration/**"
-  - "tests/test_integration_*.py"
-  - "tests/test_identapi_*.py"
+  - "tests/integration/test_integration_*.py"
+  - "tests/integration/test_identapi_*.py"
   - "tests/identapi_*.py"
-  - "tests/test_kan549_retire_dat_provider.py"
+  - "tests/integration/test_kan549_retire_dat_provider.py"
   - "tests/architecture/test_auto_i_dat_calls_go_through_the_gateway.py"
   - "tests/architecture/test_provider_adapter_is_the_identapi.py"
   - "tests/architecture/test_no_mcp_server.py"

@@ -9,7 +9,7 @@ nothing tied them to the bundles: AutoScout24's `kundennummer`, `ftpHost` and
 
 The truth is the migrated registry, not a list copied into this test: it runs
 `alembic upgrade heads` on a throwaway database next to the test database (the
-pattern of `tests/test_migrated_notification_catalogue.py`) and reads every provider
+pattern of `tests/platform/test_migrated_notification_catalogue.py`) and reads every provider
 row, so the next provider migration that names a new key fails here until the key is
 in all four bundles.
 """

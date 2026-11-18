@@ -37,7 +37,7 @@ from tests.enum_test_support import (
     widen_connection_scope_check,
 )
 from tests.test_kan86_value_migrations import _load, _raw, _run, _seed_one_row_each, _set_raw
-from tests.test_vehicle_mdm_search_sort import _walk
+from tests.vehicle.test_vehicle_mdm_search_sort import _walk
 
 pytestmark = pytest.mark.skipif(not os.environ.get("DMS_TEST_DATABASE_URL"), reason="Postgres-only (ADR-011)")
 
