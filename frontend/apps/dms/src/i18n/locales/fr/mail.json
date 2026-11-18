@@ -1,0 +1,85 @@
+{
+  "title": "E-mails clients",
+  "subtitle": "Les offres, contrats et autres e-mails aux clients partent uniquement d'une boîte de votre entreprise – Microsoft 365 ou Google Workspace. Si une personne a connecté sa propre boîte, ses e-mails partent de celle-ci ; sinon de la boîte de l'entreprise. Si aucune n'est connectée, l'application ne peut envoyer aucun e-mail client.",
+  "loadError": "Les réglages des e-mails clients n'ont pas pu être chargés.",
+  "providers": {
+    "microsoft_365_mail": "Microsoft 365",
+    "google_workspace_mail": "Google Workspace"
+  },
+  "status": {
+    "active": "Connectée",
+    "error": "Erreur",
+    "disconnected": "Déconnectée"
+  },
+  "business": {
+    "heading": "Boîte de l'entreprise",
+    "none": "Aucune boîte de l'entreprise n'est encore connectée.",
+    "connectedAs": "{{address}} via {{provider}}",
+    "connectTitle": "Connecter la boîte de l'entreprise",
+    "providerLabel": "Fournisseur",
+    "addressLabel": "Adresse de la boîte",
+    "addressPlaceholder": "info@votre-entreprise.ch",
+    "connect": "Connecter",
+    "connectHint": "Connectez-vous ensuite chez le fournisseur en tant qu'administrateur de votre organisation.",
+    "disconnect": "Déconnecter",
+    "confirmDisconnect": "Oui, déconnecter",
+    "disconnectNote": "La déconnexion ne vaut que dans Nexotec. Le consentement dans votre organisation reste valable jusqu'à ce que votre service informatique y supprime l'application « Nexotec ».",
+    "providerNotConfigured": "Nexotec n'a pas encore configuré ce fournisseur.",
+    "readOnly": "Seul un manager peut connecter ou déconnecter la boîte de l'entreprise.",
+    "grantedTitle": "Ce que vous autorisez",
+    "granted": {
+      "microsoft_365_mail": "Vous autorisez l'application « Nexotec » à envoyer des e-mails dans votre organisation Microsoft 365. Microsoft donne cette autorisation pour toutes les boîtes de votre organisation. Nexotec n'envoie que depuis la boîte que vous connectez ici. Nexotec ne lit aucun e-mail.",
+      "google_workspace_mail": "Votre administrateur autorise le compte de service de Nexotec, dans la console d'administration Google, à envoyer des e-mails (délégation au niveau du domaine, uniquement « gmail.send »). Google donne cette autorisation pour toutes les boîtes de votre domaine. Nexotec n'envoie que depuis la boîte que vous connectez ici. Nexotec ne lit aucun e-mail."
+    },
+    "restrictTitle": "Comment votre service informatique limite l'autorisation",
+    "restrict": {
+      "microsoft_365_mail": "Votre service informatique peut limiter l'autorisation à cette seule boîte dans Exchange Online : avec « RBAC for Applications » (ou l'ancienne Application Access Policy) pour l'application « Nexotec ».",
+      "google_workspace_mail": "Votre service informatique configure la délégation au niveau du domaine avec le seul champ « gmail.send » et peut la limiter à une unité organisationnelle qui ne contient que cette boîte."
+    }
+  },
+  "own": {
+    "heading": "Ma boîte",
+    "intro": "Connectez votre propre boîte : vos clients reçoivent vos e-mails de votre part et les réponses vous parviennent. Les e-mails envoyés apparaissent dans votre dossier « Envoyés ».",
+    "none": "Vous n'avez pas encore connecté votre propre boîte.",
+    "connect": "Connecter avec {{provider}}",
+    "disconnect": "Déconnecter",
+    "confirmDisconnect": "Oui, déconnecter",
+    "senderTitle": "Vos e-mails clients partent de",
+    "sender": {
+      "user_mailbox": "votre propre boîte : {{address}}",
+      "business_mailbox": "la boîte de l'entreprise : {{address}}"
+    },
+    "privacy": "Nexotec envoie uniquement en votre nom et ne lit aucun e-mail. Votre manager ne voit pas votre adresse."
+  },
+  "links": {
+    "ownScreen": "Ma boîte",
+    "businessScreen": "Administration › E-mails clients"
+  },
+  "callback": {
+    "working": "Votre boîte est en cours de connexion …",
+    "consent": "Suite vers le consentement de l'administrateur …",
+    "failedTitle": "La boîte n'a pas été connectée",
+    "connected": "La boîte est connectée."
+  },
+  "refusals": {
+    "mail_provider_not_configured": "Nexotec n'a pas encore configuré ce fournisseur.",
+    "mailbox_already_connected": "Une boîte est déjà connectée. Déconnectez-la d'abord.",
+    "link_expired": "Cette connexion a expiré ou a déjà été utilisée. Veuillez recommencer.",
+    "provider_declined": "La connexion chez le fournisseur a été interrompue ou refusée.",
+    "consent_incomplete": "Le fournisseur n'a pas accordé l'autorisation d'envoyer. Veuillez accepter toutes les autorisations lors de la connexion.",
+    "tenant_bound_elsewhere": "L'organisation de cette boîte est déjà connectée à une entreprise d'un autre groupe.",
+    "consent_not_granted": "L'administrateur n'a pas donné son consentement.",
+    "provider_unavailable": "Le fournisseur n'est pas joignable pour le moment. Veuillez réessayer dans un instant.",
+    "no_mailbox_connected": "Aucune boîte n'est connectée. Connectez la vôtre sous « Ma boîte », ou un manager connecte la boîte de l'entreprise.",
+    "own_mailbox_in_error": "Votre propre boîte ne peut pas envoyer pour le moment. Reconnectez-la sous « Ma boîte ».",
+    "business_mailbox_in_error": "La boîte de l'entreprise ne peut pas envoyer pour le moment. Un manager la reconnecte.",
+    "no_recipient": "L'e-mail n'a aucun destinataire.",
+    "already_disconnected": "Cette boîte est déjà déconnectée.",
+    "mail_provider_platform_only": "Ce fournisseur est configuré par Nexotec. Connectez votre boîte sous Administration › E-mails clients.",
+    "id_token_invalid": "La connexion chez le fournisseur n'a pas pu être confirmée. Veuillez recommencer.",
+    "not_a_business_account": "Veuillez vous connecter avec le compte de votre entreprise, pas avec un compte privé.",
+    "not_an_administrator": "Seul un administrateur de votre organisation peut connecter la boîte de l'entreprise.",
+    "mailbox_not_in_tenant": "Cette boîte n'appartient pas à l'organisation avec laquelle vous vous êtes connecté.",
+    "delegation_not_granted": "La délégation au niveau du domaine pour Nexotec n'est pas encore configurée dans la console d'administration Google."
+  }
+}

@@ -62,13 +62,13 @@ function renderAccount(route: string, routes: FakeRoute[]) {
 }
 
 describe('My account (KAN-201)', () => {
-  it('opens on the profile and offers the five tabs', async () => {
+  it('opens on the profile and offers the six tabs', async () => {
     renderAccount('/account', [{ method: 'GET', match: /\/me$/, handler: () => ME }])
 
     expect(await screen.findByRole('heading', { name: 'Mein Konto' })).toBeInTheDocument()
     const tabs = screen.getAllByRole('tab').map((tab) => tab.textContent)
-    // KAN-216 added Benachrichtigungen.
-    expect(tabs).toEqual(['Profil', 'Sicherheit', 'Verbundene Konten', 'Unterschrift', 'Benachrichtigungen'])
+    // KAN-216 added Benachrichtigungen, KAN-215 Mein Postfach.
+    expect(tabs).toEqual(['Profil', 'Sicherheit', 'Mein Postfach', 'Verbundene Konten', 'Unterschrift', 'Benachrichtigungen'])
     expect(screen.getByRole('tab', { name: 'Profil' })).toHaveAttribute('aria-selected', 'true')
     expect(await screen.findByDisplayValue('Muster')).toBeInTheDocument()
   })

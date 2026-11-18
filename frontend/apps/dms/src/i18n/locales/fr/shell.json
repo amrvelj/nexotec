@@ -38,7 +38,8 @@
     "legalDocuments": "Textes juridiques",
     "status": "État",
     "platformStatus": "État de Nexotec",
-    "aiTexts": "Textes IA"
+    "aiTexts": "Textes IA",
+    "customerMail": "E-mails clients"
   },
   "signOut": "Se déconnecter",
   "environmentNotice": {

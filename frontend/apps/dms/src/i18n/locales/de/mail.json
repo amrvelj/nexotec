@@ -1,0 +1,85 @@
+{
+  "title": "Kundenmails",
+  "subtitle": "Offerten, Verträge und andere Mails an Kunden gehen nur aus einem Postfach Ihres Betriebs hinaus – Microsoft 365 oder Google Workspace. Hat eine Person ihr eigenes Postfach verbunden, gehen ihre Mails von dort; sonst vom Postfach des Betriebs. Ist keines verbunden, kann die App keine Kundenmail senden.",
+  "loadError": "Die Einstellungen für Kundenmails konnten nicht geladen werden.",
+  "providers": {
+    "microsoft_365_mail": "Microsoft 365",
+    "google_workspace_mail": "Google Workspace"
+  },
+  "status": {
+    "active": "Verbunden",
+    "error": "Fehler",
+    "disconnected": "Getrennt"
+  },
+  "business": {
+    "heading": "Postfach des Betriebs",
+    "none": "Es ist noch kein Postfach des Betriebs verbunden.",
+    "connectedAs": "{{address}} über {{provider}}",
+    "connectTitle": "Postfach des Betriebs verbinden",
+    "providerLabel": "Anbieter",
+    "addressLabel": "Adresse des Postfachs",
+    "addressPlaceholder": "info@ihr-betrieb.ch",
+    "connect": "Verbinden",
+    "connectHint": "Melden Sie sich anschliessend beim Anbieter als Administrator Ihrer Organisation an.",
+    "disconnect": "Trennen",
+    "confirmDisconnect": "Ja, trennen",
+    "disconnectNote": "Getrennt wird nur in Nexotec. Die Zustimmung in Ihrer Organisation bleibt bestehen, bis Ihre IT die App «Nexotec» dort entfernt.",
+    "providerNotConfigured": "Nexotec hat diesen Anbieter noch nicht eingerichtet.",
+    "readOnly": "Nur ein Manager kann das Postfach des Betriebs verbinden oder trennen.",
+    "grantedTitle": "Was Sie damit erlauben",
+    "granted": {
+      "microsoft_365_mail": "Sie erlauben der App «Nexotec», in Ihrer Microsoft-365-Organisation Mails zu senden. Microsoft gibt diese Erlaubnis für alle Postfächer Ihrer Organisation. Nexotec sendet nur aus dem Postfach, das Sie hier verbinden. Nexotec liest keine Mails.",
+      "google_workspace_mail": "Ihr Administrator erlaubt dem Dienstkonto von Nexotec in der Google-Admin-Konsole, Mails zu senden (domainweite Delegierung, nur «gmail.send»). Google gibt diese Erlaubnis für alle Postfächer Ihrer Domain. Nexotec sendet nur aus dem Postfach, das Sie hier verbinden. Nexotec liest keine Mails."
+    },
+    "restrictTitle": "So schränkt Ihre IT die Erlaubnis ein",
+    "restrict": {
+      "microsoft_365_mail": "Ihre IT kann die Erlaubnis in Exchange Online auf dieses eine Postfach beschränken: mit «RBAC for Applications» (oder der älteren Application Access Policy) für die App «Nexotec».",
+      "google_workspace_mail": "Ihre IT richtet die domainweite Delegierung nur mit dem Bereich «gmail.send» ein und kann sie auf eine Organisationseinheit beschränken, die nur dieses Postfach enthält."
+    }
+  },
+  "own": {
+    "heading": "Mein Postfach",
+    "intro": "Verbinden Sie Ihr eigenes Postfach, damit Ihre Kunden Mails von Ihnen erhalten und Antworten bei Ihnen ankommen. Gesendete Mails erscheinen in Ihrem Ordner «Gesendet».",
+    "none": "Sie haben noch kein eigenes Postfach verbunden.",
+    "connect": "Mit {{provider}} verbinden",
+    "disconnect": "Trennen",
+    "confirmDisconnect": "Ja, trennen",
+    "senderTitle": "Ihre Kundenmails gehen von",
+    "sender": {
+      "user_mailbox": "Ihrem eigenen Postfach: {{address}}",
+      "business_mailbox": "dem Postfach des Betriebs: {{address}}"
+    },
+    "privacy": "Nexotec sendet nur in Ihrem Namen und liest keine Mails. Ihr Manager sieht Ihre Adresse nicht."
+  },
+  "links": {
+    "ownScreen": "Mein Postfach",
+    "businessScreen": "Administration › Kundenmails"
+  },
+  "callback": {
+    "working": "Ihr Postfach wird verbunden …",
+    "consent": "Weiter zur Zustimmung des Administrators …",
+    "failedTitle": "Das Postfach wurde nicht verbunden",
+    "connected": "Das Postfach ist verbunden."
+  },
+  "refusals": {
+    "mail_provider_not_configured": "Nexotec hat diesen Anbieter noch nicht eingerichtet.",
+    "mailbox_already_connected": "Es ist bereits ein Postfach verbunden. Trennen Sie es zuerst.",
+    "link_expired": "Diese Anmeldung ist abgelaufen oder wurde schon verwendet. Bitte beginnen Sie neu.",
+    "provider_declined": "Die Anmeldung beim Anbieter wurde abgebrochen oder abgelehnt.",
+    "consent_incomplete": "Der Anbieter hat die Erlaubnis zum Senden nicht erteilt. Bitte stimmen Sie bei der Anmeldung allen Berechtigungen zu.",
+    "tenant_bound_elsewhere": "Die Organisation dieses Postfachs ist bereits mit einem Betrieb einer anderen Gruppe verbunden.",
+    "consent_not_granted": "Der Administrator hat die Zustimmung nicht erteilt.",
+    "provider_unavailable": "Der Anbieter ist im Moment nicht erreichbar. Bitte versuchen Sie es gleich nochmals.",
+    "no_mailbox_connected": "Es ist kein Postfach verbunden. Verbinden Sie Ihr eigenes unter «Mein Postfach», oder ein Manager verbindet das Postfach des Betriebs.",
+    "own_mailbox_in_error": "Ihr eigenes Postfach kann im Moment nicht senden. Verbinden Sie es unter «Mein Postfach» neu.",
+    "business_mailbox_in_error": "Das Postfach des Betriebs kann im Moment nicht senden. Ein Manager verbindet es neu.",
+    "no_recipient": "Die Mail hat keinen Empfänger.",
+    "already_disconnected": "Dieses Postfach ist bereits getrennt.",
+    "mail_provider_platform_only": "Diesen Anbieter richtet Nexotec ein. Ihr Postfach verbinden Sie unter Administration › Kundenmails.",
+    "id_token_invalid": "Die Anmeldung beim Anbieter konnte nicht bestätigt werden. Bitte beginnen Sie neu.",
+    "not_a_business_account": "Bitte melden Sie sich mit dem Konto Ihrer Firma an, nicht mit einem privaten Konto.",
+    "not_an_administrator": "Das Postfach des Betriebs kann nur ein Administrator Ihrer Organisation verbinden.",
+    "mailbox_not_in_tenant": "Dieses Postfach gehört nicht zur Organisation, mit der Sie sich angemeldet haben.",
+    "delegation_not_granted": "Die domainweite Delegierung für Nexotec ist in der Google-Admin-Konsole noch nicht eingerichtet."
+  }
+}

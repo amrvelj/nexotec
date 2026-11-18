@@ -51,6 +51,9 @@ class AuthEventKind(str, enum.Enum):
     # A connected account (FR-AU-23/24, KAN-201) was revoked — by the user,
     # a manager or the deactivation; `details` names provider and reason.
     CONNECTED_ACCOUNT_REVOKED = "connected_account_revoked"
+    # KAN-215: a connected account was linked (or re-linked) by the user
+    # themselves; `details` names the provider, never the address or a token.
+    CONNECTED_ACCOUNT_LINKED = "connected_account_linked"
     # Platform staff's recovery actions (FR-AU-25/26, D-A-16, KAN-202): each
     # its own kind, the staff member the actor, the stated reason in
     # `details` — the Betrieb's manager reads it (Anto, 2026-10-22). The

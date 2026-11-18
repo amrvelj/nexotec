@@ -18,10 +18,16 @@ from app.integration.models.call_payload import IntegrationCallPayload
 from app.integration.models.caption import IntegrationProviderCaption, IntegrationProviderCaptionFetch
 from app.integration.models.connection import IntegrationConnection
 from app.integration.models.entitlement import IntegrationEntitlement
+from app.integration.models.mail import MailLinkState, MessageDelivery, SendingIdentity
 from app.integration.models.notification import IntegrationNotification
 from app.integration.models.provider import IntegrationProvider
 from app.integration.models.secret_ref import IntegrationSecretRef
-from app.platform.public import actor_reference_checks, dealership_reference_check, location_reference_check
+from app.platform.public import (
+    actor_reference_checks,
+    dealership_reference_check,
+    location_reference_check,
+    user_reference_check,
+)
 
 CONTEXT = "integration"
 
@@ -39,6 +45,9 @@ ACTOR_TABLES = (
     IntegrationProviderCaption,  # KAN-547: written by Test connection, never by a user — null actors
     IntegrationProviderCaptionFetch,  # KAN-588: written with the captions — null actors; the audit row names who
     IntegrationAiPrompt,  # KAN-227: the manager who adapted a prompt, platform staff who edited a seed
+    SendingIdentity,  # KAN-215: the user who connected or disconnected a mailbox
+    MessageDelivery,  # KAN-215: the author of the send
+    MailLinkState,  # KAN-215: none written (no actor columns are set)
 )
 
 
@@ -110,6 +119,32 @@ CHECKS = [
         target_id_column=IntegrationConnection.id,
         nullable=True,  # the daily support digest has no single connection
         source_where=_not_a_deleted_connection,
+    ),
+    # KAN-215: a mailbox and a delivery name their Betrieb and their users.
+    dealership_reference_check(
+        label="integration_sending_identity.tenant_id -> dealership.id",
+        source_model=SendingIdentity,
+        source_row_id_column=SendingIdentity.id,
+        source_fk_column=SendingIdentity.tenant_id,
+    ),
+    user_reference_check(
+        label="integration_sending_identity.owner_user_id -> user.id",
+        source_model=SendingIdentity,
+        source_row_id_column=SendingIdentity.id,
+        source_fk_column=SendingIdentity.owner_user_id,
+        nullable=True,  # the Betrieb's shared mailbox has no owner
+    ),
+    dealership_reference_check(
+        label="integration_message_delivery.tenant_id -> dealership.id",
+        source_model=MessageDelivery,
+        source_row_id_column=MessageDelivery.id,
+        source_fk_column=MessageDelivery.tenant_id,
+    ),
+    user_reference_check(
+        label="integration_message_delivery.author_user_id -> user.id",
+        source_model=MessageDelivery,
+        source_row_id_column=MessageDelivery.id,
+        source_fk_column=MessageDelivery.author_user_id,
     ),
     *actor_reference_checks(*ACTOR_TABLES),
 ]

@@ -18,6 +18,7 @@ const TermsOfUsePage = lazyPage(() => import('./pages/TermsOfUsePage'), 'TermsOf
 const PrivacyPolicyPage = lazyPage(() => import('./pages/PrivacyPolicyPage'), 'PrivacyPolicyPage')
 const AccountSecurityPage = lazyPage(() => import('./pages/AccountSecurityPage'), 'AccountSecurityPage')
 const AccountConnectedAccountsPage = lazyPage(() => import('./pages/account/AccountConnectedAccountsPage'), 'AccountConnectedAccountsPage')
+const AccountMailboxPage = lazyPage(() => import('./pages/account/AccountMailboxPage'), 'AccountMailboxPage')
 const AccountLayout = lazyPage(() => import('./pages/account/AccountLayout'), 'AccountLayout')
 const AccountProfilePage = lazyPage(() => import('./pages/account/AccountProfilePage'), 'AccountProfilePage')
 const AccountSignaturePage = lazyPage(() => import('./pages/account/AccountSignaturePage'), 'AccountSignaturePage')
@@ -41,6 +42,8 @@ const PublishingPage = lazyPage(() => import('./pages/PublishingPage'), 'Publish
 const LetterheadPage = lazyPage(() => import('./pages/LetterheadPage'), 'LetterheadPage')
 const StandardTextsPage = lazyPage(() => import('./pages/StandardTextsPage'), 'StandardTextsPage')
 const AiAdministrationPage = lazyPage(() => import('./pages/AiAdministrationPage'), 'AiAdministrationPage')
+const MailAdministrationPage = lazyPage(() => import('./pages/MailAdministrationPage'), 'MailAdministrationPage')
+const MailLinkCallbackPage = lazyPage(() => import('./pages/MailLinkCallbackPage'), 'MailLinkCallbackPage')
 const NumberRangesPage = lazyPage(() => import('./pages/NumberRangesPage'), 'NumberRangesPage')
 const SetupChecklistPage = lazyPage(() => import('./pages/SetupChecklistPage'), 'SetupChecklistPage')
 const LegalAcceptancePage = lazyPage(() => import('./pages/LegalAcceptancePage'), 'LegalAcceptancePage')
@@ -103,6 +106,8 @@ export default function App() {
                 <Route path="profile" element={<AccountProfilePage />} />
                 <Route path="security" element={<AccountSecurityPage />} />
                 <Route path="connected-accounts" element={<AccountConnectedAccountsPage />} />
+                {/* KAN-215: the user's own mailbox for customer mail. */}
+                <Route path="mailbox" element={<AccountMailboxPage />} />
                 <Route path="signature" element={<AccountSignaturePage />} />
                 {/* KAN-216: the user's own notification preferences and this device's push. */}
                 <Route path="notifications" element={<AccountNotificationsPage />} />
@@ -133,6 +138,9 @@ export default function App() {
               <Route path="/administration/texts" element={<StandardTextsPage />} />
               {/* KAN-227 — Dealer Administration › AI texts: the AI connection in use and the prompts. */}
               <Route path="/administration/ai" element={<AiAdministrationPage />} />
+              {/* KAN-215: the Betrieb's shared mailbox, and where the provider sends the browser back. */}
+              <Route path="/administration/mail" element={<MailAdministrationPage />} />
+              <Route path="/mail-link/callback" element={<MailLinkCallbackPage />} />
               <Route path="/administration/number-ranges" element={<NumberRangesPage />} />
               {/* KAN-214 — the setup checklist and «Betrieb aktivieren» (D-A-21, FR-A-34),
                   the re-acceptance of a new ToS / DPA version (FR-A-39), and what a
