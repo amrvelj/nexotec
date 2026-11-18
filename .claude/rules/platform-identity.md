@@ -151,6 +151,9 @@ Every login outcome, lock, token, factor and session change, read by the manager
 `GET …/auth-events` (`audit_logs`). Never a password, hash or token in `details`.
 
 ## Connected accounts are grants, not identities (FR-AU-23)
+- KAN-215: integration's mail link records a user's grant through
+  `platform.public.link_connected_account` / `revoke_connected_account` (each its own commit,
+  ADR-047), reading `connected_account_states`; the row stays platform's.
 - Never used to sign in, never in the token (`test_connected_account_is_never_an_identity.py`); the
   row holds a `secret_ref`, never a token, never returned; `services/connected_account.py` alone
   writes it. The manager's read of a user's grants is provider, scopes and status only — never the
@@ -160,7 +163,8 @@ Every login outcome, lock, token, factor and session change, read by the manager
   the consumer `platform.connected_account_provider_revocation` (ADR-118): a revoker registered with
   `platform.public.register_grant_revoker` **in the worker's composition root** (`app/worker.py`;
   the consumer runs only there), given plain `RevokedGrant` data; it must be idempotent, raise on a
-  refusal, and never put token material in its exception text. None is registered yet: then the
+  refusal, and never put token material in its exception text. KAN-215 registers integration's
+  mail revoker for `microsoft_365` and `google_workspace`; a provider without one: the
   consumer records nothing (WARNING) — the grant ends in Nexotec only. An outage longer than the
   outbox's retries dead-letters it. Reconciliation reports a revoked grant holding a reference after
   24 h, **whatever its provider**; the daily `platform.connected_account.repair` (KAN-559) retries it.
