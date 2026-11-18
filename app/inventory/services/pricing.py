@@ -116,7 +116,7 @@ def get_stock_item_pricing(db: Session, *, tenant_id: uuid.UUID, stock_item_id: 
     amount; it is the caller's job (app.sales.services.pricing.build_up)
     to subtract it from landed cost, never add it. Same visibility
     posture as purchasePrice: entity-private (ADR-029), absent from
-    StockItemGroupRead (tests/test_inventory_group_listing.py asserts
+    StockItemGroupRead (tests/inventory/test_inventory_group_listing.py asserts
     this by name).
     """
 

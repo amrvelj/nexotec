@@ -11,7 +11,7 @@ endpoint that used to read `_WRITE_ROLES` now depends on instead.
 
 Every row of the Dealer Administration PRD's permission matrix is listed
 (KAN-198), whether or not an endpoint guards it yet — the rows and the
-registry are held equal by tests/test_permission_matrix_mirrors_prd.py from
+registry are held equal by tests/platform/test_permission_matrix_mirrors_prd.py from
 a fixture that mirrors the Notion table; a row where the code deliberately
 enforces less than the matrix grants declares that in the fixture with a
 ticket (none since KAN-376 closed the stock_items one). Module entitlements
@@ -92,7 +92,7 @@ _S, _AS, _P, _I, _F, _AU = (
 # One entry per row of the Dealer Administration PRD's permission matrix
 # (A-RULE-6: guards are generated from the matrix, a capability without a row
 # is not shippable). tests/fixtures/permission_matrix.json mirrors the Notion
-# table row by row and tests/test_permission_matrix_mirrors_prd.py fails when
+# table row by row and tests/platform/test_permission_matrix_mirrors_prd.py fails when
 # this registry and the fixture disagree. `read_roles=None` = "Any role"; an
 # empty set = manager only (plus platform_admin, who passes every check);
 # `manager_can_write=False` = the matrix's "Nobody" cell.

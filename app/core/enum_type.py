@@ -210,7 +210,7 @@ def _drop_if_already_there(check: CheckConstraint, table: Any) -> None:
     copied constraints too. A copy carries this listener (SQLAlchemy copies a
     schema item's propagating listeners), so the second CHECK of a name leaves
     the table again: a generated migration creates it once (KAN-297;
-    tests/test_stored_enum.py renders one)."""
+    tests/core/test_stored_enum.py renders one)."""
 
     if isinstance(table, Table) and any(
         other is not check and getattr(other, "name", None) == check.name for other in table.constraints
@@ -219,7 +219,7 @@ def _drop_if_already_there(check: CheckConstraint, table: Any) -> None:
 
 
 def render_autogenerate_item(type_: str, obj: Any, autogen_context: Any) -> str | bool:
-    """alembic/env.py's `render_item`, kept here so that tests/test_stored_enum.py
+    """alembic/env.py's `render_item`, kept here so that tests/core/test_stored_enum.py
     runs the hook env.py runs (env.py itself cannot be imported: it runs
     migrations). A generated migration never imports app types — the code moves
     on, the migration must not — so:

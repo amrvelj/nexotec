@@ -324,7 +324,7 @@ export function CustomersListPage() {
       // (KAN-50) and already flow through CustomerRead on every row; only
       // vehicles / open deals / lifetime revenue / last contact (four of
       // the ratified 12 default cells) stay out. test_derived_fields_
-      // are_not_writable_in_phase_b2 (tests/test_customer_fr17_fields.py)
+      // are_not_writable_in_phase_b2 (tests/customer/test_customer_fr17_fields.py)
       // keeps vehicle_count uncomputed alongside five other Phase-C
       // fields (purchase_count, lifetime_revenue, open_deals,
       // last_contact_at, service_due — only three of which are also grid

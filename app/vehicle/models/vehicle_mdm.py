@@ -189,7 +189,7 @@ class VehicleMdm(PrimaryKeyMixin, VersionedMixin, TimestampMixin, Base):
     # context (app.customer's VehiclePartySummary is the first — the
     # customer-side Vehicles tab). ALL THREE ARE NONE WHEN
     # catalogue_variant_id IS NULL, which is the common case today: every
-    # fixture in tests/test_customer_vehicle_party_allocation.py creates an
+    # fixture in tests/customer/test_customer_vehicle_party_allocation.py creates an
     # unmatched vehicle, and nothing in this codebase resolves this join
     # anywhere else yet (even the global-search vehicle results fall back
     # to vehicleNumber as the label). A caller-side fallback is required,

@@ -15,7 +15,7 @@ dependencies = [
     # Raised to 49.x with webauthn 3.x (KAN-386, Anto 2026-10-31, option A;
     # was <46, widened from <45 by WP-4 for joserfc). The RSA/PEM primitives
     # app/core/auth.py uses (load_pem_private_key, RSAPrivateKey/RSAPublicKey,
-    # private_bytes) are unchanged across the bump; tests/test_auth.py signs
+    # private_bytes) are unchanged across the bump; tests/platform/test_auth.py signs
     # and verifies tokens with them. authlib, joserfc and pyOpenSSL (26.x,
     # pulled in by webauthn) resolve against 49.x.
     "cryptography>=49.0,<50.0",

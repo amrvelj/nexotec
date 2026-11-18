@@ -14,7 +14,7 @@ One declaration drives two things, so they cannot drift apart:
 - **the export** — every `ExportedTable` is read with its own `scope` clause
   and written as CSV and JSON, described in `schema.json`;
 - **completeness** — every mapped table is declared by exactly one exporter,
-  as exported or as excluded with a reason (`tests/test_data_export_completeness.py`):
+  as exported or as excluded with a reason (`tests/cross_context/test_data_export_completeness.py`):
   a new table fails until someone decides.
 
 Nothing here deletes. The deletion ten years after offboarding is a manual

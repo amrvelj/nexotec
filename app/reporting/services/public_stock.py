@@ -21,7 +21,7 @@ from app.reporting.models.public_stock_listing import PublicStockListing
 
 # Exactly what the public may see of a stock item. Never cost, margin,
 # purchase or landed price, notional input tax, valuation, supplier, VIN or
-# an internal note (ADR-029); tests/test_kan225_public_stock_projection.py
+# an internal note (ADR-029); tests/reporting/test_kan225_public_stock_projection.py
 # holds the list and the refusal by name.
 PUBLIC_STOCK_FIELDS = frozenset(
     {

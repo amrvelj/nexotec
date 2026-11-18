@@ -27,7 +27,7 @@ from app.platform.reference.models.reference_data import ReferenceList, Referenc
 
 # The initial set, Anto's ruling of 2026-10-26, as the seed migration
 # (platform d72281c678c0) inserts it: (value_code, de, fr, it, en). The
-# migration holds its own literals (ADR-133); tests/test_contact_groups.py
+# migration holds its own literals (ADR-133); tests/customer/test_contact_groups.py
 # keeps the two equal.
 SEEDED_CONTACT_GROUPS: tuple[tuple[str, str, str, str, str], ...] = (
     ("private", "Privat", "Privé", "Privato", "Private"),

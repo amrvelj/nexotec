@@ -20,7 +20,7 @@ the value lives in the secrets manager).
   resource endpoint and the deployment.
 
 A provider added to the catalogue adds its line here;
-`tests/test_integration_connection_location.py::test_every_provider_with_an_adapter_names_its_account_identifier`
+`tests/integration/test_integration_connection_location.py::test_every_provider_with_an_adapter_names_its_account_identifier`
 fails for a provider with an
 adapter and no line. When the configuration lacks the keys (a row created
 before its provider required them), the identifier is None and the card says

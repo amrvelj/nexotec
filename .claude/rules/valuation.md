@@ -2,8 +2,8 @@
 paths:
   - "app/valuation/**"
   - "alembic/versions/valuation/**"
-  - "tests/test_valuation*.py"
-  - "tests/test_backfill_valuation_contract_carry.py"
+  - "tests/valuation/test_valuation*.py"
+  - "tests/cross_context/test_backfill_valuation_contract_carry.py"
   - "tests/valuation_carry_support.py"
   - "scripts/backfill_valuation_contract_carry.py"
   - "frontend/apps/dms/src/**/*aluation*"
@@ -71,7 +71,7 @@ valuation is valuation-trade-in.md. Last verified against main@73baf3f (2026-10-
   one-hour grace (a confirmation stamps before it signs), and **while a pending contract of the
   dealership carries it** (Anto, KAN-520: its confirmation would find the stamp set and sign over
   a cleared one) — one read of the carry rows, pending before its contract commits
-  (`tests/test_valuation_revert_use.py`). Audited and published as
+  (`tests/valuation/test_valuation_revert_use.py`). Audited and published as
   `valuation.valuation.use_reverted`, like the compensation.
 - **The valuation screens:** «Neu bewerten» is the detail's primary; the alternative, also in the
   grid's row menu (`valuationRowMenu.tsx`, ADR-061), is «Offerte aus dieser Bewertung erstellen»

@@ -6,7 +6,7 @@ context, and no context imports platform.
 
 The stub contexts register a `StubExporter`: the registry is the complete
 inventory of contexts, and a first table there fails the completeness test
-(`tests/test_data_export_completeness.py`) until its exporter declares it.
+(`tests/cross_context/test_data_export_completeness.py`) until its exporter declares it.
 
 Imported by app.main (the API: offboarding asks every exporter for the
 Betrieb's last write) and app.worker (the export job runs there). Importing

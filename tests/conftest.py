@@ -402,7 +402,7 @@ def _seed_country_reference_list(engine):
     not a skippable 404. Seeding it once here keeps the whole suite honest
     without threading a fixture through hundreds of call sites.
 
-    ``tests/test_country_reference_list.py`` keeps one test that runs with
+    ``tests/platform/test_country_reference_list.py`` keeps one test that runs with
     the list dropped, pinning the deployment-fault behaviour.
 
     The rows are the real seed data (``load_country_seed()``), the same
@@ -455,7 +455,7 @@ def _seed_notification_catalogue(engine):
     security event source raises a notification inside its own transaction,
     and a code with no row raises (FR-A-47). The rows come from the code
     declaration (`notification_catalogue.CATALOGUE`);
-    `tests/test_migrated_notification_catalogue.py` pins that the migration
+    `tests/platform/test_migrated_notification_catalogue.py` pins that the migration
     seeds the same rows."""
 
     from sqlalchemy import insert

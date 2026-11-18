@@ -16,12 +16,12 @@ paths:
   - "app/platform/documents/schemas/document_*.py"
   - "app/platform/documents/schemas/standard_text.py"
   - "app/platform/organisation/schemas/number_range.py"
-  - "tests/test_document_*.py"
-  - "tests/test_standard_texts.py"
-  - "tests/test_platform_standard_text_seeds.py"
-  - "tests/test_text_delegations.py"
-  - "tests/test_kan208_footer_migration.py"
-  - "tests/test_number_ranges.py"
+  - "tests/platform/test_document_*.py"
+  - "tests/platform/test_standard_texts.py"
+  - "tests/platform/test_platform_standard_text_seeds.py"
+  - "tests/platform/test_text_delegations.py"
+  - "tests/platform/test_kan208_footer_migration.py"
+  - "tests/platform/test_number_ranges.py"
   - "tests/architecture/test_no_layout_code_outside_document_render.py"
   - "tests/architecture/test_standard_texts_write_honours_delegations.py"
   - "frontend/apps/dms/src/pages/StandardTextsPage*"
@@ -30,8 +30,8 @@ paths:
   - "frontend/packages/ui-kit/src/components/DocumentPreview.tsx"
   - "frontend/apps/dms/src/pages/LetterheadPage*"
   - "frontend/apps/dms/src/components/letterhead/**"
-  - "tests/test_sales_document_letterhead.py"
-  - "tests/test_kan717_sales_document_location.py"
+  - "tests/sales/test_sales_document_letterhead.py"
+  - "tests/sales/test_kan717_sales_document_location.py"
 ---
 <!-- Maintainer note (stripped before Claude sees it). Summarises ADR-047, ADR-051, ADR-109 and the
 Dealer Administration PRD's standard texts (FR-A-28, D-A-23, A-RULE-4) and number ranges (D-A-17,
@@ -51,7 +51,7 @@ against main@73baf3f on 2026-10-25 - this cut was not re-verified against the co
   wording is its own standard text, frozen in `ContentDefinition.footer_text`; the footer's columns
   are read from master data **at render time** (`services/document_letterhead.py`), never copied.
 - **The envelope window is Swiss Post's** (`document_letterhead.WINDOW_GEOMETRY`, ePost's C5 window,
-  to confirm with a test print); `tests/test_document_letterhead.py` measures WeasyPrint's laid-out
+  to confirm with a test print); `tests/platform/test_document_letterhead.py` measures WeasyPrint's laid-out
   box (±0.5 mm). Words a document prints (page numbers, «ENTWURF»/«MUSTER», footer labels) are in
   `document_letterhead.py`, four languages, in the document's language.
 - **Per location: address block and logo only** (A-27): `location.letterhead_address_override` as

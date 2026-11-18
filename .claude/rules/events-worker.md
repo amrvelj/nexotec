@@ -14,8 +14,8 @@ paths:
   - "app/*/services/*label*.py"
   - "app/platform/*/services/*label*.py"
   - "scripts/*outbox*.py"
-  - "tests/test_consumer_redelivery_idempotency.py"
-  - "tests/test_*label*.py"
+  - "tests/cross_context/test_consumer_redelivery_idempotency.py"
+  - "tests/**/test_*label*.py"
 ---
 <!-- Maintainer note. Moved out of events.md by KAN-615 (2026-11-13) so the broad file stays
 small; ADR-047 addendum, ADR-081, ADR-107. Last verified against main@73baf3f (2026-10-25). -->

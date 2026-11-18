@@ -5,7 +5,7 @@ paths:
   - "app/integration/api/ai_prompts.py"
   - "app/integration/models/ai_prompt.py"
   - "app/inventory/services/listing_suggestion.py"
-  - "tests/test_ai_*.py"
+  - "tests/integration/test_ai_*.py"
   - "frontend/apps/dms/src/pages/AiAdministrationPage*.tsx"
   - "frontend/apps/dms/src/components/translations/AiPromptSeedsPanel.tsx"
   - "frontend/apps/dms/src/modules/stock/components/stock-detail/ListingTextSuggestion.tsx"
@@ -31,7 +31,7 @@ paths:
   default = delete the override. Codes are a closed registry (`services/ai_prompt_registry.py`,
   `vehicle_listing` in v1); a token the code does not list is refused on save and on render; a
   missing value renders as «keine Angabe» — the seeds say never to invent. Seed rows are literals
-  in migration `e7a2c91d4b60`, kept equal to `ai_prompt_seed.py` by `tests/test_ai_prompts.py`.
+  in migration `e7a2c91d4b60`, kept equal to `ai_prompt_seed.py` by `tests/integration/test_ai_prompts.py`.
 - **`integration.public.generate` is the one door** (platform cannot call integration, so it is not
   in `platform.public`): connection (the enabled one most recently tested), prompt (asked → the
   Betrieb's correspondence language → DE; override over seed), render, one completion. 409

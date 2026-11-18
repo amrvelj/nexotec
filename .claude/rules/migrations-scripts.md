@@ -3,7 +3,7 @@ paths:
   - "scripts/migrate_*.py"
   - "scripts/backfill_*.py"
   - "scripts/*migration_smoke_test*.py"
-  - "tests/test_backfill_*.py"
+  - "tests/cross_context/test_backfill_*.py"
 ---
 <!-- Maintainer note. ADR-047, ADR-140. Moved out of migrations.md by KAN-615 (2026-11-13). Last
 verified against main@73baf3f (2026-10-25). The post-deploy runs are listed in README.md. -->

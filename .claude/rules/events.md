@@ -31,7 +31,7 @@ flows events-stock-sales.md (KAN-615). Last verified against main@73baf3f (2026-
   `outbox_message.event_type` rows carry the name, so a rename is a contract change: an ADR
   naming every subscriber and how pending rows migrate (ADR-126).
 - **Consumers are idempotent** by `eventId`; delivery is at-least-once and unordered. Every
-  registered consumer needs its fixture in `tests/test_consumer_redelivery_idempotency.py`,
+  registered consumer needs its fixture in `tests/cross_context/test_consumer_redelivery_idempotency.py`,
   which fails without one.
 - **Every envelope field carries meaning** and one entity's events share a payload shape.
   `correlationId` and `causationId` each come from `app/core/correlation.py` when the producer

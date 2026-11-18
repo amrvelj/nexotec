@@ -5,10 +5,10 @@ paths:
   - "app/customer/services/vehicle_merge.py"
   - "app/inventory/services/vehicle_merge.py"
   - "frontend/apps/dms/src/modules/vehicle/components/vehicle-detail/MergeVehicleDialog*"
-  - "tests/test_vehicle_merge.py"
-  - "tests/test_kan524_vehicle_merge.py"
-  - "tests/test_kan680_vehicle_merge_party_rest.py"
-  - "tests/test_kan706_merge_before_party_move.py"
+  - "tests/vehicle/test_vehicle_merge.py"
+  - "tests/vehicle/test_kan524_vehicle_merge.py"
+  - "tests/customer/test_kan680_vehicle_merge_party_rest.py"
+  - "tests/customer/test_kan706_merge_before_party_move.py"
 ---
 <!-- Maintainer note. FR-V-12; split out of vehicle-mdm.md by KAN-524 (rule budget). Rulings:
 KAN-524 (Anto, 2026-11-11 option A; 2026-11-13 Q1 B, Q2 A; 2026-11-14 Q3 A, Q4 A), KAN-634, KAN-644,

@@ -50,7 +50,7 @@ Target Architecture's "Roadmap to the target" table (Stages A–F) is superseded
   starts its Postgres). PATH and `pytest` already point at this checkout's `.venv` and test database. Never call another checkout's `.venv`: its editable install runs that checkout's code.
 - The check the push gate trusts: `scripts/dev/check` (lanes chosen from the diff;
   `--full` runs all; `--fast` is the SQLite lane and records nothing)
-- Tests: `pytest` — Postgres, the lane of record. One test: `pytest tests/test_x.py::test_name`
+- Tests: `pytest` — Postgres, the lane of record. One test: `pytest tests/<context>/test_x.py::test_name`
 - Migrations: `alembic upgrade heads` — plural: one chain per context (ADR-015); `head`
   fails or silently applies one context only
 - Backend: `ruff check app tests scripts` · `python -m mypy app scripts` (as a module, not the bare

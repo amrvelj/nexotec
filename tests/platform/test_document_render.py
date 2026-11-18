@@ -1,0 +1,412 @@
+"""WP-6b PR-3: the render engine.
+
+Most tests exercise `_compose_html` directly — the pure HTML-composition
+function — so they run in the fast lane without needing WeasyPrint's
+Pango/GLib system libraries installed at all. Exactly one test
+(`test_render_document_produces_a_real_pdf`) calls the real
+`render_document()` end to end and asserts on the actual PDF bytes.
+"""
+
+from decimal import Decimal
+from unittest.mock import patch
+
+import pytest
+
+from app.core.errors import NotFoundError
+from app.core.i18n import SwissLanguage
+from app.platform.documents.models.document_template import DocumentTemplate
+from app.platform.documents.schemas.document_content import (
+    Addressee,
+    ContentDefinition,
+    DocumentLine,
+    KeyValueBlock,
+    KeyValueRow,
+    LineItemsBlock,
+    LineStyle,
+    ParagraphBlock,
+    SignatureBlock,
+)
+from app.platform.documents.services.document_render import _compose_html, render_document
+from app.platform.organisation.models.dealership import DealerGroup, Dealership, FranchiseType, Location
+from tests.dealership_support import valid_uid
+
+
+def _make_dealership(db_session, **overrides) -> Dealership:
+    group = DealerGroup(name="Test group")
+    db_session.add(group)
+    db_session.flush()
+    defaults = {
+        "dealer_group_id": group.id,
+        "legal_name": "Garage Muster AG",
+        "franchise_type": FranchiseType.INDEPENDENT,
+        "address_street": "Bahnhofstrasse",
+        "address_house_number": "1",
+        "address_postal_code": "8001",
+        "address_locality": "Zürich",
+        "address_canton": "ZH",
+        "phone": "+41441234567",
+        "uid": valid_uid(),
+    }
+    defaults.update(overrides)
+    dealership = Dealership(**defaults)
+    db_session.add(dealership)
+    db_session.flush()
+    db_session.refresh(dealership)
+    return dealership
+
+
+def _sample_content() -> ContentDefinition:
+    return ContentDefinition(
+        title="Sample document",
+        metadata=[KeyValueRow(label="Date", value="08.08.2026")],
+        addressee=Addressee(lines=["Maria Muster", "Seestrasse 4", "8002 Zürich"]),
+        blocks=[
+            ParagraphBlock(text="Dear customer, please find your document below."),
+            KeyValueBlock(
+                heading="Vehicle",
+                boxed=True,
+                rows=[KeyValueRow(label="VIN", value="WBA12345678901234")],
+            ),
+            LineItemsBlock(
+                lines=[
+                    DocumentLine(label="Base price", amount=Decimal(42000)),
+                    DocumentLine(label="Options", amount=Decimal(1500), style=LineStyle.SUB),
+                    DocumentLine(label="Total", amount=Decimal(43500), style=LineStyle.GRAND),
+                ]
+            ),
+            SignatureBlock(labels=["Buyer", "Seller"]),
+        ],
+    )
+
+
+def test_compose_html_includes_the_letterhead(db_session):
+    dealership = _make_dealership(db_session)
+    html_out = _compose_html(
+        dealership=dealership,
+        template=None,
+        location=None,
+        correspondence_language=SwissLanguage.DE,
+        content=_sample_content(),
+    )
+    assert "Garage Muster AG" in html_out
+    assert "Bahnhofstrasse 1" in html_out
+    assert "Sample document" in html_out
+
+
+def test_compose_html_tolerates_no_template_row(db_session):
+    dealership = _make_dealership(db_session)
+    html_out = _compose_html(
+        dealership=dealership,
+        template=None,
+        location=None,
+        correspondence_language=SwissLanguage.FR,
+        content=_sample_content(),
+    )
+    # No exception, and no leftover "None" text where boilerplate would go.
+    assert "None" not in html_out
+
+
+def test_compose_html_uses_the_template_header_note_in_the_requested_language(db_session):
+    dealership = _make_dealership(db_session)
+    template = DocumentTemplate(
+        dealership_id=dealership.id,
+        header_note_de="Vielen Dank für Ihr Vertrauen.",
+        header_note_fr="Merci de votre confiance.",
+        version=1,
+    )
+    db_session.add(template)
+    db_session.flush()
+
+    html_de = _compose_html(
+        dealership=dealership, template=template, location=None,
+        correspondence_language=SwissLanguage.DE, content=_sample_content(),
+    )
+    html_fr = _compose_html(
+        dealership=dealership, template=template, location=None,
+        correspondence_language=SwissLanguage.FR, content=_sample_content(),
+    )
+
+    assert "Vielen Dank für Ihr Vertrauen." in html_de
+    assert "Merci de votre confiance." not in html_de
+    assert "Merci de votre confiance." in html_fr
+    assert "Vielen Dank für Ihr Vertrauen." not in html_fr
+
+
+def test_compose_html_prints_the_contents_own_footer_text(db_session):
+    """KAN-208: the footer wording is the document's own standard text,
+    frozen in its content — printed in the running footer, escaped, its line
+    breaks kept; a content without one prints no footer text."""
+
+    dealership = _make_dealership(db_session)
+    content = _sample_content().model_copy(update={"footer_text": "Gültig 30 Tage.\nZwischenverkauf <vorbehalten>."})
+    html_out = _compose_html(
+        dealership=dealership, template=None, location=None,
+        correspondence_language=SwissLanguage.DE, content=content,
+    )
+    assert '<div class="doc-footer-text">Gültig 30 Tage.\nZwischenverkauf &lt;vorbehalten&gt;.</div>' in html_out
+
+    bare = _compose_html(
+        dealership=dealership, template=None, location=None,
+        correspondence_language=SwissLanguage.DE, content=_sample_content(),
+    )
+    assert 'class="doc-footer-text"' not in bare
+
+
+def test_compose_html_all_four_line_styles_render_distinct_markup(db_session):
+    dealership = _make_dealership(db_session)
+    content = ContentDefinition(
+        title="Lines",
+        blocks=[
+            LineItemsBlock(
+                lines=[
+                    DocumentLine(label="a", amount=Decimal(1), style=LineStyle.NORMAL),
+                    DocumentLine(label="b", amount=Decimal(2), style=LineStyle.SUB),
+                    DocumentLine(label="c", amount=Decimal(3), style=LineStyle.TOTAL),
+                    DocumentLine(label="d", amount=Decimal(4), style=LineStyle.GRAND),
+                ]
+            )
+        ],
+    )
+    html_out = _compose_html(
+        dealership=dealership, template=None, location=None,
+        correspondence_language=SwissLanguage.EN, content=content,
+    )
+    assert 'class="doc-line normal"' in html_out
+    assert 'class="doc-line sub"' in html_out
+    assert 'class="doc-line total"' in html_out
+    assert 'class="doc-line grand"' in html_out
+
+
+def test_compose_html_formats_amounts_the_swiss_way(db_session):
+    dealership = _make_dealership(db_session)
+    content = ContentDefinition(
+        title="Amount",
+        blocks=[LineItemsBlock(lines=[DocumentLine(label="Total", amount=Decimal(12500))])],
+    )
+    html_out = _compose_html(
+        dealership=dealership, template=None, location=None,
+        correspondence_language=SwissLanguage.DE, content=content,
+    )
+    assert "CHF 12'500.00" in html_out
+
+
+def _footer(html_out: str) -> str:
+    """The running footer's markup — the one element every page repeats."""
+
+    start = html_out.index('<div class="doc-footer">')
+    end = html_out.index('<div class="doc-head')
+    return html_out[start:end]
+
+
+def test_the_footer_never_prints_a_location(db_session):
+    """KAN-206, A-27: the legal footer always prints the legal entity at its
+    registered seat — a document printed for a site changes its address
+    block (and logo), never the footer. WP-6b's per-location footer address
+    is gone."""
+
+    dealership = _make_dealership(db_session)
+    location = Location(
+        tenant_id=dealership.id,
+        name="Filiale Winterthur",
+        address_street="Industriestrasse",
+        address_house_number="24",
+        address_postal_code="8400",
+        address_locality="Winterthur",
+        letterhead_address_override="Filiale Winterthur\nIndustriestrasse 24\n8400 Winterthur",
+    )
+    db_session.add(location)
+    db_session.flush()
+
+    with_location = _compose_html(
+        dealership=dealership, template=None, location=location,
+        correspondence_language=SwissLanguage.DE, content=_sample_content(),
+    )
+    without_location = _compose_html(
+        dealership=dealership, template=None, location=None,
+        correspondence_language=SwissLanguage.DE, content=_sample_content(),
+    )
+
+    assert _footer(with_location) == _footer(without_location)
+    assert "Winterthur" not in _footer(with_location)
+    assert "Garage Muster AG" in _footer(with_location)
+    assert "Bahnhofstrasse 1" in _footer(with_location)
+    assert "8001 Zürich" in _footer(with_location)
+
+
+def test_a_locations_address_block_prints_its_free_text_override(db_session):
+    """KAN-206, Q3 A: the site's address block is its free-text override,
+    printed as written when the document is printed for that site; a site
+    without one prints the Betrieb's address."""
+
+    dealership = _make_dealership(db_session)
+    winterthur = Location(
+        tenant_id=dealership.id,
+        name="Filiale Winterthur",
+        letterhead_address_override="Filiale Winterthur\nIndustriestrasse 24\n8400 Winterthur",
+    )
+    baden = Location(tenant_id=dealership.id, name="Filiale Baden")
+    db_session.add_all([winterthur, baden])
+    db_session.flush()
+
+    html_winterthur = _compose_html(
+        dealership=dealership, template=None, location=winterthur,
+        correspondence_language=SwissLanguage.DE, content=_sample_content(),
+    )
+    html_baden = _compose_html(
+        dealership=dealership, template=None, location=baden,
+        correspondence_language=SwissLanguage.DE, content=_sample_content(),
+    )
+
+    head = html_winterthur[html_winterthur.index('<div class="doc-head'):]
+    assert "Filiale Winterthur\nIndustriestrasse 24\n8400 Winterthur" in head
+    assert "Bahnhofstrasse 1 · 8001 Zürich" not in head
+    assert "Bahnhofstrasse 1 · 8001 Zürich" in html_baden
+    assert "Baden" not in html_baden
+
+
+def test_letterhead_logo_uses_the_dealerships_own_brand_colour(db_session):
+    """Regression: an earlier version hardcoded the logo mark's colour to
+    the shipped default purple regardless of what the dealership had
+    configured — caught visually while producing the PR-5 demo screenshots
+    (Geneva's teal letterhead rendered purple), not by a test that existed
+    beforehand.
+    """
+    zurich = _make_dealership(db_session, brand_primary_color="#7C3AED")
+    geneva = _make_dealership(db_session, brand_primary_color="#0F766E")
+
+    html_zurich = _compose_html(
+        dealership=zurich, template=None, location=None,
+        correspondence_language=SwissLanguage.DE, content=_sample_content(),
+    )
+    html_geneva = _compose_html(
+        dealership=geneva, template=None, location=None,
+        correspondence_language=SwissLanguage.DE, content=_sample_content(),
+    )
+
+    assert "#7C3AED" in html_zurich
+    assert "#0F766E" not in html_zurich
+    assert "#0F766E" in html_geneva
+    assert "#7C3AED" not in html_geneva
+
+
+def test_letterhead_logo_falls_back_to_the_default_colour_for_a_malformed_value(db_session):
+    # Exactly 7 characters (the column's own String(7) limit) so this stays
+    # a test of _render_logo's own defensive fallback, not an incidental
+    # column-length violation — Postgres enforces VARCHAR(7) strictly at
+    # INSERT time where SQLite's fast lane doesn't, so a longer literal
+    # here would fail only in CI, never locally (ADR-011's whole point).
+    dealership = _make_dealership(db_session, brand_primary_color="invalid")
+    html_out = _compose_html(
+        dealership=dealership, template=None, location=None,
+        correspondence_language=SwissLanguage.DE, content=_sample_content(),
+    )
+    assert "#7C3AED" in html_out
+    assert "invalid" not in html_out
+
+
+def test_letterhead_never_prints_an_external_logo_url(db_session):
+    # KAN-205 (review): the renderer loads data: URIs only, so the WP-6b
+    # external logo_url is not referenced at all — it would print an empty
+    # box. The initials mark prints until
+    # scripts/migrate_logo_urls_to_branding_assets.py moves the file into the
+    # store as the primary branding asset (tests/platform/test_branding.py).
+    dealership = _make_dealership(db_session, logo_url="https://cdn.example.com/logo.png")
+    html_out = _compose_html(
+        dealership=dealership, template=None, location=None,
+        correspondence_language=SwissLanguage.DE, content=_sample_content(),
+    )
+    assert "cdn.example.com" not in html_out
+    assert "<img" not in html_out
+    assert dealership.brand_primary_color in html_out
+
+
+def test_content_is_html_escaped(db_session):
+    dealership = _make_dealership(db_session)
+    content = ContentDefinition(title="<script>alert(1)</script>")
+    html_out = _compose_html(
+        dealership=dealership, template=None, location=None,
+        correspondence_language=SwissLanguage.DE, content=content,
+    )
+    assert "<script>" not in html_out
+    assert "&lt;script&gt;" in html_out
+
+
+def test_render_document_produces_a_real_pdf(db_session):
+    """The one test in this package that actually calls WeasyPrint."""
+    dealership = _make_dealership(db_session)
+    pdf_bytes = render_document(
+        db_session,
+        dealership_id=dealership.id,
+        correspondence_language=SwissLanguage.DE,
+        content=_sample_content(),
+    )
+    assert pdf_bytes.startswith(b"%PDF-")
+    assert len(pdf_bytes) > 1000
+
+
+def test_render_document_refuses_another_betriebs_location(db_session):
+    """KAN-666, rule 7: a location of another Betrieb is a 404 — the render
+    never reaches the PDF writer, so its address is printed nowhere."""
+
+    ours = _make_dealership(db_session)
+    theirs = _make_dealership(db_session, legal_name="Autohaus Fremd AG", uid=valid_uid())
+    foreign = Location(
+        tenant_id=theirs.id,
+        name="Fremde Filiale",
+        address_street="Geheimweg",
+        address_house_number="9",
+        address_postal_code="3000",
+        address_locality="Bern",
+    )
+    db_session.add(foreign)
+    db_session.flush()
+
+    with patch("app.platform.documents.services.document_render.write_pdf") as write_pdf, pytest.raises(NotFoundError):
+        render_document(
+            db_session,
+            dealership_id=ours.id,
+            correspondence_language=SwissLanguage.DE,
+            content=_sample_content(),
+            location_id=foreign.id,
+        )
+    write_pdf.assert_not_called()
+
+
+def test_render_document_prints_its_own_betriebs_location(db_session):
+    """KAN-666: the scoped lookup still finds the rendering Betrieb's own site."""
+
+    ours = _make_dealership(db_session)
+    own = Location(
+        tenant_id=ours.id,
+        name="Filiale Winterthur",
+        address_street="Industriestrasse",
+        address_house_number="24",
+        address_postal_code="8400",
+        address_locality="Winterthur",
+    )
+    own.letterhead_address_override = "Filiale Winterthur\nIndustriestrasse 24"
+    db_session.add(own)
+    db_session.flush()
+
+    with patch("app.platform.documents.services.document_render.write_pdf", return_value=b"%PDF-stub") as write_pdf:
+        render_document(
+            db_session,
+            dealership_id=ours.id,
+            correspondence_language=SwissLanguage.DE,
+            content=_sample_content(),
+            location_id=own.id,
+        )
+    (html_string,) = write_pdf.call_args.args
+    assert "Filiale Winterthur" in html_string
+
+
+def test_platform_public_exports_only_the_scoped_location_lookup():
+    """KAN-666: the one location lookup other contexts can reach takes the tenant."""
+
+    import inspect
+
+    from app.platform import public
+
+    params = inspect.signature(public.get_location_or_404).parameters
+    assert "dealership_id" in params
+    assert params["dealership_id"].kind is inspect.Parameter.KEYWORD_ONLY

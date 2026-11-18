@@ -164,7 +164,7 @@ def get_stock_items_for_vehicles(
     KAN-538 (rule 7): the group is the caller's token's, never an id it
     passes — this function authorises its own group read, as
     list_group_stock_items does, so no caller can ask about another
-    group's stock (tests/test_inventory_group_stock_for_vehicles.py).
+    group's stock (tests/inventory/test_inventory_group_stock_for_vehicles.py).
     """
 
     if not vehicle_ids:

@@ -18,9 +18,9 @@ paths:
   - "app/platform/reference/schemas/ui_translation.py"
   - "app/platform/identity/schemas/user_preference.py"
   - "frontend/apps/dms/src/layout/DmsShell.tsx"
-  - "tests/test_*notification*.py"
-  - "tests/test_platform_ui_translations.py"
-  - "tests/test_user_preference.py"
+  - "tests/**/test_*notification*.py"
+  - "tests/platform/test_platform_ui_translations.py"
+  - "tests/platform/test_user_preference.py"
   - "tests/architecture/test_notif*.py"
   - "tests/architecture/test_notify_*.py"
   - "scripts/import_ui_translation_bundles.py"
@@ -48,7 +48,7 @@ KAN-614 (2026-11-10) to the invariants; platform.md was verified against main@73
   `in_app_is_the_record`).
 - `notification_event` is the catalogue: the code declaration (`services/notification_catalogue.py`)
   **and** a platform migration inserting its rows, in the PR that raises them
-  (`tests/test_migrated_notification_catalogue.py` keeps the two equal). `notification` is the
+  (`tests/platform/test_migrated_notification_catalogue.py` keeps the two equal). `notification` is the
   inbox and the record, kept 90 days.
 - `platform.public.notify(db, code, user_id=…, subject=…)` runs in the caller's transaction and
   publishes `platform.notification.delivered`; an unknown code raises; every call site names a

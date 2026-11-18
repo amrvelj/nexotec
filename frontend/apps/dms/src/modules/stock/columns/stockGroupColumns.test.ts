@@ -45,7 +45,7 @@ describe('stockGroupColumns', () => {
 // sort must name a field GET /v1/inventory/groups/mine/stock-items accepts
 // (anything else is a 422 at runtime). This set mirrors the backend's
 // GROUP_STOCK_SORT_FIELDS (app/inventory/api/group.py; its own list since
-// KAN-461), which tests/test_inventory_group_listing_api.py pins from the
+// KAN-461), which tests/inventory/test_inventory_group_listing_api.py pins from the
 // other side.
 const SERVER_SORT_FIELDS = ['stockNumber', 'vin', 'updatedAt', 'createdAt']
 

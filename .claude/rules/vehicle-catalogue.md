@@ -12,14 +12,14 @@ paths:
   - "app/vehicle/daily_jobs.py"
   - "app/vehicle/schemas/catalogue.py"
   - "app/vehicle/schemas/spec_block.py"
-  - "tests/test_catalogue_*.py"
+  - "tests/vehicle/test_catalogue_*.py"
   - "tests/catalogue_lookup_support.py"
-  - "tests/test_vehicle_catalogue*.py"
-  - "tests/test_vehicle_energy_rating.py"
-  - "tests/test_vehicle_provider.py"
-  - "tests/test_provider_code_map_seed.py"
-  - "tests/test_seed_demo_provider_code_map.py"
-  - "tests/test_kan194_legacy_mapping_gap_code_groups.py"
+  - "tests/vehicle/test_vehicle_catalogue*.py"
+  - "tests/vehicle/test_vehicle_energy_rating.py"
+  - "tests/vehicle/test_vehicle_provider.py"
+  - "tests/vehicle/test_provider_code_map_seed.py"
+  - "tests/vehicle/test_seed_demo_provider_code_map.py"
+  - "tests/vehicle/test_kan194_legacy_mapping_gap_code_groups.py"
   - "tests/architecture/test_catalogue_browse_is_a_bounded_live_query.py"
   - "tests/architecture/test_no_bulk_catalogue_retrieval.py"
   - "scripts/seed_demo_provider_code_map.py"
@@ -121,7 +121,7 @@ vehicle.md was verified against main@73baf3f on 2026-10-25 - this cut was not re
   whether it happens).
 - A motorcycle's `drive` is a stroke count, not a drivetrain: the sync routes it to `engine_cycle`
   by the **resolved** `vehicle_kind`, never a raw code; while the kind is a gap it is recorded as
-  `drivetrain`. The seeded map (`7c4e9a2b6d13`, asserted by `tests/test_provider_code_map_seed.py`)
+  `drivetrain`. The seeded map (`7c4e9a2b6d13`, asserted by `tests/vehicle/test_provider_code_map_seed.py`)
   is the identAPI's live map. The spec block's reference fields are code-mapped too; `euronorm` has
   no seeded rows yet — a gap on every lookup until mapped. `category` is the **size class**
   (`vehicle_class`: micro … luxury, seeded for passenger cars by `8e2b6c4f1a97`; Anto, KAN-587); the
