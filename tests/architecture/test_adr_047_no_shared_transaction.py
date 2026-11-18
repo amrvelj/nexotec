@@ -271,6 +271,19 @@ _OWN_COMMIT_WRITES = {
         "app.integration.services.gateway.record_call",
         "inventory: «Text vorschlagen» (KAN-227)",
     ),
+    # KAN-215 (FR-AU-23): a user's own mailbox grant is platform's row.
+    # Integration links it after the provider answered, then writes the token
+    # and its identity row in its own commit; a failure there compensates with
+    # the revoke, which is also the user's «Postfach trennen». Each commits
+    # its own transaction; the caller commits its own work first.
+    "app.platform.public.link_connected_account": (
+        "app.platform.identity.services.connected_account.link_connected_account",
+        "integration: the mail link flow (KAN-215)",
+    ),
+    "app.platform.public.revoke_connected_account": (
+        "app.platform.identity.services.connected_account.revoke_connected_account",
+        "integration: the mail link's compensation and «Postfach trennen» (KAN-215)",
+    ),
 }
 
 # ADR-047's forbidden shape, known and tracked as debt. The one entry Anto
@@ -326,6 +339,9 @@ _READS = {
     # KAN-104 item 5: a document without a customer language prints in the Betrieb's default; a SELECT only.
     "app.platform.public.get_dealership_default_correspondence_language",
     "app.platform.public.get_dealership_or_404",
+    # KAN-221 (review, 2026-11-18): whether a Betrieb is the platform tenant, so
+    # integration's shared-mailbox routes 404 it; a SELECT only.
+    "app.platform.public.is_platform_dealership",
     # KAN-371: the History tab's Betrieb and user names, group-scoped; a SELECT only.
     "app.platform.public.get_group_display_labels",
     # KAN-722: the offboarded Betriebe of a group and their sole authors, which the
@@ -446,6 +462,11 @@ _READS = {
     "app.platform.public.location_reference_check",
     "app.platform.public.user_is_deactivated",
     "app.platform.public.user_reference_check",
+    # KAN-215: whether a mailbox grant is still live (one SELECT), and the
+    # worker's wiring of the mailbox providers' revokers (an in-process
+    # registry, no database).
+    "app.platform.public.connected_account_states",
+    "app.platform.public.register_grant_revoker",
 }
 
 

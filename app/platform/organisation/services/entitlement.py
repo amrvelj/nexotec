@@ -17,8 +17,9 @@ from sqlalchemy.orm import Session
 
 from app.core.audit import record_audit_event
 from app.core.base import utcnow
+from app.core.errors import UnprocessableEntityError
 from app.core.permissions import ModuleCode, set_entitlement_version_reader
-from app.platform.organisation.models.dealership import Dealership
+from app.platform.organisation.models.dealership import Dealership, DealershipKind
 from app.platform.organisation.models.module_entitlement import ModuleEntitlement
 
 
@@ -57,6 +58,12 @@ def set_entitlements(
     so every session minted before this change is refused on its next
     gated request and signs in again. Returns the active set."""
 
+    if dealership.kind != DealershipKind.DEALER:
+        # KAN-221 PR-1: the platform tenant is licensed for nothing.
+        raise UnprocessableEntityError(
+            "The Nexotec platform tenant holds no module entitlements.",
+            details={"reason": "platform_tenant_holds_no_entitlements"},
+        )
     now = utcnow()
     wanted = {module.value for module in modules}
     rows = {row.module.value: row for row in _rows(db, dealership.id)}

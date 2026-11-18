@@ -18,6 +18,7 @@ from sqlalchemy.orm import Session
 
 from app.core.auth import Principal
 from app.core.concurrency import require_if_match
+from app.core.errors import NotFoundError
 from app.core.idempotent_route import IdempotentRoute
 from app.core.permissions import require_read, require_write
 from app.core.tenancy import require_tenant_match
@@ -39,8 +40,17 @@ from app.integration.services import ai_prompts as prompt_service
 from app.integration.services.ai_generation import ai_connection_in_use
 from app.integration.services.ai_prompt_registry import REGISTRY, prompt_code
 from app.integration.services.ai_prompt_seed import shipped_prompt
+from app.platform.public import is_platform_dealership
 
 router = APIRouter(tags=["ai-prompts"], route_class=IdempotentRoute)
+
+
+def _refuse_platform_tenant(db: Session, dealership_id: uuid.UUID) -> None:
+    """404: the platform tenant «Nexotec» is no dealer and holds no prompts of
+    its own (KAN-221, ADR-188) — to these routes it is not a Betrieb."""
+
+    if is_platform_dealership(db, dealership_id):
+        raise NotFoundError(f"Dealership {dealership_id} was not found.")
 
 
 def _read(row: IntegrationAiPrompt, versions: dict[uuid.UUID, int]) -> AiPromptRead:
@@ -71,6 +81,7 @@ def list_ai_prompts(
     db: Session = Depends(get_db),
 ):
     require_tenant_match(dealership_id, principal)
+    _refuse_platform_tenant(db, dealership_id)
     rows = prompt_service.list_prompts(db, tenant_id=dealership_id)
     versions = prompt_service.seed_versions(db, rows)
     in_use = ai_connection_in_use(db, tenant_id=dealership_id)
@@ -97,6 +108,7 @@ def create_ai_prompt(
     db: Session = Depends(get_db),
 ):
     require_tenant_match(dealership_id, principal)
+    _refuse_platform_tenant(db, dealership_id)
     row = prompt_service.create_override(
         db,
         tenant_id=dealership_id,
@@ -119,6 +131,7 @@ def update_ai_prompt(
     db: Session = Depends(get_db),
 ):
     require_tenant_match(dealership_id, principal)
+    _refuse_platform_tenant(db, dealership_id)
     row = prompt_service.get_dealer_prompt_or_404(db, tenant_id=dealership_id, prompt_id=prompt_id, for_update=True)
     row = prompt_service.update_override(
         db, row=row, changes=body.model_dump(exclude_unset=True), if_match_version=if_match, actor_id=principal.user_id
@@ -135,6 +148,7 @@ def delete_ai_prompt(
     db: Session = Depends(get_db),
 ):
     require_tenant_match(dealership_id, principal)
+    _refuse_platform_tenant(db, dealership_id)
     row = prompt_service.get_dealer_prompt_or_404(db, tenant_id=dealership_id, prompt_id=prompt_id, for_update=True)
     prompt_service.delete_override(db, row=row, if_match_version=if_match, actor_id=principal.user_id)
     return Response(status_code=204)

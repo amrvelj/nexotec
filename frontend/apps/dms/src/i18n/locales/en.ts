@@ -4,7 +4,9 @@
 import ns_account from './en/account.json'
 import ns_addressSearch from './en/addressSearch.json'
 import ns_aiPrompts from './en/aiPrompts.json'
+import ns_apiRefusal__accessWindow from './en/apiRefusal.accessWindow.json'
 import ns_apiRefusal from './en/apiRefusal.json'
+import ns_apiRefusal__reasons from './en/apiRefusal.reasons.json'
 import ns_auth from './en/auth.json'
 import ns_branding from './en/branding.json'
 import ns_brandsAdmin from './en/brandsAdmin.json'
@@ -28,6 +30,7 @@ import ns_integrationsList from './en/integrationsList.json'
 import ns_legal from './en/legal.json'
 import ns_letterhead from './en/letterhead.json'
 import ns_locations from './en/locations.json'
+import ns_mail from './en/mail.json'
 import ns_mappingGaps from './en/mappingGaps.json'
 import ns_notifications from './en/notifications.json'
 import ns_numberRanges from './en/numberRanges.json'
@@ -67,7 +70,7 @@ const bundle = {
   account: ns_account,
   addressSearch: ns_addressSearch,
   aiPrompts: ns_aiPrompts,
-  apiRefusal: ns_apiRefusal,
+  apiRefusal: { ...ns_apiRefusal, accessWindow: ns_apiRefusal__accessWindow, reasons: ns_apiRefusal__reasons },
   auth: ns_auth,
   branding: ns_branding,
   brandsAdmin: ns_brandsAdmin,
@@ -91,6 +94,7 @@ const bundle = {
   legal: ns_legal,
   letterhead: ns_letterhead,
   locations: ns_locations,
+  mail: ns_mail,
   mappingGaps: ns_mappingGaps,
   notifications: ns_notifications,
   numberRanges: ns_numberRanges,

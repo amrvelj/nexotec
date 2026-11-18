@@ -20,6 +20,7 @@ from app.integration.models.call_payload import IntegrationCallPayload
 from app.integration.models.caption import IntegrationProviderCaption, IntegrationProviderCaptionFetch
 from app.integration.models.connection import IntegrationConnection
 from app.integration.models.entitlement import IntegrationEntitlement
+from app.integration.models.mail import MailLinkState, MessageDelivery, SendingIdentity
 from app.integration.models.notification import IntegrationNotification
 from app.integration.models.provider import IntegrationProvider
 from app.integration.models.secret_ref import IntegrationSecretRef
@@ -162,7 +163,9 @@ __all__ = [
     "LocationClosure",
     "LocationLeadRouting",
     "LocationOpeningHours",
+    "MailLinkState",
     "MappingGap",
+    "MessageDelivery",
     "MfaPasskey",
     "MfaRecoveryCode",
     "MfaTotp",
@@ -196,6 +199,7 @@ __all__ = [
     "SalesNumberSequence",
     "SalesOffer",
     "SalesStockItemPurchase",
+    "SendingIdentity",
     "SetupChecklistRegression",
     "StandardText",
     "StandardTextDelegation",

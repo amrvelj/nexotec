@@ -96,7 +96,7 @@ def request_export(
 
     require_tenant_match(dealership_id, principal)
     _the_betriebs_own(principal)
-    dealership = dealership_service.get_dealership_or_404(db, dealership_id)
+    dealership = dealership_service.get_dealer_dealership_or_404(db, dealership_id)
     job = export_service.request_export(
         db, dealership=dealership, kind=ExportJobKind.SELF_SERVICE, actor_id=principal.user_id
     )
@@ -111,7 +111,7 @@ def list_exports(
     db: Session = Depends(get_db),
 ):
     require_tenant_match(dealership_id, principal)
-    dealership_service.get_dealership_or_404(db, dealership_id)
+    dealership_service.get_dealer_dealership_or_404(db, dealership_id)
     rows, next_cursor = export_service.list_exports(
         db, dealership_id=dealership_id, params=params, kind=ExportJobKind.SELF_SERVICE
     )
@@ -197,7 +197,7 @@ def get_offboarding(
     principal: Principal = Depends(require_access_role()),  # platform_admin only
     db: Session = Depends(get_db),
 ):
-    return _offboarding_read(db, dealership_service.get_dealership_or_404(db, dealership_id))
+    return _offboarding_read(db, dealership_service.get_dealer_dealership_or_404(db, dealership_id))
 
 
 @router.post(
@@ -220,7 +220,7 @@ def offboard_dealership(
             "Offboarding deactivates every user and cannot be undone — send confirmation: true.",
             details={"reason": "offboarding_confirmation_required"},
         )
-    dealership = dealership_service.get_dealership_for_update_or_404(db, dealership_id)
+    dealership = dealership_service.get_dealer_dealership_for_update_or_404(db, dealership_id)
     check_version(dealership.version, if_match, entity_name="Dealership")
     dealership = offboarding_service.offboard(db, dealership=dealership, actor_id=principal.user_id, reason=body.reason)
     return _offboarding_read(db, dealership)
@@ -240,7 +240,7 @@ def list_platform_exports(
     """Every export of the Betrieb — its manager's and staff's archive
     exports — for the offboarding page."""
 
-    dealership_service.get_dealership_or_404(db, dealership_id)
+    dealership_service.get_dealer_dealership_or_404(db, dealership_id)
     rows, next_cursor = export_service.list_exports(db, dealership_id=dealership_id, params=params)
     return _page(rows, next_cursor)
 
@@ -260,7 +260,7 @@ def request_archive_export(
     """Q2 B: an export from the archive for a former manager who asked
     support — audited with the requester and the reason."""
 
-    dealership = dealership_service.get_dealership_or_404(db, dealership_id)
+    dealership = dealership_service.get_dealer_dealership_or_404(db, dealership_id)
     job = export_service.request_export(
         db, dealership=dealership, kind=ExportJobKind.ARCHIVE, actor_id=principal.user_id, reason=body.reason
     )

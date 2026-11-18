@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 from app.core.pagination import SortPageParams, paginate_query_sorted
 from app.core.sorting import SortField, build_page_for_sort, decode_cursor_for_sort
 from app.platform.organisation.models.dealership import DealerGroup
+from app.platform.organisation.services.dealer_dealerships import dealer_groups_only
 
 _BY_NAME = [SortField(api_name="name", column=DealerGroup.name, direction="asc", nullable=False)]
 
@@ -29,7 +30,7 @@ def list_dealer_group_options(
     A cursor that is not one of this list's is a 400 (KAN-182)."""
 
     params = SortPageParams(limit=limit, cursor=decode_cursor_for_sort(cursor, _BY_NAME), sort_fields=_BY_NAME)
-    stmt = select(DealerGroup)
+    stmt = select(DealerGroup).where(dealer_groups_only())
     term = (q or "").strip()
     if term:
         stmt = stmt.where(DealerGroup.name.ilike(_contains_pattern(term), escape="\\"))

@@ -26,6 +26,17 @@ Rules held here:
   Which items the website channel needs is a labelled default
   (`WEBSITE_REQUIREMENTS`) until Anto rules on it.
 - Every write is audited with before and after.
+- **Its fact for other contexts (KAN-226):** a write that changes what a
+  channel publishes — the profile's fields, a location's override, the AGB
+  file, the imagery — adds `platform.publishing_profile.updated` to the same
+  transaction (`_publish_updated`). Payload: `dealershipId`, `profileId` (the
+  Betrieb's row, the one aggregate), its `version` after the write,
+  `locationId` (the site an override or an image belongs to, else null) and
+  `changedFields` — the camelCase names that changed, or for a whole part
+  `locationOverride`, `agbDocument`, `imagery`. No values: the texts are
+  long and localised, and a consumer reads the effective profile through
+  `platform.public` when it handles the fact (unordered, at-least-once).
+  Lead routing states nothing: it is internal routing, never published.
 """
 
 import logging
@@ -35,6 +46,7 @@ from dataclasses import dataclass
 from decimal import Decimal
 from typing import Any
 
+from pydantic.alias_generators import to_camel
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -43,6 +55,7 @@ from app.core.audit import record_audit_event
 from app.core.base import utcnow
 from app.core.errors import BadRequestError, ForbiddenError, NotFoundError, UnprocessableEntityError
 from app.core.object_store import ObjectStore, StoredObject
+from app.core.outbox import OutboxEvent, publish
 from app.core.uuid7 import uuid7
 from app.platform.identity.models.user import User, UserStatus
 from app.platform.organisation.models.branding_asset import (
@@ -69,6 +82,10 @@ from app.platform.organisation.schemas.publishing_profile import (
 logger = logging.getLogger("app.platform.administration.services.publishing_profile")
 
 _ENTITY = "publishing_profile"
+UPDATED_EVENT = "platform.publishing_profile.updated"
+LOCATION_OVERRIDE = "locationOverride"
+AGB_DOCUMENT = "agbDocument"
+IMAGERY = "imagery"
 _ALL_LOCALISED = OVERRIDABLE_LOCALISED_FIELDS + BETRIEB_ONLY_LOCALISED_FIELDS
 _ALL_SCALAR = OVERRIDABLE_SCALAR_FIELDS + BETRIEB_ONLY_SCALAR_FIELDS
 
@@ -181,6 +198,37 @@ def _audit_diff(
     )
 
 
+def _changed(before: dict[str, Any], after: dict[str, Any]) -> list[str]:
+    return [to_camel(k) for k in (*before, *(k for k in after if k not in before)) if before.get(k) != after.get(k)]
+
+
+def _publish_updated(
+    db: Session, *, profile: PublishingProfile, location_id: uuid.UUID | None, changed: list[str]
+) -> None:
+    """`platform.publishing_profile.updated` in the caller's transaction —
+    nothing when nothing a channel publishes changed."""
+
+    if not changed:
+        return
+    publish(
+        db,
+        OutboxEvent(
+            event_type=UPDATED_EVENT,
+            tenant_id=profile.dealership_id,
+            producer="platform",
+            aggregate_type=_ENTITY,
+            aggregate_id=profile.id,
+            payload={
+                "dealershipId": str(profile.dealership_id),
+                "profileId": str(profile.id),
+                "version": profile.version,
+                "locationId": str(location_id) if location_id is not None else None,
+                "changedFields": changed,
+            },
+        ),
+    )
+
+
 def _apply(row: PublishingProfile, changes: dict[str, Any]) -> None:
     for field, value in changes.items():
         if field in _ALL_LOCALISED or field == "social_profiles":
@@ -198,7 +246,9 @@ def update_profile(
     _apply(profile, changes)
     _touch(profile, actor_id)
     db.flush()
-    _audit_diff(db, profile=profile, action="update", before=before, after=_snapshot(profile, fields), actor_id=actor_id)
+    after = _snapshot(profile, fields)
+    _audit_diff(db, profile=profile, action="update", before=before, after=after, actor_id=actor_id)
+    _publish_updated(db, profile=profile, location_id=None, changed=_changed(before, after))
     db.commit()
     db.refresh(profile)
     return profile
@@ -251,6 +301,7 @@ def create_override(
         actor_id=actor_id,
         extra={"location_id": str(location.id)},
     )
+    _publish_updated(db, profile=profile, location_id=location.id, changed=[LOCATION_OVERRIDE])
     db.commit()
     db.refresh(row)
     return row
@@ -268,15 +319,17 @@ def update_override(
     row.version += 1
     _touch(profile, actor_id)
     db.flush()
+    after = _snapshot(row, _OVERRIDE_FIELDS)
     _audit_diff(
         db,
         profile=profile,
         action="location_override_updated",
         before=before,
-        after=_snapshot(row, _OVERRIDE_FIELDS),
+        after=after,
         actor_id=actor_id,
         extra={"location_id": str(location.id)},
     )
+    _publish_updated(db, profile=profile, location_id=location.id, changed=_changed(before, after))
     db.commit()
     db.refresh(row)
     return row
@@ -301,6 +354,7 @@ def delete_override(db: Session, *, profile: PublishingProfile, location: Locati
         actor_id=actor_id,
         extra={"location_id": str(location.id)},
     )
+    _publish_updated(db, profile=profile, location_id=location.id, changed=[LOCATION_OVERRIDE])
     db.commit()
 
 
@@ -386,6 +440,7 @@ def set_agb(db: Session, store: ObjectStore, *, profile: PublishingProfile, data
             before={"agb_document": previous_key is not None},
             after={"agb_document": True, "byte_size": len(data)},
         )
+        _publish_updated(db, profile=profile, location_id=None, changed=[AGB_DOCUMENT])
         db.commit()
     except BaseException:
         db.rollback()
@@ -416,6 +471,7 @@ def remove_agb(db: Session, store: ObjectStore, *, profile: PublishingProfile, a
         before={"agb_document": True},
         after={"agb_document": False},
     )
+    _publish_updated(db, profile=profile, location_id=None, changed=[AGB_DOCUMENT])
     db.commit()
     _remove_object(store, key)
     db.refresh(profile)
@@ -609,6 +665,7 @@ def add_image(
             actor_id=actor_id,
             after=_image_snapshot(row),
         )
+        _publish_updated(db, profile=profile, location_id=location.id, changed=[IMAGERY])
         db.commit()
     except BaseException:
         db.rollback()
@@ -646,6 +703,8 @@ def reorder_images(
         before={"location_id": str(location.id), "kind": kind.value, "order": before},
         after={"location_id": str(location.id), "kind": kind.value, "order": [str(i) for i in ordered_ids]},
     )
+    if before != [str(i) for i in ordered_ids]:
+        _publish_updated(db, profile=profile, location_id=location.id, changed=[IMAGERY])
     db.commit()
     return _images_of(db, profile.dealership_id, location.id, BrandingAssetKind(kind.value))
 
@@ -671,6 +730,8 @@ def set_primary_image(db: Session, *, profile: PublishingProfile, image_id: uuid
         before={"primary": str(previous.id) if previous else None},
         after={"primary": str(image.id)},
     )
+    if previous is None or previous.id != image.id:
+        _publish_updated(db, profile=profile, location_id=image.location_id, changed=[IMAGERY])
     db.commit()
     db.refresh(image)
     return image
@@ -704,6 +765,7 @@ def remove_image(db: Session, store: ObjectStore, *, profile: PublishingProfile,
         actor_id=actor_id,
         before=snapshot,
     )
+    _publish_updated(db, profile=profile, location_id=location_id, changed=[IMAGERY])
     db.commit()
     _remove_object(store, key)
 

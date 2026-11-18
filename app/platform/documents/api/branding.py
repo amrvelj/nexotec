@@ -51,7 +51,7 @@ def get_branding(
     db: Session = Depends(get_db),
 ):
     require_tenant_match(dealership_id, principal)
-    dealership = dealership_service.get_dealership_or_404(db, dealership_id)
+    dealership = dealership_service.get_dealer_dealership_or_404(db, dealership_id)
     return branding_service.branding_read(db, dealership)
 
 
@@ -67,7 +67,7 @@ def update_branding(
     saved state; a failing pair is a warning, not a refusal."""
 
     require_tenant_match(dealership_id, principal)
-    dealership = dealership_service.get_dealership_for_update_or_404(db, dealership_id)
+    dealership = dealership_service.get_dealer_dealership_for_update_or_404(db, dealership_id)
     check_version(dealership.version, if_match, entity_name="Dealership")
     dealership = branding_service.update_branding(db, dealership=dealership, data=body, actor_id=principal.user_id)
     return branding_service.branding_read(db, dealership)
@@ -93,7 +93,7 @@ def put_branding_asset(
     in the threadpool."""
 
     require_tenant_match(dealership_id, principal)
-    dealership = dealership_service.get_dealership_for_update_or_404(db, dealership_id)
+    dealership = dealership_service.get_dealer_dealership_for_update_or_404(db, dealership_id)
     check_version(dealership.version, if_match, entity_name="Dealership")
     dealership = branding_service.set_asset(
         db, store, dealership=dealership, kind=BrandingAssetKind(kind.value), data=image, actor_id=principal.user_id
@@ -113,7 +113,7 @@ def get_branding_asset(
     (the read's `assets[].source` says which). 404 when there is no logo."""
 
     require_tenant_match(dealership_id, principal)
-    dealership_service.get_dealership_or_404(db, dealership_id)
+    dealership_service.get_dealer_dealership_or_404(db, dealership_id)
     stored = branding_service.read_asset(db, store, dealership_id=dealership_id, kind=BrandingAssetKind(kind.value))
     return Response(content=stored.data, media_type=stored.content_type, headers=_ASSET_HEADERS)
 
@@ -128,7 +128,7 @@ def delete_branding_asset(
     store: ObjectStore = Depends(get_object_store),
 ):
     require_tenant_match(dealership_id, principal)
-    dealership = dealership_service.get_dealership_for_update_or_404(db, dealership_id)
+    dealership = dealership_service.get_dealer_dealership_for_update_or_404(db, dealership_id)
     check_version(dealership.version, if_match, entity_name="Dealership")
     dealership = branding_service.remove_asset(
         db, store, dealership=dealership, kind=BrandingAssetKind(kind.value), actor_id=principal.user_id
@@ -156,7 +156,7 @@ def put_location_logo(
     version, like every branding write. A site of another Betrieb is a 404."""
 
     require_tenant_match(dealership_id, principal)
-    dealership = dealership_service.get_dealership_for_update_or_404(db, dealership_id)
+    dealership = dealership_service.get_dealer_dealership_for_update_or_404(db, dealership_id)
     check_version(dealership.version, if_match, entity_name="Dealership")
     location = get_location_or_404(db, dealership_id=dealership_id, location_id=location_id)
     dealership = branding_service.set_asset(
@@ -198,7 +198,7 @@ def delete_location_logo(
     store: ObjectStore = Depends(get_object_store),
 ):
     require_tenant_match(dealership_id, principal)
-    dealership = dealership_service.get_dealership_for_update_or_404(db, dealership_id)
+    dealership = dealership_service.get_dealer_dealership_for_update_or_404(db, dealership_id)
     check_version(dealership.version, if_match, entity_name="Dealership")
     location = get_location_or_404(db, dealership_id=dealership_id, location_id=location_id)
     dealership = branding_service.remove_asset(
@@ -219,7 +219,7 @@ def get_branding_preview(
     correspondence language, with the saved logo, colours and placements."""
 
     require_tenant_match(dealership_id, principal)
-    dealership = dealership_service.get_dealership_or_404(db, dealership_id)
+    dealership = dealership_service.get_dealer_dealership_or_404(db, dealership_id)
     language = dealership.default_correspondence_language
     pdf = render_document(
         db,

@@ -61,7 +61,11 @@ from app.integration.consumers import (
 )
 from app.integration.consumers import handle_dealership_offboarded_message as disable_connections_on_offboarded
 from app.integration.daily_jobs import run_daily_integration_jobs
-from app.integration.public import oldest_location_label_age_seconds, refresh_location_labels
+from app.integration.public import (
+    oldest_location_label_age_seconds,
+    refresh_location_labels,
+    register_mail_grant_revokers,
+)
 from app.inventory.consumers import (
     handle_dealership_offboarded_message as withdraw_listings_on_offboarded,
 )
@@ -690,6 +694,9 @@ def run(*, max_iterations: int | None = None) -> None:
     register_exports()
     register_status()
     register_daily_jobs()
+    # KAN-215 (ADR-118): the mailbox providers' revokers end a revoked grant
+    # at Google / drop its token; platform's consumer runs them, here only.
+    register_mail_grant_revokers(SessionLocal)
 
     iterations = 0
     last_heartbeat = 0.0

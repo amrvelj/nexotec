@@ -36,10 +36,11 @@ from app.customer.models.customer import (
 )
 from app.db import SessionLocal
 from app.platform.identity.models.user import User
-from app.platform.organisation.models.dealership import Dealership
+from app.platform.organisation.models.dealership import Dealership, DealershipKind
 from app.vehicle.models.catalogue import ModelVariant, TypeApproval, VariantTypeApproval
 from app.vehicle.models.provider import ProviderCodeMap
 
+# The seeded dealer Betriebe; the platform tenant (KAN-221) is counted on its own below.
 _EXPECTED_ROW_COUNTS = {
     Dealership: 2,
     User: 1,
@@ -128,9 +129,14 @@ def main() -> None:
     db = SessionLocal()
     try:
         for model, expected in _EXPECTED_ROW_COUNTS.items():
-            actual = len(db.scalars(select(model)).all())
+            stmt = select(model).where(Dealership.kind == DealershipKind.DEALER) if model is Dealership else select(model)
+            actual = len(db.scalars(stmt).all())
             if actual != expected:
                 fail(f"{model.__tablename__}: expected {expected} row(s), found {actual}")
+        # KAN-221 PR-1: the platform migration creates the one platform tenant.
+        platforms = db.scalars(select(Dealership).where(Dealership.kind == DealershipKind.PLATFORM)).all()
+        if len(platforms) != 1:
+            fail(f"dealership: expected the one platform tenant, found {len(platforms)}")
 
         dealership = db.scalar(select(Dealership).where(Dealership.legal_name == "Migration Smoke Test AG"))
         if dealership is None:

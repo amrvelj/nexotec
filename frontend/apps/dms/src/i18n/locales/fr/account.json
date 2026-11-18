@@ -5,7 +5,8 @@
     "security": "Sécurité",
     "connectedAccounts": "Comptes connectés",
     "signature": "Signature",
-    "notifications": "Notifications"
+    "notifications": "Notifications",
+    "mailbox": "Ma boîte"
   },
   "languages": {
     "de": "Allemand",
@@ -42,7 +43,8 @@
       "lastUsed": "Dernière utilisation"
     },
     "provider": {
-      "microsoft_365": "Microsoft 365"
+      "microsoft_365": "Microsoft 365",
+      "google_workspace": "Google Workspace"
     },
     "status": {
       "active": "Actif",

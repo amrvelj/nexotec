@@ -15,6 +15,7 @@ from app.integration.api.ai_prompts import router as integration_ai_prompts_rout
 from app.integration.api.call_payloads import router as integration_call_payloads_router
 from app.integration.api.captions import router as integration_captions_router
 from app.integration.api.connections import router as integration_connections_router
+from app.integration.api.mail import router as integration_mail_router
 from app.integration.api.providers import router as integration_providers_router
 from app.inventory.api.group import router as inventory_group_router
 from app.inventory.api.ledger import router as inventory_ledger_router
@@ -113,6 +114,7 @@ api_v1_router.include_router(valuations_router)
 api_v1_router.include_router(integration_providers_router)
 api_v1_router.include_router(integration_connections_router)
 api_v1_router.include_router(integration_ai_prompts_router)
+api_v1_router.include_router(integration_mail_router)
 api_v1_router.include_router(integration_call_payloads_router)
 api_v1_router.include_router(integration_captions_router)
 api_v1_router.include_router(auth_router)

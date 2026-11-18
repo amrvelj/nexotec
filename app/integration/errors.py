@@ -73,6 +73,18 @@ class ProviderUserQuotaExceededError(ProviderRejectedError):
     """
 
 
+class ProviderAccountRefusedError(ProviderRejectedError):
+    """KAN-215: the provider refused one account behind a shared connection —
+    a mailbox whose owner withdrew the consent, a deleted mailbox, a refresh
+    token that no longer works. Nexotec's mail app is ONE platform-scope
+    connection for every Betrieb, so this is that account's answer, never the
+    connection's: like `ProviderUserQuotaExceededError`, the gateway never
+    charges it to the circuit breaker (five dealers' revoked mailboxes must not
+    stop every other dealer's mail). A refused client secret stays a plain,
+    charged `ProviderRejectedError`.
+    """
+
+
 class ProviderNotEntitledError(ProviderGatewayError):
     """The provider answered 403 (KAN-488): the account is valid but the
     licence does not include this operation. `gateway.test_connection`'s

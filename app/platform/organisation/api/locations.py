@@ -121,7 +121,7 @@ def list_locations(
     offers only the active ones to a new assignment)."""
 
     require_tenant_match(dealership_id, principal)
-    dealership_service.get_dealership_or_404(db, dealership_id)
+    dealership_service.get_dealer_dealership_or_404(db, dealership_id)
     rows = location_service.list_locations(db, dealership_id=dealership_id, active=active)
     return LocationList(items=[_location_read(row, principal) for row in rows])
 
@@ -134,7 +134,7 @@ def create_location(
     db: Session = Depends(get_db),
 ):
     require_tenant_match(dealership_id, principal)
-    dealership_service.get_dealership_or_404(db, dealership_id)
+    dealership_service.get_dealer_dealership_or_404(db, dealership_id)
     location = location_service.create_location(
         db, dealership_id=dealership_id, data=body, actor_id=principal.user_id
     )

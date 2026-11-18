@@ -24,7 +24,9 @@ Rules held here, not in the database:
 - Opening hours are stored per department always; the one-set mode writes
   the same week for all three (D-A-27).
 
-Every write is audit-logged with before and after values.
+Every write is audit-logged with before and after values, and a change to a
+published field or to the schedule states its fact through the outbox in the
+same transaction (KAN-226; `location_facts.py`).
 """
 
 import dataclasses
@@ -53,6 +55,7 @@ from app.platform.organisation.schemas.location import (
     OpeningHoursUpdate,
 )
 from app.platform.organisation.services import holidays as holiday_service
+from app.platform.organisation.services import location_facts
 from app.platform.organisation.services.dealership import get_dealership_for_update_or_404
 
 _ENTITY = "location"
@@ -387,6 +390,7 @@ def update_location(db: Session, *, location: Location, data: LocationUpdate, ac
             before=diff_before or None,
             after=diff_after or None,
         )
+        location_facts.publish_location_changes(db, location=location, changed_fields=diff_after.keys())
     db.commit()
     db.refresh(location)
     return location
@@ -489,6 +493,7 @@ def set_opening_hours(
             before={"per_department": hours_differ_per_department(before_rows), "hours": before},
             after={"per_department": data.per_department, "hours": after},
         )
+        location_facts.publish_schedule_changed(db, location=location, changed=location_facts.OPENING_HOURS)
     db.commit()
     db.refresh(location)
     return list_opening_hours(db, location_id=location.id)
@@ -548,6 +553,7 @@ def create_closure(db: Session, *, location: Location, data: ClosureCreate, acto
         actor_id=actor_id,
         after=_closure_snapshot(closure),
     )
+    location_facts.publish_schedule_changed(db, location=location, changed=location_facts.CLOSURES)
     db.commit()
     db.refresh(closure)
     return closure
@@ -581,6 +587,7 @@ def update_closure(
             before=diff_before or None,
             after=diff_after or None,
         )
+        location_facts.publish_schedule_changed(db, location=location, changed=location_facts.CLOSURES)
     db.commit()
     db.refresh(closure)
     return closure
@@ -600,4 +607,5 @@ def delete_closure(db: Session, *, location: Location, closure: LocationClosure,
         before=_closure_snapshot(closure),
     )
     db.delete(closure)
+    location_facts.publish_schedule_changed(db, location=location, changed=location_facts.CLOSURES)
     db.commit()

@@ -29,6 +29,11 @@ from app.platform.organisation.schemas.dealership import (
     DealershipOverrideAddress,
     DealershipUpdate,
 )
+from app.platform.organisation.services.dealer_dealerships import (
+    assert_dealer_dealership,
+    dealer_dealerships_only,
+    refuse_platform_dealer_group,
+)
 from app.platform.reference.services.reference_data import get_active_reference_value_codes
 from app.platform.reference.services.system_writes import system_write_reason
 from app.platform.reference_data_seed import ASSOCIATION_MEMBERSHIP_LIST_CODE, LEGAL_FORM_LIST_CODE
@@ -170,6 +175,22 @@ def get_dealership_for_update_or_404(db: Session, dealership_id: uuid.UUID) -> D
     return dealership
 
 
+def get_dealer_dealership_or_404(db: Session, dealership_id: uuid.UUID) -> Dealership:
+    """KAN-221 PR-1: `get_dealership_or_404` for a route about a dealer's
+    Betrieb (its master data, banking, settings, entitlements): the platform
+    tenant answers 404 like a Betrieb that does not exist."""
+
+    assert_dealer_dealership(db, dealership_id)
+    return get_dealership_or_404(db, dealership_id)
+
+
+def get_dealer_dealership_for_update_or_404(db: Session, dealership_id: uuid.UUID) -> Dealership:
+    """`get_dealership_for_update_or_404`, the platform tenant 404 (KAN-221 PR-1)."""
+
+    assert_dealer_dealership(db, dealership_id)
+    return get_dealership_for_update_or_404(db, dealership_id)
+
+
 def get_dealership_default_correspondence_language(db: Session, dealership_id: uuid.UUID) -> SwissLanguage:
     """WP-6b: the "dealership default" half of Customers FR-13's
     correspondence-language rule (document -> customer's language where one
@@ -200,7 +221,11 @@ def list_group_dealerships(db: Session, *, dealer_group_id: uuid.UUID) -> list[D
     dealer-facing read): whether the group holds this one Betrieb only
     (ADR-014)."""
 
-    return list(db.scalars(select(Dealership).where(Dealership.dealer_group_id == dealer_group_id)).all())
+    return list(
+        db.scalars(
+            select(Dealership).where(Dealership.dealer_group_id == dealer_group_id, dealer_dealerships_only())
+        ).all()
+    )
 
 
 def list_dealerships(
@@ -210,7 +235,7 @@ def list_dealerships(
     status: DealershipStatus | None,
     dealer_group_id: uuid.UUID | None,
 ) -> tuple[list[Dealership], str | None]:
-    stmt = select(Dealership)
+    stmt = select(Dealership).where(dealer_dealerships_only())
     if status is not None:
         stmt = stmt.where(Dealership.status == status)
     if dealer_group_id is not None:
@@ -237,6 +262,7 @@ def create_dealership(
 
     audit_reason = system_write_reason(actor_id, system_reason)
     dealer_group_id = data.dealer_group_id
+    refuse_platform_dealer_group(dealer_group_id)
     if dealer_group_id is None:
         # No group named — this dealership starts as a group of one (the
         # common case: onboarding a standalone dealer), same shape every

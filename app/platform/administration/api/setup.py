@@ -49,7 +49,10 @@ from app.platform.identity.schemas.legal import (
 from app.platform.identity.services import legal_documents
 from app.platform.organisation.models.dealership import Dealership
 from app.platform.organisation.services import number_range as number_range_service
-from app.platform.organisation.services.dealership import get_dealership_for_update_or_404, get_dealership_or_404
+from app.platform.organisation.services.dealership import (
+    get_dealer_dealership_for_update_or_404,
+    get_dealer_dealership_or_404,
+)
 
 router = APIRouter(tags=["setup-checklist"], route_class=IdempotentRoute)
 
@@ -113,7 +116,7 @@ def get_setup_checklist(
     fix it — the manager's first screen until activation."""
 
     require_tenant_match(dealership_id, principal)
-    dealership = get_dealership_or_404(db, dealership_id)
+    dealership = get_dealer_dealership_or_404(db, dealership_id)
     return _checklist_read(db, dealership, language=_ui_language(request))
 
 
@@ -151,7 +154,7 @@ def list_legal_acceptances(
     db: Session = Depends(get_db),
 ):
     require_tenant_match(dealership_id, principal)
-    get_dealership_or_404(db, dealership_id)
+    get_dealer_dealership_or_404(db, dealership_id)
     return LegalAcceptanceList(
         items=[_acceptance_read(row) for row in legal_documents.list_acceptances(db, dealership_id)]
     )
@@ -171,7 +174,7 @@ def accept_legal_document(
     version. Accepting it again returns the first record."""
 
     _require_manager_of(dealership_id, principal)
-    dealership = get_dealership_or_404(db, dealership_id)
+    dealership = get_dealer_dealership_or_404(db, dealership_id)
     document = legal_documents.get_document_or_404(db, body.legal_document_id)
     row = legal_documents.accept(
         db,
@@ -200,7 +203,7 @@ def activate_dealership(
     gate reads the status from the database on every request."""
 
     _require_manager_of(dealership_id, principal)
-    dealership = get_dealership_for_update_or_404(db, dealership_id)
+    dealership = get_dealer_dealership_for_update_or_404(db, dealership_id)
     check_version(dealership.version, if_match, entity_name="Dealership")
     activation_service.activate(db, dealership=dealership, actor_id=principal.user_id)
     db.commit()

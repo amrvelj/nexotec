@@ -25,6 +25,7 @@ from tests.identity_support import (
     create_user,
     platform_admin_headers,
 )
+from tests.platform_tenant_support import create_staff
 
 REASON = "Der Betrieb meldet, dass die Offerte nicht gedruckt wird — Ticket 4711."
 
@@ -37,7 +38,7 @@ def login(client, mailbox) -> PasswordLogin:
 @pytest.fixture()
 def scene(client, login):
     dealership = create_dealership(client)
-    staff = create_user(client, dealership, accessRoles=["platform_admin"], isDealerManager=False)
+    staff = create_staff(client)
     beat = create_user(client, dealership, isDealerManager=False)
     login.accept_invitation(beat)
     return dealership, staff, beat
@@ -137,7 +138,7 @@ def test_refused_targets(client, scene):
 
     dealership, staff, _beat = scene
     headers = _staff_headers(staff, dealership)
-    colleague = create_user(client, dealership, accessRoles=["platform_admin"], isDealerManager=False)
+    colleague = create_staff(client)
     invited = create_user(client, dealership, isDealerManager=False)
     for target, reason in (
         (colleague["id"], "support_target_platform_admin"),
@@ -224,7 +225,7 @@ def test_an_expired_session_reads_as_timed_out_and_cannot_be_ended(client, scene
 def test_nobody_else_learns_the_session_exists(client, scene, login):
     dealership, staff, beat = scene
     session = _start(client, _staff_headers(staff, dealership), beat["id"]).json()
-    other_staff = create_user(client, dealership, accessRoles=["platform_admin"], isDealerManager=False)
+    other_staff = create_staff(client)
     manager = create_user(client, dealership)
     login.accept_invitation(manager)
     for headers in (_staff_headers(other_staff, dealership), cookie_headers(login.session_cookie(manager))):
@@ -250,9 +251,9 @@ def test_the_nightly_job_writes_a_timed_out_ending_into_the_row(client, scene, d
     row.expires_at = utcnow() - dt.timedelta(minutes=5)
     db_session.commit()
     expires_at = row.expires_at
-    other_staff = create_user(client, dealership, accessRoles=["platform_admin"], isDealerManager=False)
+    other_staff = create_staff(client)
     running = _start(client, _staff_headers(other_staff, dealership), beat["id"]).json()
-    third_staff = create_user(client, dealership, accessRoles=["platform_admin"], isDealerManager=False)
+    third_staff = create_staff(client)
     ended = _start(client, _staff_headers(third_staff, dealership), beat["id"]).json()
     assert _end(client, _staff_headers(third_staff, dealership), ended["id"]).status_code == 200
     ended_row = db_session.get(SupportSession, uuid.UUID(ended["id"]))

@@ -32,7 +32,7 @@ from app.platform.organisation.schemas.number_range import (
     NumberRangeUpdate,
 )
 from app.platform.organisation.services import number_range as number_range_service
-from app.platform.organisation.services.dealership import get_dealership_or_404
+from app.platform.organisation.services.dealership import get_dealer_dealership_or_404
 from app.platform.organisation.services.entitlement import list_active_modules
 
 router = APIRouter(tags=["number-ranges"], route_class=IdempotentRoute)
@@ -70,7 +70,7 @@ def list_number_ranges(
     db: Session = Depends(get_db),
 ):
     require_tenant_match(dealership_id, principal)
-    get_dealership_or_404(db, dealership_id)
+    get_dealer_dealership_or_404(db, dealership_id)
     rows = number_range_service.list_ranges(db, dealership_id=dealership_id, modules=_modules(db, dealership_id))
     confirmation = number_range_service.latest_confirmation(db, dealership_id)
     return NumberRangeList(
@@ -91,7 +91,7 @@ def preview_number_range(
     saved, or the 422 the save would answer. Writes nothing."""
 
     require_tenant_match(dealership_id, principal)
-    get_dealership_or_404(db, dealership_id)
+    get_dealer_dealership_or_404(db, dealership_id)
     _require_held(db, dealership_id, body.document_type)
     example = number_range_service.preview(
         db,
@@ -120,7 +120,7 @@ def update_number_range(
     before and after."""
 
     require_tenant_match(dealership_id, principal)
-    get_dealership_or_404(db, dealership_id)
+    get_dealer_dealership_or_404(db, dealership_id)
     _require_held(db, dealership_id, document_type)
     row = number_range_service.get_or_seed(db, dealership_id=dealership_id, document_type=document_type, lock=True)
     check_version(row.version, if_match, entity_name="NumberRange")
@@ -157,7 +157,7 @@ def confirm_number_ranges(
     require_tenant_match(dealership_id, principal)
     if AccessRole.PLATFORM_ADMIN in principal.roles or not principal.is_dealer_manager:
         raise ForbiddenError("Only a manager of this Betrieb does this.", details={"reason": "manager_only"})
-    get_dealership_or_404(db, dealership_id)
+    get_dealer_dealership_or_404(db, dealership_id)
     row = number_range_service.confirm_ranges(db, dealership_id=dealership_id, actor_id=principal.user_id)
     db.commit()
     return NumberRangeConfirmationRead(confirmed_at=row.confirmed_at, confirmed_by=row.confirmed_by)

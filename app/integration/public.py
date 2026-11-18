@@ -74,6 +74,15 @@ variables, sends one completion through `call_capability`, and returns a
 and published by nothing. Its refusals are the core error taxonomy (409
 `ai_not_connected`, 422 `ai_provider_unavailable`), so a caller needs no
 integration error type. `AI_PROMPT_VEHICLE_LISTING` names the one v1 code.
+
+`resolve_sender` / `send_customer_mail` (KAN-215, D-A-28 as re-cut 2026-11-14;
+A-RULE-9) are the one door to customer mail: the author's own connected
+mailbox, else the Betrieb's shared one, else a 409 naming both connection
+screens (`details.reason`: `no_mailbox_connected`, `own_mailbox_in_error`,
+`business_mailbox_in_error`). The send writes one delivery row on
+integration's own session (ADR-047) and answers a `DeliveryRecord` — plain
+values; it never raises after the resolution. `register_mail_grant_revokers`
+is the worker's wiring for ending a revoked mailbox grant (ADR-118).
 """
 
 from app.integration.adapters.base import (
@@ -95,6 +104,7 @@ from app.integration.adapters.base import (
     VariantTyreSpecData,
     VehiclePriceData,
 )
+from app.integration.adapters.mail_base import MailAttachment
 from app.integration.adapters.marketplace_base import (
     MarketplaceAdapter,
     MarketplaceListing,
@@ -110,6 +120,7 @@ from app.integration.errors import (
     ProviderTimeoutError,
 )
 from app.integration.models.connection import ConnectionStatus
+from app.integration.models.mail import DeliveryStatus, SendingIdentityKind
 from app.integration.services.ai_generation import GeneratedText, generate
 from app.integration.services.ai_prompt_registry import VEHICLE_LISTING as AI_PROMPT_VEHICLE_LISTING
 from app.integration.services.captions import ProviderCaption, get_captions
@@ -130,6 +141,13 @@ from app.integration.services.gateway import (
     resolve_adapter,
 )
 from app.integration.services.location_labels import oldest_location_label_age_seconds, refresh_location_labels
+from app.integration.services.mail_sending import (
+    DeliveryRecord,
+    ResolvedSender,
+    resolve_sender,
+    send_customer_mail,
+)
+from app.integration.services.mail_sending import register_revokers as register_mail_grant_revokers
 from app.integration.services.resilience import CircuitOpenError
 from app.integration.services.status import IntegrationStatusProvider
 
@@ -145,11 +163,14 @@ __all__ = [
     "ConnectionDisabledError",
     "ConnectionRef",
     "ConnectionStatus",
+    "DeliveryRecord",
+    "DeliveryStatus",
     "EnergyLabelData",
     "EntitlementState",
     "GeneratedText",
     "IntegrationExporter",
     "IntegrationStatusProvider",
+    "MailAttachment",
     "MarketplaceAdapter",
     "MarketplaceListing",
     "MarketplaceListingError",
@@ -163,6 +184,8 @@ __all__ = [
     "ProviderNotEntitledError",
     "ProviderRequestError",
     "ProviderTimeoutError",
+    "ResolvedSender",
+    "SendingIdentityKind",
     "TransmissionResult",
     "UnknownProviderError",
     "VariantColourData",
@@ -180,7 +203,10 @@ __all__ = [
     "get_entitlement",
     "oldest_location_label_age_seconds",
     "refresh_location_labels",
+    "register_mail_grant_revokers",
     "resolve_adapter",
+    "resolve_sender",
+    "send_customer_mail",
     "valuation_granted",
     "vin_decode_granted",
 ]

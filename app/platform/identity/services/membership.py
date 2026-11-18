@@ -35,7 +35,7 @@ from app.platform.identity.models.user import User
 from app.platform.identity.schemas.membership import MembershipCreate, MembershipRead
 from app.platform.identity.services import user as user_service
 from app.platform.identity.services import user_common as user_common_service
-from app.platform.organisation.models.dealership import Dealership
+from app.platform.organisation.models.dealership import Dealership, DealershipKind
 
 _ACTOR_HOLDS_NO_FLAG = "Dealership {dealership_id} was not found."
 
@@ -168,7 +168,9 @@ def grant_membership(
     _assert_actor_manages_target(
         db, actor_id=actor_id, actor_roles=actor_roles, target_dealership_id=data.dealership_id
     )
-    if db.get(Dealership, data.dealership_id) is None:
+    target = db.get(Dealership, data.dealership_id)
+    # KAN-221 PR-1: the platform tenant is no Betrieb anyone is a member of.
+    if target is None or target.kind != DealershipKind.DEALER:
         raise NotFoundError(_ACTOR_HOLDS_NO_FLAG.format(dealership_id=data.dealership_id))
 
     now = utcnow()

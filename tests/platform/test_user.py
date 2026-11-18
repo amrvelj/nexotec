@@ -5,6 +5,7 @@ import pytest
 from app.core.auth import AccessRole, create_access_token
 from tests.dealership_support import valid_uid
 from tests.identity_support import PasswordLogin
+from tests.platform_tenant_support import create_legacy_staff, ensure_platform_tenant
 from tests.token_support import dealer_group_of
 
 VALID_ADDRESS = {
@@ -555,14 +556,8 @@ def test_manager_cannot_remove_platform_admin(client):
     dealer_id = _create_dealer(client)
     platform_admin_token = _token(AccessRole.PLATFORM_ADMIN)
     _create_user(client, dealer_id, platform_admin_token, email="manager@example.ch")
-    staff = _create_user(
-        client,
-        dealer_id,
-        platform_admin_token,
-        email="staff@example.ch",
-        accessRoles=["platform_admin"],
-        isDealerManager=False,
-    )
+    # A staff account homed in this Betrieb from before KAN-221 (the KAN-199 report).
+    staff = create_legacy_staff(client, dealer_id, email="staff@example.ch")
 
     response = client.patch(
         f"/v1/dealerships/{dealer_id}/users/{staff['id']}",
@@ -592,14 +587,8 @@ def test_manager_cannot_edit_a_user_who_holds_platform_admin(client, change):
     dealer_id = _create_dealer(client)
     platform_admin_token = _token(AccessRole.PLATFORM_ADMIN)
     _create_user(client, dealer_id, platform_admin_token, email="manager@example.ch")
-    staff = _create_user(
-        client,
-        dealer_id,
-        platform_admin_token,
-        email="staff@example.ch",
-        accessRoles=["platform_admin"],
-        isDealerManager=False,
-    )
+    # A staff account homed in this Betrieb from before KAN-221 (the KAN-199 report).
+    staff = create_legacy_staff(client, dealer_id, email="staff@example.ch")
 
     response = client.patch(
         f"/v1/dealerships/{dealer_id}/users/{staff['id']}",
@@ -613,14 +602,27 @@ def test_manager_cannot_edit_a_user_who_holds_platform_admin(client, change):
 
 
 def test_platform_admin_can_grant_and_remove_platform_admin(client):
+    """KAN-221 PR-1: staff are created in the platform tenant; there the role
+    is never taken away (the tenant homes staff only), and in a dealer's
+    Betrieb it is never granted. A staff account homed in a Betrieb from
+    before loses it there — the move's own step."""
+
     dealer_id = _create_dealer(client)
     platform_admin_token = _token(AccessRole.PLATFORM_ADMIN)
     _create_user(client, dealer_id, platform_admin_token, email="manager@example.ch")
+    platform_id = ensure_platform_tenant(client)
 
     created = _create_user(
-        client, dealer_id, platform_admin_token, email="staff@example.ch", accessRoles=["platform_admin"]
+        client, platform_id, platform_admin_token, email="staff@example.ch", accessRoles=["platform_admin"]
     )
     assert created["accessRoles"] == ["platform_admin"]
+    kept = client.patch(
+        f"/v1/dealerships/{platform_id}/users/{created['id']}",
+        json={"accessRoles": ["sales"]},
+        headers={**_bearer(platform_admin_token), "If-Match": "1"},
+    )
+    assert kept.status_code == 422, kept.text
+    assert kept.json()["error"]["details"]["reason"] == "platform_tenant_holds_staff_only"
 
     other = _create_user(client, dealer_id, platform_admin_token, email="other@example.ch")
     granted = client.patch(
@@ -628,13 +630,14 @@ def test_platform_admin_can_grant_and_remove_platform_admin(client):
         json={"accessRoles": ["sales", "platform_admin"]},
         headers={**_bearer(platform_admin_token), "If-Match": "1"},
     )
-    assert granted.status_code == 200, granted.text
-    assert granted.json()["accessRoles"] == ["platform_admin", "sales"]
+    assert granted.status_code == 422, granted.text
+    assert granted.json()["error"]["details"]["reason"] == "platform_admin_outside_platform_tenant"
 
+    legacy = create_legacy_staff(client, dealer_id, email="legacy@example.ch")
     removed = client.patch(
-        f"/v1/dealerships/{dealer_id}/users/{other['id']}",
+        f"/v1/dealerships/{dealer_id}/users/{legacy['id']}",
         json={"accessRoles": ["sales"]},
-        headers={**_bearer(platform_admin_token), "If-Match": "2"},
+        headers={**_bearer(platform_admin_token), "If-Match": "1"},
     )
     assert removed.status_code == 200, removed.text
     assert removed.json()["accessRoles"] == ["sales"]

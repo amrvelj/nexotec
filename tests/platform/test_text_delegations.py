@@ -26,6 +26,7 @@ from tests.membership_support import (
     platform_admin,
     token,
 )
+from tests.platform_tenant_support import create_legacy_staff
 
 
 def _put(client, dealership, user, categories, *, headers=None, if_match):
@@ -90,7 +91,7 @@ def test_an_unknown_category_is_422_and_a_plain_role_or_stale_version_is_refused
 def test_a_dealer_manager_cannot_write_delegations_on_a_staff_account(client):
     dealership = create_dealership(client)
     manager = create_user(client, dealership)
-    staff = create_user(client, dealership, accessRoles=["platform_admin"], isDealerManager=False)
+    staff = create_legacy_staff(client, dealership)
     assert (
         _put(client, dealership, staff, ["email"], headers=manager_of(dealership, manager), if_match=1).status_code
         == 403

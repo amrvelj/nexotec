@@ -32,6 +32,9 @@ from app.db import Base
 
 class ConnectedAccountProvider(str, enum.Enum):
     MICROSOFT_365 = "microsoft_365"
+    # KAN-215: a user's own Google Workspace mailbox, linked to send customer
+    # mail as that user (the Gmail API's `gmail.send` scope).
+    GOOGLE_WORKSPACE = "google_workspace"
 
 
 class ConnectedAccountStatus(str, enum.Enum):

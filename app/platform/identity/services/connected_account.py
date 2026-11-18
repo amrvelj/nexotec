@@ -8,8 +8,13 @@ identity. The user lists and revokes their own (`/v1/me/connected-accounts`);
 a manager lists a user's — provider, scopes and status, never the account's
 address, its usage or any content — and may revoke
 (`/v1/dealerships/{id}/users/{user_id}/connected-accounts`); deactivating a
-user revokes every one (FR-AU-24). Linking is the Outlook integration's, not
-built yet: until then no row exists anywhere.
+user revokes every one (FR-AU-24). Linking is the integration that holds
+the provider's flow (KAN-215: the user's own Microsoft 365 or Google
+Workspace mailbox, to send customer mail as that user): it calls
+`link_connected_account` through `app.platform.public` once the provider answered, and
+`revoke_connected_account` when the user disconnects the mailbox there — each commits
+its own transaction (ADR-047's own-commit shape), and `connected_account_states` is the
+read that tells it whether a grant is still live.
 
 Revoking marks the row in Nexotec's own transaction (it is never deleted)
 and, in that same transaction, publishes `platform.connected_account.revoked`
@@ -40,6 +45,7 @@ import uuid
 from collections.abc import Callable
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core import outbox
@@ -194,6 +200,182 @@ def revoke(
         ),
     )
     return account
+
+
+@dataclasses.dataclass(frozen=True)
+class LinkedGrant:
+    """What `link_connected_account` answers (KAN-215): the grant's id, the reference
+    its tokens live under (the one already held when the grant was live, so
+    a re-link writes the same place) and whether the row is new. Plain data;
+    the reference is kept out of `repr`."""
+
+    connected_account_id: uuid.UUID
+    secret_ref: str | None = dataclasses.field(repr=False)
+    created: bool
+
+
+@dataclasses.dataclass(frozen=True)
+class GrantState:
+    """A grant as the integration that linked it reads it (KAN-215): never
+    the address, the scopes' meaning or the reference."""
+
+    connected_account_id: uuid.UUID
+    user_id: uuid.UUID
+    provider: ConnectedAccountProvider
+    external_account_id: str
+    status: ConnectedAccountStatus
+
+
+def link_connected_account(
+    db: Session,
+    *,
+    user_id: uuid.UUID,
+    provider: ConnectedAccountProvider,
+    external_account_id: str,
+    label: str | None,
+    scopes: list[str],
+    new_account_id: uuid.UUID,
+    new_secret_ref: str,
+) -> LinkedGrant:
+    """The user linked an account at the provider (KAN-215). A live grant for
+    the same user, provider and account is re-linked in place (its status back
+    to active, its label and scopes refreshed, its reference kept: the caller
+    writes the new tokens there); otherwise a new row is created with the id
+    and reference the caller chose. An auth event (the provider only) and an
+    audit row name the user as the actor.
+
+    Commits its own transaction (ADR-047): the caller, another context, makes
+    it outside its own and compensates with `revoke_connected_account` if its own write
+    then fails. A concurrent link of the same account loses the unique index
+    and re-reads the winner's row."""
+
+    # The user row first, as every writer of a row the user owns (KAN-380).
+    user = db.scalar(
+        select(User).where(User.id == user_id).with_for_update(key_share=True).execution_options(populate_existing=True)
+    )
+    if user is None:
+        raise NotFoundError(f"User {user_id} was not found.")
+
+    def _live() -> UserConnectedAccount | None:
+        return db.scalar(
+            select(UserConnectedAccount)
+            .where(
+                UserConnectedAccount.user_id == user_id,
+                UserConnectedAccount.provider == provider,
+                UserConnectedAccount.external_account_id == external_account_id,
+                UserConnectedAccount.status != ConnectedAccountStatus.REVOKED,
+            )
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
+
+    now = utcnow()
+    account = _live()
+    created = False
+    if account is None:
+        candidate = UserConnectedAccount(
+            id=new_account_id,
+            user_id=user_id,
+            provider=provider,
+            external_account_id=external_account_id,
+            external_account_label=label,
+            scopes=list(scopes),
+            secret_ref=new_secret_ref,
+            status=ConnectedAccountStatus.ACTIVE,
+            linked_at=now,
+            created_by=user_id,
+            updated_by=user_id,
+        )
+        try:
+            with db.begin_nested():
+                db.add(candidate)
+                db.flush()
+            account = candidate
+            created = True
+        except IntegrityError:
+            account = _live()
+            if account is None:
+                raise
+    if not created:
+        account.status = ConnectedAccountStatus.ACTIVE
+        account.external_account_label = label
+        account.scopes = list(scopes)
+        if account.secret_ref is None:
+            account.secret_ref = new_secret_ref
+        account.updated_by = user_id
+        account.version += 1
+    auth_events.record(
+        db,
+        AuthEventKind.CONNECTED_ACCOUNT_LINKED,
+        user_id=user.id,
+        dealership_id=user.tenant_id,
+        actor_id=user.id,
+        details={"connectedAccountId": str(account.id), "provider": provider.value},
+    )
+    record_audit_event(
+        db,
+        entity_type="user",
+        entity_id=user.id,
+        tenant_id=user.tenant_id,
+        action="connected_account_linked",
+        actor_id=user.id,
+        after={"connected_account_id": str(account.id), "provider": provider.value, "status": account.status.value},
+    )
+    linked = LinkedGrant(connected_account_id=account.id, secret_ref=account.secret_ref, created=created)
+    db.commit()
+    return linked
+
+
+def connected_account_states(db: Session, *, account_ids: list[uuid.UUID]) -> dict[uuid.UUID, GrantState]:
+    """The named grants' states, by id (KAN-215); an id naming no row is
+    absent. One SELECT."""
+
+    if not account_ids:
+        return {}
+    rows = db.execute(
+        select(
+            UserConnectedAccount.id,
+            UserConnectedAccount.user_id,
+            UserConnectedAccount.provider,
+            UserConnectedAccount.external_account_id,
+            UserConnectedAccount.status,
+        ).where(UserConnectedAccount.id.in_(account_ids))
+    ).all()
+    return {
+        row.id: GrantState(
+            connected_account_id=row.id,
+            user_id=row.user_id,
+            provider=row.provider,
+            external_account_id=row.external_account_id,
+            status=row.status,
+        )
+        for row in rows
+    }
+
+
+def revoke_connected_account(db: Session, *, connected_account_id: uuid.UUID, user_id: uuid.UUID) -> bool:
+    """The user ended their own grant in the integration that linked it
+    (KAN-215: «Postfach trennen»), or that integration compensates a link it
+    could not finish: `revoke` with reason `user`, the user the actor, and its
+    event — the provider's end follows through the consumer (ADR-118).
+    Another user's grant, an unknown id or a grant already revoked is no
+    change (False). Commits its own transaction (ADR-047)."""
+
+    user = db.scalar(
+        select(User).where(User.id == user_id).with_for_update(key_share=True).execution_options(populate_existing=True)
+    )
+    account = db.scalar(
+        select(UserConnectedAccount)
+        .where(UserConnectedAccount.id == connected_account_id, UserConnectedAccount.user_id == user_id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
+    if user is None or account is None or account.status == ConnectedAccountStatus.REVOKED:
+        db.rollback()
+        return False
+    revoke(db, account=account, user=user, actor_id=user.id, reason=REASON_USER)
+    db.commit()
+    return True
 
 
 def revoke_all(
