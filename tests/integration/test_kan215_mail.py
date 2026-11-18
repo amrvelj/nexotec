@@ -710,15 +710,35 @@ def test_offboarding_ends_every_mailbox_of_the_betrieb_and_frees_its_tenant(clie
     no longer bound to the offboarded group (KAN-218's «disables every
     connection»). A redelivery changes nothing."""
 
+    from app.core.audit_model import AuditEvent
+    from app.core.outbox_model import OutboxMessage
+    from app.integration.consumers import handle_dealership_offboarded_message
     from app.integration.services.mail_sending import disconnect_offboarded_dealership_mailboxes
+    from app.platform.administration.services import offboarding
 
     providers, _ = fakes
     anna = make_user(db_session, tenant_id=betrieb.id, email="anna@garage-muster.ch")
     assert _connect_business_ms(client, providers, anna)["leg2"].status_code == 200
     _connect_own_ms(client, providers, anna)
 
-    assert disconnect_offboarded_dealership_mailboxes(db_session, tenant_id=betrieb.id) == 2
+    # Driven through the real consumer and the producer's own row, as the worker runs it.
+    offboarding.publish_offboarded(db_session, dealership=betrieb, offboarded_at=offboarding.utcnow())
     db_session.commit()
+    message = db_session.scalars(
+        select(OutboxMessage).where(
+            OutboxMessage.event_type == offboarding.OFFBOARDED_EVENT_TYPE, OutboxMessage.aggregate_id == betrieb.id
+        )
+    ).one()
+    handle_dealership_offboarded_message(db_session, message)
+    db_session.commit()
+    reasons = set(
+        db_session.scalars(
+            select(AuditEvent.reason).where(
+                AuditEvent.tenant_id == betrieb.id, AuditEvent.action == "mailbox_disconnected"
+            )
+        )
+    )
+    assert reasons == {"dealership_offboarded"}
     statuses = set(db_session.scalars(select(SendingIdentity.status).where(SendingIdentity.tenant_id == betrieb.id)))
     assert statuses == {SendingIdentityStatus.DISCONNECTED}
     assert disconnect_offboarded_dealership_mailboxes(db_session, tenant_id=betrieb.id) == 0

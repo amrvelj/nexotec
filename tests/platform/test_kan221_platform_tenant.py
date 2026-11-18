@@ -402,8 +402,19 @@ def test_the_dealer_configuration_routes_answer_404_for_the_platform_tenant(clie
         f"/v1/dealerships/{_PLATFORM}/document-template",
         f"/v1/dealerships/{_PLATFORM}/branding",
         f"/v1/dealerships/{_PLATFORM}/mail/business-mailbox",
+        f"/v1/dealerships/{_PLATFORM}/standard-texts",
+        f"/v1/dealerships/{_PLATFORM}/ai-prompts",
     ):
         assert client.get(path, headers=staff).status_code == 404, path
+    # The writes too — a write that passed would leave an audit row in «Nexotec».
+    branding = client.patch(
+        f"/v1/dealerships/{_PLATFORM}/branding", json={"documentHeader": True}, headers={**staff, "If-Match": "1"}
+    )
+    assert branding.status_code == 404, branding.text
+    template = client.patch(
+        f"/v1/dealerships/{_PLATFORM}/document-template", json={"pageNumbers": True}, headers={**staff, "If-Match": "1"}
+    )
+    assert template.status_code == 404, template.text
     created = client.post(
         f"/v1/dealerships/{_PLATFORM}/locations",
         json={

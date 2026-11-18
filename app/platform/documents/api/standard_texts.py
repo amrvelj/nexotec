@@ -39,6 +39,7 @@ from app.platform.documents.schemas.standard_text import (
 from app.platform.documents.services import standard_text as standard_text_service
 from app.platform.documents.services.standard_text_placeholders import TARGETS, Placeholder
 from app.platform.identity.models.standard_text_delegation import StandardTextCategory
+from app.platform.organisation.services.dealership import get_dealer_dealership_or_404
 
 router = APIRouter(tags=["standard-texts"], route_class=IdempotentRoute)
 
@@ -101,6 +102,7 @@ def list_standard_texts(
     db: Session = Depends(get_db),
 ):
     require_tenant_match(dealership_id, principal)
+    get_dealer_dealership_or_404(db, dealership_id)
     rows = standard_text_service.list_texts(db, dealership_id=dealership_id, category=category)
     versions = standard_text_service.seed_versions(db, rows)
     return StandardTextList(
@@ -121,6 +123,7 @@ def preview_standard_text(
     render gives (`standard_text_placeholder_unresolved`). Writes nothing."""
 
     require_tenant_match(dealership_id, principal)
+    get_dealer_dealership_or_404(db, dealership_id)
     text = standard_text_service.preview(
         db,
         dealership_id=dealership_id,
@@ -142,6 +145,7 @@ def create_standard_text(
     db: Session = Depends(get_db),
 ):
     require_tenant_match(dealership_id, principal)
+    get_dealer_dealership_or_404(db, dealership_id)
     row = standard_text_service.create_dealer_text(
         db,
         dealership_id=dealership_id,
@@ -176,6 +180,7 @@ def update_standard_text(
     db: Session = Depends(get_db),
 ):
     require_tenant_match(dealership_id, principal)
+    get_dealer_dealership_or_404(db, dealership_id)
     row = standard_text_service.get_dealer_text_or_404(
         db, dealership_id=dealership_id, category=category, text_id=text_id, for_update=True
     )
@@ -199,6 +204,7 @@ def delete_standard_text(
     db: Session = Depends(get_db),
 ):
     require_tenant_match(dealership_id, principal)
+    get_dealer_dealership_or_404(db, dealership_id)
     row = standard_text_service.get_dealer_text_or_404(
         db, dealership_id=dealership_id, category=category, text_id=text_id, for_update=True
     )
