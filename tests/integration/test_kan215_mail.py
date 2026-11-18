@@ -413,7 +413,9 @@ def test_the_author_sends_from_their_own_mailbox_else_the_shared_one_else_nothin
 
 
 def test_an_author_whose_own_mailbox_is_in_error_is_told_so_and_not_sent_from_the_shared_one(client, db_session, fakes, app_registrations, betrieb):
-    """F5: never «kein Postfach verbunden» for a mailbox that is connected but failing."""
+    """F5: never «kein Postfach verbunden» for a mailbox that is connected but
+    failing. Anto, 2026-11-18 (D4): refused, never sent from the shared mailbox
+    in its place — the author is told to reconnect."""
 
     providers, _ = fakes
     anna = make_user(db_session, tenant_id=betrieb.id, email="anna@garage-muster.ch")
@@ -697,9 +699,9 @@ def test_the_export_holds_the_shared_mailbox_and_deliveries_but_no_colleagues_ma
     assert deliveries.in_archive is not False
     (delivery,) = db_session.execute(select(deliveries.table).where(deliveries.scope(scope))).all()
     assert (delivery.subject, delivery.recipients, delivery.status) == ("Ihre Offerte", ["kunde@example.test"], "sent")
-    # What the customer saw as sender: here the author's own mailbox. Whether a
-    # delivery's sender counts as «a colleague's personal mailbox address» under
-    # D2 A is open with Anto (KAN-215 callout, 2026-11-18) — pinned as built.
+    # What the customer saw as sender: here the author's own mailbox. Anto,
+    # 2026-11-18 (D3): the delivery keeps it — the proof of who sent what; only
+    # the list of connected mailboxes leaves a colleague's address out (D2 A).
     assert delivery.sender_address == "anna@garage-muster.ch"
     assert tables["integration_mail_link_state"].in_archive is False
 
