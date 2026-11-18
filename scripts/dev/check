@@ -488,10 +488,24 @@ def main(argv):
     lanes = ORDER[:] if full else lanes_for(files)
     if fast:
         lanes = [l for l in lanes if l in ("config", "deploy", "backend")] or ["backend"]
-    if set(lanes) & {"config", "deploy", "backend", "migrations", "api-types"} and not os.path.exists(PY):
+    python_lanes = set(lanes) & {"config", "deploy", "backend", "migrations", "api-types"}
+    if python_lanes and not os.path.exists(PY):
         print("This checkout has no .venv of its own. Run scripts/dev/bootstrap first.")
         return 2
     tree_before = hooks_cli("fingerprint")
+    # KAN-385: a pass is evidence of what CI and production install. A .venv installed before
+    # pyproject.toml last changed, or one whose packages conflict with its pins, would make it
+    # describe other code - so this records a FAIL instead, and says how to repair it.
+    drift = subprocess.run([sys.executable, HOOKS, "cli", "venv-drift"], cwd=ROOT, stdout=subprocess.PIPE,
+                           universal_newlines=True) if python_lanes else None
+    if drift is not None and drift.returncode != 0:
+        print("The .venv is not what pyproject.toml installs, so no lane ran and no pass is recorded:\n{}\n"
+              "Run scripts/dev/bootstrap (it re-installs from pyproject.toml), then check again."
+              .format(drift.stdout.rstrip()))
+        if not fast:
+            hooks_cli("stamp-checks", tree_before, "fail", "not-run=" + ",".join(ORDER), "counts=")
+            print("\nRecorded: FAIL for tree {} (the .venv, not the code).".format(tree_before[:12]))
+        return 1
     print("Checking tree {} - {} changed file(s) vs origin/main - lanes: {}".format(
         tree_before[:12], len(files), ", ".join(lanes) or "none (nothing that any lane covers changed)"))
     outside = [] if full else uncovered(files)

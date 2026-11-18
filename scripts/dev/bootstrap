@@ -77,12 +77,26 @@ install_project() {
   touch "$MARKER"
 }
 
+# KAN-385: the installed packages agree with the pins (scripts/dev/check refuses a .venv that
+# does not, and sends you here). A uv-built .venv has no pip of its own.
+dependencies_compatible() {
+  if command -v uv >/dev/null 2>&1; then
+    uv pip check --python .venv/bin/python >/dev/null 2>&1
+  else
+    .venv/bin/python -m pip check >/dev/null 2>&1
+  fi
+}
+
 say "Python environment (.venv)"
 if venv_points_here; then
   if [ ! -f "$MARKER" ] || [ pyproject.toml -nt "$MARKER" ]; then
     echo "pyproject.toml changed since the last install - syncing dependencies"
     install_project
+  elif ! dependencies_compatible; then
+    echo "installed packages conflict with pyproject.toml's pins - re-installing"
+    install_project
   fi
+  dependencies_compatible || { echo "The .venv still conflicts with pyproject.toml's pins after installing - stop and investigate."; exit 1; }
   echo "ok: .venv exists, imports app from this checkout, dependencies in sync"
 else
   if [ -e .venv ]; then
