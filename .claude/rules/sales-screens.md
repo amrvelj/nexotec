@@ -1,7 +1,7 @@
 ---
 paths:
   - "frontend/apps/dms/src/modules/sales/**"
-  - "frontend/apps/dms/src/modules/stock/pages/StockDetailPage.salesActions*"
+  - "frontend/apps/dms/src/modules/stock/pages/StockDetailPage.*"
   - "frontend/apps/dms/src/modules/*/pages/*.createOffer.render.test.tsx"
   - "frontend/apps/dms/src/modules/customer/pages/customerScreens.salesEntitlement*"
   - "frontend/apps/dms/src/modules/valuation/components/CreateOfferFromValuationAlert.tsx"
@@ -14,8 +14,8 @@ paths:
   - "frontend/packages/ui-kit/src/components/DocumentPreview.tsx"
 ---
 <!-- Maintainer note. PRD-Sales v2, ADR-059, ADR-061, ADR-063, ADR-083. Moved out of sales.md by
-KAN-615 (2026-11-13); listed by file until the frontend has module folders (KAN-611). Last verified
-against main@73baf3f (2026-10-25). The backend rules are sales.md. -->
+KAN-615 (2026-11-13); screens outside src/modules/sales/ listed by file. Last verified against
+main@3b2bf69 (2026-11-18). The backend rules are sales.md. -->
 
 # Sales screens: the offer workspace, the contract page, the Sales list
 
@@ -35,7 +35,7 @@ against main@73baf3f (2026-10-25). The backend rules are sales.md. -->
   banner naming the contract with «Vertrag öffnen»; a save refused `offer_has_contract` is worded
   in that banner's sentence. What only shows stays live: the customer, vehicle and pricing
   containers take `readOnly` themselves (`LockedWhile.tsx` around their writes), so the customer's
-  overlay, the stock number and «zum Lagerfahrzeug» still open. On a sent offer the seller picker
+  overlay, the stock number and «Lagerbestand öffnen» still open. On a sent offer the seller picker
   and «Übernehmen» are disabled before the click (`OfferRead.liveContractId`/`Number`), and
   «Dokument erzeugen» is disabled and says why.
 - **The responsible seller:** `DealOwnerSelect` on the offer workspace, the sent offer and the

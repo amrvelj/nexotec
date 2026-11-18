@@ -4,6 +4,8 @@ paths:
   - "frontend/apps/dms/src/pages/**"
   - "frontend/apps/dms/src/components/**"
   - "frontend/apps/dms/src/modules/**"
+  - "frontend/apps/dms/src/shared/**"
+  - "frontend/apps/dms/src/architecture/module-boundaries*"
   - "frontend/apps/dms/src/layout/**"
   - "frontend/apps/dms/src/api/**"
   - "frontend/packages/ui-kit/src/**"
@@ -16,10 +18,10 @@ paths:
   - "frontend/apps/dms/src/assets/**"
   - "frontend/apps/dms/src/hooks/useIdempotencyKey*"
 ---
-<!-- Maintainer note. UI/UX Specification (the one UI page), UI/UX Core Principles, ADR-076, KAN-35.
-Split by KAN-615 (2026-11-13) into this file (what binds every screen) and ui-grid, ui-forms,
-ui-detail, ui-i18n, ui-formats, ui-shell, each with narrow globs. Last verified against main@73baf3f
-(2026-10-25); /drift-audit re-checks it weekly. -->
+<!-- Maintainer note. UI/UX Specification (the one UI page), UI/UX Core Principles, ADR-076, ADR-161,
+ADR-177, KAN-35. Split by KAN-615 (2026-11-13) into this file (what binds every screen) and ui-grid,
+ui-forms, ui-detail, ui-i18n, ui-formats, ui-shell, each with narrow globs. Last verified against
+main@3b2bf69 (2026-11-18). -->
 
 # Anything a user can see
 
@@ -55,7 +57,9 @@ tokens in `tokens.css`/`tokens.ts`). Writing one inside a module package means y
 package; a need the kit cannot meet is a ui-kit change plus an ADR — never a local component. No
 colour outside the tokens. A kit component ships no user-visible string of its own (`ui-i18n.md`).
 Money is `CHF 12'500.00` through the kit's `ChfInput`, a date-only value renders through
-`formatDateOnly` (`ui-formats.md`; architecture tests enforce both).
+`formatDateOnly` (`ui-formats.md`; architecture tests enforce both). A document body written as
+markdown renders through the kit's `DocumentText` (ADR-177): a subset, as React text, never HTML;
+links only https, http, mailto.
 
 ## Where the code lives (ADR-161)
 
@@ -67,9 +71,8 @@ which never names one of its own `pages/` and holds re-exports only (the build t
 ## Evidence and API types
 
 - Every visible change ends with a screenshot of the changed screen, taken after the last code
-  change — in the desktop preview, or in a cloud session a Playwright capture of localhost; any
-  other capture is registered with `scripts/dev/gate evidence screenshot <file>`. The hand-over gate
-  checks for one of this exact tree. Render tests: `tests-frontend.md`.
+  change; the hand-over gate checks for one of this exact tree (how: `/ticket`, step 5). Render
+  tests: `tests-frontend.md`.
 - `src/api/schema.d.ts` is generated from `app.openapi()` and diffed in CI; editing it is blocked.
   `src/api/types.ts` derives every type from it, except the FRONTEND-ONLY `ApiErrorBody`. A shape
   the backend under-types is a commented `NARROWED` override in `types.ts`, never a hand-written

@@ -11,6 +11,7 @@ paths:
   - "app/customer/consumers.py"
   - "app/customer/reconciliation.py"
   - "app/customer/public.py"
+  - "app/customer/services/customer_refs.py"
   - "app/api/v1/customer_vehicles.py"
   - "app/api/v1/vehicle_parties.py"
   - "tests/customer/test_*vehicle_party*.py"
@@ -29,6 +30,7 @@ paths:
   - "tests/customer/test_kan673_party_write_follows_vehicle_merge.py"
   - "tests/customer/test_kan392_merge_copy_audit.py"
   - "tests/customer/test_kan680_vehicle_merge_party_rest.py"
+  - "tests/customer/test_kan706_merge_before_party_move.py"
   - "tests/inventory/test_kan674_backfill_trade_in_seller.py"
   - "scripts/*vehicle_party*.py"
   - "scripts/backfill_customer_stock_item_booking.py"
@@ -41,7 +43,7 @@ paths:
 ---
 <!-- Maintainer note. ADR-022, ADR-064 (as amended 2026-10-13), rule 2, rule 12; Anto's rulings on
 KAN-99, KAN-148, KAN-177, KAN-189, KAN-383, KAN-566, KAN-572, KAN-583, KAN-644. Moved out of
-customer.md by KAN-615 (2026-11-13). Last verified against main@73baf3f (2026-10-25). -->
+customer.md by KAN-615 (2026-11-13). Last verified against main@3b2bf69 (2026-11-18). -->
 
 # Vehicle parties, trade-in holders and merges
 
@@ -111,7 +113,8 @@ customer.md by KAN-615 (2026-11-13). Last verified against main@73baf3f (2026-10
 - **A merge re-points the duplicate's party rows**; a row whose (vehicle, role, effective_from) the
   survivor already holds is **kept** on the duplicate with `merged_into_customer_id`, never deleted
   (Anto, KAN-177): an open or future-closed copy is closed at its own start (audited, `unlinked`), a
-  copy closed in the past only takes the mark. **Allocation and a reopen refuse a merged customer**
+  copy closed in the past only takes the mark; the read names it (`mergedIntoCustomerId`, KAN-347)
+  and the Vehicles tab shows «Zusammengeführt», opening the survivor. **Allocation and a reopen refuse a merged customer**
   (409 `customer_merged`), reading the customer row `FOR SHARE` under their advisory lock.
 - **Lock order for a merge and an allocation:** advisory locks of every (vehicle, role, group) pair
   the duplicate holds, sorted → both customer rows in id order (duplicate `FOR NO KEY UPDATE`,

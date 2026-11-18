@@ -28,11 +28,18 @@ paths:
   - "frontend/apps/dms/src/**/ReferenceDataPage*"
   - "frontend/apps/dms/src/utils/googlePlaces.ts"
   - "frontend/apps/dms/src/components/AddressSearchField.tsx"
+  - "frontend/apps/dms/src/hooks/useAddressAutocompleteConfig.ts"
+  - "frontend/apps/dms/src/architecture/address-autocomplete-never-reaches-the-api.test.ts"
+  - "tests/platform/test_kan37_address_autocomplete.py"
+  - "frontend/apps/dms/src/pages/ContactGroupsPage*"
+  - "frontend/apps/dms/src/hooks/useContactGroups.ts"
+  - "tests/customer/test_contact_groups.py"
+  - "tests/architecture/test_contact_group_setting_is_administrations.py"
 ---
 <!-- Maintainer note (stripped before Claude sees it). Summarises the Dealer Administration PRD v1.2
-(D-A-01…D-A-41, A-RULE-0…10) and ADR-100, ADR-101. Cut from platform.md by KAN-614 (2026-11-10) to
-the invariants; platform.md was verified against main@73baf3f on 2026-10-25 - this cut was not
-re-verified against the code. -->
+(D-A-01…D-A-41, A-RULE-0…10) and ADR-100, ADR-101, ADR-165. Cut from platform.md by KAN-614
+(2026-11-10); the lifecycle moved to platform-administration.md (KAN-751). Last verified against
+main@3b2bf69 (2026-11-18). -->
 
 # Dealer Administration (PRD v1.2; rulings D-A-01…D-A-41)
 
@@ -53,25 +60,8 @@ Decided rulings live in the PRD; built only where a bullet says so — check the
   Sales-licensed data inside another module's response is gated per field with
   `holds_entitlement(db, principal, ModuleCode.X)` — never per route.
 - **Permissions are platform-defined (D-A-03); no policy limits in v1 (D-A-18).**
-- **Copy configuration from a sister Betrieb** (D-A-01, FR-A-01): a one-shot, audit-logged copy —
-  never inheritance.
-- **Onboarding (D-A-06) — built (KAN-210):** staff enter group, legal entity (UID unique), entitlements and one
-  manager; **Nexotec sets nothing commercial** — no VAT rate, no bank details.
-  `POST /v1/platform/onboarding` (`services/onboarding.py`; staff with a factor) runs the create services with
-  `commit=False` in one transaction — group, `create_dealership` (seat location, number ranges, settings),
-  entitlements, the first manager invited, one `platform.dealership.onboarded` row — 409 `uid_already_onboarded`;
-  texts, template and MFA-on come from the platform defaults. Screen: `/platform/onboarding` (five steps).
-  `POST /v1/dealerships` is deprecated in OpenAPI.
-- **Activation gate (D-A-21) — built (KAN-214):** `pending_onboarding` until every applicable
-  item of the derived checklist (`services/setup_checklist.py`, no stored ticks) is done and the
-  manager accepted the current ToS and DPA (D-A-34); `POST /v1/dealerships/{id}/activation`
-  freezes the ranges, sets `active` + `activated_at` and publishes `platform.dealership.activated`.
-  Until then `session_guard` 404s every non-administration route. After activation a missing item
-  blocks only its own action (`platform.public.require_setup_item_for`) and the nightly job raises
-  `administration.checklist_item_regressed` — never for a Betrieb the migration set active
-  (`activated_at` null). Production never asks for or activates on a draft (< 1.0) ToS/DPA.
-- **Publishing profile — built (KAN-225):** `services/publishing_profile`, `/administration/publishing`;
-  the public stock projection is `reporting`'s (ADR-174, ADR-175).
+- **Onboarding, activation, the publishing profile, configuration copy, export and offboarding,
+  the status page:** `platform-administration.md`.
 - **`status` is staff's, `active` ↔ `suspended` only** (KAN-712, ADR-165): a manager naming it is
   422 `status_not_patchable`; activation and offboarding are procedures (`use_*_procedure`).
 - **Mail (D-A-28):** platform mail is always Nexotec's sender (`platform-identity.md`);
@@ -80,22 +70,9 @@ Decided rulings live in the PRD; built only where a bullet says so — check the
 - **Customer messaging (D-A-41):** one platform send dialog for e-mail, SMS, WhatsApp; the Betrieb
   brings its own SMS/WhatsApp provider; consent lives on the customer.
 - **Not in v1, by ruling:** policy limits (D-A-18), external users (D-A-20), custom fields and tags
-  (D-A-29; one exception, contact tags — Anto, 2026-10-26), Saldosteuersatz (D-A-27), customer logins (D-A-13), API clients (D-A-14), Zefix
+  (D-A-29; one exception, the customer's free per-group tags `customer_tag`, built under KAN-50 —
+  Anto, 2026-10-26; the contact groups below are Nexotec's reference list, not tags), Saldosteuersatz (D-A-27), customer logins (D-A-13), API clients (D-A-14), Zefix
   auto-fill, AI translations, training mode.
-
-## Data export and offboarding (KAN-218)
-- The manager's export is a job (`export_job`; the web writes the ZIP), downloadable 7 days via
-  the authenticated GET (signed URL: KAN-402).
-- Staff offboard (`POST /v1/platform/dealerships/{id}/offboard`) only after an acknowledged export
-  newer than the last write and than its id floor (KAN-716, `test_kan716_*`); the Betrieb's
-  principals then get 404 (`session_guard.py`).
-  Archive exports: staff only, with a reason. It then leaves every group read
-  (`group_read_dealerships.py`, `group_labels.py`; Q2 A).
-- `platform.dealership.offboarded` (Q3 A): Stock withdraws live listings (empty feed first,
-  `listing_withdrawal.py`), stating `inventory.dealership_listings.withdrawn`; Integration
-  disables and revokes every connection, the `marketplace_publish` ones only on it.
-- **No automatic deletion** (Anto, 2026-11-14): past `retention_until` (offboarding + 10 years)
-  reconciliation reports it nightly (`dealership.archive_due_for_manual_deletion`); staff delete it.
 
 ## Contact groups (KAN-466) — built
 - Nexotec's list `contact_group` (reference data, staff-maintained); each Betrieb switches groups on at
@@ -143,8 +120,9 @@ Decided rulings live in the PRD; built only where a bullet says so — check the
 - Opening hours are stored **per department always** (a `perDepartment: false` PUT is written for
   sales, service and parts). **Holiday calendars are platform reference data**: SECO's «Feiertage
   Schweiz» (cantonal holidays equal to Sundays, Art. 20a ArG, plus 1 August), one calendar per
-  canton and per sub-cantonal region SECO lists; a holiday is a rule computed per year
-  (`services/holidays.py`).
+  canton plus one per sub-cantonal region SECO lists; Aargau and Fribourg have region calendars
+  only, so a new location there starts with none and the dealer picks the region; a holiday is a
+  rule computed per year (`organisation/services/holidays.py`).
 
 ## Branding (PRD Logo and brand assets) — built
 - `/administration/branding`: one `branding_asset` row per variant (`primary`, `mono_dark`,

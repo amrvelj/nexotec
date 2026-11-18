@@ -33,10 +33,10 @@ paths:
   - "tests/sales/test_sales_document_letterhead.py"
   - "tests/sales/test_kan717_sales_document_location.py"
 ---
-<!-- Maintainer note (stripped before Claude sees it). Summarises ADR-047, ADR-051, ADR-109 and the
-Dealer Administration PRD's standard texts (FR-A-28, D-A-23, A-RULE-4) and number ranges (D-A-17,
-A-RULE-3). Cut from platform.md by KAN-614 (2026-11-10) to the invariants; platform.md was verified
-against main@73baf3f on 2026-10-25 - this cut was not re-verified against the code. -->
+<!-- Maintainer note (stripped before Claude sees it). Summarises ADR-047, ADR-051, ADR-109, ADR-159 and
+the Dealer Administration PRD's standard texts (FR-A-28, D-A-23, A-RULE-4) and number ranges (D-A-17,
+A-RULE-3). Cut from platform.md by KAN-614 (2026-11-10). Last verified against main@3b2bf69
+(2026-11-18). -->
 
 # Documents, standard texts and number ranges
 

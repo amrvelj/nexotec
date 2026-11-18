@@ -9,13 +9,14 @@ paths:
   - "app/inventory/models/stock_item_ledger.py"
   - "tests/inventory/test_inventory_purchase*.py"
   - "tests/inventory/test_inventory_ledger.py"
+  - "tests/inventory/test_kan535_chassis_number_purchase.py"
   - "frontend/apps/dms/src/modules/stock/components/stock-detail/PurchaseStorno*"
   - "frontend/apps/dms/src/modules/stock/components/stock-detail/RecordPurchaseDialog*"
   - "frontend/apps/dms/src/modules/stock/components/stock-detail/RecordCostDialog*"
   - "frontend/apps/dms/src/modules/stock/components/stock-detail/WagenbuchTab.tsx"
 ---
 <!-- Maintainer note. PRD-Stock FR-I-05; ADR-052, ADR-103; Anto's rulings on KAN-146 and KAN-572.
-Moved out of inventory.md by KAN-615 (2026-11-13). Last verified against main@73baf3f (2026-10-25). -->
+Moved out of inventory.md by KAN-615 (2026-11-13). Last verified against main@3b2bf69 (2026-11-18). -->
 
 # The purchase booking and «Einkauf stornieren»
 
@@ -37,7 +38,7 @@ Moved out of inventory.md by KAN-615 (2026-11-13). Last verified against main@73
 - A reserved car may be stornoed; the reservation stays. **Refused:** no booked purchase, a car that
   left stock, or a contract on the car that requested its invoice (from Stock's contract
   projection, `events-stock-sales.md`).
-- **Built as the safe default, open with Anto on KAN-146:** «Rechnung angefordert» counting as
+- **Built as the safe default, open with Anto (KAN-747; KAN-146's decisions 1–4, never answered):** «Rechnung angefordert» counting as
   invoiced (Finance issues none yet); a published car staying published (the feed keeps sending
   it, though a pipeline car could not be published); `einstandspreis` closed to hand booking with
   the two keys reserved; the days in stock restarting at the next booking. A storno and «Rechnung

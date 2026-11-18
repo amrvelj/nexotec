@@ -11,15 +11,15 @@ paths:
   - "frontend/apps/dms/src/modules/*/*Options.ts"
   - "frontend/apps/dms/src/hooks/useDataGridLabels.ts"
   - "frontend/apps/dms/src/hooks/useColumnPanelLabels.ts"
-  - "frontend/apps/dms/src/hooks/useViewsAndFiltersLabels*"
   - "frontend/apps/dms/src/hooks/useGridPreferences.ts"
-  - "frontend/apps/dms/src/hooks/useSavedViews.ts"
   - "frontend/apps/dms/src/hooks/*ersistedPreference*"
   - "frontend/apps/dms/src/utils/gridExport*"
   - "frontend/apps/dms/src/utils/columnRegistry*"
   - "frontend/apps/dms/src/hooks/useSortInUrl*"
   - "frontend/apps/dms/src/pages/StandardTextsPage*"
   - "frontend/apps/dms/src/pages/ReferenceDataPage*"
+  - "frontend/apps/dms/src/pages/AccountRecoveryPage.tsx"
+  - "frontend/apps/dms/src/pages/IntegrationPlatformView.tsx"
   - "frontend/apps/dms/src/components/translations/UiStringsPanel*"
   - "frontend/apps/dms/src/components/translations/MissingTranslationsCard*"
   - "frontend/apps/dms/src/components/translations/StandardTextSeedsPanel*"
@@ -34,7 +34,8 @@ paths:
 ---
 <!-- Maintainer note. ADR-060, ADR-092; UI/UX Core Principles (grids).
 Split out of ui.md by KAN-615 (2026-11-13); filters, views and URL state split out to
-ui-grid-filters.md by KAN-743 (2026-11-17), so a plain grid (a Customer 360 tab) loads only this. -->
+ui-grid-filters.md by KAN-743 (2026-11-17), so a plain grid (a Customer 360 tab) loads only this.
+Last verified against main@3b2bf69 (2026-11-18). -->
 
 # Data grids
 

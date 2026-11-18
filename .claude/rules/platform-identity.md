@@ -24,6 +24,7 @@ paths:
   - "app/platform/identity/models/connected_account.py"
   - "app/platform/identity/models/dealership_auth_config.py"
   - "tests/platform/test_auth.py"
+  - "tests/core/test_nul_character_refused.py"
   - "tests/platform/test_login.py"
   - "tests/platform/test_identity_*.py"
   - "tests/identity_support.py"
@@ -45,7 +46,7 @@ paths:
   - "WORKSHOP_TERMINAL_AUTH_DESIGN.md"
 ---
 <!-- Maintainer note. Auth & Identity PRD v1.1; D-A-07…D-A-37; ADR-028/099/110/118. Cut from platform.md
-(verified against main@73baf3f, 2026-10-25) by KAN-614, 2026-11-10; the cut was not re-verified. -->
+by KAN-614, 2026-11-10. Last verified against main@3b2bf69 (2026-11-18). -->
 
 # Identity and sign-in (Authentication & Identity; D-A-07…D-A-16, D-A-36)
 
@@ -56,9 +57,11 @@ paths:
   the token's `memberships` claim (403) — and writes the `session` row the guard checks. No second
   minting path, no direct `create_access_token` call (Auth & Identity risk 4). Every production
   token carries an explicit entitlement set (`test_token_minting_passes_entitlements.py`).
-- The workshop terminal (ADR-110, not built — KAN-230, `WORKSHOP_TERMINAL_AUTH_DESIGN.md`) mints
-  through it with realm `terminal`: the same checks, a 15-minute idle window, `roles={TECHNICIAN}`,
-  no manager flag, the device's Betrieb as the only membership — never the person's office roles.
+- The workshop terminal is **not built** (designed in `WORKSHOP_TERMINAL_AUTH_DESIGN.md`; its mint
+  decided by ADR-110, KAN-254; KAN-230 closed Wont Do — it is built with Aftersales). When built it
+  will mint through `_mint_session` with realm `terminal`: the same checks, a 15-minute idle window,
+  `roles={TECHNICIAN}`, no manager flag, the device's Betrieb as the only membership — never the
+  person's office roles.
 - `get_current_principal` does not check `status`: a deactivated user's session ends because the
   status change revokes its `session` row. A token without `sid` (tests, bootstrap) is not covered.
 

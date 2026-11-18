@@ -12,7 +12,7 @@ paths:
 ---
 <!-- Maintainer note. PRD-Vehicles (FR-V-09, FR-V-17); ADR-029, ADR-048 as amended, ADR-066, ADR-070.
 KAN-615 (2026-11-13) cut it to the invariants; what the confirmation, Sales and Stock do with a
-valuation is valuation-trade-in.md. Last verified against main@73baf3f (2026-10-25). -->
+valuation is valuation-trade-in.md. Last verified against main@3b2bf69 (2026-11-18). -->
 
 # Valuations
 
@@ -33,8 +33,8 @@ valuation is valuation-trade-in.md. Last verified against main@73baf3f (2026-10-
 - **A valuation names its car** (Anto, KAN-574): a VIN (or a pre-1981 chassis number), a make and
   a model — each defaulted from the configuration when one is sent (a field sent wins, ADR-070),
   typed otherwise — else 422 `valuation_names_no_car`; rows written before keep what they had.
-  **Open with Anto on KAN-574:** a VIN typed beside a configuration without one is stored, though
-  the ruling asked the configuration to carry it.
+  A VIN typed beside a configuration without one is stored on the valuation; the configuration
+  stays without it (KAN-449 option A, kept by Anto on KAN-574, 2026-11-11).
 - **ADR-070** — a configuration never writes vehicle-mdm; created **with** one (`record` mode
   only), a valuation defaults its vehicle fields from it, references only the record the
   configuration already links and creates none; `valuation.created` carries `configurationId`, so

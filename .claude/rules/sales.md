@@ -6,9 +6,9 @@ paths:
   - "tests/architecture/test_adr_047_no_shared_transaction.py"
   - "alembic/versions/sales/**"
 ---
-<!-- Maintainer note. PRD-Sales v2 (S-D10); ADR-041/046/047/049/050/051/052/057/063/065/083/086/088/098/109.
+<!-- Maintainer note. PRD-Sales v2 (S-D10); ADR-041/046/047/049/050/051/052/057/063/065/083/086/088/098/109/135.
 KAN-615 (2026-11-13) cut it to the invariants: screens in sales-screens.md, reconciliation in
-sales-reconciliation.md. Last verified against main@73baf3f (2026-10-25). -->
+sales-reconciliation.md. Last verified against main@3b2bf69 (2026-11-18). -->
 
 # Sales: offers, contracts, pricing, documents
 
@@ -29,9 +29,8 @@ sales-reconciliation.md. Last verified against main@73baf3f (2026-10-25). -->
   bought again — re-read through `inventory.public.is_stock_item_purchased`, since delivery is
   unordered; only that consumer reads asynchronously, `request_invoice` reads the replica alone
   (ADR-052 addendum). An offer and a contract on a stock car carry its stock number (rule 2's pair),
-  copied once when the car is put on the deal, cleared with `stock_item_id`, taken by a contract
-  from the offer and a copy, never refreshed. Every cross-context id on a Sales table is
-  reconciled (`sales-reconciliation.md`).
+  copied once onto the deal, cleared with `stock_item_id`, carried to a contract and a copy, never
+  refreshed. Every cross-context id on a Sales table is reconciled (`sales-reconciliation.md`).
 - **ADR-050 — `sales_contract` superseded the legacy `transaction` table**, dropped with its rows by
   KAN-555 (ADR-117). A legacy contract stays `CONFIRMED`; `request_invoice` and `cancel_contract`
   refuse it (`legacy_sale`: the old system invoiced it), so its offer never frees
@@ -45,14 +44,18 @@ sales-reconciliation.md. Last verified against main@73baf3f (2026-10-25). -->
   `contract_priced_without_inputs`.
 - **One live contract per offer** (`offer_already_contracted`, under the offer's row lock); a
   cancelled contract frees it. **An offer with a live contract is read-only** (Anto, KAN-408):
-  every write and its document generation are 409 `offer_has_contract` — the contract is edited
-  itself while pending (ADR-083), so the two never disagree.
+  a draft's every write, and any offer's seller-only change, cancel and document, are 409
+  `offer_has_contract`; an open offer's other writes hit the reason-less status 409 first. The
+  contract is edited itself while pending (ADR-083).
 - **The deal row follows its deal's live entity** (`deal_projection.py`): the live contract while
   there is one, else the offer; a cancelled contract hands the row back to its offer, a contract
   without an offer keeps its own row. Generating a document re-projects it.
-- **Row locks offer → contract → deal**; `upsert_deal_projection` flushes its caller's changes
-  first, the customer merge's repointing flushes in the same order, and an offer's or contract's
-  row is written or locked (`priced_deal.lock_editable`) before its line items.
+- **Row locks offer → contract → deal**, after the customer's attach lock (ADR-135,
+  `customer_attach_lock.py`) that a buyer attach, an offer copy, `sales.customer_merged` and any
+  new write changing a deal's customer take. `upsert_deal_projection`
+  flushes its caller's changes first, the customer merge's repointing flushes in the same order,
+  and an offer's or contract's row is written or locked (`priced_deal.lock_editable`) before its
+  line items.
 
 ## The responsible seller (Anto)
 - `owner_user_id` + label on offer, contract and deal (rule 2): the creator by default when they
@@ -69,8 +72,8 @@ sales-reconciliation.md. Last verified against main@73baf3f (2026-10-25). -->
   stays unfilled (ruled).
 
 ## Price and VAT (ADR-057)
-One gross price, the VAT line on the printed document only, ADR-098, the fiktiver Vorsteuerabzug,
-the pricing bounds and the discount cap: `sales-pricing.md`. **There is no `vatTreatment`.**
+One gross price, the printed VAT line (ADR-098), the fiktiver Vorsteuerabzug, the pricing bounds
+and the discount cap: `sales-pricing.md`. **There is no `vatTreatment`.**
 
 ## Contract rules
 - **Purchase gate at invoicing, not at confirmation** (ADR-052, K-12, FR-I-12): `request_invoice` refuses a

@@ -17,8 +17,8 @@ paths:
   - "frontend/apps/dms/src/modules/stock/components/AddToPipeline*"
 ---
 <!-- Maintainer note. PRD-Configurator v1.4 (the host/mode matrix), ADR-083. Moved out of
-vehicle-configurator.md by KAN-615 (2026-11-13) for the hosts' own files. Cut from vehicle.md
-(verified against main@73baf3f) by KAN-614; not re-verified. -->
+vehicle-configurator.md by KAN-615 (2026-11-13) for the hosts' own files. Last verified against
+main@3b2bf69 (2026-11-18). -->
 
 # Configurator hosts and modes (PRD v1.4, + the pending contract of ADR-083)
 

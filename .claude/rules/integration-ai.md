@@ -4,12 +4,21 @@ paths:
   - "app/integration/services/ai_*.py"
   - "app/integration/api/ai_prompts.py"
   - "app/integration/models/ai_prompt.py"
+  - "app/integration/schemas/ai_prompt.py"
+  - "alembic/versions/integration/e7a2c91d4b60_*.py"
   - "app/inventory/services/listing_suggestion.py"
+  - "app/inventory/api/publishing.py"
   - "tests/integration/test_ai_*.py"
   - "frontend/apps/dms/src/pages/AiAdministrationPage*.tsx"
   - "frontend/apps/dms/src/components/translations/AiPromptSeedsPanel.tsx"
   - "frontend/apps/dms/src/modules/stock/components/stock-detail/ListingTextSuggestion.tsx"
+  - "frontend/apps/dms/src/modules/stock/components/stock-detail/PublishingTab*"
+  - "frontend/apps/dms/src/i18n/locales/*/aiPrompts.json"
+  - "frontend/apps/dms/src/pages/TranslationsPage.aiPrompts.render.test.tsx"
+  - "frontend/apps/dms/src/pages/IntegrationDealerView.ai.render.test.tsx"
 ---
+<!-- Maintainer note. ADR-181; KAN-227, D-A-33, FR-A-38. Last verified against main@3b2bf69
+(2026-11-18). -->
 
 # The Betrieb's own AI provider (KAN-227, D-A-33)
 
@@ -40,7 +49,7 @@ paths:
 - **A suggestion, never a publication** (FR-A-38): Stock's «Text vorschlagen»
   (`POST …/listing-text-suggestions`, `marketplace_publishing`) stores nothing; the user edits it in
   the dialog and takes it into the description, saved like typing — asked first when the description
-  holds text, never cut at its 4000 characters (taking over waits until it fits; Anto to rule).
+  holds text, never cut at its 4000 characters (taking over waits until it fits; open with Anto, KAN-749).
 - **Licence §3:** provider data a caller puts into a prompt travels in the tenant's own request
   only; the port has no tool, function-calling or retrieval surface, and none may be added.
   Condition flags (`eigenschaften`, an accident history) are never sent.

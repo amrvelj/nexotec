@@ -11,13 +11,16 @@ paths:
   - "tests/architecture/test_no_mcp_server.py"
   - "tests/architecture/test_no_real_provider_account_values.py"
   - "tests/architecture/test_capability_codes_are_in_the_vocabulary.py"
+  - "tests/integration/test_kan588_*.py"
+  - "tests/core/test_kan499_deployment_environment.py"
+  - "app/core/deployment_environment.py"
   - "frontend/apps/dms/src/**/*ntegration*"
   - "frontend/apps/dms/src/components/connectionRowMenu.tsx"
 ---
 <!-- Maintainer note (stripped before Claude sees it). Summarises the Integrations & API Credentials
 PRD, ADR-013/ADR-075, ADR-111 as amended, ADR-113, and the identAPI test agreement (§1-§12; it is
-confidential and never quoted). Cut from vehicle.md by KAN-614 (2026-11-10) to the invariants;
-vehicle.md was verified against main@73baf3f on 2026-10-25 - this cut was not re-verified. -->
+confidential and never quoted). Cut from vehicle.md by KAN-614 (2026-11-10) to the invariants.
+Last verified against main@3b2bf69 (2026-11-18). -->
 
 # The provider gateway and the integration registry
 
@@ -90,7 +93,10 @@ to show a provider's wording beside an unmapped code, **never to fill a referenc
   an unknown name refuses to start, and so does an **unset** one outside pytest and local development
   (a `.env` in the working directory), where it reads as `development`; a name that does not parse
   reads as production in every reader (gateway, object store, mailer). The Connect dialog
-  says: a service account only, never the personal token, test environments only. There are no
+  says: a service account only, never the personal token, test environments only. A provider
+  without test access (`supports_sandbox` false: AutoScout24, every AI provider) holds no sandbox
+  connection (422 `provider_has_no_sandbox`; clearing the flag while one exists is 409
+  `provider_sandbox_connections_exist`, KAN-741). There are no
   licence types or end dates: a switched-off connection shows as failing.
 - **VIN queries are not in the licence** (§8): the `vin` option is probed and its `granted = False`
   row — or no row — keeps the VIN rung from ever calling it. `integration.public.vin_decode_granted`

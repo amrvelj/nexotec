@@ -10,7 +10,7 @@ paths:
   - "tests/architecture/test_actor_columns_reconciled.py"
 ---
 <!-- Maintainer note. Rule 10; ADR-052, ADR-107. Moved out of sales.md by KAN-615 (2026-11-13).
-Last verified against main@73baf3f (2026-10-25). Reconciliation reports; it never repairs. -->
+Last verified against main@3b2bf69 (2026-11-18). Reconciliation reports; it never repairs. -->
 
 # Sales' nightly reconciliation
 
@@ -30,8 +30,15 @@ Last verified against main@73baf3f (2026-10-25). Reconciliation reports; it neve
   replica row — this check reports it once the storno is an hour old.
 - **A merged customer:** a Sales row naming one, last written over an hour ago, is a missed
   `customer.merged` → `sales.customer_merged` (an attach waits on it).
-- **The deal row:** a row whose number, status, buyer, locality, car, stock number, seller or
-  document count differs from its live entity, or whose shape is wrong (two StateChecks).
+- **The deal row:** a row whose number, status, buyer, locality, car, stock number, seller,
+  vehicle-changed flag or document count differs from its live entity, or whose shape is wrong.
+- **The configuration:** a row naming a configuration vehicle has not stamped as taken, an hour
+  after the row last changed (a lost `configuration_attached`, KAN-633).
+- **The stock price:** an open deal on a stock car whose price changed after the freeze, without
+  the «Fahrzeug im Lager geändert» flag (a lost `commercial_changed`, KAN-553;
+  `events-stock-sales.md`).
+- **The pipeline item:** a confirmed manual-configuration contract with no stock item an hour after
+  signing (KAN-144).
 - **The seller:** an open deal whose owner is a deactivated user, and an owner id naming no user.
 - **The trade-in valuation:** a signed contract whose trade-in valuation of its own dealership is
   not stamped used (signed before confirmation consumed it, or a compensation race) — «Als

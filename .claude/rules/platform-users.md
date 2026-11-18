@@ -20,7 +20,6 @@ paths:
   - "tests/platform/test_platform_idempotency.py"
   - "tests/platform/test_platform_chain_renders_offline.py"
   - "app/platform/identity/api/dealership*.py"
-  - "app/platform/identity/api/dealership*.py"
   - "app/platform/organisation/api/dealerships.py"
   - "app/api/v1/dealer_groups.py"
   - "app/platform/identity/api/me.py"
@@ -50,6 +49,10 @@ paths:
   - "tests/architecture/test_group_read_dealerships_callers.py"
   - "scripts/report_platform_admins_homed_in_dealerships.py"
   - "scripts/seed_staging_demo.py"
+  - "tests/test_seed_staging_demo.py"
+  - "app/core/object_store.py"
+  - "scripts/check_stored_objects.py"
+  - "tests/platform/test_kan402_*.py"
   - "scripts/retire_staging_shared_demo_user.py"
   - "frontend/apps/dms/src/auth/gatedCapabilities.ts"
   - "frontend/apps/dms/src/**/useCanWrite*"
@@ -59,8 +62,8 @@ paths:
   - "frontend/apps/dms/src/pages/account/**"
   - "frontend/apps/dms/src/components/account/**"
 ---
-<!-- Maintainer note. ADR-014/094/106; Dealer Administration D-A-01…05, D-A-24, D-A-35, FR-A-02…17. Cut from
-platform.md (verified against main@73baf3f, 2026-10-25) by KAN-614, 2026-11-10; not re-verified. -->
+<!-- Maintainer note. ADR-014/081/094/106/113; Dealer Administration D-A-01…05, D-A-24, D-A-35, FR-A-02…17. Cut
+from platform.md by KAN-614, 2026-11-10. Last verified against main@3b2bf69 (2026-11-18). -->
 
 # Users, roles and the organisation (ADR-014; Dealer Administration)
 
@@ -70,8 +73,10 @@ platform.md (verified against main@73baf3f, 2026-10-25) by KAN-614, 2026-11-10; 
   **never a scoping boundary**, owned by platform.
 - UI word for the tenant (D-A-10, CLAUDE.md): Betrieb · entreprise · azienda · business — in the
   bundles and in the backend's sign-in and mail texts. Older backend messages still say
-  "dealership" (some "dealer" or "tenant"); the recovery service's own refusals say *Betrieb*
-  (KAN-450 asks whether that is a defect).
+  "dealership" (some "dealer" or "tenant"); the Locations and Branding refusals say *business*
+  (KAN-204, KAN-205); the recovery door's four refusals say *Betrieb* (three in
+  `identity/services/recovery.py`, the search's in `identity/api/recovery.py`; the dialog says
+  them by `details.rule` — whether to align them, KAN-450's item 4, is unanswered).
 - `sales` is a module entitlement like `aftersales`: a service-only garage without it is a normal
   configuration.
 - Group-scoped reads live only in the files `tests/architecture/test_no_ambient_group_read.py`

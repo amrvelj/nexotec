@@ -4,6 +4,7 @@ paths:
   - "app/inventory/api/stock_items.py"
   - "app/inventory/reconciliation.py"
   - "app/vehicle/services/vin_correction.py"
+  - "app/vehicle/services/vin_resolution.py"
   - "app/vehicle/services/configuration.py"
   - "app/valuation/reconciliation.py"
   - "tests/inventory/test_inventory_vin_correction.py"
@@ -13,6 +14,9 @@ paths:
   - "tests/inventory/test_inventory_vin*.py"
   - "tests/inventory/test_inventory_purchase_configuration_vin.py"
   - "tests/inventory/test_inventory_create_with_vin_is_pipeline.py"
+  - "tests/cross_context/test_kan723_*.py"
+  - "tests/inventory/test_kan729_*.py"
+  - "tests/vehicle/test_kan730_*.py"
   - "frontend/apps/dms/src/modules/stock/components/stock-detail/RecordPurchaseDialog*"
   - "frontend/apps/dms/src/modules/stock/components/stock-detail/VinCorrectionDialog*"
   - "frontend/apps/dms/src/modules/stock/components/stock-detail/useStockConfigurationEditor.tsx"
@@ -22,7 +26,7 @@ paths:
 ---
 <!-- Maintainer note. KAN-557 (ADR-116 (2)-(3); Anto's ruling on KAN-544, 2026-11-03), KAN-536
 (Anto, 2026-11-12); the VINs-in-stock section moved here from inventory.md by KAN-615 (2026-11-13).
-Last verified against main@73baf3f (2026-10-25). -->
+Last verified against main@3b2bf69 (2026-11-18). -->
 
 # VINs in stock
 

@@ -20,6 +20,9 @@ paths:
   - "tests/vehicle/test_provider_code_map_seed.py"
   - "tests/vehicle/test_seed_demo_provider_code_map.py"
   - "tests/vehicle/test_kan194_legacy_mapping_gap_code_groups.py"
+  - "tests/vehicle/test_kan587_*.py"
+  - "tests/vehicle/test_kan75_colour_tyre_code_map.py"
+  - "tests/colour_tyre_code_map_support.py"
   - "tests/architecture/test_catalogue_browse_is_a_bounded_live_query.py"
   - "tests/architecture/test_no_bulk_catalogue_retrieval.py"
   - "scripts/seed_demo_provider_code_map.py"
@@ -30,8 +33,8 @@ paths:
 ---
 <!-- Maintainer note (stripped before Claude sees it). Summarises ADR-013 as amended by ADR-075,
 ADR-042, ADR-044, ADR-072, ADR-111, ADR-112, ADR-123 and the identAPI test agreement's single-lookup
-rule (KAN-485, ADR-023 as amended). Cut from vehicle.md by KAN-614 (2026-11-10) to the invariants;
-vehicle.md was verified against main@73baf3f on 2026-10-25 - this cut was not re-verified. -->
+rule (KAN-485, ADR-023 as amended). Cut from vehicle.md by KAN-614 (2026-11-10) to the invariants.
+Last verified against main@3b2bf69 (2026-11-18). -->
 
 # The catalogue: master data, browse, details, codes
 

@@ -4,6 +4,7 @@ paths:
   - "frontend/apps/dms/src/hooks/use*Labels*"
   - "frontend/apps/dms/src/hooks/useInlineEditRefusal.ts"
   - "frontend/apps/dms/src/utils/apiRefusal*"
+  - "frontend/apps/dms/src/utils/notARefusalReasons.json"
   - "frontend/apps/dms/src/shared/partyAllocationRefusal.ts"
   - "frontend/apps/dms/src/utils/providerText*"
   - "frontend/apps/dms/src/referenceLists.ts"
@@ -19,8 +20,8 @@ paths:
   - "scripts/split_locale_bundles.py"
 ---
 <!-- Maintainer note. UI/UX Specification (i18n row), ADR-044; Anto's rulings on KAN-104, KAN-171,
-KAN-343, KAN-398. Split out of ui.md by KAN-615 (2026-11-13). Last verified against main@73baf3f
-(2026-10-25); the bundle layout with KAN-616's code. -->
+KAN-343, KAN-398, KAN-750. Split out of ui.md by KAN-615 (2026-11-13). Last verified against
+main@3b2bf69 (2026-11-18). -->
 
 # Translations (i18n)
 
@@ -40,19 +41,20 @@ KAN-343, KAN-398. Split out of ui.md by KAN-615 (2026-11-13). Last verified agai
   `DocumentPreview` download with their labels. A saved filter's text is one translated template
   per condition, never field + condition + value glued in the kit. `kitLabels*.render.test.tsx`
   renders each with French labels and refuses any former English default.
-- **The one exception: the four language endonyms** (Anto, KAN-343): where a language names
-  itself for every user (the reference-data screen's language fields, a customer's correspondence
-  language) it reads «Deutsch», «Français», «Italiano», «English» from the one list
-  `i18n/languageEndonyms.ts` (`architecture/language-endonyms-one-list.test.ts`). The UI-language
-  picker and the per-language editors still translate the names.
+- **The one exception: the four language endonyms** (Anto, KAN-343, KAN-750): where a language
+  names itself for every user (the reference-data screen's language fields, a customer's
+  correspondence language, a legal document's or a status incident's language) it reads
+  «Deutsch», «Français», «Italiano», «English» from the one list `i18n/languageEndonyms.ts`
+  (`architecture/language-endonyms-one-list.test.ts`). The UI-language picker and the other
+  per-language editors translate the names.
 - **An API refusal is shown in the UI language** (Anto, KAN-398), never `err.message` (the API's
   English, for logs only). The one helper is `utils/apiRefusal.ts::apiRefusalText(t, err,
   fallbackKey)`: a body-less response is `common.requestFailed`; then a stale If-Match 409; a known
-  `details.reason` (its table — `apiRefusal.test.ts` fails on a `"reason": "…"` in `app/` it does
-  not translate, and its backend-lane twin `tests/test_frontend_knows_backend_refusals.py` fails
-  the same way on a backend-only change; the vitest file pins the twin's patterns and their flags,
-  `tests/test_dev_check_lanes.py` that an `app/` diff runs the twin, KAN-679/KAN-732; a value the
-  details carry goes through `REASON_PARAMS`); a 403, 404 and schema 422
+  `details.reason` (`REASON_KEYS` — `apiRefusal.test.ts` and its backend-lane twin
+  `tests/test_frontend_knows_backend_refusals.py` fail on a `"reason": "…"` in `app/` it does not
+  translate, unless `utils/notARefusalReasons.json` lists it as a log or event value, and where;
+  the vitest file pins the twin's patterns and flags, KAN-679/KAN-732; a value the details carry
+  goes through `REASON_PARAMS`); a 403, 404 and schema 422
   by status; anything else, a business rule refused without a reason included, is the screen's own
   key — so give such a refusal a `details.reason`. A screen with its own wording for a reason
   (merge, contract confirmation, business data) keeps its helper.

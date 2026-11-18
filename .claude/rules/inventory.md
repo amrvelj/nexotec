@@ -7,12 +7,17 @@ paths:
   - "alembic/versions/inventory/**"
   - "tests/inventory/test_inventory_*.py"
   - "tests/inventory/test_kan513_one_configuration_one_stock_item.py"
+  - "tests/inventory/test_kan461_*.py"
+  - "tests/inventory/test_kan718_*.py"
+  - "tests/inventory/test_kan735_*.py"
+  - "tests/reporting/test_kan225_public_stock_projection.py"
+  - "tests/integration/test_integration_autoscout24_adapter.py"
   - "tests/stock_support.py"
 ---
-<!-- Maintainer note. PRD-Stock; ADR-045/049/052/054/055/057/062/070/074/087/103/116/117. KAN-615
-(2026-11-13) cut it to the invariants: purchase and storno are inventory-purchase.md, reservations
-inventory-reservation.md, VINs inventory-vin-correction.md, screens inventory-screens.md. Last
-verified against main@73baf3f (2026-10-25). -->
+<!-- Maintainer note. PRD-Stock; ADR-045/049/052/054/055/057/062/070/074/087/103/116/117/174/179.
+KAN-615 (2026-11-13) cut it to the invariants: purchase and storno are inventory-purchase.md,
+reservations inventory-reservation.md, VINs inventory-vin-correction.md, screens
+inventory-screens.md. Last verified against main@3b2bf69 (2026-11-18). -->
 
 # Stock and inventory
 
@@ -62,7 +67,7 @@ verified against main@73baf3f (2026-10-25). -->
 - **Licensed with `sales`** (D-A-04): every inventory router carries the gate (404, before any
   role check; `test_sales_routers_carry_entitlement_gate.py`). Every write checks `require_write` on
   its own matrix row (`stock_items`, `stock_acquisition`, `stock_condition`,
-  `marketplace_publishing`, `stock_reservation`; `tests/inventory/test_inventory_write_capabilities.py`), so
+  `stock_vin_correction`, `marketplace_publishing`, `stock_reservation`; `tests/inventory/test_inventory_write_capabilities.py`), so
   widening one row opens no other.
 
 ## Facts other contexts read
@@ -103,4 +108,11 @@ verified against main@73baf3f (2026-10-25). -->
   AutoScout24 transmits; Carmarket and Autolina have no provider specification (KAN-72).
   **The dealer's unpublish is refused while the channel has no enabled connection** and the marketplace
   holds the listing (409 `marketplace_connection_disabled`, KAN-735); offboarding's withdrawal is not.
+- **The Betrieb's website is stated, never transmitted** (KAN-225, ADR-174;
+  `services/website_listing.py`): `reporting`'s public projection reads only the allow-listed
+  snapshot; a write that changes a public field calls `restate_if_listed` in its transaction.
+- **Every persisted `stock_item` field is a grid column or excluded with its reason**
+  (`services/stock_grid.py`, ADR-179; `tests/inventory/test_kan461_stock_grid.py` fails on a new
+  one). «Standort» is the three-column copy of platform's location (`services/location_labels.py`,
+  KAN-739).
 - Stock numbers are allocated per dealership inside the caller's transaction.

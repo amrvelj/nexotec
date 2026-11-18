@@ -2,18 +2,19 @@
 paths:
   - "scripts/migrate_*.py"
   - "scripts/backfill_*.py"
+  - "scripts/repair_*.py"
   - "scripts/*migration_smoke_test*.py"
   - "tests/cross_context/test_backfill_*.py"
 ---
 <!-- Maintainer note. ADR-047, ADR-140. Moved out of migrations.md by KAN-615 (2026-11-13). Last
-verified against main@73baf3f (2026-10-25). The post-deploy runs are listed in README.md. -->
+verified against main@3b2bf69 (2026-11-18). The post-deploy runs are listed in README.md. -->
 
 # Data-migration scripts and backfills
 
 - **Backfills run for real, on Postgres, and are verified by query**: count rows, count nulls,
   count values identical to the column they were derived from. An offline `--sql` render is not a
   run. A downgrade that is deliberately a no-op says so in a comment.
-- **Data-migration scripts** (`scripts/migrate_*.py`, `repoint_*.py`, `backfill_*.py`) are dry-run by
+- **Data-migration scripts** (`scripts/migrate_*.py`, `backfill_*.py`, `repair_*.py`) are dry-run by
   default (`--commit` writes), idempotent, and reuse the production computations. A historical
   import **publishes no outbox events** (live consumers would act on old history as if new); a
   backfill repairing current state through the production write path publishes what that path

@@ -11,6 +11,7 @@ paths:
   - "frontend/apps/dms/src/*Options.ts"
   - "frontend/apps/dms/src/modules/*/*Options.ts"
   - "frontend/apps/dms/src/shared/gridSchema.ts"
+  - "frontend/apps/dms/src/api/gridSchemas.json"
   - "frontend/apps/dms/src/hooks/useViewsAndFiltersLabels*"
   - "frontend/apps/dms/src/hooks/useSavedViews.ts"
   - "frontend/apps/dms/src/hooks/*ersistedPreference*"
@@ -25,12 +26,13 @@ paths:
   - "frontend/apps/dms/src/architecture/grid-filters*"
 ---
 <!-- Maintainer note. ADR-056, ADR-058, ADR-102, ADR-179. Split out of ui-grid.md by KAN-743
-(2026-11-17): what a grid with filters, views or URL state needs; every grid's rules stay there. -->
+(2026-11-17): what a grid with filters, views or URL state needs; every grid's rules stay there.
+Last verified against main@3b2bf69 (2026-11-18). -->
 
 # Grid filters, views and URL state
 
 - **List-query layer** (ADR-179, `app/core/list_query.py`): one column registry per entity; `sort` and
-  `filter=field:op[:value]` over it, 422 outside, served at `…/grid-schema`. A grid on it (Stock; more in
+  `filter=field:op[:value]` over it, 422 outside, served at `…/grid-schema` and generated into `src/api/gridSchemas.json` (`make generate-frontend-types`). A grid on it (Stock; more in
   KAN-461 PR-2…4) takes filter fields, `sortableFields` and default visibility from the schema — never a hand list or `meta.sortField`.
 - **ADR-056** — grid state (search, filter, sort, tab, scope) lives in the URL, the shareable unit.
   Layout and density stay out of it: they belong on the user preference record.

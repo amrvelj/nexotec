@@ -8,13 +8,14 @@ paths:
   - "tests/test_demo_models_off_production_base.py"
 ---
 <!-- Maintainer note. ADR-011, ADR-130 (per-worker databases). Moved out of tests.md by KAN-615
-(2026-11-13). Last verified against main@73baf3f (2026-10-25); the per-worker lines on 2026-11-11. -->
+(2026-11-13). Last verified against main@3b2bf69 (2026-11-18). -->
 
 # The Postgres test harness
 
 - **The schema is built once per session** (`tests/conftest.py`), not per test. Every test starts
-  with every table empty (`TRUNCATE`) and without planner statistics, except the `country`
-  reference list the autouse `_seed_country_reference_list` fixture seeds. Any DDL a test runs
+  with every table empty (`TRUNCATE`) and without planner statistics, except what two autouse
+  fixtures seed: the `country` reference list (`_seed_country_reference_list`) and the
+  notification catalogue, `notification_event` (`_seed_notification_catalogue`, KAN-216). Any DDL a test runs
   (an event trigger counts it), or an `ANALYZE`/`VACUUM` of a test table, has the schema rebuilt
   before the next test.
 - A session from the `engine` fixture left open in a transaction holding a lock on a test table
