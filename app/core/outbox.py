@@ -20,6 +20,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.base import utcnow
+from app.core.correlation import current_causation_id, current_correlation_id
 from app.core.outbox_model import OutboxMessage, OutboxStatus
 from app.core.processed_event_model import ProcessedEvent
 from app.core.uuid7 import uuid7
@@ -61,8 +62,12 @@ def publish(db: Session, event: OutboxEvent) -> OutboxMessage:
         producer=event.producer,
         aggregate_type=event.aggregate_type,
         aggregate_id=event.aggregate_id,
-        correlation_id=event.correlation_id or uuid7(),
-        causation_id=event.causation_id,
+        # KAN-125: what the event belongs to and what caused it, from the correlation context
+        # (app.core.correlation) when the producer names neither: the request, or the consumed
+        # message whose handler is running, or the daily job run. Outside all three an event
+        # still gets an id of its own.
+        correlation_id=event.correlation_id or current_correlation_id() or uuid7(),
+        causation_id=event.causation_id or current_causation_id(),
         payload=event.payload,
         status=OutboxStatus.PENDING,
         attempts=0,

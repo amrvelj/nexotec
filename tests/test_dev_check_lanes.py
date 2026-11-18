@@ -79,6 +79,7 @@ def test_an_app_change_runs_the_lane_that_collects_the_spa_refusal_twin(check):
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         text=True,
+        check=False,
     )
     assert collected.returncode == 0, collected.stdout[-2000:]
     assert any(line.startswith(_TWIN + "::") for line in collected.stdout.splitlines()), (

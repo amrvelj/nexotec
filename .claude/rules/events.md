@@ -33,8 +33,11 @@ flows events-stock-sales.md (KAN-615). Last verified against main@73baf3f (2026-
 - **Consumers are idempotent** by `eventId`; delivery is at-least-once and unordered. Every
   registered consumer needs its fixture in `tests/test_consumer_redelivery_idempotency.py`,
   which fails without one.
-- **Every envelope field carries meaning** and one entity's events share a payload shape. A
-  `correlationId` minted per event correlates nothing (the outbox still defaults one; KAN-125).
+- **Every envelope field carries meaning** and one entity's events share a payload shape.
+  `correlationId`/`causationId` come from `app/core/correlation.py` when the producer names
+  neither (KAN-125, G-112): the request's (`X-Correlation-Id` when a UUID, else a fresh id), the
+  consumed message's while its handler runs (its `eventId` the cause), a fresh one per daily job
+  run. Never mint one per event yourself: that correlates nothing.
 - **A write spanning two contexts** is a call with a compensating action, each side committing
   its own work (ADR-047, rule 12). Two contract events, never one (ADR-046).
 - **Staging runs no worker** (ADR-081 option D; ADR-084): consumers and daily jobs run only
