@@ -5,11 +5,12 @@ and the id of the event that caused it.
   not a UUID is replaced by a generated id (the response says which), never stored.
 - An event a consumer emits carries its parent's `correlationId`, and the parent's
   `eventId` as its `causationId`; a log line inside the handler carries the correlation id.
-- Each daily job run starts a fresh correlation id.
+- Each daily job run, and each pass of the web's data export runner, starts a fresh one.
 
 Postgres is the lane of record (ADR-011); nothing here needs a Postgres-only feature.
 """
 
+import datetime as dt
 import json
 import logging
 import uuid
@@ -24,6 +25,7 @@ from app.core.observability import CORRELATION_ID_HEADER, JSONLogFormatter, get_
 from app.core.outbox import OutboxEvent, publish
 from app.core.outbox_model import OutboxMessage
 from app.core.outbox_transport import DeliveryError, InProcessTransport
+from app.platform.administration.services import data_export, data_export_runner
 from tests.dealership_support import valid_uid
 from tests.token_support import dealer_group_of
 
@@ -197,4 +199,48 @@ def test_each_daily_job_run_starts_a_fresh_correlation_id(db_session, only_these
         row = db_session.scalars(select(OutboxMessage).where(OutboxMessage.event_type == f"test.kan125.{name}_ran")).one()
         assert row.correlation_id == uuid.UUID(seen[name])
         assert row.causation_id is None
+    assert get_correlation_id() is None
+
+
+def test_a_daily_jobs_failure_and_its_recovery_log_under_their_own_runs_id(db_session, only_these_daily_jobs):
+    lines: list[tuple[str, str | None]] = []
+
+    class _Capture(logging.Handler):
+        def emit(self, record: logging.LogRecord) -> None:
+            lines.append((record.getMessage(), get_correlation_id()))
+
+    attempts: list[str | None] = []
+
+    def flaky(db):
+        attempts.append(get_correlation_id())
+        if len(attempts) == 1:
+            raise RuntimeError("kan-125 first run fails")
+
+    only_these_daily_jobs("kan125.flaky", flaky)
+    capture = _Capture()
+    daily_scheduler.logger.addHandler(capture)
+    try:
+        start = dt.datetime(2026, 11, 18, 3, 0, tzinfo=dt.UTC)
+        assert daily_scheduler.run_due_daily_jobs(db_session, now=start) == []
+        later = start + dt.timedelta(hours=2)
+        assert daily_scheduler.run_due_daily_jobs(db_session, now=later) == ["kan125.flaky"]
+    finally:
+        daily_scheduler.logger.removeHandler(capture)
+
+    assert len(attempts) == 2 and attempts[0] and attempts[1] and attempts[0] != attempts[1]
+    recovered = [cid for message, cid in lines if message == "daily job recovered"]
+    assert recovered == [attempts[1]]
+    assert [cid for message, cid in lines if message != "daily job recovered"] == [attempts[0]]
+
+
+# --- the web service's data export runner: a fresh id per pass ------------------------------------------
+
+
+def test_each_export_runner_pass_has_its_own_correlation_id(engine, monkeypatch):
+    seen: list[str | None] = []
+    monkeypatch.setattr(data_export, "expire_downloads", lambda db, store=None: seen.append(get_correlation_id()) or 0)
+    factory = sessionmaker(bind=engine, expire_on_commit=False)
+    assert data_export_runner.run_once(factory) == 0
+    assert data_export_runner.run_once(factory) == 0
+    assert seen[0] and seen[1] and seen[0] != seen[1]
     assert get_correlation_id() is None

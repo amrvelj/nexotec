@@ -1139,6 +1139,8 @@ def dependency_check(root):
     """(returncode, output) of `uv pip check` against .venv, else of its pip's `pip check`;
     (None, why) when neither can run - a uv-built .venv holds no pip."""
     py = os.path.join(root, ".venv", "bin", "python")
+    if not os.access(py, os.X_OK):
+        return None, ".venv/bin/python is missing"
 
     def merged(cmd):  # uv reports on stderr, pip on stdout
         try:
@@ -2870,13 +2872,14 @@ def cli(argv):
                                      "none - `scripts/dev/gate start KAN-<n> <url>` registers one"))
         print("Check    : {} for tree {} ({})".format(checks.get("result", "never run"),
                                                       (checks.get("tree") or "-")[:12], checks.get("at", "-")))
-        # KAN-385: what the check ran on - the pinned security libraries, and whether the .venv is
-        # still the one pyproject.toml installs (marker only: status stays quick).
+        # KAN-385: what the check runs on - the pinned security libraries, and whether the install
+        # marker is current (the marker only: `uv pip check` is left to scripts/dev/check).
         versions = pinned_versions(root)
         drift = venv_drift(root, check_dependencies=False)
         print("Venv     : {} - {}".format(
             " · ".join("{} {}".format(name, versions[name] or "not installed") for name in VENV_PINNED),
-            "STALE: " + drift[0] + "; run `scripts/dev/bootstrap`" if drift else "installed from this pyproject.toml"))
+            "STALE: " + drift[0] + "; run `scripts/dev/bootstrap`" if drift else
+            "install marker current (pins checked by scripts/dev/check)"))
         review = latest([r for r in events(state, "review") if r.get("tree") == fp])
         print("Review   : {}".format(
             "{} for this code{}".format(review.get("verdict"), " ({}: {})".format(review.get("mode"), review["reason"])
@@ -2943,6 +2946,7 @@ def selftest():
         assert len(drift) == 1 and "pyproject.toml is newer than the last install" in drift[0], drift
         assert pinned_versions(venv_root) == {"cryptography": None, "webauthn": None, "argon2-cffi": "25.1.0",
                                               "pyotp": None}, pinned_versions(venv_root)
+        assert dependency_check(venv_root) == (None, ".venv/bin/python is missing")  # not a "conflict"
     finally:
         shutil.rmtree(venv_root, ignore_errors=True)
 

@@ -35,6 +35,7 @@ from collections.abc import Callable
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.correlation import correlation_scope
 from app.core.object_store import ObjectStore
 from app.platform.administration.models.export_job import ExportJob, ExportJobStatus
 from app.platform.administration.services import data_export
@@ -62,8 +63,16 @@ def run_once(session_factory: Callable[[], Session], *, store: ObjectStore | Non
     export is left `requested` for the next pass, and this pass goes on
     without it. The expiry runs whatever the productions did. An export left
     `requested` for an hour, or a file kept past its window, is reported by
-    the nightly reconciliation (`app/platform/reconciliation.py`)."""
+    the nightly reconciliation (`app/platform/reconciliation.py`).
 
+    Each pass is its own piece of work (KAN-125): a fresh correlation id for
+    every line it logs and every event it may publish."""
+
+    with correlation_scope():
+        return _pass(session_factory, store=store)
+
+
+def _pass(session_factory: Callable[[], Session], *, store: ObjectStore | None) -> int:
     handled = 0
     failed: set[uuid.UUID] = set()
     while True:

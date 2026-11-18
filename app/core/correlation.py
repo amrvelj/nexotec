@@ -1,19 +1,22 @@
 """The correlation context (KAN-125): which request or event the work in hand belongs to, and
 which event caused it — the envelope's `correlationId` and `causationId`.
 
-Three places set it, and each resets it on the way out, so it never leaks into the next piece
+These set it, and each resets it on the way out, so it never leaks into the next piece
 of work the same worker or thread handles:
 
 - `app.core.observability.ObservabilityMiddleware`, per HTTP request, from `X-Correlation-Id`
   (a value that is not a UUID is replaced by a fresh id, never stored) or a fresh id;
 - `app.core.consumer.consume_once`, while a handler runs: the consumed message's
   `correlation_id`, and its `id` as the cause of whatever the handler emits;
-- `app.core.daily_scheduler.run_due_daily_jobs`, a fresh id per job run.
+- `app.core.daily_scheduler.run_due_daily_jobs`, a fresh id per job run, and the web
+  service's data export runner (`app.platform.administration.services.data_export_runner`),
+  a fresh id per pass.
 
-`app.core.outbox.publish` defaults an event's two ids from it, and every JSON log line carries
-the correlation id (`app.core.observability.JSONLogFormatter`). Contextvars rather than
-parameters: a service function deep in a request or a handler publishes and logs with no access
-to either. Outside all three (a script, a test) nothing is set and each event gets its own id.
+`app.core.outbox.publish` defaults each of an event's two ids from it when the producer does
+not name it, and every JSON log line carries the correlation id
+(`app.core.observability.JSONLogFormatter`). Contextvars rather than parameters: a service
+function deep in a request or a handler publishes and logs with no access to either. Outside
+all of them (a script, a test) nothing is set and each event gets its own id.
 """
 
 import contextlib

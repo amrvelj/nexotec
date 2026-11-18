@@ -169,7 +169,7 @@ def run_due_daily_jobs(db: Session, *, today: dt.date | None = None, now: dt.dat
         if _has_run_today(db, job_name=job_name, today=today):
             continue
         # KAN-125: each run is its own piece of work - a fresh correlation id for every event it
-        # publishes and every line it logs, its failure line included.
+        # publishes and every line it logs, its failure and recovery lines included.
         with correlation_scope():
             try:
                 job(db)
@@ -183,6 +183,6 @@ def run_due_daily_jobs(db: Session, *, today: dt.date | None = None, now: dt.dat
                 else:
                     logger.warning(message, exc_info=True, extra=extra)
                 continue
-        ran.append(job_name)
-        _record_success(job_name, now if clock_given else utcnow())
+            ran.append(job_name)
+            _record_success(job_name, now if clock_given else utcnow())
     return ran
