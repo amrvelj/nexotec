@@ -16,6 +16,7 @@ from app.integration.models.call_payload import IntegrationCallPayload
 from app.integration.models.caption import IntegrationProviderCaption, IntegrationProviderCaptionFetch
 from app.integration.models.connection import IntegrationConnection
 from app.integration.models.entitlement import IntegrationEntitlement
+from app.integration.models.mail import MailLinkState, MessageDelivery, SendingIdentity, SendingIdentityKind
 from app.integration.models.notification import IntegrationNotification
 from app.integration.models.provider import IntegrationProvider
 from app.integration.models.secret_ref import IntegrationSecretRef
@@ -32,6 +33,15 @@ def _by_connection(table):
 def _tenant(model, **kwargs) -> ExportedTable:
     table = table_of(model)
     return ExportedTable(table=table, scope=lambda scope: table.c.tenant_id == scope.dealership_id, **kwargs)
+
+
+def _business_mailboxes() -> ExportedTable:
+    table = table_of(SendingIdentity)
+    return ExportedTable(
+        table=table,
+        scope=lambda scope: (table.c.tenant_id == scope.dealership_id)
+        & (table.c.kind == SendingIdentityKind.BUSINESS_MAILBOX.value),
+    )
 
 
 class IntegrationExporter(TableExporter):
@@ -53,6 +63,18 @@ class IntegrationExporter(TableExporter):
                 exclusion_reason="A write-only reference into the secrets manager (ADR-024); never returned.",
             ),
             # The calls and notices happen without the Betrieb writing anything.
+            # KAN-215 (Anto's D2 A, 2026-11-15): the Betrieb's shared mailbox and
+            # every delivery (sender, recipients, subject, date, status) are its
+            # data; a colleague's own mailbox address is not (D-A-15) — those
+            # rows stay out of the archive.
+            _business_mailboxes(),
+            _tenant(MessageDelivery),
+            _tenant(
+                MailLinkState,
+                in_archive=False,
+                exclusion_reason="A pending mailbox link, valid ten minutes; a hash of a single-use state only.",
+                marks_write=False,
+            ),
             _tenant(IntegrationCallLog, marks_write=False),
             _tenant(IntegrationNotification, marks_write=False),
             _tenant(

@@ -248,6 +248,16 @@ def create_connection(
     _refuse_sandbox_without_one(provider, data.environment)
     _validate_required_config(provider, data.config)
 
+    # KAN-215: a mailbox provider's connection is Nexotec's own app
+    # registration, held once by the platform. A Betrieb connects its mailbox
+    # through the mail link flow (Administration › Mail), never with a
+    # connection of its own.
+    if provider.category == PLATFORM_ONLY_CATEGORY and data.scope != ConnectionScope.PLATFORM:
+        raise UnprocessableEntityError(
+            "This provider is connected by Nexotec once; connect your mailbox under Administration › Mail.",
+            details={"reason": "mail_provider_platform_only", "providerCode": provider.provider_code},
+        )
+
     if data.scope == ConnectionScope.PLATFORM:
         resolved_tenant_id = None
     else:
@@ -305,6 +315,9 @@ def create_connection(
     db.refresh(connection)
     return connection
 
+
+# KAN-215: the mailbox providers' connection is Nexotec's app registration.
+PLATFORM_ONLY_CATEGORY = "calendar_mail"
 
 # KAN-222 (FR-A-21): the categories whose accounts are per site — an
 # AutoScout24 branch number, a location's mailbox (`calendar_mail`, when its

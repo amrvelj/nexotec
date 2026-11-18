@@ -41,6 +41,7 @@ from app.integration.adapters.ai_base import AI_CATEGORY
 from app.integration.adapters.auto_i_dat_mock import MockAutoIDatAdapter
 from app.integration.adapters.base import ProviderAdapter
 from app.integration.errors import (
+    ProviderAccountRefusedError,
     ProviderConfigurationError,
     ProviderGatewayError,
     ProviderNotEntitledError,
@@ -420,7 +421,12 @@ def _record_failed_call(
     # five such users must not lock out everyone who holds a token. A refused
     # login otherwise (a wrong client secret), a transport failure and a 5xx
     # charge.
-    if not isinstance(exc, (ProviderRequestError, ProviderNotEntitledError, ProviderUserQuotaExceededError)):
+    # KAN-215: one mailbox's refusal behind Nexotec's shared mail connection
+    # (`ProviderAccountRefusedError`) is that account's answer too.
+    if not isinstance(
+        exc,
+        (ProviderRequestError, ProviderNotEntitledError, ProviderUserQuotaExceededError, ProviderAccountRefusedError),
+    ):
         resilience.record_failure(connection.id)
     if meter.requests:
         log = meter.last_log

@@ -42,3 +42,8 @@ from app.integration.adapters import auto_i_dat_ident as _auto_i_dat_ident  # no
 # opens a connection when a real adapter is actually constructed, never at
 # import time.
 from app.integration.adapters import autoscout24 as _autoscout24  # noqa: F401
+
+# KAN-215 — the two mailbox adapters (Microsoft 365 Graph, Google Workspace
+# Gmail) behind `adapters/mail_base.py::MailGateway`; httpx opens nothing
+# until a request is sent.
+from app.integration.adapters import mail_providers as _mail_providers  # noqa: F401

@@ -55,6 +55,9 @@ POST_WITHOUT_IF_MATCH = {
     "only ever filled where it is NULL (KAN-83, a bump no client holds a version for) — one fresh request per "
     "detail, audited",
     "/v1/dealerships/{dealership_id}/users": _NEW_ROW,
+    # KAN-215: starting a shared-mailbox link is a new, unversioned link-state
+    # row; the mailbox itself is created by the callback.
+    "/v1/dealerships/{dealership_id}/mail/business-mailbox/links": _NEW_ROW,
     # KAN-218: a requested export is a new export_job row (and its outbox fact).
     "/v1/dealerships/{dealership_id}/exports": _NEW_ROW,
     # KAN-214: the manager's «Nummernkreise bestätigen» is a new

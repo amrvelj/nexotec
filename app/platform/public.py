@@ -27,14 +27,20 @@ from app.platform.documents.schemas.document_content import (
 from app.platform.documents.services.document_render import render_document
 from app.platform.documents.services.standard_text import RenderedStandardText, render_standard_text
 from app.platform.documents.services.standard_text_placeholders import PLACEHOLDER_UNRESOLVED, Placeholder
+from app.platform.identity.models.connected_account import ConnectedAccountStatus
 from app.platform.identity.models.standard_text_delegation import StandardTextCategory
 from app.platform.identity.services.actor_reference import actor_reference_checks
 from app.platform.identity.services.audit_attribution import get_offboarded_audit_attribution
 from app.platform.identity.services.connected_account import (
     ConnectedAccountProvider,
     GrantRevoker,
+    GrantState,
+    LinkedGrant,
     RevokedGrant,
+    connected_account_states,
+    link_connected_account,
     register_grant_revoker,
+    revoke_connected_account,
     unregister_grant_revoker,
 )
 from app.platform.identity.services.group_labels import get_group_display_labels
@@ -130,13 +136,22 @@ from app.platform.reference.services.reference_data import get_active_reference_
 # then dead-letters; ADR-118). Its exception message is stored in the outbox
 # row and logged, so it must never carry token material. Register it in the
 # worker process (app/worker.py), where the consumer runs: the registry is
-# per process. Registering writes nothing; nothing here lets another
-# context read or write a connected account.
+# per process. Registering writes nothing.
+#
+# KAN-215 (FR-AU-23, ADR-118): the integration that runs a provider's link
+# flow (customer mail through the user's own Microsoft 365 or Google Workspace
+# mailbox) records the grant here — link_connected_account and
+# revoke_connected_account each commit their own transaction (ADR-047; the
+# caller compensates a link it cannot finish with the revoke), and
+# connected_account_states reads whether a grant is still live (GrantState:
+# ids, provider, external account id and status — never the address or the
+# reference). platform alone writes the row; the grant is never an identity.
 __all__ = [
     "PLACEHOLDER_UNRESOLVED",
     "ActingUser",
     "Addressee",
     "ConnectedAccountProvider",
+    "ConnectedAccountStatus",
     "ContactGroupCodes",
     "ContentDefinition",
     "DealerGroupRead",
@@ -145,10 +160,12 @@ __all__ = [
     "DocumentLine",
     "DocumentWatermark",
     "GrantRevoker",
+    "GrantState",
     "KeyValueBlock",
     "KeyValueRow",
     "LineItemsBlock",
     "LineStyle",
+    "LinkedGrant",
     "LocationLabel",
     "LocationSummary",
     "NotificationEventCode",
@@ -169,6 +186,7 @@ __all__ = [
     "UserDisplayLabel",
     "actor_reference_checks",
     "allocate_number",
+    "connected_account_states",
     "contact_group_codes",
     "dealer_group_reference_check",
     "dealership_exists",
@@ -189,6 +207,7 @@ __all__ = [
     "get_offboarded_audit_attribution",
     "get_primary_location_id",
     "get_user_display_labels",
+    "link_connected_account",
     "list_active_users_acting_in",
     "list_dealer_manager_emails",
     "list_group_read_dealerships",
@@ -202,6 +221,7 @@ __all__ = [
     "render_document",
     "render_standard_text",
     "require_setup_item_for",
+    "revoke_connected_account",
     "ui_language_of",
     "unregister_grant_revoker",
     "user_is_deactivated",
