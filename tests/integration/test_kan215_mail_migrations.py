@@ -114,10 +114,10 @@ def test_the_downgrades_refuse_where_a_row_would_orphan_a_secret(migrated_url):
         f"('{grant}', 1, now(), now(), '{uuid.uuid4()}', 'google_workspace', 'g-sub', '[]', "
         f"'/integrations/{grant}/refresh_token', 'active', now())",
     )
-    refused = _alembic(migrated_url, "downgrade", "platform@b8d2f4a61c39")
+    refused = _alembic(migrated_url, "downgrade", "platform@ee50884b1b56")
     assert refused.returncode != 0 and "Google Workspace connected account(s) exist" in refused.stderr
     _execute(migrated_url, f"DELETE FROM user_connected_account WHERE id = '{grant}'")
-    down = _alembic(migrated_url, "downgrade", "platform@b8d2f4a61c39")
+    down = _alembic(migrated_url, "downgrade", "platform@ee50884b1b56")
     assert down.returncode == 0, down.stderr[-3000:]
     up = _alembic(migrated_url, "upgrade", "heads")
     assert up.returncode == 0, up.stderr[-3000:]

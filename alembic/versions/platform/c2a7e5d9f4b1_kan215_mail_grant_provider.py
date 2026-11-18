@@ -14,7 +14,7 @@ deleted row would orphan (the KAN-550 rule); revoke and end those grants first.
 (the audit log keeps its own copy of each link).
 
 Revision ID: c2a7e5d9f4b1
-Revises: b8d2f4a61c39
+Revises: ee50884b1b56
 Create Date: 2026-11-18 15:00:00.000000
 
 """
@@ -26,7 +26,7 @@ from alembic import context, op
 
 # revision identifiers, used by Alembic.
 revision: str = "c2a7e5d9f4b1"
-down_revision: str | Sequence[str] | None = "b8d2f4a61c39"
+down_revision: str | Sequence[str] | None = "ee50884b1b56"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
