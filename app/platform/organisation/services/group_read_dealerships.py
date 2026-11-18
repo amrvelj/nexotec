@@ -16,6 +16,7 @@ from sqlalchemy import and_, select
 from sqlalchemy.orm import Session
 
 from app.platform.organisation.models.dealership import DealerGroup, Dealership, DealershipStatus
+from app.platform.organisation.services.dealer_dealerships import dealer_dealerships_only
 
 
 @dataclass(frozen=True)
@@ -53,7 +54,11 @@ def list_group_read_dealerships(db: Session, *, group_id: uuid.UUID) -> list[Dea
         .select_from(DealerGroup)
         .outerjoin(
             Dealership,
-            and_(Dealership.dealer_group_id == DealerGroup.id, Dealership.status != DealershipStatus.OFFBOARDED),
+            and_(
+                Dealership.dealer_group_id == DealerGroup.id,
+                Dealership.status != DealershipStatus.OFFBOARDED,
+                dealer_dealerships_only(),
+            ),
         )
         .where(DealerGroup.id == group_id)
         .order_by(Dealership.legal_name, Dealership.id)

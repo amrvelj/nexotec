@@ -6,12 +6,13 @@ import uuid
 import scripts.report_platform_admins_homed_in_dealerships as report
 from scripts.report_platform_admins_homed_in_dealerships import platform_admins_homed_in_dealerships
 from tests.membership_support import create_dealership, create_user
+from tests.platform_tenant_support import create_legacy_staff
 
 
 def test_the_report_names_every_platform_admin_with_their_home_dealership(client, db_session):
     dealership = create_dealership(client, "Garage Report AG")
     create_user(client, dealership)
-    staff = create_user(client, dealership, accessRoles=["platform_admin"], isDealerManager=False)
+    staff = create_legacy_staff(client, dealership)
 
     found = platform_admins_homed_in_dealerships(db_session)
     mine = [
@@ -28,7 +29,7 @@ def test_main_exits_1_when_a_platform_admin_is_homed_and_0_otherwise(client, db_
     monkeypatch.setattr(report, "SessionLocal", lambda: db_session)
     monkeypatch.setattr(db_session, "close", lambda: None)
     assert report.main() == 0
-    staff = create_user(client, dealership, accessRoles=["platform_admin"], isDealerManager=False)
+    staff = create_legacy_staff(client, dealership)
     assert report.main() == 1
     out = capsys.readouterr().out
     assert staff["email"] in out and "Garage Exit AG" in out and "memberships:" not in out
@@ -51,7 +52,7 @@ def test_the_report_names_the_sister_memberships_an_existing_staff_account_holds
     home = create_dealership(client, "Garage Home AG")
     sister = create_dealership(client, "Garage Sister AG", group_of=home)
     create_user(client, home)
-    staff = create_user(client, home, accessRoles=["platform_admin"], isDealerManager=False)
+    staff = create_legacy_staff(client, home)
     db_session.add(DealershipMembership(user_id=uuid.UUID(staff["id"]), dealership_id=uuid.UUID(sister)))
     db_session.commit()
     found = {

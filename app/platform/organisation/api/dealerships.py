@@ -93,7 +93,7 @@ def get_dealership(
     db: Session = Depends(get_db),
 ):
     require_tenant_match(dealership_id, principal)
-    dealership = dealership_service.get_dealership_or_404(db, dealership_id)
+    dealership = dealership_service.get_dealer_dealership_or_404(db, dealership_id)
     return DealershipRead.model_validate(dealership, from_attributes=True)
 
 
@@ -110,7 +110,7 @@ def update_dealership(
         # KAN-203: the matrix's own row for legal name, UID and VAT — the same
         # writers today (the manager), checked by name so the row stays real.
         require_write("dealership_legal_identity")(principal)
-    dealership = dealership_service.get_dealership_or_404(db, dealership_id)
+    dealership = dealership_service.get_dealer_dealership_or_404(db, dealership_id)
     check_version(dealership.version, if_match, entity_name="Dealership")
     dealership = dealership_service.update_dealership(
         db,
@@ -141,7 +141,7 @@ def list_bank_accounts(
     db: Session = Depends(get_db),
 ):
     require_tenant_match(dealership_id, principal)
-    dealership_service.get_dealership_or_404(db, dealership_id)
+    dealership_service.get_dealer_dealership_or_404(db, dealership_id)
     rows = bank_account_service.list_accounts(db, dealership_id=dealership_id)
     return BankAccountList(items=[_bank_account_read(row) for row in rows])
 
@@ -154,7 +154,7 @@ def create_bank_account(
     db: Session = Depends(get_db),
 ):
     require_tenant_match(dealership_id, principal)
-    dealership_service.get_dealership_or_404(db, dealership_id)
+    dealership_service.get_dealer_dealership_or_404(db, dealership_id)
     account = bank_account_service.create_account(db, dealership_id=dealership_id, data=body, actor_id=principal.user_id)
     return _bank_account_read(account)
 
@@ -223,7 +223,7 @@ def get_dealership_settings(
     readable by any role of the Betrieb, like the rest of the master data."""
 
     require_tenant_match(dealership_id, principal)
-    dealership_service.get_dealership_or_404(db, dealership_id)
+    dealership_service.get_dealer_dealership_or_404(db, dealership_id)
     return _settings_read(settings_service.read_settings(db, dealership_id))  # a read never writes
 
 
@@ -236,7 +236,7 @@ def update_dealership_settings(
     db: Session = Depends(get_db),
 ):
     require_tenant_match(dealership_id, principal)
-    dealership_service.get_dealership_or_404(db, dealership_id)
+    dealership_service.get_dealer_dealership_or_404(db, dealership_id)
     settings_row = settings_service.settings_for(db, dealership_id, for_update=True)
     check_version(settings_row.version, if_match, entity_name="DealershipSettings")
     settings_row = settings_service.update_settings(db, settings=settings_row, data=body, actor_id=principal.user_id)
@@ -255,7 +255,7 @@ def get_address_autocomplete_config(
     `addressAutocompleteEnabled` on the settings PATCH, the manager's."""
 
     require_tenant_match(dealership_id, principal)
-    dealership_service.get_dealership_or_404(db, dealership_id)
+    dealership_service.get_dealer_dealership_or_404(db, dealership_id)
     enabled, browser_key = settings_service.address_autocomplete_config(db, dealership_id)
     return AddressAutocompleteConfigRead(enabled=enabled, browser_key=browser_key)
 
@@ -309,7 +309,7 @@ def get_entitlements(
     db: Session = Depends(get_db),
 ):
     require_tenant_match(dealership_id, principal)
-    dealership = dealership_service.get_dealership_or_404(db, dealership_id)
+    dealership = dealership_service.get_dealer_dealership_or_404(db, dealership_id)
     return _entitlements_read(db, dealership)
 
 
@@ -321,7 +321,7 @@ def set_entitlements(
     principal: Principal = Depends(require_write("module_entitlements")),  # platform_admin only (D-A-04)
     db: Session = Depends(get_db),
 ):
-    dealership = dealership_service.get_dealership_for_update_or_404(db, dealership_id)
+    dealership = dealership_service.get_dealer_dealership_for_update_or_404(db, dealership_id)
     check_version(dealership.version, if_match, entity_name="Dealership")
     entitlement_service.set_entitlements(
         db, dealership=dealership, modules=set(body.modules), actor_id=principal.user_id

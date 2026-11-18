@@ -4,7 +4,9 @@
 import ns_account from './en/account.json'
 import ns_addressSearch from './en/addressSearch.json'
 import ns_aiPrompts from './en/aiPrompts.json'
+import ns_apiRefusal__accessWindow from './en/apiRefusal.accessWindow.json'
 import ns_apiRefusal from './en/apiRefusal.json'
+import ns_apiRefusal__reasons from './en/apiRefusal.reasons.json'
 import ns_auth from './en/auth.json'
 import ns_branding from './en/branding.json'
 import ns_brandsAdmin from './en/brandsAdmin.json'
@@ -67,7 +69,7 @@ const bundle = {
   account: ns_account,
   addressSearch: ns_addressSearch,
   aiPrompts: ns_aiPrompts,
-  apiRefusal: ns_apiRefusal,
+  apiRefusal: { ...ns_apiRefusal, accessWindow: ns_apiRefusal__accessWindow, reasons: ns_apiRefusal__reasons },
   auth: ns_auth,
   branding: ns_branding,
   brandsAdmin: ns_brandsAdmin,

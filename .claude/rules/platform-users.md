@@ -78,6 +78,8 @@ from platform.md by KAN-614, 2026-11-10. Last verified against main@3b2bf69 (202
   (KAN-204, KAN-205); the recovery door's four refusals say *Betrieb* (three in
   `identity/services/recovery.py`, the search's in `identity/api/recovery.py`; the dialog says
   them by `details.rule` — whether to align them, KAN-450's item 4, is open with Anto, KAN-760).
+- **Platform tenant (KAN-221):** the one `dealership.kind = platform` row homes staff only;
+  listings leave it out or say why (`test_dealer_dealership_reads.py`); Betrieb routes 404 it.
 - `sales` is a module entitlement like `aftersales`: a service-only garage without it is a normal
   configuration.
 - Group-scoped reads live only in the files `tests/architecture/test_no_ambient_group_read.py`

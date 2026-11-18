@@ -30,6 +30,8 @@ main@3b2bf69 (2026-11-18). -->
   `platform_admin` gets no sister membership and a member cannot get the role (422);
   `scripts/report_platform_admins_homed_in_dealerships.py` reports the ones homed in a Betrieb (exit
   1), never fixes them.
+  KAN-221: granted only in the platform tenant, held by all there (422); the legacy move:
+  `scripts/move_platform_admins_*`.
 - Capabilities, not role checks: `Capability(read_roles, write_roles, manager_can_write,
   manager_can_read)` in `app/core/permissions.py`; `require_read`/`require_write` check
   platform_admin, then the roles, then the manager flag. `read_roles=None` = any role; an empty set

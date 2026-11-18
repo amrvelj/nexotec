@@ -29,6 +29,7 @@ from app.platform.identity.services import notifications
 from app.platform.identity.services.notification_catalogue import NotificationEventCode
 from app.platform.identity.services.user_common import membership_is_active
 from app.platform.organisation.models.dealership import Dealership, DealershipStatus
+from app.platform.organisation.services.dealer_dealerships import dealer_dealerships_only
 
 logger = logging.getLogger(__name__)
 
@@ -115,7 +116,11 @@ def run(db: Session) -> RegressionRun:
 
     ids = db.scalars(
         select(Dealership.id)
-        .where(Dealership.status == DealershipStatus.ACTIVE, Dealership.activated_at.is_not(None))
+        .where(
+            Dealership.status == DealershipStatus.ACTIVE,
+            Dealership.activated_at.is_not(None),
+            dealer_dealerships_only(),
+        )
         .order_by(Dealership.id)
     ).all()
     opened = resolved = notified = 0

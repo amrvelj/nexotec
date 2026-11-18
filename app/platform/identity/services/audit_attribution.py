@@ -20,6 +20,7 @@ from app.core.audit_attribution import NOBODY, AuditAttribution
 from app.platform.identity.models.dealership_membership import DealershipMembership
 from app.platform.identity.models.user import User
 from app.platform.organisation.models.dealership import Dealership, DealershipStatus
+from app.platform.organisation.services.dealer_dealerships import dealer_dealerships_only
 
 
 def get_audit_attribution(
@@ -31,7 +32,7 @@ def get_audit_attribution(
     a person who once worked in a sister is no single Betrieb's author
     (Anto, 2026-11-15, answer A)."""
 
-    group_betriebe = select(Dealership.id).where(Dealership.dealer_group_id == group_id)
+    group_betriebe = select(Dealership.id).where(Dealership.dealer_group_id == group_id, dealer_dealerships_only())
     meant = frozenset(db.scalars(group_betriebe.where(Dealership.id.in_(sorted(dealership_ids)))).all())
     if not meant:
         return NOBODY
@@ -60,7 +61,9 @@ def get_offboarded_audit_attribution(db: Session, *, group_id: uuid.UUID) -> Aud
     offboarded = frozenset(
         db.scalars(
             select(Dealership.id).where(
-                Dealership.dealer_group_id == group_id, Dealership.status == DealershipStatus.OFFBOARDED
+                Dealership.dealer_group_id == group_id,
+                Dealership.status == DealershipStatus.OFFBOARDED,
+                dealer_dealerships_only(),
             )
         ).all()
     )

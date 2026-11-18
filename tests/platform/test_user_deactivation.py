@@ -28,6 +28,7 @@ from tests.customer.test_customer_vehicle_party_close_rule import (
     _wait_until_a_backend_waits_on_a_lock,
 )
 from tests.identity_support import PasswordLogin, create_dealership, create_user, deactivate, platform_admin_headers
+from tests.platform_tenant_support import create_legacy_staff
 from tests.token_support import dealer_group_of
 
 
@@ -365,7 +366,7 @@ def test_the_hand_over_endpoint_also_serves_a_user_who_stays(client, login):
 def test_a_manager_may_deactivate_but_never_a_staff_account_and_never_across_tenants(client):
     dealership = create_dealership(client)
     manager = create_user(client, dealership)
-    staff = create_user(client, dealership, isDealerManager=False, accessRoles=["platform_admin"])
+    staff = create_legacy_staff(client, dealership)
     other = create_dealership(client)
     foreign = create_user(client, other, isDealerManager=False)
     create_user(client, other)
@@ -1059,7 +1060,7 @@ def test_the_expiry_job_expires_a_staff_account_and_one_failure_does_not_stop_th
     dealership = create_dealership(client)
     yesterday = str(dt.datetime.now(ZoneInfo("Europe/Zurich")).date() - dt.timedelta(days=1))
     create_user(client, dealership)  # stays the manager
-    staff = create_user(client, dealership, isDealerManager=False, accessRoles=["platform_admin"], validTo=yesterday)
+    staff = create_legacy_staff(client, dealership, validTo=yesterday)
     broken = create_user(client, dealership, isDealerManager=False, validTo=yesterday)
     after = create_user(client, dealership, isDealerManager=False, validTo=yesterday)
 

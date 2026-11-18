@@ -1,0 +1,6 @@
+{
+  "between": "valable du {{from}} au {{to}}",
+  "from": "valable dès le {{from}}",
+  "until": "valable jusqu’au {{to}}",
+  "none": "aucune période enregistrée"
+}

@@ -47,6 +47,7 @@ from app.platform.administration.services.setup_checklist_regressions import act
 from app.platform.identity.services import notifications
 from app.platform.identity.services.notification_catalogue import NotificationEventCode
 from app.platform.organisation.models.dealership import Dealership, DealershipStatus
+from app.platform.organisation.services.dealer_dealerships import dealer_dealerships_only
 
 logger = logging.getLogger(__name__)
 
@@ -145,7 +146,9 @@ def run(db: Session) -> StatusNotificationRun:
     at ERROR and does not stop the others."""
 
     ids = db.scalars(
-        select(Dealership.id).where(Dealership.status == DealershipStatus.ACTIVE).order_by(Dealership.id)
+        select(Dealership.id)
+        .where(Dealership.status == DealershipStatus.ACTIVE, dealer_dealerships_only())
+        .order_by(Dealership.id)
     ).all()
     degraded = cleared = notified = 0
     now = utcnow()

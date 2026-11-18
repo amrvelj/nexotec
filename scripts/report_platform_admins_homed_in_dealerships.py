@@ -4,7 +4,9 @@ member of a dealership — KAN-97 left the existing rows as an open data check).
 
 Read-only. Prints one line per user (id, e-mail, home dealership) and exits 1
 when any exist, 0 when none — a fix is a decision per row, never a silent
-rewrite by a script.
+rewrite by a script. Staff homed in the platform tenant (KAN-221) are where
+they belong and are not reported; a confirmed row is moved by
+`scripts/move_platform_admins_to_platform_tenant.py`.
 
     python scripts/report_platform_admins_homed_in_dealerships.py
 """
@@ -18,7 +20,7 @@ from app.core.auth import AccessRole
 from app.db import SessionLocal
 from app.platform.identity.models.user import User
 from app.platform.identity.services.user_reads import list_membership_dealership_ids
-from app.platform.organisation.models.dealership import Dealership
+from app.platform.organisation.models.dealership import Dealership, DealershipKind
 
 
 def platform_admins_homed_in_dealerships(db: Session) -> list[tuple[User, Dealership | None, list[Dealership]]]:
@@ -30,13 +32,16 @@ def platform_admins_homed_in_dealerships(db: Session) -> list[tuple[User, Dealer
     rows = db.scalars(select(User).order_by(User.created_at, User.id)).all()
     found = []
     for user in rows:
+        home = db.get(Dealership, user.tenant_id)
+        if home is not None and home.kind == DealershipKind.PLATFORM:
+            continue  # KAN-221 PR-1: where staff belong — not reported
         if AccessRole.PLATFORM_ADMIN.value in (user.access_roles or []):
             sisters = [
                 dealership
                 for dealership_id in sorted(list_membership_dealership_ids(db, user_id=user.id))
                 if (dealership := db.get(Dealership, dealership_id)) is not None
             ]
-            found.append((user, db.get(Dealership, user.tenant_id), sisters))
+            found.append((user, home, sisters))
     return found
 
 
