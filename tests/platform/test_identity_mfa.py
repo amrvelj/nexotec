@@ -34,6 +34,7 @@ from tests.identity_support import (
     platform_admin_headers,
     recover,
 )
+from tests.platform_tenant_support import create_legacy_staff
 
 
 @pytest.fixture()
@@ -367,7 +368,7 @@ def test_the_betrieb_decides_enforcement_and_platform_staff_are_always_enforced(
     assert client.get(f"/v1/dealerships/{other}/auth-config", headers=cookie_headers(cookie)).status_code == 404
 
     # D-A-36: staff are enforced whatever the Betrieb says.
-    staff = create_user(client, dealership, accessRoles=["platform_admin"], isDealerManager=False)
+    staff = create_legacy_staff(client, dealership)
     assert login.login(staff).json()["session"]["mfaEnrolmentRequired"] is True
     assert client.get("/v1/auth/mfa", headers=cookie_headers(login.session_cookie(staff))).json()["enforced"] is True
 
@@ -440,7 +441,7 @@ def test_platform_staff_reach_the_recovery_endpoints_only_with_a_second_factor_i
 
     managers = login.session_cookie(manager)
     assert client.get(base + "/login-status", headers=cookie_headers(managers)).status_code == 200
-    staff = create_user(client, dealership, accessRoles=["platform_admin"], isDealerManager=False)
+    staff = create_legacy_staff(client, dealership)
     assert client.get(f"/v1/dealerships/{dealership}/users/{staff['id']}/login-status", headers=cookie_headers(managers)).status_code == 403
     assert client.post(f"/v1/dealerships/{dealership}/users/{staff['id']}/invitations", headers=cookie_headers(managers)).status_code == 403
 

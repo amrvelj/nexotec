@@ -35,6 +35,7 @@ from tests.identity_support import (
     recover,
     token_in,
 )
+from tests.platform_tenant_support import create_legacy_staff
 
 REASON = "Asked by the Betrieb's owner on the phone, ticket 4711."
 REASON_EMAIL = "The user's address moved to the new domain, ticket 4712."
@@ -337,7 +338,7 @@ def test_a_recovery_action_needs_a_stated_reason(client, login, db_session, body
 def test_staff_do_not_recover_their_own_account_nor_a_deactivated_one(client, login, db_session):
     dealership = create_dealership(client)
     create_user(client, dealership)
-    staff = create_user(client, dealership, accessRoles=["platform_admin"], isDealerManager=False)
+    staff = create_legacy_staff(client, dealership)
     login.accept_invitation(staff)
     beat = create_user(client, dealership, isDealerManager=False)
     login.accept_invitation(beat)

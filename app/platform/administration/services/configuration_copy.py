@@ -70,6 +70,7 @@ from app.platform.organisation.models.dealership import Dealership
 from app.platform.organisation.models.number_range import NumberRange, NumberRangeDocumentType
 from app.platform.organisation.services import contact_group as contact_group_service
 from app.platform.organisation.services import number_range as number_range_service
+from app.platform.organisation.services.dealer_dealerships import dealer_dealerships_only
 from app.platform.organisation.services.entitlement import list_active_modules
 
 SUMMARY_ACTION = "configuration_copied"
@@ -187,7 +188,7 @@ def list_sources(db: Session, principal: Principal, *, target: Dealership) -> li
     )
     candidates.discard(target.id)
     options: list[SourceOption] = []
-    for dealership in db.scalars(select(Dealership).where(Dealership.id.in_(candidates))).all():
+    for dealership in db.scalars(select(Dealership).where(Dealership.id.in_(candidates), dealer_dealerships_only())).all():
         if not is_dealer_manager_in(db, user=user, dealership_id=dealership.id):
             continue
         options.append(SourceOption(id=dealership.id, legal_name=dealership.legal_name))

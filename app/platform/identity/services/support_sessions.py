@@ -40,6 +40,7 @@ from app.platform.identity.models.support_session import (
 )
 from app.platform.identity.models.user import User, UserStatus
 from app.platform.identity.schemas.support_session import SupportSessionRead
+from app.platform.organisation.services.dealer_dealerships import is_platform_dealership
 
 ENTITY_TYPE = "support_session"
 # The audit reason of an ending nobody wrote: the 60 minutes ran out.
@@ -142,6 +143,11 @@ def start_support_session(
         raise UnprocessableEntityError(
             "A platform_admin cannot be impersonated (FR-A-17).",
             details={"reason": "support_target_platform_admin"},
+        )
+    if is_platform_dealership(db, target.tenant_id):
+        raise UnprocessableEntityError(
+            "A user homed in the Nexotec platform tenant is never supported in a session.",
+            details={"reason": "support_target_platform_tenant"},
         )
     if target.status != UserStatus.ACTIVE:
         raise UnprocessableEntityError(

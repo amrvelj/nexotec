@@ -19,6 +19,7 @@ from tests.membership_support import (
     platform_admin,
     token,
 )
+from tests.platform_tenant_support import create_legacy_staff
 
 
 def _two_dealerships(client):
@@ -81,7 +82,7 @@ def test_a_manager_of_both_dealerships_grants_but_a_manager_of_one_side_gets_404
 def test_the_home_dealership_a_platform_admin_or_a_duplicate_is_refused(client):
     home, sister = _two_dealerships(client)
     user = create_user(client, home)
-    staff = create_user(client, home, accessRoles=["platform_admin"], isDealerManager=False)
+    staff = create_legacy_staff(client, home)
 
     assert grant(client, home, user, home).status_code == 422
     assert grant(client, home, staff, sister).status_code == 422
@@ -298,7 +299,7 @@ def test_patching_is_dealer_manager_still_works_and_now_records_the_flag_event(c
 def test_a_dealer_manager_cannot_flag_a_staff_account(client):
     home, _ = _two_dealerships(client)
     manager = create_user(client, home)
-    staff = create_user(client, home, accessRoles=["platform_admin"], isDealerManager=False)
+    staff = create_legacy_staff(client, home)
     response = client.put(
         f"/v1/dealerships/{home}/users/{staff['id']}/manager-flag",
         json={"isDealerManager": True},
@@ -439,7 +440,7 @@ def test_a_dealer_manager_cannot_touch_a_staff_accounts_leftover_membership(clie
     home, sister = _two_dealerships(client)
     manager = create_user(client, home)
     assert grant(client, home, manager, sister, is_dealer_manager=True).status_code == 201
-    staff = create_user(client, home, accessRoles=["platform_admin"], isDealerManager=False)
+    staff = create_legacy_staff(client, home)
     db_session.add(DealershipMembership(user_id=uuid.UUID(staff["id"]), dealership_id=uuid.UUID(sister)))
     db_session.commit()
 

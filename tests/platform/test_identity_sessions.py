@@ -24,6 +24,7 @@ from tests.identity_support import (
     platform_admin_headers,
     recover,
 )
+from tests.platform_tenant_support import create_legacy_staff
 
 SESSION_ENDED = "Your session has ended — sign in again."
 
@@ -304,7 +305,7 @@ def test_a_session_owing_a_second_factor_is_confined_to_enrolment(client, login,
 
     # Platform staff are confined whatever the Betrieb says — and cannot
     # reach any Betrieb's enforcement switch from such a session.
-    staff = create_user(client, dealership, accessRoles=["platform_admin"], isDealerManager=False)
+    staff = create_legacy_staff(client, dealership)
     staffs = login.session_cookie(staff)
     assert client.get(f"/v1/dealerships/{dealership}", headers=cookie_headers(staffs)).status_code == 403
     assert client.get("/v1/auth/mfa", headers=cookie_headers(staffs)).status_code == 200

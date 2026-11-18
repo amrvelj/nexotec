@@ -30,6 +30,7 @@ from app.platform.identity.services.user_common import (
     membership_is_active,
 )
 from app.platform.identity.services.user_reads import list_membership_dealership_ids
+from app.platform.organisation.services.dealer_dealerships import is_platform_dealership
 from app.platform.reference.services.system_writes import system_write_reason
 
 # access_roles/is_dealer_manager are audited alongside role/status even
@@ -239,6 +240,33 @@ def _assert_may_update(*, user: User, changes: dict[str, Any], actor_roles: froz
         _assert_may_create_with_roles(roles=changes["access_roles"], actor_roles=actor_roles)
 
 
+def _assert_platform_admin_homed_in_platform_tenant(
+    db: Session, *, dealership_id: uuid.UUID, roles: list[str], held: list[str] | None = None
+) -> None:
+    """KAN-221 PR-1 (Q2 A, Anto 2026-11-14): Nexotec staff are homed in the
+    platform tenant, never in a dealer's Betrieb, and the platform tenant
+    homes nobody else. So `platform_admin` is granted only to a user homed
+    there, and a user homed there always holds it — 422 either way, the body
+    is wrong for this home. `held` is the user's current roles on an update:
+    a staff member still homed in a Betrieb from before (the KAN-199 report)
+    keeps the role until moved (`scripts/move_platform_admins_to_platform_tenant.py`),
+    only a new grant is refused."""
+
+    platform_home = is_platform_dealership(db, dealership_id)
+    wants = AccessRole.PLATFORM_ADMIN.value in roles
+    holds = held is not None and AccessRole.PLATFORM_ADMIN.value in held
+    if wants and not holds and not platform_home:
+        raise UnprocessableEntityError(
+            "platform_admin is held only by Nexotec staff homed in the platform tenant — create the account there.",
+            details={"reason": "platform_admin_outside_platform_tenant"},
+        )
+    if platform_home and not wants:
+        raise UnprocessableEntityError(
+            "The Nexotec platform tenant homes platform staff only — every user there holds platform_admin.",
+            details={"reason": "platform_tenant_holds_staff_only"},
+        )
+
+
 def _assert_platform_admin_holds_no_membership(db: Session, *, user: User, changes: dict[str, Any]) -> None:
     """KAN-199: platform_admin is Nexotec staff, never a member of a
     dealership beyond the row that homes it today (KAN-97's open debt). A
@@ -274,6 +302,9 @@ def create_user(
 
     audit_reason = system_write_reason(actor_id, system_reason)
     _assert_may_create_with_roles(roles=data.access_roles, actor_roles=actor_roles)
+    _assert_platform_admin_homed_in_platform_tenant(
+        db, dealership_id=dealership_id, roles=_role_values(data.access_roles)
+    )
     user_id = uuid7()
     user = User(
         id=user_id,
@@ -388,6 +419,13 @@ def update_user(
         changes["email"] = changes["email"].lower()
     _assert_may_update(user=user, changes=changes, actor_roles=actor_roles)
     _assert_platform_admin_holds_no_membership(db, user=user, changes=changes)
+    if changes.get("access_roles") is not None:
+        _assert_platform_admin_homed_in_platform_tenant(
+            db,
+            dealership_id=user.tenant_id,
+            roles=_role_values(changes["access_roles"]),
+            held=list(user.access_roles or []),
+        )
     _assert_credential_channel_rules(user=user, changes=changes, actor_roles=actor_roles)
     _assert_line_manager(db, user=user, changes=changes)
     old_email = user.email

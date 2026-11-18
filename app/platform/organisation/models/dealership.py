@@ -58,6 +58,27 @@ class DealershipStatus(str, enum.Enum):
     OFFBOARDED = "offboarded"
 
 
+class DealershipKind(str, enum.Enum):
+    """KAN-221 PR-1: what a Betrieb row is. `dealer` is every customer's
+    Betrieb; `platform` is the one row that homes Nexotec's staff (the
+    platform tenant) — it holds no stock, customers, entitlements or setup
+    checklist, and it is left out of every dealer list
+    (`organisation/services/dealer_dealerships.py`)."""
+
+    DEALER = "dealer"
+    PLATFORM = "platform"
+
+
+# KAN-221 PR-1: the platform tenant's two rows, created by the platform
+# migration `kan221_platform_tenant` with these literals (ADR-133: the
+# migration does not import them; `tests/platform/test_kan221_platform_tenant.py`
+# holds the two equal). Fixed ids, so the migration is idempotent and every
+# environment names the same rows.
+PLATFORM_DEALER_GROUP_ID = uuid.UUID("01a1eefe-1396-7ae0-a91b-431928446395")
+PLATFORM_DEALERSHIP_ID = uuid.UUID("01a1eefe-1396-7ae1-83af-8d53b7546b3c")
+PLATFORM_TENANT_NAME = "Nexotec"
+
+
 # The permission matrix's "Dealership legal identity — UID, VAT, legal name"
 # row (KAN-203): a PATCH touching one of these needs `confirmation: true`
 # and the `dealership_legal_identity` write.
@@ -102,11 +123,30 @@ class Dealership(PrimaryKeyMixin, VersionedMixin, TimestampMixin, Base):
         # rows the migration had to leave at NULL (an old tax_id that was not a
         # valid UID, reported by KAN-197's migration) do not collide.
         Index("uq_dealership_uid", "uid", unique=True),
+        # KAN-221 PR-1: there is exactly one platform tenant.
+        Index(
+            "uq_dealership_one_platform",
+            "kind",
+            unique=True,
+            postgresql_where=text("kind = 'platform'"),
+            sqlite_where=text("kind = 'platform'"),
+        ),
         # KAN-431: the table was renamed from `dealer` and its primary key
         # kept the old name in every migrated database. The model names it
         # so (no rename migration: the name is only a name), and the schema
         # gate, which compares indexes by name, sees it.
         PrimaryKeyConstraint("id", name="dealer_pkey"),
+    )
+
+    # KAN-221 PR-1: a dealer's Betrieb, or the one platform tenant. Dealer
+    # code reads Betriebe only through `dealer_dealerships.py`'s helpers
+    # (`tests/architecture/test_dealer_dealership_reads.py`). The server
+    # default only, no Python one: an INSERT that does not name the column
+    # (older revisions' fixtures, raw seed scripts) gets `dealer`.
+    kind: Mapped[DealershipKind] = mapped_column(
+        StoredEnum(DealershipKind, length=16),
+        nullable=False,
+        server_default=DealershipKind.DEALER.value,
     )
 
     legal_name: Mapped[str] = mapped_column(String(200), nullable=False)

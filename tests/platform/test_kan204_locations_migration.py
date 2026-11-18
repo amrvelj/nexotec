@@ -181,10 +181,18 @@ def test_the_backfills_give_every_site_its_defaults_and_every_betrieb_a_first_lo
             assert ne.name == "Garage du Lac"  # the trade name when there is one
             assert ne.calendar == "NE"  # the canton's main calendar, although Le Landeron has its own
 
-            # The step is idempotent: a second run inserts nothing.
-            before = conn.execute(text("SELECT count(*) FROM location")).scalar_one()
+            # The step is idempotent: a second run inserts nothing for these
+            # Betriebe. (At heads the platform tenant exists, KAN-221 — a
+            # Betrieb without a location by design, which this one-off step
+            # never met; the re-run is rolled back.)
+            dealers = text(
+                "SELECT count(*) FROM location l JOIN dealership d ON d.id = l.tenant_id WHERE d.kind = 'dealer'"
+            )
+            before = conn.execute(dealers).scalar_one()
+            rerun = conn.begin_nested()
             conn.execute(text(_load_migration().FIRST_LOCATION_SQL))
-            assert conn.execute(text("SELECT count(*) FROM location")).scalar_one() == before == 4
+            assert conn.execute(dealers).scalar_one() == before == 4
+            rerun.rollback()
     finally:
         engine.dispose()
 

@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 
 from app.platform.identity.models.user import User
 from app.platform.organisation.models.dealership import DealerGroup, Dealership, DealershipStatus
+from app.platform.organisation.services.dealer_dealerships import dealer_dealerships_only
 
 
 def get_group_display_labels(
@@ -37,7 +38,11 @@ def get_group_display_labels(
 
     group_read = bool(db.scalar(select(DealerGroup.group_read_enabled).where(DealerGroup.id == group_id)))
     in_scope = (
-        and_(Dealership.dealer_group_id == group_id, Dealership.status != DealershipStatus.OFFBOARDED)
+        and_(
+            Dealership.dealer_group_id == group_id,
+            Dealership.status != DealershipStatus.OFFBOARDED,
+            dealer_dealerships_only(),
+        )
         if group_read
         else Dealership.id == dealership_id
     )
