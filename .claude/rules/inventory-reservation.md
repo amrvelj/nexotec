@@ -14,7 +14,7 @@ paths:
   - "tests/sales/test_sales_lifecycle_reservation.py"
 ---
 <!-- Maintainer note. PRD-Stock K-12, FR-I-11; ADR-047 (Pattern B). Moved out of inventory.md by
-KAN-615 (2026-11-13). Last verified against main@73baf3f (2026-10-25). -->
+KAN-615 (2026-11-13). Last verified against main@3b2bf69 (2026-11-18). -->
 
 # Reservations
 

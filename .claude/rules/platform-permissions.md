@@ -8,6 +8,7 @@ paths:
   - "app/platform/identity/schemas/auth.py"
   - "app/platform/identity/api/auth.py"
   - "tests/platform/test_permission*.py"
+  - "tests/platform/test_writable_capabilities.py"
   - "tests/fixtures/permission_matrix.json"
   - "tests/platform/test_user*.py"
   - "tests/platform/test_memberships.py"
@@ -18,9 +19,9 @@ paths:
   - "frontend/apps/dms/src/pages/UsersListPage*"
   - "frontend/apps/dms/src/components/users/**"
 ---
-<!-- Maintainer note. Dealer Administration D-A-03, D-A-18; the PRD's Roles & Permissions matrix.
-Moved out of platform-users.md by KAN-615 (2026-11-13) so that app/core/permissions.py loads only
-this. Cut from platform.md (verified against main@73baf3f) by KAN-614; not re-verified. -->
+<!-- Maintainer note. D-A-03, D-A-18, the PRD's permission matrix; ADR-061, ADR-104. Moved out of
+platform-users.md by KAN-615 so that app/core/permissions.py loads only this. Last verified against
+main@3b2bf69 (2026-11-18). -->
 
 # Roles and permissions (D-A-03)
 
@@ -36,7 +37,7 @@ this. Cut from platform.md (verified against main@73baf3f) by KAN-614; not re-ve
   `manager_can_write=False` (the "Nobody", platform-only and self-only rows).
   `tests/fixtures/permission_matrix.json` mirrors the PRD's matrix; `test_permission_matrix_mirrors_prd.py`
   fails on any difference (a row may declare `enforced_write` + a `deviation` ticket; none today).
-- **The SPA learns what it may offer from the session** (Anto): `LoginResponse.writableCapabilities`
+- **The SPA learns what it may offer from the session** (ADR-104): `LoginResponse.writableCapabilities`
   (login, `/auth/me`, switch) lists the rows the user may write in the active Betrieb; `useCanWrite`
   **hides** an action outside it (disabled-with-reason stays for state, ADR-061) — the action only,
   never what the role may read. The names a screen asks about are `src/auth/gatedCapabilities.ts`,

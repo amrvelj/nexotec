@@ -6,6 +6,11 @@ paths:
   - "tests/customer/test_customer*.py"
   - "tests/customer/test_legal_basis.py"
   - "tests/customer/test_*preferred_channel*.py"
+  - "tests/customer/test_contact_groups.py"
+  - "tests/customer/test_consent_scope.py"
+  - "tests/customer/test_history_reference_keys.py"
+  - "tests/customer/test_kan722_offboarded_history_hidden.py"
+  - "app/core/audit_attribution.py"
   - "frontend/apps/dms/src/modules/customer/pages/Customer*"
   - "frontend/apps/dms/src/modules/customer/components/customer-detail/CustomerDetailContent*"
   - "frontend/apps/dms/src/modules/customer/pages/customerScreens*"
@@ -33,9 +38,10 @@ paths:
   - "frontend/packages/ui-kit/src/components/CustomerTypeBadge.tsx"
 ---
 <!-- Maintainer note. PRD-Customers v2.2 (its §Conformance review, D-03…D-26); ADR-014, ADR-030,
-ADR-065, ADR-067, ADR-093, ADR-101. KAN-615 (2026-11-13) cut it to the invariants; vehicle parties,
-trade-in holders and merges are customer-vehicle-party.md. Frontend listed by file until it has
-module folders (KAN-611). Last verified against main@73baf3f (2026-10-25). -->
+ADR-065, ADR-067, ADR-093; D-A-29. KAN-615 (2026-11-13) cut it to the invariants; vehicle parties,
+trade-in holders and merges are customer-vehicle-party.md, screens customer-screens.md (KAN-751).
+Frontend under src/modules/customer/ (KAN-636, ADR-161), listed by file: its vehicle-party and
+sales files belong to other rules. Last verified against main@3b2bf69 (2026-11-18). -->
 
 # Customers
 
@@ -99,7 +105,8 @@ module folders (KAN-611). Last verified against main@73baf3f (2026-10-25). -->
 
 ## Contact groups (KAN-466; Anto, 2026-10-26)
 - `customer_contact_group`: codes of the platform list `contact_group` (Privat, Gewerbe, Flotte, …),
-  several per customer, `contactGroups` full-replace like tags; free tags stay beside them. Only a
+  several per customer, `contactGroups` full-replace like tags; free tags (`customer_tag`) stay
+  beside them, the one exception to D-A-29 (Anto, 2026-10-26). Only a
   code the **acting** Betrieb switched on (`platform.public.contact_group_codes`) may be added; any
   other code the customer carries (switched off, withdrawn, a sister's) is read-only there — dropping
   it is 422 `contact_group_read_only`, never silently kept. A merge moves them all. List filter
@@ -144,15 +151,5 @@ module folders (KAN-611). Last verified against main@73baf3f (2026-10-25). -->
   its batches skip a customer another writer holds, which could otherwise deadlock against a merge.
 
 ## Screens
-- List and detail render their actions from the one `customerRowMenu` (ADR-061). A contact card
-  offers `tel:` / `mailto:` links and marks the preferred channel.
-- **Address autocomplete** (ADR-101): the create wizard's address block and the detail's address
-  editor carry one `AddressSearchField` while the Betrieb's switch is on and the platform holds a
-  Google key. A pick fills street, house number, postal code, locality and country; every field
-  stays editable, line 2 is never touched, the canton stays derived (Google's
-  `administrative_area_level_1` is discarded). Suggestions are restricted to the form's country,
-  never persisted or logged; the picked address is written through the same POST/PATCH as a typed
-  one. Off, the forms are unchanged.
-- **Merge and link refusals are said in the user's language** (`ui-i18n.md`): every one carries a
-  `details.reason`, mapped in `MergeCustomerModal` and `shared/partyAllocationRefusal.ts`; a new
-  refusal adds its reason and translations.
+- The row menu's actions, address autocomplete (ADR-101) and how refusals are said:
+  `customer-screens.md`.

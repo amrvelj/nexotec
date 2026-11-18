@@ -16,9 +16,13 @@ paths:
   - "scripts/*outbox*.py"
   - "tests/cross_context/test_consumer_redelivery_idempotency.py"
   - "tests/**/test_*label*.py"
+  - "tests/core/test_outbox.py"
+  - "tests/core/test_daily_scheduler.py"
+  - "tests/core/test_worker_observability.py"
+  - "tests/cross_context/test_reconciliation*.py"
 ---
 <!-- Maintainer note. Moved out of events.md by KAN-615 (2026-11-13) so the broad file stays
-small; ADR-047 addendum, ADR-081, ADR-107. Last verified against main@73baf3f (2026-10-25). -->
+small; ADR-047 addendum, ADR-081, ADR-105, ADR-107. Last verified against main@3b2bf69 (2026-11-18). -->
 
 # The worker, daily jobs and label refreshes
 
@@ -31,7 +35,7 @@ small; ADR-047 addendum, ADR-081, ADR-107. Last verified against main@73baf3f (2
   first success logs "daily job recovered". The episode lives in process memory.
 - The worker reports ERROR lines to Sentry and exports the heartbeat's gauges over OTLP, each
   inert while its `DMS_*` variable is unset, as its own service `<DMS_OTEL_SERVICE_NAME>-worker`
-  beside the web's.
+  beside the web's (ADR-105).
 - **Repairs today** (each the owner's daily job with its own record): Stock's orphan-reservation
   sweep `inventory.orphaned_reservations.release` (`inventory.md`); Stock's `inventory.merged_record_items.repair` (KAN-724: re-runs the merge consumer's move for an item left on a merged record, once nothing blocks it); `platform.user_expiry`'s
   retry of a hand-over a module refused (30 days; the Sales and Customers StateChecks name the

@@ -12,7 +12,7 @@ paths:
   - "frontend/apps/dms/src/architecture/lazy-routes*"
 ---
 <!-- Maintainer note. UI/UX Specification (Application Shell), FR-UI-07, ADR-084, ADR-108. Split out
-of ui.md by KAN-615 (2026-11-13). Last verified against main@73baf3f (2026-10-25). -->
+of ui.md by KAN-615 (2026-11-13). Last verified against main@3b2bf69 (2026-11-18). -->
 
 # The application shell
 
@@ -32,7 +32,8 @@ of ui.md by KAN-615 (2026-11-13). Last verified against main@73baf3f (2026-10-25
   (`VITE_OUTBOX_WORKER_ABSENT=true` in `render.yaml`, `src/config/deployment.ts`), never the
   environment's name; its text is an i18n key in all four bundles.
 - **Every screen but the sign-in loads on demand:** a new route's page goes into `App.tsx` through
-  `lazyPage(() => import('./pages/X'), 'X')`, never a static import. `LoginPage`, `ProtectedRoute`,
+  `lazyPage(() => import('./pages/X'), 'X')` — a module's page `import('./modules/<module>/pages/X')`
+  (ADR-161) — never a static import. `LoginPage`, `ProtectedRoute`,
   `RequireEntitlement`, `AuthProvider`, `DmsShell` and `RouteSuspense` stay eager, and
   `src/architecture/lazy-routes.test.ts` checks that none of them, nor `App.tsx` beyond
   `LoginPage`, imports a page statically. `RouteSuspense` shows the loading state on a hard load

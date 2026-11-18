@@ -4,22 +4,36 @@ paths:
   - "app/vehicle/services/stock_holding.py"
   - "app/customer/services/vehicle_merge.py"
   - "app/inventory/services/vehicle_merge.py"
+  - "app/vehicle/services/vin_correction.py"
+  - "app/vehicle/services/vin_resolution.py"
+  - "app/vehicle/api/vehicle_mdm.py"
+  - "app/customer/services/vehicle_party_locks.py"
+  - "app/customer/services/trade_in_holders.py"
   - "frontend/apps/dms/src/modules/vehicle/components/vehicle-detail/MergeVehicleDialog*"
   - "tests/vehicle/test_vehicle_merge.py"
   - "tests/vehicle/test_kan524_vehicle_merge.py"
   - "tests/customer/test_kan680_vehicle_merge_party_rest.py"
   - "tests/customer/test_kan706_merge_before_party_move.py"
+  - "tests/customer/test_kan673_*.py"
+  - "tests/customer/test_vehicle_merge_holders.py"
+  - "tests/cross_context/test_kan723_*.py"
+  - "tests/inventory/test_kan724_*.py"
+  - "tests/inventory/test_kan729_*.py"
+  - "tests/vehicle/test_kan730_*.py"
+  - "tests/vehicle/test_kan733_*.py"
 ---
 <!-- Maintainer note. FR-V-12; split out of vehicle-mdm.md by KAN-524 (rule budget). Rulings:
 KAN-524 (Anto, 2026-11-11 option A; 2026-11-13 Q1 B, Q2 A; 2026-11-14 Q3 A, Q4 A), KAN-634, KAN-644,
-KAN-672, KAN-673, KAN-680, KAN-706; ADR-131, ADR-160. -->
+KAN-672, KAN-673, KAN-680, KAN-706, KAN-724, KAN-733; ADR-131, ADR-160, ADR-182. Last verified against
+main@3b2bf69 (2026-11-18). -->
 
 # Merging two vehicle records (FR-V-12)
 
 - The FR-V-12 merge (KAN-524; Anto: any user with the `vehicle_mdm` write merges any two records) is
   `POST /v1/vehicle-mdm/{duplicate}/merge` (`survivorId`, `survivorVersion`; If-Match the duplicate's;
-  «Zusammenführen mit…», `MergeVehicleDialog`: compare, type the vehicle number that goes). Both rows
-  locked in id order; refused with nothing written: the same record (422 `vehicle_merge_same_record`),
+  «Zusammenführen mit…», `MergeVehicleDialog`: compare, type the vehicle number that goes). An already-merged
+  record is refused (409 `vehicle_merged`) on an unlocked read before any lock (KAN-733, ADR-182: no lock
+  cycle with «VIN korrigieren»), then both rows locked in id order and checked again; refused with nothing written: the same record (422 `vehicle_merge_same_record`),
   a VIN record into a chassis-number one (422 `vehicle_merge_vin_into_chassis_number`, KAN-535; the reverse is allowed),
   a stale version, either merged (409 `vehicle_merged`), a live item of the **caller's** Betrieb on
   each (409 `vehicle_merge_both_in_stock`, both stock numbers; another Betrieb's never refuses — Q4 A).

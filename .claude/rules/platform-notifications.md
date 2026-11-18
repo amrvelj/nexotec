@@ -28,6 +28,7 @@ paths:
   - "frontend/apps/dms/src/hooks/useNotifications.ts"
   - "frontend/apps/dms/src/utils/webPush.ts"
   - "frontend/apps/dms/public/sw.js"
+  - "tests/test_spa_file_response.py"
   - "frontend/apps/dms/src/**/TranslationsPage*"
   - "frontend/apps/dms/src/components/translations/**"
   - "frontend/apps/dms/src/utils/seedDiff*"
@@ -35,8 +36,8 @@ paths:
 ---
 <!-- Maintainer note (stripped before Claude sees it). Summarises the Dealer Administration PRD's
 notifications (D-A-40, FR-AU-26) and UI translations (FR-A-30…32), ADR-047. Cut from platform.md by
-KAN-614 (2026-11-10) to the invariants; platform.md was verified against main@73baf3f on
-2026-10-25 - this cut was not re-verified against the code. -->
+KAN-614 (2026-11-10); the status page moved to platform-administration.md (KAN-751). Last verified
+against main@3b2bf69 (2026-11-18). -->
 
 # Notifications and UI translations
 
@@ -50,25 +51,22 @@ KAN-614 (2026-11-10) to the invariants; platform.md was verified against main@73
   **and** a platform migration inserting its rows, in the PR that raises them
   (`tests/platform/test_migrated_notification_catalogue.py` keeps the two equal). `notification` is the
   inbox and the record, kept 90 days.
-- `platform.public.notify(db, code, user_id=…, subject=…)` runs in the caller's transaction and
-  publishes `platform.notification.delivered`; an unknown code raises; every call site names a
-  literal registered code (`test_notify_call_sites_use_registered_codes.py`).
+- `platform.public.notify(db, code, user_id=…, subject=…)` runs in the caller's transaction; per
+  the user's family preference it writes nothing (`off`), delivers at once and publishes
+  `platform.notification.delivered` (`immediate`), or holds the row for the daily digest, which
+  publishes `platform.notification_digest.released`. An unknown code raises; every call site names
+  a literal registered code (`test_notify_call_sites_use_registered_codes.py`).
 - **`notify` is platform-internal today** (every caller is platform's own: the security family, and
-  the `administration` family's first event, `administration.integration_expiring` — KAN-222: platform's
-  consumer of integration's `integration.connection.expiry_approaching` fact raises it for each active
-  manager of the Betrieb; integration sends no e-mail and never calls `notify`). From another
+  the `administration` family — `administration.integration_expiring` (KAN-222: platform's consumer
+  of integration's `integration.connection.expiry_approaching` fact raises it for each active
+  manager of the Betrieb; integration sends no e-mail and never calls `notify`),
+  `administration.checklist_item_regressed` (KAN-214) and `administration.status_item_degraded`
+  (KAN-223, `platform-administration.md`)). From another
   context it would write platform's tables in that context's transaction (rule 12, ADR-047): the
   first module to raise a notification needs a decided design and an ADR first — its own outbox
   event that platform consumes, or a call on a session of its own with a compensating action —
   classified in `test_adr_047_no_shared_transaction.py`, which refuses an unclassified cross-context
   `notify` by name.
-- **Status page (D-A-38) — built (KAN-223):** `GET /v1/dealerships/{id}/status`, derived on read
-  (`services/status_page.py`; every role reads, 404 cross-tenant): number ranges (warning 90 %,
-  blocked 100 %), Nexotec's `platform_status_incident` (staff, `/platform/status`) and contributions
-  through `app/core/status.py`, registered in `app/status_registry.py` (integration's connections).
-  The daily `platform.status_page.notifications` raises `administration.status_item_degraded` once
-  per degradation (`status_item_state`, under a per-Betrieb advisory lock): a warning the source
-  really announced is exempt, the move to blocked never; an unavailable source keeps its rows, its own blocked item announced once (ADR-180).
 - `digest` holds rows until the daily `platform.notifications.digest`, which publishes one release
   per user filed under no Betrieb (a digest may span sister Betriebe).
 - The security family hangs on `auth_events.record` (`services/security_alerts.py`): new-device

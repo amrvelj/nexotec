@@ -8,11 +8,15 @@ paths:
   - "app/core/enum_type.py"
   - "app/db.py"
   - "tests/**/test_migrated_*.py"
+  - "tests/test_migration_*.py"
+  - "tests/architecture/test_migration_seed_sources_are_frozen.py"
+  - "tests/architecture/test_model_registry_imports_every_model.py"
+  - "tests/architecture/test_enum_columns_use_stored_enum.py"
   - "scripts/check_concurrent_alembic_upgrade.py"
 ---
 <!-- Maintainer note. ADR-015 (PR-3 chains), ADR-011, ADR-021, ADR-088, ADR-133, ADR-134, rule 2. KAN-615
 (2026-11-13) cut it to the invariants; data-migration scripts are migrations-scripts.md. Last
-verified against main@73baf3f (2026-10-25). -->
+verified against main@3b2bf69 (2026-11-18). -->
 
 # Schema and migrations
 
@@ -42,8 +46,8 @@ verified against main@73baf3f (2026-10-25). -->
 - **A data step is guarded for offline mode:** under `--sql` every `execute` on `op.get_bind()`
   returns `None`, so a migration reading rows checks `context.is_offline_mode()` first and emits a
   comment instead (`op.execute("-- <step> skipped: it reads rows and needs a live database")`);
-  DDL renders as usual. Older data migrations are immutable and break an offline render across
-  them — README's "Database migrations" names what renders.
+  DDL renders as usual. Older data migrations break an offline render across them (README,
+  "Database migrations").
 - **A migration's seed rows are literals in the migration** (ADR-133), never read from an
   application module that keeps moving; keep an equality test between them and the application's
   declaration (`tests/platform/test_migrated_notification_catalogue.py` is the pattern). Four shipped platform
@@ -65,7 +69,6 @@ verified against main@73baf3f (2026-10-25). -->
   in that context's chain.
 - `Settings.legacy_vehicle_write_frozen` is read by nothing since the legacy `vehicle` table went
   (ADR-021 amended); its removal waits on a preserved-file edit (`config.py`).
-- `scripts/dev/check` mirrors both CI migration jobs whenever migrations, models or anything a
-  migration run loads change: upgrade from empty → seed → downgrade to CI's target → upgrade → two
-  concurrent upgrades, and upgrade from main's heads → seed → upgrade → verify. A `downgrade()` is
-  exercised, so it must work.
+- `scripts/dev/check` mirrors both CI migration jobs when migrations, models or what a migration
+  run loads change (empty → seed → downgrade to CI's target → upgrade → two concurrent upgrades;
+  main's heads → seed → upgrade → verify): a `downgrade()` is exercised, so it must work.

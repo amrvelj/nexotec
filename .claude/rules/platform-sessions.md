@@ -7,6 +7,7 @@ paths:
   - "app/platform/identity/api/auth.py"
   - "app/platform/identity/services/identity.py"
   - "app/platform/identity/services/auth_*.py"
+  - "app/platform/identity/services/session_policy.py"
   - "app/platform/identity/models/auth_*.py"
   - "app/platform/identity/models/dealership_auth_config.py"
   - "tests/platform/test_auth.py"
@@ -16,8 +17,7 @@ paths:
   - "frontend/apps/dms/src/components/ProtectedRoute.tsx"
 ---
 <!-- Maintainer note. Auth & Identity PRD v1.1 (sessions), D-A-36. Moved out of platform-identity.md by
-KAN-615 (2026-11-13) so that app/main.py loads only this. Cut from platform.md (verified against
-main@73baf3f) by KAN-614; not re-verified. -->
+KAN-615 so that app/main.py loads only this. Last verified against main@3b2bf69 (2026-11-18). -->
 
 # Sessions and the request guards
 

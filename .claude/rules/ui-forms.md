@@ -17,10 +17,13 @@ paths:
   - "frontend/apps/dms/src/components/addressAutocomplete*"
   - "frontend/apps/dms/src/components/inlineEditRefusal*"
   - "frontend/apps/dms/src/modules/customer/components/customer-detail/OverviewTab.tsx"
+  - "frontend/apps/dms/src/modules/customer/components/customer-detail/CustomerDetailContent.tsx"
+  - "frontend/apps/dms/src/modules/customer/components/customer-detail/ExternalIdsTab.tsx"
   - "frontend/apps/dms/src/modules/customer/components/customer-detail/contactChannels*"
   - "frontend/apps/dms/src/modules/customer/components/customer-detail/address*"
   - "frontend/apps/dms/src/modules/stock/components/stock-detail/DetailsTab.tsx"
   - "frontend/apps/dms/src/modules/vehicle/components/vehicle-detail/IdentityTab.tsx"
+  - "frontend/apps/dms/src/pages/ReferenceDataPage.tsx"
   - "frontend/apps/dms/src/hooks/useFieldHint.ts"
   - "frontend/apps/dms/src/hooks/useInlineEditRefusal.ts"
   - "frontend/apps/dms/src/hooks/useAddressAutocompleteConfig.ts"
@@ -31,9 +34,10 @@ paths:
   - "frontend/apps/dms/src/pages/OnboardingPage*"
   - "frontend/apps/dms/src/pages/InvitationAcceptPage*"
 ---
-<!-- Maintainer note. UI/UX Specification (forms, component contracts), ADR-101. Split out of ui.md
-by KAN-615 (2026-11-13); forms are listed by file pattern until the frontend has module folders
-(KAN-611). Last verified against main@73baf3f (2026-10-25). -->
+<!-- Maintainer note. UI/UX Specification (forms, component contracts), ADR-101, ADR-164. Split out
+of ui.md by KAN-615 (2026-11-13); forms are listed by file pattern, inside the module folders too
+(ADR-161, KAN-636), since a module holds more than its forms. Last verified against main@3b2bf69
+(2026-11-18). -->
 
 # Forms and inline edit
 
@@ -47,9 +51,9 @@ by KAN-615 (2026-11-13); forms are listed by file pattern until the frontend has
   parentheses). Choice cards (the customer-type tiles) are not fields and keep their text.
 - **The kit's `Picker` is the entity-selection gesture** ("which customer?": a ranked list in a
   panel, a create path, autofocus). A type-ahead that fills the form's own fields from an external
-  service and selects no record — `components/AddressSearchField.tsx` (ADR-101), on Mantine's
-  `Combobox` — is a form input like `PhoneInput` and lives in the app, every string from the
-  bundles. A second such field reuses it, never a second local combobox.
+  service and selects no record — the app's `src/components/AddressSearchField.tsx` (ADR-101), on
+  Mantine's `Combobox` — is a form input like `PhoneInput` and lives in the app, every string from
+  the bundles. A second such field reuses it, never a second local combobox.
 - **Inline edit:** the kit's `InlineEditField` takes a required `describeError` and, beside an
   `onReload`, a `reloadLabel` — the app's `useInlineEditRefusal()`; only a stale If-Match 409
   (`isStaleVersion`) offers the reload. `RepeatableRowGroup` without a `describeError` shows its

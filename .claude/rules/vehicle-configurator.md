@@ -23,6 +23,7 @@ paths:
   - "tests/vehicle/test_kan240_configuration_heal.py"
   - "tests/architecture/test_spec_block_carriers_do_not_drift.py"
   - "tests/architecture/test_configuration_never_writes_vehicle_mdm.py"
+  - "tests/architecture/test_sales_routers_carry_entitlement_gate.py"
   - "frontend/apps/dms/src/modules/vehicle/components/configurator/**"
   - "frontend/apps/dms/src/modules/vehicle/configurationOptions*"
   - "frontend/apps/dms/src/pages/configurationLabelColumns*"
@@ -33,8 +34,7 @@ paths:
 ---
 <!-- Maintainer note (stripped before Claude sees it). Summarises PRD-Configurator v1.4 (ADR-068…ADR-072,
 the host/mode matrix), ADR-041, ADR-083, ADR-114, ADR-121. Cut from vehicle.md by KAN-614 (2026-11-10)
-to the invariants; vehicle.md was verified against main@73baf3f on 2026-10-25 - this cut was not
-re-verified against the code. -->
+to the invariants. Last verified against main@3b2bf69 (2026-11-18). -->
 
 # The configurator (PRD-Configurator v1.4; ADR-068 … ADR-072)
 

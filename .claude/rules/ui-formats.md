@@ -13,7 +13,7 @@ paths:
   - "frontend/apps/dms/src/architecture/no-locale-number-format*"
 ---
 <!-- Maintainer note. ADR-076. Split out of ui.md by KAN-615 (2026-11-13). Last verified against
-main@73baf3f (2026-10-25). -->
+main@3b2bf69 (2026-11-18). -->
 
 # Money, numbers and dates on screen
 
@@ -30,9 +30,10 @@ main@73baf3f (2026-10-25). -->
   in CustomersListPage's `date('…', …)` helper, as a raw JSX child and as a grid cell returning the
   bare field. **It is a source scan with known misses** (listed in its comment) and cannot judge
   `validFrom`/`validTo` at all (a date on a plate, an accessory, a user's access window, a
-  valuation; a timestamp on a contact channel): the ones a screen renders, and every screen that
-  renders a date-only field, are checked by that screen's render test under
-  `TZ=Pacific/Honolulu` (`dateOnlyTabs`, `UsersListPage.dateOnly`, `AuthScreens`).
+  location's validity (KAN-204), a valuation; a timestamp on a contact channel and on a
+  sister-Betrieb membership's end): the ones a screen renders, and every screen that renders a
+  date-only field, are checked by that screen's render test under `TZ=Pacific/Honolulu`
+  (`dateOnlyTabs`, `UsersListPage.dateOnly`, `LocationsPage`, `AuthScreens`).
 - **Today's date as a pre-fill is `todayLocalIsoDate()`** (`utils/format.ts`), the user's calendar
   day — never `toISOString().slice(0, 10)`, the UTC day, which is yesterday between midnight and
   01:00/02:00 Swiss time (`src/architecture/no-utc-calendar-day.test.ts`).

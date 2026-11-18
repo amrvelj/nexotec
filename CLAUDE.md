@@ -97,11 +97,11 @@ second database, service template, broker or top-level `services/` directory. A 
 
 ## The twelve bounded contexts
 
-Lowest layer first (ADR-131); peers: parts and inventory, aftersales and sales.
+Lowest layer first (ADR-131); peers: parts and inventory, aftersales and sales, reporting and compliance (on top, consuming events only).
 
 | Context | Owns |
 |---|---|
-| `platform` | tenants/dealers, users, auth, roles, module entitlements, feature flags, reference data, locations, document templates |
+| `platform` | tenants/dealers, users, auth, roles, module entitlements, feature flags, reference data, locations, document templates, standard texts, branding, UI translations, staff notifications |
 | `integration` | the integration registry (connections, write-only secret refs, entitlements, call log, retention) + provider-gateway adapters; AI (ADR-181) |
 | `vehicle` | physical vehicles, catalogue, plates, odometer, custody, provenance, the configurator |
 | `customer` | customers (**group-scoped**, ADR-014), contact channels (ADR-067), external IDs, duplicates/merges, `VehicleParty` |
@@ -122,7 +122,7 @@ Stubs keep every context in the contract: never delete one or put its concerns e
 2. **No cross-context foreign keys, joins, queries or shared tables.** Another context's ID is a
    plain `GUID` with an owner comment, a denormalised label and `labelRefreshedAt` (the three-column
    pattern); its data comes from a `public` function — in `app/` only `reconciliation.py` reads across (ADR-107).
-3. **No cross-context imports** — `<context>.public` is the only door (what makes ADR-015 safe).
+3. **No cross-context imports** — `<context>.public` is the only door (what makes ADR-015 safe), handing out functions, enums and plain values, never a mapped class (ADR-162).
    import-linter enforces it in CI with **no suppression mechanism**; `test_import_contracts_cover_every_module.py`
    fails on a module its contract omits. Moving a boundary is an ADR, not an ignore entry. Calls go
    only **down** the layers (`test_context_dependency_direction.py`).
@@ -163,7 +163,7 @@ Edits to these `app/core/` files ask Anto first, whichever tool makes them.
   camelCase JSON over snake_case Python (`schemas.py`) · the append-only audit log (`audit.py`; one rewrite: ADR-121)
 - The outbox and consumer harness (`outbox*.py`, `consumer.py`, `processed_event_model.py`)
 - `EncryptedString` (`types.py`) + config that refuses to start without the key (`config.py`). Used by
-  `customer.tax_id`, the integration call payload and `mfa_totp.secret` (ADR-099)
+  `customer.tax_id`, the integration call payload, `mfa_totp.secret` (ADR-099) and `push_subscription.p256dh`/`auth` (KAN-216; storage open with Anto)
 
 ## API conventions
 

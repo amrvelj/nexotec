@@ -4,6 +4,7 @@ paths:
   - "app/vehicle/api/lookup.py"
   - "app/vehicle/services/vehicle*.py"
   - "app/vehicle/services/vin_correction.py"
+  - "app/vehicle/services/vin_resolution.py"
   - "app/vehicle/services/plate.py"
   - "app/vehicle/services/plate_handover.py"
   - "app/vehicle/services/plate_read_guard.py"
@@ -26,6 +27,10 @@ paths:
   - "tests/plate_support.py"
   - "tests/vehicle/test_vehicle_merge.py"
   - "tests/vehicle/test_vehicle_lookup.py"
+  - "tests/vehicle/test_vehicle_vin_resolution.py"
+  - "tests/vehicle/test_shared_lookup_carries_master_data.py"
+  - "tests/cross_context/test_vin_normalised_on_every_input.py"
+  - "tests/architecture/test_vin_resolution_is_vehicles.py"
   - "tests/vehicle/test_vehicle_history.py"
   - "tests/vehicle/test_vehicle_accessory_end_audited.py"
   - "tests/customer/test_vehicle_party_label_on_summary_changed.py"
@@ -41,10 +46,9 @@ paths:
   - "frontend/apps/dms/src/**/*nventoryChanged*"
   - "frontend/apps/dms/src/utils/vin.ts"
 ---
-<!-- Maintainer note (stripped before Claude sees it). Summarises PRD-Vehicles, ADR-039 as amended,
-ADR-043, ADR-045, ADR-085, ADR-114, ADR-119, ADR-121. Cut from vehicle.md by KAN-614 (2026-11-10) to
-the invariants; vehicle.md was verified against main@73baf3f on 2026-10-25 - this cut was not
-re-verified against the code. -->
+<!-- Maintainer note (stripped before Claude sees it). Summarises PRD-Vehicles, ADR-039 and ADR-043
+as amended, ADR-045, ADR-075, ADR-085, ADR-103, ADR-107, ADR-112, ADR-114, ADR-119, ADR-121, ADR-131, ADR-160. Cut from vehicle.md by KAN-614 (2026-11-10) to
+the invariants. Last verified against main@3b2bf69 (2026-11-18). -->
 
 # Vehicle master data (PRD-Vehicles)
 
@@ -58,20 +62,22 @@ re-verified against the code. -->
   winner's record (KAN-257), plain data back. No `app/` module outside `app/vehicle` names
   `create_or_get_vehicle_mdm` or copies the race predicate (`test_vin_resolution_is_vehicles.py`).
 - **A typed VIN is one spelling in every write** (FR-V-15): upper-cased, whitespace removed —
-  `app.core.validators.NormalisedVin` (stock, trade-in; then ISO 3779) or
-  `NormalisedVinOrChassisNumber` (valuation, configuration); the SPA mirrors it (`utils/vin.ts`).
+  `app.core.validators.NormalisedVin` (stock create, trade-in; then ISO 3779) or
+  `NormalisedVinOrChassisNumber` (valuation, configuration, purchase booking, «VIN korrigieren»;
+  KAN-535); the SPA mirrors it (`utils/vin.ts`).
   vehicle-mdm's own fields take `Vin`, which refuses an unnormalised value rather than fixing it.
   The shared lookup and the list search normalise their query the same way; the lookup answers 404
   for a value that is no VIN — a read, never 422. A refused VIN is named on screen
   (`common.invalidVin`).
-- **A pre-1981 chassis number** (Anto): 1–17 letters and digits, accepted on a valuation or
-  configuration only with a first registration before 1981-01-01 — on a configuration PATCH the
+- **A pre-1981 chassis number** (Anto): 1–17 letters and digits, accepted on a valuation, a
+  configuration, the purchase booking or «VIN korrigieren» only with a first registration before 1981-01-01 — on a configuration PATCH the
   stored VIN and date count for whichever the PATCH leaves out (else 422
   `chassis_number_requires_pre_1981_registration`); stored and printed normalised like a VIN — one
   spelling per car — and **never** finds or links a vehicle-mdm record, created only by the booking
   (`is_chassis_number`). `scripts/repair_configuration_vins.py` (dry run unless `--commit`) cleans
   VINs stored before the rule, once per environment (a pre-1981 car stored in another spelling is
-  KAN-502's open question). A valuation's stored VIN is never edited.
+  left as stored until KAN-748 builds Anto's answer A, 2026-11-18: normalise what normalises, list the
+  rest in the dry run). A valuation's stored VIN is never edited.
 - **A licence plate is never an identifier** — Wechselschild, reassignment, cantonal changes.
   `vehicle_plate` is a child table with validity dates and a `plate_group_id`; an ambiguous lookup
   shows a picker and never guesses.

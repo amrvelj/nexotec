@@ -25,16 +25,16 @@ paths:
   - "frontend/apps/dms/src/modules/sales/pages/OfferWorkspace.tradeIn*"
 ---
 <!-- Maintainer note. ADR-047, ADR-066, ADR-070, ADR-074; FR-S-08. Moved out of valuation.md by
-KAN-615 (2026-11-13) for the Sales and Stock files that use a valuation. Last verified against
-main@73baf3f (2026-10-25). -->
+KAN-615. Last verified against main@3b2bf69 (2026-11-18). -->
 
 # A valuation as a trade-in
 
 - **A trade-in is a car** (Anto, KAN-574): a valuation without a VIN is refused as a trade-in —
   422 `trade_in_valuation_names_no_car` at attach, nothing written, whatever the deal names and
   configured or not — and
-  never offered by `set_trade_in`'s FR-S-08 auto-attach. **Open with Anto on KAN-574:** a pre-1981
-  chassis number is refused the same way (a trade-in takes a VIN until KAN-535); a deal that held
+  never offered by `set_trade_in`'s FR-S-08 auto-attach. A pre-1981 chassis number is
+  refused the same way (KAN-574): a trade-in takes only a VIN (`is_valid_vin`) — whether it should
+  take one now that Stock buys such cars (KAN-535) is open with Anto, KAN-746; a deal that held
   such a valuation before keeps it (copy, contract and confirmation do not re-check).
 - A valuation made **without a configuration** brings its car to a deal that names no trade-in car
   yet — its VIN, linked record and «Make Model Trim», or the VIN as the label without make or model
@@ -42,7 +42,7 @@ main@73baf3f (2026-10-25). -->
   pipeline item by it. A deal that already names its car keeps it.
 - **A VIN trade-in creates no vehicle-mdm record** (ADR-070, FR-S-08 amended): `set_trade_in` keeps
   `trade_in_vin`, only links the record vehicle-mdm holds, allocates no owner/keeper party (the car
-  shows on the customer's Vehicles tab once bought, `customer.md`), and finds an existing valid
+  shows on the customer's Vehicles tab once bought, `customer-vehicle-party.md`), and finds an existing valid
   valuation by the linked record, else by VIN (compared normalised). It counts as a trade-in
   (`priced_deal.has_trade_in`), so it becomes a pipeline item whose purchase booking creates the
   record (ADR-103). The record-mode path (configurator → valuation → the deal's
