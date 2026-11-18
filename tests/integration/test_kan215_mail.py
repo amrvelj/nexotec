@@ -677,7 +677,7 @@ def test_a_betrieb_cannot_hold_a_mailbox_provider_connection_of_its_own(client, 
 # -- D2 A: the Betrieb's export ---------------------------------------------------------
 
 
-def test_the_export_holds_the_shared_mailbox_and_deliveries_never_a_colleagues_own_address(client, db_session, fakes, app_registrations, betrieb):
+def test_the_export_holds_the_shared_mailbox_and_deliveries_but_no_colleagues_mailbox_row(client, db_session, fakes, app_registrations, betrieb):
     from app.core.export import ExportScope
 
     providers, _ = fakes
@@ -697,7 +697,35 @@ def test_the_export_holds_the_shared_mailbox_and_deliveries_never_a_colleagues_o
     assert deliveries.in_archive is not False
     (delivery,) = db_session.execute(select(deliveries.table).where(deliveries.scope(scope))).all()
     assert (delivery.subject, delivery.recipients, delivery.status) == ("Ihre Offerte", ["kunde@example.test"], "sent")
+    # What the customer saw as sender: here the author's own mailbox. Whether a
+    # delivery's sender counts as «a colleague's personal mailbox address» under
+    # D2 A is open with Anto (KAN-215 callout, 2026-11-18) — pinned as built.
+    assert delivery.sender_address == "anna@garage-muster.ch"
     assert tables["integration_mail_link_state"].in_archive is False
+
+
+def test_offboarding_ends_every_mailbox_of_the_betrieb_and_frees_its_tenant(client, db_session, fakes, app_registrations, betrieb):
+    """Review finding (2026-11-18): an offboarded Betrieb's shared mailbox must
+    not stay live — nothing is sent from it again, and the dealer's tenant is
+    no longer bound to the offboarded group (KAN-218's «disables every
+    connection»). A redelivery changes nothing."""
+
+    from app.integration.services.mail_sending import disconnect_offboarded_dealership_mailboxes
+
+    providers, _ = fakes
+    anna = make_user(db_session, tenant_id=betrieb.id, email="anna@garage-muster.ch")
+    assert _connect_business_ms(client, providers, anna)["leg2"].status_code == 200
+    _connect_own_ms(client, providers, anna)
+
+    assert disconnect_offboarded_dealership_mailboxes(db_session, tenant_id=betrieb.id) == 2
+    db_session.commit()
+    statuses = set(db_session.scalars(select(SendingIdentity.status).where(SendingIdentity.tenant_id == betrieb.id)))
+    assert statuses == {SendingIdentityStatus.DISCONNECTED}
+    assert disconnect_offboarded_dealership_mailboxes(db_session, tenant_id=betrieb.id) == 0
+
+    elsewhere = _make_dealership(db_session)
+    chef = make_user(db_session, tenant_id=elsewhere.id, email="chef@elsewhere.ch")
+    assert _connect_business_ms(client, providers, chef)["leg2"].status_code == 200
 
 
 def test_linking_records_an_auth_event_naming_the_provider_never_the_address(client, db_session, fakes, app_registrations, betrieb):

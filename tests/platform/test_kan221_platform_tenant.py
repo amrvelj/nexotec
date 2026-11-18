@@ -378,6 +378,59 @@ def test_the_report_leaves_staff_homed_in_the_platform_tenant_out(client, db_ses
     assert staff["id"] not in {str(user.id) for user, _home, _sisters in platform_admins_homed_in_dealerships(db_session)}
 
 
+def test_the_dealer_configuration_routes_answer_404_for_the_platform_tenant(client, db_session):
+    """Review finding (2026-11-18): locations, the publishing profile, number
+    ranges, contact groups, the setup checklist, the status page, the document
+    template, branding and the shared mailbox are dealer configuration — to them
+    the platform tenant is not a Betrieb. A location written there would also
+    publish a KAN-226 fact for a Betrieb no channel may ever carry."""
+
+    from sqlalchemy import func, select
+
+    from app.core.outbox_model import OutboxMessage
+
+    ensure_platform_tenant(client)
+    staff = platform_admin_headers(tenant_id=PLATFORM_DEALERSHIP_ID)
+    for path in (
+        f"/v1/dealerships/{_PLATFORM}/locations",
+        f"/v1/dealerships/{_PLATFORM}/publishing-profile",
+        f"/v1/dealerships/{_PLATFORM}/publishing-profile/effective",
+        f"/v1/dealerships/{_PLATFORM}/number-ranges",
+        f"/v1/dealerships/{_PLATFORM}/contact-groups",
+        f"/v1/dealerships/{_PLATFORM}/setup-checklist",
+        f"/v1/dealerships/{_PLATFORM}/status",
+        f"/v1/dealerships/{_PLATFORM}/document-template",
+        f"/v1/dealerships/{_PLATFORM}/branding",
+        f"/v1/dealerships/{_PLATFORM}/mail/business-mailbox",
+    ):
+        assert client.get(path, headers=staff).status_code == 404, path
+    created = client.post(
+        f"/v1/dealerships/{_PLATFORM}/locations",
+        json={
+            "code": "hq",
+            "name": "Nexotec",
+            "locationTypes": ["showroom"],
+            "addressStreet": "Bahnhofstrasse",
+            "addressHouseNumber": "1",
+            "addressPostalCode": "8001",
+            "addressLocality": "Zürich",
+            "addressCanton": "ZH",
+        },
+        headers=staff,
+    )
+    assert created.status_code == 404, created.text
+    link = client.post(
+        f"/v1/dealerships/{_PLATFORM}/mail/business-mailbox/links",
+        json={"provider": "microsoft_365_mail", "mailboxAddress": "info@nexotec.ch"},
+        headers=staff,
+    )
+    assert link.status_code == 404, link.text
+    facts = db_session.scalar(
+        select(func.count()).select_from(OutboxMessage).where(OutboxMessage.event_type.like("platform.location.%"))
+    )
+    assert facts == 0
+
+
 def test_a_token_for_the_platform_tenant_reads_its_own_users(client):
     """Staff manage their colleagues in their own tenant through the ordinary
     users routes (the Platform users panel is PR 6)."""

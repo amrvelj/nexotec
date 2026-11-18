@@ -64,6 +64,7 @@ from app.platform.identity.services.user_reads import (
 from app.platform.organisation.models.number_range import NumberRangeDocumentType
 from app.platform.organisation.schemas.dealership import DealerGroupRead
 from app.platform.organisation.services.contact_group import ContactGroupCodes, contact_group_codes
+from app.platform.organisation.services.dealer_dealerships import is_platform_dealership
 from app.platform.organisation.services.dealership import get_dealership_default_correspondence_language
 from app.platform.organisation.services.group_read_dealerships import DealershipRef, list_group_read_dealerships
 from app.platform.organisation.services.location import LocationLabel, get_location_labels
@@ -207,6 +208,7 @@ __all__ = [
     "get_offboarded_audit_attribution",
     "get_primary_location_id",
     "get_user_display_labels",
+    "is_platform_dealership",
     "link_connected_account",
     "list_active_users_acting_in",
     "list_dealer_manager_emails",

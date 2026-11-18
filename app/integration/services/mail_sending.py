@@ -292,6 +292,40 @@ def disconnect(db: Session, *, identity: SendingIdentity, actor_id: uuid.UUID) -
     return identity
 
 
+def disconnect_offboarded_dealership_mailboxes(db: Session, *, tenant_id: uuid.UUID) -> int:
+    """KAN-218 / KAN-215: on `platform.dealership.offboarded` every mailbox of
+    the Betrieb still live ends in Nexotec (`disconnected`, audited as a system
+    write, reason in the action) — the shared one no longer binds the dealer's
+    tenant or domain (`_refuse_tenant_bound_elsewhere` counts live rows only),
+    and nothing is sent from it again. A user's own grant is platform's: it is
+    revoked at offboarding by platform and ended at the provider by the revoker
+    (ADR-118), so nothing is revoked here.
+
+    Never commits: the caller is the offboarding consumer, whose harness commits
+    this with its processed-event row; a redelivery finds nothing live and
+    changes nothing. Returns the mailboxes ended."""
+
+    identities = list(
+        db.scalars(
+            select(SendingIdentity)
+            .where(
+                SendingIdentity.tenant_id == tenant_id,
+                SendingIdentity.status != SendingIdentityStatus.DISCONNECTED,
+            )
+            .with_for_update()
+        )
+    )
+    now = utcnow()
+    for identity in identities:
+        identity.status = SendingIdentityStatus.DISCONNECTED
+        identity.disconnected_at = now
+        identity.version += 1
+        mail_link.audit_identity(
+            db, identity, action="mailbox_disconnected", actor_id=None, reason="dealership_offboarded"
+        )
+    return len(identities)
+
+
 # -- ending a grant at the provider (platform's consumer runs it) ---------------
 
 _PLATFORM_TO_MAIL: dict[ConnectedAccountProvider, MailProviderCode] = {

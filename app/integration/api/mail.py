@@ -38,6 +38,7 @@ from app.integration.schemas.mail import (
     UserLinkCreate,
 )
 from app.integration.services import mail_link, mail_sending
+from app.platform.public import is_platform_dealership
 
 router = APIRouter(tags=["mail"], route_class=IdempotentRoute)
 
@@ -85,6 +86,14 @@ def _identity_for_update_or_404(
 # -- the Betrieb's shared mailbox ---------------------------------------------------
 
 
+def _refuse_platform_tenant(db: Session, dealership_id: uuid.UUID) -> None:
+    """404: the platform tenant «Nexotec» is no dealer and sends no customer mail
+    (KAN-221, ADR-188) — to this route it is not a Betrieb."""
+
+    if is_platform_dealership(db, dealership_id):
+        raise NotFoundError(f"Dealership {dealership_id} was not found.")
+
+
 @router.get("/dealerships/{dealership_id}/mail/business-mailbox", response_model=BusinessMailboxRead)
 def get_business_mailbox(
     dealership_id: uuid.UUID,
@@ -92,6 +101,7 @@ def get_business_mailbox(
     db: Session = Depends(get_db),
 ):
     require_tenant_match(dealership_id, principal)
+    _refuse_platform_tenant(db, dealership_id)
     identity = mail_link.live_business_identity(db, dealership_id=dealership_id)
     return BusinessMailboxRead(mailbox=_read(identity) if identity else None, providers=_providers(db))
 
@@ -106,6 +116,7 @@ def start_business_mailbox_link(
     db: Session = Depends(get_db),
 ):
     require_tenant_match(dealership_id, principal)
+    _refuse_platform_tenant(db, dealership_id)
     url = mail_link.start_business_link(
         db,
         dealership_id=dealership_id,
@@ -125,6 +136,7 @@ def disconnect_business_mailbox(
     db: Session = Depends(get_db),
 ):
     require_tenant_match(dealership_id, principal)
+    _refuse_platform_tenant(db, dealership_id)
     identity = _identity_for_update_or_404(
         db, identity_id=mailbox_id, dealership_id=dealership_id, kind=SendingIdentityKind.BUSINESS_MAILBOX,
         owner_user_id=None,

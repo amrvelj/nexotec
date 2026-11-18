@@ -195,3 +195,26 @@ def test_main_is_a_dry_run_unless_asked_and_exits_1_on_a_refused_row(
     assert "1 moved (committed)" in capsys.readouterr().out
     assert move.main([str(confirmed), "--actor", actor["id"], "--commit"], session_factory=lambda: db_session) == 1
     assert move.main([str(tmp_path / "missing.csv"), "--actor", actor["id"]], session_factory=lambda: db_session) == 2
+
+
+def test_a_row_the_role_change_refuses_sends_no_invitation_and_leaves_no_account(
+    client, db_session, mailbox, scene, monkeypatch
+):
+    """Review finding (2026-11-18): the invitation goes out only after the role
+    change has committed with the new account — a refusal there takes the
+    account back, and no mail was ever sent for it."""
+
+    from app.core.errors import UnprocessableEntityError
+
+    _dealership, actor, legacy = scene
+
+    def refuse(*_args, **_kwargs):
+        raise UnprocessableEntityError("refused for the test", details={"reason": "test"})
+
+    monkeypatch.setattr(move.user_service, "update_user", refuse)
+    before = len(mailbox)
+    [outcome] = _run(db_session, mailbox, f"{legacy['id']},lea@nexotec.ch\n", actor, apply=True)
+    assert not outcome.moved and outcome.message == "refused: refused for the test"
+    assert len(mailbox) == before
+    db_session.expire_all()
+    assert _users_with_email(db_session, "lea@nexotec.ch") == []

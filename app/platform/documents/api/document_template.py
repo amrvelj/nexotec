@@ -24,7 +24,7 @@ from app.platform.documents.schemas.document_template import DocumentTemplateRea
 from app.platform.documents.services import document_template as document_template_service
 from app.platform.documents.services.document_render import render_document
 from app.platform.documents.services.document_template_preview import PreviewDocument, sample_content
-from app.platform.organisation.services.dealership import get_dealership_or_404
+from app.platform.organisation.services.dealership import get_dealer_dealership_or_404
 
 router = APIRouter(tags=["document-templates"])
 
@@ -36,6 +36,7 @@ def get_document_template(
     db: Session = Depends(get_db),
 ):
     require_tenant_match(dealership_id, principal)
+    get_dealer_dealership_or_404(db, dealership_id)
     return document_template_service.get_document_template_or_default(db, dealership_id)
 
 
@@ -48,6 +49,7 @@ def update_document_template(
     db: Session = Depends(get_db),
 ):
     require_tenant_match(dealership_id, principal)
+    get_dealer_dealership_or_404(db, dealership_id)
     template = document_template_service.upsert_document_template(
         db,
         dealership_id=dealership_id,
@@ -82,7 +84,7 @@ def preview_document_template(
     404 (rule 7)."""
 
     require_tenant_match(dealership_id, principal)
-    dealership = get_dealership_or_404(db, dealership_id)
+    dealership = get_dealer_dealership_or_404(db, dealership_id)
     language = dealership.default_correspondence_language
     pdf = render_document(
         db,

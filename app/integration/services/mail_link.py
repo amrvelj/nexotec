@@ -580,7 +580,9 @@ def _create_business_identity(
     return LinkOutcome(kind=identity.kind, status="connected", redirect_url=None, identity_id=identity.id)
 
 
-def audit_identity(db: Session, identity: SendingIdentity, *, action: str, actor_id: uuid.UUID | None) -> None:
+def audit_identity(
+    db: Session, identity: SendingIdentity, *, action: str, actor_id: uuid.UUID | None, reason: str | None = None
+) -> None:
     # The address of a colleague's own mailbox stays out of the Betrieb's
     # audit (D-A-15): the kind, the provider and the status only.
     after: dict[str, object] = {
@@ -598,4 +600,5 @@ def audit_identity(db: Session, identity: SendingIdentity, *, action: str, actor
         action=action,
         actor_id=actor_id,
         after=after,
+        reason=reason,
     )

@@ -36,7 +36,7 @@ from app.platform.administration.schemas.status_page import (
     incident_read,
 )
 from app.platform.administration.services import status_incidents, status_page
-from app.platform.organisation.services.dealership import get_dealership_or_404
+from app.platform.organisation.services.dealership import get_dealer_dealership_or_404
 
 router = APIRouter(tags=["status-page"], route_class=IdempotentRoute)
 
@@ -53,7 +53,7 @@ def get_status_page(
     items want attention. Nothing on this page is ever set by hand."""
 
     require_tenant_match(dealership_id, principal)
-    get_dealership_or_404(db, dealership_id)
+    get_dealer_dealership_or_404(db, dealership_id)
     page = status_page.derive(db, dealership_id, now=utcnow())
     return StatusPageRead(
         dealership_id=dealership_id,

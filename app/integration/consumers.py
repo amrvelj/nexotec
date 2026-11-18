@@ -6,7 +6,9 @@ register_handlers` lists them with the event type and `consumer_name`:
   (`handle_dealership_offboarded_message`; Anto, 2026-11-14, Q3 A): every
   connection of the offboarded Betrieb but the ones Stock publishes listings
   through disabled and its credentials revoked in the secrets manager
-  (`services/connections.py::disable_offboarded_dealership_connections`).
+  (`services/connections.py::disable_offboarded_dealership_connections`),
+  and every mailbox of the Betrieb ended (`services/mail_sending.py::
+  disconnect_offboarded_dealership_mailboxes`, KAN-215).
 - `inventory.dealership_listings.withdrawn` ->
   `integration.marketplace_connections_disabled_on_withdrawn`
   (`handle_dealership_listings_withdrawn_message`): Stock's fact that it has
@@ -33,6 +35,7 @@ from app.integration.services.connections import (
     disable_offboarded_dealership_connections,
     disable_withdrawn_marketplace_connections,
 )
+from app.integration.services.mail_sending import disconnect_offboarded_dealership_mailboxes
 
 
 def _dealership_id(message: OutboxMessage) -> uuid.UUID:
@@ -43,7 +46,9 @@ def _dealership_id(message: OutboxMessage) -> uuid.UUID:
 
 
 def handle_dealership_offboarded_message(db: Session, message: OutboxMessage) -> None:
-    disable_offboarded_dealership_connections(db, tenant_id=_dealership_id(message))
+    dealership_id = _dealership_id(message)
+    disable_offboarded_dealership_connections(db, tenant_id=dealership_id)
+    disconnect_offboarded_dealership_mailboxes(db, tenant_id=dealership_id)
 
 
 def handle_dealership_listings_withdrawn_message(db: Session, message: OutboxMessage) -> None:

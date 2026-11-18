@@ -141,7 +141,7 @@ def get_publishing_profile(
     db: Session = Depends(get_db),
 ):
     require_tenant_match(dealership_id, principal)
-    dealership = dealership_service.get_dealership_or_404(db, dealership_id)
+    dealership = dealership_service.get_dealer_dealership_or_404(db, dealership_id)
     return profile_read(db, dealership)  # a read never writes
 
 
@@ -154,7 +154,7 @@ def update_publishing_profile(
     db: Session = Depends(get_db),
 ):
     require_tenant_match(dealership_id, principal)
-    dealership = dealership_service.get_dealership_or_404(db, dealership_id)
+    dealership = dealership_service.get_dealer_dealership_or_404(db, dealership_id)
     profile = _locked_profile(db, dealership_id, if_match)
     service.update_profile(db, profile=profile, data=body, actor_id=principal.user_id)
     return profile_read(db, dealership)
@@ -176,7 +176,7 @@ def create_location_override(
     is honoured; switching on an override that exists answers it unchanged."""
 
     require_tenant_match(dealership_id, principal)
-    dealership = dealership_service.get_dealership_or_404(db, dealership_id)
+    dealership = dealership_service.get_dealer_dealership_or_404(db, dealership_id)
     location = get_location_or_404(db, dealership_id=dealership_id, location_id=location_id)
     profile = _locked_profile(db, dealership_id, if_match)
     service.create_override(
@@ -195,7 +195,7 @@ def update_location_override(
     db: Session = Depends(get_db),
 ):
     require_tenant_match(dealership_id, principal)
-    dealership = dealership_service.get_dealership_or_404(db, dealership_id)
+    dealership = dealership_service.get_dealer_dealership_or_404(db, dealership_id)
     location = get_location_or_404(db, dealership_id=dealership_id, location_id=location_id)
     profile = _locked_profile(db, dealership_id, if_match)
     service.update_override(db, profile=profile, location=location, data=body, actor_id=principal.user_id)
@@ -213,7 +213,7 @@ def delete_location_override(
     """Switches the site's override off: it inherits everything again."""
 
     require_tenant_match(dealership_id, principal)
-    dealership = dealership_service.get_dealership_or_404(db, dealership_id)
+    dealership = dealership_service.get_dealer_dealership_or_404(db, dealership_id)
     location = get_location_or_404(db, dealership_id=dealership_id, location_id=location_id)
     profile = _locked_profile(db, dealership_id, if_match)
     service.delete_override(db, profile=profile, location=location, actor_id=principal.user_id)
@@ -230,7 +230,7 @@ def get_effective_profile(
     """What a channel publishes for the site: its override over the Betrieb."""
 
     require_tenant_match(dealership_id, principal)
-    dealership = dealership_service.get_dealership_or_404(db, dealership_id)
+    dealership = dealership_service.get_dealer_dealership_or_404(db, dealership_id)
     if location_id is not None:
         get_location_or_404(db, dealership_id=dealership_id, location_id=location_id)
     effective = service.effective_profile(db, dealership, location_id)
@@ -254,7 +254,7 @@ def validate_publishing_profile(
     codes the SPA renders in the dealer's words."""
 
     require_tenant_match(dealership_id, principal)
-    dealership = dealership_service.get_dealership_or_404(db, dealership_id)
+    dealership = dealership_service.get_dealer_dealership_or_404(db, dealership_id)
     missing = service.missing_items(db, dealership, channel)
     return ProfileValidationRead(
         channel=channel,
@@ -279,7 +279,7 @@ def put_agb_document(
     store: ObjectStore = Depends(get_object_store),
 ):
     require_tenant_match(dealership_id, principal)
-    dealership = dealership_service.get_dealership_or_404(db, dealership_id)
+    dealership = dealership_service.get_dealer_dealership_or_404(db, dealership_id)
     profile = _locked_profile(db, dealership_id, if_match)
     service.set_agb(db, store, profile=profile, data=document, actor_id=principal.user_id)
     return profile_read(db, dealership)
@@ -293,7 +293,7 @@ def get_agb_document(
     store: ObjectStore = Depends(get_object_store),
 ) -> Response:
     require_tenant_match(dealership_id, principal)
-    dealership_service.get_dealership_or_404(db, dealership_id)
+    dealership_service.get_dealer_dealership_or_404(db, dealership_id)
     stored = service.read_agb(db, store, dealership_id=dealership_id)
     return Response(content=stored.data, media_type="application/pdf", headers=_FILE_HEADERS)
 
@@ -307,7 +307,7 @@ def delete_agb_document(
     store: ObjectStore = Depends(get_object_store),
 ):
     require_tenant_match(dealership_id, principal)
-    dealership = dealership_service.get_dealership_or_404(db, dealership_id)
+    dealership = dealership_service.get_dealer_dealership_or_404(db, dealership_id)
     profile = _locked_profile(db, dealership_id, if_match)
     service.remove_agb(db, store, profile=profile, actor_id=principal.user_id)
     return profile_read(db, dealership)
@@ -332,7 +332,7 @@ def add_publishing_image(
     store: ObjectStore = Depends(get_object_store),
 ):
     require_tenant_match(dealership_id, principal)
-    dealership = dealership_service.get_dealership_or_404(db, dealership_id)
+    dealership = dealership_service.get_dealer_dealership_or_404(db, dealership_id)
     location = get_location_or_404(db, dealership_id=dealership_id, location_id=location_id)
     profile = _locked_profile(db, dealership_id, if_match)
     service.add_image(db, store, profile=profile, location=location, kind=kind, data=image, actor_id=principal.user_id)
@@ -350,7 +350,7 @@ def reorder_publishing_images(
     db: Session = Depends(get_db),
 ):
     require_tenant_match(dealership_id, principal)
-    dealership = dealership_service.get_dealership_or_404(db, dealership_id)
+    dealership = dealership_service.get_dealer_dealership_or_404(db, dealership_id)
     location = get_location_or_404(db, dealership_id=dealership_id, location_id=location_id)
     profile = _locked_profile(db, dealership_id, if_match)
     service.reorder_images(
@@ -368,7 +368,7 @@ def set_primary_publishing_image(
     db: Session = Depends(get_db),
 ):
     require_tenant_match(dealership_id, principal)
-    dealership = dealership_service.get_dealership_or_404(db, dealership_id)
+    dealership = dealership_service.get_dealer_dealership_or_404(db, dealership_id)
     profile = _locked_profile(db, dealership_id, if_match)
     service.set_primary_image(db, profile=profile, image_id=image_id, actor_id=principal.user_id)
     return profile_read(db, dealership)
@@ -383,7 +383,7 @@ def get_publishing_image(
     store: ObjectStore = Depends(get_object_store),
 ) -> Response:
     require_tenant_match(dealership_id, principal)
-    dealership_service.get_dealership_or_404(db, dealership_id)
+    dealership_service.get_dealer_dealership_or_404(db, dealership_id)
     stored = service.read_image(db, store, dealership_id=dealership_id, image_id=image_id)
     return Response(content=stored.data, media_type=stored.content_type, headers=_FILE_HEADERS)
 
@@ -398,7 +398,7 @@ def delete_publishing_image(
     store: ObjectStore = Depends(get_object_store),
 ):
     require_tenant_match(dealership_id, principal)
-    dealership = dealership_service.get_dealership_or_404(db, dealership_id)
+    dealership = dealership_service.get_dealer_dealership_or_404(db, dealership_id)
     profile = _locked_profile(db, dealership_id, if_match)
     service.remove_image(db, store, profile=profile, image_id=image_id, actor_id=principal.user_id)
     return profile_read(db, dealership)
@@ -422,7 +422,7 @@ def set_lead_routing(
     manager may change it (403 `lead_email_manager_only`, KAN-734)."""
 
     require_tenant_match(dealership_id, principal)
-    dealership = dealership_service.get_dealership_or_404(db, dealership_id)
+    dealership = dealership_service.get_dealer_dealership_or_404(db, dealership_id)
     profile = _locked_profile(db, dealership_id, if_match)
     location = get_location_for_update_or_404(db, dealership_id=dealership_id, location_id=location_id)
     service.set_lead_routing(

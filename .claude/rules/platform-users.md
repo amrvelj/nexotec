@@ -79,7 +79,8 @@ from platform.md by KAN-614, 2026-11-10. Last verified against main@3b2bf69 (202
   `identity/services/recovery.py`, the search's in `identity/api/recovery.py`; the dialog says
   them by `details.rule` — whether to align them, KAN-450's item 4, is open with Anto, KAN-760).
 - **Platform tenant (KAN-221):** the one `dealership.kind = platform` row homes staff only;
-  listings leave it out or say why (`test_dealer_dealership_reads.py`); Betrieb routes 404 it.
+  listings leave it out or say why (`test_dealer_dealership_reads.py`); dealer configuration routes
+  404 it (`get_dealer_dealership_or_404`; mail: `is_platform_dealership`), identity routes do not (ADR-188).
 - `sales` is a module entitlement like `aftersales`: a service-only garage without it is a normal
   configuration.
 - Group-scoped reads live only in the files `tests/architecture/test_no_ambient_group_read.py`

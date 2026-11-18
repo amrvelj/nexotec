@@ -51,7 +51,7 @@ def get_branding(
     db: Session = Depends(get_db),
 ):
     require_tenant_match(dealership_id, principal)
-    dealership = dealership_service.get_dealership_or_404(db, dealership_id)
+    dealership = dealership_service.get_dealer_dealership_or_404(db, dealership_id)
     return branding_service.branding_read(db, dealership)
 
 
@@ -113,7 +113,7 @@ def get_branding_asset(
     (the read's `assets[].source` says which). 404 when there is no logo."""
 
     require_tenant_match(dealership_id, principal)
-    dealership_service.get_dealership_or_404(db, dealership_id)
+    dealership_service.get_dealer_dealership_or_404(db, dealership_id)
     stored = branding_service.read_asset(db, store, dealership_id=dealership_id, kind=BrandingAssetKind(kind.value))
     return Response(content=stored.data, media_type=stored.content_type, headers=_ASSET_HEADERS)
 
@@ -219,7 +219,7 @@ def get_branding_preview(
     correspondence language, with the saved logo, colours and placements."""
 
     require_tenant_match(dealership_id, principal)
-    dealership = dealership_service.get_dealership_or_404(db, dealership_id)
+    dealership = dealership_service.get_dealer_dealership_or_404(db, dealership_id)
     language = dealership.default_correspondence_language
     pdf = render_document(
         db,

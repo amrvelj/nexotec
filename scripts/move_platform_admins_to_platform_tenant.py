@@ -143,8 +143,12 @@ def _move(db: Session, *, user: User, new_email: str, actor_id: uuid.UUID, maile
         actor_roles=_STAFF,
         commit=False,
     )
-    identity.issue_invitation(db, mailer, user=new_account, actor_id=actor_id, ip_address="script")
     remaining = [AccessRole(role) for role in user.access_roles if role != AccessRole.PLATFORM_ADMIN.value]
+    # `update_user` commits the new account with the role change; a refusal
+    # rolls both back. The invitation goes out only after that commit, so no
+    # mail is ever sent for an account the row's refusal took back (invitation
+    # last, as onboarding does). A failed delivery is an auth event; staff
+    # reissue it through recovery.
     user_service.update_user(
         db,
         user=user,
@@ -153,6 +157,8 @@ def _move(db: Session, *, user: User, new_email: str, actor_id: uuid.UUID, maile
         actor_roles=_STAFF,
         reason=MOVE_REASON,
     )
+    identity.issue_invitation(db, mailer, user=new_account, actor_id=actor_id, ip_address="script")
+    db.commit()
     return new_account
 
 

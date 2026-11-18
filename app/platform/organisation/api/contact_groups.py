@@ -27,7 +27,7 @@ from app.db import get_db
 from app.platform.organisation.schemas.contact_group import ContactGroupList, ContactGroupRead, ContactGroupSwitch
 from app.platform.organisation.services import contact_group as contact_group_service
 from app.platform.organisation.services.contact_group import ContactGroupOption
-from app.platform.organisation.services.dealership import get_dealership_or_404
+from app.platform.organisation.services.dealership import get_dealer_dealership_or_404
 
 router = APIRouter(tags=["contact-groups"], route_class=IdempotentRoute)
 
@@ -53,7 +53,7 @@ def list_contact_groups(
     db: Session = Depends(get_db),
 ):
     require_tenant_match(dealership_id, principal)
-    get_dealership_or_404(db, dealership_id)
+    get_dealer_dealership_or_404(db, dealership_id)
     return ContactGroupList(items=[_read(o) for o in contact_group_service.list_contact_groups(db, dealership_id)])
 
 
@@ -66,7 +66,7 @@ def set_contact_group(
     db: Session = Depends(get_db),
 ):
     require_tenant_match(dealership_id, principal)
-    get_dealership_or_404(db, dealership_id)
+    get_dealer_dealership_or_404(db, dealership_id)
     option, _changed = contact_group_service.set_contact_group_enabled(
         db, dealership_id=dealership_id, value_code=value_code, enabled=body.enabled, actor_id=principal.user_id
     )
