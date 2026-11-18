@@ -4,11 +4,15 @@ the migrations import themselves, and the data files in those packages —
 derived from alembic/env.py's and the migrations' imports rather than kept as
 a list. The list missed app/core/enum_type.py, which env.py and every enum
 column import.
+
+KAN-732: an app/ change runs a lane whose pytest collects the SPA's
+backend-reading twin. The config lane runs this file too.
 """
 
 import importlib.machinery
 import importlib.util
 import pathlib
+import subprocess
 import sys
 
 import pytest
@@ -58,3 +62,25 @@ def test_when_the_inputs_cannot_be_derived_any_app_change_runs_the_lanes(check, 
     monkeypatch.setattr(check, "migration_inputs", lambda: None)
     assert "migrations" in check.lanes_for(["app/sales/api/contracts.py"])
     assert "migrations" not in check.lanes_for(["frontend/apps/dms/src/main.tsx"])
+
+
+# KAN-732: the SPA's backend-reading twin (KAN-679). A backend-only change must run it, or a new
+# refusal reason without its four sentences merges green and leaves main red. Narrowing the
+# backend lane's patterns or its pytest selection would drop it silently; this fails instead.
+# scripts/dev/check's config lane runs this file, so a diff touching only the check meets it.
+_TWIN = "tests/test_frontend_knows_backend_refusals.py"
+
+
+def test_an_app_change_runs_the_lane_that_collects_the_spa_refusal_twin(check):
+    assert "backend" in check.lanes_for(["app/x.py"])
+    collected = subprocess.run(
+        [sys.executable, *check.backend_pytest(parallel=False), "--collect-only", "-p", "no:cacheprovider"],
+        cwd=_CHECK.parents[2],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+    )
+    assert collected.returncode == 0, collected.stdout[-2000:]
+    assert any(line.startswith(_TWIN + "::") for line in collected.stdout.splitlines()), (
+        f"the backend lane's pytest no longer collects {_TWIN}"
+    )
