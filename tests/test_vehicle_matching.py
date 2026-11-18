@@ -58,3 +58,33 @@ def test_type_approval_match_code_2_always_requires_confirmation(db_session):
     assert result.rung == "type_approval"
     assert result.match_code == 2
     assert result.requires_confirmation is True
+
+
+def test_the_public_match_hands_out_a_frozen_value_never_the_row(db_session):
+    """KAN-754 (ADR-162): another context's match answers the record's id and
+    VIN as plain data — no `VehicleMdm` row it could change and flush."""
+
+    import dataclasses
+
+    import pytest
+
+    from app.vehicle.models.vehicle_mdm import VehicleMdm
+    from app.vehicle.public import ResolvedVehicleMdm, VehicleMatch
+    from app.vehicle.public import match_vehicle as public_match_vehicle
+
+    vehicle = create_vehicle_mdm(db_session, vin="ZAR94000007123456", catalogue_variant_id=None)
+
+    found = public_match_vehicle(db_session, vin="ZAR94000007123456", group_id=uuid.uuid4())
+
+    assert found == VehicleMatch(
+        rung="vin",
+        vehicle=ResolvedVehicleMdm(id=vehicle.id, vin="ZAR94000007123456"),
+        decisive=True,
+        requires_confirmation=False,
+    )
+    assert not isinstance(found.vehicle, VehicleMdm)
+    with pytest.raises(dataclasses.FrozenInstanceError):
+        found.vehicle.vin = "WVWZZZ1JZXW000001"  # type: ignore[misc,union-attr]
+
+    nothing = public_match_vehicle(db_session, vin="NOSUCHVIN00000000", group_id=uuid.uuid4())
+    assert (nothing.rung, nothing.vehicle) == ("no_match", None)

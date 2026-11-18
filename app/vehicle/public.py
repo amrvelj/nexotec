@@ -246,6 +246,21 @@ def has_current_energy_rating(db: Session, vehicle_id: uuid.UUID) -> bool:
     return _has_current_energy_rating(db, vehicle_id)
 
 
+@dataclasses.dataclass(frozen=True)
+class VehicleMatch:
+    """KAN-754 (ADR-162) — what the matching waterfall answers another
+    context: the rung that matched and the record as plain data
+    (`ResolvedVehicleMdm`, its id and VIN), never the live `VehicleMdm` row
+    that `app.vehicle.services.matching.MatchResult` carries for Vehicle's
+    own callers."""
+
+    rung: str  # "vin" | "stammnummer" | "plate" | "type_approval" | "no_match"
+    vehicle: ResolvedVehicleMdm | None
+    decisive: bool
+    requires_confirmation: bool
+    match_code: int | None = None  # only set on the type_approval rung
+
+
 def match_vehicle(
     db: Session,
     *,
@@ -255,22 +270,24 @@ def match_vehicle(
     canton: str | None = None,
     vehicle_kind: str | None = None,
     type_approval_number: str | None = None,
-    first_registration_date=None,
+    first_registration_date: dt.date | None = None,
     group_id: uuid.UUID,
-):
+) -> VehicleMatch:
     """WP-8 PR-5 — FR-S-08's trade-in plate/VIN search, the first consumer
     outside vehicle itself. `app.vehicle.services.matching` has no import
     of app.customer at all, so this one doesn't strictly need the deferred
-    idiom the three above do — kept as a plain top-level import for that
-    reason, re-exporting the exact same `MatchResult`.
+    idiom the three above do.
 
     `group_id` is required (KAN-467): a plate is matched in the caller's dealer
     group's register only — the caller passes the token's group.
+
+    KAN-754: the answer is a frozen `VehicleMatch` — the matched record's id
+    and VIN, never the row (ADR-162).
     """
 
     from app.vehicle.services.matching import match_vehicle as _match_vehicle
 
-    return _match_vehicle(
+    found = _match_vehicle(
         db,
         vin=vin,
         stammnummer=stammnummer,
@@ -280,6 +297,14 @@ def match_vehicle(
         type_approval_number=type_approval_number,
         first_registration_date=first_registration_date,
         group_id=group_id,
+    )
+    record = found.vehicle
+    return VehicleMatch(
+        rung=found.rung,
+        vehicle=ResolvedVehicleMdm(id=record.id, vin=record.vin) if record is not None else None,
+        decisive=found.decisive,
+        requires_confirmation=found.requires_confirmation,
+        match_code=found.match_code,
     )
 
 
@@ -485,6 +510,7 @@ __all__ = [
     "ProviderValuationInput",
     "ResolvedVehicleMdm",
     "VehicleExporter",
+    "VehicleMatch",
     "VehicleSummary",
     "apply_backfilled_holding",
     "check_plate_handover",

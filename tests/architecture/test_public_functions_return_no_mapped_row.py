@@ -45,8 +45,8 @@ _CONTEXTS = (
     "compliance",
 )
 
-# Shrink-only. KAN-754: `match_vehicle`'s `MatchResult.vehicle` is the live `VehicleMdm` row.
-_DEBT = {"app.vehicle.public.match_vehicle"}
+# Shrink-only. Empty since KAN-754 (`match_vehicle` answers a frozen `VehicleMatch`).
+_DEBT: set[str] = set()
 
 
 def _is_mapped_class(value: object) -> bool:
