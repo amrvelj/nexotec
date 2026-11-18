@@ -38,7 +38,8 @@
     "legalDocuments": "Legal documents",
     "status": "Status",
     "platformStatus": "Nexotec status",
-    "aiTexts": "AI texts"
+    "aiTexts": "AI texts",
+    "customerMail": "Customer mail"
   },
   "signOut": "Sign out",
   "environmentNotice": {

@@ -1,0 +1,85 @@
+{
+  "title": "Customer mail",
+  "subtitle": "Offers, contracts and other mail to customers leave only from a mailbox of your business – Microsoft 365 or Google Workspace. When a person has connected their own mailbox, their mail goes from there; otherwise from the business's mailbox. With none connected, the app cannot send customer mail.",
+  "loadError": "The customer mail settings could not be loaded.",
+  "providers": {
+    "microsoft_365_mail": "Microsoft 365",
+    "google_workspace_mail": "Google Workspace"
+  },
+  "status": {
+    "active": "Connected",
+    "error": "Error",
+    "disconnected": "Disconnected"
+  },
+  "business": {
+    "heading": "Business mailbox",
+    "none": "No business mailbox is connected yet.",
+    "connectedAs": "{{address}} via {{provider}}",
+    "connectTitle": "Connect the business mailbox",
+    "providerLabel": "Provider",
+    "addressLabel": "Mailbox address",
+    "addressPlaceholder": "info@your-business.ch",
+    "connect": "Connect",
+    "connectHint": "Then sign in at the provider as an administrator of your organisation.",
+    "disconnect": "Disconnect",
+    "confirmDisconnect": "Yes, disconnect",
+    "disconnectNote": "This disconnects in Nexotec only. The consent in your organisation stays until your IT removes the «Nexotec» app there.",
+    "providerNotConfigured": "Nexotec has not set up this provider yet.",
+    "readOnly": "Only a manager can connect or disconnect the business mailbox.",
+    "grantedTitle": "What you allow",
+    "granted": {
+      "microsoft_365_mail": "You allow the «Nexotec» app to send mail in your Microsoft 365 organisation. Microsoft grants this for every mailbox of your organisation. Nexotec sends only from the mailbox you connect here. Nexotec reads no mail.",
+      "google_workspace_mail": "Your administrator allows Nexotec's service account, in the Google Admin console, to send mail (domain-wide delegation, «gmail.send» only). Google grants this for every mailbox of your domain. Nexotec sends only from the mailbox you connect here. Nexotec reads no mail."
+    },
+    "restrictTitle": "How your IT restricts the permission",
+    "restrict": {
+      "microsoft_365_mail": "Your IT can restrict the permission to this one mailbox in Exchange Online: with «RBAC for Applications» (or the older application access policy) for the «Nexotec» app.",
+      "google_workspace_mail": "Your IT sets up the domain-wide delegation with the «gmail.send» scope only and can restrict it to an organisational unit holding just this mailbox."
+    }
+  },
+  "own": {
+    "heading": "My mailbox",
+    "intro": "Connect your own mailbox so customers get your mail from you and replies reach you. Sent mail appears in your «Sent» folder.",
+    "none": "You have not connected your own mailbox yet.",
+    "connect": "Connect with {{provider}}",
+    "disconnect": "Disconnect",
+    "confirmDisconnect": "Yes, disconnect",
+    "senderTitle": "Your customer mail goes from",
+    "sender": {
+      "user_mailbox": "your own mailbox: {{address}}",
+      "business_mailbox": "the business mailbox: {{address}}"
+    },
+    "privacy": "Nexotec only sends on your behalf and reads no mail. Your manager does not see your address."
+  },
+  "links": {
+    "ownScreen": "My mailbox",
+    "businessScreen": "Administration › Customer mail"
+  },
+  "callback": {
+    "working": "Connecting your mailbox …",
+    "consent": "On to the administrator's consent …",
+    "failedTitle": "The mailbox was not connected",
+    "connected": "The mailbox is connected."
+  },
+  "refusals": {
+    "mail_provider_not_configured": "Nexotec has not set up this provider yet.",
+    "mailbox_already_connected": "A mailbox is already connected. Disconnect it first.",
+    "link_expired": "This sign-in has expired or was already used. Please start again.",
+    "provider_declined": "The sign-in at the provider was cancelled or refused.",
+    "consent_incomplete": "The provider did not grant the permission to send. Please accept all permissions when you sign in.",
+    "tenant_bound_elsewhere": "This mailbox's organisation is already connected to a business of another group.",
+    "consent_not_granted": "The administrator did not grant the consent.",
+    "provider_unavailable": "The provider cannot be reached right now. Please try again in a moment.",
+    "no_mailbox_connected": "No mailbox is connected. Connect your own under «My mailbox», or a manager connects the business mailbox.",
+    "own_mailbox_in_error": "Your own mailbox cannot send right now. Reconnect it under «My mailbox».",
+    "business_mailbox_in_error": "The business mailbox cannot send right now. A manager reconnects it.",
+    "no_recipient": "The mail has no recipient.",
+    "already_disconnected": "This mailbox is already disconnected.",
+    "mail_provider_platform_only": "Nexotec sets up this provider. Connect your mailbox under Administration › Customer mail.",
+    "id_token_invalid": "The sign-in at the provider could not be confirmed. Please start again.",
+    "not_a_business_account": "Please sign in with your company's account, not a private one.",
+    "not_an_administrator": "Only an administrator of your organisation can connect the business mailbox.",
+    "mailbox_not_in_tenant": "This mailbox does not belong to the organisation you signed in with.",
+    "delegation_not_granted": "The domain-wide delegation for Nexotec is not set up in the Google Admin console yet."
+  }
+}

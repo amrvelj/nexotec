@@ -28,6 +28,13 @@ export type ConnectedAccountListRead = Schemas['ConnectedAccountListRead']
 // The manager's narrower read: provider, scopes, status (D-A-15).
 export type ConnectedAccountManagerRead = Schemas['ConnectedAccountManagerRead']
 export type ConnectedAccountManagerListRead = Schemas['ConnectedAccountManagerListRead']
+// KAN-215: customer mail through the dealer's own mailbox.
+export type MailProviderCode = Schemas['MailProviderCode']
+export type MailboxRead = Schemas['MailboxRead']
+export type BusinessMailboxRead = Schemas['BusinessMailboxRead']
+export type OwnMailboxRead = Schemas['OwnMailboxRead']
+export type LinkStartRead = Schemas['LinkStartRead']
+export type LinkOutcomeRead = Schemas['LinkOutcomeRead']
 // KAN-216: staff notifications — the inbox, the per-family preferences, Web Push.
 export type NotificationRead = Schemas['NotificationRead']
 export type NotificationPage = Schemas['NotificationPage']

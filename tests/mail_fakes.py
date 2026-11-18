@@ -183,7 +183,7 @@ class FakeMailProviders:
         self.sent.append(SentRecord(str(request.url), body, request.headers.get("authorization", "")))
         return httpx.Response(status, json=answer)
 
-    def _handle(self, request: httpx.Request) -> httpx.Response:  # noqa: C901 - one fake, many endpoints
+    def _handle(self, request: httpx.Request) -> httpx.Response:
         self.requests.append(request)
         url = urllib.parse.urlsplit(str(request.url))
         host, path = url.netloc, url.path

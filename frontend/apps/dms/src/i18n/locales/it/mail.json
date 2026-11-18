@@ -1,0 +1,85 @@
+{
+  "title": "E-mail ai clienti",
+  "subtitle": "Offerte, contratti e altre e-mail ai clienti partono solo da una casella della sua azienda – Microsoft 365 o Google Workspace. Se una persona ha collegato la propria casella, le sue e-mail partono da lì; altrimenti dalla casella dell'azienda. Se nessuna è collegata, l'app non può inviare e-mail ai clienti.",
+  "loadError": "Non è stato possibile caricare le impostazioni delle e-mail ai clienti.",
+  "providers": {
+    "microsoft_365_mail": "Microsoft 365",
+    "google_workspace_mail": "Google Workspace"
+  },
+  "status": {
+    "active": "Collegata",
+    "error": "Errore",
+    "disconnected": "Scollegata"
+  },
+  "business": {
+    "heading": "Casella dell'azienda",
+    "none": "Non è ancora collegata nessuna casella dell'azienda.",
+    "connectedAs": "{{address}} tramite {{provider}}",
+    "connectTitle": "Collegare la casella dell'azienda",
+    "providerLabel": "Fornitore",
+    "addressLabel": "Indirizzo della casella",
+    "addressPlaceholder": "info@la-sua-azienda.ch",
+    "connect": "Collega",
+    "connectHint": "Acceda poi presso il fornitore come amministratore della sua organizzazione.",
+    "disconnect": "Scollega",
+    "confirmDisconnect": "Sì, scollega",
+    "disconnectNote": "Lo scollegamento vale solo in Nexotec. Il consenso nella sua organizzazione resta valido finché il suo reparto IT non vi rimuove l'app «Nexotec».",
+    "providerNotConfigured": "Nexotec non ha ancora configurato questo fornitore.",
+    "readOnly": "Solo un manager può collegare o scollegare la casella dell'azienda.",
+    "grantedTitle": "Che cosa autorizza",
+    "granted": {
+      "microsoft_365_mail": "Autorizza l'app «Nexotec» a inviare e-mail nella sua organizzazione Microsoft 365. Microsoft concede questa autorizzazione per tutte le caselle della sua organizzazione. Nexotec invia solo dalla casella che collega qui. Nexotec non legge e-mail.",
+      "google_workspace_mail": "Il suo amministratore autorizza l'account di servizio di Nexotec, nella console di amministrazione Google, a inviare e-mail (delega a livello di dominio, solo «gmail.send»). Google concede questa autorizzazione per tutte le caselle del suo dominio. Nexotec invia solo dalla casella che collega qui. Nexotec non legge e-mail."
+    },
+    "restrictTitle": "Come il suo reparto IT limita l'autorizzazione",
+    "restrict": {
+      "microsoft_365_mail": "Il suo reparto IT può limitare l'autorizzazione a questa sola casella in Exchange Online: con «RBAC for Applications» (o la precedente Application Access Policy) per l'app «Nexotec».",
+      "google_workspace_mail": "Il suo reparto IT configura la delega a livello di dominio con il solo ambito «gmail.send» e può limitarla a un'unità organizzativa che contiene solo questa casella."
+    }
+  },
+  "own": {
+    "heading": "La mia casella",
+    "intro": "Colleghi la sua casella: i suoi clienti ricevono le e-mail da lei e le risposte arrivano a lei. Le e-mail inviate compaiono nella sua cartella «Posta inviata».",
+    "none": "Non ha ancora collegato la sua casella.",
+    "connect": "Collega con {{provider}}",
+    "disconnect": "Scollega",
+    "confirmDisconnect": "Sì, scollega",
+    "senderTitle": "Le sue e-mail ai clienti partono da",
+    "sender": {
+      "user_mailbox": "la sua casella: {{address}}",
+      "business_mailbox": "la casella dell'azienda: {{address}}"
+    },
+    "privacy": "Nexotec invia solo a suo nome e non legge e-mail. Il suo manager non vede il suo indirizzo."
+  },
+  "links": {
+    "ownScreen": "La mia casella",
+    "businessScreen": "Amministrazione › E-mail ai clienti"
+  },
+  "callback": {
+    "working": "La sua casella viene collegata …",
+    "consent": "Avanti verso il consenso dell'amministratore …",
+    "failedTitle": "La casella non è stata collegata",
+    "connected": "La casella è collegata."
+  },
+  "refusals": {
+    "mail_provider_not_configured": "Nexotec non ha ancora configurato questo fornitore.",
+    "mailbox_already_connected": "È già collegata una casella. La scolleghi prima.",
+    "link_expired": "Questo accesso è scaduto o è già stato utilizzato. Ricominci, per favore.",
+    "provider_declined": "L'accesso presso il fornitore è stato interrotto o rifiutato.",
+    "consent_incomplete": "Il fornitore non ha concesso l'autorizzazione all'invio. Accetti tutte le autorizzazioni durante l'accesso.",
+    "tenant_bound_elsewhere": "L'organizzazione di questa casella è già collegata a un'azienda di un altro gruppo.",
+    "consent_not_granted": "L'amministratore non ha dato il consenso.",
+    "provider_unavailable": "Il fornitore non è raggiungibile al momento. Riprovi tra poco.",
+    "no_mailbox_connected": "Non è collegata nessuna casella. Colleghi la sua sotto «La mia casella», oppure un manager collega la casella dell'azienda.",
+    "own_mailbox_in_error": "La sua casella non può inviare al momento. La ricolleghi sotto «La mia casella».",
+    "business_mailbox_in_error": "La casella dell'azienda non può inviare al momento. Un manager la ricollega.",
+    "no_recipient": "L'e-mail non ha destinatari.",
+    "already_disconnected": "Questa casella è già scollegata.",
+    "mail_provider_platform_only": "Questo fornitore viene configurato da Nexotec. Colleghi la sua casella sotto Amministrazione › E-mail ai clienti.",
+    "id_token_invalid": "Non è stato possibile confermare l'accesso presso il fornitore. Ricominci, per favore.",
+    "not_a_business_account": "Acceda con l'account della sua azienda, non con un account privato.",
+    "not_an_administrator": "Solo un amministratore della sua organizzazione può collegare la casella dell'azienda.",
+    "mailbox_not_in_tenant": "Questa casella non appartiene all'organizzazione con cui ha effettuato l'accesso.",
+    "delegation_not_granted": "La delega a livello di dominio per Nexotec non è ancora configurata nella console di amministrazione Google."
+  }
+}

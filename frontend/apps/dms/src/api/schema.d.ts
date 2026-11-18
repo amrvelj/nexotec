@@ -1666,6 +1666,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/dealerships/{dealership_id}/mail/business-mailbox": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Business Mailbox */
+        get: operations["get_business_mailbox_v1_dealerships__dealership_id__mail_business_mailbox_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/dealerships/{dealership_id}/mail/business-mailbox/links": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Start Business Mailbox Link */
+        post: operations["start_business_mailbox_link_v1_dealerships__dealership_id__mail_business_mailbox_links_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/dealerships/{dealership_id}/mail/business-mailbox/{mailbox_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Disconnect Business Mailbox */
+        delete: operations["disconnect_business_mailbox_v1_dealerships__dealership_id__mail_business_mailbox__mailbox_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/dealerships/{dealership_id}/number-range-confirmations": {
         parameters: {
             query?: never;
@@ -2759,6 +2810,74 @@ export interface paths {
         put?: never;
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/integrations/mail/link-callback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Complete Mailbox Link */
+        post: operations["complete_mailbox_link_v1_integrations_mail_link_callback_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/integrations/mail/own-mailbox": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Own Mailbox */
+        get: operations["get_own_mailbox_v1_integrations_mail_own_mailbox_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/integrations/mail/own-mailbox/links": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Start Own Mailbox Link */
+        post: operations["start_own_mailbox_link_v1_integrations_mail_own_mailbox_links_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/integrations/mail/own-mailbox/{mailbox_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Disconnect Own Mailbox */
+        delete: operations["disconnect_own_mailbox_v1_integrations_mail_own_mailbox__mailbox_id__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -5932,6 +6051,21 @@ export interface components {
              */
             secondaryColor?: string | null;
         };
+        /** BusinessLinkCreate */
+        BusinessLinkCreate: {
+            /**
+             * Mailboxaddress
+             * Format: email
+             */
+            mailboxAddress: string;
+            provider: components["schemas"]["MailProviderCode"];
+        };
+        /** BusinessMailboxRead */
+        BusinessMailboxRead: {
+            mailbox: components["schemas"]["MailboxRead"] | null;
+            /** Providers */
+            providers: components["schemas"]["MailProviderRead"][];
+        };
         /**
          * CalendarPeriod
          * @description `GET /v1/customers?updated_since_start_of=` — the current calendar day,
@@ -6933,7 +7067,7 @@ export interface components {
          * ConnectedAccountProvider
          * @enum {string}
          */
-        ConnectedAccountProvider: "microsoft_365";
+        ConnectedAccountProvider: "microsoft_365" | "google_workspace";
         /**
          * ConnectedAccountRead
          * @description What the user sees of their own grant: provider, account, scopes,
@@ -9689,6 +9823,38 @@ export interface components {
             factoryOptions?: components["schemas"]["LineItemFactoryOptionPatch"][];
         };
         /**
+         * LinkCallback
+         * @description The query the provider sent the browser back with, passed on by the SPA
+         *     as it came. `tenant` and `adminConsent` are only compared, never trusted.
+         */
+        LinkCallback: {
+            /** Adminconsent */
+            adminConsent?: string | null;
+            /** Code */
+            code?: string | null;
+            /** Error */
+            error?: string | null;
+            /** State */
+            state: string;
+            /** Tenant */
+            tenant?: string | null;
+        };
+        /** LinkOutcomeRead */
+        LinkOutcomeRead: {
+            kind: components["schemas"]["SendingIdentityKind"];
+            /** Mailboxid */
+            mailboxId: string | null;
+            /** Redirecturl */
+            redirectUrl: string | null;
+            /** Status */
+            status: string;
+        };
+        /** LinkStartRead */
+        LinkStartRead: {
+            /** Authorizeurl */
+            authorizeUrl: string;
+        };
+        /**
          * ListingTextSuggestionRead
          * @description A suggestion only: nothing was stored or published. The user takes it
          *     into the description and edits it.
@@ -10146,6 +10312,40 @@ export interface components {
              * @default true
              */
             ok?: boolean;
+        };
+        /**
+         * MailProviderCode
+         * @description The two mailbox providers (`integration_provider.provider_code`).
+         * @enum {string}
+         */
+        MailProviderCode: "microsoft_365_mail" | "google_workspace_mail";
+        /** MailProviderRead */
+        MailProviderRead: {
+            code: components["schemas"]["MailProviderCode"];
+            /** Configured */
+            configured: boolean;
+        };
+        /** MailboxRead */
+        MailboxRead: {
+            /**
+             * Connectedat
+             * Format: date-time
+             */
+            connectedAt: string;
+            /** Errorcode */
+            errorCode: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            kind: components["schemas"]["SendingIdentityKind"];
+            /** Mailboxaddress */
+            mailboxAddress: string;
+            provider: components["schemas"]["MailProviderCode"];
+            status: components["schemas"]["SendingIdentityStatus"];
+            /** Version */
+            version: number;
         };
         /** ManagerFlagUpdate */
         ManagerFlagUpdate: {
@@ -11086,6 +11286,15 @@ export interface components {
             /** Effectivefrom */
             effectiveFrom?: string | null;
             role: components["schemas"]["VehiclePartyRole"];
+        };
+        /** OwnMailboxRead */
+        OwnMailboxRead: {
+            mailbox: components["schemas"]["MailboxRead"] | null;
+            /** Providers */
+            providers: components["schemas"]["MailProviderRead"][];
+            sender: components["schemas"]["SenderRead"] | null;
+            /** Senderrefusal */
+            senderRefusal: string | null;
         };
         /**
          * OwnedGroupRead
@@ -12214,6 +12423,25 @@ export interface components {
             /** Secretvalue */
             secretValue: string;
         };
+        /**
+         * SenderRead
+         * @description What `resolve_sender` answers for the caller right now (D1 A).
+         */
+        SenderRead: {
+            /** Address */
+            address: string;
+            kind: components["schemas"]["SendingIdentityKind"];
+        };
+        /**
+         * SendingIdentityKind
+         * @enum {string}
+         */
+        SendingIdentityKind: "user_mailbox" | "business_mailbox";
+        /**
+         * SendingIdentityStatus
+         * @enum {string}
+         */
+        SendingIdentityStatus: "active" | "error" | "disconnected";
         /** SessionList */
         SessionList: {
             /** Items */
@@ -13448,6 +13676,10 @@ export interface components {
             /** Transfers */
             transfers: components["schemas"]["OwnershipTransferResult"][];
             user: components["schemas"]["UserAdminRead"];
+        };
+        /** UserLinkCreate */
+        UserLinkCreate: {
+            provider: components["schemas"]["MailProviderCode"];
         };
         /** UserPage */
         UserPage: {
@@ -18968,6 +19200,117 @@ export interface operations {
             };
         };
     };
+    get_business_mailbox_v1_dealerships__dealership_id__mail_business_mailbox_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BusinessMailboxRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    start_business_mailbox_link_v1_dealerships__dealership_id__mail_business_mailbox_links_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                dealership_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BusinessLinkCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LinkStartRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    disconnect_business_mailbox_v1_dealerships__dealership_id__mail_business_mailbox__mailbox_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                mailbox_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     confirm_number_ranges_v1_dealerships__dealership_id__number_range_confirmations_post: {
         parameters: {
             query?: never;
@@ -21808,6 +22151,151 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["UsageRead"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    complete_mailbox_link_v1_integrations_mail_link_callback_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LinkCallback"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LinkOutcomeRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_own_mailbox_v1_integrations_mail_own_mailbox_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OwnMailboxRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    start_own_mailbox_link_v1_integrations_mail_own_mailbox_links_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UserLinkCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LinkStartRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    disconnect_own_mailbox_v1_integrations_mail_own_mailbox__mailbox_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+                authorization?: string | null;
+            };
+            path: {
+                mailbox_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

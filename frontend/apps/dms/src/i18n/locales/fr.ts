@@ -28,6 +28,7 @@ import ns_integrationsList from './fr/integrationsList.json'
 import ns_legal from './fr/legal.json'
 import ns_letterhead from './fr/letterhead.json'
 import ns_locations from './fr/locations.json'
+import ns_mail from './fr/mail.json'
 import ns_mappingGaps from './fr/mappingGaps.json'
 import ns_notifications from './fr/notifications.json'
 import ns_numberRanges from './fr/numberRanges.json'
@@ -91,6 +92,7 @@ const bundle = {
   legal: ns_legal,
   letterhead: ns_letterhead,
   locations: ns_locations,
+  mail: ns_mail,
   mappingGaps: ns_mappingGaps,
   notifications: ns_notifications,
   numberRanges: ns_numberRanges,

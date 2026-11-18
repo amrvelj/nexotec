@@ -85,6 +85,30 @@ const REASON_KEYS: Record<string, string> = {
       'ai_provider_unavailable',
     ].map((reason) => [reason, `aiPrompts.refusals.${reason}`]),
   ),
+  // KAN-215 — customer mail through the dealer's own mailbox (`provider_unavailable`
+  // is said by KAN-552's entry below).
+  ...Object.fromEntries(
+    [
+      'already_disconnected',
+      'business_mailbox_in_error',
+      'consent_incomplete',
+      'consent_not_granted',
+      'delegation_not_granted',
+      'id_token_invalid',
+      'link_expired',
+      'mail_provider_not_configured',
+      'mail_provider_platform_only',
+      'mailbox_already_connected',
+      'mailbox_not_in_tenant',
+      'no_mailbox_connected',
+      'no_recipient',
+      'not_a_business_account',
+      'not_an_administrator',
+      'own_mailbox_in_error',
+      'provider_declined',
+      'tenant_bound_elsewhere',
+    ].map((reason) => [reason, `mail.refusals.${reason}`]),
+  ),
   // KAN-218 — the data export and offboarding.
   ...Object.fromEntries(
     [

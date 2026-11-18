@@ -18,6 +18,9 @@ the value lives in the secrets manager).
   the account itself is named only by its API key, which is a secret; the
   model is what tells two AI connections apart. `azure_openai` — the
   resource endpoint and the deployment.
+- `microsoft_365_mail`, `google_workspace_mail` (KAN-215) — Nexotec's own app
+  registration (its client id; Google's service account too), the one
+  platform-scope connection per provider.
 
 A provider added to the catalogue adds its line here;
 `tests/integration/test_integration_connection_location.py::test_every_provider_with_an_adapter_names_its_account_identifier`
@@ -40,6 +43,9 @@ ACCOUNT_IDENTIFIER_CONFIG_KEYS: dict[str, tuple[str, ...]] = {
     "mistral": ("model",),
     "anthropic": ("model",),
     "azure_openai": ("endpoint", "deployment"),
+    # KAN-215: Nexotec's own app registration at the mailbox provider.
+    "microsoft_365_mail": ("clientId",),
+    "google_workspace_mail": ("clientId", "serviceAccountEmail"),
 }
 
 _SEPARATOR = " · "

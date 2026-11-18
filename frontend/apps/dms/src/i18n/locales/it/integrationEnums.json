@@ -26,6 +26,7 @@
     "apiVersion": "Versione API",
     "kundennummer": "Numero cliente",
     "ftpHost": "Server FTP",
-    "ftpUsername": "Nome utente FTP"
+    "ftpUsername": "Nome utente FTP",
+    "serviceAccountEmail": "Account di servizio (e-mail)"
   }
 }

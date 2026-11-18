@@ -20,6 +20,7 @@ export const GATED_CAPABILITIES = [
   'number_ranges',
   'publishing_profile',
   'reference_lists',
+  'sending_identities',
   'sales_contracts',
   'sales_offers',
   'stock_acquisition',
