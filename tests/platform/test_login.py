@@ -3,7 +3,7 @@ A user is created with an invitation, accepts it through the recorded mail
 (the `mailbox` fixture) and signs in with `POST /v1/auth/login`; the
 session cookie is the same httpOnly RS256 token as before. The uniform
 refusal, throttling, tokens and MFA have their own modules
-(tests/test_identity_*.py); this one covers the session layer: cookie,
+(tests/platform/test_identity_*.py); this one covers the session layer: cookie,
 /auth/me, logout, switch-dealership, the per-dealership manager flag.
 """
 
