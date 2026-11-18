@@ -339,6 +339,9 @@ _READS = {
     # KAN-104 item 5: a document without a customer language prints in the Betrieb's default; a SELECT only.
     "app.platform.public.get_dealership_default_correspondence_language",
     "app.platform.public.get_dealership_or_404",
+    # KAN-221 (review, 2026-11-18): whether a Betrieb is the platform tenant, so
+    # integration's shared-mailbox routes 404 it; a SELECT only.
+    "app.platform.public.is_platform_dealership",
     # KAN-371: the History tab's Betrieb and user names, group-scoped; a SELECT only.
     "app.platform.public.get_group_display_labels",
     # KAN-722: the offboarded Betriebe of a group and their sole authors, which the
