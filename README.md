@@ -164,8 +164,12 @@ carries a mock connection (KAN-489).
 
 Structured JSON logs with `correlationId`/`tenantId` on every line always
 apply — no external service required. `X-Correlation-Id` is accepted on
-the way in and echoed back on the way out; a request without one gets a
-generated one. `GET /v1/readyz` checks the database is actually reachable
+the way in and echoed back on the way out; a request without one, or with
+one that is not a UUID, gets a generated one. Every event the request
+publishes carries that id as its `correlationId`; an event a consumer
+publishes carries its parent's, with the parent's `eventId` as its
+`causationId`; each daily job run has its own (KAN-125,
+`app/core/correlation.py`). `GET /v1/readyz` checks the database is actually reachable
 (`GET /v1/healthz` deliberately stays a static liveness reply — see its own
 docstring for why touching the database there would be the wrong design).
 

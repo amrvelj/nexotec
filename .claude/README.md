@@ -43,10 +43,10 @@ after a change.
 | `.claude/settings.json` | every session | Model and effort, permissions, hooks, env |
 | `.claude/launch.json` | desktop preview | `nexotec-api` (:8000), `nexotec-frontend` (:5173), `nexotec-prototype` (:8123) |
 | `.worktreeinclude` | worktree creation | Copies the gitignored `.env` into new worktrees |
-| `scripts/dev/bootstrap` | once per checkout, and in every cloud session | Own `.venv`, `npm ci`, own test and dev databases, `.env` |
+| `scripts/dev/bootstrap` | once per checkout, and in every cloud session | Own `.venv`, `npm ci`, own test and dev databases, `.env`; re-installs from `pyproject.toml` when it is newer than `.venv/.nexotec-installed` or `uv pip check` finds a conflict with the pins (KAN-385) |
 | `scripts/dev/cloud-postgres` | cloud sessions, from bootstrap and check | Starts the cloud machine's own Postgres 16 with the `dms` user |
 | `scripts/dev/run-api` | desktop preview (`nexotec-api`) | Starts this checkout's uvicorn with the macOS library path set |
-| `scripts/dev/check` | before every push | CI-equivalent lanes (pytest on one Postgres database per worker, KAN-627); records a pass for the exact tree, with the lanes left out and the test counts |
+| `scripts/dev/check` | before every push | CI-equivalent lanes (pytest on one Postgres database per worker, KAN-627); records a pass for the exact tree, with the lanes left out and the test counts. Before any lane that runs Python it compares the `.venv` with `pyproject.toml` (KAN-385): a marker older than `pyproject.toml` or a conflict `uv pip check` (else `pip check`) reports records a FAIL, runs no lane and names `scripts/dev/bootstrap` |
 | `scripts/dev/gate` | any time | Gate status, ticket start/close, waivers |
 | `scripts/dev/api-type` | any time | One schema or API path from the generated `schema.d.ts`, which is never read whole (KAN-618) |
 | `scripts/dev/overlap` | `/ticket` step 3 (the plan's paths or globs) and step 6 (the branch's changes) | Which open PRs change the same files, with their ticket and head, and which add a revision to the same Alembic chain; REST only, file names only (never another PR's diff), never blocks, exit 0; `--json` for callers, `--selftest` in the `config` lane (KAN-684) |
@@ -105,7 +105,9 @@ is bound to the current tree and must be stated in Claude's reply. Claude Code r
 gate after eight blocks in a row without progress, so no session can be trapped. A hook that
 crashes never blocks (fail-open with a message); a missing hook script exits 0.
 
-`scripts/dev/gate status` prints what the push and the hand-over would say right now.
+`scripts/dev/gate status` prints what the push and the hand-over would say right now, and on its
+`Venv` line the installed `cryptography`, `webauthn`, `argon2-cffi` and `pyotp` beside the check
+result, with `STALE` when `pyproject.toml` is newer than the last install (KAN-385).
 
 ## One-time machine setup (macOS)
 
@@ -216,7 +218,9 @@ transaction) — and never change it.
   once it is merged and their checkout is up to date.
 - `scripts/dev/check` runs the `config` lane whenever `.claude/`, `CLAUDE.md` or `scripts/dev/`
   change: JSON validity, hook selftest, frontmatter, the CLAUDE.md line budget, the rule budget
-  (`scripts/rule_budget.py check`, top of this file).
+  (`scripts/rule_budget.py check`, top of this file), and `tests/test_dev_check_lanes.py` — the
+  check's own lane choice, which a diff touching only `scripts/dev/` would otherwise never run
+  (KAN-732). The config lane needs the `.venv` for it.
 - Rule files carry a maintainer note (an HTML comment, stripped before Claude sees it) naming
   their Notion sources and the commit they were verified against. `/drift-audit` compares them
   weekly with Notion and the code and files tickets for what drifted.

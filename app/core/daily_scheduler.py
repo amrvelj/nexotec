@@ -42,6 +42,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.base import utcnow
+from app.core.correlation import correlation_scope
 from app.core.daily_scheduler_model import DailyJobRun
 
 logger = logging.getLogger("app.core.daily_scheduler")
@@ -167,18 +168,21 @@ def run_due_daily_jobs(db: Session, *, today: dt.date | None = None, now: dt.dat
             continue
         if _has_run_today(db, job_name=job_name, today=today):
             continue
-        try:
-            job(db)
-            db.add(DailyJobRun(job_name=job_name, run_date=today))
-            db.commit()
-        except Exception:
-            db.rollback()
-            alarm, message, extra = _record_failure(job_name, now if clock_given else utcnow())
-            if alarm:
-                logger.exception(message, extra=extra)
-            else:
-                logger.warning(message, exc_info=True, extra=extra)
-            continue
-        ran.append(job_name)
-        _record_success(job_name, now if clock_given else utcnow())
+        # KAN-125: each run is its own piece of work - a fresh correlation id for every event it
+        # publishes and every line it logs, its failure and recovery lines included.
+        with correlation_scope():
+            try:
+                job(db)
+                db.add(DailyJobRun(job_name=job_name, run_date=today))
+                db.commit()
+            except Exception:
+                db.rollback()
+                alarm, message, extra = _record_failure(job_name, now if clock_given else utcnow())
+                if alarm:
+                    logger.exception(message, extra=extra)
+                else:
+                    logger.warning(message, exc_info=True, extra=extra)
+                continue
+            ran.append(job_name)
+            _record_success(job_name, now if clock_given else utcnow())
     return ran

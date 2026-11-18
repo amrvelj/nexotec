@@ -1111,6 +1111,79 @@ def venv_status(root):
     return True, "own .venv, installed from this checkout, first on PATH"
 
 
+# KAN-385: the security libraries pyproject.toml pins, shown by `gate status` beside the check result.
+VENV_PINNED = ("cryptography", "webauthn", "argon2-cffi", "pyotp")
+VENV_MARKER = os.path.join(".venv", ".nexotec-installed")  # scripts/dev/bootstrap touches it after each install
+
+
+def pinned_versions(root):
+    """{distribution: installed version or None} for VENV_PINNED, read from .venv's dist-info
+    METADATA (no interpreter started)."""
+    found = {name: None for name in VENV_PINNED}
+    wanted = {re.sub(r"[-_.]+", "-", name).lower(): name for name in VENV_PINNED}
+    for meta in glob.glob(os.path.join(root, ".venv", "lib", "python3*", "site-packages", "*.dist-info", "METADATA")):
+        try:
+            with open(meta, encoding="utf-8", errors="replace") as fh:
+                head = fh.read(4096)
+        except OSError:
+            continue
+        name = re.search(r"^Name:\s*(\S+)", head, re.M)
+        version = re.search(r"^Version:\s*(\S+)", head, re.M)
+        key = re.sub(r"[-_.]+", "-", name.group(1)).lower() if name else None
+        if key in wanted and version:
+            found[wanted[key]] = version.group(1)
+    return found
+
+
+def dependency_check(root):
+    """(returncode, output) of `uv pip check` against .venv, else of its pip's `pip check`;
+    (None, why) when neither can run - a uv-built .venv holds no pip."""
+    py = os.path.join(root, ".venv", "bin", "python")
+    if not os.access(py, os.X_OK):
+        return None, ".venv/bin/python is missing"
+
+    def merged(cmd):  # uv reports on stderr, pip on stdout
+        try:
+            proc = subprocess.run(cmd, cwd=root, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                  universal_newlines=True, timeout=60)
+        except (OSError, subprocess.TimeoutExpired):
+            return 127, ""
+        lines = [l for l in proc.stdout.splitlines() if l.strip() and not l.startswith("warning:")]
+        return proc.returncode, "\n".join(lines)
+    if shutil.which("uv"):
+        rc, out = merged(["uv", "pip", "check", "--python", py])
+        if rc != 127:
+            return rc, out
+    if run([py, "-m", "pip", "--version"], cwd=root, timeout=30)[0] != 0:
+        return None, "neither `uv` nor the .venv's pip is available"
+    return merged([py, "-m", "pip", "check"])
+
+
+def venv_drift(root, check_dependencies=True):
+    """KAN-385: why this checkout's .venv may not be what pyproject.toml installs, as a list of
+    sentences; [] when it is. The install marker must be at least as new as pyproject.toml (the
+    rule bootstrap syncs by), and `uv pip check` (or `pip check`) must find no conflict with the
+    pins - a hand-run `pip install` or a sync from another pyproject leaves a fresh marker."""
+    problems = []
+    marker, pyproject = os.path.join(root, VENV_MARKER), os.path.join(root, "pyproject.toml")
+    if not os.path.isdir(os.path.join(root, ".venv")):
+        return ["this checkout has no .venv"]
+    if not os.path.exists(marker):
+        problems.append("{} is missing, so nothing says the .venv was installed from this pyproject.toml"
+                        .format(VENV_MARKER))
+    elif os.path.exists(pyproject) and os.path.getmtime(pyproject) > os.path.getmtime(marker):
+        problems.append("pyproject.toml is newer than the last install ({}), so the .venv may hold other "
+                        "versions than its pins".format(VENV_MARKER))
+    if check_dependencies:
+        rc, out = dependency_check(root)
+        if rc is None:
+            problems.append("the installed packages could not be checked against the pins: " + out)
+        elif rc != 0:
+            lines = [l for l in out.splitlines() if not re.match(r"Checked \d+ packages?", l)][:6]
+            problems.append("the installed packages conflict with the pins:\n    " + "\n    ".join(lines))
+    return problems
+
+
 DARWIN_LIBRARY_PATH = "/opt/homebrew/lib:/usr/local/lib:{}/lib:/usr/lib".format(os.path.expanduser("~"))
 
 
@@ -2747,6 +2820,11 @@ def cli(argv):
     if cmd == "fingerprint":
         print(fingerprint(root) or "")
         return 0
+    if cmd == "venv-drift":
+        # KAN-385: scripts/dev/check refuses to record a pass on a .venv pyproject.toml cannot produce.
+        problems = venv_drift(root)
+        print("\n".join("- " + p for p in problems))
+        return 1 if problems else 0
     if cmd == "stamp-checks":
         if len(rest) < 2 or rest[1] not in ("pass", "fail"):
             print("usage: stamp-checks <tree> pass|fail [lanes...] [not-run=<lanes,>] [counts=<text>]",
@@ -2794,6 +2872,14 @@ def cli(argv):
                                      "none - `scripts/dev/gate start KAN-<n> <url>` registers one"))
         print("Check    : {} for tree {} ({})".format(checks.get("result", "never run"),
                                                       (checks.get("tree") or "-")[:12], checks.get("at", "-")))
+        # KAN-385: what the check runs on - the pinned security libraries, and whether the install
+        # marker is current (the marker only: `uv pip check` is left to scripts/dev/check).
+        versions = pinned_versions(root)
+        drift = venv_drift(root, check_dependencies=False)
+        print("Venv     : {} - {}".format(
+            " · ".join("{} {}".format(name, versions[name] or "not installed") for name in VENV_PINNED),
+            "STALE: " + drift[0] + "; run `scripts/dev/bootstrap`" if drift else
+            "install marker current (pins checked by scripts/dev/check)"))
         review = latest([r for r in events(state, "review") if r.get("tree") == fp])
         print("Review   : {}".format(
             "{} for this code{}".format(review.get("verdict"), " ({}: {})".format(review.get("mode"), review["reason"])
@@ -2837,6 +2923,32 @@ def selftest():
     """Cheap assertions run by scripts/dev/check whenever .claude/ changes."""
     def words(command):
         return [w for w, _r in shell_commands(command)]
+
+    # --- KAN-385: a .venv pyproject.toml cannot produce (the comparison; the conflict check is
+    # `uv pip check`'s own, shown by a dry run)
+    venv_root = tempfile.mkdtemp(prefix="nexotec-selftest-venv-")
+    try:
+        assert venv_drift(venv_root, check_dependencies=False) == ["this checkout has no .venv"]
+        site = os.path.join(venv_root, ".venv", "lib", "python3.13", "site-packages")
+        os.makedirs(os.path.join(site, "argon2_cffi-25.1.0.dist-info"))
+        with open(os.path.join(site, "argon2_cffi-25.1.0.dist-info", "METADATA"), "w") as fh:
+            fh.write("Metadata-Version: 2.4\nName: argon2-cffi\nVersion: 25.1.0\n")
+        pyproject, marker = os.path.join(venv_root, "pyproject.toml"), os.path.join(venv_root, VENV_MARKER)
+        open(pyproject, "w").close()
+        drift = venv_drift(venv_root, check_dependencies=False)
+        assert len(drift) == 1 and "is missing" in drift[0], drift
+        open(marker, "w").close()
+        os.utime(pyproject, (1_700_000_000, 1_700_000_000))
+        os.utime(marker, (1_700_000_000, 1_700_000_000))
+        assert venv_drift(venv_root, check_dependencies=False) == [], "a marker as new as pyproject.toml is fresh"
+        os.utime(marker, (1_699_999_000, 1_699_999_000))  # touch -d: installed before pyproject.toml changed
+        drift = venv_drift(venv_root, check_dependencies=False)
+        assert len(drift) == 1 and "pyproject.toml is newer than the last install" in drift[0], drift
+        assert pinned_versions(venv_root) == {"cryptography": None, "webauthn": None, "argon2-cffi": "25.1.0",
+                                              "pyotp": None}, pinned_versions(venv_root)
+        assert dependency_check(venv_root) == (None, ".venv/bin/python is missing")  # not a "conflict"
+    finally:
+        shutil.rmtree(venv_root, ignore_errors=True)
 
     # --- reading shell commands
     assert words("cd x && git push -u origin HEAD") == [["cd", "x"], ["git", "push", "-u", "origin", "HEAD"]]

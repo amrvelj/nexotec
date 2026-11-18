@@ -17,14 +17,14 @@ every function — the entire point is that a log line logged deep inside a
 service function, with no access to the request at all, still carries them.
 Both are request-scoped via ObservabilityMiddleware below, which resets
 them on the way out so they never leak into a next request handled by the
-same worker.
+same worker. The correlation id lives in app.core.correlation (KAN-125):
+the outbox, the consumer harness and the daily jobs read and set it too.
 """
 
 import contextvars
 import json
 import logging
 import time
-import uuid
 from typing import Any, Literal
 
 import jwt
@@ -37,6 +37,7 @@ from starlette.types import ASGIApp
 
 from app.core.auth import SESSION_COOKIE_NAME
 from app.core.config import get_settings
+from app.core.correlation import correlation_id_from_header, correlation_scope, get_correlation_id
 from app.core.redact import REDACTED_PLACEHOLDER, SECRET_FIELDS, is_secret_field
 
 CORRELATION_ID_HEADER = "X-Correlation-Id"
@@ -102,7 +103,6 @@ def record_label_age_seconds(label: str, seconds: float | None) -> None:
     if seconds is not None:
         _label_age_gauge.set(seconds, attributes={"label": label})
 
-_correlation_id: contextvars.ContextVar[str | None] = contextvars.ContextVar("correlation_id", default=None)
 _tenant_id: contextvars.ContextVar[str | None] = contextvars.ContextVar("tenant_id", default=None)
 
 # What logging.LogRecord already carries before any `extra={}` is merged in
@@ -114,10 +114,6 @@ _STANDARD_LOG_RECORD_ATTRS = frozenset(vars(logging.LogRecord("", 0, "", 0, "", 
     "asctime",
     "taskName",
 }
-
-
-def get_correlation_id() -> str | None:
-    return _correlation_id.get()
 
 
 def get_tenant_id() -> str | None:
@@ -307,8 +303,13 @@ class ObservabilityMiddleware(BaseHTTPMiddleware):
         self._logger = logging.getLogger("app.http")
 
     async def dispatch(self, request: Request, call_next) -> Response:
-        correlation_id = request.headers.get(CORRELATION_ID_HEADER) or str(uuid.uuid4())
-        correlation_token = _correlation_id.set(correlation_id)
+        # KAN-125: the id every event this request publishes carries (app.core.outbox.publish).
+        # A header that is not a UUID is caller input the outbox cannot store: a fresh id
+        # replaces it, and the response header says which.
+        with correlation_scope(correlation_id_from_header(request.headers.get(CORRELATION_ID_HEADER))) as scoped:
+            return await self._dispatch(request, call_next, str(scoped))
+
+    async def _dispatch(self, request: Request, call_next, correlation_id: str) -> Response:
         tenant_id = _peek_tenant_id(request)
         tenant_token = _tenant_id.set(tenant_id)
 
@@ -345,5 +346,4 @@ class ObservabilityMiddleware(BaseHTTPMiddleware):
             response.headers[CORRELATION_ID_HEADER] = correlation_id
             return response
         finally:
-            _correlation_id.reset(correlation_token)
             _tenant_id.reset(tenant_token)

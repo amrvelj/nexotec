@@ -16,6 +16,7 @@ from collections.abc import Callable
 from sqlalchemy.orm import Session
 
 from app.core.base import utcnow
+from app.core.correlation import correlation_scope
 from app.core.outbox_model import OutboxMessage
 from app.core.processed_event_model import ProcessedEvent
 
@@ -35,7 +36,11 @@ def consume_once(db: Session, *, message: OutboxMessage, consumer_name: str, han
     if existing is not None:
         return False
 
-    handler(db, message)
+    # KAN-125: while the handler runs, the consumed message is the context - every event it
+    # publishes carries the message's correlation_id and the message's id as its cause, and every
+    # log line the correlation_id. Reset on the way out, success or failure.
+    with correlation_scope(message.correlation_id, causation_id=message.id):
+        handler(db, message)
     db.add(ProcessedEvent(event_id=message.id, consumer_name=consumer_name, processed_at=utcnow()))
     db.commit()
     return True

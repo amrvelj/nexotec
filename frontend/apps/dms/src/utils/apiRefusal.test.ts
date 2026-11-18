@@ -190,10 +190,17 @@ describe('the reason table', () => {
     /^(?:REFUSAL_REASON|COLLEAGUE_CANNOT_ACT_THERE)\s*=\s*"([a-z0-9_]+)"/gm,
     /reason: str = "([a-z0-9_]+)"/g,
   ]
-  it('scans app/ for the same literal forms as its backend-lane twin (KAN-679)', () => {
+  // KAN-732: the flags too — a pattern without `re.MULTILINE` (or `m`) quietly misses the
+  // `REFUSAL_REASON = "…"` form, whose `^` would then match the file's start only.
+  it('scans app/ for the same literal forms, with the same flags, as its backend-lane twin (KAN-679, KAN-732)', () => {
     const twin = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', '..', '..', 'tests', 'test_frontend_knows_backend_refusals.py'), 'utf-8')
-    const declared = [...twin.matchAll(/^\s*re\.compile\(r'(.*)'(?:, re\.MULTILINE)?\),$/gm)].map((m) => m[1])
-    expect(declared).toEqual(REASON_LITERALS.map((pattern) => pattern.source))
+    const declared = [...twin.matchAll(/^\s*re\.compile\(r'(.*)'(, re\.MULTILINE)?\),$/gm)].map((m) => ({
+      source: m[1],
+      multiline: m[2] !== undefined,
+    }))
+    expect(declared).toEqual(REASON_LITERALS.map((pattern) => ({ source: pattern.source, multiline: pattern.flags.includes('m') })))
+    // matchAll needs `g`; the twin's findall has no such flag.
+    expect(REASON_LITERALS.filter((pattern) => !pattern.flags.includes('g'))).toEqual([])
   })
   it("lists REASON_KEYS' reasons where the backend-lane twin reads them (KAN-679)", () => {
     const source = readFileSync(join(dirname(fileURLToPath(import.meta.url)), 'apiRefusal.ts'), 'utf-8')
