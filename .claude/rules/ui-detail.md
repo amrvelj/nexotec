@@ -25,7 +25,7 @@ paths:
 # Detail screens, overlays and actions
 
 - **ADR-061** — every detail screen: **one primary action, one alternative, and an overflow
-  carrying the entity's full row menu** — same items, same order. The row menu is the single
+  carrying the entity's full row menu** — same items, same order, same disabled-with-explanation entries. The row menu is the single
   definition of what can be done to an entity; list and detail both render from it. **Edit is no
   primary anywhere** (fields edit inline), and no primary only selects a tab
   (`src/architecture/detail-header-primary-is-not-a-tab-switch.test.ts`). Disabled-with-explanation

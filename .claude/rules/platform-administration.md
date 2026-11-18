@@ -1,6 +1,8 @@
 ---
 paths:
   - "app/platform/administration/**"
+  - "app/platform/daily_jobs.py"
+  - "app/platform/organisation/services/group_read_dealerships.py"
   - "app/platform/identity/*/onboarding.py"
   - "app/platform/identity/*/legal*.py"
   - "app/core/setup_checklist.py"

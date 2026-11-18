@@ -52,7 +52,8 @@ sales-reconciliation.md. Last verified against main@3b2bf69 (2026-11-18). -->
   without an offer keeps its own row. Generating a document re-projects it.
 - **Row locks offer → contract → deal**, after the customer's attach lock (ADR-135,
   `customer_attach_lock.py`) that a buyer attach, an offer copy, `sales.customer_merged` and any
-  new write changing a deal's customer take. `upsert_deal_projection`
+  new write changing a deal's customer take (never a FOR SHARE read through `customer.public`,
+  ADR-047). `upsert_deal_projection`
   flushes its caller's changes first, the customer merge's repointing flushes in the same order,
   and an offer's or contract's row is written or locked (`priced_deal.lock_editable`) before its
   line items.

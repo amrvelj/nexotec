@@ -52,6 +52,7 @@ paths:
   - "tests/test_seed_staging_demo.py"
   - "app/core/object_store.py"
   - "scripts/check_stored_objects.py"
+  - "app/platform/administration/services/stored_objects_check.py"
   - "tests/platform/test_kan402_*.py"
   - "scripts/retire_staging_shared_demo_user.py"
   - "frontend/apps/dms/src/auth/gatedCapabilities.ts"
@@ -76,7 +77,7 @@ from platform.md by KAN-614, 2026-11-10. Last verified against main@3b2bf69 (202
   "dealership" (some "dealer" or "tenant"); the Locations and Branding refusals say *business*
   (KAN-204, KAN-205); the recovery door's four refusals say *Betrieb* (three in
   `identity/services/recovery.py`, the search's in `identity/api/recovery.py`; the dialog says
-  them by `details.rule` — whether to align them, KAN-450's item 4, is unanswered).
+  them by `details.rule` — whether to align them, KAN-450's item 4, is open with Anto, KAN-760).
 - `sales` is a module entitlement like `aftersales`: a service-only garage without it is a normal
   configuration.
 - Group-scoped reads live only in the files `tests/architecture/test_no_ambient_group_read.py`

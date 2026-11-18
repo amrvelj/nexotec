@@ -53,7 +53,8 @@ main@3b2bf69 (2026-11-18). -->
   `details.reason` (`REASON_KEYS` — `apiRefusal.test.ts` and its backend-lane twin
   `tests/test_frontend_knows_backend_refusals.py` fail on a `"reason": "…"` in `app/` it does not
   translate, unless `utils/notARefusalReasons.json` lists it as a log or event value, and where;
-  the vitest file pins the twin's patterns and flags, KAN-679/KAN-732; a value the details carry
+  the vitest file pins the twin's patterns and flags, `tests/test_dev_check_lanes.py` that an `app/`
+  diff runs the twin, KAN-679/KAN-732; a value the details carry
   goes through `REASON_PARAMS`); a 403, 404 and schema 422
   by status; anything else, a business rule refused without a reason included, is the screen's own
   key — so give such a refusal a `details.reason`. A screen with its own wording for a reason
