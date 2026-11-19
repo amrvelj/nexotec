@@ -39,6 +39,10 @@ _ALLOWED: dict[str, str] = {
     "app/platform/identity/services/recovery.py::account_states": (
         "the names of the found users' own home Betriebe — staff's home is the platform tenant, and says so"
     ),
+    "app/platform/identity/services/support_sessions.py::list_support_sessions": (
+        "the names of the Betriebe the listed support sessions ran in, by id; a session never targets the "
+        "platform tenant (support_target_platform_tenant)"
+    ),
     "app/platform/identity/services/user_preference.py::default_ui_language": _BY_ID,
     "app/platform/identity/services/user_reads.py::list_user_dealer_group_ids": (
         "the groups of one user's own Betriebe, by id; the Nexotec group holds no customers or records"
