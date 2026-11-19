@@ -248,11 +248,18 @@ class _HttpMailAdapter:
 
     @staticmethod
     def _oauth_error(response: httpx.Response) -> str | None:
+        """The OAuth `error` code alone (`invalid_grant`, `invalid_client`, …)
+        — a closed vocabulary, so only a word of letters, digits and
+        underscores is read; anything else (prose under `error`, Graph's
+        dict-shaped error) is None. It lands on the call-log row (KAN-767),
+        which never holds a provider's prose."""
+
         try:
             body = response.json()
         except ValueError:
             return None
-        return body.get("error") if isinstance(body, dict) and isinstance(body.get("error"), str) else None
+        code = body.get("error") if isinstance(body, dict) else None
+        return code if isinstance(code, str) and code.replace("_", "").isalnum() else None
 
     def _json(self, response: httpx.Response) -> dict[str, Any]:
         try:

@@ -447,7 +447,8 @@ describe('CatalogueBrowseGrid is a live, bounded provider query (KAN-548)', () =
 
   it.each([
     ['notConfigured', 'catalogueBrowse.notConfigured.title'],
-    ['notInContract', 'catalogueBrowse.notInContract.title'],
+    // KAN-767: without a refusal naming an ungranted option the title is the neutral one (Anto, 2026-11-19).
+    ['notInContract', 'catalogueBrowse.notInContract.refusedTitle'],
     ['unavailable', 'catalogueBrowse.unavailable.title'],
   ])('the provider state %s is an alert, never a broken grid', async (state, titleKey) => {
     installFakeBackend([

@@ -147,7 +147,6 @@ function narrowCataloguePredicates(stored: FilterPredicate[]): FilterPredicate[]
   return offeredPredicates(readLegacyCataloguePredicates(stored), CATALOGUE_FILTER_SCOPE)
 }
 
-
 // KAN-767: the catalogue query a `notInContract` answer refused, in the UI language.
 const REFUSED_OPERATION_KEYS: Record<CatalogueBrowseOperation, string> = {
   brands: 'catalogueBrowse.notInContract.operation.brands',
@@ -475,9 +474,10 @@ export function CatalogueBrowseGrid({ mode, onSelectVariant }: CatalogueBrowseGr
       <Alert
         icon={<ShieldOff size={16} />}
         color="yellow"
-        // KAN-767 (Anto, 2026-11-19): a refusal no licence option explains
-        // gets a neutral title — the contract gap is not proven.
-        title={t(refusal && !refusal.licenceOption ? 'catalogueBrowse.notInContract.refusedTitle' : 'catalogueBrowse.notInContract.title')}
+        // KAN-767 (Anto, 2026-11-19): only a licence option the probe
+        // recorded as not granted proves a contract gap; any other refusal
+        // (an older answer without `refusal` included) gets the neutral title.
+        title={t(refusal?.licenceOption ? 'catalogueBrowse.notInContract.title' : 'catalogueBrowse.notInContract.refusedTitle')}
         data-testid="catalogue-state-notInContract"
       >
         {refusal === null
