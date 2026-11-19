@@ -302,3 +302,24 @@ def test_test_connection_with_a_refused_key_reads_error_in_our_words(db_session,
     assert tested.status == ConnectionStatus.ERROR
     assert tested.last_error == "Anthropic refused the API key (HTTP 401) — check the key."
     resilience.record_success(connection.id)
+
+
+def test_kan767_a_refused_completion_records_its_status_and_no_provider_text(db_session, fake_provider):
+    """KAN-767: the attempt's HTTP status lands on its row; an AI provider's
+    error text is prose (it can quote the prompt), so no identifier is kept."""
+
+    fake_provider(Recorder(status=403, body={"error": {"message": "secret internal detail sk-leak"}}))
+    connection = _connection(db_session, "openai", {"model": "m"})
+
+    with (
+        pytest.raises(ProviderNotEntitledError),
+        gateway.call_capability(
+            db_session, connection=connection, capability="ai_text_generation", purpose="vehicle_listing"
+        ) as adapter,
+    ):
+        adapter.complete(system_prompt="S", user_prompt="U", max_output_tokens=10)  # type: ignore[attr-defined]
+
+    rows = db_session.scalars(select(IntegrationCallLog).where(IntegrationCallLog.connection_id == connection.id)).all()
+    assert [(r.capability, r.purpose, r.http_status, r.provider_error, r.status) for r in rows] == [
+        ("chat.completions", "vehicle_listing", 403, None, CallStatus.ERROR)
+    ]

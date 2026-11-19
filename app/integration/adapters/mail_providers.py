@@ -210,13 +210,20 @@ class _HttpMailAdapter:
             def _send() -> httpx.Response:
                 try:
                     with httpx.Client(timeout=_TIMEOUT, transport=http_transport()) as client:
-                        return client.request(method, url, headers=headers, data=data, json=json_body)
+                        response = client.request(method, url, headers=headers, data=data, json=json_body)
                 except httpx.TimeoutException as exc:
                     raise ProviderTimeoutError(f"{self.provider_label} did not answer in time.") from exc
                 except httpx.HTTPError as exc:
                     raise ProviderTransportError(
                         f"{self.provider_label} could not be reached ({type(exc).__name__})."
                     ) from exc
+                # KAN-767: the status on this attempt's row, and a refusal's
+                # OAuth `error` code (never its description).
+                request.note_response(
+                    response.status_code,
+                    provider_error=self._oauth_error(response) if response.status_code >= 400 else None,
+                )
+                return response
 
             response = request.attempt(_send)
             if expect is not None and expect(response):
@@ -241,11 +248,18 @@ class _HttpMailAdapter:
 
     @staticmethod
     def _oauth_error(response: httpx.Response) -> str | None:
+        """The OAuth `error` code alone (`invalid_grant`, `invalid_client`, …)
+        — a closed vocabulary, so only a word of letters, digits and
+        underscores is read; anything else (prose under `error`, Graph's
+        dict-shaped error) is None. It lands on the call-log row (KAN-767),
+        which never holds a provider's prose."""
+
         try:
             body = response.json()
         except ValueError:
             return None
-        return body.get("error") if isinstance(body, dict) and isinstance(body.get("error"), str) else None
+        code = body.get("error") if isinstance(body, dict) else None
+        return code if isinstance(code, str) and code.replace("_", "").isalnum() else None
 
     def _json(self, response: httpx.Response) -> dict[str, Any]:
         try:

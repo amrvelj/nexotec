@@ -72,14 +72,35 @@ class CatalogueBrowseState(str, enum.Enum):
     """What a live catalogue answer is (ADR-112; Anto, 2026-11-07: a normal
     answer, never a 503). `ok` — the provider answered; `not_configured` —
     this Betrieb has no vehicle-data connection, the manual configuration is
-    the path; `not_in_contract` — the provider refused the query (the
-    `ident_basis` option is not licensed); `unavailable` — the provider
-    could not be reached or failed."""
+    the path; `not_in_contract` — the provider refused the query (its 403),
+    or the probe recorded the licence option behind it as not granted; the
+    answer's `refusal` says which query and, only in the second case, which
+    option (KAN-767); `unavailable` — the provider could not be reached or
+    failed."""
 
     OK = "ok"
     NOT_CONFIGURED = "notConfigured"
     NOT_IN_CONTRACT = "notInContract"
     UNAVAILABLE = "unavailable"
+
+
+class CatalogueBrowseOperation(str, enum.Enum):
+    """KAN-767: the catalogue query a `not_in_contract` answer refused."""
+
+    BRANDS = "brands"
+    MODEL_GROUPS = "modelGroups"
+    VARIANTS = "variants"
+    FACET_VALUES = "facetValues"
+
+
+class CatalogueRefusalRead(CamelModel):
+    """KAN-767: which query was refused. `licenceOption` is set only when the
+    refusal is tied to a licence option — the probe recorded it as not
+    granted, so nothing was sent; a provider's 403 on a query whose option is
+    granted names no option (the cause is not known)."""
+
+    operation: CatalogueBrowseOperation
+    licence_option: str | None = None
 
 
 class CatalogueBrandRead(CamelModel):
@@ -93,6 +114,7 @@ class CatalogueBrandRead(CamelModel):
 class CatalogueBrandPage(CamelModel):
     items: list[CatalogueBrandRead]
     state: CatalogueBrowseState
+    refusal: CatalogueRefusalRead | None = None
 
 
 class CatalogueModelGroupRead(CamelModel):
@@ -110,6 +132,7 @@ class CatalogueModelGroupRead(CamelModel):
 class CatalogueModelGroupPage(CamelModel):
     items: list[CatalogueModelGroupRead]
     state: CatalogueBrowseState
+    refusal: CatalogueRefusalRead | None = None
 
 
 class CatalogueVariantPrice(CamelModel):
@@ -153,6 +176,7 @@ class CatalogueVariantPage(CamelModel):
     total_is_estimate: bool
     browse_available: bool
     state: CatalogueBrowseState
+    refusal: CatalogueRefusalRead | None = None
 
 
 class CatalogueFacetValue(CamelModel):
@@ -176,5 +200,6 @@ class CatalogueFacetsRead(CamelModel):
 
     browse_available: bool
     state: CatalogueBrowseState
+    refusal: CatalogueRefusalRead | None = None
     coded: dict[str, list[CatalogueFacetValue]]
     numeric: dict[str, CatalogueNumericFacet]

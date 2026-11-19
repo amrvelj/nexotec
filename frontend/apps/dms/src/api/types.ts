@@ -249,6 +249,9 @@ export type CaptionFetchRead = Schemas['CaptionFetchRead']
 // Configurator C-B (KAN-40) — catalogue browse & facet search (FR-C-01)
 export type CatalogueBrowseMode = Schemas['CatalogueBrowseMode']
 export type CatalogueBrowseState = Schemas['CatalogueBrowseState']
+// KAN-767 — which query a `notInContract` answer refused (and the option, when known)
+export type CatalogueBrowseOperation = Schemas['CatalogueBrowseOperation']
+export type CatalogueRefusalRead = Schemas['CatalogueRefusalRead']
 export type CatalogueBrandRead = Schemas['CatalogueBrandRead']
 export type CatalogueBrandPage = Schemas['CatalogueBrandPage']
 export type VehicleSpecBlockRead = Schemas['VehicleSpecBlockRead']

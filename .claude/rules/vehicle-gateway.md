@@ -91,6 +91,9 @@ to show a provider's wording beside an unmapped code, **never to fill a referenc
 - **Every provider request is counted** (§6): one `integration_call_log` row per request (a retry is
   a second row), the provider's operation name as `capability`, `cost_units = 1` — an adapter wraps
   each in `services/metering.py::provider_request`; the breaker stays per `call_capability` block.
+  Each row also holds the attempt's `http_status`, the caller's `purpose` and `provider_error` — an
+  **identifier only** (json:api `title`, OAuth `error` code; never `detail`/`error_description`, a URL
+  or a token), noted by the method that touches the HTTP client, bounded in `gateway.record_call` (KAN-767).
   **Nexotec enforces no quota and sends no usage warning** (Anto: auto-i-dat limits its own access).
 - **The test access never runs in production** (§1): it is a `sandbox` connection, and on any
   `DMS_ENVIRONMENT` but `development`, `test` or `staging` the gateway refuses every sandbox

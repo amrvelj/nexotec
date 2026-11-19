@@ -99,6 +99,15 @@
   },
   "notInContract": {
     "title": "Catalogo non nel contratto",
-    "body": "auto-i-dat rifiuta la richiesta al catalogo: l’opzione «ident_basis» non è in licenza per questo accesso."
+    "refusedTitle": "Richiesta rifiutata dal fornitore",
+    "body": "auto-i-dat rifiuta la richiesta al catalogo. Verificare la licenza di questo accesso.",
+    "bodyOption": "La richiesta «{{operation}}» non è possibile: l’opzione «{{option}}» non è in licenza per questo accesso.",
+    "bodyRefused": "auto-i-dat rifiuta la richiesta «{{operation}}». Verificare la licenza di questo accesso.",
+    "operation": {
+      "brands": "Marche",
+      "modelGroups": "Gruppi di modelli",
+      "variants": "Varianti",
+      "facetValues": "Valori dei filtri"
+    }
   }
 }

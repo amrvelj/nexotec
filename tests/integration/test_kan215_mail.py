@@ -776,3 +776,44 @@ def test_the_worker_registers_the_mailbox_revokers_for_both_providers(engine, mo
     assert set(registered) == {ConnectedAccountProvider.MICROSOFT_365, ConnectedAccountProvider.GOOGLE_WORKSPACE}
     # In the worker's composition root, where platform's consumer runs (ADR-118).
     assert "register_mail_grant_revokers(SessionLocal)" in inspect.getsource(worker.run)
+
+
+def test_kan767_a_mail_providers_rows_carry_its_http_status_and_oauth_code(client, db_session, fakes, app_registrations, betrieb):
+    """KAN-767: every attempt's row carries the provider's HTTP status; a
+    refused grant's row its OAuth `error` code; a Graph error body (a dict
+    under `error`) leaves no identifier."""
+
+    providers, _ = fakes
+    anna = make_user(db_session, tenant_id=betrieb.id, email="anna@garage-muster.ch")
+    _connect_own_ms(client, providers, anna)
+    connection = app_registrations["microsoft_365_mail"]
+
+    def send():
+        return send_customer_mail(
+            db_session, dealership_id=betrieb.id, author_user_id=anna.id, document_type="offer", document_id=None,
+            to=["kunde@example.test"], subject="S", body_text="B",
+        )
+
+    def rows():
+        db_session.expire_all()
+        return list(db_session.scalars(
+            select(IntegrationCallLog).where(IntegrationCallLog.connection_id == connection.id)
+            .order_by(IntegrationCallLog.created_at, IntegrationCallLog.id)
+        ))
+
+    assert send().status == DeliveryStatus.SENT
+    sent_row = rows()[-1]
+    assert sent_row.capability == "graph_send_mail" and sent_row.provider_error is None
+    assert sent_row.http_status is not None and 200 <= sent_row.http_status < 300
+
+    providers.fail_sends_with = 503
+    send()
+    failed = rows()[-1]
+    assert (failed.capability, failed.http_status, failed.provider_error) == ("graph_send_mail", 503, None)
+
+    providers.fail_sends_with = None
+    providers.refuse_refresh = True
+    send()
+    refused = [r for r in rows() if r.http_status == 400]
+    assert refused and refused[-1].provider_error == "invalid_grant"
+    assert all(r.purpose for r in rows())

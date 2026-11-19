@@ -37,6 +37,7 @@ from app.vehicle.schemas.catalogue import (
     CatalogueFacetValue,
     CatalogueModelGroupPage,
     CatalogueModelGroupRead,
+    CatalogueRefusalRead,
     CatalogueVariantPage,
     CatalogueVariantPrice,
     CatalogueVariantRead,
@@ -191,7 +192,17 @@ def list_brands(
     return CatalogueBrandPage(
         items=[CatalogueBrandRead(name=b.name, brand_nr=b.brand_nr, models=list(b.models)) for b in result.items],
         state=result.state,
+        refusal=_refusal_read(result.refusal),
     )
+
+
+def _refusal_read(refusal: catalogue_browse.BrowseRefusal | None) -> CatalogueRefusalRead | None:
+    """KAN-767: which query a `notInContract` answer refused, and the licence
+    option only when the probe recorded it as not granted."""
+
+    if refusal is None:
+        return None
+    return CatalogueRefusalRead(operation=refusal.operation, licence_option=refusal.licence_option)
 
 
 @router.get("/catalogue/model-groups", response_model=CatalogueModelGroupPage)
@@ -220,6 +231,7 @@ def list_model_groups(
             for g in result.items
         ],
         state=result.state,
+        refusal=_refusal_read(result.refusal),
     )
 
 
@@ -258,6 +270,7 @@ def browse_variants(
         total_is_estimate=False,
         browse_available=result.state is CatalogueBrowseState.OK,
         state=result.state,
+        refusal=_refusal_read(result.refusal),
     )
 
 
@@ -284,6 +297,7 @@ def catalogue_facets(
     return CatalogueFacetsRead(
         browse_available=facets.state is CatalogueBrowseState.OK,
         state=facets.state,
+        refusal=_refusal_read(facets.refusal),
         coded={
             api_field: [CatalogueFacetValue(value_code=code) for code in codes]
             for api_field, codes in facets.coded.items()

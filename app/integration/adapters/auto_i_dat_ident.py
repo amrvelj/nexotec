@@ -107,7 +107,7 @@ from app.integration.errors import (
 from app.integration.models.connection import IntegrationConnection
 from app.integration.models.secret_ref import SecretSlot
 from app.integration.services import secrets_backend
-from app.integration.services.metering import provider_request
+from app.integration.services.metering import ProviderRequest, provider_request
 from app.integration.services.resilience import call_with_retry
 
 logger = logging.getLogger(__name__)
@@ -264,7 +264,7 @@ class AutoIDatIdentAdapter:
         try:
             with provider_request(operation, is_timeout=is_timeout) as request:
                 response = call_with_retry(
-                    lambda: request.attempt(lambda: self._send(operation, method, url, params, headers))
+                    lambda: request.attempt(lambda: self._send(request, operation, method, url, params, headers))
                 )
                 return self._accept(operation, response, empty_on_404=empty_on_404)
         except _Unauthorized:
@@ -282,6 +282,7 @@ class AutoIDatIdentAdapter:
 
     def _send(
         self,
+        request: ProviderRequest,
         operation: str,
         method: str,
         url: str,
@@ -290,7 +291,9 @@ class AutoIDatIdentAdapter:
     ) -> httpx.Response:
         """The one place `self._http` is used. A transport failure or a 5xx
         is a `ProviderTransportError` (what `call_with_retry` retries); any
-        other answer is returned for `_accept` to judge, unretried."""
+        other answer is returned for `_accept` to judge, unretried. Every
+        answer's status — and a refusal's json:api `title`, never its
+        `detail` — goes on this attempt's call-log row first (KAN-767)."""
 
         try:
             query: list[tuple[str, str | int | float | bool | None]] | None = None
@@ -300,6 +303,10 @@ class AutoIDatIdentAdapter:
             response = self._http.request(method, url, params=query, headers=headers)
         except Exception as exc:
             raise transport_error(f"{operation}: the request to the identAPI failed ({type(exc).__name__}).", exc) from exc
+        request.note_response(
+            response.status_code,
+            provider_error=_json_api_title_text(response) if response.status_code >= 400 else None,
+        )
         if response.status_code >= 500:
             raise ProviderTransportError(f"{operation}: the identAPI answered HTTP {response.status_code}.")
         return response
@@ -678,21 +685,37 @@ class AutoIDatIdentAdapter:
         return parse.parse_residual_table(body)
 
 
-def _json_api_title(response: httpx.Response) -> str:
+def _json_api_title_text(response: httpx.Response) -> str | None:
     """The json:api error body's `title` — a short, bounded summary of the
-    problem ("Bad Request", "Unprocessable") — for `last_error`. Its free-text
-    `detail` is left out, as the token endpoint's `error_description` is: a
+    problem ("Bad Request", "Forbidden") — at most 80 characters, or None.
+    Read at the top level (the body the identAPI's own documentation shows)
+    or from `errors[0]` (json:api's error-object list; which of the two the
+    live service sends is not verified yet, KAN-767). Its free-text `detail`
+    is never read, as the token endpoint's `error_description` is not: a
     server's prose is never persisted into a message every dealer manager can
-    read (`errors.py`'s rule; KAN-488 review F6)."""
+    read, nor into the call log (`errors.py`'s rule; KAN-488 review F6)."""
 
     try:
         body = response.json()
     except ValueError:
-        return ""
+        return None
     if not isinstance(body, dict):
-        return ""
+        return None
     title = body.get("title")
-    return f": {title.strip()[:80]}" if isinstance(title, str) and title.strip() else ""
+    if not isinstance(title, str):
+        errors = body.get("errors")
+        first = errors[0] if isinstance(errors, list) and errors else None
+        title = first.get("title") if isinstance(first, dict) else None
+    if not isinstance(title, str):
+        return None
+    return title.strip()[:80] or None
+
+
+def _json_api_title(response: httpx.Response) -> str:
+    """`_json_api_title_text` as `last_error`'s suffix: «: <title>», or nothing."""
+
+    title = _json_api_title_text(response)
+    return f": {title}" if title else ""
 
 
 # -- the gateway's factory -----------------------------------------------------
