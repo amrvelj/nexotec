@@ -27,6 +27,7 @@ from app.integration.models.connection import (
     IntegrationConnection,
 )
 from app.integration.models.entitlement import EntitlementSource, IntegrationEntitlement
+from app.integration.models.mail import MailProviderCode
 from app.integration.models.provider import IntegrationProvider
 from app.integration.models.secret_ref import IntegrationSecretRef, SecretSlot
 from app.integration.schemas.connection import ConnectionCreate, ConnectionUpdate
@@ -252,7 +253,7 @@ def create_connection(
     # registration, held once by the platform. A Betrieb connects its mailbox
     # through the mail link flow (Administration › Mail), never with a
     # connection of its own.
-    if provider.category == PLATFORM_ONLY_CATEGORY and data.scope != ConnectionScope.PLATFORM:
+    if is_platform_only(provider) and data.scope != ConnectionScope.PLATFORM:
         raise UnprocessableEntityError(
             "This provider is connected by Nexotec once; connect your mailbox under Administration › Mail.",
             details={"reason": "mail_provider_platform_only", "providerCode": provider.provider_code},
@@ -316,13 +317,28 @@ def create_connection(
     return connection
 
 
-# KAN-215: the mailbox providers' connection is Nexotec's app registration.
-PLATFORM_ONLY_CATEGORY = "calendar_mail"
+# KAN-215: the two mailbox providers' connection is Nexotec's own app
+# registration, held once by the platform. Keyed on the provider codes, not on
+# their `calendar_mail` category (KAN-762): a calendar provider a site holds
+# an account with of its own is a Betrieb's connection like any other.
+PLATFORM_ONLY_PROVIDER_CODES = frozenset(code.value for code in MailProviderCode)
 
 # KAN-222 (FR-A-21): the categories whose accounts are per site — an
-# AutoScout24 branch number, a location's mailbox (`calendar_mail`, when its
-# provider ships). A vehicle-data account serves the whole Betrieb.
+# AutoScout24 branch number, a location's own calendar or mailbox account
+# (`calendar_mail`, when such a provider ships). A vehicle-data account serves
+# the whole Betrieb. A platform-only provider is never bindable, whatever its
+# category: its one connection belongs to no Betrieb (`is_location_bindable`).
 LOCATION_BINDABLE_CATEGORIES = frozenset({"marketplace", "calendar_mail"})
+
+
+def is_platform_only(provider: IntegrationProvider) -> bool:
+    return provider.provider_code in PLATFORM_ONLY_PROVIDER_CODES
+
+
+def is_location_bindable(provider: IntegrationProvider) -> bool:
+    """Whether a Betrieb's connection to this provider may be bound to one of its locations."""
+
+    return provider.category in LOCATION_BINDABLE_CATEGORIES and not is_platform_only(provider)
 
 
 def _bind_location(
@@ -345,7 +361,7 @@ def _bind_location(
                 "A platform-wide connection serves no location.",
                 details={"reason": "location_binding_needs_tenant"},
             )
-        if provider.category not in LOCATION_BINDABLE_CATEGORIES:
+        if not is_location_bindable(provider):
             raise UnprocessableEntityError(
                 f"A {provider.display_name} connection serves the whole Betrieb and is not bound to a location.",
                 details={"reason": "location_binding_not_supported", "category": provider.category},

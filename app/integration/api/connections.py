@@ -85,8 +85,7 @@ def _connection_read(db: Session, connection: IntegrationConnection) -> Connecti
         account_identifier=account_identifier(provider.provider_code, connection.config),
         location_id=connection.location_id,
         location_label=connection.location_label,
-        location_bindable=provider.category in connection_service.LOCATION_BINDABLE_CATEGORIES
-        and connection.tenant_id is not None,
+        location_bindable=connection_service.is_location_bindable(provider) and connection.tenant_id is not None,
         secret_slots=[SecretSlotRead.model_validate(s, from_attributes=True) for s in secret_slots],
         entitlements=[EntitlementRead.model_validate(e, from_attributes=True) for e in entitlements],
         version=connection.version,
