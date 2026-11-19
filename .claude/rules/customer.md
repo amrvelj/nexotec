@@ -80,8 +80,8 @@ sales files belong to other rules. Last verified against main@3b2bf69 (2026-11-1
 
 ## Rulings (all closed — do not re-open)
 - **D-17 — a marketing send needs three gates:** `marketingConsent` (the revDSG legal basis) ·
-  per-channel `consentGranted` with `consentScope = marketing` (`channel_authorises_marketing`; no
-  caller — Marketing is not built) · `newsletter`. The send dialog's read is
+  per-channel `consentGranted` with `consentScope = marketing` (`channel_authorises_marketing`, called
+  by the send dialog's read) · `newsletter`. That read is
   `customer.public.message_recipient` (KAN-217): merged and «Nicht kontaktieren» refuse every
   send, a transactional one needs only a usable row (Anto, Q1 A), a marketing one the three gates.
 - **D-20** — the address is optional at creation; an address-less customer is gated at contract

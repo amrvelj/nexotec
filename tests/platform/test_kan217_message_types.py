@@ -130,6 +130,8 @@ def test_the_migrations_literal_rows_are_the_application_declaration():
         for language in SwissLanguage
     ]
     assert list(_MIGRATION.SEED_ROWS) == declared
+    # The migration writes every row as its default; so must the declaration.
+    assert all(seed.is_default for seed in MESSAGE_SEED_TEXTS)
     assert _MIGRATION._APPLIES_TO == tuple(member.value for member in StandardTextAppliesTo)
 
 

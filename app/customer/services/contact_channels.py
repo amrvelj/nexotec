@@ -79,9 +79,10 @@ def channel_authorises_marketing(row: Any) -> bool:
     field). An invoicing- or service-scoped grant never authorises a
     campaign.
 
-    No caller exists yet — Marketing is not built. Every future marketing
-    selection must read consent through this, not `consent_granted`
-    directly, or the whole point of FR-23 §1 is lost.
+    Its first caller is the send dialog's recipient read
+    (`services/message_recipient.py`, KAN-217); Marketing is not built. Every
+    marketing selection must read consent through this, not
+    `consent_granted` directly, or the whole point of FR-23 §1 is lost.
     """
 
     if not row.consent_granted:

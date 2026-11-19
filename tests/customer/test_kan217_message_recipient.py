@@ -3,6 +3,7 @@ D-21, ADR-067): where a message on e-mail, SMS or WhatsApp goes, the consent
 verdict for a transactional or a marketing send, and the channel the dialog
 opens on."""
 
+import datetime as dt
 import uuid
 
 import pytest
@@ -94,8 +95,14 @@ def test_a_row_flagged_nicht_verwenden_or_closed_is_no_recipient(db_session, sce
     db_session.commit()
     sms = _read(db_session, group_id, customer_id, _SMS)
     assert not sms.allowed and sms.refusal == "no_usable_contact" and sms.address is None
-    # The e-mail row is still usable.
+    # The e-mail row is still usable — until it is closed.
     assert _read(db_session, group_id, customer_id, _EMAIL).allowed
+    db_session.execute(
+        update(CustomerEmail).where(CustomerEmail.customer_id == customer_id).values(valid_to=dt.datetime(2026, 1, 1, tzinfo=dt.UTC))
+    )
+    db_session.commit()
+    closed = _read(db_session, group_id, customer_id, _EMAIL)
+    assert not closed.allowed and closed.refusal == "no_usable_contact" and closed.address is None
 
 
 def test_a_customer_with_only_a_landline_gets_no_sms_or_whatsapp(client, db_session, scene):

@@ -183,8 +183,8 @@ MESSAGE_SEED_TEXTS: tuple[SeedText, ...] = (
         titles={
             _DE: "Kaufvertrag versandt",
             _FR: "Envoi du contrat de vente",
-            _IT: "Invio del contratto di compravendita",
-            _EN: "Sales contract sent",
+            _IT: "Invio del contratto di vendita",
+            _EN: "Purchase contract sent",
         },
         bodies={
             _DE: "{{customer.salutation}}\n\nIm Anhang finden Sie den Kaufvertrag {{document.number}} vom "
@@ -193,10 +193,10 @@ MESSAGE_SEED_TEXTS: tuple[SeedText, ...] = (
             _FR: "{{customer.salutation}},\n\nVous trouverez en annexe le contrat de vente {{document.number}} du "
             "{{document.date}} pour le véhicule {{vehicle.make_model}}.\n\nNous vous remercions de votre confiance. "
             f"{_QUESTIONS_FR}\n\n{_SIGN_FR}",
-            _IT: "{{customer.salutation}},\n\nin allegato trova il contratto di compravendita {{document.number}} del "
+            _IT: "{{customer.salutation}},\n\nin allegato trova il contratto di vendita {{document.number}} del "
             "{{document.date}} per il veicolo {{vehicle.make_model}}.\n\nLa ringraziamo per la fiducia. "
             f"{_QUESTIONS_IT}\n\n{_SIGN_IT}",
-            _EN: "{{customer.salutation}},\n\nPlease find attached the sales contract {{document.number}} of "
+            _EN: "{{customer.salutation}},\n\nPlease find attached the purchase contract {{document.number}} of "
             "{{document.date}} for the {{vehicle.make_model}}.\n\nThank you for your trust. "
             f"{_QUESTIONS_EN}\n\n{_SIGN_EN}",
         },
@@ -210,8 +210,8 @@ MESSAGE_SEED_TEXTS: tuple[SeedText, ...] = (
         titles={
             _DE: "Kaufvertrag versandt",
             _FR: "Envoi du contrat de vente",
-            _IT: "Invio del contratto di compravendita",
-            _EN: "Sales contract sent",
+            _IT: "Invio del contratto di vendita",
+            _EN: "Purchase contract sent",
         },
         bodies={
             _DE: "{{customer.salutation}}\nDen Kaufvertrag {{document.number}} für {{vehicle.make_model}} finden Sie "
@@ -219,10 +219,10 @@ MESSAGE_SEED_TEXTS: tuple[SeedText, ...] = (
             _FR: "{{customer.salutation}},\nvous trouverez le contrat de vente {{document.number}} pour le véhicule "
             "{{vehicle.make_model}} via le lien figurant dans ce message.\nMeilleures salutations\n"
             "{{dealership.name}}",
-            _IT: "{{customer.salutation}},\ntrova il contratto di compravendita {{document.number}} per il veicolo "
+            _IT: "{{customer.salutation}},\ntrova il contratto di vendita {{document.number}} per il veicolo "
             "{{vehicle.make_model}} tramite il link contenuto in questo messaggio.\nCordiali saluti\n"
             "{{dealership.name}}",
-            _EN: "{{customer.salutation}},\nyou can find the sales contract {{document.number}} for the "
+            _EN: "{{customer.salutation}},\nyou can find the purchase contract {{document.number}} for the "
             "{{vehicle.make_model}} through the link in this message.\nKind regards\n{{dealership.name}}",
         },
     ),
@@ -235,8 +235,8 @@ MESSAGE_SEED_TEXTS: tuple[SeedText, ...] = (
         titles={
             _DE: "Kaufvertrag versandt",
             _FR: "Envoi du contrat de vente",
-            _IT: "Invio del contratto di compravendita",
-            _EN: "Sales contract sent",
+            _IT: "Invio del contratto di vendita",
+            _EN: "Purchase contract sent",
         },
         bodies={
             _DE: "{{customer.salutation}}\n\nDen Kaufvertrag {{document.number}} vom {{document.date}} für das "
@@ -245,10 +245,10 @@ MESSAGE_SEED_TEXTS: tuple[SeedText, ...] = (
             _FR: "{{customer.salutation}},\n\nVous trouverez le contrat de vente {{document.number}} du "
             "{{document.date}} pour le véhicule {{vehicle.make_model}} via le lien figurant dans ce message.\n\n"
             f"Nous vous remercions de votre confiance. {_QUESTIONS_FR}\n\n{_SIGN_FR}",
-            _IT: "{{customer.salutation}},\n\ntrova il contratto di compravendita {{document.number}} del "
+            _IT: "{{customer.salutation}},\n\ntrova il contratto di vendita {{document.number}} del "
             "{{document.date}} per il veicolo {{vehicle.make_model}} tramite il link contenuto in questo "
             f"messaggio.\n\nLa ringraziamo per la fiducia. {_QUESTIONS_IT}\n\n{_SIGN_IT}",
-            _EN: "{{customer.salutation}},\n\nYou can find the sales contract {{document.number}} of "
+            _EN: "{{customer.salutation}},\n\nYou can find the purchase contract {{document.number}} of "
             "{{document.date}} for the {{vehicle.make_model}} through the link in this message.\n\nThank you for "
             f"your trust. {_QUESTIONS_EN}\n\n{_SIGN_EN}",
         },

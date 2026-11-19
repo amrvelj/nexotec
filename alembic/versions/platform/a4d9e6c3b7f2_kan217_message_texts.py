@@ -285,8 +285,8 @@ SEED_ROWS: tuple[tuple[str, str, str, str, int, str, str, str], ...] = (
         "body",
         10,
         "it",
-        "Invio del contratto di compravendita",
-        "{{customer.salutation}},\n\nin allegato trova il contratto di compravendita {{document.number}} del {{document.date}} per il veicolo {{vehicle.make_model}}.\n\nLa ringraziamo per la fiducia. Resto volentieri a Sua disposizione per qualsiasi domanda.\n\nCordiali saluti\n{{user.full_name}}\n{{dealership.name}}",
+        "Invio del contratto di vendita",
+        "{{customer.salutation}},\n\nin allegato trova il contratto di vendita {{document.number}} del {{document.date}} per il veicolo {{vehicle.make_model}}.\n\nLa ringraziamo per la fiducia. Resto volentieri a Sua disposizione per qualsiasi domanda.\n\nCordiali saluti\n{{user.full_name}}\n{{dealership.name}}",
     ),
     (
         "email.contract_sent",
@@ -295,8 +295,8 @@ SEED_ROWS: tuple[tuple[str, str, str, str, int, str, str, str], ...] = (
         "body",
         10,
         "en",
-        "Sales contract sent",
-        "{{customer.salutation}},\n\nPlease find attached the sales contract {{document.number}} of {{document.date}} for the {{vehicle.make_model}}.\n\nThank you for your trust. I will be glad to answer any questions.\n\nKind regards\n{{user.full_name}}\n{{dealership.name}}",
+        "Purchase contract sent",
+        "{{customer.salutation}},\n\nPlease find attached the purchase contract {{document.number}} of {{document.date}} for the {{vehicle.make_model}}.\n\nThank you for your trust. I will be glad to answer any questions.\n\nKind regards\n{{user.full_name}}\n{{dealership.name}}",
     ),
     (
         "sms.contract_sent",
@@ -325,8 +325,8 @@ SEED_ROWS: tuple[tuple[str, str, str, str, int, str, str, str], ...] = (
         "body",
         10,
         "it",
-        "Invio del contratto di compravendita",
-        "{{customer.salutation}},\ntrova il contratto di compravendita {{document.number}} per il veicolo {{vehicle.make_model}} tramite il link contenuto in questo messaggio.\nCordiali saluti\n{{dealership.name}}",
+        "Invio del contratto di vendita",
+        "{{customer.salutation}},\ntrova il contratto di vendita {{document.number}} per il veicolo {{vehicle.make_model}} tramite il link contenuto in questo messaggio.\nCordiali saluti\n{{dealership.name}}",
     ),
     (
         "sms.contract_sent",
@@ -335,8 +335,8 @@ SEED_ROWS: tuple[tuple[str, str, str, str, int, str, str, str], ...] = (
         "body",
         10,
         "en",
-        "Sales contract sent",
-        "{{customer.salutation}},\nyou can find the sales contract {{document.number}} for the {{vehicle.make_model}} through the link in this message.\nKind regards\n{{dealership.name}}",
+        "Purchase contract sent",
+        "{{customer.salutation}},\nyou can find the purchase contract {{document.number}} for the {{vehicle.make_model}} through the link in this message.\nKind regards\n{{dealership.name}}",
     ),
     (
         "whatsapp.contract_sent",
@@ -365,8 +365,8 @@ SEED_ROWS: tuple[tuple[str, str, str, str, int, str, str, str], ...] = (
         "body",
         10,
         "it",
-        "Invio del contratto di compravendita",
-        "{{customer.salutation}},\n\ntrova il contratto di compravendita {{document.number}} del {{document.date}} per il veicolo {{vehicle.make_model}} tramite il link contenuto in questo messaggio.\n\nLa ringraziamo per la fiducia. Resto volentieri a Sua disposizione per qualsiasi domanda.\n\nCordiali saluti\n{{user.full_name}}\n{{dealership.name}}",
+        "Invio del contratto di vendita",
+        "{{customer.salutation}},\n\ntrova il contratto di vendita {{document.number}} del {{document.date}} per il veicolo {{vehicle.make_model}} tramite il link contenuto in questo messaggio.\n\nLa ringraziamo per la fiducia. Resto volentieri a Sua disposizione per qualsiasi domanda.\n\nCordiali saluti\n{{user.full_name}}\n{{dealership.name}}",
     ),
     (
         "whatsapp.contract_sent",
@@ -375,8 +375,8 @@ SEED_ROWS: tuple[tuple[str, str, str, str, int, str, str, str], ...] = (
         "body",
         10,
         "en",
-        "Sales contract sent",
-        "{{customer.salutation}},\n\nYou can find the sales contract {{document.number}} of {{document.date}} for the {{vehicle.make_model}} through the link in this message.\n\nThank you for your trust. I will be glad to answer any questions.\n\nKind regards\n{{user.full_name}}\n{{dealership.name}}",
+        "Purchase contract sent",
+        "{{customer.salutation}},\n\nYou can find the purchase contract {{document.number}} of {{document.date}} for the {{vehicle.make_model}} through the link in this message.\n\nThank you for your trust. I will be glad to answer any questions.\n\nKind regards\n{{user.full_name}}\n{{dealership.name}}",
     ),
 )
 SEED_CODES = tuple(dict.fromkeys(row[0] for row in SEED_ROWS))
