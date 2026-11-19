@@ -20,6 +20,7 @@
   "appliesTo": {
     "offer": "Offerta",
     "contract": "Contratto di vendita",
+    "order_confirmation": "Conferma d'ordine",
     "invoice": "Fattura",
     "appointment_reminder": "Promemoria appuntamento",
     "vehicle_ready": "Veicolo pronto",

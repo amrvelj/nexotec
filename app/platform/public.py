@@ -25,6 +25,18 @@ from app.platform.documents.schemas.document_content import (
     SignatureBlock,
 )
 from app.platform.documents.services.document_render import render_document
+from app.platform.documents.services.message_types import (
+    MessageChannel,
+    MessageDelivery,
+    MessagePurpose,
+    MessageType,
+    MessageTypeKind,
+    MessageTypeRegistrationError,
+    delivery_of,
+    get_message_type,
+    message_types,
+    register_message_type,
+)
 from app.platform.documents.services.standard_text import RenderedStandardText, render_standard_text
 from app.platform.documents.services.standard_text_placeholders import PLACEHOLDER_UNRESOLVED, Placeholder
 from app.platform.identity.models.connected_account import ConnectedAccountStatus
@@ -147,6 +159,16 @@ from app.platform.reference.services.reference_data import get_active_reference_
 # connected_account_states reads whether a grant is still live (GrantState:
 # ids, provider, external account id and status — never the address or the
 # reference). platform alone writes the row; the grant is never an identity.
+#
+# KAN-217 (FR-A-52, FR-A-53): the registry of customer message types the one
+# send dialog serves. A module registers each document or reminder type it
+# lets a user send — purpose (transactional | marketing), document or
+# reminder, its standard-text code per channel — with register_message_type,
+# called from the composition root app/message_type_registry.py (platform
+# never imports the module). message_types / get_message_type read it, and
+# delivery_of says whether a channel attaches the document or sends a secure
+# link. A wrong or conflicting registration raises
+# MessageTypeRegistrationError at start-up. Plain values; it writes nothing.
 __all__ = [
     "PLACEHOLDER_UNRESOLVED",
     "ActingUser",
@@ -169,6 +191,12 @@ __all__ = [
     "LinkedGrant",
     "LocationLabel",
     "LocationSummary",
+    "MessageChannel",
+    "MessageDelivery",
+    "MessagePurpose",
+    "MessageType",
+    "MessageTypeKind",
+    "MessageTypeRegistrationError",
     "NotificationEventCode",
     "NotificationSubject",
     "NumberRangeDocumentType",
@@ -194,6 +222,7 @@ __all__ = [
     "dealership_group_of",
     "dealership_outside_group",
     "dealership_reference_check",
+    "delivery_of",
     "enable_group_read",
     "find_dealer_group_ids",
     "find_dealership_group_ids",
@@ -205,6 +234,7 @@ __all__ = [
     "get_group_display_labels",
     "get_location_labels",
     "get_location_or_404",
+    "get_message_type",
     "get_offboarded_audit_attribution",
     "get_primary_location_id",
     "get_user_display_labels",
@@ -216,10 +246,12 @@ __all__ = [
     "list_user_dealer_group_ids",
     "list_user_dealership_ids",
     "location_reference_check",
+    "message_types",
     "notify",
     "publishing_profile_missing_items",
     "publishing_profile_ready",
     "register_grant_revoker",
+    "register_message_type",
     "render_document",
     "render_standard_text",
     "require_setup_item_for",

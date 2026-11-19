@@ -22,6 +22,7 @@ from app.core.observability import (
 )
 from app.db import SessionLocal
 from app.export_registry import register_exporters
+from app.message_type_registry import register_message_types
 from app.ownership_registry import register_ownership_providers
 from app.platform.administration.services import data_export_runner
 from app.platform.identity.session_guard import enforce_live_session, enforce_open_dealership
@@ -39,6 +40,9 @@ register_exporters()
 # KAN-223: every context's status-page contribution, so the status page asks
 # the registry (app.core.status) and imports no context itself.
 register_status_providers()
+# KAN-217: every module's customer message types, so the send dialog asks
+# platform's registry and platform imports no module.
+register_message_types()
 
 
 @asynccontextmanager

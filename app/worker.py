@@ -85,6 +85,7 @@ from app.inventory.public import (
     refresh_stock_location_labels,
 )
 from app.inventory.public import referenced_configuration_ids as referenced_by_stock_items
+from app.message_type_registry import register_message_types
 from app.ownership_registry import register_ownership_providers
 from app.platform.consumers import (
     handle_connected_account_revoked_message,
@@ -517,6 +518,13 @@ def register_status() -> None:
     register_status_providers()
 
 
+def register_customer_message_types() -> None:
+    """KAN-217: the send consumers and reminders to come read the message-type
+    registry, which the composition root fills."""
+
+    register_message_types()
+
+
 def register_daily_jobs() -> None:
     """Nineteen daily jobs, run in registration order once per day on this
     process (app.core.daily_scheduler):
@@ -671,6 +679,7 @@ def run(*, max_iterations: int | None = None) -> None:
     register_ownership()
     register_exports()
     register_status()
+    register_customer_message_types()
     register_daily_jobs()
     # KAN-215 (ADR-118): the mailbox providers' revokers end a revoked grant
     # at Google / drop its token; platform's consumer runs them, here only.

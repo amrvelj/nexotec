@@ -141,11 +141,12 @@ def test_the_seed_library_covers_the_starter_set_in_four_languages():
 
 
 def test_installing_the_seeds_is_idempotent_and_marks_them_platform_seeds(db_session):
-    assert service.install_platform_seeds(db_session) == len(SEED_TEXTS) * 4
+    # Both shipped editions: KAN-208's starter set and KAN-217's message texts.
+    assert service.install_platform_seeds(db_session) == len(service.SHIPPED_SEED_TEXTS) * 4 == 80
     db_session.commit()
     assert service.install_platform_seeds(db_session) == 0
     rows = service.list_platform_seeds(db_session)
-    assert len(rows) == 48
+    assert len(rows) == 80
     assert {row.source for row in rows} == {StandardTextSource.PLATFORM_SEED}
     assert {row.dealership_id for row in rows} == {None}
 
@@ -413,11 +414,13 @@ def test_the_library_lists_seeds_and_the_betriebs_own_rows_only(client, standard
     assert created.status_code == 201, created.text
 
     items = _texts(client, home, manager)
-    assert len(items) == 48 and {i["source"] for i in items} == {"platform_seed"}
-    assert len(_texts(client, home, manager, category="email")) == 16
+    # KAN-208's 12 codes and KAN-217's 8 message texts, four languages each;
+    # e-mail: four KAN-208 bodies and KAN-217's order confirmation and contract.
+    assert len(items) == 80 and {i["source"] for i in items} == {"platform_seed"}
+    assert len(_texts(client, home, manager, category="email")) == 24
     # Any role reads the library; another Betrieb's path is 404.
     seller = bearer(token(AccessRole.SALES, tenant_id=home))
-    assert len(_texts(client, home, seller)) == 48
+    assert len(_texts(client, home, seller)) == 80
     assert client.get(f"/v1/dealerships/{other}/standard-texts", headers=seller).status_code == 404
 
 

@@ -37,3 +37,17 @@ class SupportSessionRead(CamelModel):
     ended_at: dt.datetime | None
     ended_by: SupportSessionEndedBy | None
     active: bool
+
+
+class SupportSessionLogEntry(SupportSessionRead):
+    """One line of the support-session log (PR 5): the session and the names
+    of the two people in it and of the Betrieb, as they read today."""
+
+    staff_name: str
+    target_user_name: str
+    dealership_name: str
+
+
+class SupportSessionLogPage(CamelModel):
+    items: list[SupportSessionLogEntry]
+    next_cursor: str | None

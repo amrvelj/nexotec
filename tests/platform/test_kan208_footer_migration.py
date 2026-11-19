@@ -106,7 +106,8 @@ def test_the_footers_move_into_the_library_and_come_back_on_downgrade(scratch_ur
             seeds = conn.execute(
                 text("SELECT count(*), count(DISTINCT code) FROM standard_text WHERE source = 'platform_seed'")
             ).one()
-            assert tuple(seeds) == (48, 12)
+            # KAN-208's twelve codes and KAN-217's eight message texts (a4d9e6c3b7f2), four languages each.
+            assert tuple(seeds) == (80, 20)
             carried = conn.execute(
                 text(
                     "SELECT dealership_id, language, body, is_default, active, category, applies_to, slot, scope "

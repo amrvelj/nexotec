@@ -303,6 +303,7 @@ forbidden_modules = [
     "app.sales.api",
     "app.sales.consumers",
     "app.sales.i18n",
+    "app.sales.message_types",
     "app.sales.models",
     "app.sales.reconciliation",
     "app.sales.schemas",

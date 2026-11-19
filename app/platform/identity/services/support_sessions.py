@@ -18,8 +18,16 @@
   support_session`), naming the staff member as the actor — never the
   dealer.
 
+- **The log** (PR 5; the PRD's matrix row «Support-session log»: the manager
+  for their own Betrieb, `platform_admin` across all, written by nobody) —
+  `list_support_sessions`: every session, running or over, oldest first by the
+  shared cursor, each with the staff member's and the user's name read at the
+  time of the request (the same context's `user` rows, never copied). Every
+  start and end is also an entry in the Betrieb's own audit log (the rows
+  above), which needs nothing more.
+
 Not yet: the `acting_for` token (PR 3), the FR-A-17 exclusions and the
-security notices (PR 4), the logs (PR 5), the banner and screens (PR 6).
+security notices (PR 4), the banner and screens (PR 6).
 """
 
 import datetime as dt
@@ -33,13 +41,15 @@ from app.core.audit import record_audit_event
 from app.core.auth import AccessRole, Principal
 from app.core.base import utcnow
 from app.core.errors import ConflictError, NotFoundError, UnprocessableEntityError
+from app.core.pagination import PageParams, build_page, paginate_query
 from app.platform.identity.models.support_session import (
     SUPPORT_SESSION_MINUTES,
     SupportSession,
     SupportSessionEndedBy,
 )
 from app.platform.identity.models.user import User, UserStatus
-from app.platform.identity.schemas.support_session import SupportSessionRead
+from app.platform.identity.schemas.support_session import SupportSessionLogEntry, SupportSessionRead
+from app.platform.organisation.models.dealership import Dealership
 from app.platform.organisation.services.dealer_dealerships import is_platform_dealership
 
 ENTITY_TYPE = "support_session"
@@ -229,3 +239,47 @@ def end_support_session(db: Session, *, session_id: uuid.UUID, principal: Princi
     db.commit()
     db.refresh(row)
     return row
+
+
+def list_support_sessions(
+    db: Session,
+    *,
+    params: PageParams,
+    dealership_id: uuid.UUID | None = None,
+    staff_user_id: uuid.UUID | None = None,
+) -> tuple[list[SupportSessionLogEntry], str | None]:
+    """The support-session log (FR-A-15, PR 5): one Betrieb's sessions, or —
+    with no `dealership_id`, for platform staff — every Betrieb's. The caller
+    has authorised the scope; this reads what it is given."""
+
+    stmt = select(SupportSession)
+    if dealership_id is not None:
+        stmt = stmt.where(SupportSession.dealership_id == dealership_id)
+    if staff_user_id is not None:
+        stmt = stmt.where(SupportSession.staff_user_id == staff_user_id)
+    rows, next_cursor = build_page(
+        list(db.scalars(paginate_query(stmt, model=SupportSession, params=params)).all()), params
+    )
+    user_ids = {row.staff_user_id for row in rows} | {row.target_user_id for row in rows}
+    names = {
+        user.id: f"{user.first_name} {user.last_name}".strip()
+        for user in (db.scalars(select(User).where(User.id.in_(user_ids))).all() if user_ids else ())
+    }
+    dealership_ids = {row.dealership_id for row in rows}
+    dealership_names = {
+        dealership.id: dealership.trade_name or dealership.legal_name
+        for dealership in (
+            db.scalars(select(Dealership).where(Dealership.id.in_(dealership_ids))).all() if dealership_ids else ()
+        )
+    }
+    now = utcnow()
+    entries = [
+        SupportSessionLogEntry(
+            **to_read(row, now).model_dump(),
+            staff_name=names.get(row.staff_user_id, ""),
+            target_user_name=names.get(row.target_user_id, ""),
+            dealership_name=dealership_names.get(row.dealership_id, ""),
+        )
+        for row in rows
+    ]
+    return entries, next_cursor

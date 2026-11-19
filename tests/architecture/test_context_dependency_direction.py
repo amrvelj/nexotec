@@ -89,6 +89,9 @@ _TOP_LEVEL: dict[str, int] = {
     # KAN-223: names every context's status-page contribution for
     # app.core.status's registry, as ownership_registry does for ownership.
     "status_registry": _COMPOSITION_ROOT_RANK,
+    # KAN-217: names every module's customer message types for platform's
+    # send-dialog registry, as status_registry does for the status page.
+    "message_type_registry": _COMPOSITION_ROOT_RANK,
 }
 
 # The upward imports that exist today, each with the ticket that removes it

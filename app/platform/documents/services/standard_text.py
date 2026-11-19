@@ -57,6 +57,7 @@ from app.platform.documents.models.standard_text import (
     StandardTextSlot,
     StandardTextSource,
 )
+from app.platform.documents.services.message_text_seed import MESSAGE_SEED_TEXTS
 from app.platform.documents.services.standard_text_placeholders import (
     Placeholder,
     TextTarget,
@@ -69,7 +70,7 @@ from app.platform.identity.models.standard_text_delegation import StandardTextCa
 from app.platform.identity.services.text_delegation import holds_delegation
 from app.platform.organisation.models.dealership import Dealership, Location
 from app.platform.organisation.services.dealership import get_dealership_or_404
-from app.platform.services.standard_text_seed import SEED_TEXTS
+from app.platform.services.standard_text_seed import SEED_TEXTS, SeedText
 
 FALLBACK_LANGUAGE = SwissLanguage.DE
 
@@ -778,13 +779,21 @@ def update_platform_seed(
     return seed
 
 
+# Every edition of the seed library Nexotec ships, in the order they shipped:
+# KAN-208's starter set (`standard_text_seed.py`, migration `ec4559d84ad3`)
+# and KAN-217's message texts (`message_text_seed.py`, migration
+# `a4d9e6c3b7f2`). Each edition is frozen with its migration (ADR-133).
+SHIPPED_SEED_TEXTS: tuple[SeedText, ...] = SEED_TEXTS + MESSAGE_SEED_TEXTS
+SHIPPED_SEED_CODES: tuple[str, ...] = tuple(seed.code for seed in SHIPPED_SEED_TEXTS)
+
+
 def shipped_seed(code: str, language: SwissLanguage) -> tuple[str, str] | None:
-    """The (title, body) Nexotec ships for a seed — `standard_text_seed.py`,
-    what the migration installed — or None for a code it does not ship. The
+    """The (title, body) Nexotec ships for a seed — the edition's module,
+    what its migration installed — or None for a code it does not ship. The
     Translations panel diffs a seed against it and a revert restores it
     (KAN-209)."""
 
-    for seed in SEED_TEXTS:
+    for seed in SHIPPED_SEED_TEXTS:
         if seed.code == code:
             return seed.titles[language], seed.bodies[language]
     return None
@@ -837,12 +846,13 @@ def revert_platform_seed(
 
 
 def seed_rows() -> list[dict[str, Any]]:
-    """The starter library as plain row dicts — what the KAN-208 migration
-    inserts and `install_platform_seeds` adds (enum values, not members)."""
+    """The shipped library as plain row dicts — what the KAN-208 and KAN-217
+    migrations insert and `install_platform_seeds` adds (enum values, not
+    members)."""
 
     now = utcnow()
     rows: list[dict[str, Any]] = []
-    for seed in SEED_TEXTS:
+    for seed in SHIPPED_SEED_TEXTS:
         for language in SwissLanguage:
             rows.append(
                 {

@@ -109,6 +109,17 @@ TARGETS: tuple[TextTarget, ...] = (
     TextTarget(_C.DOCUMENT, _A.CONTRACT, _DOC_SLOTS, _SALES_DOCUMENT),
     TextTarget(_C.DOCUMENT, _A.INVOICE, _DOC_SLOTS, _INVOICE),
     TextTarget(_C.EMAIL, _A.OFFER, (_S.BODY,), _DOCUMENT_MESSAGE),
+    # KAN-217: the send dialog's channels for Sales' three registered types
+    # (`message_types.py`). An SMS or WhatsApp text names no link: the send
+    # service appends it (`message_text_seed.py`).
+    TextTarget(_C.SMS, _A.OFFER, (_S.BODY,), _DOCUMENT_MESSAGE),
+    TextTarget(_C.WHATSAPP, _A.OFFER, (_S.BODY,), _DOCUMENT_MESSAGE),
+    TextTarget(_C.EMAIL, _A.ORDER_CONFIRMATION, (_S.BODY,), _DOCUMENT_MESSAGE),
+    TextTarget(_C.SMS, _A.ORDER_CONFIRMATION, (_S.BODY,), _DOCUMENT_MESSAGE),
+    TextTarget(_C.WHATSAPP, _A.ORDER_CONFIRMATION, (_S.BODY,), _DOCUMENT_MESSAGE),
+    TextTarget(_C.EMAIL, _A.CONTRACT, (_S.BODY,), _DOCUMENT_MESSAGE),
+    TextTarget(_C.SMS, _A.CONTRACT, (_S.BODY,), _DOCUMENT_MESSAGE),
+    TextTarget(_C.WHATSAPP, _A.CONTRACT, (_S.BODY,), _DOCUMENT_MESSAGE),
     TextTarget(_C.EMAIL, _A.INVOICE, (_S.BODY,), _DOCUMENT_MESSAGE | {_P.PAYMENT_DUE_DATE}),
     TextTarget(_C.EMAIL, _A.APPOINTMENT_REMINDER, (_S.BODY,), _MESSAGE),
     TextTarget(_C.EMAIL, _A.VEHICLE_READY, (_S.BODY,), _MESSAGE),

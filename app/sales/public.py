@@ -41,8 +41,14 @@ contract holds. A SELECT only.
 which contracts carry which trade-in valuation, pending or signed — plain
 data. Valuation itself no longer asks Sales (ADR-131): Sales tells it, through
 `valuation.public`'s carry calls.
+
+`register_message_types` (KAN-217) registers Sales' three customer message
+types (offer, order confirmation, sales contract) with platform's send-dialog
+registry; the composition root `app/message_type_registry.py` calls it at
+start-up. Writes nothing.
 """
 
+from app.sales.message_types import register_message_types
 from app.sales.models.contract import ContractStatus
 from app.sales.services.configuration_reference import referenced_configuration_ids
 from app.sales.services.contract_status import ContractFacts, list_contract_facts
@@ -82,6 +88,7 @@ __all__ = [
     "referenced_configuration_ids",
     "refresh_customer_labels",
     "refresh_owner_labels",
+    "register_message_types",
     "signed_contract_carries_valuation",
     "trade_in_valuation_carries",
     "uncarried_contract_carries_valuation",
