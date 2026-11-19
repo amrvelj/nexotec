@@ -20,6 +20,7 @@ import logging
 
 from sqlalchemy.orm import Session
 
+from app.integration.services import mail_link as mail_link_service
 from app.integration.services import notifications as notification_service
 from app.integration.services import retention as retention_service
 
@@ -67,3 +68,13 @@ def run_daily_integration_jobs(db: Session) -> None:
     except Exception:
         db.rollback()
         logger.exception("daily support digest failed")
+
+
+def run_daily_mail_link_state_purge(db: Session) -> None:
+    """KAN-763 — deletes the mailbox link states (KAN-215) used or expired more than a day
+    ago (`services/mail_link.py::purge_spent_link_states`). Registered in `app/worker.py` as
+    its own job, so its run is recorded on its own."""
+
+    deleted = mail_link_service.purge_spent_link_states(db)
+    if deleted:
+        logger.info("mail link-state purge", extra={"deleted": deleted})

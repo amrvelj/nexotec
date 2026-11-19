@@ -35,6 +35,7 @@ from sqlalchemy.orm import Session
 
 from app.core.audit import record_audit_event
 from app.core.base import utcnow
+from app.core.correlation import current_correlation_id
 from app.core.deployment_environment import DeploymentEnvironment, current_deployment_environment
 from app.core.errors import ConflictError
 from app.integration.adapters.ai_base import AI_CATEGORY
@@ -217,6 +218,14 @@ def resolve_adapter(
     return _resolve_adapter(db, _connection_row(db, connection), actor_id=actor_id, purpose=purpose)
 
 
+def _correlation_id_for(passed: uuid.UUID | None) -> uuid.UUID:
+    """The id a call-log row carries (KAN-756): the caller's own when it names one, else the
+    request's or the consumed message's (KAN-125, `app.core.correlation`), so the provider
+    call is tied to what made it; a fresh one only outside every such context."""
+
+    return passed or current_correlation_id() or uuid.uuid4()
+
+
 def record_call(
     db: Session,
     *,
@@ -238,7 +247,7 @@ def record_call(
         status=status,
         duration_ms=duration_ms,
         cost_units=cost_units,
-        correlation_id=correlation_id or uuid.uuid4(),
+        correlation_id=_correlation_id_for(correlation_id),
         tokens_in=tokens[0] if tokens is not None else None,
         tokens_out=tokens[1] if tokens is not None else None,
     )
@@ -309,7 +318,7 @@ def call_capability(
 
     connection = _connection_row(db, connection)
     # One block, one correlation: every row it writes carries the same id.
-    correlation_id = correlation_id or uuid.uuid4()
+    correlation_id = _correlation_id_for(correlation_id)
     with Session(bind=db.get_bind(), autoflush=False, expire_on_commit=False) as gateway_db:
         factory = _adapter_factory(gateway_db, connection)
         _refuse_sandbox_on_production(gateway_db, connection, actor_id=actor_id, purpose=purpose or capability)
