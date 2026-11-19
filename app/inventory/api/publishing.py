@@ -78,7 +78,10 @@ def publish_to_channel(
     principal: Principal = Depends(require_write("marketplace_publishing")),
     db: Session = Depends(get_db),
 ):
-    item = stock_item_service.get_stock_item_or_404(db, principal.tenant_id, stock_item_id)
+    # KAN-747: the item's row lock, as «Einkauf stornieren» takes it, so a
+    # publish racing a storno judges the car after it (back in pipeline:
+    # refused) or the storno sees the car published (refused) — never both.
+    item = stock_item_service.get_stock_item_for_update_or_404(db, principal.tenant_id, stock_item_id)
     row = publishing_service.publish(db, item=item, channel=channel, actor_id=principal.user_id)
     return _publishing_read(db, item, row)
 

@@ -59,3 +59,17 @@ def test_nothing_is_reported_when_every_platform_admin_is_homed_in_the_platform_
     create_user(client, create_dealership(client, "Garage Ruhig AG"))
 
     assert _findings(db_session) == set()
+
+
+def test_a_platform_admin_holding_other_roles_too_is_reported_and_a_lookalike_role_is_not(client, db_session):
+    """The containment test reads the JSON list's text: a holder with several
+    roles is found wherever the token sits, and no other role's name matches."""
+
+    dealership = create_dealership(client, "Garage Mehrfach AG")
+    holder = create_user(client, dealership)
+    other = create_user(client, dealership)
+    db_session.get(User, uuid.UUID(holder["id"])).access_roles = ["sales", "platform_admin", "inventory"]
+    db_session.get(User, uuid.UUID(other["id"])).access_roles = ["sales", "inventory"]
+    db_session.commit()
+
+    assert _findings(db_session) == {uuid.UUID(holder["id"])}

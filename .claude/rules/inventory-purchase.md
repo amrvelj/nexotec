@@ -38,7 +38,9 @@ Moved out of inventory.md by KAN-615 (2026-11-13). Last verified against main@3b
 - A reserved car may be stornoed; the reservation stays. **Refused:** no booked purchase, a car that
   left stock, a contract on the car that requested its invoice (from Stock's contract projection,
   `events-stock-sales.md`), or a car published on any marketplace (409 `purchase_storno_published`,
-  `channels`; the seller unpublishes first — the storno never unpublishes).
+  `channels`; the seller unpublishes first — the storno never unpublishes). Publish takes the
+  item's row lock, so it cannot race a storno past this. The Betrieb's website is not covered
+  (open with Anto, KAN-766).
 - **KAN-146's decisions, as Anto ruled them (KAN-747, 2026-11-18: A, C, A, A):** «Rechnung
   angefordert» counts as invoiced (1 A); a published car refuses the storno (2 C, above);
   `einstandspreis` stays closed to hand booking with the two keys reserved (3 A); the days in stock

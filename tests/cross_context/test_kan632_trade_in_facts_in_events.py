@@ -7,9 +7,9 @@ on its purchase and storno events (`tradeInCustomerId`, `tradeInSignedAt`) —
 and judge whether an event was overtaken from customer's own record of
 Stock's bookings (`customer_stock_item_booking`).
 
-Events already published without the seller (before KAN-632, or for a
-pipeline item created before it) are answered through the composition root
-(`app/worker.py` asks Sales); the booking record was seeded from the outbox by
+An event without the seller (before KAN-632, or for a pipeline item created
+before it and not backfilled) dead-letters since KAN-674 retired the worker's
+Sales fallback; the booking record was seeded from the outbox by
 the migration, so what was consumed before it is known too.
 
 Postgres lane.
