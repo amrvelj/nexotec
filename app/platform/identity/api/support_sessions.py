@@ -1,16 +1,25 @@
-"""Support sessions (KAN-221 PR-2): start and end. The record only — the
-token that acts for the user is PR 3 (`services/support_sessions.py`)."""
+"""Support sessions (KAN-221): start and end (PR 2), and the support-session
+log (PR 5) — the Betrieb's own for its manager, every Betrieb's for platform
+staff. The record only — the token that acts for the user is PR 3
+(`services/support_sessions.py`)."""
 
 import uuid
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
-from app.core.auth import AccessRole, Principal, get_current_principal
+from app.core.auth import AccessRole, Principal, get_current_principal, require_access_role
 from app.core.errors import ForbiddenError
 from app.core.idempotent_route import IdempotentRoute
+from app.core.pagination import PageParams, page_params
+from app.core.permissions import require_read
+from app.core.tenancy import require_tenant_match
 from app.db import get_db
-from app.platform.identity.schemas.support_session import SupportSessionRead, SupportSessionStart
+from app.platform.identity.schemas.support_session import (
+    SupportSessionLogPage,
+    SupportSessionRead,
+    SupportSessionStart,
+)
 from app.platform.identity.services import support_sessions
 
 router = APIRouter(tags=["platform-support-sessions"], route_class=IdempotentRoute)
@@ -68,3 +77,45 @@ def end_support_session(
 ):
     row = support_sessions.end_support_session(db, session_id=session_id, principal=principal)
     return support_sessions.to_read(row)
+
+
+@router.get(
+    "/dealerships/{dealership_id}/support-sessions",
+    response_model=SupportSessionLogPage,
+    description=(
+        "KAN-221 (FR-A-15, the matrix row «Support-session log»): every support session Nexotec staff held in "
+        "this Betrieb, running or over, with the staff member, the user, the reason and how it ended. The "
+        "manager reads their own Betrieb's; another Betrieb's is 404. Each start and end is also in the "
+        "Betrieb's audit log."
+    ),
+)
+def list_dealership_support_sessions(
+    dealership_id: uuid.UUID,
+    params: PageParams = Depends(page_params),
+    principal: Principal = Depends(require_read("support_session_log")),
+    db: Session = Depends(get_db),
+):
+    require_tenant_match(dealership_id, principal)
+    items, next_cursor = support_sessions.list_support_sessions(db, params=params, dealership_id=dealership_id)
+    return SupportSessionLogPage(items=items, next_cursor=next_cursor)
+
+
+@router.get(
+    "/platform/support-sessions",
+    response_model=SupportSessionLogPage,
+    description=(
+        "KAN-221 (FR-A-15): the platform-wide support-session log, for platform staff only. Narrowed by "
+        "`dealershipId` and `staffUserId`."
+    ),
+)
+def list_platform_support_sessions(
+    dealership_id: uuid.UUID | None = Query(default=None, alias="dealershipId"),
+    staff_user_id: uuid.UUID | None = Query(default=None, alias="staffUserId"),
+    params: PageParams = Depends(page_params),
+    principal: Principal = Depends(require_access_role()),  # platform_admin only
+    db: Session = Depends(get_db),
+):
+    items, next_cursor = support_sessions.list_support_sessions(
+        db, params=params, dealership_id=dealership_id, staff_user_id=staff_user_id
+    )
+    return SupportSessionLogPage(items=items, next_cursor=next_cursor)
