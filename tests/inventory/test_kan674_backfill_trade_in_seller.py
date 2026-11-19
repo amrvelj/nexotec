@@ -1,7 +1,7 @@
 """KAN-674 step 1: `scripts/backfill_trade_in_seller_on_stock_items.py` gives a
 trade-in stock item created before KAN-632 the seller its events now carry
-(`trade_in_customer_id`, `trade_in_signed_at`), read from Sales exactly as the
-worker's fallback reads it (`sales.public.get_trade_in_seller`)."""
+(`trade_in_customer_id`, `trade_in_signed_at`), read from Sales
+(`sales.public.get_trade_in_seller`), as the retired worker fallback did."""
 
 import importlib.util
 import uuid

@@ -27,10 +27,12 @@ every contract's status, number, car and invoice request, as plain data, a
 page at a time. A SELECT only. Stock itself never calls Sales (ADR-131): its
 sweep and «Einkauf stornieren» read the projection its consumers keep.
 
-`get_trade_in_seller` (KAN-189) is the worker's fallback for a trade-in
-purchase or storno event that does not name its seller (published before
-KAN-632, which carries it in the events): the contract's customer and since
-when it is known, plain data. Customer, below sales, never calls it (ADR-131).
+`get_trade_in_seller` (KAN-189) answers a trade-in contract's customer and
+since when it is known, plain data, for
+`scripts/backfill_trade_in_seller_on_stock_items.py` (KAN-674), which fills
+the seller onto a pipeline item created before KAN-632. The worker's fallback
+that asked it for an event without the seller is retired (KAN-674). Customer,
+below sales, never calls it (ADR-131).
 `referenced_configuration_ids` (KAN-270) is vehicle's read for its daily purge of
 configurations no host ever took: which of the ids it names any offer or
 contract holds. A SELECT only.

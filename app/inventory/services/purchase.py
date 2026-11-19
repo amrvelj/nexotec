@@ -11,6 +11,7 @@ from decimal import ROUND_HALF_UP, Decimal
 from typing import Any
 from zoneinfo import ZoneInfo
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.audit import record_audit_event
@@ -20,6 +21,7 @@ from app.core.errors import ConflictError, UnprocessableEntityError
 from app.core.outbox import OutboxEvent, publish
 from app.core.validators import is_chassis_number
 from app.inventory.models.stock_item import LifecycleStatus, StockItem
+from app.inventory.models.stock_item_publishing import PublishingState, StockItemPublishing
 from app.inventory.schemas.purchase import (
     NotionalInputTaxOverrideRequest,
     PurchaseStornoRequest,
@@ -277,7 +279,10 @@ def storno_purchase(
     requested its invoice (409 `purchase_storno_invoice_requested`, with
     `contractNumber`):
     the hand-off to Finance happened, so for the business the car is
-    invoiced. Since KAN-630 (ADR-131) Stock answers that from its own
+    invoiced. Also refused while the car is published on a marketplace (409
+    `purchase_storno_published`, with `channels`; Anto, KAN-747 decision 2,
+    option C): a car the Betrieb has not bought must not stay online, so the
+    seller unpublishes it first — the storno never unpublishes on its own. Since KAN-630 (ADR-131) Stock answers that from its own
     projection of Sales' contract facts, counting a request Sales has
     committed that the projection has not applied yet — so the outbox's
     delay never lets a storno through that the direct read would have
@@ -317,6 +322,22 @@ def storno_purchase(
             f"Contract {invoiced_by} has requested the invoice for stock item {item.stock_number} — "
             "its purchase can no longer be stornoed.",
             details={"reason": "purchase_storno_invoice_requested", "contractNumber": invoiced_by, "stockItemId": str(item.id)},
+        )
+    published_on = sorted(
+        channel.value
+        for channel in db.scalars(
+            select(StockItemPublishing.channel).where(
+                StockItemPublishing.stock_item_id == item.id,
+                StockItemPublishing.tenant_id == item.tenant_id,
+                StockItemPublishing.state == PublishingState.PUBLISHED,
+            )
+        )
+    )
+    if published_on:
+        raise ConflictError(
+            f"Stock item {item.stock_number} is published on {', '.join(published_on)} — "
+            "unpublish it before its purchase is stornoed.",
+            details={"reason": "purchase_storno_published", "channels": published_on, "stockItemId": str(item.id)},
         )
 
     before = _purchase_facts(item)

@@ -513,7 +513,8 @@ def trade_in_seller_fields(item: StockItem) -> dict[str, str]:
     carry it (`tradeInCustomerId`, `tradeInSignedAt`, the same keys on both)
     — what the customer context records the former owner from. Empty for an
     item that keeps none: anything but a trade-in, or one created before
-    KAN-632 (the customer context then asks through the composition root)."""
+    KAN-632 and not backfilled (its trade-in event then dead-letters in the
+    customer context, KAN-674)."""
 
     if item.trade_in_customer_id is None or item.trade_in_signed_at is None:
         return {}

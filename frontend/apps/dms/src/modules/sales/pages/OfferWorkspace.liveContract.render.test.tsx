@@ -137,7 +137,7 @@ describe('OfferWorkspace — an offer with a live contract is read-only (KAN-426
   })
 
   // KAN-501 — read-only must not take the view-only paths with it: the
-  // selected customer and «zum Lagerfahrzeug» still open their overlays
+  // selected customer and «Lagerbestand öffnen» still open their overlays
   // (ADR-059), while the controls that write stay disabled.
   it('the selected customer still opens as an overlay while the workspace stays read-only', async () => {
     const user = userEvent.setup()
@@ -152,7 +152,7 @@ describe('OfferWorkspace — an offer with a live contract is read-only (KAN-426
     expect(backend.callsTo(/^\/sales\/offers\/o1/, 'PATCH')).toHaveLength(0)
   })
 
-  it('«zum Lagerfahrzeug» still opens the car, and the pricing inputs stay disabled', async () => {
+  it('«Lagerbestand öffnen» still opens the car, and the pricing inputs stay disabled', async () => {
     const user = userEvent.setup()
     const backend = install(
       offer({

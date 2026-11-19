@@ -6,9 +6,10 @@ context records the contract's customer as the car's former owner and
 keeper. The contract and its customer are Sales' facts. Since KAN-632 they
 travel in the events (`sales.contract.confirmed`'s `customerId`/`signedAt`,
 which Stock carries on as `tradeInCustomerId`/`tradeInSignedAt`); this read,
-through `app.sales.public`, answers only an event published without them, and
-only from the composition root (`app/worker.py`) — customer sits below sales
-and never imports it (ADR-131). A read, nothing else (CLAUDE.md rule 2).
+through `app.sales.public`, serves only
+`scripts/backfill_trade_in_seller_on_stock_items.py` — the worker's fallback
+that asked it for an event without them is retired (KAN-674). Customer sits
+below sales and never imports it (ADR-131). A read, nothing else (CLAUDE.md rule 2).
 """
 
 import dataclasses

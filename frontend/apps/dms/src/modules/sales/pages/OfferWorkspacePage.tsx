@@ -255,7 +255,7 @@ export function OfferWorkspaceContent({ offerId: id }: { offerId: string }) {
           steppers (those act on pointer-down, which a fieldset does not stop).
           KAN-501: the customer, vehicle and pricing containers sit outside it and
           take `readOnly` themselves, so what only shows — the customer overlay,
-          the stock number (KAN-570), «zum Lagerfahrzeug» — still opens. */}
+          the stock number (KAN-570), «Lagerbestand öffnen» — still opens. */}
       <Stack gap="lg">
         <LockedWhile readOnly={readOnly}>
           {/* KAN-405: the responsible seller, through the same save queue. */}

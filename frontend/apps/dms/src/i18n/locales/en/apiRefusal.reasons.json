@@ -127,6 +127,7 @@
   "purchase_not_booked": "No purchase is booked for this vehicle, so there is nothing to cancel.",
   "purchase_storno_left_stock": "This vehicle has already left stock. Its purchase can no longer be cancelled.",
   "purchase_storno_invoice_requested": "The invoice for contract {{contractNumber}} has already been requested. The purchase can no longer be cancelled.",
+  "purchase_storno_published": "This vehicle is still published on {{channels}}. Unpublish it first, then the purchase can be cancelled.",
   "source_ref_reserved": "This reference is reserved for the purchase and its cancellation.",
   "storno_return_not_trade_in": "Only a trade-in can go back to its customer.",
   "trade_in_vin_differs": "This VIN is not the one the contract holds for the trade-in. If the contract's VIN is wrong, use «Assign configuration» to give the vehicle a configuration with the correct VIN – if it already has one, enter the VIN there with «Edit configuration». The configuration's VIN then applies.",

@@ -42,7 +42,7 @@ main@3b2bf69 (2026-11-18). The backend rules are sales.md. -->
   pending contract; «Übernehmen» is one action (`modules/sales/components/dealRowMenu.tsx`) in the Sales list's
   row menu and both detail overflows (ADR-061) and takes an unassigned open deal for the signed-in
   user. The Sales list has the «Nicht zugewiesen» chip and the «Verantwortlich» column.
-- **The stock number is on screen** (Anto): «Lagernummer S-…» (`StockNumberLink`) beside the car
+- **The stock number is on screen** (Anto): «Lagernummer S-…» (`InventoryNumberLink`) beside the car
   in the offer workspace's and the pending contract's vehicle container and in the header of a sent
   offer and of a contract past editing, opening the stock detail as an overlay (ADR-059); on the
   Sales grid an optional «Lagernummer» column, hidden by default, sortable.

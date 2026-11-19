@@ -22,7 +22,7 @@ from app.core.consumer import consume_once
 from app.core.errors import ConflictError
 from app.core.outbox_model import OutboxMessage
 from app.core.reconciliation import ReconciliationAlarm
-from app.inventory.models.stock_item import StockItem
+from app.inventory.models.stock_item import LifecycleStatus, StockItem
 from app.inventory.models.stock_item_ledger import LedgerCategory, LedgerDirection, StockItemLedger
 from app.inventory.schemas.purchase import PurchaseStornoRequest
 from app.inventory.services.purchase import storno_purchase
@@ -31,6 +31,7 @@ from app.sales.consumers import handle_stock_item_purchased_message, handle_stoc
 from app.sales.models.stock_item_purchase import SalesStockItemPurchase
 from app.sales.services.contract import cancel_contract, confirm_contract, request_invoice
 from tests.inventory.test_inventory_purchase_promotes import VIN, _auth, _create, _events, _purchase, _token
+from tests.sales.test_sales_contract_edit import _postgres_only_row_locks
 from tests.sales.test_sales_invoiceable_replica import (
     _contract_on,
     _dealership,
@@ -552,3 +553,109 @@ def test_reconciliation_reports_an_invoice_requested_for_a_car_stock_does_not_ho
     db_session.commit()
 
     assert label in _finding_labels(db_session)
+
+
+def _publication(db_session, item: dict, channel, state) -> None:
+    from app.inventory.models.stock_item_publishing import StockItemPublishing
+
+    stored = db_session.get(StockItem, uuid.UUID(item["id"]))
+    db_session.add(
+        StockItemPublishing(tenant_id=stored.tenant_id, stock_item_id=stored.id, channel=channel, state=state)
+    )
+    db_session.commit()
+
+
+def test_storno_of_a_car_published_on_a_marketplace_is_refused(client, db_session):
+    """KAN-747 decision 2, option C (Anto, 2026-11-18): a car the Betrieb has not
+    bought must not stay online — the storno is refused while any marketplace
+    holds it as published, naming the channels; nothing is reversed."""
+    from app.inventory.models.stock_item_publishing import MarketplaceChannel, PublishingState
+
+    token = _token(client)
+    item = _bought(client, db_session, token)
+    _publication(db_session, item, MarketplaceChannel.CARMARKET, PublishingState.PUBLISHED)
+    _publication(db_session, item, MarketplaceChannel.AUTOSCOUT24, PublishingState.PUBLISHED)
+    _publication(db_session, item, MarketplaceChannel.AUTOLINA, PublishingState.NOT_PUBLISHED)
+    entries_before = len(_ledger(db_session, item["id"]))
+
+    response = _storno(client, token, item)
+
+    assert response.status_code == 409, response.text
+    assert response.json()["error"]["details"] == {
+        "reason": "purchase_storno_published",
+        "channels": ["autoscout24", "carmarket"],
+        "stockItemId": item["id"],
+    }
+    assert len(_ledger(db_session, item["id"])) == entries_before
+    assert _events(db_session, item["id"]).count("inventory.stock_item.storno") == 0
+    db_session.expire_all()
+    assert db_session.get(StockItem, uuid.UUID(item["id"])).purchase_price is not None
+
+
+def test_storno_of_a_car_unpublished_everywhere_goes_through(client, db_session):
+    """An unpublished channel row (the seller unpublished first) does not hold the storno."""
+    from app.inventory.models.stock_item_publishing import MarketplaceChannel, PublishingState
+
+    token = _token(client)
+    item = _bought(client, db_session, token)
+    _publication(db_session, item, MarketplaceChannel.AUTOSCOUT24, PublishingState.NOT_PUBLISHED)
+
+    response = _storno(client, token, item)
+
+    assert response.status_code == 200, response.text
+    assert _events(db_session, item["id"]).count("inventory.stock_item.storno") == 1
+
+
+@_postgres_only_row_locks
+def test_a_publish_racing_a_storno_waits_for_it_and_is_then_refused(client, db_session, engine):
+    """KAN-747 (review): the publish route takes the item's row lock, as the
+    storno does, so it judges the car after a storno in progress — back in
+    pipeline, never published — instead of a pre-storno snapshot."""
+
+    import threading
+    import time
+
+    from sqlalchemy.orm import Session
+
+    from app.inventory.services import stock_item as stock_item_service
+
+    token = _token(client)
+    item = _bought(client, db_session, token)
+    stored = db_session.get(StockItem, uuid.UUID(item["id"]))
+    tenant_id = stored.tenant_id
+    result: dict = {}
+    holding = Session(bind=engine)
+    try:
+        # A storno in progress: it holds the row lock from its first read to
+        # its commit (the service commits itself, so the test stands in for
+        # its open transaction with the change it makes to the lifecycle).
+        locked = stock_item_service.get_stock_item_for_update_or_404(holding, tenant_id, stored.id)
+        locked.lifecycle_status = LifecycleStatus.PIPELINE
+        locked.in_stock_at = None
+        holding.flush()
+        sender = threading.Thread(
+            target=lambda: result.update(
+                response=client.post(
+                    f"/v1/inventory/stock-items/{item['id']}/publishing/autoscout24/publish", headers=_auth(token)
+                )
+            )
+        )
+        sender.start()
+        time.sleep(0.8)
+        blocked_while_held = sender.is_alive()
+        holding.commit()
+        sender.join(10)
+    finally:
+        holding.close()
+
+    assert blocked_while_held, "the publish judged the car without waiting for the storno in progress"
+    response = result["response"]
+    assert response.status_code == 409, response.text
+    db_session.expire_all()
+    from app.inventory.models.stock_item_publishing import PublishingState, StockItemPublishing
+
+    assert db_session.scalar(
+        select(StockItemPublishing).where(
+            StockItemPublishing.stock_item_id == stored.id, StockItemPublishing.state == PublishingState.PUBLISHED
+        )
+    ) is None

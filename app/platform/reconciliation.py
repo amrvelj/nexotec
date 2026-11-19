@@ -7,16 +7,18 @@ actor checks, built by app.platform.identity.services.actor_reference as the oth
 contexts build theirs through app.platform.public — and, since KAN-412, one
 StateCheck of its own: a revoked connected account whose secret is still
 held a day after the revoke; since KAN-218 a second: an offboarded Betrieb
-whose ten-year archive has passed its last day, due for manual deletion.
+whose ten-year archive has passed its last day, due for manual deletion;
+since KAN-764 a platform_admin homed outside the platform tenant.
 Everything here is read-only — see app.core.reconciliation for the mechanism.
 """
 
 import datetime as dt
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import ColumnElement, and_
+from sqlalchemy import ColumnElement, String, and_, cast, select
 from sqlalchemy.orm import Session
 
+from app.core.auth import AccessRole
 from app.core.base import utcnow
 from app.core.config import get_settings
 from app.core.reconciliation import ReconciliationRun, ReferenceCheck, StateCheck, run_reconciliation
@@ -36,7 +38,13 @@ from app.platform.identity.models.user import User
 from app.platform.identity.services.actor_reference import actor_reference_checks
 from app.platform.organisation.models.branding_asset import BrandingAsset
 from app.platform.organisation.models.contact_group import DealershipContactGroup
-from app.platform.organisation.models.dealership import DealerGroup, Dealership, DealershipStatus, Location
+from app.platform.organisation.models.dealership import (
+    DealerGroup,
+    Dealership,
+    DealershipKind,
+    DealershipStatus,
+    Location,
+)
 from app.platform.organisation.models.dealership_bank_account import DealershipBankAccount
 from app.platform.organisation.models.dealership_settings import DealershipSettings
 from app.platform.organisation.models.holiday_calendar import Holiday, HolidayCalendar
@@ -142,6 +150,23 @@ def _export_file_past_its_download_window() -> ColumnElement[bool]:
     )
 
 
+# KAN-764 (rule 10; KAN-221 PR-1): platform_admin is Nexotec staff and is
+# granted only in the platform tenant. A holder homed anywhere else — a legacy
+# row `scripts/move_platform_admins_to_platform_tenant.py` has not moved yet,
+# or one a direct database fix wrote — is reported every night, never moved
+# here: the move script's confirmed-rows rule decides each row (ADR-107). A
+# `tenant_id` that names no Betrieb at all is reported too: it is not the
+# platform tenant either. `access_roles` is a JSON list of fixed role tokens,
+# so the quoted token in its text is the portable containment test (JSON,
+# not JSONB, has no `@>`).
+def _platform_admin_homed_outside_the_platform_tenant() -> ColumnElement[bool]:
+    platform_tenants = select(Dealership.id).where(Dealership.kind == DealershipKind.PLATFORM)
+    return and_(
+        cast(User.access_roles, String).like(f'%"{AccessRole.PLATFORM_ADMIN.value}"%'),
+        User.tenant_id.not_in(platform_tenants),
+    )
+
+
 CHECKS: list[ReferenceCheck | StateCheck] = [
     *actor_reference_checks(*ACTOR_TABLES),
     StateCheck(
@@ -167,6 +192,12 @@ CHECKS: list[ReferenceCheck | StateCheck] = [
         source_model=ExportJob,
         source_row_id_column=ExportJob.id,
         where=_export_file_past_its_download_window,
+    ),
+    StateCheck(
+        label="user.platform_admin_homed_outside_the_platform_tenant",
+        source_model=User,
+        source_row_id_column=User.id,
+        where=_platform_admin_homed_outside_the_platform_tenant,
     ),
 ]
 
