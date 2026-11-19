@@ -29,7 +29,8 @@ main@3b2bf69 (2026-11-18). -->
   `platform_admin` principal may grant or remove it or edit a user who holds it (403 otherwise). A
   `platform_admin` gets no sister membership and a member cannot get the role (422);
   `scripts/report_platform_admins_homed_in_dealerships.py` reports the ones homed in a Betrieb (exit
-  1), never fixes them.
+  1), never fixes them; platform's nightly reconciliation reports each one too
+  (`user.platform_admin_homed_outside_the_platform_tenant`, KAN-764).
   KAN-221: granted only in the platform tenant, held by all there (422); the legacy move:
   `scripts/move_platform_admins_*`.
 - Capabilities, not role checks: `Capability(read_roles, write_roles, manager_can_write,
