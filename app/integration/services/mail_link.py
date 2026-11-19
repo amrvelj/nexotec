@@ -317,11 +317,11 @@ def purge_spent_link_states(db: Session, *, now: dt.datetime | None = None) -> i
     returns how many went. A live link (unused, within its ten minutes) is never touched."""
 
     cutoff = (now or utcnow()) - LINK_STATE_RETENTION
-    deleted = db.execute(
+    result = db.execute(
         delete(MailLinkState).where(or_(MailLinkState.expires_at < cutoff, MailLinkState.consumed_at < cutoff))
-    ).rowcount
+    )
     db.commit()
-    return deleted
+    return int(result.rowcount or 0)  # type: ignore[attr-defined]
 
 
 # -- the callback ---------------------------------------------------------------

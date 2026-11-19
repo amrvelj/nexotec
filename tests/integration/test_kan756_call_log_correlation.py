@@ -23,9 +23,11 @@ def test_a_call_inside_a_handlers_context_carries_the_parent_messages_correlatio
     connection = _make_connection(db_session, _make_provider(db_session))
     parent = uuid.uuid4()
 
-    with correlation_scope(parent, causation_id=uuid.uuid4()):
-        with gateway.call_capability(db_session, connection=connection, capability="vehicle_data") as adapter:
-            adapter.fetch_variant("FZ100001")
+    with (
+        correlation_scope(parent, causation_id=uuid.uuid4()),
+        gateway.call_capability(db_session, connection=connection, capability="vehicle_data") as adapter,
+    ):
+        adapter.fetch_variant("FZ100001")
 
     assert [row.correlation_id for row in _rows(db_session, connection.id)] == [parent]
 
@@ -47,11 +49,10 @@ def test_an_id_the_caller_passes_still_wins_over_the_context(db_session):
     connection = _make_connection(db_session, _make_provider(db_session))
     own = uuid.uuid4()
 
-    with correlation_scope(uuid.uuid4()):
-        with gateway.call_capability(
-            db_session, connection=connection, capability="vehicle_data", correlation_id=own
-        ) as adapter:
-            adapter.fetch_variant("FZ100001")
+    with correlation_scope(uuid.uuid4()), gateway.call_capability(
+        db_session, connection=connection, capability="vehicle_data", correlation_id=own
+    ) as adapter:
+        adapter.fetch_variant("FZ100001")
 
     assert [row.correlation_id for row in _rows(db_session, connection.id)] == [own]
 
