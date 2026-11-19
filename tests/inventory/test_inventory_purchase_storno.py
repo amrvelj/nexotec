@@ -552,3 +552,54 @@ def test_reconciliation_reports_an_invoice_requested_for_a_car_stock_does_not_ho
     db_session.commit()
 
     assert label in _finding_labels(db_session)
+
+
+def _publication(db_session, item: dict, channel, state) -> None:
+    from app.inventory.models.stock_item_publishing import StockItemPublishing
+
+    stored = db_session.get(StockItem, uuid.UUID(item["id"]))
+    db_session.add(
+        StockItemPublishing(tenant_id=stored.tenant_id, stock_item_id=stored.id, channel=channel, state=state)
+    )
+    db_session.commit()
+
+
+def test_storno_of_a_car_published_on_a_marketplace_is_refused(client, db_session):
+    """KAN-747 decision 2, option C (Anto, 2026-11-18): a car the Betrieb has not
+    bought must not stay online — the storno is refused while any marketplace
+    holds it as published, naming the channels; nothing is reversed."""
+    from app.inventory.models.stock_item_publishing import MarketplaceChannel, PublishingState
+
+    token = _token(client)
+    item = _bought(client, db_session, token)
+    _publication(db_session, item, MarketplaceChannel.CARMARKET, PublishingState.PUBLISHED)
+    _publication(db_session, item, MarketplaceChannel.AUTOSCOUT24, PublishingState.PUBLISHED)
+    _publication(db_session, item, MarketplaceChannel.AUTOLINA, PublishingState.NOT_PUBLISHED)
+    entries_before = len(_ledger(db_session, item["id"]))
+
+    response = _storno(client, token, item)
+
+    assert response.status_code == 409, response.text
+    assert response.json()["error"]["details"] == {
+        "reason": "purchase_storno_published",
+        "channels": ["autoscout24", "carmarket"],
+        "stockItemId": item["id"],
+    }
+    assert len(_ledger(db_session, item["id"])) == entries_before
+    assert _events(db_session, item["id"]).count("inventory.stock_item.storno") == 0
+    db_session.expire_all()
+    assert db_session.get(StockItem, uuid.UUID(item["id"])).purchase_price is not None
+
+
+def test_storno_of_a_car_unpublished_everywhere_goes_through(client, db_session):
+    """An unpublished channel row (the seller unpublished first) does not hold the storno."""
+    from app.inventory.models.stock_item_publishing import MarketplaceChannel, PublishingState
+
+    token = _token(client)
+    item = _bought(client, db_session, token)
+    _publication(db_session, item, MarketplaceChannel.AUTOSCOUT24, PublishingState.NOT_PUBLISHED)
+
+    response = _storno(client, token, item)
+
+    assert response.status_code == 200, response.text
+    assert _events(db_session, item["id"]).count("inventory.stock_item.storno") == 1

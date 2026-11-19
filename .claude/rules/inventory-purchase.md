@@ -36,14 +36,14 @@ Moved out of inventory.md by KAN-615 (2026-11-13). Last verified against main@3b
   the storno (default false; refused on any other car), audited with it; the customer context then
   reopens that customer as owner and keeper (`customer-vehicle-party.md`).
 - A reserved car may be stornoed; the reservation stays. **Refused:** no booked purchase, a car that
-  left stock, or a contract on the car that requested its invoice (from Stock's contract
-  projection, `events-stock-sales.md`).
-- **Built as the safe default, open with Anto (KAN-747; KAN-146's decisions 1–4, never answered):** «Rechnung angefordert» counting as
-  invoiced (Finance issues none yet); a published car staying published (the feed keeps sending
-  it, though a pipeline car could not be published); `einstandspreis` closed to hand booking with
-  the two keys reserved; the days in stock restarting at the next booking. A storno and «Rechnung
-  anfordern» can still race (no shared lock); Sales' reconciliation reports the result
-  (`sales-reconciliation.md`).
+  left stock, a contract on the car that requested its invoice (from Stock's contract projection,
+  `events-stock-sales.md`), or a car published on any marketplace (409 `purchase_storno_published`,
+  `channels`; the seller unpublishes first — the storno never unpublishes).
+- **KAN-146's decisions, as Anto ruled them (KAN-747, 2026-11-18: A, C, A, A):** «Rechnung
+  angefordert» counts as invoiced (1 A); a published car refuses the storno (2 C, above);
+  `einstandspreis` stays closed to hand booking with the two keys reserved (3 A); the days in stock
+  restart at the next booking (4 A). A storno and «Rechnung anfordern» can still race (no shared
+  lock); Sales' reconciliation reports the result (`sales-reconciliation.md`).
 - **A pre-1981 car is bought under its chassis number** (KAN-535, ADR-103 as amended; Anto,
   2026-11-13, option A). `vin` takes `NormalisedVinOrChassisNumber`; a chassis number needs the
   item's configuration to carry it (422 `chassis_number_requires_configuration`), with a first

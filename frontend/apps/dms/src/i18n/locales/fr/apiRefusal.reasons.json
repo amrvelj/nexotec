@@ -127,6 +127,7 @@
   "purchase_not_booked": "Aucun achat n'est saisi pour ce véhicule, il n'y a rien à annuler.",
   "purchase_storno_left_stock": "Ce véhicule a déjà quitté le stock. Son achat ne peut plus être annulé.",
   "purchase_storno_invoice_requested": "La facture du contrat {{contractNumber}} a déjà été demandée. L'achat ne peut plus être annulé.",
+  "purchase_storno_published": "Ce véhicule est encore publié sur {{channels}}. Retirez d'abord l'annonce, puis l'achat pourra être annulé.",
   "source_ref_reserved": "Cette référence est réservée à l'achat et à son annulation.",
   "storno_return_not_trade_in": "Seul un véhicule de reprise peut retourner au client.",
   "trade_in_vin_differs": "Ce VIN n'est pas celui que le contrat indique pour le véhicule de reprise. Si le VIN du contrat est erroné, attribuez au véhicule, via « Attribuer une configuration », une configuration portant le bon VIN – s'il en a déjà une, saisissez-y le VIN via « Modifier la configuration ». Le VIN de la configuration fait alors foi.",

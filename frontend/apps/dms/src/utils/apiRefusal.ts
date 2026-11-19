@@ -333,6 +333,8 @@ const REASON_KEYS: Record<string, string> = {
       'purchase_not_booked',
       'purchase_storno_invoice_requested',
       'purchase_storno_left_stock',
+      // KAN-747 — a published car is unpublished before its purchase is stornoed.
+      'purchase_storno_published',
       'source_ref_reserved',
       // KAN-572 — only a trade-in's car can go back to its customer.
       'storno_return_not_trade_in',
@@ -411,6 +413,10 @@ const REASON_PARAMS: Record<string, (details: Details, t: TFunction) => Record<s
   provider_cannot_value: (d) => ({ message: typeof d.providerMessage === 'string' ? d.providerMessage : '—' }),
   // KAN-146: the contract whose invoice request keeps the purchase booked.
   purchase_storno_invoice_requested: (d) => ({ contractNumber: String(d.contractNumber ?? '—') }),
+  // KAN-747: the marketplaces still publishing the car, by their brand names.
+  purchase_storno_published: (d) => ({
+    channels: listed(d.channels, (channel) => MARKETPLACE_NAMES[channel] ?? channel),
+  }),
   // A connection's settings by their labels on the connect form; a key the
   // bundles do not name yet as the API spells it, never the missing-key marker.
   missing_config_fields: (d, t) => ({
@@ -477,6 +483,13 @@ const placeholderTokens = (value: unknown): string =>
   Array.isArray(value) && value.length > 0
     ? value.map((item) => (item && typeof item === 'object' && 'token' in item && item.token ? `{{${String(item.token)}}}` : '{{ }}')).join(', ')
     : '—'
+
+// Brand names, the same in every language (ChannelPublishCard's own list).
+const MARKETPLACE_NAMES: Record<string, string> = {
+  autoscout24: 'AutoScout24',
+  carmarket: 'Carmarket',
+  autolina: 'Autolina',
+}
 
 const listed = (value: unknown, label: (item: string) => string = (item) => item): string =>
   Array.isArray(value) && value.length > 0 ? value.map((item) => label(String(item))).join(', ') : '—'
