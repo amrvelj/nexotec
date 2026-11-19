@@ -34,7 +34,7 @@
   },
   "connectModal": {
     "title": "Connetti {{provider}}",
-    "testAccessHint": "Sandbox è il vostro accesso di prova: solo con l'account di servizio di auto-i-dat (Client-ID e Client-Secret), mai con il token personale, e solo in ambienti di test. Sul server di produzione Nexotec lo rifiuta.",
+    "testAccessHint": "Sandbox è l'ambiente di test di auto-i-dat: solo con l'account di servizio (Client-ID e Client-Secret), mai con il token personale, e solo in ambienti di test. Sul server di produzione Nexotec rifiuta una connessione Sandbox.",
     "secretFailed": "Connessione creata, non è stato possibile salvare il secret: {{reason}}",
     "secretFailedRepair": "Impostare il secret sulla scheda della connessione con «Imposta secret».",
     "secretFailedFallback": "La richiesta non è stata eseguita.",

@@ -1,7 +1,10 @@
 """AutoIDatIdentAdapter — the identAPI transport (KAN-488, ADR-111).
 
-The identAPI (``https://api.ident.autoi.ch``) is a REST / json:api service
-behind the OAuth 2.0 Bearer tokens ``autoi_oauth.py`` obtains. This module is
+The identAPI is a REST / json:api service behind the OAuth 2.0 Bearer tokens
+``autoi_oauth.py`` obtains. Its host is the connection's environment's
+(``autoi_oauth.ENVIRONMENTS``, KAN-765): ``https://api.ident.autoi.ch`` for a
+production connection, auto-i-dat's test environment
+``https://api.ident.test.autoi.ch`` for a sandbox one. This module is
 the **transport**: one choke point, ``_request``, through which every request
 to the identAPI passes, metered as one ``integration_call_log`` row per attempt
 under the operation's own name (KAN-486), retried once through
@@ -27,11 +30,16 @@ slot ``client_secret`` only when a token has to be requested, in memory, and
 every resolution is audit-logged (``secret_resolved``) — one row per token
 request, not per API call, because the token is the credential in flight.
 
-**The user** (auto-i's User Enrollment Grant): a token names the Nexotec user
-who is working, so the adapter is built with the acting user — read through
-``platform.public`` from the gateway's ``actor_id`` — and a call with no
-signed-in user has no token and is refused as a configuration error before
-anything is sent.
+**The user — production only** (auto-i's User Enrollment Grant): a token
+names the Nexotec user who is working, so a production adapter is built with
+the acting user — read through ``platform.public`` from the gateway's
+``actor_id`` — and a call with no signed-in user, on a connection with no
+Betrieb, or by a user who does not act in it has no token and is refused as a
+configuration error before anything is sent. **A sandbox connection names no
+user** (the Client Credentials Grant, KAN-765): it reads nobody from
+``platform``, sends no user data, shares one token among its users and is
+never refused for want of a user. ``actor_id`` stays on the adapter in both
+environments, for the ``secret_resolved`` audit rows.
 
 **Built here** (KAN-488, KAN-547, KAN-548, KAN-211, KAN-549, KAN-552):
 ``fetch_code_captions`` / ``fetch_captions`` (the access check of *Test
@@ -62,9 +70,12 @@ from sqlalchemy.orm import Session
 from app.core.audit import record_audit_event
 from app.integration.adapters import identapi_parse as parse
 from app.integration.adapters.autoi_oauth import (
+    AutoiEnvironment,
     AutoiOAuthClient,
     EnrolledUser,
+    Grant,
     build_http_client,
+    environment_for,
     invalidate_tokens,
     is_timeout,
     transport_error,
@@ -100,7 +111,6 @@ from app.integration.services.resilience import call_with_retry
 
 logger = logging.getLogger(__name__)
 
-BASE_URL = "https://api.ident.autoi.ch"
 CLIENT_ID_CONFIG_KEY = "clientId"
 
 # Operation names as they appear in `integration_call_log.capability` — the
@@ -163,9 +173,9 @@ class AutoIDatIdentAdapter:
         oauth: AutoiOAuthClient,
         actor_id: uuid.UUID | None,
         purpose: str,
+        environment: AutoiEnvironment,
         user: EnrolledUser | None,
         no_user_reason: str | None = None,
-        base_url: str = BASE_URL,
     ) -> None:
         self._db = db
         self._connection = connection
@@ -175,7 +185,8 @@ class AutoIDatIdentAdapter:
         self._purpose = purpose
         self._user = user
         self._no_user_reason = no_user_reason
-        self._base_url = base_url.rstrip("/")
+        self._environment = environment
+        self._base_url = environment.api_base_url.rstrip("/")
 
     # -- credentials ------------------------------------------------------
 
@@ -213,8 +224,11 @@ class AutoIDatIdentAdapter:
     def _cache_key(self) -> Hashable:
         return (self._connection.version, self._connection.rotated_at)
 
+    def _enrols_a_user(self) -> bool:
+        return self._environment.grant is Grant.USER_ENROLLMENT
+
     def _access_token(self) -> str:
-        if self._user is None:
+        if self._enrols_a_user() and self._user is None:
             raise ProviderConfigurationError(self._no_user_reason or NO_ACTOR_REASON)
         return self._oauth.access_token(
             connection_id=self._connection.id,
@@ -258,7 +272,11 @@ class AutoIDatIdentAdapter:
                     f"{operation}: the identAPI refused the access token twice (HTTP 401) — "
                     "check the client id and the client secret of this connection."
                 ) from None
-            invalidate_tokens(self._connection.id, self._user.user_id if self._user else None)
+            # Production drops only this user's token; a sandbox connection's
+            # one shared token is the connection's (user id None).
+            invalidate_tokens(
+                self._connection.id, self._user.user_id if self._enrols_a_user() and self._user else None
+            )
             return self._request(operation, method, path, params, empty_on_404=empty_on_404, _retry_auth=False)
 
     def _send(
@@ -704,8 +722,9 @@ def _http_client() -> httpx.Client:
     return _shared_http
 
 
-# The three ways a call can have nobody to enrol, each its own sentence in
-# `last_error` (the dealer manager, or platform staff, reads it).
+# The three ways a production call can have nobody to enrol, each its own
+# sentence in `last_error` (the dealer manager, or platform staff, reads it).
+# A sandbox call enrols nobody and meets none of them (KAN-765).
 NO_ACTOR_REASON = (
     "identAPI calls need a signed-in user: auto-i enrols each user by name and e-mail, and this call has none."
 )
@@ -771,17 +790,24 @@ def _build_ident_adapter(
 ) -> AutoIDatIdentAdapter:
     """The `_ADAPTER_FACTORIES["auto_i_dat"]` entry (services/gateway.py).
     Builds no network connection and resolves no secret: the first token
-    request, inside the caller's `call_capability` block, does both."""
+    request, inside the caller's `call_capability` block, does both. The
+    connection's environment chooses the hosts and the grant (KAN-765); only
+    the enrollment grant reads the acting user."""
 
     http = _http_client()
-    user, no_user_reason = enrolled_user_for(db, connection, actor_id)
+    environment = environment_for(connection.environment)
+    user: EnrolledUser | None = None
+    no_user_reason: str | None = None
+    if environment.grant is Grant.USER_ENROLLMENT:
+        user, no_user_reason = enrolled_user_for(db, connection, actor_id)
     return AutoIDatIdentAdapter(
         db=db,
         connection=connection,
         http=http,
-        oauth=AutoiOAuthClient(http),
+        oauth=AutoiOAuthClient(http, environment=environment),
         actor_id=actor_id,
         purpose=purpose,
+        environment=environment,
         user=user,
         no_user_reason=no_user_reason,
     )

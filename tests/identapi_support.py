@@ -2,11 +2,21 @@
 `httpx.MockTransport`, and the rows a connection to them needs.
 
 Nothing here reaches the network. Every value is invented (KAN-491): the
-client id, the secret, the token, the users. The fake answers the two hosts
-the real adapter speaks to — `www.autoi.ch` (discovery, token endpoint) and
-`api.ident.autoi.ch` (the identAPI) — and records every request it saw, so a
-test can assert what was sent (and what was not: a secret, a token in a
-log line, an API call after a refused login).
+client id, the secret, the token, the users. The fake answers the four hosts
+the real adapter speaks to — per environment (KAN-765) an authorization server
+(`www.autoi.ch` / `www.test.autoi.ch`: discovery, token endpoint) and an
+identAPI (`api.ident.autoi.ch` / `api.ident.test.autoi.ch`) — and records
+every request it saw, so a test can assert what was sent (and what was not: a
+secret, a token in a log line, an API call after a refused login, a user
+field on a sandbox login). Each authorization server expects its own
+environment's grant, and each identAPI accepts only the tokens its own
+authority issued, so a request sent to the other environment's host fails.
+
+`make_connection` builds a **production** connection unless told otherwise:
+the behaviour the KAN-488 … KAN-588 tests pin (the enrollment grant, the
+per-user token, the no-user refusals, the user quota, the language tag) is
+production's since KAN-765; the sandbox's own tests ask for
+`ConnectionEnvironment.SANDBOX`.
 """
 
 from __future__ import annotations
@@ -29,6 +39,14 @@ from app.platform.identity.models.user import User, UserRole, UserStatus
 CLIENT_ID = "test-client-id-0001"
 CLIENT_SECRET = "test-client-secret-not-real"
 CAPABILITY_CODES = ["ident_basis", "ausstattung", "bewertung", "vin", "pneu", "energielabel"]
+
+PRODUCTION_AUTHORITY = "www.autoi.ch"
+PRODUCTION_API = "api.ident.autoi.ch"
+SANDBOX_AUTHORITY = "www.test.autoi.ch"
+SANDBOX_API = "api.ident.test.autoi.ch"
+# authorization server -> the grant it expects; identAPI -> its authority.
+_GRANT_OF = {PRODUCTION_AUTHORITY: "user_enrollment", SANDBOX_AUTHORITY: "client_credentials"}
+_AUTHORITY_OF = {PRODUCTION_API: PRODUCTION_AUTHORITY, SANDBOX_API: SANDBOX_AUTHORITY}
 
 DISCOVERY = {
     "issuer": "https://www.autoi.ch",
@@ -96,6 +114,9 @@ class FakeAutoi:
     raise_on_api: Exception | None = None
     seen: list[SeenRequest] = field(default_factory=list)
     tokens_issued: list[str] = field(default_factory=list)
+    # authority host -> the tokens it issued (KAN-765): an identAPI accepts
+    # only its own authority's.
+    tokens_issued_by: dict[str, list[str]] = field(default_factory=dict)
 
     # -- what the adapter saw -----------------------------------------------------
 
@@ -103,7 +124,7 @@ class FakeAutoi:
         return [r for r in self.seen if r.path == "/api/oauth2/token"]
 
     def api_requests(self) -> list[SeenRequest]:
-        return [r for r in self.seen if r.host == "api.ident.autoi.ch"]
+        return [r for r in self.seen if r.host in _AUTHORITY_OF]
 
     def api_requests_to(self, path: str) -> list[SeenRequest]:
         return [r for r in self.api_requests() if r.path == path]
@@ -124,20 +145,30 @@ class FakeAutoi:
                 list(request.url.params.multi_items()),
             )
         )
-        if request.url.host == "www.autoi.ch":
+        if request.url.host in _GRANT_OF:
             return self._authorization_server(request, form)
-        if request.url.host == "api.ident.autoi.ch":
+        if request.url.host in _AUTHORITY_OF:
             return self._ident_api(request)
         return httpx.Response(404)
 
+    def discovery_for(self, host: str) -> dict:
+        """The metadata as `host` serves it: the scripted document, its
+        issuer and endpoints moved onto that host."""
+
+        return {
+            key: value.replace(f"//{PRODUCTION_AUTHORITY}", f"//{host}") if isinstance(value, str) else value
+            for key, value in self.discovery.items()
+        }
+
     def _authorization_server(self, request: httpx.Request, form: dict[str, str]) -> httpx.Response:
+        host = request.url.host
         if request.url.path == "/.well-known/oauth-authorization-server":
-            return httpx.Response(self.discovery_status, json=self.discovery)
+            return httpx.Response(self.discovery_status, json=self.discovery_for(host))
         if request.url.path == "/api/oauth2/token":
             expected = "Basic " + base64.b64encode(f"{self.client_id}:{self.client_secret}".encode()).decode()
             if request.headers.get("Authorization") != expected:
                 return httpx.Response(401, json={"error": "invalid_client"})
-            if form.get("grant_type") != "user_enrollment" or form.get("scope") != "ident":
+            if form.get("grant_type") != _GRANT_OF[host] or form.get("scope") != "ident":
                 return httpx.Response(400, json={"error": "unsupported_grant_type"})
             if self.token_status == 400:
                 return httpx.Response(400, json={"error": "user_quota_exceeded", "error_description": "..."})
@@ -145,6 +176,7 @@ class FakeAutoi:
                 return httpx.Response(self.token_status, json={"error": "server_error"})
             token = f"tok-{uuid.uuid4().hex}"
             self.tokens_issued.append(token)
+            self.tokens_issued_by.setdefault(host, []).append(token)
             return httpx.Response(200, json={"access_token": token, "token_type": "Bearer", "expires_in": self.expires_in})
         return httpx.Response(404)
 
@@ -155,7 +187,9 @@ class FakeAutoi:
             self.expire_tokens_once = False
             return _json_api_error(401, "Unauthorized")
         authorization = request.headers.get("Authorization", "")
-        if not authorization.startswith("Bearer ") or authorization[7:] not in self.tokens_issued:
+        own_tokens = self.tokens_issued_by.get(_AUTHORITY_OF[request.url.host], [])
+        token = authorization[7:]
+        if not authorization.startswith("Bearer ") or token not in self.tokens_issued or token not in own_tokens:
             return _json_api_error(401, "Unauthorized")
         path = request.url.path
         if path in self.api_fail_once:
@@ -259,12 +293,13 @@ def make_user(db_session, *, tenant_id: uuid.UUID, email: str = "ada.tester@exam
 def make_connection(
     db_session, provider: IntegrationProvider, *, tenant_id: uuid.UUID, secrets: FakeSecretsBackend,
     client_id: str = CLIENT_ID, client_secret: str | None = CLIENT_SECRET,
+    environment: ConnectionEnvironment = ConnectionEnvironment.PRODUCTION,
 ) -> IntegrationConnection:
     connection = connection_service.create_connection(
         db_session,
         tenant_id=tenant_id,
         data=ConnectionCreate(
-            provider_id=provider.id, display_name="auto-i-dat", environment=ConnectionEnvironment.SANDBOX,
+            provider_id=provider.id, display_name="auto-i-dat", environment=environment,
             config={"clientId": client_id},
         ),
         actor_id=uuid.uuid4(),
@@ -282,7 +317,10 @@ class Setup:
     user: User
 
 
-def connected(db_session, monkeypatch, *, fake: FakeAutoi | None = None, tenant_id: uuid.UUID | None = None) -> Setup:
+def connected(
+    db_session, monkeypatch, *, fake: FakeAutoi | None = None, tenant_id: uuid.UUID | None = None,
+    environment: ConnectionEnvironment = ConnectionEnvironment.PRODUCTION,
+) -> Setup:
     """Provider, connection, secret, an active user homed in the tenant and
     the fake installed — everything a `test_connection` needs."""
 
@@ -291,7 +329,7 @@ def connected(db_session, monkeypatch, *, fake: FakeAutoi | None = None, tenant_
     install(monkeypatch, fake, secrets)
     tenant_id = tenant_id or uuid.uuid4()
     provider = make_provider(db_session)
-    connection = make_connection(db_session, provider, tenant_id=tenant_id, secrets=secrets)
+    connection = make_connection(db_session, provider, tenant_id=tenant_id, secrets=secrets, environment=environment)
     user = make_user(db_session, tenant_id=tenant_id)
     return Setup(fake=fake, secrets=secrets, connection=connection, user=user)
 
