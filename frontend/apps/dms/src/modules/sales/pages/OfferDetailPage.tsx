@@ -7,7 +7,7 @@ import { useTranslation } from 'react-i18next'
 import { DetailHeader, useOverlay, useSetBreadcrumb } from '@nexotec/ui-kit'
 import { api } from '../../../api/client'
 import { DealOwnerSelect } from '../components/deal-workspace/DealOwnerSelect'
-import { StockNumberLink } from '../components/deal-workspace/InventoryNumberLink'
+import { InventoryNumberLink } from '../components/deal-workspace/InventoryNumberLink'
 import { buildDealTakeOverAction, useTakeOverDeal } from '../components/dealRowMenu'
 import { SalesDocumentsSection } from '../components/SalesDocumentsSection'
 import { useIdempotencyKey } from '../../../hooks/useIdempotencyKey'
@@ -189,7 +189,7 @@ export function OfferDetailContent({ offerId: id, embedded = false }: OfferDetai
           // KAN-570: the stock car's number beside the car (the title), the
           // stock detail opened as an overlay (ADR-059).
           offer.stockItemId && offer.stockItemLabel ? (
-            <StockNumberLink
+            <InventoryNumberLink
               stockNumber={offer.stockItemLabel}
               onOpen={() =>
                 overlay.push({

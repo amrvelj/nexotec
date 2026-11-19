@@ -8,7 +8,7 @@ import { useTranslation } from 'react-i18next'
  * overlay (ADR-059: the deal underneath is never navigated away from); a
  * host that cannot open it shows the number alone.
  */
-export function StockNumberLink({ stockNumber, onOpen }: { stockNumber: string; onOpen?: () => void }) {
+export function InventoryNumberLink({ stockNumber, onOpen }: { stockNumber: string; onOpen?: () => void }) {
   const { t } = useTranslation()
   const text = t('offerWorkspace.vehicle.stockNumber', { stockNumber })
   if (!onOpen) {

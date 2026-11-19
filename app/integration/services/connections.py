@@ -103,7 +103,7 @@ def _validate_required_config(provider: IntegrationProvider, config: dict) -> No
 
 def _refuse_sandbox_without_one(provider: IntegrationProvider, environment: ConnectionEnvironment) -> None:
     """KAN-741: a provider that offers no test access (`supports_sandbox`
-    false — AutoScout24, DAT, every AI provider) cannot hold a sandbox
+    false — AutoScout24, every AI provider) cannot hold a sandbox
     connection; it could never answer a call. Refused at creation, where the
     environment is chosen (a connection's environment never changes after),
     rather than learnt at the first call."""

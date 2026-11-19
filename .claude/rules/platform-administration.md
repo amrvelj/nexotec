@@ -17,7 +17,7 @@ paths:
   - "tests/platform/test_platform_onboarding.py"
   - "tests/cross_context/test_kan218_*.py"
   - "tests/cross_context/test_data_export_completeness.py"
-  - "tests/vehicle/test_configuration_copy.py"
+  - "tests/platform/test_configuration_copy.py"
   - "tests/setup_checklist_support.py"
   - "tests/data_export_support.py"
   - "frontend/apps/dms/src/pages/OnboardingPage*"

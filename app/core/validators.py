@@ -300,7 +300,9 @@ NormalisedVinOrChassisNumber = Annotated[
 
 def is_chassis_number(value: str | None) -> bool:
     """A non-empty value that is not a valid VIN: a pre-1981 chassis number.
-    Such a value is never looked up in, written to or linked from vehicle-mdm."""
+    Such a value is never looked up in vehicle-mdm by itself: since KAN-535 a
+    bought car's record is found by the number together with its make
+    (`vehicle.public.resolve_vehicle_mdm_by_chassis_number`)."""
 
     return bool(value) and not is_valid_vin(value)
 
