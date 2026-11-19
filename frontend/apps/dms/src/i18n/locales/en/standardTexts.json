@@ -20,6 +20,7 @@
   "appliesTo": {
     "offer": "Offer",
     "contract": "Purchase contract",
+    "order_confirmation": "Order confirmation",
     "invoice": "Invoice",
     "appointment_reminder": "Appointment reminder",
     "vehicle_ready": "Vehicle ready",

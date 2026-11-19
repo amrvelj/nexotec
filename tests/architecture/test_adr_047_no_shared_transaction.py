@@ -467,6 +467,9 @@ _READS = {
     # registry, no database).
     "app.platform.public.connected_account_states",
     "app.platform.public.register_grant_revoker",
+    # KAN-217: Sales' customer message types into the send dialog's
+    # in-process registry, at start-up (no database).
+    "app.platform.public.register_message_type",
 }
 
 

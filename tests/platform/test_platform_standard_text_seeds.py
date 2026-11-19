@@ -14,7 +14,8 @@ from app.core.audit_model import AuditEvent
 from app.core.auth import AccessRole
 from app.core.i18n import SwissLanguage
 from app.platform.documents.models.standard_text import StandardText
-from app.platform.services.standard_text_seed import SEED_CODES, SEED_TEXTS
+from app.platform.documents.services.standard_text import SHIPPED_SEED_CODES
+from app.platform.services.standard_text_seed import SEED_TEXTS
 from tests.membership_support import bearer, create_dealership, create_user, manager_of, platform_admin, token
 
 CODE = "offer.footer.validity"
@@ -48,7 +49,7 @@ def _revert(client, row, headers=None, version=None):
 
 def test_the_library_is_listed_by_code_with_four_languages_and_the_shipped_wording(client, standard_text_seeds):
     items = _list(client, bearer(token(AccessRole.SALES)))  # any role reads (the matrix row)
-    assert [g["code"] for g in items] == sorted(SEED_CODES)
+    assert [g["code"] for g in items] == sorted(SHIPPED_SEED_CODES)
     group = next(g for g in items if g["code"] == CODE)
     assert (group["category"], group["appliesTo"], group["slot"]) == ("document", "offer", "footer")
     fr = group["fr"]

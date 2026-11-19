@@ -10,6 +10,10 @@ paths:
   - "app/platform/organisation/services/number_range.py"
   - "app/platform/documents/models/document_template.py"
   - "app/platform/documents/models/standard_text*.py"
+  - "app/platform/documents/services/message_*.py"
+  - "app/message_type_registry.py"
+  - "app/sales/message_types.py"
+  - "tests/platform/test_kan217_message_types.py"
   - "app/platform/identity/models/standard_text*.py"
   - "app/platform/organisation/models/number_range.py"
   - "app/platform/public.py"
@@ -91,6 +95,15 @@ A-RULE-3). Cut from platform.md by KAN-614 (2026-11-10). Last verified against m
   (`services/standard_text_seed.py`). **Dealers never override UI strings** — no endpoint exists.
 - The texts screen edits the Betrieb's scope only; a location variant is written through the API
   alone (neither the texts nor the Locations screen offers it yet).
+- **Two shipped editions** (ADR-133): KAN-208's starter set (`services/standard_text_seed.py`,
+  frozen) and KAN-217's message texts (`documents/services/message_text_seed.py`, literals in
+  `a4d9e6c3b7f2`); `standard_text.SHIPPED_SEED_TEXTS` is both, for install, listing and revert.
+- **Message types (FR-A-52/53, KAN-217):** `documents/services/message_types.py` — a module
+  registers each document or reminder type it sends (purpose transactional | marketing, its text
+  code per channel) through `platform.public.register_message_type`, from the composition root
+  `app/message_type_registry.py`; a wrong or conflicting one fails at start-up. E-mail attaches the
+  document, SMS and WhatsApp send a secure link the send service appends — no text names it.
+  Sales registers `offer`, `order_confirmation`, `sales_contract`. Nothing sends yet.
 - Carried-over footers: each non-empty `document_template` footer became the Betrieb's **default**
   offer and contract footer (`offer|contract.footer.carried_over`) and an invoice text that is not
   the default (`invoice.footer.carried_over`), so documents keep printing what they printed; an

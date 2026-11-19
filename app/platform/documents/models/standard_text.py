@@ -46,6 +46,9 @@ class StandardTextAppliesTo(str, enum.Enum):
 
     OFFER = "offer"
     CONTRACT = "contract"
+    # KAN-217: Sales' order confirmation, a registered message type of the
+    # send dialog (FR-A-52); its texts are message bodies only so far.
+    ORDER_CONFIRMATION = "order_confirmation"
     INVOICE = "invoice"
     APPOINTMENT_REMINDER = "appointment_reminder"
     VEHICLE_READY = "vehicle_ready"

@@ -2155,6 +2155,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/dealerships/{dealership_id}/support-sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Dealership Support Sessions
+         * @description KAN-221 (FR-A-15, the matrix row «Support-session log»): every support session Nexotec staff held in this Betrieb, running or over, with the staff member, the user, the reason and how it ended. The manager reads their own Betrieb's; another Betrieb's is 404. Each start and end is also in the Betrieb's audit log.
+         */
+        get: operations["list_dealership_support_sessions_v1_dealerships__dealership_id__support_sessions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/dealerships/{dealership_id}/users": {
         parameters: {
             query?: never;
@@ -4130,7 +4150,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * List Platform Support Sessions
+         * @description KAN-221 (FR-A-15): the platform-wide support-session log, for platform staff only. Narrowed by `dealershipId` and `staffUserId`.
+         */
+        get: operations["list_platform_support_sessions_v1_platform_support_sessions_get"];
         put?: never;
         /**
          * Start Support Session
@@ -12613,7 +12637,7 @@ export interface components {
          *     `applies_to`; FR-A-52's registered types the starter set needs).
          * @enum {string}
          */
-        StandardTextAppliesTo: "offer" | "contract" | "invoice" | "appointment_reminder" | "vehicle_ready" | "workshop_order" | "customer_note";
+        StandardTextAppliesTo: "offer" | "contract" | "order_confirmation" | "invoice" | "appointment_reminder" | "vehicle_ready" | "workshop_order" | "customer_note";
         /**
          * StandardTextCategory
          * @description The PRD's standard-text categories (Dealer Administration, "Standard
@@ -13239,6 +13263,63 @@ export interface components {
          * @enum {string}
          */
         SupportSessionEndedBy: "staff" | "user" | "timeout";
+        /**
+         * SupportSessionLogEntry
+         * @description One line of the support-session log (PR 5): the session and the names
+         *     of the two people in it and of the Betrieb, as they read today.
+         */
+        SupportSessionLogEntry: {
+            /** Active */
+            active: boolean;
+            /**
+             * Dealershipid
+             * Format: uuid
+             */
+            dealershipId: string;
+            /** Dealershipname */
+            dealershipName: string;
+            /** Endedat */
+            endedAt: string | null;
+            endedBy: components["schemas"]["SupportSessionEndedBy"] | null;
+            /**
+             * Expiresat
+             * Format: date-time
+             */
+            expiresAt: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Reason */
+            reason: string;
+            /** Staffname */
+            staffName: string;
+            /**
+             * Staffuserid
+             * Format: uuid
+             */
+            staffUserId: string;
+            /**
+             * Startedat
+             * Format: date-time
+             */
+            startedAt: string;
+            /**
+             * Targetuserid
+             * Format: uuid
+             */
+            targetUserId: string;
+            /** Targetusername */
+            targetUserName: string;
+        };
+        /** SupportSessionLogPage */
+        SupportSessionLogPage: {
+            /** Items */
+            items: components["schemas"]["SupportSessionLogEntry"][];
+            /** Nextcursor */
+            nextCursor: string | null;
+        };
         /** SupportSessionRead */
         SupportSessionRead: {
             /** Active */
@@ -20489,6 +20570,44 @@ export interface operations {
             };
         };
     };
+    list_dealership_support_sessions_v1_dealerships__dealership_id__support_sessions_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                cursor?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SupportSessionLogPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_users_v1_dealerships__dealership_id__users_get: {
         parameters: {
             query?: {
@@ -25376,6 +25495,44 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["StatusIncidentRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_platform_support_sessions_v1_platform_support_sessions_get: {
+        parameters: {
+            query?: {
+                dealershipId?: string | null;
+                staffUserId?: string | null;
+                limit?: number;
+                cursor?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SupportSessionLogPage"];
                 };
             };
             /** @description Validation Error */
