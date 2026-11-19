@@ -6,6 +6,12 @@ It hands out values, never a mapped class (KAN-123 step 5, ADR-162): a
 customer is a `CustomerRef`, a vehicle party a `VehiclePartyRef`; what another
 context's reconciliation checks against `customer` is built here too
 (`services/reconciliation_targets.py`).
+
+`message_recipient` / `preselected_message_channel` (KAN-217) are the send
+dialog's read of a customer: where a message on e-mail, SMS or WhatsApp goes
+and Customers' consent verdict for a transactional or marketing send (a
+`MessageRecipient`, plain values, the refusal as a stable code), and the
+channel the dialog opens on. SELECTs only.
 """
 
 from app.customer.models.customer import CustomerLifecycleStatus
@@ -25,6 +31,11 @@ from app.customer.services.customer_refs import (
 )
 from app.customer.services.data_export import CustomerExporter
 from app.customer.services.legal_basis import has_any_basis_for_group
+from app.customer.services.message_recipient import (
+    MessageRecipient,
+    message_recipient,
+    preselected_message_channel,
+)
 from app.customer.services.reconciliation_targets import customer_exists, customer_reference_check
 from app.customer.services.vehicle_page import StockItemsFor, customer_vehicle_page
 from app.customer.services.vehicle_party import resolve_live_customer_id
@@ -46,6 +57,7 @@ __all__ = [
     "CustomerRef",
     "CustomerSalesLabel",
     "CustomerVehiclePage",
+    "MessageRecipient",
     "StockItemsFor",
     "VehiclePartyRef",
     "VehiclePartyRole",
@@ -62,8 +74,10 @@ __all__ = [
     "has_any_basis_for_group",
     "has_usable_domicile_address",
     "list_vehicle_party_holders",
+    "message_recipient",
     "oldest_advisor_label_age_seconds",
     "oldest_vehicle_party_label_age_seconds",
+    "preselected_message_channel",
     "refresh_advisor_labels",
     "refresh_vehicle_party_labels",
     "resolve_live_customer_id",
