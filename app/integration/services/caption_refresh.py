@@ -1,13 +1,16 @@
 """KAN-588 — «Captions aktualisieren»: platform staff acting in a Betrieb
 refresh a provider's caption vocabulary by hand.
 
-Anto ruled (2026-11-07) that no scheduled refresh is wanted — a background
-job has no user to enrol at auto-i (ADR-111 as amended) — and that Nexotec
+Anto ruled (2026-11-07) that no scheduled refresh is wanted — on production a
+background job has no user to enrol at auto-i (ADR-111 as amended); a sandbox
+login needing no user changes nothing (KAN-765) — and that Nexotec
 staff should have something when the vocabulary is out of sync. So the
 refresh runs the same fetch «Test connection» runs (`GET /caption/code`, one
 `caption_code` call-log row per language) through the Betrieb's own enabled
-vehicle-data connection, **under the acting staff user's own token** (the
-gateway's User Enrollment Grant names the actor). Each language is committed
+vehicle-data connection — on a production connection **under the acting
+staff user's own token** (the User Enrollment Grant names the actor), on a
+sandbox connection under the connection's one Client Credentials token
+(KAN-765; the actor is still audited). Each language is committed
 as it lands, as on «Test connection»; a failure keeps what landed. Audited on
 the connection (`captions_refreshed`, the languages fetched).
 

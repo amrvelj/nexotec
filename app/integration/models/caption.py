@@ -16,9 +16,10 @@ the mapping-gap queue; it never copies them into its own reference lists
 `kind` is the list a caption sits in as the wire names it — `passenger`,
 `utility`, `moto` or `global` (a code every vehicle type shares). The four
 label columns are filled one language at a time; a language not fetched yet
-is NULL. No daily refresh: a background job has no user to enrol
-(ADR-111 as amended), so captions are as old as the last «Test connection»
-(`fetched_at`).
+is NULL. No daily refresh (Anto, 2026-11-07; a production login has no user
+to enrol in a background job, and a sandbox login needing none changes
+nothing, KAN-765), so captions are as old as the last «Test connection» or
+staff refresh (`fetched_at`).
 """
 
 import datetime as dt

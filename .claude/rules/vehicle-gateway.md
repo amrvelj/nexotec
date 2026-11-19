@@ -44,18 +44,23 @@ Last verified against main@3b2bf69 (2026-11-18). -->
   once, a 4xx never; 401 → the token dropped and asked once more; 403 → `ProviderNotEntitledError`;
   400/422 → `ProviderRequestError`. A list call asks the first page only, never a second (the one
   bounded walk is the options of the one car opened, `OPTIONS_PAGE_CAP`).
-- **Login** (`adapters/autoi_oauth.py`): metadata discovery from auto-i's well-known document
-  (cached ≤ 24 h, **never hard-coded**) and the **User Enrollment Grant** naming the **acting
-  Nexotec user** (`platform.public.get_active_user_acting_in`) with the service account's client id
-  (config `clientId`) and secret (slot `client_secret`). The Bearer token is cached in process **per
-  connection and per user**, keyed by the connection's `version` and `rotated_at`, never persisted,
-  never logged (`access_token` / `Authorization` are redacted names). The enrolment's
-  `Accept-Language` is the user's UI language as `de-CH`/`fr-CH`/`it-CH`/`en-CH`
-  (`platform.public.ui_language_of`, KAN-585); not part of the cache key.
-- A call with no signed-in user, no `clientId` or no secret is a `ProviderConfigurationError` — the
+- **Login** (`adapters/autoi_oauth.py`): the connection's `environment` picks authority, identAPI
+  host and grant from one table of provider constants (`ENVIRONMENTS`, KAN-765). Both: metadata
+  discovery from `{authority}/.well-known/oauth-authorization-server` (cached ≤ 24 h per URL, **never
+  hard-coded**; `grant_types_supported` is never checked), HTTP Basic with the service account's
+  client id (config `clientId`) and secret (slot `client_secret`), `scope=ident`. **Production**
+  (`www.autoi.ch`, `api.ident.autoi.ch`): the **User Enrollment Grant** naming the **acting Nexotec
+  user** (`platform.public.get_active_user_acting_in`), token cached **per connection and per user**,
+  `Accept-Language` the user's UI language as `de-CH`/`fr-CH`/`it-CH`/`en-CH` (KAN-585; not in the
+  cache key). **Sandbox** = auto-i-dat's test environment (`www.test.autoi.ch`,
+  `api.ident.test.autoi.ch`): the **Client Credentials Grant**, no user field, no `Accept-Language`,
+  one token **per connection** shared by its users, never refused for want of a user. Either token is
+  keyed by the connection's `version` and `rotated_at`, never persisted, never logged (`access_token`
+  / `Authorization` are redacted names).
+- A production call with no signed-in user, any call with no `clientId` or no secret is a `ProviderConfigurationError` — the
   dealer's to fix: no breaker charge, no invented row. A 400/422 or 403 is the provider's coherent
   answer, logged `ERROR` and **never charged to the breaker** (one un-entitled option must not
-  switch off the others), nor is auto-i refusing to enrol one more user (`user_quota_exceeded` →
+  switch off the others), nor is auto-i refusing to enrol one more user (production only: `user_quota_exceeded` →
   `ProviderUserQuotaExceededError`, KAN-586: that user's answer, not the connection's); a transport
   failure, a 5xx and any other refused login (a wrong client secret) charge it.
 - **«Test connection»** = discovery + token + captions + one documented probe per licence option
@@ -63,19 +68,20 @@ Last verified against main@3b2bf69 (2026-11-18). -->
   200/404 = granted, anything else leaves the row), the clicking user as the actor; a refused login
   stops the probes and charges the breaker once (an over-quota user's does not). It is the identAPI's go-live check.
 - What has run against the **real** service account (2026-11-07, outside the app): discovery, one
-  token request, one caption call. Everything else ran against the mock or a fake transport — say
-  so in any claim about real provider behaviour.
+  token request, one caption call (production credentials, since deactivated). Nothing has run against
+  the **test environment** yet (KAN-765: fake transport only). Everything else ran against the mock or
+  a fake transport — say so in any claim about real provider behaviour.
 
 ## Captions are vocabulary, global, fetched on «Test connection» and by staff (ADR-111)
 `integration_provider_caption`, one row per (provider, group, list, code) with four labels; each
-language committed as it lands; a failure leaves the connection `connected`. No scheduled refresh (a
-background job has no user to enrol). **Staff see and refresh them** (KAN-588): every store records
+language committed as it lands; a failure leaves the connection `connected`. No scheduled refresh (Anto,
+2026-11-07 — a sandbox login needing no user changes nothing). **Staff see and refresh them** (KAN-588): every store records
 `integration_provider_caption_fetch` (provider, language, `fetched_at`, code count; integration migration
 `b1f58e30a656`, seeded from the captions); the catalogue's staff-only «Anbieter-Vokabular» tab
 (`ProviderCaptionsPanel`) reads `GET /v1/integrations/captions/fetches` and «Vokabular aktualisieren»
 is `POST /v1/integrations/captions/refresh` (`services/caption_refresh.py`, `require_access_role()`): the
-four languages through the acting Betrieb's enabled vehicle-data connection, under the staff user's own
-token, each committed as it lands, audited `captions_refreshed` on the connection; 409
+four languages through the acting Betrieb's enabled vehicle-data connection — on production under the staff
+user's own token, on a sandbox under the connection's — each committed as it lands, audited `captions_refreshed` on the connection; 409
 `no_provider_connection` / `provider_not_configured` / `not_entitled` / `provider_has_no_captions`, 422
 `provider_unavailable`, the provider's failures with `languagesFetched`. No job calls it. Others read them through `integration.public.get_captions` —
 to show a provider's wording beside an unmapped code, **never to fill a reference list** (ADR-044).
