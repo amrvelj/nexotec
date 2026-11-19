@@ -33,9 +33,9 @@ KAN-615. Last verified against main@3b2bf69 (2026-11-18). -->
   422 `trade_in_valuation_names_no_car` at attach, nothing written, whatever the deal names and
   configured or not — and
   never offered by `set_trade_in`'s FR-S-08 auto-attach. A pre-1981 chassis number is
-  refused the same way (KAN-574): a trade-in takes only a VIN (`is_valid_vin`) — whether it should
-  take one now that Stock buys such cars (KAN-535): Anto ruled yes (KAN-746 option A,
-  2026-11-18) — not built yet, the plan is on KAN-746; a deal that held
+  refused the same way (KAN-574): a trade-in takes only a VIN (`is_valid_vin`) for now — Anto ruled
+  that it may take one now that Stock buys such cars (KAN-746 option A, 2026-11-18; KAN-535), not
+  built yet, the plan is on KAN-746; a deal that held
   such a valuation before keeps it (copy, contract and confirmation do not re-check).
 - A valuation made **without a configuration** brings its car to a deal that names no trade-in car
   yet — its VIN, linked record and «Make Model Trim», or the VIN as the label without make or model
