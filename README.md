@@ -337,7 +337,8 @@ ships it (moved here from the rule files by KAN-615; the script's docstring is t
 - `scripts/backfill_vehicle_stock_holding.py` — Vehicle's projection of the records each Betrieb holds
   in stock (KAN-667, ADR-160); run it once the old worker has stopped.
 - `scripts/backfill_trade_in_seller_on_stock_items.py` — the trade-in seller on stock items created
-  before KAN-632, so their events carry it (KAN-674; then the worker's fallback can go).
+  before KAN-632, so their events carry it (KAN-674). Run it before the first production worker: the
+  worker's Sales fallback is retired, so an event without the seller dead-letters.
 - `scripts/backfill_stock_item_location_labels.py` — the location's name beside a stock item's
   location id, on items written before KAN-739 (the nightly `inventory.location_labels` run once).
 

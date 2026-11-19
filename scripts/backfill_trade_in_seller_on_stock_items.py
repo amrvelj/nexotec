@@ -4,20 +4,22 @@ Since KAN-632 a trade-in's pipeline item keeps who traded the car in and when
 the contract was signed (`trade_in_customer_id`, `trade_in_signed_at`,
 inventory migration `21c14ae9dd31`), and its purchase and storno events carry
 them to the customer context. An item created before KAN-632 keeps neither,
-so `app/worker.py` still hands the customer consumers a fallback that asks
-Sales (`sales.public.get_trade_in_seller`) for an event without the seller.
+so its purchase or storno event would carry no seller — and since KAN-674
+step 2 the customer consumers dead-letter such an event (the worker's fallback
+that asked Sales is retired).
 
 This script fills both columns of every trade-in item (`pipeline_ref`
 `contract:<id>:trade_in`) that lacks either, from that same read — the
-contract's customer, and its signature (else its creation), exactly what the
-fallback answers — so the events those items publish from now on carry the
+contract's customer, and its signature (else its creation), what the retired
+fallback answered — so the events those items publish from now on carry the
 seller. A contract this item's Betrieb does not have, or one that names no
 customer, is reported, never guessed. Nothing is published and no version is
 bumped: the columns are Stock's copy of Sales' fact, read by no screen. Only
 inventory rows are written (CLAUDE.md rule 12: the Sales side is a read).
 
-Step 2 of KAN-674 — removing the worker's fallback — waits until this has run
-in every environment and no pre-KAN-632 purchase or storno event is pending.
+Step 2 of KAN-674 removed the worker's fallback after staging held no such
+item and no such pending event (2026-11-19). Run this once in an environment
+that does — the first production deploy — before its worker starts.
 
 MANDATORY DRY RUN. The default writes nothing: the real path runs in one
 transaction that is rolled back, and the report says what a real run would

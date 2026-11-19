@@ -31,10 +31,10 @@ from app.core.consumer import consume_once
 from app.core.outbox import OutboxEvent, publish
 from app.core.outbox_model import OutboxMessage
 from app.core.outbox_transport import DeliveryError, InProcessTransport
+from app.core.processed_event_model import ProcessedEvent
 from app.customer.consumers import (
-    OldTradeInEventWithoutSellerLookup,
+    TradeInEventWithoutSeller,
     handle_stock_item_booking_purchased_message,
-    handle_stock_item_purchased_message,
 )
 from app.customer.models.stock_item_booking import StockItemBooking, StockItemBookingKind
 from app.customer.models.vehicle_party import VehiclePartyRole
@@ -263,42 +263,36 @@ def _worker_delivers(db_session, consumer_name: str, message: OutboxMessage) -> 
     return consume_once(db_session, message=message, consumer_name=consumer_name, handler=handler)
 
 
-def test_an_old_purchase_event_is_answered_through_the_worker(db_session, engine):
-    contract, item, purchased = _bought_trade_in(db_session, engine)
-    old = _as_published_before_kan632(db_session, purchased)
-
-    with _PublisherTablesTouched(engine) as touched:
-        assert _worker_delivers(db_session, "customer.trade_in_purchased", old) is True
-
-    # The worker's fallback asked Sales (and the detector the tests above rely on sees it).
-    assert any("sales_contract" in statement for statement in touched.statements)
-    assert not any(re.search(r"FROM\s+stock_item\b", statement) for statement in touched.statements)
-    parties = _parties(db_session)
-    assert {(p.customer_id, p.effective_from) for p in parties} == {(contract.customer_id, _SIGNED_AT)}
-    assert {p.vehicle_id for p in parties} == {item.vehicle_id}
-
-
-def test_an_old_returned_storno_is_answered_through_the_worker(db_session, engine):
-    contract, item, purchased = _bought_trade_in(db_session, engine)
-    _worker_delivers(db_session, "customer.trade_in_purchased", _as_published_before_kan632(db_session, purchased))
-    old_storno = _as_published_before_kan632(db_session, _storno(db_session, item, returned=True))
-
-    assert _worker_delivers(db_session, "customer.trade_in_storno", old_storno) is True
-
-    assert {(p.customer_id, p.effective_to) for p in _parties(db_session)} == {(contract.customer_id, None)}
-
-
-def test_an_old_event_without_a_lookup_fails_loudly_never_drops(db_session, engine):
-    """Wiring the customer handler without the worker's fallback is a fault:
-    the event is redelivered (and dead-lettered with its alert), not lost."""
+def test_an_old_purchase_event_dead_letters_through_the_worker(db_session, engine):
+    """KAN-674: the worker's fallback that asked Sales is retired. A purchase
+    event without the seller raises through the registered handler — nothing
+    is written and no processed_event row is kept, so the harness retries it
+    and dead-letters it with its alert (rule 10), never drops it."""
 
     _contract, _item, purchased = _bought_trade_in(db_session, engine)
     old = _as_published_before_kan632(db_session, purchased)
 
-    with pytest.raises(OldTradeInEventWithoutSellerLookup):
-        handle_stock_item_purchased_message(db_session, old)
+    with _PublisherTablesTouched(engine) as touched, pytest.raises(TradeInEventWithoutSeller):
+        _worker_delivers(db_session, "customer.trade_in_purchased", old)
     db_session.rollback()
+
+    assert not any("sales_contract" in statement for statement in touched.statements)
     assert _parties(db_session) == []
+    assert db_session.get(ProcessedEvent, (old.id, "customer.trade_in_purchased")) is None
+
+
+def test_an_old_returned_storno_dead_letters_through_the_worker(db_session, engine):
+    contract, item, purchased = _bought_trade_in(db_session, engine)
+    assert _worker_delivers(db_session, "customer.trade_in_purchased", purchased) is True
+    old_storno = _as_published_before_kan632(db_session, _storno(db_session, item, returned=True))
+
+    with pytest.raises(TradeInEventWithoutSeller):
+        _worker_delivers(db_session, "customer.trade_in_storno", old_storno)
+    db_session.rollback()
+
+    # The purchase's closed rows stay closed: nothing was reopened.
+    assert {(p.customer_id, p.effective_to is not None) for p in _parties(db_session)} == {(contract.customer_id, True)}
+    assert db_session.get(ProcessedEvent, (old_storno.id, "customer.trade_in_storno")) is None
 
 
 def _seed_sql() -> str:
