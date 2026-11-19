@@ -9,8 +9,9 @@ was written against WP-4's OIDC front door; since KAN-196 that login is Nexotec'
 own, described under Context.)
 Nothing in this file is implemented; there is no `device_terminal` table, no PIN
 endpoint, no code path that issues a technician-scoped token. It is prose and a
-schema sketch, reviewed for shape now so the actual build (KAN-230)
-has fewer open questions.
+schema sketch, reviewed for shape now so the actual build has fewer open
+questions. It has no ticket of its own: KAN-230 was closed Wont Do — the terminal
+is built with Aftersales (ADR-028).
 
 ## Context
 
@@ -97,7 +98,7 @@ terminal realm it:
   the same person is a manager in the office, the terminal still never produces a
   token carrying that authority. (Whether a terminal session may switch Betrieb is
   not decided by ADR-110: switch-dealership authorises from `dealership_membership`
-  rows, never the token's `memberships` claim — KAN-230 settles it.)
+  rows, never the token's `memberships` claim — the Aftersales build settles it.)
 
 The fixed role set is set by the realm inside `_mint_session`, not by a business
 rule someone has to remember at another call site. Rejected (ADR-110): a second
@@ -167,5 +168,5 @@ device-model tables above; the realm parameter on `_mint_session` and the
 terminal's idle window on the `session` row. Nothing about the office sign-in's
 own behaviour changes — its realm is `staff` — which is the reason ADR-028 asked
 for this design to exist now rather than being discovered as a retrofit problem
-later. The build is KAN-230, with tests that a deactivated technician's PIN is
+later. It is built with Aftersales (KAN-230 closed Wont Do), with tests that a deactivated technician's PIN is
 refused and that a manager signing in at a terminal gets technician rights only.

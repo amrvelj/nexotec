@@ -122,6 +122,39 @@ describe('«Einkauf stornieren» (KAN-146)', () => {
     expect(screen.queryByText(/has requested the invoice/)).not.toBeInTheDocument()
   })
 
+  it('says a published car is unpublished first, naming the marketplaces (KAN-747)', async () => {
+    await i18n.changeLanguage('fr')
+    installFakeBackend([
+      {
+        method: 'POST',
+        match: /\/purchase\/storno$/,
+        handler: () =>
+          status(409, {
+            error: {
+              code: 'conflict',
+              message: 'Stock item ST-1001 is published on autoscout24, carmarket — unpublish it first.',
+              details: { reason: 'purchase_storno_published', channels: ['autoscout24', 'carmarket'], stockItemId: 's1' },
+            },
+          }),
+      },
+    ])
+    const user = userEvent.setup()
+    renderTab(BOUGHT, { onPurchaseStornoed: vi.fn() })
+    await openPurchaseBlock(user)
+    await user.click(screen.getByRole('button', { name: i18n.t('stockDetail.purchase.storno.button') }))
+    await user.type(
+      screen.getByRole('textbox', { name: (n) => n.startsWith(i18n.t('stockDetail.purchase.storno.reasonLabel')) }),
+      'Erreur',
+    )
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: i18n.t('stockDetail.purchase.storno.submit') }))
+
+    const alert = await screen.findByRole('alert')
+    expect(alert.textContent).toBe(
+      i18n.t('apiRefusal.reasons.purchase_storno_published', { channels: 'AutoScout24, Carmarket' }),
+    )
+    expect(screen.queryByText(/unpublish it first/)).not.toBeInTheDocument()
+  })
+
   it('stays visible but disabled, with the reason, on a car that has left stock', async () => {
     const user = userEvent.setup()
     renderTab({ ...BOUGHT, leftStockAt: NOW }, { onPurchaseStornoed: vi.fn() })

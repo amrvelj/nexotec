@@ -24,7 +24,7 @@ import {
 import { SalesDocumentsSection } from '../components/SalesDocumentsSection'
 import { RequestInvoiceDialog, type RequestInvoiceBody } from '../components/contract-detail/RequestInvoiceDialog'
 import { DealOwnerSelect } from '../components/deal-workspace/DealOwnerSelect'
-import { StockNumberLink } from '../components/deal-workspace/InventoryNumberLink'
+import { InventoryNumberLink } from '../components/deal-workspace/InventoryNumberLink'
 import { buildDealTakeOverAction } from '../components/dealRowMenu'
 import { useAuth } from '../../../auth/AuthContext'
 import { CustomerDetailContent } from '../../customer'
@@ -419,7 +419,7 @@ export function ContractDetailContent({ contractId: id, embedded = false }: Cont
             {/* KAN-570: beside the car (the title) once the vehicle container,
                 which shows it while the contract is edited, is gone. */}
             {!(isPending && !pricedWithoutInputs) && contract.stockItemId && contract.stockItemLabel && (
-              <StockNumberLink stockNumber={contract.stockItemLabel} onOpen={openStockItemOverlay} />
+              <InventoryNumberLink stockNumber={contract.stockItemLabel} onOpen={openStockItemOverlay} />
             )}
           </>
         }

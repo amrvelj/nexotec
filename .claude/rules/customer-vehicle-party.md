@@ -85,7 +85,7 @@ customer.md by KAN-615 (2026-11-13). Last verified against main@3b2bf69 (2026-11
 ## Trade-ins (Anto, KAN-189 rulings 1–4, KAN-566, KAN-572)
 - **A bought trade-in names its former owner:** `customer.trade_in_purchased` consumes
   `inventory.stock_item.purchased` and, for a trade-in's item, writes the contract's customer (from
-  the event; an older event's through the worker, which asks Sales) as **owner and keeper, closed at
+  the event; one without it dead-letters — KAN-674 retired the worker's Sales fallback) as **owner and keeper, closed at
   the purchase** — the start of the purchase date in Switzerland, or the booking when that date is
   not after the signature or still to come — held since the signature. The customer's own rows join
   the period without gap or overlap (`test_kan566_former_holder_periods.py`); no other holder is

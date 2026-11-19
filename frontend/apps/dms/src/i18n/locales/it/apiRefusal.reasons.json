@@ -127,6 +127,7 @@
   "purchase_not_booked": "Per questo veicolo non è registrato alcun acquisto da stornare.",
   "purchase_storno_left_stock": "Questo veicolo ha già lasciato lo stock. Il suo acquisto non può più essere stornato.",
   "purchase_storno_invoice_requested": "La fattura del contratto {{contractNumber}} è già stata richiesta. L'acquisto non può più essere stornato.",
+  "purchase_storno_published": "Questo veicolo è ancora pubblicato su {{channels}}. Ritiri prima l'annuncio, poi l'acquisto potrà essere stornato.",
   "source_ref_reserved": "Questo riferimento è riservato all'acquisto e al suo storno.",
   "storno_return_not_trade_in": "Solo un veicolo in permuta può tornare al cliente.",
   "trade_in_vin_differs": "Questo VIN non è quello che il contratto indica per il veicolo in permuta. Se il VIN nel contratto è errato, assegnare al veicolo, tramite «Assegna configurazione», una configurazione con il VIN corretto – se ne ha già una, inserirvi il VIN tramite «Modifica configurazione». Da quel momento vale il VIN della configurazione.",

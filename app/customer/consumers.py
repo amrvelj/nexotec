@@ -24,18 +24,15 @@ who traded the car in and when the contract was signed
 (`tradeInCustomerId`, `tradeInSignedAt`, Stock's copy of
 `sales.contract.confirmed`'s `customerId` / `signedAt`) — and judge whether
 the event was overtaken from this context's own record of Stock's bookings
-(`services/stock_item_booking.py`). An event without the seller (published
-before KAN-632, or of a trade-in whose pipeline item was created before it)
-is answered by `seller_of_old_event`, which the composition root hands in
-(`app/worker.py` asks Sales); without one such an event fails loudly, so it
-is redelivered and dead-lettered with its alert, never silently dropped.
+(`services/stock_item_booking.py`). An event without the seller fails
+loudly (KAN-674 retired the worker's fallback that asked Sales), so it is
+redelivered and dead-lettered with its alert, never silently dropped.
 """
 
 import dataclasses
 import datetime as dt
 import logging
 import uuid
-from collections.abc import Callable
 from zoneinfo import ZoneInfo
 
 from sqlalchemy.orm import Session
@@ -66,33 +63,24 @@ class TradeInSeller:
     known_since: dt.datetime
 
 
-SellerOfOldEvent = Callable[[Session, uuid.UUID, uuid.UUID], TradeInSeller | None]
-"""(db, tenant_id, contract_id) -> the trade-in's seller, for an event that
-does not carry it; None when the Betrieb has no such contract or it names no
-customer."""
+class TradeInEventWithoutSeller(RuntimeError):
+    """A trade-in purchase or storno event without `tradeInCustomerId` /
+    `tradeInSignedAt`. Since KAN-632 Stock carries both on every such event,
+    and since KAN-674 nothing answers an older one: raised so the event is
+    retried and dead-lettered with its alert (rule 10), never dropped."""
 
 
-class OldTradeInEventWithoutSellerLookup(RuntimeError):
-    """An event without `tradeInCustomerId` reached a consumer that was given
-    no `seller_of_old_event` — a wiring fault, raised so the event is retried
-    and dead-lettered rather than dropped."""
-
-
-def _trade_in_seller(
-    db: Session, message: OutboxMessage, *, contract_id: uuid.UUID, seller_of_old_event: SellerOfOldEvent | None
-) -> TradeInSeller | None:
-    """The seller the event names (KAN-632), else the old event's answer."""
+def _trade_in_seller(message: OutboxMessage) -> TradeInSeller:
+    """The seller the event names (KAN-632). KAN-674 retired the worker's
+    fallback that asked Sales for an event without it: staging held no such
+    item or pending event (2026-11-19), and the backfill script stays for the
+    first production deploy (README, «One-time backfills after a deploy»)."""
 
     payload = message.payload or {}
     customer_id, signed_at = payload.get("tradeInCustomerId"), payload.get("tradeInSignedAt")
-    if customer_id and signed_at:
-        return TradeInSeller(customer_id=uuid.UUID(customer_id), known_since=dt.datetime.fromisoformat(signed_at))
-    if seller_of_old_event is None:
-        raise OldTradeInEventWithoutSellerLookup(
-            f"{message.event_type} message {message.id} names no trade-in seller and no lookup was given."
-        )
-    assert message.tenant_id is not None
-    return seller_of_old_event(db, message.tenant_id, contract_id)
+    if not (customer_id and signed_at):
+        raise TradeInEventWithoutSeller(f"{message.event_type} message {message.id} names no trade-in seller.")
+    return TradeInSeller(customer_id=uuid.UUID(customer_id), known_since=dt.datetime.fromisoformat(signed_at))
 
 
 def handle_vehicle_summary_changed_message(db: Session, message: OutboxMessage) -> None:
@@ -131,9 +119,7 @@ def handle_stock_item_booking_storno_message(db: Session, message: OutboxMessage
     _record_booking(db, message, StockItemBookingKind.STORNOED)
 
 
-def handle_stock_item_purchased_message(
-    db: Session, message: OutboxMessage, *, seller_of_old_event: SellerOfOldEvent | None = None
-) -> None:
+def handle_stock_item_purchased_message(db: Session, message: OutboxMessage) -> None:
     """KAN-189 (Anto, 2026-11-02, option A): when the Betrieb books the
     purchase of a trade-in's pipeline item, the contract's customer becomes
     the car's former owner and keeper, ended at the purchase. Every other
@@ -144,7 +130,7 @@ def handle_stock_item_purchased_message(
     promotes the item (ADR-103) and the event names the record
     (`vehicleId`). The contract's customer and signature are Sales' facts,
     carried by the event since KAN-632 (`tradeInCustomerId`,
-    `tradeInSignedAt`; an older event's come from `seller_of_old_event`); the
+    `tradeInSignedAt`; an event without them dead-letters, KAN-674); the
     write is this context's own, in this consumer's transaction with its
     processed_event row (rules 4, 6 and 12: nothing is written in another
     context's transaction). Flushes only; consume_once commits. A customer
@@ -182,11 +168,7 @@ def handle_stock_item_purchased_message(
         logger.info("Trade-in purchase %s was overtaken by a later booking; no former owner recorded.", message.id)
         return
 
-    contract_id = uuid.UUID(payload["originContractId"])
-    seller = _trade_in_seller(db, message, contract_id=contract_id, seller_of_old_event=seller_of_old_event)
-    if seller is None:
-        logger.warning("Trade-in purchase %s: contract %s names no customer here.", message.id, contract_id)
-        return
+    seller = _trade_in_seller(message)
     group_id = get_dealership_or_404(db, message.tenant_id).dealer_group_id
     customer_id = resolve_live_customer_id(db, group_id=group_id, customer_id=seller.customer_id)
     if customer_id is None:
@@ -212,9 +194,7 @@ def handle_stock_item_purchased_message(
     )
 
 
-def handle_stock_item_storno_message(
-    db: Session, message: OutboxMessage, *, seller_of_old_event: SellerOfOldEvent | None = None
-) -> None:
+def handle_stock_item_storno_message(db: Session, message: OutboxMessage) -> None:
     """KAN-572 (Anto, 2026-11-07, option C): Stock cancelled the purchase of a
     trade-in and said the car went back to the customer who traded it in
     (`returnedToCustomer`). That customer holds it again: the owner and
@@ -225,7 +205,7 @@ def handle_stock_item_storno_message(
     whether that booking stands or was stornoed in turn.
 
     The contract's customer is Sales' fact, carried by the event since
-    KAN-632 (an older event's comes from `seller_of_old_event`), and followed
+    KAN-632 (an event without it dead-letters, KAN-674), and followed
     through a merge to its survivor, as the purchase consumer does. Both
     consumers judge by the bookings this context has learnt from Stock's
     events, so a storno consumed before its purchase (a failed delivery)
@@ -259,11 +239,7 @@ def handle_stock_item_storno_message(
         logger.info("Trade-in storno %s: a later purchase overtook it; no holder reopened.", message.id)
         return
 
-    contract_id = uuid.UUID(payload["originContractId"])
-    seller = _trade_in_seller(db, message, contract_id=contract_id, seller_of_old_event=seller_of_old_event)
-    if seller is None:
-        logger.warning("Trade-in storno %s: contract %s names no customer here.", message.id, contract_id)
-        return
+    seller = _trade_in_seller(message)
     group_id = get_dealership_or_404(db, message.tenant_id).dealer_group_id
     customer_id = resolve_live_customer_id(db, group_id=group_id, customer_id=seller.customer_id)
     if customer_id is None:

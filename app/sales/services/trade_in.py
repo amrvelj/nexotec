@@ -166,7 +166,8 @@ def attach_trade_in_valuation(
     # required) are refused as trade-ins — whatever the deal already names and
     # whether or not the valuation has a configuration — before anything is
     # written. A pre-1981 chassis number is refused the same way: a trade-in
-    # takes a VIN until KAN-535 (open with Anto on KAN-574).
+    # takes only a VIN. KAN-535 let Stock buy such a car; Anto ruled on
+    # KAN-746 (option A) that a trade-in may take one too — not built yet.
     if not is_valid_vin(_normalised(valuation.vehicle_vin)):
         raise UnprocessableEntityError(
             f"Valuation {valuation.valuation_number} names no car a trade-in can take: it has no VIN.",

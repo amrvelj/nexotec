@@ -13,7 +13,7 @@ import { ValuationCreateDialog, ValuationSourceMarker } from '../../../valuation
 import { ConfiguratorOverlay, HostCommitError, HostConfigurationCard } from '../../../vehicle'
 import { useIdempotencyKey } from '../../../../hooks/useIdempotencyKey'
 import { LockedWhile } from './LockedWhile'
-import { StockNumberLink } from './InventoryNumberLink'
+import { InventoryNumberLink } from './InventoryNumberLink'
 import type { DealSaveQueue } from '../../../../shared/useSaveQueue'
 import { customerName } from '../../../../shared/displayNames'
 import { formatCurrencyChf } from '../../../../utils/format'
@@ -283,7 +283,7 @@ export function DealVehicleContainer<D extends SalesPricedDealRead>({
     })
 
   const stockNumber =
-    deal.stockItemId && deal.stockItemLabel ? <StockNumberLink stockNumber={deal.stockItemLabel} onOpen={onOpenStockItem} /> : null
+    deal.stockItemId && deal.stockItemLabel ? <InventoryNumberLink stockNumber={deal.stockItemLabel} onOpen={onOpenStockItem} /> : null
 
   return (
     <OverviewCard
@@ -343,7 +343,7 @@ export function DealVehicleContainer<D extends SalesPricedDealRead>({
 /** Preisaufbau — the build-up, the seller's discount and base price, the
  * option and accessory lines. Needs a vehicle first (FR-S-05). `readOnly`
  * disables every write in it — the build-up's inputs by their own prop, the
- * line items under a disabled fieldset — while «zum Lagerfahrzeug», which
+ * line items under a disabled fieldset — while «Lagerbestand öffnen», which
  * only opens the car, stays outside it and live (KAN-501). */
 export function DealPricingContainer<D extends SalesPricedDealRead>({
   ownerType,
