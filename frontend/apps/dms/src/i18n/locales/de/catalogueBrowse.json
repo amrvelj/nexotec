@@ -99,6 +99,15 @@
   },
   "notInContract": {
     "title": "Katalog nicht im Vertrag",
-    "body": "auto-i-dat lehnt die Katalogabfrage ab: die Option «ident_basis» ist für diesen Zugang nicht lizenziert."
+    "refusedTitle": "Abfrage vom Anbieter abgelehnt",
+    "body": "auto-i-dat lehnt die Katalogabfrage ab. Lizenz dieses Zugangs prüfen.",
+    "bodyOption": "auto-i-dat lehnt die Abfrage «{{operation}}» ab: die Option «{{option}}» ist für diesen Zugang nicht lizenziert.",
+    "bodyRefused": "auto-i-dat lehnt die Abfrage «{{operation}}» ab. Lizenz dieses Zugangs prüfen.",
+    "operation": {
+      "brands": "Marken",
+      "modelGroups": "Modellgruppen",
+      "variants": "Varianten",
+      "facetValues": "Filterwerte"
+    }
   }
 }

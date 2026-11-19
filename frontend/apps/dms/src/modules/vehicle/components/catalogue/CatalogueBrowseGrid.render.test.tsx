@@ -464,3 +464,73 @@ describe('CatalogueBrowseGrid is a live, bounded provider query (KAN-548)', () =
     expect(screen.queryByText(i18n.t('catalogueBrowse.loadError'))).not.toBeInTheDocument()
   })
 })
+
+// KAN-767: a `notInContract` answer says which query was refused; it names a
+// licence option only when the answer carries one (the probe recorded it as
+// not granted), and then keeps «Katalog nicht im Vertrag»; a refusal with no
+// known option gets the neutral title (Anto, 2026-11-19).
+describe('CatalogueBrowseGrid names the refused query (KAN-767)', () => {
+  function refusedOn(refusal: { operation: string; licenceOption: string | null }, brandsRefused = false) {
+    installFakeBackend([
+      {
+        method: 'GET',
+        match: /\/catalogue\/brands$/,
+        handler: () => (brandsRefused ? { items: [], state: 'notInContract', refusal } : BRANDS),
+      },
+      { method: 'GET', match: /\/catalogue\/model-groups$/, handler: () => MODEL_GROUPS },
+      { method: 'GET', match: /\/catalogue\/facets$/, handler: () => FACETS },
+      {
+        method: 'GET',
+        match: /\/catalogue\/variants$/,
+        handler: () => ({
+          items: [], nextCursor: null, total: null, totalIsEstimate: false, browseAvailable: false, state: 'notInContract', refusal,
+        }),
+      },
+      { method: 'GET', match: /\/reference-data\//, handler: () => ({ items: [], nextCursor: null }) },
+    ])
+  }
+
+  it('a refused variants page names the variants query, the neutral title and no licence option', async () => {
+    refusedOn({ operation: 'variants', licenceOption: null })
+
+    renderWithProviders(<CatalogueBrowseGrid mode="build" />, { route: SCOPED })
+
+    const alert = await screen.findByTestId('catalogue-state-notInContract')
+    expect(alert).toHaveTextContent(i18n.t('catalogueBrowse.notInContract.refusedTitle'))
+    expect(alert).toHaveTextContent(
+      i18n.t('catalogueBrowse.notInContract.bodyRefused', { operation: i18n.t('catalogueBrowse.notInContract.operation.variants') }),
+    )
+    expect(alert).not.toHaveTextContent('ident_basis')
+    expect(alert).not.toHaveTextContent(i18n.t('catalogueBrowse.notInContract.title'))
+  })
+
+  it('an ungranted option keeps the contract title and names the option and the query', async () => {
+    refusedOn({ operation: 'variants', licenceOption: 'ident_basis' })
+
+    renderWithProviders(<CatalogueBrowseGrid mode="build" />, { route: SCOPED })
+
+    const alert = await screen.findByTestId('catalogue-state-notInContract')
+    expect(alert).toHaveTextContent(i18n.t('catalogueBrowse.notInContract.title'))
+    expect(alert).toHaveTextContent(
+      i18n.t('catalogueBrowse.notInContract.bodyOption', {
+        operation: i18n.t('catalogueBrowse.notInContract.operation.variants'),
+        option: 'ident_basis',
+      }),
+    )
+  })
+
+  it('a refused brand list, before any brand is chosen, names the brands query in French', async () => {
+    await i18n.changeLanguage('fr')
+    refusedOn({ operation: 'brands', licenceOption: null }, true)
+
+    renderWithProviders(<CatalogueBrowseGrid mode="build" />, { route: '/catalogue' })
+
+    const alert = await screen.findByTestId('catalogue-state-notInContract')
+    expect(alert).toHaveTextContent(i18n.t('catalogueBrowse.notInContract.refusedTitle'))
+    expect(alert).toHaveTextContent(
+      i18n.t('catalogueBrowse.notInContract.bodyRefused', { operation: i18n.t('catalogueBrowse.notInContract.operation.brands') }),
+    )
+    expect(alert).toHaveTextContent('Marques')
+    expect(alert).not.toHaveTextContent('ident_basis')
+  })
+})

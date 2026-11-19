@@ -99,6 +99,15 @@
   },
   "notInContract": {
     "title": "Catalogue not in the contract",
-    "body": "auto-i-dat refuses the catalogue query: the «ident_basis» option is not licensed for this access."
+    "refusedTitle": "Query refused by the provider",
+    "body": "auto-i-dat refuses the catalogue query. Check this access's licence.",
+    "bodyOption": "auto-i-dat refuses the «{{operation}}» query: the «{{option}}» option is not licensed for this access.",
+    "bodyRefused": "auto-i-dat refuses the «{{operation}}» query. Check this access's licence.",
+    "operation": {
+      "brands": "Brands",
+      "modelGroups": "Model groups",
+      "variants": "Variants",
+      "facetValues": "Filter values"
+    }
   }
 }

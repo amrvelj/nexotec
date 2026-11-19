@@ -18,7 +18,10 @@ from the results (`GET /catalogue/variants/{id}`) reads the stored row.
 answer, no 503): a Betrieb without a connection gets `not_configured` and
 the screen offers the manual configuration; the provider's 403 is
 `not_in_contract`; a failure or timeout is `unavailable`. Each answer is a
-200 with the state on it.
+200 with the state on it. A `not_in_contract` answer carries a
+`BrowseRefusal` (KAN-767): the query refused and — only when the probe
+recorded the licence option as not granted — that option; a 403 on a query
+whose option is granted names none, since its cause is not known.
 
 **Provider codes never appear here.** The identAPI filters and facets on
 its own codes; this module translates a canonical value code to the
@@ -50,7 +53,7 @@ from app.integration.public import (
 )
 from app.vehicle.models.catalogue import ModelVariant
 from app.vehicle.models.provider import ProviderCodeMap
-from app.vehicle.schemas.catalogue import CatalogueBrowseMode, CatalogueBrowseState
+from app.vehicle.schemas.catalogue import CatalogueBrowseMode, CatalogueBrowseOperation, CatalogueBrowseState
 from app.vehicle.services.catalogue_sync import find_enabled_vehicle_data_connection, store_seen_variants
 from app.vehicle.services.provider import resolve_provider_code
 
@@ -119,15 +122,26 @@ class BrowseSort:
 
 
 @dataclass(frozen=True)
+class BrowseRefusal:
+    """KAN-767: the query a `not_in_contract` answer refused, and the licence
+    option behind it only when the probe recorded that option as not granted."""
+
+    operation: CatalogueBrowseOperation
+    licence_option: str | None = None
+
+
+@dataclass(frozen=True)
 class BrandsResult:
     state: CatalogueBrowseState
     items: list[CatalogueBrandData]
+    refusal: BrowseRefusal | None = None
 
 
 @dataclass(frozen=True)
 class ModelGroupsResult:
     state: CatalogueBrowseState
     items: list[CatalogueModelGroupData]
+    refusal: BrowseRefusal | None = None
 
 
 @dataclass(frozen=True)
@@ -137,26 +151,38 @@ class VariantsResult:
     page: int
     next_page: int | None
     total: int | None
+    refusal: BrowseRefusal | None = None
 
 
 @dataclass(frozen=True)
 class VariantFacets:
     state: CatalogueBrowseState
     coded: dict[str, list[str]]  # apiField -> canonical value codes offered
+    refusal: BrowseRefusal | None = None
 
 
 @dataclass(frozen=True)
 class _Provider:
-    """The Betrieb's connection, or the state that says why there is none to ask."""
+    """The Betrieb's connection, or the state that says why there is none to
+    ask — with the licence option the probe recorded as not granted, when
+    that is the reason."""
 
     state: CatalogueBrowseState
     connection: ConnectionRef | None
     provider_code: str | None
+    licence_option: str | None = None
+
+    def refusal(self, operation: CatalogueBrowseOperation) -> BrowseRefusal | None:
+        """The refusal of `operation` this state stands for, if it is one."""
+
+        if self.state is not CatalogueBrowseState.NOT_IN_CONTRACT:
+            return None
+        return BrowseRefusal(operation, licence_option=self.licence_option)
 
 
 def _provider(db: Session, *, tenant_id: uuid.UUID) -> _Provider:
     """No connection → `not_configured`; the `ident_basis` option not granted
-    → `not_in_contract`; otherwise the connection to ask."""
+    → `not_in_contract`, naming the option; otherwise the connection to ask."""
 
     found = find_enabled_vehicle_data_connection(db, tenant_id=tenant_id)
     if found is None:
@@ -164,27 +190,32 @@ def _provider(db: Session, *, tenant_id: uuid.UUID) -> _Provider:
     connection, provider_code = found
     entitlement = get_entitlement(db, connection=connection, capability_code=_ENTITLEMENT)
     if entitlement is not None and not entitlement.granted:
-        return _Provider(CatalogueBrowseState.NOT_IN_CONTRACT, None, provider_code)
+        return _Provider(CatalogueBrowseState.NOT_IN_CONTRACT, None, provider_code, licence_option=_ENTITLEMENT)
     return _Provider(CatalogueBrowseState.OK, connection, provider_code)
 
 
-def _call(db: Session, provider: _Provider, *, actor_id: uuid.UUID | None, purpose: str, call) -> tuple[CatalogueBrowseState, object | None]:
+def _call(
+    db: Session, provider: _Provider, *, actor_id: uuid.UUID | None, purpose: str,
+    operation: CatalogueBrowseOperation, call,
+) -> tuple[CatalogueBrowseState, object | None, BrowseRefusal | None]:
     """One identAPI operation inside the gateway block. **Everything that can
     refuse the user's input (a kind or a code the map does not know, an
     unscoped query) is decided before this** — a 422 raised inside the block
     would charge the breaker and write a call-log row for a request never
     sent (the gateway rule, `vehicle-gateway.md`). The provider's 403 is
-    `not_in_contract`; a transport failure or timeout is `unavailable`."""
+    `not_in_contract`, refusing `operation` and naming no licence option: the
+    option behind it was not recorded as ungranted, so the cause of the 403 is
+    not known (KAN-767); a transport failure or timeout is `unavailable`."""
 
     assert provider.connection is not None
     try:
         with call_capability(db, connection=provider.connection, capability=_CALL_LABEL, actor_id=actor_id, purpose=purpose) as adapter:
-            return CatalogueBrowseState.OK, call(adapter)
+            return CatalogueBrowseState.OK, call(adapter), None
     except ProviderNotEntitledError:
-        return CatalogueBrowseState.NOT_IN_CONTRACT, None
+        return CatalogueBrowseState.NOT_IN_CONTRACT, None, BrowseRefusal(operation)
     except ProviderGatewayError:
         logger.warning("catalogue browse (%s) failed", purpose, exc_info=True)
-        return CatalogueBrowseState.UNAVAILABLE, None
+        return CatalogueBrowseState.UNAVAILABLE, None, None
 
 
 _MODEL_GROUP_KEY = re.compile(r"^[A-Za-z0-9_-]{1,32}$")
@@ -308,17 +339,18 @@ def list_brands(db: Session, *, tenant_id: uuid.UUID, actor_id: uuid.UUID | None
     """`GET /vehiclecatalog/brand/{type}` — one request, every brand of the
     kind with its model names (not stored; ADR-112)."""
 
+    operation = CatalogueBrowseOperation.BRANDS
     provider = _provider(db, tenant_id=tenant_id)
     if provider.state is not CatalogueBrowseState.OK:
-        return BrandsResult(state=provider.state, items=[])
+        return BrandsResult(state=provider.state, items=[], refusal=provider.refusal(operation))
     assert provider.provider_code is not None
     kind_code = _vehicle_kind_code(db, provider_code=provider.provider_code, vehicle_kind=vehicle_kind)
-    state, value = _call(
-        db, provider, actor_id=actor_id, purpose="catalogue_brands",
+    state, value, refusal = _call(
+        db, provider, actor_id=actor_id, purpose="catalogue_brands", operation=operation,
         call=lambda adapter: adapter.list_catalogue_brands(vehicle_kind_code=kind_code),
     )
     brands: list[CatalogueBrandData] = list(value) if isinstance(value, list) else []  # type: ignore[arg-type]
-    return BrandsResult(state=state, items=sorted(brands, key=lambda b: b.name.lower()))
+    return BrandsResult(state=state, items=sorted(brands, key=lambda b: b.name.lower()), refusal=refusal)
 
 
 def list_model_groups(
@@ -329,19 +361,20 @@ def list_model_groups(
     checked_brand, _ = _check_scope(brand=brand, model_group_key=None)
     if checked_brand is None:
         raise UnprocessableEntityError("A brand is needed to list model groups.", details={"reason": "brand_required"})
+    operation = CatalogueBrowseOperation.MODEL_GROUPS
     provider = _provider(db, tenant_id=tenant_id)
     if provider.state is not CatalogueBrowseState.OK:
-        return ModelGroupsResult(state=provider.state, items=[])
+        return ModelGroupsResult(state=provider.state, items=[], refusal=provider.refusal(operation))
     assert provider.provider_code is not None
     kind_code = _vehicle_kind_code(db, provider_code=provider.provider_code, vehicle_kind=vehicle_kind)
-    state, value = _call(
-        db, provider, actor_id=actor_id, purpose="catalogue_model_groups",
+    state, value, refusal = _call(
+        db, provider, actor_id=actor_id, purpose="catalogue_model_groups", operation=operation,
         call=lambda adapter: adapter.list_catalogue_model_groups(
             vehicle_kind_code=kind_code, brand=checked_brand, in_production=_in_production(mode) or None
         ),
     )
     groups: list[CatalogueModelGroupData] = list(value) if isinstance(value, list) else []  # type: ignore[arg-type]
-    return ModelGroupsResult(state=state, items=groups)
+    return ModelGroupsResult(state=state, items=groups, refusal=refusal)
 
 
 def browse_variants(
@@ -370,9 +403,12 @@ def browse_variants(
     if page < 1:
         raise UnprocessableEntityError("The page number starts at 1.", details={"reason": "page_invalid"})
 
+    operation = CatalogueBrowseOperation.VARIANTS
     provider = _provider(db, tenant_id=tenant_id)
     if provider.state is not CatalogueBrowseState.OK:
-        return VariantsResult(state=provider.state, rows=[], page=page, next_page=None, total=None)
+        return VariantsResult(
+            state=provider.state, rows=[], page=page, next_page=None, total=None, refusal=provider.refusal(operation)
+        )
     assert provider.provider_code is not None
     # The user's input is translated before the gateway block: a kind or a
     # value the map does not know is the user's 422, never a provider failure.
@@ -380,15 +416,15 @@ def browse_variants(
     exfilters = _exfilters(db, provider_code=provider.provider_code, kind_code=kind_code, filters=filters)
     sort_expression = _sort_expression(sort)
 
-    state, value = _call(
-        db, provider, actor_id=actor_id, purpose="catalogue_variants",
+    state, value, refusal = _call(
+        db, provider, actor_id=actor_id, purpose="catalogue_variants", operation=operation,
         call=lambda adapter: adapter.search_catalogue_variants(
             vehicle_kind_code=kind_code, brand=brand, model_group_key=model_group_key,
             exfilters=exfilters, sort=sort_expression, page_number=page,
         ),
     )
     if state is not CatalogueBrowseState.OK:
-        return VariantsResult(state=state, rows=[], page=page, next_page=None, total=None)
+        return VariantsResult(state=state, rows=[], page=page, next_page=None, total=None, refusal=refusal)
     assert isinstance(value, VariantSearchPage)
     rows = store_seen_variants(db, provider_code=provider.provider_code, masters=list(value.items))
     has_more = (value.total is not None and page * value.page_size < value.total) or (
@@ -401,20 +437,21 @@ def browse_variants(
 
 def _facet(
     db: Session, provider: _Provider, *, actor_id: uuid.UUID | None, kind_code: str, brand: str, model_group_key: str | None, api_field: str
-) -> tuple[CatalogueBrowseState, list[str]]:
+) -> tuple[CatalogueBrowseState, list[str], BrowseRefusal | None]:
     """One facet field: one `fields=<field> distinct` request, its raw codes
     resolved to canonical values (an unknown code is a mapping gap, never
     offered)."""
 
     coded_field = CODED_FIELDS[api_field]
-    state, raw_values = _call(
+    state, raw_values, refusal = _call(
         db, provider, actor_id=actor_id, purpose=f"catalogue_facet_{api_field}",
+        operation=CatalogueBrowseOperation.FACET_VALUES,
         call=lambda adapter: adapter.facet_values(
             field=coded_field.provider_field, vehicle_kind_code=kind_code, brand=brand, model_group_key=model_group_key
         ),
     )
     if state is not CatalogueBrowseState.OK:
-        return state, []
+        return state, [], refusal
     assert provider.provider_code is not None
     values: list[str] = []
     for raw in list(raw_values) if isinstance(raw_values, list) else []:
@@ -424,7 +461,7 @@ def _facet(
         if canonical is not None and canonical.value_code not in values:
             values.append(canonical.value_code)
     db.commit()  # the gaps a facet value filed
-    return CatalogueBrowseState.OK, values
+    return CatalogueBrowseState.OK, values, None
 
 
 def compute_facets(
@@ -450,18 +487,20 @@ def compute_facets(
         return VariantFacets(state=CatalogueBrowseState.OK, coded={})
     provider = _provider(db, tenant_id=tenant_id)
     if provider.state is not CatalogueBrowseState.OK:
-        return VariantFacets(state=provider.state, coded={})
+        return VariantFacets(
+            state=provider.state, coded={}, refusal=provider.refusal(CatalogueBrowseOperation.FACET_VALUES)
+        )
     assert provider.provider_code is not None
     kind_code = _vehicle_kind_code(db, provider_code=provider.provider_code, vehicle_kind=vehicle_kind)
 
     coded: dict[str, list[str]] = {}
     # The one loop the no-bulk guard allows by name: over the fixed field tuple, never over pages.
     for api_field in FACET_FIELDS:
-        state, values = _facet(
+        state, values, refusal = _facet(
             db, provider, actor_id=actor_id, kind_code=kind_code, brand=brand, model_group_key=model_group_key, api_field=api_field
         )
         if state is not CatalogueBrowseState.OK:
-            return VariantFacets(state=state, coded=coded)
+            return VariantFacets(state=state, coded=coded, refusal=refusal)
         coded[api_field] = values
     return VariantFacets(state=CatalogueBrowseState.OK, coded=coded)
 

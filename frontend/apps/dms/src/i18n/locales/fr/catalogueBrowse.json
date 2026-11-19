@@ -99,6 +99,15 @@
   },
   "notInContract": {
     "title": "Catalogue hors contrat",
-    "body": "auto-i-dat refuse la requête catalogue : l’option « ident_basis » n’est pas sous licence pour cet accès."
+    "refusedTitle": "Requête refusée par le fournisseur",
+    "body": "auto-i-dat refuse la requête catalogue. Vérifier la licence de cet accès.",
+    "bodyOption": "auto-i-dat refuse la requête « {{operation}} » : l’option « {{option}} » n’est pas sous licence pour cet accès.",
+    "bodyRefused": "auto-i-dat refuse la requête « {{operation}} ». Vérifier la licence de cet accès.",
+    "operation": {
+      "brands": "Marques",
+      "modelGroups": "Groupes de modèles",
+      "variants": "Variantes",
+      "facetValues": "Valeurs de filtre"
+    }
   }
 }
