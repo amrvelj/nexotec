@@ -210,13 +210,20 @@ class _HttpMailAdapter:
             def _send() -> httpx.Response:
                 try:
                     with httpx.Client(timeout=_TIMEOUT, transport=http_transport()) as client:
-                        return client.request(method, url, headers=headers, data=data, json=json_body)
+                        response = client.request(method, url, headers=headers, data=data, json=json_body)
                 except httpx.TimeoutException as exc:
                     raise ProviderTimeoutError(f"{self.provider_label} did not answer in time.") from exc
                 except httpx.HTTPError as exc:
                     raise ProviderTransportError(
                         f"{self.provider_label} could not be reached ({type(exc).__name__})."
                     ) from exc
+                # KAN-767: the status on this attempt's row, and a refusal's
+                # OAuth `error` code (never its description).
+                request.note_response(
+                    response.status_code,
+                    provider_error=self._oauth_error(response) if response.status_code >= 400 else None,
+                )
+                return response
 
             response = request.attempt(_send)
             if expect is not None and expect(response):

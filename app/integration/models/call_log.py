@@ -6,6 +6,13 @@ carries NO payload column, ever — the one place a raw payload exists is
 7-day/30-day tiers and platform_admin-only break-glass access. Keeping
 them structurally apart means no future careless serializer change on
 THIS table could ever leak a payload into the 24-month-retained metadata.
+
+KAN-767: what the provider answered is metadata too — `http_status`, the
+caller's `purpose` beside the provider's operation (`capability`), and
+`provider_error`, the provider's own short error **identifier** (a json:api
+`title`, an OAuth `error` code), never its free prose (`detail`,
+`error_description`), a URL or a header. Bounded to one line at the
+gateway's choke point (`gateway.record_call`).
 """
 
 import datetime as dt
@@ -13,7 +20,7 @@ import enum
 import uuid
 from decimal import Decimal
 
-from sqlalchemy import DECIMAL, Integer, String
+from sqlalchemy import DECIMAL, Integer, SmallInteger, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.base import PrimaryKeyMixin, TimestampMixin
@@ -60,3 +67,19 @@ class IntegrationCallLog(PrimaryKeyMixin, TimestampMixin, Base):
     # that reports none (every non-AI one).
     tokens_in: Mapped[int | None] = mapped_column(Integer, nullable=True)
     tokens_out: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # KAN-767: what the provider answered and what the caller asked for.
+    http_status: Mapped[int | None] = mapped_column(
+        SmallInteger,
+        nullable=True,
+        comment="The provider's HTTP status for this attempt; NULL when no HTTP answer arrived or the provider speaks no HTTP.",
+    )
+    purpose: Mapped[str | None] = mapped_column(
+        String(64),
+        nullable=True,
+        comment="The caller's name for what it asked (call_capability's purpose, else its capability); capability is the provider's operation.",
+    )
+    provider_error: Mapped[str | None] = mapped_column(
+        String(120),
+        nullable=True,
+        comment="The provider's short error identifier (json:api title, OAuth error code), one line, never its free prose.",
+    )

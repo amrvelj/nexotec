@@ -75,7 +75,7 @@ from app.integration.errors import (
     ProviderUserQuotaExceededError,
 )
 from app.integration.models.connection import ConnectionEnvironment
-from app.integration.services.metering import provider_request
+from app.integration.services.metering import ProviderRequest, provider_request
 from app.integration.services.resilience import DEFAULT_TIMEOUT_SECONDS, call_with_retry
 
 SCOPE = "ident"
@@ -287,7 +287,7 @@ class AutoiOAuthClient:
         # the row is what tells a failed Test connection apart from a failed
         # login when the authorization server itself is unreachable.
         with provider_request(OAUTH_DISCOVERY_OPERATION, cost_units=Decimal(0), is_timeout=is_timeout) as request:
-            response = call_with_retry(lambda: request.attempt(lambda: self._send("GET", self._discovery_url)))
+            response = call_with_retry(lambda: request.attempt(lambda: self._send(request, "GET", self._discovery_url)))
             return self._read_metadata(response)
 
     @staticmethod
@@ -412,20 +412,26 @@ class AutoiOAuthClient:
         }
         with provider_request(OAUTH_TOKEN_OPERATION, cost_units=Decimal(0), is_timeout=is_timeout) as request:
             response = call_with_retry(
-                lambda: request.attempt(lambda: self._send("POST", token_endpoint, data=form, headers=headers))
+                lambda: request.attempt(lambda: self._send(request, "POST", token_endpoint, data=form, headers=headers))
             )
             return _accept_token_response(response, grant=self.grant)
 
-    def _send(self, method: str, url: str, **kwargs: Any) -> httpx.Response:
+    def _send(self, request: ProviderRequest, method: str, url: str, **kwargs: Any) -> httpx.Response:
         """The one place this module touches the network: a transport failure
         or a 5xx becomes a `ProviderTransportError` (retryable); every other
         answer is returned for the caller to read. The message names the
-        exception's class only — never the URL, which could carry a query."""
+        exception's class only — never the URL, which could carry a query.
+        Every answer's status — and a refusal's OAuth `error` code, never its
+        `error_description` — goes on this attempt's call-log row first
+        (KAN-767)."""
 
         try:
             response = self._http.request(method, url, **kwargs)
         except Exception as exc:
             raise transport_error(f"The request to the auto-i authorization server failed ({type(exc).__name__}).", exc) from exc
+        request.note_response(
+            response.status_code, provider_error=_error_code(response) if response.status_code >= 400 else None
+        )
         if response.status_code >= 500:
             raise ProviderTransportError(f"The auto-i authorization server answered HTTP {response.status_code}.")
         return response
