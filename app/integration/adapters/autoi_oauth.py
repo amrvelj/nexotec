@@ -79,6 +79,12 @@ from app.integration.services.metering import provider_request
 from app.integration.services.resilience import DEFAULT_TIMEOUT_SECONDS, call_with_retry
 
 SCOPE = "ident"
+# The enrollment grant's refusal when nobody can be enrolled — the adapter's
+# `NO_ACTOR_REASON` is this same sentence, so a production call reads the same
+# `last_error` whichever of the two refuses it.
+NO_USER_TO_ENROL_REASON = (
+    "identAPI calls need a signed-in user: auto-i enrols each user by name and e-mail, and this call has none."
+)
 OAUTH_TOKEN_OPERATION = "oauth_token"
 OAUTH_DISCOVERY_OPERATION = "oauth_discovery"
 _CLIENT_AUTH_METHOD = "client_secret_basic"
@@ -353,17 +359,15 @@ class AutoiOAuthClient:
 
     def _token_owner(self, user: EnrolledUser | None) -> str | None:
         """The user part of the token cache key: the user's id under the
-        enrollment grant, None under the client credentials grant. An
-        enrolment with nobody to enrol is refused here as well as in the
-        adapter, so no code path can request a user token for no one."""
+        enrollment grant, None under the client credentials grant. The
+        adapter refuses a production call with nobody to enrol before it gets
+        here (with its own, more specific reasons); this refusal is the
+        client's own guarantee for any other caller."""
 
         if self.grant is Grant.CLIENT_CREDENTIALS:
             return None
         if user is None:
-            raise ProviderConfigurationError(
-                "identAPI calls on a production connection need a signed-in user: auto-i enrols each user "
-                "by name and e-mail, and this call has none."
-            )
+            raise ProviderConfigurationError(NO_USER_TO_ENROL_REASON)
         return user.user_id
 
     def _token_form(self, user: EnrolledUser | None) -> tuple[dict[str, str], dict[str, str]]:
@@ -375,8 +379,8 @@ class AutoiOAuthClient:
 
         if self.grant is Grant.CLIENT_CREDENTIALS:
             return {}, {"grant_type": Grant.CLIENT_CREDENTIALS.value, "scope": SCOPE}
-        if user is None:  # `_token_owner` refused this already; kept for the type
-            raise ProviderConfigurationError("identAPI calls on a production connection need a signed-in user.")
+        if user is None:  # `request_token` called directly with nobody to enrol
+            raise ProviderConfigurationError(NO_USER_TO_ENROL_REASON)
         return {"Accept-Language": user.language}, {
             "grant_type": Grant.USER_ENROLLMENT.value,
             "scope": SCOPE,

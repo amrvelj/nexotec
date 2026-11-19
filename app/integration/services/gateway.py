@@ -104,8 +104,9 @@ class UnknownProviderError(ProviderGatewayError):
 # provider_code -> factory(db, connection, actor_id, purpose) -> adapter
 # instance. The db/actor_id/purpose triple is what a real adapter needs to
 # know who it calls for: the identAPI's (`adapters/auto_i_dat_ident.py`)
-# enrols the acting user (User Enrollment Grant) and names the purpose on
-# its call-log rows — the mock factory below ignores all three. Mock and real are separate provider_codes /
+# enrols the acting user on a production connection (User Enrollment Grant;
+# a sandbox one names no user, KAN-765), audits the actor and names the
+# purpose on its call-log rows — the mock factory below ignores all three. Mock and real are separate provider_codes /
 # separate connections, never a runtime flag on one (rule 7's own
 # reasoning, applied to more than just sandbox/prod).
 _AdapterFactory = Callable[[Session, IntegrationConnection, uuid.UUID | None, str], ProviderAdapter]
@@ -281,7 +282,8 @@ def call_capability(
     the breaker like a failure in the caller's block (KAN-108), and the
     logged duration includes it. `actor_id`/`purpose` are threaded through
     to the adapter factory so a real adapter knows who it calls for (the
-    identAPI enrols the acting user); the mock adapter ignores both.
+    identAPI enrols the acting user on a production connection and audits
+    the actor on either); the mock adapter ignores both.
 
     `capture_raw_payload` (PR-6) is called once, after the caller's own
     block finishes (success or error), and — if it returns a non-None

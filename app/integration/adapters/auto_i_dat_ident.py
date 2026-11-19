@@ -70,6 +70,7 @@ from sqlalchemy.orm import Session
 from app.core.audit import record_audit_event
 from app.integration.adapters import identapi_parse as parse
 from app.integration.adapters.autoi_oauth import (
+    NO_USER_TO_ENROL_REASON,
     AutoiEnvironment,
     AutoiOAuthClient,
     EnrolledUser,
@@ -725,9 +726,7 @@ def _http_client() -> httpx.Client:
 # The three ways a production call can have nobody to enrol, each its own
 # sentence in `last_error` (the dealer manager, or platform staff, reads it).
 # A sandbox call enrols nobody and meets none of them (KAN-765).
-NO_ACTOR_REASON = (
-    "identAPI calls need a signed-in user: auto-i enrols each user by name and e-mail, and this call has none."
-)
+NO_ACTOR_REASON = NO_USER_TO_ENROL_REASON
 NO_TENANT_REASON = (
     "This connection belongs to no Betrieb, so there is no user auto-i could enrol — "
     "the identAPI service account is configured on a Betrieb's connection."
