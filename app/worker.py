@@ -60,7 +60,7 @@ from app.integration.consumers import (
     handle_dealership_listings_withdrawn_message as disable_marketplace_connections_on_listings_withdrawn,
 )
 from app.integration.consumers import handle_dealership_offboarded_message as disable_connections_on_offboarded
-from app.integration.daily_jobs import run_daily_integration_jobs
+from app.integration.daily_jobs import run_daily_integration_jobs, run_daily_mail_link_state_purge
 from app.integration.public import (
     oldest_location_label_age_seconds,
     refresh_location_labels,
@@ -638,6 +638,9 @@ def register_daily_jobs() -> None:
        of the Betrieb's status page that is no longer green raises one
        ``administration`` notification to its managers, nothing more until
        it is green again. Derived health is only read, never repaired.
+    17d. ``integration.mail_link_states.purge`` — KAN-763: a mailbox link
+       state (KAN-215) used or expired more than a day ago is deleted
+       (app.integration.daily_jobs). Retention, not a repair.
     18. ``valuation.provider_quotes.purge_unused`` — KAN-599 (Anto,
        2026-11-13, option A): a provider quote no valuation references is
        deleted ten years after it was fetched, with an audit row; one a
@@ -681,6 +684,8 @@ def register_daily_jobs() -> None:
     register_daily_job("platform.status_page.notifications", run_daily_status_page_notifications)
     # 17c. KAN-221: a support session nobody ended has its timeout written into the row.
     register_daily_job("platform.support_sessions.close_expired", run_daily_support_session_expiry)
+    # 17d. KAN-763: a mailbox link state used or expired more than a day ago goes.
+    register_daily_job("integration.mail_link_states.purge", run_daily_mail_link_state_purge)
     # 18. KAN-599: a provider quote no valuation references goes ten years after it was fetched.
     register_daily_job("valuation.provider_quotes.purge_unused", run_daily_unused_provider_quote_purge)
     # 19. KAN-270 (registered last): a configuration no host ever took goes after 30 days.

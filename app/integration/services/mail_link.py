@@ -47,7 +47,7 @@ from typing import cast
 
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
-from sqlalchemy import select, update
+from sqlalchemy import delete, or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -301,6 +301,27 @@ def start_business_link(
     url = _authorize_url(db, connection, state=state, admin=True, user_id=user_id, login_hint=None)
     db.commit()
     return url
+
+
+# -- retention ------------------------------------------------------------------
+
+# KAN-763: a link state is worth nothing once used or past its ten minutes; it
+# is kept a day longer so a support question about a link that just failed can
+# still be answered, then it goes (revDSG data minimisation: the row names a
+# user and a Betrieb).
+LINK_STATE_RETENTION = dt.timedelta(days=1)
+
+
+def purge_spent_link_states(db: Session, *, now: dt.datetime | None = None) -> int:
+    """Deletes every link state used or expired more than `LINK_STATE_RETENTION` ago and
+    returns how many went. A live link (unused, within its ten minutes) is never touched."""
+
+    cutoff = (now or utcnow()) - LINK_STATE_RETENTION
+    deleted = db.execute(
+        delete(MailLinkState).where(or_(MailLinkState.expires_at < cutoff, MailLinkState.consumed_at < cutoff))
+    ).rowcount
+    db.commit()
+    return deleted
 
 
 # -- the callback ---------------------------------------------------------------
