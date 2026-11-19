@@ -101,7 +101,7 @@
     "title": "Catalogue not in the contract",
     "refusedTitle": "Query refused by the provider",
     "body": "auto-i-dat refuses the catalogue query. Check this access's licence.",
-    "bodyOption": "auto-i-dat refuses the «{{operation}}» query: the «{{option}}» option is not licensed for this access.",
+    "bodyOption": "The «{{operation}}» query is not possible: the «{{option}}» option is not licensed for this access.",
     "bodyRefused": "auto-i-dat refuses the «{{operation}}» query. Check this access's licence.",
     "operation": {
       "brands": "Brands",

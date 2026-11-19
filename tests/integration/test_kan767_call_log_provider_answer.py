@@ -253,3 +253,20 @@ def test_an_unrelated_connections_rows_are_untouched(db_session, monkeypatch):
         correlation_id=uuid.uuid4(),
     )
     assert (log.purpose, log.http_status, log.provider_error) == (None, None, None)
+
+
+def test_a_mail_providers_error_identifier_is_a_code_never_prose():
+    """ADR-191: what a mail provider puts under `error` reaches the call log
+    only when it is an OAuth code (letters, digits, underscores); prose —
+    which could echo a user's input — never does."""
+
+    from app.integration.adapters.mail_providers import _HttpMailAdapter
+
+    def code(body):
+        return _HttpMailAdapter._oauth_error(httpx.Response(400, json=body))
+
+    assert code({"error": "invalid_grant"}) == "invalid_grant"
+    assert code({"error": "The grant for AB 123 456 expired"}) is None
+    assert code({"error": {"code": "ErrorAccessDenied", "message": "prose"}}) is None
+    assert code({"error": ""}) is None
+    assert _HttpMailAdapter._oauth_error(httpx.Response(400, text="not json")) is None

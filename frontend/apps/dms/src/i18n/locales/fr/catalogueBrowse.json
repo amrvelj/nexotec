@@ -101,7 +101,7 @@
     "title": "Catalogue hors contrat",
     "refusedTitle": "Requête refusée par le fournisseur",
     "body": "auto-i-dat refuse la requête catalogue. Vérifier la licence de cet accès.",
-    "bodyOption": "auto-i-dat refuse la requête « {{operation}} » : l’option « {{option}} » n’est pas sous licence pour cet accès.",
+    "bodyOption": "La requête « {{operation}} » n’est pas possible : l’option « {{option}} » n’est pas sous licence pour cet accès.",
     "bodyRefused": "auto-i-dat refuse la requête « {{operation}} ». Vérifier la licence de cet accès.",
     "operation": {
       "brands": "Marques",

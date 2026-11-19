@@ -101,7 +101,7 @@
     "title": "Catalogo non nel contratto",
     "refusedTitle": "Richiesta rifiutata dal fornitore",
     "body": "auto-i-dat rifiuta la richiesta al catalogo. Verificare la licenza di questo accesso.",
-    "bodyOption": "auto-i-dat rifiuta la richiesta «{{operation}}»: l’opzione «{{option}}» non è in licenza per questo accesso.",
+    "bodyOption": "La richiesta «{{operation}}» non è possibile: l’opzione «{{option}}» non è in licenza per questo accesso.",
     "bodyRefused": "auto-i-dat rifiuta la richiesta «{{operation}}». Verificare la licenza di questo accesso.",
     "operation": {
       "brands": "Marche",
