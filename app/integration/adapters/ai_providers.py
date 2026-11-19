@@ -60,7 +60,7 @@ from app.integration.errors import (
 from app.integration.models.connection import IntegrationConnection
 from app.integration.models.secret_ref import SecretSlot
 from app.integration.services import secrets_backend
-from app.integration.services.metering import provider_request
+from app.integration.services.metering import ProviderRequest, provider_request
 
 OPENAI = "openai"
 AZURE_OPENAI = "azure_openai"
@@ -153,13 +153,13 @@ class _HttpAiAdapter:
             system_prompt=system_prompt, user_prompt=user_prompt, max_output_tokens=max_output_tokens
         )
         with provider_request(self.operation, is_timeout=_is_timeout) as request:
-            response = request.attempt(lambda: self._post(url, headers, payload))
+            response = request.attempt(lambda: self._post(request, url, headers, payload))
             completion = self._parse(self._json(response))
             if completion.tokens_in is not None and completion.tokens_out is not None:
                 request.report_tokens(completion.tokens_in, completion.tokens_out)
             return completion
 
-    def _post(self, url: str, headers: dict[str, str], payload: dict[str, Any]) -> httpx.Response:
+    def _post(self, request: ProviderRequest, url: str, headers: dict[str, str], payload: dict[str, Any]) -> httpx.Response:
         try:
             with httpx.Client(timeout=_TIMEOUT, transport=http_transport()) as client:
                 response = client.post(url, headers=headers, json=payload)
@@ -167,6 +167,9 @@ class _HttpAiAdapter:
             raise ProviderTimeoutError(f"{self.provider_label} did not answer in time ({type(exc).__name__}).") from exc
         except httpx.HTTPError as exc:
             raise ProviderTransportError(f"{self.provider_label} could not be reached ({type(exc).__name__}).") from exc
+        # KAN-767: the status on this attempt's row; an AI provider's error
+        # text is prose (it can quote the prompt), so no `provider_error`.
+        request.note_response(response.status_code)
         self._raise_for_status(response)
         return response
 

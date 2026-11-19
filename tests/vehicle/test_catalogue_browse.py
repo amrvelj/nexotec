@@ -417,3 +417,111 @@ def test_a_stored_variant_is_read_by_id_without_a_connection(client, db_session,
     read = client.get(f"/v1/catalogue/variants/{variant.id}", headers=_bearer(uuid.uuid4()))
     assert read.status_code == 200 and read.json()["variantName"] == "2.0 TDI Avant quattro"
     assert len(s.fake.api_requests_to(VARIANTS_PATH)) == 1, "a stored row, no provider call"
+
+
+# --- KAN-767: a refusal names the query, and an option only when it is known --------------
+
+
+def _ungranted_ident_basis(db_session, s):
+    import datetime as dt
+
+    from app.integration.models.entitlement import EntitlementSource, IntegrationEntitlement
+
+    db_session.add(
+        IntegrationEntitlement(
+            connection_id=s.connection.id, capability_code="ident_basis", granted=False,
+            source=EntitlementSource.PROBED, checked_at=dt.datetime.now(dt.UTC),
+        )
+    )
+    db_session.commit()
+
+
+def test_kan767_a_refused_variants_query_names_variants_and_no_licence_option(db_session, monkeypatch):
+    from app.vehicle.schemas.catalogue import CatalogueBrowseOperation
+
+    s = _connected(db_session, monkeypatch, FakeAutoi(api_status={VARIANTS_PATH: 403}))
+
+    result = _browse(db_session, s)
+
+    assert result.state is CatalogueBrowseState.NOT_IN_CONTRACT
+    assert result.refusal == catalogue_browse.BrowseRefusal(CatalogueBrowseOperation.VARIANTS, licence_option=None)
+    # the brands still load: only the variants list was refused
+    brands = catalogue_browse.list_brands(db_session, tenant_id=s.connection.tenant_id, actor_id=s.user.id, vehicle_kind=KIND)
+    assert brands.state is CatalogueBrowseState.OK and brands.refusal is None
+
+
+def test_kan767_a_refused_brands_query_names_brands_and_never_ident_basis(db_session, monkeypatch):
+    from app.vehicle.schemas.catalogue import CatalogueBrowseOperation
+
+    s = _connected(db_session, monkeypatch, FakeAutoi(api_status={BRANDS_PATH: 403}))
+
+    brands = catalogue_browse.list_brands(db_session, tenant_id=s.connection.tenant_id, actor_id=s.user.id, vehicle_kind=KIND)
+
+    assert brands.refusal == catalogue_browse.BrowseRefusal(CatalogueBrowseOperation.BRANDS, licence_option=None)
+    assert "ident_basis" not in repr(brands.refusal)
+
+
+def test_kan767_a_refused_model_group_list_and_facet_name_their_query(db_session, monkeypatch):
+    from app.vehicle.schemas.catalogue import CatalogueBrowseOperation
+
+    s = _connected(db_session, monkeypatch, FakeAutoi(api_status={GROUPS_PATH: 403, VARIANTS_PATH: 403}))
+
+    groups = catalogue_browse.list_model_groups(
+        db_session, tenant_id=s.connection.tenant_id, actor_id=s.user.id, vehicle_kind=KIND, brand=BRAND,
+        mode=CatalogueBrowseMode.BUILD,
+    )
+    facets = catalogue_browse.compute_facets(
+        db_session, tenant_id=s.connection.tenant_id, actor_id=s.user.id, vehicle_kind=KIND, brand=BRAND, model_group_key=None,
+    )
+
+    assert groups.refusal == catalogue_browse.BrowseRefusal(CatalogueBrowseOperation.MODEL_GROUPS)
+    assert facets.refusal == catalogue_browse.BrowseRefusal(CatalogueBrowseOperation.FACET_VALUES)
+
+
+def test_kan767_an_ungranted_ident_basis_names_the_option_and_the_query_asked(db_session, monkeypatch):
+    from app.vehicle.schemas.catalogue import CatalogueBrowseOperation
+
+    s = _connected(db_session, monkeypatch)
+    _ungranted_ident_basis(db_session, s)
+
+    assert _browse(db_session, s).refusal == catalogue_browse.BrowseRefusal(
+        CatalogueBrowseOperation.VARIANTS, licence_option="ident_basis"
+    )
+    brands = catalogue_browse.list_brands(db_session, tenant_id=s.connection.tenant_id, actor_id=s.user.id, vehicle_kind=KIND)
+    assert brands.refusal == catalogue_browse.BrowseRefusal(CatalogueBrowseOperation.BRANDS, licence_option="ident_basis")
+    assert s.fake.api_requests() == []
+
+
+def test_kan767_the_endpoints_carry_the_refusal_and_other_states_carry_none(client, db_session, monkeypatch):
+    s = _connected(db_session, monkeypatch, FakeAutoi(api_status={VARIANTS_PATH: 403}))
+    headers = _bearer(s.connection.tenant_id, s.user.id)
+
+    refused = client.get(f"/v1/catalogue/variants?brand={BRAND}", headers=headers).json()
+    assert refused["state"] == "notInContract"
+    assert refused["refusal"] == {"operation": "variants", "licenceOption": None}
+
+    brands = client.get("/v1/catalogue/brands", headers=headers).json()
+    assert brands["state"] == "ok" and brands["refusal"] is None
+
+    facets = client.get(f"/v1/catalogue/facets?brand={BRAND}", headers=headers).json()
+    assert facets["refusal"] == {"operation": "facetValues", "licenceOption": None}
+
+    no_connection = client.get(f"/v1/catalogue/variants?brand={BRAND}", headers=_bearer(uuid.uuid4())).json()
+    assert no_connection["state"] == "notConfigured" and no_connection["refusal"] is None
+
+
+def test_kan767_the_refused_variants_call_log_row_holds_the_403_and_its_purpose(db_session, monkeypatch):
+    from app.integration.models.call_log import IntegrationCallLog
+
+    s = _connected(db_session, monkeypatch, FakeAutoi(api_status={VARIANTS_PATH: 403}))
+
+    _browse(db_session, s)
+
+    db_session.expire_all()
+    row = db_session.scalars(
+        select(IntegrationCallLog).where(IntegrationCallLog.connection_id == s.connection.id)
+        .order_by(IntegrationCallLog.created_at.desc(), IntegrationCallLog.id.desc())
+    ).first()
+    assert (row.capability, row.purpose, row.http_status, row.provider_error) == (
+        "vehiclecatalog", "catalogue_variants", 403, "Forbidden",
+    )

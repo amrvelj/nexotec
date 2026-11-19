@@ -40,6 +40,7 @@ import { fetchAllReferenceValues, LABEL_FIELD, resolveLanguage } from '../../../
 import type {
   CatalogueBrandPage,
   CatalogueBrowseMode,
+  CatalogueBrowseOperation,
   CatalogueBrowseState,
   CatalogueFacetsRead,
   CatalogueModelGroupPage,
@@ -144,6 +145,14 @@ export interface CatalogueBrowseGridProps {
  * applied view as changed while the facets load. */
 function narrowCataloguePredicates(stored: FilterPredicate[]): FilterPredicate[] {
   return offeredPredicates(readLegacyCataloguePredicates(stored), CATALOGUE_FILTER_SCOPE)
+}
+
+// KAN-767: the catalogue query a `notInContract` answer refused, in the UI language.
+const REFUSED_OPERATION_KEYS: Record<CatalogueBrowseOperation, string> = {
+  brands: 'catalogueBrowse.notInContract.operation.brands',
+  modelGroups: 'catalogueBrowse.notInContract.operation.modelGroups',
+  variants: 'catalogueBrowse.notInContract.operation.variants',
+  facetValues: 'catalogueBrowse.notInContract.operation.facetValues',
 }
 
 /**
@@ -291,6 +300,8 @@ export function CatalogueBrowseGrid({ mode, onSelectVariant }: CatalogueBrowseGr
   // The provider's state, from whichever query answered first: the brand
   // list speaks for a Betrieb without access before any variant was asked.
   const state: CatalogueBrowseState | null = firstPage?.state ?? brandsQuery.data?.state ?? null
+  // KAN-767: which query was refused, from the same answer as the state.
+  const refusal = (firstPage ? firstPage.refusal : brandsQuery.data?.refusal) ?? null
   const browseAvailable = state === null || state === 'ok'
   const rows = useMemo(
     () => variantsQuery.data?.pages.flatMap((p) => p.items) ?? [],
@@ -460,8 +471,23 @@ export function CatalogueBrowseGrid({ mode, onSelectVariant }: CatalogueBrowseGr
         {t('catalogueBrowse.notConfigured.body')}
       </Alert>
     ) : state === 'notInContract' ? (
-      <Alert icon={<ShieldOff size={16} />} color="yellow" title={t('catalogueBrowse.notInContract.title')} data-testid="catalogue-state-notInContract">
-        {t('catalogueBrowse.notInContract.body')}
+      <Alert
+        icon={<ShieldOff size={16} />}
+        color="yellow"
+        // KAN-767 (Anto, 2026-11-19): only a licence option the probe
+        // recorded as not granted proves a contract gap; any other refusal
+        // (an older answer without `refusal` included) gets the neutral title.
+        title={t(refusal?.licenceOption ? 'catalogueBrowse.notInContract.title' : 'catalogueBrowse.notInContract.refusedTitle')}
+        data-testid="catalogue-state-notInContract"
+      >
+        {refusal === null
+          ? t('catalogueBrowse.notInContract.body')
+          : refusal.licenceOption
+            ? t('catalogueBrowse.notInContract.bodyOption', {
+                operation: t(REFUSED_OPERATION_KEYS[refusal.operation]),
+                option: refusal.licenceOption,
+              })
+            : t('catalogueBrowse.notInContract.bodyRefused', { operation: t(REFUSED_OPERATION_KEYS[refusal.operation]) })}
       </Alert>
     ) : state === 'unavailable' ? (
       <Alert icon={<Unplug size={16} />} color="yellow" title={t('catalogueBrowse.unavailable.title')} data-testid="catalogue-state-unavailable">

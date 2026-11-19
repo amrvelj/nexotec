@@ -6135,6 +6135,7 @@ export interface components {
         CatalogueBrandPage: {
             /** Items */
             items: components["schemas"]["CatalogueBrandRead"][];
+            refusal?: components["schemas"]["CatalogueRefusalRead"] | null;
             state: components["schemas"]["CatalogueBrowseState"];
         };
         /**
@@ -6158,13 +6159,21 @@ export interface components {
          */
         CatalogueBrowseMode: "build" | "record";
         /**
+         * CatalogueBrowseOperation
+         * @description KAN-767: the catalogue query a `not_in_contract` answer refused.
+         * @enum {string}
+         */
+        CatalogueBrowseOperation: "brands" | "modelGroups" | "variants" | "facetValues";
+        /**
          * CatalogueBrowseState
          * @description What a live catalogue answer is (ADR-112; Anto, 2026-11-07: a normal
          *     answer, never a 503). `ok` — the provider answered; `not_configured` —
          *     this Betrieb has no vehicle-data connection, the manual configuration is
-         *     the path; `not_in_contract` — the provider refused the query (the
-         *     `ident_basis` option is not licensed); `unavailable` — the provider
-         *     could not be reached or failed.
+         *     the path; `not_in_contract` — the provider refused the query (its 403),
+         *     or the probe recorded the licence option behind it as not granted; the
+         *     answer's `refusal` says which query and, only in the second case, which
+         *     option (KAN-767); `unavailable` — the provider could not be reached or
+         *     failed.
          * @enum {string}
          */
         CatalogueBrowseState: "ok" | "notConfigured" | "notInContract" | "unavailable";
@@ -6240,6 +6249,7 @@ export interface components {
             numeric: {
                 [key: string]: components["schemas"]["CatalogueNumericFacet"];
             };
+            refusal?: components["schemas"]["CatalogueRefusalRead"] | null;
             state: components["schemas"]["CatalogueBrowseState"];
         };
         /** CatalogueImageRead */
@@ -6264,6 +6274,7 @@ export interface components {
         CatalogueModelGroupPage: {
             /** Items */
             items: components["schemas"]["CatalogueModelGroupRead"][];
+            refusal?: components["schemas"]["CatalogueRefusalRead"] | null;
             state: components["schemas"]["CatalogueBrowseState"];
         };
         /**
@@ -6338,6 +6349,18 @@ export interface components {
             toOptionId: string;
         };
         /**
+         * CatalogueRefusalRead
+         * @description KAN-767: which query was refused. `licenceOption` is set only when the
+         *     refusal is tied to a licence option — the probe recorded it as not
+         *     granted, so nothing was sent; a provider's 403 on a query whose option is
+         *     granted names no option (the cause is not known).
+         */
+        CatalogueRefusalRead: {
+            /** Licenceoption */
+            licenceOption?: string | null;
+            operation: components["schemas"]["CatalogueBrowseOperation"];
+        };
+        /**
          * CatalogueSpecificationRead
          * @description WP-6 PR-5 — the entitlement-degraded read surface over PR-4's own
          *     tenant-scoped catalogue mirror. `packagesAvailable=False` means every
@@ -6409,6 +6432,7 @@ export interface components {
             items: components["schemas"]["CatalogueVariantRead"][];
             /** Nextcursor */
             nextCursor: string | null;
+            refusal?: components["schemas"]["CatalogueRefusalRead"] | null;
             state: components["schemas"]["CatalogueBrowseState"];
             /** Total */
             total: number | null;

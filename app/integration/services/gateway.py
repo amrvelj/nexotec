@@ -24,6 +24,7 @@ path.
 """
 
 import logging
+import re
 import time
 import uuid
 from collections.abc import Callable, Iterator
@@ -105,8 +106,9 @@ class UnknownProviderError(ProviderGatewayError):
 # instance. The db/actor_id/purpose triple is what a real adapter needs to
 # know who it calls for: the identAPI's (`adapters/auto_i_dat_ident.py`)
 # enrols the acting user on a production connection (User Enrollment Grant;
-# a sandbox one names no user, KAN-765), audits the actor and names the
-# purpose on its call-log rows — the mock factory below ignores all three. Mock and real are separate provider_codes /
+# a sandbox one names no user, KAN-765) and audits the actor with the
+# purpose; the gateway itself writes the purpose on every call-log row of
+# the block (KAN-767) — the mock factory below ignores all three. Mock and real are separate provider_codes /
 # separate connections, never a runtime flag on one (rule 7's own
 # reasoning, applied to more than just sandbox/prod).
 _AdapterFactory = Callable[[Session, IntegrationConnection, uuid.UUID | None, str], ProviderAdapter]
@@ -237,7 +239,16 @@ def record_call(
     cost_units: Decimal | None = None,
     correlation_id: uuid.UUID | None = None,
     tokens: tuple[int, int] | None = None,
+    purpose: str | None = None,
+    http_status: int | None = None,
+    provider_error: str | None = None,
 ) -> IntegrationCallLog:
+    """One `integration_call_log` row. KAN-767: `purpose` is the caller's
+    name for what it asked (cut to the column), `http_status` and
+    `provider_error` what the provider answered — the latter bounded here, the
+    one place every row is written, to a single line of at most 120
+    characters (`_bounded_provider_error`)."""
+
     log = IntegrationCallLog(
         connection_id=connection.id,
         # The name at the time of the call, never refreshed (KAN-470).
@@ -251,11 +262,32 @@ def record_call(
         correlation_id=_correlation_id_for(correlation_id),
         tokens_in=tokens[0] if tokens is not None else None,
         tokens_out=tokens[1] if tokens is not None else None,
+        purpose=purpose[:_PURPOSE_MAX] if purpose else None,
+        http_status=http_status,
+        provider_error=_bounded_provider_error(provider_error),
     )
     db.add(log)
     db.commit()
     db.refresh(log)
     return log
+
+
+_PURPOSE_MAX = 64
+_PROVIDER_ERROR_MAX = 120
+_CONTROL_CHARACTERS = re.compile(r"[\x00-\x1f\x7f]")
+
+
+def _bounded_provider_error(value: str | None) -> str | None:
+    """KAN-767: a provider's error identifier as the call log keeps it — a
+    string only, control characters and line breaks gone, whitespace
+    collapsed, at most 120 characters; empty is None. The adapters pass only
+    identifiers (a json:api `title`, an OAuth `error` code), never free prose;
+    this is the bound for whatever reaches the row all the same."""
+
+    if not isinstance(value, str):
+        return None
+    cleaned = " ".join(_CONTROL_CHARACTERS.sub(" ", value).split())
+    return cleaned[:_PROVIDER_ERROR_MAX] or None
 
 
 @contextmanager
@@ -330,14 +362,17 @@ def call_capability(
         # the network.
         gateway_db.commit()
 
+        logged_purpose = purpose or capability
+
         def record_request(
             operation: str, status: CallStatus, duration_ms: int, cost_units: Decimal | None,
-            tokens: tuple[int, int] | None,
+            tokens: tuple[int, int] | None, http_status: int | None, provider_error: str | None,
         ):
             _bound_lock_wait(gateway_db)
             return record_call(
                 gateway_db, connection=connection, capability=operation, status=status, duration_ms=duration_ms,
-                cost_units=cost_units, correlation_id=correlation_id, tokens=tokens,
+                cost_units=cost_units, correlation_id=correlation_id, tokens=tokens, purpose=logged_purpose,
+                http_status=http_status, provider_error=provider_error,
             )
 
         started_at = time.monotonic()
@@ -355,7 +390,7 @@ def call_capability(
             except ProviderTransportError as exc:
                 _record_failed_call(
                     gateway_db, connection=connection, capability=capability, exc=exc, started_at=started_at,
-                    correlation_id=correlation_id, capture_raw_payload=None, meter=meter,
+                    correlation_id=correlation_id, capture_raw_payload=None, meter=meter, purpose=logged_purpose,
                 )
                 raise
             try:
@@ -377,6 +412,7 @@ def call_capability(
                 _record_failed_call(
                     gateway_db, connection=connection, capability=capability, exc=exc, started_at=started_at,
                     correlation_id=correlation_id, capture_raw_payload=capture_raw_payload, meter=meter,
+                    purpose=logged_purpose,
                 )
                 raise
             else:
@@ -389,7 +425,7 @@ def call_capability(
                     _bound_lock_wait(gateway_db)
                     log = record_call(
                         gateway_db, connection=connection, capability=capability, status=CallStatus.SUCCESS,
-                        duration_ms=duration_ms, correlation_id=correlation_id,
+                        duration_ms=duration_ms, correlation_id=correlation_id, purpose=logged_purpose,
                     )
                 _maybe_capture_payload(
                     gateway_db, log=log, kind=PayloadKind.SUCCESS, capture_raw_payload=capture_raw_payload
@@ -406,6 +442,7 @@ def _record_failed_call(
     correlation_id: uuid.UUID | None,
     capture_raw_payload: Callable[[], str | None] | None,
     meter: metering.CallMeter,
+    purpose: str | None = None,
 ) -> None:
     """Charges the breaker — once per block, whatever it sent, unless the
     failure is the provider's coherent answer to our request (below) — and,
@@ -451,7 +488,7 @@ def _record_failed_call(
         _bound_lock_wait(gateway_db)
         log = record_call(
             gateway_db, connection=connection, capability=capability, status=status,
-            duration_ms=duration_ms, correlation_id=correlation_id,
+            duration_ms=duration_ms, correlation_id=correlation_id, purpose=purpose,
         )
     _maybe_capture_payload(gateway_db, log=log, kind=PayloadKind.ERROR, capture_raw_payload=capture_raw_payload)
 

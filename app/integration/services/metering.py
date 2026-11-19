@@ -34,10 +34,13 @@ from app.integration.models.call_log import CallStatus, IntegrationCallLog
 
 T = TypeVar("T")
 
-# (operation, status, duration_ms, cost_units, tokens) -> the row written.
-# `tokens` is (in, out) as the provider reported them (KAN-227, an AI
-# provider), else None.
-RecordRequest = Callable[[str, CallStatus, int, Decimal | None, "tuple[int, int] | None"], IntegrationCallLog]
+# (operation, status, duration_ms, cost_units, tokens, http_status, provider_error)
+# -> the row written. `tokens` is (in, out) as the provider reported them
+# (KAN-227, an AI provider), else None; `http_status` and `provider_error`
+# what the provider answered (KAN-767), else None.
+RecordRequest = Callable[
+    [str, CallStatus, int, Decimal | None, "tuple[int, int] | None", "int | None", "str | None"], IntegrationCallLog
+]
 
 ONE_REQUEST = Decimal(1)
 
@@ -53,10 +56,10 @@ class CallMeter:
 
     def write(
         self, operation: str, status: CallStatus, started_at: float, cost_units: Decimal | None,
-        tokens: tuple[int, int] | None = None,
+        tokens: tuple[int, int] | None = None, http_status: int | None = None, provider_error: str | None = None,
     ) -> None:
         duration_ms = int((time.monotonic() - started_at) * 1000)
-        self.last_log = self.record(operation, status, duration_ms, cost_units, tokens)
+        self.last_log = self.record(operation, status, duration_ms, cost_units, tokens, http_status, provider_error)
         self.requests += 1
 
 
@@ -97,6 +100,8 @@ class ProviderRequest:
         self._is_timeout = is_timeout
         self._answered_at: float | None = None
         self._tokens: tuple[int, int] | None = None
+        self._http_status: int | None = None
+        self._provider_error: str | None = None
 
     def report_tokens(self, tokens_in: int, tokens_out: int) -> None:
         """KAN-227: what the provider says the request consumed (an AI
@@ -104,14 +109,31 @@ class ProviderRequest:
 
         self._tokens = (tokens_in, tokens_out)
 
+    def note_response(self, http_status: int, *, provider_error: str | None = None) -> None:
+        """KAN-767: what the provider answered this attempt — its HTTP status
+        and, for a refusal, its short error identifier (a json:api `title`, an
+        OAuth `error` code; never free prose). The adapter calls it from the
+        one method that touches its HTTP client, before it judges the answer,
+        so a 5xx it then raises is recorded with its status. Written on this
+        attempt's row; the next attempt starts blank."""
+
+        self._http_status = http_status
+        self._provider_error = provider_error
+
     def attempt(self, send: Callable[[], T]) -> T:
         started_at = time.monotonic()
+        # A retry never inherits the previous attempt's answer.
+        self._http_status = None
+        self._provider_error = None
         try:
             result = send()
         except Exception as exc:
             if self._meter is not None:
                 status = CallStatus.TIMEOUT if self._is_timeout(exc) else CallStatus.ERROR
-                self._meter.write(self._operation, status, started_at, self._cost_units)
+                self._meter.write(
+                    self._operation, status, started_at, self._cost_units,
+                    http_status=self._http_status, provider_error=self._provider_error,
+                )
             raise
         self._answered_at = started_at
         return result
@@ -120,7 +142,10 @@ class ProviderRequest:
         if self._meter is None or self._answered_at is None:
             return
         status = CallStatus.ERROR if failed else CallStatus.SUCCESS
-        self._meter.write(self._operation, status, self._answered_at, self._cost_units, self._tokens)
+        self._meter.write(
+            self._operation, status, self._answered_at, self._cost_units, self._tokens,
+            http_status=self._http_status, provider_error=self._provider_error,
+        )
         self._answered_at = None
 
 
