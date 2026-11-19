@@ -118,15 +118,27 @@ def test_the_work_address_is_used_when_there_is_no_personal_one(client, db_sessi
     assert _read(db_session, group_id, business, _EMAIL).address == "info@firma.ch"
 
 
-def test_nicht_kontaktieren_refuses_every_send(db_session, scene):
+def test_nicht_kontaktieren_refuses_marketing_and_lets_a_transactional_send_through(db_session, scene):
+    """Anto, 2026-11-19 (KAN-217, option 2): a customer who asked for an
+    offer, an order confirmation or a contract gets it; marketing stays
+    refused, even with every D-17 gate open."""
+
     _dealer_id, customer_id, group_id = scene
     db_session.execute(
-        update(Customer).where(Customer.id == customer_id).values(lifecycle_status=CustomerLifecycleStatus.DO_NOT_CONTACT)
+        update(Customer)
+        .where(Customer.id == customer_id)
+        .values(lifecycle_status=CustomerLifecycleStatus.DO_NOT_CONTACT, marketing_consent=True, newsletter=True)
+    )
+    db_session.execute(
+        update(CustomerEmail)
+        .where(CustomerEmail.customer_id == customer_id)
+        .values(consent_granted=True, consent_scope="marketing")
     )
     db_session.commit()
     for channel in (_EMAIL, _SMS, _WHATSAPP):
-        for purpose in (_TX, _MKT):
-            assert _read(db_session, group_id, customer_id, channel, purpose).refusal == "customer_do_not_contact"
+        transactional = _read(db_session, group_id, customer_id, channel, _TX)
+        assert transactional.allowed and transactional.refusal is None and transactional.address
+        assert _read(db_session, group_id, customer_id, channel, _MKT).refusal == "customer_do_not_contact"
 
 
 def test_a_merged_customer_is_refused(client, db_session, scene):

@@ -18,9 +18,10 @@ projections use: not closed, not «nicht verwenden».
 
 1. a merged customer is refused (`customer_merged`); the caller follows the
    merge through `customer.merged`, never sends to the absorbed record;
-2. «Nicht kontaktieren» (`lifecycle_status = do_not_contact`) refuses every
-   send (`customer_do_not_contact`) — the status says it in as many words,
-   and it already refuses the offer and the contract (ADR-065);
+2. «Nicht kontaktieren» (`lifecycle_status = do_not_contact`) refuses a
+   **marketing** send (`customer_do_not_contact`) and never a transactional
+   one: a customer who asked for an offer, an order confirmation or a
+   contract gets it (Anto, 2026-11-19, KAN-217 option 2);
 3. no usable row on the channel (`no_usable_contact`);
 4. a **transactional** send (an offer, an order confirmation, a contract)
    needs nothing more (Anto, 2026-11-14, Q1 A: contract preparation, not
@@ -129,7 +130,7 @@ def _address_of(row: Any | None, channel: MessageChannel) -> str | None:
 def _refusal(customer: Customer, row: Any | None, purpose: MessagePurpose) -> str | None:
     if customer.lifecycle_status == CustomerLifecycleStatus.MERGED:
         return CUSTOMER_MERGED
-    if customer.lifecycle_status == CustomerLifecycleStatus.DO_NOT_CONTACT:
+    if purpose == MessagePurpose.MARKETING and customer.lifecycle_status == CustomerLifecycleStatus.DO_NOT_CONTACT:
         return CUSTOMER_DO_NOT_CONTACT
     if row is None:
         return NO_USABLE_CONTACT
