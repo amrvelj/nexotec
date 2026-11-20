@@ -155,21 +155,16 @@ Roles, capabilities, the permission matrix and what the SPA may offer: `platform
   assignment and kept where held.
 
 ## Support access (D-A-05, D-A-24) — record and log (KAN-221)
-`support_session`: `POST /v1/platform/support-sessions` (staff with a factor, not under `acting_for`;
-not for a platform_admin, oneself or a non-active user; one running per staff) and `…/{id}/end`
-(staff or the user; others 404). Over at `expires_at`: reads derive `timeout`, the nightly
+`support_session`: `POST /v1/platform/support-sessions` (staff with a factor; not for a
+platform_admin, oneself or a non-active user; one running per staff), `…/{id}/end` (staff or the
+user; others 404). Over at `expires_at`: reads derive `timeout`, the nightly
 `platform.support_sessions.close_expired` writes it. Log: `…/dealerships/{id}/support-sessions`
-(manager), `/v1/platform/support-sessions` (staff). **Grants nothing until PR 3** (the token).
-**FR-A-17 (PR 4):** `app/core/impersonation.py::refuse_under_impersonation` — 403
-`impersonation_excluded`, the one deliberate 403 — on the MFA, session, invitation, auth-config,
-manager-flag, secret-slot, mailbox-link and connected-account routes and the support-session start,
-named in `tests/platform/test_kan221_impersonation_exclusions.py` (an unnamed carrier fails); a user
-PATCH touching `isDealerManager` or `email`, and a new user or membership as manager, too. The user
-gets `security.impersonation_started` / `_ended` (timeout when written); the manager nothing. Ruling:
-full write from the start; the token carries `sub` = staff, `actingFor` = the user; the audit
-shows both, never the dealer; a 60-minute box, a mandatory reason, a persistent banner;
-the user ends it; no manager notice or "View as". It never touches credentials, MFA,
-the manager flag or integration secrets (FR-A-17).
+(manager), `/v1/platform/support-sessions` (staff). **Grants nothing until PR 3** (token).
+**FR-A-17:** `app/core/impersonation.py` — 403 `impersonation_excluded` on the routes named in
+`tests/platform/test_kan221_impersonation_exclusions.py`, and on a PATCH of `isDealerManager`/`email`
+or a new manager; the user gets `security.impersonation_started`/`_ended`, not the manager.
+Ruling: full write at once; `sub` = staff, `actingFor` = the user, both in the audit; 60 minutes, a reason, a
+banner the user ends; no "View as".
 
 ## My account
 - `/account/{profile,security,connected-accounts,signature,notifications}` for every user. Sessions
