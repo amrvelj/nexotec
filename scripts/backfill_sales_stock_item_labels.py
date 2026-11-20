@@ -111,7 +111,7 @@ def render(report: Report, *, committed: bool) -> str:
     mode = "COMMITTED" if committed else "DRY RUN — nothing written"
     lines = [f"KAN-157 Sales stock-number labels ({mode})", "", f"filled: {len(report.filled)}"]
     lines += [f"  {kind} {row_id}: {number}" for kind, row_id, number in report.filled]
-    lines += ["", f"UNRESOLVED (no stock item of the row's own Betrieb): {len(report.unresolved)}"]
+    lines += ["", f"UNRESOLVED (no stock item of the row's own business): {len(report.unresolved)}"]
     lines += [f"  {kind} {row_id}: stock item {item_id}" for kind, row_id, item_id in report.unresolved]
     lines += ["", f"SKIPPED (held by another writer — run again): {sum(report.skipped.values())}"]
     lines += [f"  {kind}: {count}" for kind, count in sorted(report.skipped.items())]

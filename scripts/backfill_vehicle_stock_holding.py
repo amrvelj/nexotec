@@ -116,7 +116,7 @@ def render(report: Report, *, committed: bool) -> str:
     mode = "COMMITTED" if committed else "DRY RUN — nothing written"
     return "\n".join(
         [
-            f"KAN-667 Vehicle's projection of the records a Betrieb holds in stock — backfill ({mode})",
+            f"KAN-667 Vehicle's projection of the records a business holds in stock — backfill ({mode})",
             "",
             f"stock items holding a record read: {report.items_read}",
             f"projection rows {'written' if committed else 'to write'} (new or changed): {report.rows_written}",

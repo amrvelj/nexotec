@@ -130,7 +130,7 @@ def main(argv: list[str] | None = None) -> int:
         for dealership, outcome in report:
             print(f"KAN-205 REPORT: {dealership.legal_name} ({dealership.id}): {outcome}")
         remaining = sum(1 for _d, outcome in report if outcome not in ("migrated",))
-        print(f"KAN-205: {len(report)} Betrieb(e) with a logo_url; {remaining} still hold one after this run")
+        print(f"KAN-205: {len(report)} business(es) with a logo_url; {remaining} still hold one after this run")
         return 1 if remaining else 0
     finally:
         db.close()

@@ -195,7 +195,7 @@ def _measure(args, url: str) -> int:
     with engine.begin() as conn:
         conn.execute(text("ANALYZE stock_item"))
         rows = conn.execute(text("SELECT count(*) FROM stock_item")).scalar()
-    print(f"Seeded {rows} stock items ({args.items} in the measured Betrieb) in {time.perf_counter() - started:.0f} s")
+    print(f"Seeded {rows} stock items ({args.items} in the measured business) in {time.perf_counter() - started:.0f} s")
 
     token = create_access_token(
         user_id=uuid.uuid4(), tenant_id=tenant_id, group_id=uuid.uuid4(), roles=frozenset({AccessRole.INVENTORY})

@@ -363,8 +363,8 @@ def _ensure_first_manager(
     if existing is not None:
         if existing.tenant_id != dealership.id:
             print(
-                f"{FIRST_MANAGER_EMAIL_VAR} names a user of another Betrieb; nothing was changed for them. "
-                "Give them a membership of the demo Betrieb from Dealer Administration, or set another address."
+                f"{FIRST_MANAGER_EMAIL_VAR} names a user of another business; nothing was changed for them. "
+                "Give them a membership of the demo business from Dealer Administration, or set another address."
             )
             return None, False
         print(f"The first manager already exists (status {existing.status.value}); left as they are.")
@@ -411,7 +411,7 @@ def _main_deployed() -> None:
         manager, manager_created = _ensure_first_manager(db, mailer, dealership=dealership, data=data)
         if manager is None:
             print(
-                "No first manager in the demo Betrieb: entitlements wait for one, and the Betrieb's rows stay "
+                "No first manager in the demo business: entitlements wait for one, and the business's rows stay "
                 "system writes until the run that invites one."
             )
             return

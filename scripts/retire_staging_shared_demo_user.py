@@ -108,7 +108,7 @@ def run(db: Session, *, commit: bool, session_factory=SessionLocal) -> int:
     manager = personal_manager_signed_in_with_mfa(db, dealership_id=dealership.id, shared_user_id=shared.id)
     if manager is None:
         print(
-            "Waiting: no personal dealer manager of the demo Betrieb has signed in with (or enrolled) a second "
+            "Waiting: no personal dealer manager of the demo business has signed in with (or enrolled) a second "
             "factor yet. "
             "The shared demo user stays as it is."
         )

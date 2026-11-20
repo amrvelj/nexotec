@@ -51,7 +51,7 @@ def render(report, *, committed: bool) -> str:
     lines = [f"KAN-739 stock item location labels ({mode})", "", f"filled or renamed: {len(report.changed)}"]
     lines += [f"  stock item {item_id}: {before!r} -> {after!r}" for item_id, before, after in report.changed]
     lines += ["", f"already current (restamped): {report.restamped}"]
-    lines += ["", f"UNRESOLVED (no location of the item's own Betrieb): {len(report.unresolved)}"]
+    lines += ["", f"UNRESOLVED (no location of the item's own business): {len(report.unresolved)}"]
     lines += [f"  stock item {item_id}: location {location_id}" for item_id, location_id in report.unresolved]
     return "\n".join(lines)
 

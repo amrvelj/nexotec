@@ -26,6 +26,11 @@ import pytest
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 _APP = _REPO_ROOT / "app"
+# KAN-772: the operator output of the one-off scripts in `scripts/` is read
+# in English too. `scripts/dev/` is the setup (KAN-255) and holds developer
+# tooling, not operator output; it is not scanned.
+_SCRIPTS = _REPO_ROOT / "scripts"
+_SETUP = _SCRIPTS / "dev"
 
 # Keyword arguments that hold API or schema documentation, not a message —
 # but only on the calls that document (a FastAPI parameter or route, a
@@ -88,9 +93,9 @@ def _runtime_literals(path: Path) -> list[ast.Constant]:
     ]
 
 
-def test_no_english_runtime_message_in_app_says_betrieb():
+def _offenders(paths: list[Path]) -> list[str]:
     offenders = []
-    for path in sorted(_APP.rglob("*.py")):
+    for path in paths:
         relative = path.relative_to(_REPO_ROOT).as_posix()
         if relative in _GERMAN_TEXT_FILES:
             continue
@@ -99,9 +104,32 @@ def test_no_english_runtime_message_in_app_says_betrieb():
             for node in _runtime_literals(path)
             if "Betrieb" in node.value
         )
+    return offenders
+
+
+def _operator_scripts() -> list[Path]:
+    """Every Python file under `scripts/` but the setup's (`scripts/dev/`)."""
+
+    return sorted(path for path in _SCRIPTS.rglob("*.py") if _SETUP not in path.parents)
+
+
+def test_no_english_runtime_message_in_app_says_betrieb():
+    offenders = _offenders(sorted(_APP.rglob("*.py")))
     assert not offenders, (
         "English messages say «business» (KAN-760 option A, KAN-771); a German text belongs in "
         "_GERMAN_TEXT_FILES, API documentation in a documenting call's description=:\n" + "\n".join(offenders)
+    )
+
+
+def test_no_english_operator_output_in_scripts_says_betrieb():
+    """KAN-772: a backfill's or a seed's report is read by an operator, in
+    English; it says «business» like the platform's own messages."""
+
+    scripts = _operator_scripts()
+    assert scripts, "no operator script found under scripts/ — the scan root moved"
+    offenders = _offenders(scripts)
+    assert not offenders, "Operator output in scripts/ says «business» (KAN-760 option A, KAN-772):\n" + "\n".join(
+        offenders
     )
 
 
