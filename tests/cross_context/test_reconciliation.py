@@ -1052,6 +1052,9 @@ def test_no_hard_delete_endpoint_exists_for_fk_target_entities(client):
         # the row stays (its deliveries name it) — nothing is deleted.
         "/v1/integrations/mail/own-mailbox/{mailbox_id}",
         "/v1/dealerships/{dealership_id}/mail/business-mailbox/{mailbox_id}",
+        # KAN-226: disconnecting a Business Profile binding marks it
+        # `disconnected`; the row stays — nothing is deleted.
+        "/v1/dealerships/{dealership_id}/business-profile/bindings/{binding_id}",
         "/v1/dealerships/{dealership_id}/users/{user_id}/connected-accounts/{account_id}",
         # KAN-203: a bank account is the dealership's own child row (D-A-27),
         # never an FK target; the delete is audited with the row's values.

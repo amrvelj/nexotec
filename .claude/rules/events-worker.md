@@ -45,7 +45,7 @@ small; ADR-047 addendum, ADR-081, ADR-105, ADR-107. Last verified against main@3
   purpose; its age is the gauge `dms.label.age_seconds` (threshold in README's alarm table).
   Jobs: `customer.vehicle_party_labels`, `customer.advisor_labels`, `sales.owner_labels`,
   `sales.customer_labels`, `inventory.configuration_labels`, `integration.location_labels`
-  (KAN-222: a connection's copy of its location's name), `inventory.location_labels` (KAN-739: a
+  (KAN-222: a connection's and, KAN-226, a Business Profile binding's copy of its location's name), `inventory.location_labels` (KAN-739: a
   stock item's copy of its location's name). Shared rules: no `version` bump, a
   current label only restamped, a deactivated user's label kept, an id naming nothing left
   alone, batches `FOR NO KEY UPDATE SKIP LOCKED` (the vehicle-party job locks in id order and

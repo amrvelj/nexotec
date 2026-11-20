@@ -44,6 +44,7 @@ dealer_settings.vat_rate — never a second source of truth, never a net
 price, never a rate breakdown across multiple lines.
 """
 
+import re
 import uuid
 from collections.abc import Sequence
 from decimal import ROUND_HALF_UP, Decimal
@@ -64,6 +65,7 @@ from app.platform.public import (
     LineStyle,
     ParagraphBlock,
     Placeholder,
+    RenderedDocument,
     SignatureBlock,
     StandardTextAppliesTo,
     StandardTextCategory,
@@ -520,3 +522,45 @@ def _is_draft(db: Session, document: SalesDocument) -> bool:
         select(SalesOffer.status).where(SalesOffer.id == document.owner_id, SalesOffer.tenant_id == document.tenant_id)
     )
     return status == OfferStatus.DRAFT
+
+
+def _filename(number: str | None, version: int) -> str:
+    """The linked PDF's file name: the offer's or contract's number (a range
+    may print `/`, which a file name cannot hold) and the document version."""
+
+    safe = re.sub(r"[^A-Za-z0-9._-]", "-", number or "") or "document"
+    return f"{safe}-v{version}.pdf"
+
+
+def _linked_document(
+    db: Session, tenant_id: uuid.UUID, document_id: uuid.UUID, *, owner_type: DocumentOwnerType
+) -> RenderedDocument | None:
+    """KAN-217 PR-4: Sales' document source for a secure link — the document
+    `document_id` of `tenant_id`, of this owner type, rendered exactly as the
+    signed-in download renders it; None when that Betrieb holds no such
+    document (a link never reads outside the Betrieb that issued it)."""
+
+    document = db.scalar(
+        select(SalesDocument).where(
+            SalesDocument.id == document_id,
+            SalesDocument.tenant_id == tenant_id,
+            SalesDocument.owner_type == owner_type,
+        )
+    )
+    if document is None:
+        return None
+    owner_model = SalesOffer if owner_type == DocumentOwnerType.OFFER else SalesContract
+    number_column = SalesOffer.offer_number if owner_type == DocumentOwnerType.OFFER else SalesContract.contract_number
+    number = db.scalar(
+        select(number_column).where(owner_model.id == document.owner_id, owner_model.tenant_id == tenant_id)
+    )
+    pdf = render_document_pdf(db, document=document, dealership_id=tenant_id)
+    return RenderedDocument(pdf=pdf, filename=_filename(number, document.version))
+
+
+def linked_offer_document(db: Session, tenant_id: uuid.UUID, document_id: uuid.UUID) -> RenderedDocument | None:
+    return _linked_document(db, tenant_id, document_id, owner_type=DocumentOwnerType.OFFER)
+
+
+def linked_contract_document(db: Session, tenant_id: uuid.UUID, document_id: uuid.UUID) -> RenderedDocument | None:
+    return _linked_document(db, tenant_id, document_id, owner_type=DocumentOwnerType.CONTRACT)

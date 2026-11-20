@@ -104,6 +104,13 @@ A-RULE-3). Cut from platform.md by KAN-614 (2026-11-10). Last verified against m
   `app/message_type_registry.py`; a wrong or conflicting one fails at start-up. E-mail attaches the
   document, SMS and WhatsApp send a secure link the send service appends — no text names it.
   Sales registers `offer`, `order_confirmation`, `sales_contract`. Nothing sends yet.
+- **Secure links (KAN-217 PR-4, ADR-193):** `document_link` holds a link's SHA-256, never the token;
+  14 days. The URL is `{app}/d?lang=<lang>#<token>`: the fragment never reaches a server, so no proxy or access
+  log keeps it; the SPA's public `/d` sends it in the `X-Document-Link` header (a secret field,
+  `app/core/redact.py`) to `GET /v1/document-links/current`, which renders through the **document
+  source** the owning module registers (`platform.public.register_document_source`), inside the
+  link's own Betrieb only. Every refusal (unknown, expired, offboarded, another Betrieb's or type's
+  document, > 30 opens an hour) is the same 404. Never put a token in a path or query.
 - Carried-over footers: each non-empty `document_template` footer became the Betrieb's **default**
   offer and contract footer (`offer|contract.footer.carried_over`) and an invoice text that is not
   the default (`invoice.footer.carried_over`), so documents keep printing what they printed; an

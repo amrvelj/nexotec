@@ -15,6 +15,7 @@ from app.integration.api.ai_prompts import router as integration_ai_prompts_rout
 from app.integration.api.call_payloads import router as integration_call_payloads_router
 from app.integration.api.captions import router as integration_captions_router
 from app.integration.api.connections import router as integration_connections_router
+from app.integration.api.google_business_profile import router as integration_business_profile_router
 from app.integration.api.mail import router as integration_mail_router
 from app.integration.api.providers import router as integration_providers_router
 from app.inventory.api.group import router as inventory_group_router
@@ -29,6 +30,7 @@ from app.platform.administration.api.publishing_profile import router as publish
 from app.platform.administration.api.setup import router as setup_router
 from app.platform.administration.api.status_page import router as status_page_router
 from app.platform.documents.api.branding import router as branding_router
+from app.platform.documents.api.document_links import router as document_links_router
 from app.platform.documents.api.document_template import router as document_template_router
 from app.platform.documents.api.standard_text_seeds import router as standard_text_seeds_router
 from app.platform.documents.api.standard_texts import router as standard_texts_router
@@ -79,6 +81,7 @@ api_v1_router.include_router(branding_router)
 api_v1_router.include_router(publishing_profile_router)
 api_v1_router.include_router(public_stock_router)
 api_v1_router.include_router(document_template_router)
+api_v1_router.include_router(document_links_router)
 api_v1_router.include_router(configuration_copy_router)
 api_v1_router.include_router(standard_texts_router)
 api_v1_router.include_router(number_ranges_router)
@@ -115,6 +118,7 @@ api_v1_router.include_router(integration_providers_router)
 api_v1_router.include_router(integration_connections_router)
 api_v1_router.include_router(integration_ai_prompts_router)
 api_v1_router.include_router(integration_mail_router)
+api_v1_router.include_router(integration_business_profile_router)
 api_v1_router.include_router(integration_call_payloads_router)
 api_v1_router.include_router(integration_captions_router)
 api_v1_router.include_router(auth_router)

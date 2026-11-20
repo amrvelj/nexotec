@@ -1334,6 +1334,91 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/dealerships/{dealership_id}/business-profile/bindings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Bindings */
+        get: operations["list_bindings_v1_dealerships__dealership_id__business_profile_bindings_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/dealerships/{dealership_id}/business-profile/bindings/{binding_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Disconnect Binding */
+        delete: operations["disconnect_binding_v1_dealerships__dealership_id__business_profile_bindings__binding_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/dealerships/{dealership_id}/business-profile/bindings/{binding_id}/google-location": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Pick Google Location */
+        put: operations["pick_google_location_v1_dealerships__dealership_id__business_profile_bindings__binding_id__google_location_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/dealerships/{dealership_id}/business-profile/bindings/{binding_id}/google-locations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Google Locations */
+        get: operations["list_google_locations_v1_dealerships__dealership_id__business_profile_bindings__binding_id__google_locations_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/dealerships/{dealership_id}/business-profile/links": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Start Link */
+        post: operations["start_link_v1_dealerships__dealership_id__business_profile_links_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/dealerships/{dealership_id}/contact-groups": {
         parameters: {
             query?: never;
@@ -2509,6 +2594,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/document-links/current": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Open Document Link */
+        get: operations["open_document_link_v1_document_links_current_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/healthz": {
         parameters: {
             query?: never;
@@ -2604,6 +2706,23 @@ export interface paths {
         get: operations["get_ui_translation_map_v1_i18n__language__get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/integrations/business-profile/link-callback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Complete Link */
+        post: operations["complete_link_v1_integrations_business_profile_link_callback_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -6090,6 +6209,98 @@ export interface components {
             /** Providers */
             providers: components["schemas"]["MailProviderRead"][];
         };
+        /** BusinessProfileBindingPage */
+        BusinessProfileBindingPage: {
+            /** Configured */
+            configured: boolean;
+            /** Items */
+            items: components["schemas"]["BusinessProfileBindingRead"][];
+        };
+        /** BusinessProfileBindingRead */
+        BusinessProfileBindingRead: {
+            /**
+             * Connectedat
+             * Format: date-time
+             */
+            connectedAt: string;
+            /** Errorcode */
+            errorCode: string | null;
+            /** Googleaccountname */
+            googleAccountName: string | null;
+            /** Googlelocationname */
+            googleLocationName: string | null;
+            /** Googlelocationtitle */
+            googleLocationTitle: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Locationid
+             * Format: uuid
+             */
+            locationId: string;
+            /** Locationlabel */
+            locationLabel: string;
+            status: components["schemas"]["GbpBindingStatus"];
+            /** Version */
+            version: number;
+        };
+        /** BusinessProfileGoogleChoicePage */
+        BusinessProfileGoogleChoicePage: {
+            /** Items */
+            items: components["schemas"]["BusinessProfileGoogleChoiceRead"][];
+        };
+        /** BusinessProfileGoogleChoiceRead */
+        BusinessProfileGoogleChoiceRead: {
+            /** Accountdisplayname */
+            accountDisplayName: string;
+            /** Accountname */
+            accountName: string;
+            /** Locationname */
+            locationName: string;
+            /** Title */
+            title: string;
+        };
+        /** BusinessProfileGoogleLocationPick */
+        BusinessProfileGoogleLocationPick: {
+            /** Accountname */
+            accountName: string;
+            /** Locationname */
+            locationName: string;
+        };
+        /**
+         * BusinessProfileLinkCallback
+         * @description The query Google sent the browser back with, passed on by the SPA.
+         */
+        BusinessProfileLinkCallback: {
+            /** Code */
+            code?: string | null;
+            /** Error */
+            error?: string | null;
+            /** State */
+            state: string;
+        };
+        /** BusinessProfileLinkCreate */
+        BusinessProfileLinkCreate: {
+            /**
+             * Locationid
+             * Format: uuid
+             */
+            locationId: string;
+        };
+        /** BusinessProfileLinkOutcomeRead */
+        BusinessProfileLinkOutcomeRead: {
+            binding: components["schemas"]["BusinessProfileBindingRead"];
+            /** Choices */
+            choices: components["schemas"]["BusinessProfileGoogleChoiceRead"][];
+        };
+        /** BusinessProfileLinkStartRead */
+        BusinessProfileLinkStartRead: {
+            /** Authorizeurl */
+            authorizeUrl: string;
+        };
         /**
          * CalendarPeriod
          * @description `GET /v1/customers?updated_since_start_of=` — the current calendar day,
@@ -9234,6 +9445,11 @@ export interface components {
          * @enum {string}
          */
         FranchiseType: "franchise" | "independent";
+        /**
+         * GbpBindingStatus
+         * @enum {string}
+         */
+        GbpBindingStatus: "pending" | "active" | "error" | "disconnected";
         /**
          * Gender
          * @description FR-17, added 2026-08-21. Distinct from `Salutation` (a form of
@@ -18319,6 +18535,194 @@ export interface operations {
             };
         };
     };
+    list_bindings_v1_dealerships__dealership_id__business_profile_bindings_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BusinessProfileBindingPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    disconnect_binding_v1_dealerships__dealership_id__business_profile_bindings__binding_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "If-Match"?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                binding_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    pick_google_location_v1_dealerships__dealership_id__business_profile_bindings__binding_id__google_location_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                binding_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BusinessProfileGoogleLocationPick"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BusinessProfileBindingRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_google_locations_v1_dealerships__dealership_id__business_profile_bindings__binding_id__google_locations_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                binding_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BusinessProfileGoogleChoicePage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    start_link_v1_dealerships__dealership_id__business_profile_links_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                dealership_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BusinessProfileLinkCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BusinessProfileLinkStartRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_contact_groups_v1_dealerships__dealership_id__contact_groups_get: {
         parameters: {
             query?: never;
@@ -19391,8 +19795,8 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                "If-Match"?: string | null;
                 authorization?: string | null;
+                "If-Match"?: string | null;
             };
             path: {
                 dealership_id: string;
@@ -20815,8 +21219,8 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                "If-Match"?: string | null;
                 authorization?: string | null;
+                "If-Match"?: string | null;
             };
             path: {
                 dealership_id: string;
@@ -20970,8 +21374,8 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                "If-Match"?: string | null;
                 authorization?: string | null;
+                "If-Match"?: string | null;
             };
             path: {
                 dealership_id: string;
@@ -21125,8 +21529,8 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                "If-Match"?: string | null;
                 authorization?: string | null;
+                "If-Match"?: string | null;
             };
             path: {
                 dealership_id: string;
@@ -21581,6 +21985,37 @@ export interface operations {
             };
         };
     };
+    open_document_link_v1_document_links_current_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Document-Link"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The linked document as a PDF. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/pdf": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     healthz_v1_healthz_get: {
         parameters: {
             query?: never;
@@ -21741,6 +22176,45 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    complete_link_v1_integrations_business_profile_link_callback_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BusinessProfileLinkCallback"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BusinessProfileLinkOutcomeRead"];
+                };
             };
             /** @description Validation Error */
             422: {
@@ -22013,8 +22487,8 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                "If-Match"?: string | null;
                 authorization?: string | null;
+                "If-Match"?: string | null;
             };
             path: {
                 connection_id: string;
@@ -22427,8 +22901,8 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                "If-Match"?: string | null;
                 authorization?: string | null;
+                "If-Match"?: string | null;
             };
             path: {
                 mailbox_id: string;
@@ -24085,8 +24559,8 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                "If-Match"?: string | null;
                 authorization?: string | null;
+                "If-Match"?: string | null;
             };
             path: {
                 account_id: string;

@@ -30,6 +30,7 @@ from app.core.auth import (
 from app.core.config import get_settings
 from app.core.errors import ForbiddenError, NotFoundError, UnauthorizedError
 from app.core.idempotent_route import IdempotentRoute
+from app.core.impersonation import refuse_under_impersonation
 from app.core.permissions import ModuleCode, writable_capabilities
 from app.db import get_db
 from app.platform.identity.models.auth_event import AuthEventKind
@@ -627,7 +628,7 @@ def list_my_sessions(principal: Principal = Depends(get_current_principal), db: 
     )
 
 
-@account_router.delete("/auth/sessions/{session_id}", status_code=204)
+@account_router.delete("/auth/sessions/{session_id}", dependencies=[Depends(refuse_under_impersonation)], status_code=204)
 def revoke_my_session(
     session_id: uuid.UUID,
     request: Request,
@@ -678,7 +679,7 @@ def mfa_status(principal: Principal = Depends(get_current_principal), db: Sessio
     return _mfa_status(db, user=user, principal=principal)
 
 
-@account_router.post("/auth/mfa/totp/enrol", response_model=TotpEnrolmentRead)
+@account_router.post("/auth/mfa/totp/enrol", dependencies=[Depends(refuse_under_impersonation)], response_model=TotpEnrolmentRead)
 def totp_enrol(principal: Principal = Depends(get_current_principal), db: Session = Depends(get_db)):
     user = user_reads_service.get_own_user_for_update_or_404(db, principal.user_id)
     enrolment = mfa.begin_totp(db, user=user)
@@ -686,7 +687,7 @@ def totp_enrol(principal: Principal = Depends(get_current_principal), db: Sessio
     return TotpEnrolmentRead(secret=enrolment.secret, provisioning_uri=enrolment.provisioning_uri)
 
 
-@account_router.post("/auth/mfa/totp/confirm", response_model=RecoveryCodesRead)
+@account_router.post("/auth/mfa/totp/confirm", dependencies=[Depends(refuse_under_impersonation)], response_model=RecoveryCodesRead)
 def totp_confirm(
     body: TotpConfirmRequest,
     request: Request,
@@ -721,7 +722,7 @@ def _record_factor_on_session(db: Session, *, principal: Principal, method: str)
     db.flush()
 
 
-@account_router.delete("/auth/mfa/totp", status_code=204)
+@account_router.delete("/auth/mfa/totp", dependencies=[Depends(refuse_under_impersonation)], status_code=204)
 def totp_remove(request: Request, principal: Principal = Depends(get_current_principal), db: Session = Depends(get_db)):
     user = user_reads_service.get_own_user_for_update_or_404(db, principal.user_id)
     if mfa.remove_totp(db, user=user, actor_id=principal.user_id, ip_address=client_ip(request)):
@@ -759,7 +760,7 @@ def _drop_factor_from_session_if_none_left(db: Session, *, principal: Principal,
         )
 
 
-@account_router.post("/auth/mfa/recovery-codes/regenerate", response_model=RecoveryCodesRead)
+@account_router.post("/auth/mfa/recovery-codes/regenerate", dependencies=[Depends(refuse_under_impersonation)], response_model=RecoveryCodesRead)
 def recovery_codes_regenerate(
     request: Request, principal: Principal = Depends(get_current_principal), db: Session = Depends(get_db)
 ):
@@ -769,7 +770,7 @@ def recovery_codes_regenerate(
     return RecoveryCodesRead(codes=codes)
 
 
-@account_router.post("/auth/mfa/passkeys/options", response_model=PasskeyOptionsResponse)
+@account_router.post("/auth/mfa/passkeys/options", dependencies=[Depends(refuse_under_impersonation)], response_model=PasskeyOptionsResponse)
 def passkey_register_options(principal: Principal = Depends(get_current_principal), db: Session = Depends(get_db)):
     user = user_reads_service.get_own_user_for_update_or_404(db, principal.user_id)
     challenge_id = auth_tokens.issue(db, user_id=user.id, kind=AuthTokenKind.PASSKEY_REGISTRATION, actor_id=user.id)
@@ -778,7 +779,7 @@ def passkey_register_options(principal: Principal = Depends(get_current_principa
     return PasskeyOptionsResponse(challenge_id=challenge_id, options=options)
 
 
-@account_router.post("/auth/mfa/passkeys", response_model=PasskeyRead, status_code=201)
+@account_router.post("/auth/mfa/passkeys", dependencies=[Depends(refuse_under_impersonation)], response_model=PasskeyRead, status_code=201)
 def passkey_register(
     body: PasskeyRegisterRequest,
     request: Request,
@@ -806,7 +807,7 @@ def passkey_register(
     return PasskeyRead(id=row.id, label=row.label, created_at=row.created_at, last_used_at=row.last_used_at)
 
 
-@account_router.delete("/auth/mfa/passkeys/{passkey_id}", status_code=204)
+@account_router.delete("/auth/mfa/passkeys/{passkey_id}", dependencies=[Depends(refuse_under_impersonation)], status_code=204)
 def passkey_remove(
     passkey_id: uuid.UUID,
     request: Request,

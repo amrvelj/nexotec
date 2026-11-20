@@ -16,6 +16,7 @@ from app.integration.models.call_payload import IntegrationCallPayload
 from app.integration.models.caption import IntegrationProviderCaption, IntegrationProviderCaptionFetch
 from app.integration.models.connection import IntegrationConnection
 from app.integration.models.entitlement import IntegrationEntitlement
+from app.integration.models.google_business_profile import GbpLinkState, GbpLocationBinding
 from app.integration.models.mail import MailLinkState, MessageDelivery, SendingIdentity, SendingIdentityKind
 from app.integration.models.notification import IntegrationNotification
 from app.integration.models.provider import IntegrationProvider
@@ -73,6 +74,15 @@ class IntegrationExporter(TableExporter):
                 MailLinkState,
                 in_archive=False,
                 exclusion_reason="A pending mailbox link, valid ten minutes; a hash of a single-use state only.",
+                marks_write=False,
+            ),
+            # KAN-226: which of the Betrieb's locations is bound to which
+            # Google location (the grant itself is in the secrets manager).
+            _tenant(GbpLocationBinding),
+            _tenant(
+                GbpLinkState,
+                in_archive=False,
+                exclusion_reason="A pending Business Profile link, valid ten minutes; a hash of a single-use state only.",
                 marks_write=False,
             ),
             _tenant(IntegrationCallLog, marks_write=False),

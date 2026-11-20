@@ -24,6 +24,13 @@ from app.platform.documents.schemas.document_content import (
     ParagraphBlock,
     SignatureBlock,
 )
+from app.platform.documents.services.document_links import (
+    DocumentSource,
+    IssuedDocumentLink,
+    RenderedDocument,
+    issue_document_link,
+    register_document_source,
+)
 from app.platform.documents.services.document_render import render_document
 from app.platform.documents.services.message_types import (
     MessageChannel,
@@ -169,6 +176,14 @@ from app.platform.reference.services.reference_data import get_active_reference_
 # delivery_of says whether a channel attaches the document or sends a secure
 # link. A wrong or conflicting registration raises
 # MessageTypeRegistrationError at start-up. Plain values; it writes nothing.
+#
+# KAN-217 PR-4 (ADR-193): secure document links. The module that registers a
+# document type registers its DocumentSource (render one of its documents for
+# a Betrieb, or None) with register_document_source, from the same composition
+# root. issue_document_link writes a 14-day link in the caller's transaction
+# and returns the raw token once (IssuedDocumentLink); only its SHA-256 is
+# stored; the URL carries it in the fragment ({app}/d#<token>), never a path.
+# Platform serves the SPA's GET /v1/document-links/current (token in a header).
 __all__ = [
     "PLACEHOLDER_UNRESOLVED",
     "ActingUser",
@@ -181,9 +196,11 @@ __all__ = [
     "DealershipRef",
     "DealershipSummary",
     "DocumentLine",
+    "DocumentSource",
     "DocumentWatermark",
     "GrantRevoker",
     "GrantState",
+    "IssuedDocumentLink",
     "KeyValueBlock",
     "KeyValueRow",
     "LineItemsBlock",
@@ -204,6 +221,7 @@ __all__ = [
     "Placeholder",
     "PlatformExporter",
     "PublishingMissingItem",
+    "RenderedDocument",
     "RenderedStandardText",
     "RevokedGrant",
     "SetupBlockedAction",
@@ -239,6 +257,7 @@ __all__ = [
     "get_primary_location_id",
     "get_user_display_labels",
     "is_platform_dealership",
+    "issue_document_link",
     "link_connected_account",
     "list_active_users_acting_in",
     "list_dealer_manager_emails",
@@ -250,6 +269,7 @@ __all__ = [
     "notify",
     "publishing_profile_missing_items",
     "publishing_profile_ready",
+    "register_document_source",
     "register_grant_revoker",
     "register_message_type",
     "render_document",

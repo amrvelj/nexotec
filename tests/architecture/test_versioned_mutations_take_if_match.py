@@ -58,6 +58,9 @@ POST_WITHOUT_IF_MATCH = {
     # KAN-215: starting a shared-mailbox link is a new, unversioned link-state
     # row; the mailbox itself is created by the callback.
     "/v1/dealerships/{dealership_id}/mail/business-mailbox/links": _NEW_ROW,
+    # KAN-226: starting a Business Profile link is a new, unversioned link-state
+    # row; the binding itself is created by the callback.
+    "/v1/dealerships/{dealership_id}/business-profile/links": _NEW_ROW,
     # KAN-218: a requested export is a new export_job row (and its outbox fact).
     "/v1/dealerships/{dealership_id}/exports": _NEW_ROW,
     # KAN-214: the manager's «Nummernkreise bestätigen» is a new

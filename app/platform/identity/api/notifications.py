@@ -18,6 +18,7 @@ from app.core.concurrency import require_if_match
 from app.core.config import get_settings
 from app.core.errors import UnprocessableEntityError
 from app.core.idempotent_route import IdempotentRoute
+from app.core.impersonation import refuse_under_impersonation
 from app.core.pagination import SortPageParams
 from app.core.sorting import SortField, decode_cursor_for_sort
 from app.db import get_db
@@ -172,7 +173,7 @@ def my_push_config(principal: Principal = Depends(get_current_principal)):
     return PushConfigRead(available=key is not None, vapid_public_key=key)
 
 
-@router.post("/me/push-subscriptions", response_model=PushSubscriptionRead, status_code=201)
+@router.post("/me/push-subscriptions", dependencies=[Depends(refuse_under_impersonation)], response_model=PushSubscriptionRead, status_code=201)
 def register_my_push_subscription(
     body: PushSubscriptionCreate,
     principal: Principal = Depends(get_current_principal),
@@ -198,7 +199,7 @@ def register_my_push_subscription(
     return PushSubscriptionRead(id=row.id, session_id=row.session_id, created_at=row.created_at)
 
 
-@router.delete("/me/push-subscriptions/{subscription_id}", status_code=204)
+@router.delete("/me/push-subscriptions/{subscription_id}", dependencies=[Depends(refuse_under_impersonation)], status_code=204)
 def delete_my_push_subscription(
     subscription_id: uuid.UUID,
     principal: Principal = Depends(get_current_principal),

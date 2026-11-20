@@ -21,29 +21,33 @@ if (typeof window !== 'undefined') {
   // The app's `persistedPreferenceStorage` is written to survive that, but
   // the render tests assert on the mirror, so give them a working
   // in-memory Storage. Behaviour under test is unaffected either way.
-  const storageWorks = (() => {
-    try {
-      window.localStorage.setItem('__probe__', '1')
-      window.localStorage.removeItem('__probe__')
-      return true
-    } catch {
-      return false
+  // The same for `sessionStorage` (KAN-217: the secure-link page keeps its
+  // token for the tab there).
+  for (const name of ['localStorage', 'sessionStorage'] as const) {
+    const storageWorks = (() => {
+      try {
+        window[name].setItem('__probe__', '1')
+        window[name].removeItem('__probe__')
+        return true
+      } catch {
+        return false
+      }
+    })()
+    if (!storageWorks) {
+      const mem = new Map<string, string>()
+      const storage: Storage = {
+        get length() {
+          return mem.size
+        },
+        clear: () => mem.clear(),
+        getItem: (key) => (mem.has(key) ? mem.get(key)! : null),
+        key: (index) => Array.from(mem.keys())[index] ?? null,
+        removeItem: (key) => void mem.delete(key),
+        setItem: (key, value) => void mem.set(String(key), String(value)),
+      }
+      Object.defineProperty(window, name, { value: storage, configurable: true })
+      Object.defineProperty(globalThis, name, { value: storage, configurable: true })
     }
-  })()
-  if (!storageWorks) {
-    const mem = new Map<string, string>()
-    const storage: Storage = {
-      get length() {
-        return mem.size
-      },
-      clear: () => mem.clear(),
-      getItem: (key) => (mem.has(key) ? mem.get(key)! : null),
-      key: (index) => Array.from(mem.keys())[index] ?? null,
-      removeItem: (key) => void mem.delete(key),
-      setItem: (key, value) => void mem.set(String(key), String(value)),
-    }
-    Object.defineProperty(window, 'localStorage', { value: storage, configurable: true })
-    Object.defineProperty(globalThis, 'localStorage', { value: storage, configurable: true })
   }
 
   // jsdom ships neither of these, and Mantine's Popover/Select/ScrollArea

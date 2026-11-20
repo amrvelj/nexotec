@@ -20,6 +20,7 @@ from app.core.auth import Principal
 from app.core.concurrency import check_version, require_if_match
 from app.core.config import get_settings
 from app.core.idempotent_route import IdempotentRoute
+from app.core.impersonation import refuse_if_impersonating
 from app.core.object_store import ObjectStore, get_object_store
 from app.core.pagination import SortPageParams
 from app.core.permissions import (
@@ -66,6 +67,8 @@ def create_user(
     db: Session = Depends(get_db),
     mailer: PlatformMailer = Depends(get_mailer),
 ):
+    if body.is_dealer_manager:
+        refuse_if_impersonating(principal)  # FR-A-17: never the manager flag (KAN-221)
     require_tenant_match(dealership_id, principal)
     dealership_service.get_dealership_or_404(db, dealership_id)  # 404s a well-formed but nonexistent dealership_id
 
@@ -111,6 +114,11 @@ def update_user(
     db: Session = Depends(get_db),
     mailer: PlatformMailer = Depends(get_mailer),
 ):
+    # FR-A-17 (KAN-221): a support session never changes the manager flag or
+    # the sign-in address (the credential's channel); the rest of the edit is
+    # the user's own work, full write.
+    if {"is_dealer_manager", "email"} & body.model_fields_set:
+        refuse_if_impersonating(principal)
     require_tenant_match(dealership_id, principal)
     user = user_reads_service.get_user_for_update_or_404(db, dealership_id, user_id)  # KAN-380
     check_version(user.version, if_match, entity_name="User")

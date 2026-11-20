@@ -21,6 +21,7 @@ from app.core.auth import Principal, get_current_principal
 from app.core.concurrency import check_version, require_if_match
 from app.core.errors import ConflictError, NotFoundError
 from app.core.idempotent_route import IdempotentRoute
+from app.core.impersonation import refuse_under_impersonation
 from app.core.permissions import may_write, require_read, require_write
 from app.core.tenancy import require_tenant_match
 from app.db import get_db
@@ -107,7 +108,7 @@ def get_business_mailbox(
 
 
 @router.post(
-    "/dealerships/{dealership_id}/mail/business-mailbox/links", response_model=LinkStartRead, status_code=201
+    "/dealerships/{dealership_id}/mail/business-mailbox/links", dependencies=[Depends(refuse_under_impersonation)], response_model=LinkStartRead, status_code=201
 )
 def start_business_mailbox_link(
     dealership_id: uuid.UUID,
@@ -127,7 +128,7 @@ def start_business_mailbox_link(
     return LinkStartRead(authorize_url=url)
 
 
-@router.delete("/dealerships/{dealership_id}/mail/business-mailbox/{mailbox_id}", status_code=204)
+@router.delete("/dealerships/{dealership_id}/mail/business-mailbox/{mailbox_id}", dependencies=[Depends(refuse_under_impersonation)], status_code=204)
 def disconnect_business_mailbox(
     dealership_id: uuid.UUID,
     mailbox_id: uuid.UUID,
@@ -165,7 +166,7 @@ def get_own_mailbox(principal: Principal = Depends(get_current_principal), db: S
     return OwnMailboxRead(mailbox=mailbox, sender=sender, sender_refusal=refusal, providers=_providers(db))
 
 
-@router.post("/integrations/mail/own-mailbox/links", response_model=LinkStartRead, status_code=201)
+@router.post("/integrations/mail/own-mailbox/links", dependencies=[Depends(refuse_under_impersonation)], response_model=LinkStartRead, status_code=201)
 def start_own_mailbox_link(
     body: UserLinkCreate,
     principal: Principal = Depends(get_current_principal),
@@ -177,7 +178,7 @@ def start_own_mailbox_link(
     return LinkStartRead(authorize_url=url)
 
 
-@router.delete("/integrations/mail/own-mailbox/{mailbox_id}", status_code=204)
+@router.delete("/integrations/mail/own-mailbox/{mailbox_id}", dependencies=[Depends(refuse_under_impersonation)], status_code=204)
 def disconnect_own_mailbox(
     mailbox_id: uuid.UUID,
     if_match: int = Depends(require_if_match),
@@ -196,7 +197,7 @@ def disconnect_own_mailbox(
 # -- the provider's answer -------------------------------------------------------------
 
 
-@router.post("/integrations/mail/link-callback", response_model=LinkOutcomeRead)
+@router.post("/integrations/mail/link-callback", dependencies=[Depends(refuse_under_impersonation)], response_model=LinkOutcomeRead)
 def complete_mailbox_link(
     body: LinkCallback,
     principal: Principal = Depends(get_current_principal),

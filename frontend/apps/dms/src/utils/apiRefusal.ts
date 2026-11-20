@@ -109,6 +109,22 @@ const REASON_KEYS: Record<string, string> = {
       'tenant_bound_elsewhere',
     ].map((reason) => [reason, `mail.refusals.${reason}`]),
   ),
+  // KAN-226 — binding a location to Google Business Profile (`link_expired`,
+  // `provider_declined` and `provider_unavailable` are said by the entries
+  // above and below).
+  ...Object.fromEntries(
+    [
+      'binding_already_disconnected',
+      'binding_not_pending',
+      'business_profile_consent_incomplete',
+      'business_profile_grant_refused',
+      'business_profile_not_configured',
+      'business_profile_platform_only',
+      'google_location_already_bound',
+      'google_location_not_accessible',
+      'location_already_bound',
+    ].map((reason) => [reason, `businessProfile.refusals.${reason}`]),
+  ),
   // KAN-218 — the data export and offboarding.
   ...Object.fromEntries(
     [

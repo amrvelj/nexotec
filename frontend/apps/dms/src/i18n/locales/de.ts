@@ -11,6 +11,7 @@ import ns_auth from './de/auth.json'
 import ns_branding from './de/branding.json'
 import ns_brandsAdmin from './de/brandsAdmin.json'
 import ns_business from './de/business.json'
+import ns_businessProfile from './de/businessProfile.json'
 import ns_catalogueBrowse from './de/catalogueBrowse.json'
 import ns_common from './de/common.json'
 import ns_configurator from './de/configurator.json'
@@ -25,6 +26,7 @@ import ns_customersList from './de/customersList.json'
 import ns_dashboard from './de/dashboard.json'
 import ns_dataExport from './de/dataExport.json'
 import ns_dealOwner from './de/dealOwner.json'
+import ns_documentLink from './de/documentLink.json'
 import ns_integrationEnums from './de/integrationEnums.json'
 import ns_integrationsList from './de/integrationsList.json'
 import ns_legal from './de/legal.json'
@@ -75,6 +77,7 @@ const bundle = {
   branding: ns_branding,
   brandsAdmin: ns_brandsAdmin,
   business: ns_business,
+  businessProfile: ns_businessProfile,
   catalogueBrowse: ns_catalogueBrowse,
   common: ns_common,
   configurator: ns_configurator,
@@ -89,6 +92,7 @@ const bundle = {
   dashboard: ns_dashboard,
   dataExport: ns_dataExport,
   dealOwner: ns_dealOwner,
+  documentLink: ns_documentLink,
   integrationEnums: ns_integrationEnums,
   integrationsList: ns_integrationsList,
   legal: ns_legal,

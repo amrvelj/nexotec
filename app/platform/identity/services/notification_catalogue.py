@@ -44,7 +44,7 @@ class NotificationEventCode(str, enum.Enum):
     ACCOUNT_LOCKED = "security.account_locked"
     PASSWORD_CHANGED = "security.password_changed"
     SESSION_REVOKED_BY_OTHER = "security.session_revoked_by_other"
-    # Registered now; raised when [P3-1] impersonation ships.
+    # Raised by the support session's start and end (KAN-221 PR-4).
     IMPERSONATION_STARTED = "security.impersonation_started"
     IMPERSONATION_ENDED = "security.impersonation_ended"
     # Linked: registered now; raised when linking ships with the Outlook

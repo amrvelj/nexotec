@@ -22,9 +22,10 @@ records the event notifies; a path that rolls back owes nothing.
 Platform staff's recovery actions arrive through `security_notifications`
 (the KAN-202 seam) as `security.platform_recovery_action`, beside the
 mechanism events the action records (`mfa_removed`, `session_revoked`, …) —
-each fact is told once. `security.connected_account_linked` and the
-impersonation pair are in the catalogue; nothing raises them until linking
-(the Outlook integration) and impersonation ([P3-1]) ship.
+each fact is told once. The impersonation pair is raised by the
+support session itself (`support_sessions.py`, KAN-221 PR-4), which is no auth
+event. `security.connected_account_linked` is in the catalogue; nothing raises
+it until linking (the Outlook integration) ships.
 
 Every call names its code literally — the architecture test reads them.
 """
