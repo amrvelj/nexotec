@@ -12,6 +12,7 @@ from alembic import context
 import app.model_registry  # noqa: F401  registers every model on Base.metadata
 from app.core.config import get_settings
 from app.core.enum_type import render_autogenerate_item
+from app.core.text_collation import autogenerate_include_object
 from app.db import Base, with_psycopg_driver
 
 # this is the Alembic Config object, which provides
@@ -51,6 +52,10 @@ config.set_main_option("sqlalchemy.url", with_psycopg_driver(get_settings().data
 # sa.CheckConstraint — see the function's docstring (KAN-86, KAN-417).
 render_item = render_autogenerate_item
 
+# The indexes built under the text sort collation are compared by their stored definition, not by
+# autogenerate, whose reflection drops a column's collation (KAN-740; the function's docstring).
+include_object = autogenerate_include_object(target_metadata)
+
 
 def run_migrations_offline() -> None:
     """Run migrations in 'offline' mode.
@@ -71,6 +76,7 @@ def run_migrations_offline() -> None:
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
         render_item=render_item,
+        include_object=include_object,
     )
 
     with context.begin_transaction():
@@ -145,7 +151,10 @@ def run_migrations_online() -> None:
             _take_migration_lock(connection)
 
         context.configure(
-            connection=connection, target_metadata=target_metadata, render_item=render_item
+            connection=connection,
+            target_metadata=target_metadata,
+            render_item=render_item,
+            include_object=include_object,
         )
 
         with context.begin_transaction():

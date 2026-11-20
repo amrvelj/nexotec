@@ -89,6 +89,10 @@
     "clear": "Effacer la sélection",
     "copyIds": "Copier les ID"
   },
+  "providerEmptyState": {
+    "title": "Aucune variante affichée",
+    "description": "L'avis ci-dessus explique pourquoi aucune variante n'a été chargée."
+  },
   "needsBrand": {
     "title": "Choisir une marque",
     "description": "Choisir un genre de véhicule et une marque — le catalogue est interrogé en direct chez le fournisseur, page par page."

@@ -38,6 +38,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.base import PrimaryKeyMixin, TenantScopedMixin, TimestampMixin, VersionedMixin
 from app.core.enum_type import StoredEnum
+from app.core.text_collation import IDENTIFIER_TEXT
 from app.core.types import GUID, UTCDateTime
 from app.db import Base
 
@@ -51,7 +52,7 @@ class OfferStatus(str, enum.Enum):
 class SalesOffer(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, TimestampMixin, Base):
     __tablename__ = "sales_offer"
 
-    offer_number: Mapped[str] = mapped_column(String(16), nullable=False, index=True)
+    offer_number: Mapped[str] = mapped_column(String(16), nullable=False, index=True, info=IDENTIFIER_TEXT)
     status: Mapped[OfferStatus] = mapped_column(
         StoredEnum(OfferStatus, length=16), nullable=False, default=OfferStatus.DRAFT
     )

@@ -30,6 +30,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.base import PrimaryKeyMixin, TenantScopedMixin, TimestampMixin, VersionedMixin
 from app.core.enum_type import StoredEnum
+from app.core.text_collation import IDENTIFIER_TEXT
 from app.core.types import GUID, UTCDateTime
 from app.db import Base
 
@@ -159,7 +160,7 @@ class StockItem(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, TimestampMix
     tenant_id: Mapped[uuid.UUID] = mapped_column(
         GUID(), nullable=False, index=True, comment="Owned by the platform context (Dealership.id). No DB-level FK."
     )
-    stock_number: Mapped[str] = mapped_column(String(16), nullable=False, index=True)
+    stock_number: Mapped[str] = mapped_column(String(16), nullable=False, index=True, info=IDENTIFIER_TEXT)
 
     # Null while lifecycle_status='pipeline' and no VIN has arrived yet
     # (ADR-045) — a pre-VIN factory order or trade-in has no vehicle-mdm
@@ -169,7 +170,7 @@ class StockItem(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, TimestampMix
     vehicle_id: Mapped[uuid.UUID | None] = mapped_column(
         GUID(), nullable=True, index=True, comment="Owned by the vehicle context (VehicleMdm.id). No DB-level FK."
     )
-    vin: Mapped[str | None] = mapped_column(String(17), nullable=True, index=True)
+    vin: Mapped[str | None] = mapped_column(String(17), nullable=True, index=True, info=IDENTIFIER_TEXT)
 
     # Denormalized display text ("Volkswagen Käfer 1303 LS Cabriolet") —
     # populated from the catalogue when a variant is known, or typed by
@@ -245,7 +246,7 @@ class StockItem(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, TimestampMix
     # user-editable, the sole reason it exists is idempotency (see
     # __table_args__ above). An item added from the Stock list (the
     # configurator intake, KAN-463) never has one.
-    pipeline_ref: Mapped[str | None] = mapped_column(String(120), nullable=True, index=True)
+    pipeline_ref: Mapped[str | None] = mapped_column(String(120), nullable=True, index=True, info=IDENTIFIER_TEXT)
     # KAN-632 — a trade-in's pipeline item keeps who traded the car in and
     # when the contract was signed, as `sales.contract.confirmed` said
     # (`customerId`, `signedAt`), so its purchase and storno events carry
@@ -270,7 +271,7 @@ class StockItem(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, TimestampMix
     # contract, not another context's id: no label. Null on every other
     # item, on a trade-in created before KAN-536, and when the contract held
     # a pre-1981 chassis number (never a VIN a purchase can be booked with).
-    trade_in_vin: Mapped[str | None] = mapped_column(String(17), nullable=True)
+    trade_in_vin: Mapped[str | None] = mapped_column(String(17), nullable=True, info=IDENTIFIER_TEXT)
     order_date: Mapped[dt.date | None] = mapped_column(Date(), nullable=True)
     expected_delivery: Mapped[dt.date | None] = mapped_column(Date(), nullable=True)
     # C-F (KAN-10, FR-C-12/FR-C-13) — the configuration this pipeline item
@@ -302,7 +303,7 @@ class StockItem(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, TimestampMix
     supplier_is_vat_registered: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
     purchase_date: Mapped[dt.date | None] = mapped_column(Date(), nullable=True)
     purchase_price: Mapped[Decimal | None] = mapped_column(DECIMAL(12, 2), nullable=True)
-    purchase_invoice_ref: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    purchase_invoice_ref: Mapped[str | None] = mapped_column(String(120), nullable=True, info=IDENTIFIER_TEXT)
     landed_cost: Mapped[Decimal | None] = mapped_column(DECIMAL(12, 2), nullable=True)
     # Prefilled automatically from supplier_is_vat_registered (false for a
     # VAT-registered business, true for a private individual) — an admin

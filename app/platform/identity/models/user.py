@@ -30,6 +30,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 from app.core.base import PrimaryKeyMixin, TenantScopedMixin, TimestampMixin, VersionedMixin
 from app.core.enum_type import StoredEnum
 from app.core.i18n import SwissLanguage
+from app.core.text_collation import IDENTIFIER_TEXT
 from app.core.types import GUID, UTCDateTime
 from app.db import Base
 
@@ -82,7 +83,7 @@ class User(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, TimestampMixin, B
     first_name: Mapped[str] = mapped_column(String(100), nullable=False)
     last_name: Mapped[str] = mapped_column(String(100), nullable=False)
     email: Mapped[str] = mapped_column(String(254), nullable=False)
-    phone: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    phone: Mapped[str | None] = mapped_column(String(20), nullable=True, info=IDENTIFIER_TEXT)
 
     role: Mapped[UserRole] = mapped_column(StoredEnum(UserRole, length=32), nullable=False)
     # Role *values* (AccessRole.value strings), not AccessRole members —
@@ -120,8 +121,8 @@ class User(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, TimestampMixin, B
     # --- KAN-200 (Dealer Administration, Users → Fields) -------------------
     # `phone` above is the mobile number (the PRD's "mobile"); this is the
     # desk extension.
-    direct_dial: Mapped[str | None] = mapped_column(String(20), nullable=True)
-    employee_number: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    direct_dial: Mapped[str | None] = mapped_column(String(20), nullable=True, info=IDENTIFIER_TEXT)
+    employee_number: Mapped[str | None] = mapped_column(String(50), nullable=True, info=IDENTIFIER_TEXT)
     department: Mapped[str | None] = mapped_column(String(100), nullable=True)
     # The person this user reports to — another user of the same dealership
     # (checked in the service). Platform-owned, so a plain reference without
@@ -130,7 +131,7 @@ class User(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, TimestampMixin, B
     line_manager_user_id: Mapped[uuid.UUID | None] = mapped_column(GUID(), nullable=True)
     # Commercial: the marketplace lead-attribution code and whether the user
     # takes part in commission (the figure itself is Finance's, not built).
-    sales_advisor_code: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    sales_advisor_code: Mapped[str | None] = mapped_column(String(50), nullable=True, info=IDENTIFIER_TEXT)
     commission_relevant: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default=false())
     # Lifecycle (FR-A-12): calendar days in the platform zone. A user whose
     # `valid_from` is still to come cannot sign in; one whose `valid_to` has

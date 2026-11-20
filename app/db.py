@@ -1,9 +1,10 @@
 from collections.abc import Callable, Generator
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 from app.core.config import get_settings
+from app.core.text_collation import CREATE_TEXT_SORT_COLLATION
 
 settings = get_settings()
 
@@ -27,6 +28,11 @@ SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, expi
 
 class Base(DeclarativeBase):
     pass
+
+
+# KAN-740: the collation text columns sort under exists before any table, in a schema built
+# from the metadata (the test harness) as in one built by the migrations (core chain).
+event.listen(Base.metadata, "before_create", CREATE_TEXT_SORT_COLLATION)
 
 
 def get_session_factory() -> Callable[[], Session]:

@@ -20,6 +20,7 @@ from sqlalchemy.types import Boolean, Numeric, TypeDecorator
 from app.core.enum_type import StoredEnum
 from app.core.errors import BadRequestError, UnprocessableEntityError
 from app.core.pagination import SortCursorPosition, SortPageParams, decode_sort_cursor, encode_sort_cursor
+from app.core.text_collation import collated_sort_column
 from app.core.types import GUID
 
 _VALID_DIRECTIONS = {"asc", "desc"}
@@ -31,9 +32,14 @@ CURSOR_REFUSED_REASON = "cursor_invalid"
 @dataclasses.dataclass(frozen=True)
 class SortField:
     api_name: str
-    column: Any  # InstrumentedAttribute
+    column: Any  # InstrumentedAttribute, or a text one wrapped to sort under the collation
     direction: str  # "asc" | "desc"
     nullable: bool
+
+    def __post_init__(self) -> None:
+        # KAN-740: a text column sorts in one order whatever the database's default collation
+        # (`app.core.text_collation`), here so no list's sort field can miss it.
+        object.__setattr__(self, "column", collated_sort_column(self.column))
 
 
 def parse_sort(sort: str | None, *, allowed: dict[str, Any]) -> list[SortField]:

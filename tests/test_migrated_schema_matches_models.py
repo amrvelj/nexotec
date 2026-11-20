@@ -115,12 +115,15 @@ def test_alembic_check_passes_on_a_migrated_database(migrated_url):
 def test_a_drifted_database_is_reported(migrated_url):
     """The comparison itself goes red: one index dropped, one unique
     constraint added and one column comment changed on the migrated
-    database — undone afterwards."""
+    database — undone afterwards. A dropped index built under the text sort
+    collation (KAN-740), which autogenerate leaves to the stored-definition
+    comparison, is reported too."""
 
     engine = create_engine(migrated_url)
     try:
         with engine.begin() as conn:
-            conn.execute(text("DROP INDEX ix_customer_group_id_last_name"))
+            conn.execute(text("DROP INDEX ix_customer_group_id_updated_at"))
+            conn.execute(text("DROP INDEX ix_customer_company_name"))
             conn.execute(text('ALTER TABLE "user" ADD CONSTRAINT uq_user_phone_drift UNIQUE (phone)'))
             conn.execute(text("COMMENT ON COLUMN stock_item.vehicle_id IS 'drifted'"))
         try:
@@ -137,7 +140,8 @@ def test_a_drifted_database_is_reported(migrated_url):
                     "'Owned by the vehicle context (VehicleMdm.id). No DB-level FK.'"
                 ))
                 conn.execute(text('ALTER TABLE "user" DROP CONSTRAINT uq_user_phone_drift'))
-                conn.execute(text("CREATE INDEX ix_customer_group_id_last_name ON customer (group_id, last_name)"))
+                conn.execute(text("CREATE INDEX ix_customer_group_id_updated_at ON customer (group_id, updated_at)"))
+                conn.execute(text('CREATE INDEX ix_customer_company_name ON customer (company_name COLLATE "nexotec_text_sort")'))
     finally:
         engine.dispose()
 
@@ -147,7 +151,11 @@ def test_a_drifted_database_is_reported(migrated_url):
     assert json.loads(restored.stdout.strip().splitlines()[-1]) == []
 
     assert found == [
-        "add_index: index ix_customer_group_id_last_name on customer (customer.group_id, customer.last_name)",
+        "add_index: index ix_customer_group_id_updated_at on customer (customer.group_id, customer.updated_at)",
+        (
+            "model_only_index_by_name: customer.ix_customer_company_name: "
+            "'CREATE INDEX ix_customer_company_name ON customer USING btree (company_name COLLATE nexotec_text_sort)'"
+        ),
         (
             "modify_comment: stock_item.vehicle_id: migrated 'drifted', "
             "model 'Owned by the vehicle context (VehicleMdm.id). No DB-level FK.'"

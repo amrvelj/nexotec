@@ -29,6 +29,7 @@ from sqlalchemy.orm import Mapped, column_property, declared_attr, mapped_column
 
 from app.core.base import PrimaryKeyMixin, TenantScopedMixin, TimestampMixin, VersionedMixin
 from app.core.enum_type import StoredEnum
+from app.core.text_collation import IDENTIFIER_TEXT
 from app.core.types import GUID, UTCDateTime
 from app.db import Base
 from app.sales.models.stock_item_purchase import SalesStockItemPurchase
@@ -50,7 +51,7 @@ class ContractStatus(str, enum.Enum):
 class SalesContract(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, TimestampMixin, Base):
     __tablename__ = "sales_contract"
 
-    contract_number: Mapped[str] = mapped_column(String(16), nullable=False, index=True)
+    contract_number: Mapped[str] = mapped_column(String(16), nullable=False, index=True, info=IDENTIFIER_TEXT)
 
     # Opaque lineage, set once at creation, never repointed. Null for a
     # contract created directly (S-D01's "two linked entities" does not

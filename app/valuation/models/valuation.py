@@ -33,6 +33,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.base import PrimaryKeyMixin, TenantScopedMixin, TimestampMixin, VersionedMixin
 from app.core.enum_type import StoredEnum
+from app.core.text_collation import IDENTIFIER_TEXT
 from app.core.types import GUID, UTCDateTime
 from app.db import Base
 
@@ -130,7 +131,7 @@ class ValuationNumberSequence(Base):
 class Valuation(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, TimestampMixin, Base):
     __tablename__ = "valuation"
 
-    valuation_number: Mapped[str] = mapped_column(String(16), nullable=False, index=True)
+    valuation_number: Mapped[str] = mapped_column(String(16), nullable=False, index=True, info=IDENTIFIER_TEXT)
 
     # Null = no vehicle in the register yet (confirmed live). When set,
     # the make/model/trim/vin fields below stay populated too — denormalized
