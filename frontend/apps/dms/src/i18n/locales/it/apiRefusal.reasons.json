@@ -134,6 +134,7 @@
   "vehicle_merge_in_progress": "Questo veicolo è in fase di unione con un'altra scheda. Riprovi tra un momento.",
   "valuation_names_no_car": "Una valutazione indica il suo veicolo: VIN, marca e modello sono obbligatori.",
   "trade_in_valuation_names_no_car": "Questa valutazione non indica un veicolo con VIN che possa essere ritirato in permuta.",
+  "trade_in_chassis_number_requires_configuration": "Un veicolo con numero di telaio invece del VIN viene ritirato in permuta con la sua configurazione: valutatelo tramite «Identificare e valutare», che registra il numero di telaio, la marca e la prima immatricolazione.",
   "brand_required": "Scegliere prima una marca.",
   "catalogue_filter_value_unknown": "Il fornitore non conosce questo valore di filtro.",
   "catalogue_scope_required": "Scegliere prima una marca o un gruppo di modelli – il catalogo non viene mai interrogato per intero.",

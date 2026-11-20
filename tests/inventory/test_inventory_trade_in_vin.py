@@ -189,15 +189,21 @@ def test_a_confirmation_without_the_vin_leaves_the_item_without_and_it_is_bought
     assert response.json()["tradeInVin"] is None
 
 
-def test_a_pre_1981_chassis_number_is_not_kept(client, db_session, engine):
-    """A contract can hold a chassis number through a configured valuation
-    (KAN-353). It is no VIN a purchase can be booked with, so Stock keeps
-    none and the booking is exactly as before KAN-536 (KAN-535 stays open)."""
+def test_a_pre_1981_chassis_number_is_kept_in_the_one_spelling(db_session, engine):
+    """KAN-746 (Anto, option A): a contract holds a chassis number only with
+    the configuration that carries it, and Stock keeps it as the item's known
+    future number, like a VIN (KAN-536). The configuration's number decides
+    at the booking (`tests/cross_context/test_kan746_chassis_number_trade_in.py`)."""
 
-    dealership, _contract, item = _pipeline_trade_in(db_session, engine, event_vin="1303 2445")
+    _dealership_row, _contract, item = _pipeline_trade_in(db_session, engine, event_vin="1303 2445")
+
+    assert item.trade_in_vin == "13032445"
+
+
+def test_a_value_that_is_neither_a_vin_nor_a_chassis_number_is_not_kept(db_session, engine):
+    _dealership_row, _contract, item = _pipeline_trade_in(db_session, engine, event_vin="1303-2445")
+
     assert item.trade_in_vin is None
-
-    assert _purchase(client, dealership, item, vin=OTHER_VIN).status_code == 200
 
 
 def test_a_vin_in_another_spelling_is_kept_in_the_one_spelling(db_session, engine):

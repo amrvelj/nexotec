@@ -1,7 +1,7 @@
 import { Car, CheckCircle, Handshake, RefreshCw, Undo2, User } from 'lucide-react'
 import type { DetailHeaderAction, RowMenuAction, RowMenuGroups } from '@nexotec/ui-kit'
 import type { ValuationRead } from '../../../api/types'
-import { normalisedVin } from '../../../utils/vin'
+import { normalisedVin, normalisedVinOrChassisNumber } from '../../../utils/vin'
 
 /** KAN-253 — the server's `CONFIRMATION_GRACE`: a stamp younger than this may
  * be a confirmation still signing its contract, so it is not cleared (409
@@ -92,13 +92,19 @@ export function buildValuationRowMenu(
       : valuation.status === 'used'
         ? t('valuationDetail.actions.createOfferUsed')
         : // KAN-574 (Anto, 2026-11-07): a trade-in is a car. A valuation
-          // written before VIN became required is refused as a trade-in, and
-          // so is one carrying a pre-1981 chassis number until KAN-535 (open
-          // with Anto on KAN-574) — the API refuses both
-          // (`trade_in_valuation_names_no_car`), so the action says why first.
-          normalisedVin(valuation.vehicleVin ?? '') === null
-          ? t('valuationDetail.actions.createOfferNoVin')
-          : undefined
+          // written before VIN became required is refused as a trade-in
+          // (`trade_in_valuation_names_no_car`). KAN-746 (Anto, option A): a
+          // pre-1981 chassis number is taken with the configuration carrying
+          // it, refused without one
+          // (`trade_in_chassis_number_requires_configuration`) — so the action
+          // says why first.
+          normalisedVin(valuation.vehicleVin ?? '') !== null
+          ? undefined
+          : normalisedVinOrChassisNumber(valuation.vehicleVin ?? '') === null
+            ? t('valuationDetail.actions.createOfferNoVin')
+            : valuation.configurationId
+              ? undefined
+              : t('valuationDetail.actions.createOfferChassisNeedsConfiguration')
   const createOffer: RowMenuAction | undefined = actions.createOffer && {
     label: t('valuationDetail.actions.createOffer'),
     icon: <Handshake size={16} />,

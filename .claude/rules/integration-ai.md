@@ -48,10 +48,9 @@ paths:
   adapter's wording, never the provider's).
 - **A suggestion, never a publication** (FR-A-38): Stock's «Text vorschlagen»
   (`POST …/listing-text-suggestions`, `marketplace_publishing`) stores nothing; the user edits it in
-  the dialog and takes it into the description, saved like typing — asked first (Ersetzen / Nicht
-  ersetzen; Anto, KAN-745 option A) when the description holds text, never cut at its 4000
-  characters: «Übernehmen» waits, with the counter, until the user has shortened it (Anto, KAN-749
-  option A, 2026-11-18).
+  the dialog and takes it into the description, saved like typing — asked first when the description
+  holds text (Anto, KAN-745 A), never cut at its 4000 characters: «Übernehmen» waits, with the counter,
+  until the user has shortened it (Anto, KAN-749 option A, 2026-11-18).
 - **Licence §3:** provider data a caller puts into a prompt travels in the tenant's own request
   only; the port has no tool, function-calling or retrieval surface, and none may be added.
   Condition flags (`eigenschaften`, an accident history) are never sent.

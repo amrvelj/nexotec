@@ -160,11 +160,14 @@ describe('buildValuationRowMenu (ADR-061 anti-drift)', () => {
 
   it.each([
     ['no VIN and no configuration', { vehicleVin: null }, 'valuationDetail.actions.createOfferNoVin'],
-    ['a pre-1981 chassis number', { vehicleVin: '1302412345' }, 'valuationDetail.actions.createOfferNoVin'],
+    // KAN-746 (Anto, option A): a chassis number is taken with its configuration.
+    ['a pre-1981 chassis number but no configuration', { vehicleVin: '1302412345' }, 'valuationDetail.actions.createOfferChassisNeedsConfiguration'],
+    ['a pre-1981 chassis number and its configuration', { vehicleVin: '1302412345', configurationId: 'cfg-1' }, null],
+    ['a value that is neither a VIN nor a chassis number', { vehicleVin: '1302-412345', configurationId: 'cfg-1' }, 'valuationDetail.actions.createOfferNoVin'],
     ['a VIN', { vehicleVin: NAMED_VIN }, null],
     ['a configuration but no VIN', { vehicleVin: null, configurationId: 'cfg-1' }, 'valuationDetail.actions.createOfferNoVin'],
   ] as const)(
-    'KAN-574: a valuation with %s — «create offer» %s',
+    'KAN-574, KAN-746: a valuation with %s — «create offer» %s',
     (_label, car, expectedReason) => {
       const entry = buildValuationRowMenu(
         t,

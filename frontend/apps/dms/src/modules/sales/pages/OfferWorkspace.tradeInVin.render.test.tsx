@@ -85,6 +85,25 @@ describe('OfferWorkspace — a refused trade-in VIN is named at the VIN input (K
   })
 })
 
+describe('OfferWorkspace — a chassis-number trade-in refused without its configuration says why (KAN-746)', () => {
+  it('the refusal reason is said in the UI language, not the generic save error', async () => {
+    install(() =>
+      status(422, {
+        error: {
+          code: 'unprocessable_entity',
+          message: 'A car with a chassis number instead of a VIN is taken in trade with its configuration.',
+          details: { field: 'vin', reason: 'trade_in_chassis_number_requires_configuration' },
+        },
+      }),
+    )
+    await saveTradeIn('1130101234567')
+
+    expect(await screen.findByText(i18n.t('apiRefusal.reasons.trade_in_chassis_number_requires_configuration'))).toBeInTheDocument()
+    expect(screen.queryByText(i18n.t('offerWorkspace.tradeIn.saveError'))).toBeNull()
+    expect(screen.queryByText(/taken in trade with its configuration/)).toBeNull()
+  })
+})
+
 describe('OfferWorkspace — the trade-in sends no customerId (KAN-562)', () => {
   it('the POST body names the car only; the deprecated customerId is not sent', async () => {
     let body: unknown

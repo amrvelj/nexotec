@@ -483,7 +483,10 @@ export function DealTradeInContainer<D extends SalesPricedDealRead>({
     const live = liveContractRefusal(t, err)
     if (live) return live
     if (!(err instanceof ApiError) || err.details?.reason !== 'customer_merged') {
-      return t('offerWorkspace.tradeIn.saveError')
+      // KAN-746 — a refusal with a reason (a chassis number without its
+      // configuration, say) is said in the UI language; the generic
+      // sentence only as the fallback (KAN-398).
+      return apiRefusalText(t, err, 'offerWorkspace.tradeIn.saveError')
     }
     const survivorId = err.details.mergedIntoCustomerId
     if (typeof survivorId === 'string') {

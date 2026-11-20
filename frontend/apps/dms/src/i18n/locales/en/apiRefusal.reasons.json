@@ -134,6 +134,7 @@
   "vehicle_merge_in_progress": "This vehicle is being merged with another record right now. Please try again in a moment.",
   "valuation_names_no_car": "A valuation names its car: VIN, make and model are required.",
   "trade_in_valuation_names_no_car": "This valuation names no car with a VIN that can be taken in trade.",
+  "trade_in_chassis_number_requires_configuration": "A car with a chassis number instead of a VIN is taken in trade with its configuration: value it through «Identify and value», which records the chassis number, the make and the first registration.",
   "brand_required": "Choose a brand first.",
   "catalogue_filter_value_unknown": "The provider does not know this filter value.",
   "catalogue_scope_required": "Choose a brand or a model group first — the catalogue is never queried whole.",

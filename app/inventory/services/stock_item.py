@@ -16,7 +16,7 @@ from app.core.config import get_settings
 from app.core.errors import ConflictError, NotFoundError, UnprocessableEntityError
 from app.core.list_query import ListQuery, run_list_query
 from app.core.outbox import OutboxEvent, publish
-from app.core.validators import is_valid_vin, normalise_vin
+from app.core.validators import is_chassis_number_spelling, is_valid_vin, normalise_vin
 from app.inventory.models.stock_item import (
     AgeingBucket,
     LifecycleStatus,
@@ -475,16 +475,18 @@ def apply_trade_in_seller(item: StockItem, *, customer_id: str | None, signed_at
 def apply_trade_in_vin(item: StockItem, *, vin: object) -> None:
     """KAN-536: a trade-in's pipeline item keeps the VIN its contract holds,
     as `sales.contract.confirmed` named it (`tradeIn.vin`) — in the one
-    spelling, and only a VIN a purchase can be booked with. A confirmation
+    spelling, and only a value a purchase can be booked with: a VIN, or
+    (KAN-746) a pre-1981 car's chassis number, which a contract holds only
+    with the configuration that carries it — the configuration's number then
+    decides at the booking (`configuration_vin_differs`). A confirmation
     without one (published before KAN-536, or a contract that holds none)
-    and a pre-1981 chassis number (KAN-353: never a vehicle-mdm VIN) leave
-    the item without: it is then bought as before, the VIN typed and checked
-    against its configuration only."""
+    leaves the item without: it is then bought as before, the VIN typed and
+    checked against its configuration only."""
 
     if not isinstance(vin, str):
         return
     normalised = normalise_vin(vin)
-    if is_valid_vin(normalised):
+    if is_valid_vin(normalised) or is_chassis_number_spelling(normalised):
         item.trade_in_vin = normalised
 
 

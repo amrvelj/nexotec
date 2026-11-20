@@ -31,9 +31,9 @@ KAN-615. Last verified against main@3b2bf69 (2026-11-18). -->
 
 - **A trade-in is a car** (Anto, KAN-574): a valuation without a VIN is refused as a trade-in —
   422 `trade_in_valuation_names_no_car` at attach, nothing written, whatever the deal names and
-  configured or not — and never offered by `set_trade_in`'s FR-S-08 auto-attach. A pre-1981 chassis number is
-  refused the same way (KAN-574) until KAN-746 (Anto: A, accept it; not built) — a deal that held
-  such a valuation before keeps it (copy, contract and confirmation do not re-check).
+  configured or not — and never offered by `set_trade_in`'s FR-S-08 auto-attach.
+- **A pre-1981 chassis number** (Anto, KAN-746 A) is taken only where the deal's trade-in
+  configuration carries it (Stock buys it so), else 422 `trade_in_chassis_number_requires_configuration`.
 - A valuation made **without a configuration** brings its car to a deal that names no trade-in car
   yet — its VIN, linked record and «Make Model Trim», or the VIN as the label without make or model
   (`sales/services/trade_in.py::_attach`); the confirmation publishes the label and Stock names the

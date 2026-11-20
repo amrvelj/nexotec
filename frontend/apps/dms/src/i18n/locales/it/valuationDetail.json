@@ -23,7 +23,8 @@
     "createOfferExpired": "Non possibile: la valutazione è scaduta. Rivalutare prima.",
     "createOfferUsed": "Non possibile: la valutazione è già segnata come utilizzata.",
     "createOfferNoSales": "Non possibile: questa azienda non dispone del modulo Vendita.",
-    "createOfferNoVin": "Non possibile: la valutazione non indica un veicolo con VIN che possa essere ritirato in permuta."
+    "createOfferNoVin": "Non possibile: la valutazione non indica un veicolo con VIN che possa essere ritirato in permuta.",
+    "createOfferChassisNeedsConfiguration": "Non possibile: la valutazione indica un numero di telaio ma nessuna configurazione. Una permuta con numero di telaio richiede la configurazione con marca e prima immatricolazione."
   },
   "expiredBanner": {
     "title": "Valutazione scaduta",
