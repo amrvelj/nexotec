@@ -8,6 +8,12 @@ snake_case names already shipped keep working — renaming one without an
 alias would break the API — and each gains its camelCase alias when its
 endpoint is next touched; that change removes its entry below.
 
+One exception (Anto, 2026-11-18, KAN-753 option 1): a list endpoint that moves
+onto the list-query layer (`filter=field:op:value`, KAN-461) gets no alias in
+between — its legacy names are retired there, after the one release the plan
+keeps them, and that change removes their entries. Today this covers the
+snake_case filters of `GET /v1/customers` and `GET /v1/inventory/stock-items`.
+
 Read from the app's own OpenAPI, so a parameter declared any way
 (`Query(alias=…)`, a plain argument, a dependency) is seen. An entry names
 the endpoint too, so a shipped snake_case name cannot spread to a new route.

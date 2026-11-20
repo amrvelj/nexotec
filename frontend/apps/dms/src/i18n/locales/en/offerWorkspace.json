@@ -63,6 +63,7 @@
     "fromExistingValuation": "Taken from an existing valuation",
     "vinLabel": "VIN",
     "vinPlaceholder": "e.g. WVWZZZ1KZAW123456",
+    "vinOrChassisNeedsConfiguration": "Not a valid VIN. If the car has a chassis number instead of a VIN (first registered before 1981), record it through «Identify and value».",
     "labelLabel": "Vehicle description",
     "add": "Add trade-in vehicle",
     "valueWithConfigurator": "Identify and value",

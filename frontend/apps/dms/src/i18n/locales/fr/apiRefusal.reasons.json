@@ -134,6 +134,7 @@
   "vehicle_merge_in_progress": "Ce véhicule est en cours de fusion avec une autre fiche. Veuillez réessayer dans un instant.",
   "valuation_names_no_car": "Une évaluation nomme son véhicule : le VIN, la marque et le modèle sont obligatoires.",
   "trade_in_valuation_names_no_car": "Cette évaluation ne nomme aucun véhicule avec un VIN qui puisse être repris.",
+  "trade_in_chassis_number_requires_configuration": "Un véhicule doté d’un numéro de châssis au lieu d’un VIN est repris avec sa configuration : évaluez-le via «Identifier et évaluer», qui enregistre le numéro de châssis, la marque et la première mise en circulation.",
   "brand_required": "Choisir d’abord une marque.",
   "catalogue_filter_value_unknown": "Le fournisseur ne connaît pas cette valeur de filtre.",
   "catalogue_scope_required": "Choisir d’abord une marque ou un groupe de modèles – le catalogue n’est jamais interrogé en entier.",

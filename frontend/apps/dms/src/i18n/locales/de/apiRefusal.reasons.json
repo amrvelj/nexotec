@@ -134,6 +134,7 @@
   "vehicle_merge_in_progress": "Dieses Fahrzeug wird gerade mit einem anderen Datensatz zusammengeführt. Bitte versuchen Sie es in einem Moment noch einmal.",
   "valuation_names_no_car": "Eine Bewertung braucht das Fahrzeug: VIN, Marke und Modell sind Pflicht.",
   "trade_in_valuation_names_no_car": "Diese Bewertung nennt kein Fahrzeug mit VIN, das als Eintausch übernommen werden kann.",
+  "trade_in_chassis_number_requires_configuration": "Ein Fahrzeug mit Fahrgestellnummer statt VIN wird mit seiner Konfiguration eingetauscht: Bewerten Sie es über «Identifizieren und bewerten» – dort werden Fahrgestellnummer, Marke und Erstzulassung erfasst.",
   "brand_required": "Zuerst eine Marke wählen.",
   "catalogue_filter_value_unknown": "Diesen Filterwert kennt der Anbieter nicht.",
   "catalogue_scope_required": "Zuerst Marke oder Modellgruppe wählen – der Katalog wird nie als Ganzes abgefragt.",

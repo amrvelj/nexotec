@@ -298,6 +298,15 @@ NormalisedVinOrChassisNumber = Annotated[
 ]
 
 
+def is_chassis_number_spelling(value: str) -> bool:
+    """The one stored spelling of a pre-1981 chassis number (KAN-353,
+    KAN-391): 1 to 17 uppercase letters and digits — what
+    `NormalisedVinOrChassisNumber` lets through. KAN-748's repair asks it of a
+    value stored before KAN-338."""
+
+    return bool(_CHASSIS_NUMBER_RE.match(value))
+
+
 def is_chassis_number(value: str | None) -> bool:
     """A non-empty value that is not a valid VIN: a pre-1981 chassis number.
     Such a value is never looked up in vehicle-mdm by itself: since KAN-535 a

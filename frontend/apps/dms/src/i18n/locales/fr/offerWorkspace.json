@@ -63,6 +63,7 @@
     "fromExistingValuation": "Reprise d'une évaluation existante",
     "vinLabel": "VIN",
     "vinPlaceholder": "p. ex. WVWZZZ1KZAW123456",
+    "vinOrChassisNeedsConfiguration": "VIN non valide. S’il s’agit d’un véhicule doté d’un numéro de châssis au lieu d’un VIN (première mise en circulation avant 1981), saisissez-le via «Identifier et évaluer».",
     "labelLabel": "Description du véhicule",
     "add": "Ajouter un véhicule de reprise",
     "valueWithConfigurator": "Identifier et évaluer",

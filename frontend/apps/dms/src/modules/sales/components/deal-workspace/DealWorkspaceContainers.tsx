@@ -473,6 +473,15 @@ export function DealTradeInContainer<D extends SalesPricedDealRead>({
     if (updated) tradeInKey.renew()
   }
 
+  // KAN-746 — a value of a chassis number's shape that is no VIN, refused
+  // because the deal has no configuration carrying it: a mistyped VIN as often
+  // as an oldtimer, so the VIN input says «no valid VIN» first (KAN-351), then
+  // the way in for an oldtimer.
+  const isChassisNumberWithoutConfiguration = (err: unknown): boolean =>
+    err instanceof ApiError &&
+    err.status === 422 &&
+    err.details?.reason === 'trade_in_chassis_number_requires_configuration'
+
   // KAN-382 — a trade-in on a deal that still pointed at a merged customer
   // was refused 409 `customer_merged` (KAN-365). Since KAN-189 the trade-in
   // allocates no party, so this server never sends it; the branch stays for
@@ -483,7 +492,10 @@ export function DealTradeInContainer<D extends SalesPricedDealRead>({
     const live = liveContractRefusal(t, err)
     if (live) return live
     if (!(err instanceof ApiError) || err.details?.reason !== 'customer_merged') {
-      return t('offerWorkspace.tradeIn.saveError')
+      // KAN-746 — a refusal with a reason (a chassis number without its
+      // configuration, say) is said in the UI language; the generic
+      // sentence only as the fallback (KAN-398).
+      return apiRefusalText(t, err, 'offerWorkspace.tradeIn.saveError')
     }
     const survivorId = err.details.mergedIntoCustomerId
     if (typeof survivorId === 'string') {
@@ -550,7 +562,9 @@ export function DealTradeInContainer<D extends SalesPricedDealRead>({
                   .catch(async (err: unknown) =>
                     isVinRefusal(err)
                       ? setTradeInVinError(t('common.invalidVin'))
-                      : setTradeInError(await tradeInRefusalMessage(err)),
+                      : isChassisNumberWithoutConfiguration(err)
+                        ? setTradeInVinError(t('offerWorkspace.tradeIn.vinOrChassisNeedsConfiguration'))
+                        : setTradeInError(await tradeInRefusalMessage(err)),
                   )
               }}
             >
