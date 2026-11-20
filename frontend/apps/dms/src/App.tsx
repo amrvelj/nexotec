@@ -95,7 +95,7 @@ export default function App() {
             <Route path="/password-reset" element={<PasswordResetRequestPage />} />
             <Route path="/password-reset/confirm" element={<PasswordResetConfirmPage />} />
             <Route path="/invitations/accept" element={<InvitationAcceptPage />} />
-            {/* KAN-217 PR-4: a customer's secure document link, `/d#<token>` — no session. */}
+            {/* KAN-217 PR-4: a customer's secure document link, `/d?lang=…#<token>` — no session. */}
             <Route path="/d" element={<DocumentLinkPage />} />
             {/* KAN-452: the public Terms of Use and Privacy Policy Google's Places
                 API policies require — no session, outside the shell, for everyone. */}

@@ -156,16 +156,16 @@ Roles, capabilities, the permission matrix and what the SPA may offer: `platform
   assignment and kept where held.
 
 ## Support access (D-A-05, D-A-24) — record and log (KAN-221)
-`support_session`: `POST /v1/platform/support-sessions` (staff with a factor; not for a
-platform_admin, oneself or a non-active user; one running per staff), `…/{id}/end` (staff or the
-user; others 404). Over at `expires_at`: reads derive `timeout`, the nightly
-`platform.support_sessions.close_expired` writes it. Log: `…/dealerships/{id}/support-sessions`
-(manager), `/v1/platform/support-sessions` (staff). **Grants nothing until PR 3.**
-**FR-A-17:** `app/core/impersonation.py` — 403 `impersonation_excluded` on the routes named in
-`test_kan221_impersonation_exclusions.py`, and on a PATCH of `isDealerManager`/`email`
-or a new manager; the user gets `security.impersonation_started`/`_ended`, not the manager.
-Ruling: full write at once; `sub` = staff, `actingFor` = the user, both in the audit, never the dealer;
-60 min, a reason, a persistent banner the user ends; no "View as".
+`support_session`: `POST /v1/platform/support-sessions` (staff with a factor; never a
+platform_admin, oneself or an inactive user; one at a time), `…/{id}/end` (staff or the user;
+others 404). Past `expires_at` reads say `timeout`; the nightly
+`platform.support_sessions.close_expired` writes it. Logs: `…/dealerships/{id}/support-sessions`
+(manager), `/v1/platform/support-sessions` (staff). **Grants nothing before PR 3.**
+**FR-A-17:** `core/impersonation.py`: 403 `impersonation_excluded` on the routes its test
+names, a PATCH of `isDealerManager`/`email`, a new manager, a
+connection's `config`; the user gets `security.impersonation_*`, not the manager. Ruling: full
+write at once; `sub` = staff, `actingFor` = the user, both audited, never the dealer; 60 min, a
+reason, a persistent banner the user ends; no "View as".
 
 ## My account
 - `/account/{profile,security,connected-accounts,signature,notifications}` for every user. Sessions

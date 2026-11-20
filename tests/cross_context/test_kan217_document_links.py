@@ -16,6 +16,7 @@ import pytest
 from sqlalchemy import select
 
 from app.core.base import utcnow
+from app.core.i18n import SwissLanguage
 from app.core.redact import is_secret_field
 from app.platform.documents.models.document_link import LINK_VALID_DAYS, OPEN_WINDOW, OPENS_PER_WINDOW, DocumentLink
 from app.platform.documents.services import document_links
@@ -99,6 +100,9 @@ def test_only_the_tokens_sha256_is_stored(db_session):
         db_session, tenant_id=dealership.id, message_type="offer", document_id=document.id, actor_id=None, language="fr"
     )
     assert in_french.url.endswith("/d?lang=fr#" + in_french.token)
+    # The customer's language arrives as a str enum; the URL carries its value, never its name.
+    assert document_links.link_url("T" * 43, SwissLanguage.IT).endswith("/d?lang=it#" + "T" * 43)
+    assert document_links.link_url("T" * 43, "xx").endswith("/d#" + "T" * 43)
     assert row.expires_at - utcnow() > dt.timedelta(days=LINK_VALID_DAYS) - dt.timedelta(minutes=1)
 
 

@@ -38,7 +38,7 @@ def refuse_under_impersonation(principal: Principal = Depends(get_current_princi
 
 def refuse_if_impersonating(principal: Principal) -> None:
     """The same refusal for a route that is excluded only when its body asks
-    for an excluded change (setting the manager flag on a user's PATCH, a new
-    user or a membership)."""
+    for an excluded change (the manager flag or the sign-in address on a user's
+    PATCH, a new user or membership as manager, a connection's config)."""
 
     refuse_under_impersonation(principal)

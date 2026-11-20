@@ -250,7 +250,7 @@ def _location_label(db: Session, *, dealership_id: uuid.UUID, location_id: uuid.
         return get_location_or_404(db, dealership_id=dealership_id, location_id=location_id).name
     except NotFoundError:
         raise UnprocessableEntityError(
-            "The location is not one of this Betrieb's.",
+            "The location is not one of this business's.",
             details={"reason": "unknown_location", "locationId": str(location_id)},
         ) from None
 

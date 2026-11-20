@@ -110,12 +110,14 @@ class IssuedDocumentLink:
 _LANGUAGES = frozenset({"de", "fr", "it", "en"})
 
 
-def link_url(token: str, language: str | None = None) -> str:
+def link_url(token: str, language: object = None) -> str:
     """`{app}/d?lang=<customer's language>#<token>`: the page opens in the
     language the message was written in (not a secret, so it may be a query);
     the token only ever in the fragment."""
 
-    query = f"?lang={language}" if language in _LANGUAGES else ""
+    # A `str` enum (the customer's `Language`) formats as its name: take the value.
+    code = getattr(language, "value", language)
+    query = f"?lang={code}" if code in _LANGUAGES else ""
     return get_settings().app_base_url.rstrip("/") + LINK_PAGE + query + "#" + token
 
 
@@ -126,7 +128,7 @@ def issue_document_link(
     message_type: str,
     document_id: uuid.UUID,
     actor_id: uuid.UUID | None,
-    language: str | None = None,
+    language: object = None,
     now: dt.datetime | None = None,
 ) -> IssuedDocumentLink:
     """Writes a link to `document_id` of `tenant_id` (flushed, not committed:
@@ -194,7 +196,7 @@ def open_document_link(db: Session, raw_token: str, *, now: dt.datetime | None =
         return None
     rendered = source(db, link.tenant_id, link.document_id)
     if rendered is None:
-        logger.warning("document link %s names a document its Betrieb does not hold", link.id)
+        logger.warning("document link %s names a document its business does not hold", link.id)
         db.rollback()
         return None
     if link.first_opened_at is None:
