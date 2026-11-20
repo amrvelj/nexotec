@@ -2712,6 +2712,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/integrations/business-profile/client-status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Client Status
+         * @description KAN-776: Nexotec's own OAuth client at Google, for the platform status
+         *     view — set up or not, breaker open, the latest call's client or project
+         *     refusal and when, and how many Betriebe hold a live binding. Staff only:
+         *     a Betrieb sees one item on its own status page and never the cause.
+         */
+        get: operations["get_client_status_v1_integrations_business_profile_client_status_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/integrations/business-profile/link-callback": {
         parameters: {
             query?: never;
@@ -6246,6 +6269,28 @@ export interface components {
             status: components["schemas"]["GbpBindingStatus"];
             /** Version */
             version: number;
+        };
+        /**
+         * BusinessProfileClientStatusRead
+         * @description Staff's view of Nexotec's own client at Google (KAN-776): the cause
+         *     behind the Betriebe's «interrupted» item. `refusal` is Google's
+         *     identifier only (`SERVICE_DISABLED`, `invalid_client`), never its text.
+         */
+        BusinessProfileClientStatusRead: {
+            /** Bounddealerships */
+            boundDealerships: number;
+            /** Breakeropen */
+            breakerOpen: boolean;
+            /** Configured */
+            configured: boolean;
+            /** Interrupted */
+            interrupted: boolean;
+            /** Lastcallat */
+            lastCallAt: string | null;
+            /** Refusal */
+            refusal: string | null;
+            /** Refusedat */
+            refusedAt: string | null;
         };
         /** BusinessProfileGoogleChoicePage */
         BusinessProfileGoogleChoicePage: {
@@ -22176,6 +22221,39 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_client_status_v1_integrations_business_profile_client_status_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BusinessProfileClientStatusRead"];
+                };
             };
             /** @description Validation Error */
             422: {

@@ -137,6 +137,8 @@ export type StatusIncidentList = Schemas['StatusIncidentList']
 export type StatusIncidentCreate = Schemas['StatusIncidentCreate']
 export type StatusIncidentUpdate = Schemas['StatusIncidentUpdate']
 export type IncidentSeverity = Schemas['StatusIncidentRead']['severity']
+// KAN-776 — Nexotec's Business Profile client on the platform status view.
+export type BusinessProfileClientStatusRead = Schemas['BusinessProfileClientStatusRead']
 // KAN-214 — setup checklist, activation and the legal documents.
 export type SetupChecklistRead = Schemas['SetupChecklistRead']
 export type SetupChecklistItemRead = Schemas['SetupChecklistItemRead']

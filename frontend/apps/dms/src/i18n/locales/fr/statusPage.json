@@ -21,7 +21,8 @@
   "sources": {
     "number_ranges": "Plages de numéros",
     "integration": "Intégrations",
-    "nexotec": "Nexotec"
+    "nexotec": "Nexotec",
+    "google_business_profile": "Google Business Profile"
   },
   "open": "Ouvrir",
   "since": "depuis le {{date}}",
@@ -43,7 +44,11 @@
       "ok": "Tous les services de Nexotec fonctionnent normalement.",
       "incident": "Incident chez Nexotec"
     },
-    "sourceUnavailable": "Cette source n'a pas pu être vérifiée pour l'instant."
+    "sourceUnavailable": "Cette source n'a pas pu être vérifiée pour l'instant.",
+    "googleBusinessProfile": {
+      "ok": "Google Business Profile : la connexion de Nexotec fonctionne.",
+      "interrupted": "Google Business Profile : la connexion de Nexotec est interrompue – nous nous en occupons."
+    }
   },
   "indicator": {
     "ok": "État : tout est au vert",
@@ -83,7 +88,24 @@
       "save": "Enregistrer",
       "allLanguages": "Le titre et le texte sont requis dans les quatre langues."
     },
-    "saveError": "L'incident n'a pas pu être enregistré."
+    "saveError": "L'incident n'a pas pu être enregistré.",
+    "businessProfile": {
+      "title": "Google Business Profile – client de Nexotec",
+      "subtitle": "Toutes les mises à jour Business Profile des entreprises passent par ce client. Tant qu'il est interrompu, chaque entreprise ayant un site connecté voit « interrompue – nous nous en occupons », jamais la cause indiquée ici.",
+      "loadError": "L'état du client n'a pas pu être chargé.",
+      "state": {
+        "working": "Fonctionne",
+        "interrupted": "Interrompu"
+      },
+      "cause": {
+        "notConfigured": "Aucun client activé n'est configuré.",
+        "breakerOpen": "Disjoncteur ouvert : trop d'appels échoués de suite.",
+        "refusal": "Dans sa dernière réponse, Google a refusé le client ou le projet : {{reason}} ({{date}})."
+      },
+      "lastCall": "Dernier appel : {{date}}",
+      "noCall": "Aucun appel pour l'instant.",
+      "bound": "Entreprises ayant un site connecté : {{count, number}}"
+    }
   },
   "refusals": {
     "status_incident_ends_before_start": "Un incident se termine après son début.",

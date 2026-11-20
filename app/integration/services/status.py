@@ -18,7 +18,8 @@ source's health itself.
 
 A connection switched off (`enabled` false, `disabled`) is the Betrieb's
 deliberate choice and is not an item. Platform-scope connections have no
-Betrieb and are not read. Registered with `app.core.status` by
+Betrieb and are not read here; Nexotec's Business Profile client, the one that
+serves Betriebe, has its own source (`gbp_status.py`, KAN-776). Registered with `app.core.status` by
 `app/status_registry.py`; platform never imports this module.
 """
 

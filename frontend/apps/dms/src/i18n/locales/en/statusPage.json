@@ -21,7 +21,8 @@
   "sources": {
     "number_ranges": "Number ranges",
     "integration": "Integrations",
-    "nexotec": "Nexotec"
+    "nexotec": "Nexotec",
+    "google_business_profile": "Google Business Profile"
   },
   "open": "Open",
   "since": "since {{date}}",
@@ -43,7 +44,11 @@
       "ok": "All Nexotec services are running normally.",
       "incident": "Incident at Nexotec"
     },
-    "sourceUnavailable": "This source could not be checked just now."
+    "sourceUnavailable": "This source could not be checked just now.",
+    "googleBusinessProfile": {
+      "ok": "Google Business Profile: Nexotec's connection is working.",
+      "interrupted": "Google Business Profile: Nexotec's connection is interrupted – we are on it."
+    }
   },
   "indicator": {
     "ok": "Status: all green",
@@ -83,7 +88,24 @@
       "save": "Save",
       "allLanguages": "Title and text are needed in all four languages."
     },
-    "saveError": "The incident could not be saved."
+    "saveError": "The incident could not be saved.",
+    "businessProfile": {
+      "title": "Google Business Profile – Nexotec's client",
+      "subtitle": "Every business's Business Profile updates go through this client. While it is interrupted, each business with a connected location sees «interrupted – we are on it», never the cause shown here.",
+      "loadError": "The client's state could not be loaded.",
+      "state": {
+        "working": "Working",
+        "interrupted": "Interrupted"
+      },
+      "cause": {
+        "notConfigured": "No enabled client is set up.",
+        "breakerOpen": "Circuit breaker open: too many failed calls in a row.",
+        "refusal": "Google refused the client or the project in its latest answer: {{reason}} ({{date}})."
+      },
+      "lastCall": "Last call: {{date}}",
+      "noCall": "No call yet.",
+      "bound": "Businesses with a connected location: {{count, number}}"
+    }
   },
   "refusals": {
     "status_incident_ends_before_start": "An incident ends after it starts.",

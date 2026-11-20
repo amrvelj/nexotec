@@ -24,7 +24,8 @@ a policy it applies; `app.vehicle.services.catalogue_entitlements` is the
 one place that decides what `None` should mean for a given screen.
 
 `IntegrationStatusProvider` (KAN-223) is the connections' contribution to the
-Betrieb's status page, registered with `app.core.status` by the composition
+Betrieb's status page, `GbpStatusProvider` (KAN-776) the Business Profile
+item of a Betrieb with a live binding; both registered with `app.core.status` by the composition
 root `app/status_registry.py` — platform never imports it.
 
 `refresh_location_labels` / `oldest_location_label_age_seconds` (KAN-222)
@@ -149,6 +150,7 @@ from app.integration.services.mail_sending import (
 )
 from app.integration.services.mail_sending import register_revokers as register_mail_grant_revokers
 from app.integration.services.resilience import CircuitOpenError
+from app.integration.services.gbp_status import GbpStatusProvider
 from app.integration.services.status import IntegrationStatusProvider
 
 __all__ = [
@@ -167,6 +169,7 @@ __all__ = [
     "DeliveryStatus",
     "EnergyLabelData",
     "EntitlementState",
+    "GbpStatusProvider",
     "GeneratedText",
     "IntegrationExporter",
     "IntegrationStatusProvider",

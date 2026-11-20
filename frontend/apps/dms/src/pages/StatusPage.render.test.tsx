@@ -117,4 +117,29 @@ describe('StatusPage (KAN-223)', () => {
     expect(within(nexotec).getByText('Nous y travaillons.')).toBeInTheDocument()
     expect(within(nexotec).queryByRole('link')).not.toBeInTheDocument()
   })
+
+  // KAN-776 — Nexotec's Business Profile client interrupted: one item, never the dealer's to fix.
+  it('shows Nexotec\'s interrupted Business Profile connection with nothing to open and no cause', async () => {
+    install({
+      ...GREEN,
+      state: 'blocked',
+      attentionCount: 1,
+      items: [
+        ...GREEN.items,
+        item({
+          key: 'google_business_profile.client',
+          source: 'google_business_profile',
+          state: 'blocked',
+          messageKey: 'statusPage.items.googleBusinessProfile.interrupted',
+          params: {},
+          link: null,
+        }),
+      ],
+    })
+    renderWithProviders(<StatusPage />, { route: '/administration/status' })
+    const gbp = await screen.findByRole('table', { name: t('statusPage.sources.google_business_profile') })
+    const row = within(gbp).getByRole('row', { name: (n) => n.includes(t('statusPage.items.googleBusinessProfile.interrupted')) })
+    expect(within(row).getByText(t('statusPage.states.blocked'))).toBeInTheDocument()
+    expect(within(gbp).queryByRole('link')).not.toBeInTheDocument()
+  })
 })

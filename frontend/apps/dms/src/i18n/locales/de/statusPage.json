@@ -21,7 +21,8 @@
   "sources": {
     "number_ranges": "Nummernkreise",
     "integration": "Integrationen",
-    "nexotec": "Nexotec"
+    "nexotec": "Nexotec",
+    "google_business_profile": "Google Business Profile"
   },
   "open": "Öffnen",
   "since": "seit {{date}}",
@@ -43,7 +44,11 @@
       "ok": "Alle Dienste von Nexotec laufen normal.",
       "incident": "Störung bei Nexotec"
     },
-    "sourceUnavailable": "Diese Quelle konnte gerade nicht geprüft werden."
+    "sourceUnavailable": "Diese Quelle konnte gerade nicht geprüft werden.",
+    "googleBusinessProfile": {
+      "ok": "Google Business Profile: Die Verbindung von Nexotec funktioniert.",
+      "interrupted": "Google Business Profile: Die Verbindung von Nexotec ist unterbrochen – wir kümmern uns darum."
+    }
   },
   "indicator": {
     "ok": "Status: alles grün",
@@ -83,7 +88,24 @@
       "save": "Speichern",
       "allLanguages": "Titel und Text werden in allen vier Sprachen gebraucht."
     },
-    "saveError": "Die Störung konnte nicht gespeichert werden."
+    "saveError": "Die Störung konnte nicht gespeichert werden.",
+    "businessProfile": {
+      "title": "Google Business Profile – Client von Nexotec",
+      "subtitle": "Alle Business-Profile-Aktualisierungen der Betriebe laufen über diesen Client. Solange er unterbrochen ist, sieht jeder Betrieb mit verbundenem Standort «unterbrochen – wir kümmern uns darum», nie die Ursache, die hier steht.",
+      "loadError": "Der Zustand des Clients konnte nicht geladen werden.",
+      "state": {
+        "working": "Funktioniert",
+        "interrupted": "Unterbrochen"
+      },
+      "cause": {
+        "notConfigured": "Es ist kein aktivierter Client eingerichtet.",
+        "breakerOpen": "Schutzschalter offen: zu viele fehlgeschlagene Aufrufe in Folge.",
+        "refusal": "Google hat in der letzten Antwort den Client oder das Projekt abgelehnt: {{reason}} ({{date}})."
+      },
+      "lastCall": "Letzter Aufruf: {{date}}",
+      "noCall": "Noch kein Aufruf.",
+      "bound": "Betriebe mit verbundenem Standort: {{count, number}}"
+    }
   },
   "refusals": {
     "status_incident_ends_before_start": "Eine Störung endet nach ihrem Beginn.",

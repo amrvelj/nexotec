@@ -16,7 +16,7 @@ import uuid
 from fastapi import APIRouter, Depends, Response
 from sqlalchemy.orm import Session
 
-from app.core.auth import Principal, get_current_principal
+from app.core.auth import Principal, get_current_principal, require_access_role
 from app.core.concurrency import check_version, require_if_match
 from app.core.errors import NotFoundError
 from app.core.idempotent_route import IdempotentRoute
@@ -28,6 +28,7 @@ from app.integration.models.google_business_profile import GbpLocationBinding
 from app.integration.schemas.google_business_profile import (
     BusinessProfileBindingPage,
     BusinessProfileBindingRead,
+    BusinessProfileClientStatusRead,
     BusinessProfileGoogleChoicePage,
     BusinessProfileGoogleChoiceRead,
     BusinessProfileGoogleLocationPick,
@@ -36,7 +37,7 @@ from app.integration.schemas.google_business_profile import (
     BusinessProfileLinkOutcomeRead,
     BusinessProfileLinkStartRead,
 )
-from app.integration.services import gbp_link
+from app.integration.services import gbp_link, gbp_status
 from app.platform.public import is_platform_dealership
 
 router = APIRouter(tags=["business-profile"], route_class=IdempotentRoute)
@@ -149,3 +150,25 @@ def disconnect_binding(
     check_version(binding.version, if_match, entity_name="Business Profile binding")
     gbp_link.disconnect(db, binding=binding, actor_id=principal.user_id)
     return Response(status_code=204)
+
+
+@router.get("/integrations/business-profile/client-status", response_model=BusinessProfileClientStatusRead)
+def get_client_status(
+    principal: Principal = Depends(require_access_role()),  # platform_admin only
+    db: Session = Depends(get_db),
+):
+    """KAN-776: Nexotec's own OAuth client at Google, for the platform status
+    view — set up or not, breaker open, the latest call's client or project
+    refusal and when, and how many Betriebe hold a live binding. Staff only:
+    a Betrieb sees one item on its own status page and never the cause."""
+
+    health = gbp_status.client_health(db)
+    return BusinessProfileClientStatusRead(
+        configured=health.configured,
+        interrupted=health.interrupted,
+        breaker_open=health.breaker_open,
+        refusal=health.refusal,
+        refused_at=health.refused_at,
+        last_call_at=health.last_call_at,
+        bound_dealerships=health.bound_dealerships,
+    )

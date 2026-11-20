@@ -68,3 +68,17 @@ class BusinessProfileGoogleChoicePage(CamelModel):
 class BusinessProfileGoogleLocationPick(CamelModel):
     account_name: str = Field(pattern=_ACCOUNT)
     location_name: str = Field(pattern=_LOCATION)
+
+
+class BusinessProfileClientStatusRead(CamelModel):
+    """Staff's view of Nexotec's own client at Google (KAN-776): the cause
+    behind the Betriebe's «interrupted» item. `refusal` is Google's
+    identifier only (`SERVICE_DISABLED`, `invalid_client`), never its text."""
+
+    configured: bool
+    interrupted: bool
+    breaker_open: bool
+    refusal: str | None
+    refused_at: dt.datetime | None
+    last_call_at: dt.datetime | None
+    bound_dealerships: int
