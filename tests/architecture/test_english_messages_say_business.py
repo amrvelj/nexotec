@@ -16,8 +16,8 @@ Three tests:
   right to say it (`_GERMAN_TEXT_FILES`). The UI translates by
   `details.rule` / `details.reason`, which this change never touched;
 - the same guard over `scripts/` but `scripts/dev/` (KAN-772): a backfill's
-  report and its `--help` text — a module docstring the script prints through
-  `__doc__` — are operator output;
+  report and its `--help` text are operator output; a script that prints its
+  module docstring through `__doc__` has the whole docstring checked;
 - the pin: each message KAN-771 changed still reads exactly so in its
   module (for an f-string, its literal parts).
 """
@@ -78,8 +78,11 @@ _GERMAN_TEXT_FILES = frozenset({"app/platform/identity/services/mail_texts.py"})
 
 
 def _reads_its_docstring(tree: ast.Module) -> bool:
-    """A module that names `__doc__` prints it: a script's
-    `ArgumentParser(description=__doc__…)` is its `--help` text (KAN-772)."""
+    """A module that names `__doc__` prints some of it: a script's
+    `ArgumentParser(description=__doc__…)` is its `--help` text (KAN-772).
+    The whole docstring is then checked, a cautious superset of what a
+    `splitlines()[0]` or first-paragraph description prints. Only the bare
+    module `__doc__` is seen; a function's `f.__doc__` is not (none today)."""
 
     return any(isinstance(node, ast.Name) and node.id == "__doc__" for node in ast.walk(tree))
 
