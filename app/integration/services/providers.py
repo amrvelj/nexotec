@@ -9,6 +9,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.errors import ConflictError, NotFoundError
+from app.core.text_collation import TextSortKey
 from app.integration.models.connection import ConnectionEnvironment, IntegrationConnection
 from app.integration.models.provider import IntegrationProvider
 from app.integration.schemas.provider import ProviderCreate, ProviderUpdate
@@ -43,7 +44,7 @@ def get_provider_by_code_or_404(db: Session, provider_code: str) -> IntegrationP
 
 
 def list_providers(db: Session) -> list[IntegrationProvider]:
-    return list(db.scalars(select(IntegrationProvider).order_by(IntegrationProvider.display_name)).all())
+    return list(db.scalars(select(IntegrationProvider).order_by(TextSortKey(IntegrationProvider.display_name), IntegrationProvider.id)).all())
 
 
 def create_provider(db: Session, *, data: ProviderCreate) -> IntegrationProvider:
