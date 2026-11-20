@@ -141,6 +141,7 @@ from app.integration.services.gateway import (
     call_capability,
     resolve_adapter,
 )
+from app.integration.services.gbp_status import GbpStatusProvider
 from app.integration.services.location_labels import oldest_location_label_age_seconds, refresh_location_labels
 from app.integration.services.mail_sending import (
     DeliveryRecord,
@@ -150,7 +151,6 @@ from app.integration.services.mail_sending import (
 )
 from app.integration.services.mail_sending import register_revokers as register_mail_grant_revokers
 from app.integration.services.resilience import CircuitOpenError
-from app.integration.services.gbp_status import GbpStatusProvider
 from app.integration.services.status import IntegrationStatusProvider
 
 __all__ = [

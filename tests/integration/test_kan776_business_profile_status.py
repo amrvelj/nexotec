@@ -19,24 +19,67 @@ from app.core.status import StatusState, status_providers
 from app.integration.adapters import google_business_profile as gbp
 from app.integration.errors import ProviderAccountRefusedError, ProviderRejectedError
 from app.integration.models.call_log import CallStatus, IntegrationCallLog
-from app.integration.models.google_business_profile import GbpBindingStatus, GbpLocationBinding
+from app.integration.models.connection import ConnectionEnvironment, ConnectionScope, IntegrationConnection
+from app.integration.models.google_business_profile import GBP_PROVIDER_CODE, GbpBindingStatus, GbpLocationBinding
+from app.integration.models.provider import IntegrationProvider
 from app.integration.services import gbp_status, resilience
 from app.integration.services.gateway import call_capability
 from app.platform.administration.services import status_page
+from tests import gbp_fakes
+from tests.gbp_fakes import CLIENT_ID, CLIENT_SECRET
+from tests.identapi_support import make_user
 from tests.identity_support import platform_admin_headers
+from tests.integration.test_kan226_business_profile import _as, _link, _location, _pick
 from tests.inventory.test_inventory_invoicing_gate import _make_dealership
-from tests.integration.test_kan226_business_profile import (  # noqa: F401 — fixtures
-    _as,
-    _link,
-    _location,
-    _pick,
-    betrieb,
-    client_connection,
-    google,
-)
 
 NOW = dt.datetime(2026, 11, 20, 12, 0, tzinfo=dt.UTC)
 CLIENT_STATUS = "/v1/integrations/business-profile/client-status"
+
+
+@pytest.fixture
+def google(monkeypatch):
+    fake, secrets_store = gbp_fakes.install(monkeypatch)
+    yield fake, secrets_store
+    resilience._CIRCUITS.clear()
+
+
+@pytest.fixture
+def client_connection(db_session, google):
+    """Nexotec's OAuth client at Google: the platform-scope connection."""
+
+    _, secrets_store = google
+    provider = IntegrationProvider(
+        provider_code=GBP_PROVIDER_CODE,
+        category="marketplace",
+        display_name="Google Business Profile",
+        auth_type="oauth2",
+        required_secret_slots=["client_secret"],
+        required_config_keys=["clientId"],
+        capability_codes=["business_profile"],
+        supports_sandbox=False,
+    )
+    db_session.add(provider)
+    db_session.flush()
+    connection = IntegrationConnection(
+        provider_id=provider.id,
+        scope=ConnectionScope.PLATFORM,
+        tenant_id=None,
+        display_name="Nexotec GBP",
+        environment=ConnectionEnvironment.PRODUCTION,
+        config={"clientId": CLIENT_ID},
+        enabled=True,
+    )
+    db_session.add(connection)
+    db_session.commit()
+    secrets_store.values[(connection.id, "client_secret")] = CLIENT_SECRET
+    return connection
+
+
+@pytest.fixture
+def betrieb(db_session):
+    dealership = _make_dealership(db_session)
+    manager = make_user(db_session, tenant_id=dealership.id, email=f"chef-{uuid.uuid4().hex[:6]}@example.test")
+    return dealership, manager, _location(db_session, dealership.id)
 
 
 def _item(db_session, dealership_id):

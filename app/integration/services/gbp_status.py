@@ -108,14 +108,15 @@ def client_health(db: Session, *, count_bindings: bool = True) -> GbpClientHealt
         .order_by(IntegrationCallLog.created_at.desc(), IntegrationCallLog.id.desc())
         .limit(1)
     ).first()
+    last_call_at = latest.created_at if latest is not None else None
     refusal = latest.provider_error if latest is not None and latest.provider_error in CLIENT_REFUSALS else None
     return GbpClientHealth(
         configured=True,
         connection_id=connection.id,
         breaker_open=resilience.circuit_is_open_now(connection.id),
         refusal=refusal,
-        refused_at=latest.created_at if refusal is not None else None,
-        last_call_at=latest.created_at if latest is not None else None,
+        refused_at=last_call_at if refusal is not None else None,
+        last_call_at=last_call_at,
         bound_dealerships=bound,
     )
 
