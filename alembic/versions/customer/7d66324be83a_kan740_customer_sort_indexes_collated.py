@@ -19,7 +19,10 @@ the new one holds, then the new one takes its name (ADR-134; migrations.md).
 The list keeps an index to sort on throughout. The downgrade rebuilds them in
 the default collation the same way.
 
-Needs the collation from the core chain (`f2b6d9c4a1e3`): `depends_on`.
+The collation is the core chain's (`f2b6d9c4a1e3`); this revision creates it too, with the
+same `IF NOT EXISTS` statement, rather than `depends_on` that revision: a dependency on the core
+chain's head makes it an «effective head» that `alembic_version` never holds, and nothing then
+says in which order the chains run. Whichever runs first creates it.
 
 Revision ID: 7d66324be83a
 Revises: c7e2a9f4b1d3
@@ -35,10 +38,13 @@ from alembic import op
 revision: str = "7d66324be83a"
 down_revision: str | Sequence[str] | None = "c7e2a9f4b1d3"
 branch_labels: str | Sequence[str] | None = None
-depends_on: str | Sequence[str] | None = ("f2b6d9c4a1e3",)
+depends_on: str | Sequence[str] | None = None
 
 # Written out rather than imported: a migration keeps the statements it ran.
 _COLLATION = '"nexotec_text_sort"'
+_CREATE_COLLATION = (
+    f"CREATE COLLATION IF NOT EXISTS {_COLLATION} (provider = icu, locale = 'und-u-ks-level2', deterministic = true)"
+)
 _TABLE = "customer"
 # name -> (columns under the collation, columns in the default collation)
 _INDEXES = {
@@ -57,6 +63,7 @@ def _rebuild(name: str, columns: str) -> None:
 
 def upgrade() -> None:
     with op.get_context().autocommit_block():
+        op.execute(_CREATE_COLLATION)
         for name, (collated, _plain) in _INDEXES.items():
             _rebuild(name, collated)
 

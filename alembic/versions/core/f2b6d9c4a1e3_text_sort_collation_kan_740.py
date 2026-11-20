@@ -39,4 +39,13 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.execute(f'DROP COLLATION IF EXISTS "{_COLLATION}"')
+    # The customer and sales chains' sort indexes (KAN-740) are built under it, and the chains
+    # downgrade in no fixed order: while an index still uses it, it stays (an unused collation is
+    # harmless), and the downgrade never drops an index of another chain's.
+    op.execute(
+        "DO $$ BEGIN "
+        "IF NOT EXISTS (SELECT 1 FROM pg_depend d JOIN pg_collation c ON c.oid = d.refobjid "
+        f"WHERE d.refclassid = 'pg_collation'::regclass AND c.collname = '{_COLLATION}') THEN "
+        f'DROP COLLATION IF EXISTS "{_COLLATION}"; '
+        "END IF; END $$"
+    )
