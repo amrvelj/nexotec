@@ -20,7 +20,7 @@ from sqlalchemy import select
 
 from app.core.audit_model import AuditEvent
 from app.integration.adapters import google_business_profile as gbp
-from app.integration.errors import ProviderAccountRefusedError, ProviderRequestError
+from app.integration.errors import ProviderAccountRefusedError, ProviderRejectedError, ProviderRequestError
 from app.integration.models.call_log import IntegrationCallLog
 from app.integration.models.connection import ConnectionEnvironment, ConnectionScope, IntegrationConnection
 from app.integration.models.google_business_profile import (
@@ -57,15 +57,25 @@ def client_connection(db_session, google):
 
     _, secrets_store = google
     provider = IntegrationProvider(
-        provider_code=GBP_PROVIDER_CODE, category="marketplace", display_name="Google Business Profile",
-        auth_type="oauth2", required_secret_slots=["client_secret"], required_config_keys=["clientId"],
-        capability_codes=["business_profile"], supports_sandbox=False,
+        provider_code=GBP_PROVIDER_CODE,
+        category="marketplace",
+        display_name="Google Business Profile",
+        auth_type="oauth2",
+        required_secret_slots=["client_secret"],
+        required_config_keys=["clientId"],
+        capability_codes=["business_profile"],
+        supports_sandbox=False,
     )
     db_session.add(provider)
     db_session.flush()
     connection = IntegrationConnection(
-        provider_id=provider.id, scope=ConnectionScope.PLATFORM, tenant_id=None, display_name="Nexotec GBP",
-        environment=ConnectionEnvironment.PRODUCTION, config={"clientId": CLIENT_ID}, enabled=True,
+        provider_id=provider.id,
+        scope=ConnectionScope.PLATFORM,
+        tenant_id=None,
+        display_name="Nexotec GBP",
+        environment=ConnectionEnvironment.PRODUCTION,
+        config={"clientId": CLIENT_ID},
+        enabled=True,
     )
     db_session.add(connection)
     db_session.commit()
@@ -220,52 +230,39 @@ def _issued_refresh_tokens(fake) -> set[str]:
     return set(fake.refresh_tokens)
 
 
-def test_a_refused_link_revokes_the_refresh_token_google_issued(
+def _revoke_requests(fake) -> list:
+    return [r for r in fake.requests if str(r.url).split("?")[0] == gbp_fakes.REVOKE_URL]
+
+
+def test_a_refused_link_keeps_nothing_and_never_revokes_at_google(
     client, db_session, google, client_connection, betrieb
 ):
+    """KAN-774 (Anto, option B): a revoke would end the Google user's whole
+    grant to Nexotec's project — every binding they made, in every Betrieb —
+    so the token of a refused link is dropped, never revoked."""
+
     fake, secrets_store = google
     dealership, manager, location = betrieb
+    held = _bound_binding(client, google, dealership, manager, location)
 
-    # The scope missing: the token Google issued is ended at once.
-    callback = fake.sign_in(_start(client, dealership, manager, location), scope="openid email")
+    # The scope missing, then the listing refused: each refused, nothing kept.
+    other = _location(db_session, dealership.id, "Winterthur")
+    callback = fake.sign_in(_start(client, dealership, manager, other), scope="openid email")
     response = client.post(CALLBACK, json=callback, headers=_as(manager))
     assert response.json()["error"]["details"]["reason"] == "business_profile_consent_incomplete"
-    assert fake.revoked == sorted(_issued_refresh_tokens(fake))  # the one token, revoked
-    # The listing refused: the same.
     fake.refuse_listing = True
-    callback = fake.sign_in(_start(client, dealership, manager, location))
+    callback = fake.sign_in(_start(client, dealership, manager, other))
     response = client.post(CALLBACK, json=callback, headers=_as(manager))
     assert response.status_code == 409
     assert response.json()["error"]["details"]["reason"] == "business_profile_consent_incomplete"
-    assert set(fake.revoked) == _issued_refresh_tokens(fake) and len(fake.revoked) == 2
-    # One call-log row per revoke; nothing stored.
-    revokes = db_session.scalars(
-        select(IntegrationCallLog).where(IntegrationCallLog.capability == "oauth2_revoke")
-    ).all()
-    assert len(revokes) == 2
-    assert db_session.scalar(select(GbpLocationBinding)) is None and not secrets_store.values.keys() - {
-        (client_connection.id, "client_secret")
-    }
 
-
-def test_a_failed_revoke_never_changes_the_refusal_and_never_logs_the_token(
-    client, db_session, google, client_connection, betrieb, caplog
-):
-    fake, _ = google
-    dealership, manager, location = betrieb
-    fake.fail_revoke_with = 503
-    callback = fake.sign_in(_start(client, dealership, manager, location), scope="openid email")
-
-    with caplog.at_level("DEBUG"):
-        response = client.post(CALLBACK, json=callback, headers=_as(manager))
-
-    assert response.status_code == 409
-    assert response.json()["error"]["details"]["reason"] == "business_profile_consent_incomplete"
-    (token,) = _issued_refresh_tokens(fake)
-    assert "could not be revoked" in caplog.text and token not in caplog.text
-    assert token not in response.text
-    failed = db_session.scalar(select(IntegrationCallLog).where(IntegrationCallLog.capability == "oauth2_revoke"))
-    assert failed.http_status == 503 and token not in str(failed.provider_error)
+    assert _revoke_requests(fake) == [] and fake.revoked == []
+    assert db_session.scalar(select(IntegrationCallLog).where(IntegrationCallLog.capability == "oauth2_revoke")) is None
+    assert set(secrets_store.values) == {(client_connection.id, "client_secret"), (held, "refresh_token")}
+    # The binding the same Google user made before still works.
+    fake.refuse_listing = False
+    with call_capability(db_session, connection=client_connection, capability=gbp.GBP_CAPABILITY) as adapter:
+        assert adapter.access_token(binding_id=held)  # type: ignore[attr-defined]
 
 
 def test_only_the_manager_links_and_nothing_starts_before_nexotec_set_its_client_up(
@@ -285,7 +282,9 @@ def test_only_the_manager_links_and_nothing_starts_before_nexotec_set_its_client
 # -- tenancy and duplicates ---------------------------------------------------------------------
 
 
-def test_another_betriebs_location_and_binding_are_never_reached(client, db_session, google, client_connection, betrieb):
+def test_another_betriebs_location_and_binding_are_never_reached(
+    client, db_session, google, client_connection, betrieb
+):
     fake, _ = google
     dealership, manager, location = betrieb
     binding = _link(client, fake, dealership, manager, location)["binding"]
@@ -296,8 +295,12 @@ def test_another_betriebs_location_and_binding_are_never_reached(client, db_sess
     # Their own path, our binding id: 404, never 403.
     path = f"{_base(other.id)}/bindings/{binding['id']}"
     assert client.get(f"{path}/google-locations", headers=headers).status_code == 404
-    assert client.put(f"{path}/google-location", json={"accountName": ACCOUNT_1, "locationName": LOCATION_1},
-                      headers=headers).status_code == 404
+    assert (
+        client.put(
+            f"{path}/google-location", json={"accountName": ACCOUNT_1, "locationName": LOCATION_1}, headers=headers
+        ).status_code
+        == 404
+    )
     assert client.delete(path, headers=headers).status_code == 404
     # Our path with their token: 404 too.
     assert client.get(f"{_base(dealership.id)}/bindings", headers=_as(intruder)).status_code == 404
@@ -332,7 +335,9 @@ def test_one_live_binding_per_nexotec_location_and_per_google_location(
     assert _pick(client, other, other_manager, theirs, account=ACCOUNT_2, location=LOCATION_3).status_code == 200
 
 
-def test_a_location_google_does_not_list_for_the_grant_is_refused(client, db_session, google, client_connection, betrieb):
+def test_a_location_google_does_not_list_for_the_grant_is_refused(
+    client, db_session, google, client_connection, betrieb
+):
     fake, _ = google
     dealership, manager, location = betrieb
     binding = _link(client, fake, dealership, manager, location)["binding"]
@@ -385,32 +390,136 @@ def _disconnect(client, dealership, manager, binding):
     )
 
 
-def test_disconnect_revokes_at_google_drops_the_secret_and_keeps_the_row(
+def test_disconnect_never_contacts_google_drops_the_secret_and_keeps_the_row(
     client, db_session, google, client_connection, betrieb
 ):
+    """KAN-774 (Anto, option B): disconnect deletes Nexotec's copy of the
+    token and ends the binding; it never revokes at Google, so it cannot fail
+    on Google (down, or refusing Nexotec's client for good), and another
+    binding of the same Google user keeps working."""
+
     fake, secrets_store = google
     dealership, manager, location = betrieb
     binding = _pick(client, dealership, manager, _link(client, fake, dealership, manager, location)["binding"]).json()
     binding_id = uuid.UUID(binding["id"])
-    refresh = secrets_store.values[(binding_id, "refresh_token")]
+    sibling_link = _link(client, fake, dealership, manager, _location(db_session, dealership.id, "Winterthur"))
+    sibling = uuid.UUID(_pick(client, dealership, manager, sibling_link["binding"], location=LOCATION_2).json()["id"])
+    # Nexotec's client refused for good (invalid_client) — and nothing is sent anyway.
+    secrets_store.values[(client_connection.id, "client_secret")] = "a-secret-google-no-longer-accepts"
+    sent = len(fake.requests)
 
-    fake.fail_revoke_with = 503
-    unreachable = _disconnect(client, dealership, manager, binding)
-    assert unreachable.status_code == 422 and unreachable.json()["error"]["details"]["reason"] == "provider_unavailable"
-    assert db_session.get(GbpLocationBinding, binding_id).status == GbpBindingStatus.ACTIVE
-    assert (binding_id, "refresh_token") in secrets_store.values
-
-    fake.fail_revoke_with = None
     assert _disconnect(client, dealership, manager, binding).status_code == 204
-    assert fake.revoked == [refresh]
+
+    assert len(fake.requests) == sent and fake.revoked == []
     assert (binding_id, "refresh_token") not in secrets_store.values
     row = db_session.get(GbpLocationBinding, binding_id)
     db_session.refresh(row)
     assert row.status == GbpBindingStatus.DISCONNECTED and row.disconnected_at is not None
+    audit = db_session.scalar(
+        select(AuditEvent).where(
+            AuditEvent.entity_id == binding_id, AuditEvent.action == "business_profile_disconnected"
+        )
+    )
+    assert audit is not None
     again = _disconnect(client, dealership, manager, {"id": binding["id"], "version": row.version})
     assert again.status_code == 409 and again.json()["error"]["details"]["reason"] == "binding_already_disconnected"
-    # The location and the Google location are free again.
-    assert _pick(client, dealership, manager, _link(client, fake, dealership, manager, location)["binding"]).status_code == 200
+    # The sibling binding kept its grant; the location and the Google location are free again.
+    secrets_store.values[(client_connection.id, "client_secret")] = CLIENT_SECRET
+    assert (sibling, "refresh_token") in secrets_store.values
+    with call_capability(db_session, connection=client_connection, capability=gbp.GBP_CAPABILITY) as adapter:
+        assert adapter.access_token(binding_id=sibling)  # type: ignore[attr-defined]
+    assert (
+        _pick(client, dealership, manager, _link(client, fake, dealership, manager, location)["binding"]).status_code
+        == 200
+    )
+
+
+def test_nexotecs_refused_client_is_its_setup_never_a_passing_outage(
+    client, db_session, google, client_connection, betrieb
+):
+    """KAN-774 part 2: Google refusing Nexotec's OAuth client (`invalid_client`)
+    is permanent — 409 `business_profile_not_configured` for staff to fix,
+    charged to the client's breaker, never 422 «try again», and the binding is
+    not blamed."""
+
+    fake, secrets_store = google
+    dealership, manager, location = betrieb
+    binding = _link(client, fake, dealership, manager, location)["binding"]
+    secrets_store.values[(client_connection.id, "client_secret")] = "a-secret-google-no-longer-accepts"
+
+    response = client.get(f"{_base(dealership.id)}/bindings/{binding['id']}/google-locations", headers=_as(manager))
+
+    assert response.status_code == 409
+    assert response.json()["error"]["details"]["reason"] == "business_profile_not_configured"
+    row = db_session.get(GbpLocationBinding, uuid.UUID(binding["id"]))
+    db_session.refresh(row)
+    assert row.status == GbpBindingStatus.PENDING and row.error_code is None
+    assert resilience._circuit_for(client_connection.id).failure_count >= 1  # charged to Nexotec's client
+
+
+def test_a_project_level_403_charges_the_breaker_and_never_blames_the_binding(
+    client, db_session, google, client_connection, betrieb
+):
+    """KAN-774 part 3: Google answering 403 for Nexotec's project (the API not
+    enabled or not approved: `google.rpc.ErrorInfo` reason SERVICE_DISABLED)
+    is the project's refusal — charged to the breaker, noted by its reason on
+    the call log, 409 `business_profile_not_configured` — and the binding stays
+    as it was. A 403 for the grant itself still sends the binding to error."""
+
+    fake, _ = google
+    dealership, manager, location = betrieb
+    binding = _pick(client, dealership, manager, _link(client, fake, dealership, manager, location)["binding"]).json()
+    binding_id = uuid.UUID(binding["id"])
+    fake.project_refusal = "SERVICE_DISABLED"
+
+    for _ in range(resilience._FAILURE_THRESHOLD):
+        with (
+            pytest.raises(ProviderRejectedError) as raised,
+            call_capability(db_session, connection=client_connection, capability=gbp.GBP_CAPABILITY) as adapter,
+        ):
+            token = adapter.access_token(binding_id=binding_id)  # type: ignore[attr-defined]
+            adapter.list_accounts(access_token=token)  # type: ignore[attr-defined]
+        assert not isinstance(raised.value, ProviderAccountRefusedError)
+    assert resilience.is_circuit_open(client_connection.id)
+    refused = db_session.scalars(
+        select(IntegrationCallLog)
+        .where(IntegrationCallLog.capability == "accounts_list")
+        .order_by(IntegrationCallLog.created_at)
+    ).all()
+    refused_rows = [(r.http_status, r.provider_error) for r in refused if r.http_status != 200]
+    assert refused_rows == [(403, "SERVICE_DISABLED")] * resilience._FAILURE_THRESHOLD
+    row = db_session.get(GbpLocationBinding, binding_id)
+    db_session.refresh(row)
+    assert (row.status, row.error_code) == (GbpBindingStatus.ACTIVE, None)
+
+    # Through the service: a new link is refused as Nexotec's setup, never as
+    # the sign-in's refused consent, never «try again».
+    resilience.reset_circuit(client_connection.id)
+    other = _location(db_session, dealership.id, "Winterthur")
+    callback = fake.sign_in(_start(client, dealership, manager, other))
+    response = client.post(CALLBACK, json=callback, headers=_as(manager))
+    assert response.status_code == 409
+    assert response.json()["error"]["details"]["reason"] == "business_profile_not_configured"
+    db_session.refresh(row)
+    assert (row.status, row.error_code) == (GbpBindingStatus.ACTIVE, None)
+
+
+def test_a_403_for_the_grant_itself_still_sends_the_binding_to_error(
+    client, db_session, google, client_connection, betrieb
+):
+    fake, _ = google
+    dealership, manager, location = betrieb
+    binding = _link(client, fake, dealership, manager, location)["binding"]
+    fake.grant_refusal_reason = "ACCESS_TOKEN_SCOPE_INSUFFICIENT"
+
+    response = client.get(f"{_base(dealership.id)}/bindings/{binding['id']}/google-locations", headers=_as(manager))
+
+    assert response.status_code == 409
+    assert response.json()["error"]["details"]["reason"] == "business_profile_grant_refused"
+    row = db_session.get(GbpLocationBinding, uuid.UUID(binding["id"]))
+    db_session.refresh(row)
+    assert (row.status, row.error_code) == (GbpBindingStatus.ERROR, "grant_refused")
+    assert not resilience.is_circuit_open(client_connection.id)
 
 
 def test_a_betrieb_cannot_hold_a_connection_of_its_own_to_the_provider(client, db_session, client_connection, betrieb):
@@ -418,8 +527,10 @@ def test_a_betrieb_cannot_hold_a_connection_of_its_own_to_the_provider(client, d
     response = client.post(
         "/v1/integrations/connections",
         json={
-            "providerId": str(client_connection.provider_id), "displayName": "Mein Google",
-            "environment": "production", "config": {"clientId": "x"},
+            "providerId": str(client_connection.provider_id),
+            "displayName": "Mein Google",
+            "environment": "production",
+            "config": {"clientId": "x"},
         },
         headers=_as(manager),
     )
@@ -465,9 +576,14 @@ def test_patch_sends_only_whitelisted_mask_paths(client, db_session, google, cli
     assert len(fake.requests) == sent_before  # refused before anything was sent
 
     adapter.patch_location(
-        access_token=access, location_name=LOCATION_1,
-        fields={"websiteUri": "https://garage-beispiel.invalid/neu", "phoneNumbers": {"primaryPhone": "+41 44 000 00 00"}},
-        update_mask=("websiteUri", "phoneNumbers.primaryPhone", "websiteUri"), validate_only=True,
+        access_token=access,
+        location_name=LOCATION_1,
+        fields={
+            "websiteUri": "https://garage-beispiel.invalid/neu",
+            "phoneNumbers": {"primaryPhone": "+41 44 000 00 00"},
+        },
+        update_mask=("websiteUri", "phoneNumbers.primaryPhone", "websiteUri"),
+        validate_only=True,
     )
     patch = fake.requests[-1]
     assert patch.method == "PATCH" and str(patch.url).startswith(f"{gbp.INFORMATION_API}/{LOCATION_1}?")
@@ -486,8 +602,12 @@ def test_a_photo_is_uploaded_in_three_steps_never_by_url(client, db_session, goo
     photo = b"\xff\xd8\xff\xe0invented-jpeg-bytes"
 
     media = adapter.upload_photo(
-        access_token=access, account_name=ACCOUNT_1, location_name=LOCATION_1, content=photo,
-        content_type="image/jpeg", category="EXTERIOR",
+        access_token=access,
+        account_name=ACCOUNT_1,
+        location_name=LOCATION_1,
+        content=photo,
+        content_type="image/jpeg",
+        category="EXTERIOR",
     )
 
     start, upload, create = fake.requests[sent_before:]
@@ -499,14 +619,20 @@ def test_a_photo_is_uploaded_in_three_steps_never_by_url(client, db_session, goo
     assert upload.headers["content-type"] == "image/jpeg"
     assert str(create.url) == parent
     body = json.loads(create.content)
-    assert body == {"mediaFormat": "PHOTO", "locationAssociation": {"category": "EXTERIOR"},
-                    "dataRef": {"resourceName": reference}}
+    assert body == {
+        "mediaFormat": "PHOTO",
+        "locationAssociation": {"category": "EXTERIOR"},
+        "dataRef": {"resourceName": reference},
+    }
     assert "sourceUrl" not in create.content.decode()
     assert media.name == gbp_fakes.RECORDED["media_create"]["name"]
     for bad in ({"category": "SELFIE"}, {"content_type": "image/gif"}):
         with pytest.raises(ProviderRequestError):
             adapter.upload_photo(
-                access_token=access, account_name=ACCOUNT_1, location_name=LOCATION_1, content=photo,
+                access_token=access,
+                account_name=ACCOUNT_1,
+                location_name=LOCATION_1,
+                content=photo,
                 **{"content_type": "image/jpeg", "category": "EXTERIOR", **bad},
             )
 
@@ -520,8 +646,11 @@ def test_spent_link_states_are_purged_after_a_day_and_live_ones_kept(db_session,
 
     def _state(**times):
         row = GbpLinkState(
-            state_hash=uuid.uuid4().hex + uuid.uuid4().hex, tenant_id=dealership.id, user_id=manager.id,
-            location_id=location.id, **times,
+            state_hash=uuid.uuid4().hex + uuid.uuid4().hex,
+            tenant_id=dealership.id,
+            user_id=manager.id,
+            location_id=location.id,
+            **times,
         )
         db_session.add(row)
         return row
@@ -558,7 +687,9 @@ def test_the_migration_seeds_the_provider_the_code_registers():
     row = module.PROVIDER_ROW
     assert row["provider_code"] == GBP_PROVIDER_CODE == gbp.GoogleBusinessProfileAdapter.provider_code
     assert (row["category"], row["required_secret_slots"], row["required_config_keys"]) == (
-        "marketplace", ["client_secret"], ["clientId"]
+        "marketplace",
+        ["client_secret"],
+        ["clientId"],
     )
     assert row["supports_sandbox"] is False
 
@@ -596,7 +727,7 @@ def test_offboarding_ends_every_live_binding_once(client, db_session, google, cl
     tokens = {b: secrets_store.values[(b, "refresh_token")] for b in (active, pending)}
     message = _offboard(db_session, dealership)
 
-    fake.fail_revoke_with = 503  # Google down: each binding ends all the same
+    sent = len(fake.requests)
     handle_dealership_offboarded_message(db_session, message)
     db_session.commit()
 
@@ -610,40 +741,23 @@ def test_offboarding_ends_every_live_binding_once(client, db_session, google, cl
         select(AuditEvent).where(AuditEvent.reason == "dealership_offboarded", AuditEvent.actor_id.is_(None))
     ).all()
     assert {a.entity_id for a in audits} == {active, pending}
-    assert not set(tokens.values()) & set(fake.revoked)
+    # KAN-774 (Anto, option B): nothing is sent to Google, no token revoked.
+    assert len(fake.requests) == sent and fake.revoked == [] and tokens
 
     # Redelivery: nothing live, nothing sent, nothing written.
-    fake.fail_revoke_with = None
-    sent = len(fake.requests)
     handle_dealership_offboarded_message(db_session, message)
     db_session.commit()
     assert len(fake.requests) == sent
     assert len(db_session.scalars(select(AuditEvent).where(AuditEvent.reason == "dealership_offboarded")).all()) == 2
 
 
-def test_offboarding_revokes_each_grant_at_google(client, db_session, google, client_connection, betrieb):
-    from app.integration.consumers import handle_dealership_offboarded_message
-
-    fake, secrets_store = google
-    dealership, manager, location = betrieb
-    binding_id = _bound_binding(client, google, dealership, manager, location)
-    token_value = secrets_store.values[(binding_id, "refresh_token")]
-
-    handle_dealership_offboarded_message(db_session, _offboard(db_session, dealership))
-    db_session.commit()
-
-    assert fake.revoked == [token_value]
-    row = db_session.get(GbpLocationBinding, binding_id)
-    db_session.refresh(row)
-    assert row.status == GbpBindingStatus.DISCONNECTED
-
-
-def test_a_link_that_finds_its_location_bound_meanwhile_revokes_its_fresh_grant(
+def test_a_link_that_finds_its_location_bound_meanwhile_drops_its_fresh_grant(
     client, db_session, google, client_connection, betrieb
 ):
     """Review of PR #364: a sign-in started before another one finished
     redeems a grant that is refused as `location_already_bound` — that grant
-    is ended at Google, never kept."""
+    is never kept, and (KAN-774, option B) never revoked: a revoke would end
+    the binding that holds the location too, when the same Google user made it."""
 
     fake, secrets_store = google
     dealership, manager, location = betrieb
@@ -656,6 +770,7 @@ def test_a_link_that_finds_its_location_bound_meanwhile_revokes_its_fresh_grant(
 
     assert late.status_code == 409 and late.json()["error"]["details"]["reason"] == "location_already_bound"
     fresh = set(fake.refresh_tokens) - kept
-    assert len(fresh) == 1 and set(fake.revoked) == fresh
-    # The binding that holds the location keeps its grant.
+    assert len(fresh) == 1 and fake.revoked == []
+    # The binding that holds the location keeps its grant, and it still works.
     assert (uuid.UUID(bound["id"]), "refresh_token") in secrets_store.values
+    assert not (set(fresh) & set(secrets_store.values.values()))

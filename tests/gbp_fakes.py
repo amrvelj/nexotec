@@ -4,7 +4,8 @@ recorded fixture `tests/fixtures/google_business_profile_recorded.json`.
 Nothing here talks to Google: Nexotec's Google Cloud project has no Business
 Profile API access yet. The fake answers the endpoints the adapter calls, in
 the shapes Google documents — the token endpoint (authorisation code with
-PKCE, refresh), revoke, the accounts list (two pages), the locations of an
+PKCE, refresh), revoke (which Nexotec must never call: KAN-774, Anto's
+option B — the fake records any request to it), the accounts list (two pages), the locations of an
 account (`readMask` required), a location's read and PATCH, and the v4 media
 upload in three steps. It checks Nexotec's client id and secret, the PKCE
 verifier against the challenge the consent URL carried, and the bearer token
@@ -37,6 +38,9 @@ ACCOUNT_2 = "accounts/1100000000000000002"
 LOCATION_1 = "locations/2200000000000000001"
 LOCATION_2 = "locations/2200000000000000002"
 LOCATION_3 = "locations/2200000000000000003"
+# Google's revoke endpoint. Nexotec never calls it (KAN-774): a revoke ends the
+# Google user's whole grant to Nexotec's project, every binding they made.
+REVOKE_URL = "https://oauth2.googleapis.com/revoke"
 
 
 def query_of(url: str) -> dict[str, str]:
@@ -88,6 +92,10 @@ class FakeGoogle:
         self.rotate_refresh_token: str | None = None
         self.fail_revoke_with: int | None = None
         self.refuse_listing = False
+        # KAN-774: every API call answers 403 with this `google.rpc.ErrorInfo`
+        # reason (the project's refusal, e.g. SERVICE_DISABLED), not the grant's.
+        self.project_refusal: str | None = None
+        self.grant_refusal_reason: str | None = None
 
     # -- the test's side ---------------------------------------------------------
 
@@ -116,7 +124,7 @@ class FakeGoogle:
         url = str(request.url).split("?")[0]
         if url == gbp.TOKEN_URL:
             return self._token(request)
-        if url == gbp.REVOKE_URL:
+        if url == REVOKE_URL:
             if self.fail_revoke_with is not None:
                 return _json(self.fail_revoke_with, {"error": "backend_error"})
             token = dict(urllib.parse.parse_qsl(request.content.decode()))["token"]
@@ -124,6 +132,10 @@ class FakeGoogle:
             return httpx.Response(200)
         if request.headers.get("authorization", "").removeprefix("Bearer ") not in self.access_tokens:
             return _json(401, {"error": {"code": 401, "status": "UNAUTHENTICATED"}})
+        if self.project_refusal is not None:
+            return _json(403, _error_info(self.project_refusal, consumer="projects/900000000001"))
+        if self.grant_refusal_reason is not None:
+            return _json(403, _error_info(self.grant_refusal_reason))
         params = dict(request.url.params)
         if url == gbp.ACCOUNTS_URL and self.refuse_listing:
             return _json(403, {"error": {"code": 403, "status": "PERMISSION_DENIED"}})
@@ -180,6 +192,31 @@ class FakeGoogle:
                 body["refresh_token"] = self.rotate_refresh_token
             return _json(200, body)
         return _json(400, {"error": "unsupported_grant_type"})
+
+
+def _error_info(reason: str, *, consumer: str | None = None) -> dict[str, Any]:
+    """A Google API error (AIP-193) carrying one `google.rpc.ErrorInfo`, in the
+    shape `google/api/error_reason.proto` documents; invented values, not a
+    recorded answer (Nexotec has no Business Profile API access yet)."""
+
+    metadata = {"service": "mybusinessaccountmanagement.googleapis.com"}
+    if consumer is not None:
+        metadata["consumer"] = consumer
+    return {
+        "error": {
+            "code": 403,
+            "message": "invented message that names nothing",
+            "status": "PERMISSION_DENIED",
+            "details": [
+                {
+                    "@type": "type.googleapis.com/google.rpc.ErrorInfo",
+                    "reason": reason,
+                    "domain": "googleapis.com",
+                    "metadata": metadata,
+                }
+            ],
+        }
+    }
 
 
 def install(monkeypatch) -> tuple[FakeGoogle, FakeSecrets]:

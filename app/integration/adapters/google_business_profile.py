@@ -1,6 +1,6 @@
 """The Google Business Profile adapter (KAN-226 PR-2; D-A-32, FR-A-35) over
-`httpx`: Google's OAuth 2.0 endpoints (authorisation code with PKCE, refresh,
-revoke), the Account Management API (the accounts a sign-in may manage), the
+`httpx`: Google's OAuth 2.0 endpoints (authorisation code with PKCE,
+refresh), the Account Management API (the accounts a sign-in may manage), the
 Business Information API (a location read and its PATCH with an update mask)
 and the v4 media API (a photo in three steps).
 
@@ -15,11 +15,21 @@ connection to `google_business_profile` (config `clientId`, slot
 `client_secret`). A location binding's refresh token lives in the secrets
 manager under the binding's id; only this module reads it.
 
-Error mapping (the gateway charges the breaker on transport failures only):
+No revoke (KAN-774, Anto's option B): Google's revoke «removes all OAuth 2.0
+scopes previously granted to a project», so revoking one binding's token would
+end every binding the same Google user made. A binding that ends only loses
+Nexotec's copy of its token (`services/gbp_link.py`).
+
+Error mapping (the gateway charges the breaker on every failure but the
+provider's coherent answers: `ProviderRequestError`, `ProviderAccountRefusedError`):
 - `invalid_client` (Nexotec's client refused) → `ProviderRejectedError`;
-- the token endpoint's `invalid_grant` / `unauthorized_client`, a 401 / 403 →
-  `ProviderAccountRefusedError`: one binding's answer (access withdrawn at
-  Google, the location gone) — the binding goes to error and the manager
+- a 401 / 403 whose `google.rpc.ErrorInfo` reason concerns Nexotec's project
+  (`PROJECT_REFUSALS`: the API not enabled, not approved, quota, billing —
+  `google/api/error_reason.proto`) → `ProviderRejectedError`, charged: the
+  project's refusal, never one binding's (KAN-774);
+- the token endpoint's `invalid_grant` / `unauthorized_client`, any other 401 /
+  403 → `ProviderAccountRefusedError`: one binding's answer (access withdrawn
+  at Google, the location gone) — the binding goes to error and the manager
   reconnects; it never charges the shared client's breaker;
 - 400 / 404 / 422 → `ProviderRequestError`;
 - 5xx, a transport failure → `ProviderTransportError`; a timeout → `ProviderTimeoutError`.
@@ -56,13 +66,35 @@ SCOPE = "https://www.googleapis.com/auth/business.manage"
 
 AUTHORIZE_URL = "https://accounts.google.com/o/oauth2/v2/auth"
 TOKEN_URL = "https://oauth2.googleapis.com/token"
-REVOKE_URL = "https://oauth2.googleapis.com/revoke"
 ACCOUNTS_URL = "https://mybusinessaccountmanagement.googleapis.com/v1/accounts"
 INFORMATION_API = "https://mybusinessbusinessinformation.googleapis.com/v1"
 MEDIA_API = "https://mybusiness.googleapis.com/v4"
 UPLOAD_API = "https://mybusiness.googleapis.com/upload/v1/media"
 
 _TIMEOUT = httpx.Timeout(30.0, connect=10.0)
+
+# KAN-774: the `google.rpc.ErrorInfo` reasons (domain googleapis.com) that
+# name the consumer project, not the caller's token — from Google's published
+# `google/api/error_reason.proto`, read 2026-11-20. Not yet seen in a real
+# Business Profile answer (no API access yet).
+PROJECT_REFUSALS: frozenset[str] = frozenset(
+    {
+        "SERVICE_DISABLED",
+        "SERVICE_NOT_VISIBLE",
+        "BILLING_DISABLED",
+        "USER_PROJECT_DENIED",
+        "CONSUMER_INVALID",
+        "CONSUMER_SUSPENDED",
+        "GCP_SUSPENDED",
+        "RATE_LIMIT_EXCEEDED",
+        "RESOURCE_QUOTA_EXCEEDED",
+        "SECURITY_POLICY_VIOLATED",
+        "RESOURCE_USAGE_RESTRICTION_VIOLATED",
+        "ENDPOINT_USAGE_RESTRICTION_VIOLATED",
+        "ORG_RESTRICTION_VIOLATION",
+    }
+)
+_ERROR_INFO_TYPE = "type.googleapis.com/google.rpc.ErrorInfo"
 _REFRESH_SLOT = SecretSlot.REFRESH_TOKEN.value
 
 # Google's documented page sizes: accounts at most 20, locations at most 100.
@@ -224,6 +256,7 @@ class GoogleBusinessProfileAdapter:
         """One metered request — one call-log row per attempt."""
 
         with provider_request(operation, is_timeout=_is_timeout) as request:
+
             def _send() -> httpx.Response:
                 try:
                     with httpx.Client(timeout=_TIMEOUT, transport=http_transport()) as client:
@@ -257,6 +290,9 @@ class GoogleBusinessProfileAdapter:
         code = self._error_code(response)
         if code == "invalid_client":
             raise ProviderRejectedError("Google refused Nexotec's OAuth client.")
+        reason = self._error_info_reason(response)
+        if status in (401, 403) and reason in PROJECT_REFUSALS:
+            raise ProviderRejectedError(f"Google refused Nexotec's project for Business Profile ({reason}).")
         if status in (401, 403) or (status == 400 and code in ("invalid_grant", "unauthorized_client")):
             raise ProviderAccountRefusedError(f"Google refused the location's access (HTTP {status}).")
         if status in (400, 404, 422):
@@ -264,10 +300,15 @@ class GoogleBusinessProfileAdapter:
         raise ProviderTransportError(f"Google Business Profile failed to answer (HTTP {status}).")
 
     @staticmethod
-    def _error_code(response: httpx.Response) -> str | None:
+    def _identifier(value: object) -> str | None:
+        return value if isinstance(value, str) and value and value.replace("_", "").isalnum() else None
+
+    @classmethod
+    def _error_code(cls, response: httpx.Response) -> str | None:
         """An identifier only: the OAuth `error` code, or a Google API error's
-        `status` (`PERMISSION_DENIED`, …) — a word of letters, digits and
-        underscores, never the message."""
+        `google.rpc.ErrorInfo` reason (`SERVICE_DISABLED`, …) when it carries
+        one, else its `status` (`PERMISSION_DENIED`, …) — a word of letters,
+        digits and underscores, never the message."""
 
         try:
             body = response.json()
@@ -277,8 +318,28 @@ class GoogleBusinessProfileAdapter:
             return None
         code = body.get("error")
         if isinstance(code, dict):
-            code = code.get("status")
-        return code if isinstance(code, str) and code.replace("_", "").isalnum() else None
+            code = cls._error_info_reason(response) or code.get("status")
+        return cls._identifier(code)
+
+    @classmethod
+    def _error_info_reason(cls, response: httpx.Response) -> str | None:
+        """The `reason` of a Google API error's `google.rpc.ErrorInfo` detail
+        (domain googleapis.com), if it carries one (AIP-193)."""
+
+        try:
+            body = response.json()
+        except ValueError:
+            return None
+        error = body.get("error") if isinstance(body, dict) else None
+        details = error.get("details") if isinstance(error, dict) else None
+        for detail in details if isinstance(details, list) else []:
+            if (
+                isinstance(detail, dict)
+                and detail.get("@type") == _ERROR_INFO_TYPE
+                and detail.get("domain") == "googleapis.com"
+            ):
+                return cls._identifier(detail.get("reason"))
+        return None
 
     @staticmethod
     def _json(response: httpx.Response) -> dict[str, Any]:
@@ -367,32 +428,6 @@ class GoogleBusinessProfileAdapter:
         self._access_tokens[binding_id] = token
         return token
 
-    def revoke(self, *, binding_id: uuid.UUID) -> None:
-        """Ends the grant at Google. A token Google no longer knows (400
-        `invalid_token`) or one the secrets manager no longer holds is already
-        ended: there is nothing left that could use it."""
-
-        try:
-            refresh_token = self._resolve(folder_id=binding_id, slot=_REFRESH_SLOT, what="location binding's grant")
-        except ProviderConfigurationError:
-            return
-        self.revoke_token(token=refresh_token)
-
-    def revoke_token(self, *, token: str) -> None:
-        """Ends a grant at Google from the token itself — for a grant Nexotec
-        never stored (a link whose consent came back incomplete). One request,
-        one call-log row; the token travels in the form body only and is never
-        part of a message, a URL or a log line. A token Google no longer knows
-        (400 `invalid_token`) is already ended."""
-
-        self._request(
-            "oauth2_revoke",
-            "POST",
-            REVOKE_URL,
-            data={"token": token},
-            expect=lambda r: r.status_code == 400 and self._error_code(r) == "invalid_token",
-        )
-
     # -- accounts and locations ------------------------------------------------------
 
     def list_accounts(self, *, access_token: str) -> list[GbpAccount]:
@@ -403,9 +438,7 @@ class GoogleBusinessProfileAdapter:
             if page_token:
                 params["pageToken"] = page_token
             body = self._json(
-                self._request(
-                    "accounts_list", "GET", ACCOUNTS_URL, headers=self._bearer(access_token), params=params
-                )
+                self._request("accounts_list", "GET", ACCOUNTS_URL, headers=self._bearer(access_token), params=params)
             )
             for item in body.get("accounts") or []:
                 name = item.get("name") if isinstance(item, dict) else None
