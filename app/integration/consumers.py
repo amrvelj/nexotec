@@ -7,8 +7,11 @@ register_handlers` lists them with the event type and `consumer_name`:
   connection of the offboarded Betrieb but the ones Stock publishes listings
   through disabled and its credentials revoked in the secrets manager
   (`services/connections.py::disable_offboarded_dealership_connections`),
-  and every mailbox of the Betrieb ended (`services/mail_sending.py::
-  disconnect_offboarded_dealership_mailboxes`, KAN-215).
+  every mailbox of the Betrieb ended (`services/mail_sending.py::
+  disconnect_offboarded_dealership_mailboxes`, KAN-215), and every live
+  Google Business Profile binding ended — revoked at Google as a best effort,
+  its secret dropped (`services/gbp_link.py::
+  disconnect_offboarded_dealership_bindings`, KAN-226).
 - `inventory.dealership_listings.withdrawn` ->
   `integration.marketplace_connections_disabled_on_withdrawn`
   (`handle_dealership_listings_withdrawn_message`): Stock's fact that it has
@@ -35,6 +38,7 @@ from app.integration.services.connections import (
     disable_offboarded_dealership_connections,
     disable_withdrawn_marketplace_connections,
 )
+from app.integration.services.gbp_link import disconnect_offboarded_dealership_bindings
 from app.integration.services.mail_sending import disconnect_offboarded_dealership_mailboxes
 
 
@@ -49,6 +53,7 @@ def handle_dealership_offboarded_message(db: Session, message: OutboxMessage) ->
     dealership_id = _dealership_id(message)
     disable_offboarded_dealership_connections(db, tenant_id=dealership_id)
     disconnect_offboarded_dealership_mailboxes(db, tenant_id=dealership_id)
+    disconnect_offboarded_dealership_bindings(db, tenant_id=dealership_id)
 
 
 def handle_dealership_listings_withdrawn_message(db: Session, message: OutboxMessage) -> None:

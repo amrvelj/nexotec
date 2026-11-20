@@ -376,11 +376,20 @@ class GoogleBusinessProfileAdapter:
             refresh_token = self._resolve(folder_id=binding_id, slot=_REFRESH_SLOT, what="location binding's grant")
         except ProviderConfigurationError:
             return
+        self.revoke_token(token=refresh_token)
+
+    def revoke_token(self, *, token: str) -> None:
+        """Ends a grant at Google from the token itself — for a grant Nexotec
+        never stored (a link whose consent came back incomplete). One request,
+        one call-log row; the token travels in the form body only and is never
+        part of a message, a URL or a log line. A token Google no longer knows
+        (400 `invalid_token`) is already ended."""
+
         self._request(
             "oauth2_revoke",
             "POST",
             REVOKE_URL,
-            data={"token": refresh_token},
+            data={"token": token},
             expect=lambda r: r.status_code == 400 and self._error_code(r) == "invalid_token",
         )
 

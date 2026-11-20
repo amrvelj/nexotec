@@ -348,18 +348,38 @@ def complete_link(
     except ProviderAccountRefusedError as exc:
         raise _refusal("provider_declined", "Google refused the sign-in.") from exc
     if grant.refresh_token is None or SCOPE not in grant.scopes:
-        raise _refusal(
-            "business_profile_consent_incomplete", "Google did not grant Nexotec access to the Business Profile."
-        )
+        _revoke_unused_grant(db, connection, grant, actor_id=user_id, link_id=row.id)
+        raise _consent_incomplete()
     try:
         with _google(db, connection, actor_id=user_id) as adapter:
             choices = _choices(adapter, access_token=grant.access_token)
     except ProviderAccountRefusedError as exc:
-        raise _refusal(
-            "business_profile_consent_incomplete", "Google did not grant Nexotec access to the Business Profile."
-        ) from exc
+        _revoke_unused_grant(db, connection, grant, actor_id=user_id, link_id=row.id)
+        raise _consent_incomplete() from exc
     binding = _create_pending_binding(db, row, label=label, grant=grant, connection=connection)
     return LinkOutcome(binding=binding, choices=choices)
+
+
+def _consent_incomplete() -> ConflictError:
+    return _refusal(
+        "business_profile_consent_incomplete", "Google did not grant Nexotec access to the Business Profile."
+    )
+
+
+def _revoke_unused_grant(
+    db: Session, connection: IntegrationConnection, grant: GbpGrant, *, actor_id: uuid.UUID, link_id: uuid.UUID
+) -> None:
+    """A refresh token Google issued for a link that is refused anyway is
+    ended at Google at once, never kept: best effort, one request. A failure is
+    logged by the link's id only and never changes the refusal that follows."""
+
+    if grant.refresh_token is None:
+        return
+    try:
+        with _google(db, connection, actor_id=actor_id) as adapter:
+            adapter.revoke_token(token=grant.refresh_token)
+    except (ProviderAccountRefusedError, ConflictError, UnprocessableEntityError):
+        logger.warning("business profile link %s: the unused grant could not be revoked at Google", link_id)
 
 
 def _choices(adapter: GoogleBusinessProfileAdapter, *, access_token: str) -> list[GoogleChoice]:
@@ -559,6 +579,8 @@ def _end(
     actor_id: uuid.UUID | None,
     action: str,
     best_effort: bool = False,
+    reason: str | None = None,
+    secret_must_go: bool = False,
 ) -> None:
     """Revoke at Google, drop the secret, mark the row; the caller commits.
     Without Nexotec's client (deleted by staff) nothing can be revoked: the
@@ -577,13 +599,53 @@ def _end(
         except UnprocessableEntityError:
             if not best_effort:
                 raise
-            logger.warning("business profile binding %s: replaced without revoking at Google", binding.id)
-    _drop_secret(binding.id)
+            logger.warning("business profile binding %s: ended without revoking at Google", binding.id)
+    if secret_must_go:
+        # Raised, not logged: the consumer's harness retries, then dead-letters
+        # with its alert (rule 10) — a disconnected row never keeps a live token.
+        secrets_backend.delete_secret(connection_id=binding.id, slot=_REFRESH_SLOT)
+    else:
+        _drop_secret(binding.id)
     binding.status = GbpBindingStatus.DISCONNECTED
     binding.disconnected_at = utcnow()
     binding.updated_by = actor_id
     binding.version += 1
-    _audit(db, binding, action=action, actor_id=actor_id)
+    _audit(db, binding, action=action, actor_id=actor_id, reason=reason)
+
+
+def disconnect_offboarded_dealership_bindings(db: Session, *, tenant_id: uuid.UUID) -> int:
+    """KAN-218 / KAN-226: on `platform.dealership.offboarded` every live
+    Business Profile binding of the Betrieb ends — revoked at Google as a best
+    effort (Google unreachable or the grant already refused: logged by id, the
+    binding ends all the same), its secret dropped, `disconnected`, audited as
+    a system write with the reason. Nothing is pushed to Google again.
+
+    Never commits: the caller is the offboarding consumer, whose harness
+    commits this with its processed-event row. A redelivery finds nothing live
+    and changes nothing; a commit that failed after a revoke is retried safely
+    (Google answers a revoked token `invalid_token`, and a dropped secret is
+    already gone). Returns the bindings ended."""
+
+    bindings = list(
+        db.scalars(
+            select(GbpLocationBinding)
+            .where(
+                GbpLocationBinding.tenant_id == tenant_id,
+                GbpLocationBinding.status != GbpBindingStatus.DISCONNECTED,
+            )
+            .order_by(GbpLocationBinding.id)
+            .with_for_update()
+        )
+    )
+    if not bindings:
+        return 0
+    connection = client_connection(db)
+    for binding in bindings:
+        _end(
+            db, binding, connection=connection, actor_id=None, action="business_profile_disconnected",
+            best_effort=True, reason="dealership_offboarded", secret_must_go=True,
+        )
+    return len(bindings)
 
 
 def _drop_secret(binding_id: uuid.UUID) -> None:
@@ -593,7 +655,9 @@ def _drop_secret(binding_id: uuid.UUID) -> None:
         logger.error("business profile binding %s: the refresh token could not be dropped", binding_id)
 
 
-def _audit(db: Session, binding: GbpLocationBinding, *, action: str, actor_id: uuid.UUID | None) -> None:
+def _audit(
+    db: Session, binding: GbpLocationBinding, *, action: str, actor_id: uuid.UUID | None, reason: str | None = None
+) -> None:
     record_audit_event(
         db,
         entity_type=_ENTITY_TYPE,
@@ -606,6 +670,7 @@ def _audit(db: Session, binding: GbpLocationBinding, *, action: str, actor_id: u
             "status": binding.status.value,
             "googleLocationName": binding.google_location_name,
         },
+        reason=reason,
     )
 
 

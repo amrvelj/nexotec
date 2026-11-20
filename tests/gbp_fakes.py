@@ -87,6 +87,7 @@ class FakeGoogle:
         self.requests: list[httpx.Request] = []
         self.rotate_refresh_token: str | None = None
         self.fail_revoke_with: int | None = None
+        self.refuse_listing = False
 
     # -- the test's side ---------------------------------------------------------
 
@@ -124,6 +125,8 @@ class FakeGoogle:
         if request.headers.get("authorization", "").removeprefix("Bearer ") not in self.access_tokens:
             return _json(401, {"error": {"code": 401, "status": "UNAUTHENTICATED"}})
         params = dict(request.url.params)
+        if url == gbp.ACCOUNTS_URL and self.refuse_listing:
+            return _json(403, {"error": {"code": 403, "status": "PERMISSION_DENIED"}})
         if url == gbp.ACCOUNTS_URL:
             page = "accounts_page_2" if params.get("pageToken") == "page-2-token-invented" else "accounts_page_1"
             return _json(200, RECORDED[page])

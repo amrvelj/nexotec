@@ -216,6 +216,58 @@ def test_a_grant_without_offline_access_or_the_scope_is_refused(client, db_sessi
     assert db_session.scalar(select(GbpLocationBinding)) is None
 
 
+def _issued_refresh_tokens(fake) -> set[str]:
+    return set(fake.refresh_tokens)
+
+
+def test_a_refused_link_revokes_the_refresh_token_google_issued(
+    client, db_session, google, client_connection, betrieb
+):
+    fake, secrets_store = google
+    dealership, manager, location = betrieb
+
+    # The scope missing: the token Google issued is ended at once.
+    callback = fake.sign_in(_start(client, dealership, manager, location), scope="openid email")
+    response = client.post(CALLBACK, json=callback, headers=_as(manager))
+    assert response.json()["error"]["details"]["reason"] == "business_profile_consent_incomplete"
+    assert fake.revoked == sorted(_issued_refresh_tokens(fake))  # the one token, revoked
+    # The listing refused: the same.
+    fake.refuse_listing = True
+    callback = fake.sign_in(_start(client, dealership, manager, location))
+    response = client.post(CALLBACK, json=callback, headers=_as(manager))
+    assert response.status_code == 409
+    assert response.json()["error"]["details"]["reason"] == "business_profile_consent_incomplete"
+    assert set(fake.revoked) == _issued_refresh_tokens(fake) and len(fake.revoked) == 2
+    # One call-log row per revoke; nothing stored.
+    revokes = db_session.scalars(
+        select(IntegrationCallLog).where(IntegrationCallLog.capability == "oauth2_revoke")
+    ).all()
+    assert len(revokes) == 2
+    assert db_session.scalar(select(GbpLocationBinding)) is None and not secrets_store.values.keys() - {
+        (client_connection.id, "client_secret")
+    }
+
+
+def test_a_failed_revoke_never_changes_the_refusal_and_never_logs_the_token(
+    client, db_session, google, client_connection, betrieb, caplog
+):
+    fake, _ = google
+    dealership, manager, location = betrieb
+    fake.fail_revoke_with = 503
+    callback = fake.sign_in(_start(client, dealership, manager, location), scope="openid email")
+
+    with caplog.at_level("DEBUG"):
+        response = client.post(CALLBACK, json=callback, headers=_as(manager))
+
+    assert response.status_code == 409
+    assert response.json()["error"]["details"]["reason"] == "business_profile_consent_incomplete"
+    (token,) = _issued_refresh_tokens(fake)
+    assert "could not be revoked" in caplog.text and token not in caplog.text
+    assert token not in response.text
+    failed = db_session.scalar(select(IntegrationCallLog).where(IntegrationCallLog.capability == "oauth2_revoke"))
+    assert failed.http_status == 503 and token not in str(failed.provider_error)
+
+
 def test_only_the_manager_links_and_nothing_starts_before_nexotec_set_its_client_up(
     client, db_session, google, betrieb
 ):
@@ -509,3 +561,78 @@ def test_the_migration_seeds_the_provider_the_code_registers():
         "marketplace", ["client_secret"], ["clientId"]
     )
     assert row["supports_sandbox"] is False
+
+
+# -- offboarding ----------------------------------------------------------------------------------
+
+
+def _offboard(db_session, dealership):
+    from app.core.outbox_model import OutboxMessage
+    from app.platform.administration.services import offboarding
+
+    offboarding.publish_offboarded(db_session, dealership=dealership, offboarded_at=offboarding.utcnow())
+    db_session.commit()
+    return db_session.scalar(
+        select(OutboxMessage).where(
+            OutboxMessage.event_type == offboarding.OFFBOARDED_EVENT_TYPE, OutboxMessage.tenant_id == dealership.id
+        )
+    )
+
+
+def test_offboarding_ends_every_live_binding_once(client, db_session, google, client_connection, betrieb):
+    from app.integration.consumers import handle_dealership_offboarded_message
+
+    fake, secrets_store = google
+    dealership, manager, location = betrieb
+    active = _bound_binding(client, google, dealership, manager, location)
+    pending = uuid.UUID(
+        _link(client, fake, dealership, manager, _location(db_session, dealership.id, "Winterthur"))["binding"]["id"]
+    )
+    other = _make_dealership(db_session)
+    other_manager = make_user(db_session, tenant_id=other.id, email="nachbar@example.test")
+    theirs = _link(client, fake, other, other_manager, _location(db_session, other.id, "Bern"))["binding"]
+    picked = _pick(client, other, other_manager, theirs, account=ACCOUNT_2, location=LOCATION_3)
+    untouched = uuid.UUID(picked.json()["id"])
+    tokens = {b: secrets_store.values[(b, "refresh_token")] for b in (active, pending)}
+    message = _offboard(db_session, dealership)
+
+    fake.fail_revoke_with = 503  # Google down: each binding ends all the same
+    handle_dealership_offboarded_message(db_session, message)
+    db_session.commit()
+
+    for binding_id in (active, pending):
+        row = db_session.get(GbpLocationBinding, binding_id)
+        db_session.refresh(row)
+        assert row.status == GbpBindingStatus.DISCONNECTED and row.disconnected_at is not None
+        assert (binding_id, "refresh_token") not in secrets_store.values
+    assert db_session.get(GbpLocationBinding, untouched).status == GbpBindingStatus.ACTIVE
+    audits = db_session.scalars(
+        select(AuditEvent).where(AuditEvent.reason == "dealership_offboarded", AuditEvent.actor_id.is_(None))
+    ).all()
+    assert {a.entity_id for a in audits} == {active, pending}
+    assert not set(tokens.values()) & set(fake.revoked)
+
+    # Redelivery: nothing live, nothing sent, nothing written.
+    fake.fail_revoke_with = None
+    sent = len(fake.requests)
+    handle_dealership_offboarded_message(db_session, message)
+    db_session.commit()
+    assert len(fake.requests) == sent
+    assert len(db_session.scalars(select(AuditEvent).where(AuditEvent.reason == "dealership_offboarded")).all()) == 2
+
+
+def test_offboarding_revokes_each_grant_at_google(client, db_session, google, client_connection, betrieb):
+    from app.integration.consumers import handle_dealership_offboarded_message
+
+    fake, secrets_store = google
+    dealership, manager, location = betrieb
+    binding_id = _bound_binding(client, google, dealership, manager, location)
+    token_value = secrets_store.values[(binding_id, "refresh_token")]
+
+    handle_dealership_offboarded_message(db_session, _offboard(db_session, dealership))
+    db_session.commit()
+
+    assert fake.revoked == [token_value]
+    row = db_session.get(GbpLocationBinding, binding_id)
+    db_session.refresh(row)
+    assert row.status == GbpBindingStatus.DISCONNECTED
