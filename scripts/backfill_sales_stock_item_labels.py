@@ -9,7 +9,7 @@ fills the rows written before: every offer and contract with a
 `stock_item_id` and no `stock_item_label` takes its item's stock number,
 read through `app.inventory.public.get_stock_numbers` (plain data, the
 row's own tenant), stamped now. An id naming no stock item of the row's own
-Betrieb is reported, never guessed — nightly reconciliation already reports
+business is reported, never guessed — nightly reconciliation already reports
 it as an orphan or a mismatch. Nothing is published: a label is a copy.
 
 MANDATORY DRY RUN. The default writes nothing: the real path runs in one

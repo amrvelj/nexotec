@@ -11,7 +11,7 @@ through the consumer's own write (`vehicle_change.flag_deal`: merged fields,
 audit row reason `backfill:KAN-553`, deal row re-projected): the frozen
 `listPrice`/`effectivePrice` compared with the car's current ones, read
 through `app.inventory.public.get_stock_item_pricing` (plain data, the
-deal's own Betrieb). A deal already flagged or dismissed is left alone. A
+deal's own business). A deal already flagged or dismissed is left alone. A
 stock item that no longer resolves is reported, never guessed.
 
 MANDATORY DRY RUN. The default writes nothing: the real path runs in one

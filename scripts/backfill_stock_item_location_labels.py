@@ -8,7 +8,7 @@ script fills the rows written before — it is that same refresh
 (`app.inventory.public.refresh_stock_location_labels`, the production
 computation, reading names through `app.platform.public`) run once: every
 item with a location id takes its location's name, stamped now; a current
-name is only restamped. An id naming no location of the item's own Betrieb
+name is only restamped. An id naming no location of the item's own business
 is reported, never guessed (nightly reconciliation already reports one
 naming nothing). Nothing is published: a label is a copy. No `version` bump.
 

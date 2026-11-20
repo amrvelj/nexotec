@@ -1,11 +1,11 @@
 """Move confirmed platform_admin holders into the platform tenant (KAN-221 PR-1).
 
 Anto's rulings: Q2 A (2026-11-14) — each staff member who holds
-`platform_admin` while homed in a dealer's Betrieb gets a **new** account in
-the platform tenant, and the Betrieb account loses `platform_admin`; Anto
+`platform_admin` while homed in a dealer's business gets a **new** account in
+the platform tenant, and the business account loses `platform_admin`; Anto
 confirms the list row by row. Option 1 (2026-11-17) — the new account signs
 in with a **separate Nexotec address** (e-mail is unique platform-wide,
-`uq_user_email`); the Betrieb account keeps its own address, its history and
+`uq_user_email`); the business account keeps its own address, its history and
 its sign-in.
 
 `scripts/report_platform_admins_homed_in_dealerships.py` prints the list.
@@ -17,7 +17,7 @@ Lines that are empty or start with `#` are skipped. **Dry run by default**:
 it reads, checks every row and prints what it would do, and writes nothing.
 `--commit` writes (the scripts' convention, `migrations-scripts.md`), one transaction per row: the new account (invited, the
 invitation mailed to the new address by the platform sender), then the
-Betrieb account without `platform_admin` — both audited with the confirming
+business account without `platform_admin` — both audited with the confirming
 staff member (`--actor`) as actor. A row that does not hold is refused and
 reported, and the other rows go on. Never run from a migration.
 

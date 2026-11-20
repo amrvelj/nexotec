@@ -5,7 +5,7 @@ Since KAN-630 Stock's orphan sweep and «Einkauf stornieren» read Stock's own
 projection (`inventory_sales_contract`), fed by `sales.contract.created`,
 `.confirmed`, `.invoice_requested` and `.cancelled` from the deploy on. A
 contract whose facts were delivered before that — every contract a
-Betrieb has today, legacy sales migrated without events included — is not
+business has today, legacy sales migrated without events included — is not
 in it. This script reads every contract through
 `app.sales.public.list_contract_facts` (plain data, on a session of its
 own, closed before anything is written) and merges each one into the

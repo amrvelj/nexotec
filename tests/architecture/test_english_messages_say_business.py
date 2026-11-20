@@ -4,7 +4,7 @@ the rest of the platform — the UI word for the tenant is Betrieb · entreprise
 connection reason, log line or export description that says «Betrieb» shows
 an operator or API client two words for one thing.
 
-Two tests:
+Three tests:
 
 - the guard: no string literal in `app/` that a person reads at run time says
   «Betrieb». Out of scope, by the ticket: docstrings and comments (prose for
@@ -15,6 +15,9 @@ Two tests:
   a message and is checked), and the German texts, which are
   right to say it (`_GERMAN_TEXT_FILES`). The UI translates by
   `details.rule` / `details.reason`, which this change never touched;
+- the same guard over `scripts/` but `scripts/dev/` (KAN-772): a backfill's
+  report and its `--help` text — a module docstring the script prints through
+  `__doc__` — are operator output;
 - the pin: each message KAN-771 changed still reads exactly so in its
   module (for an f-string, its literal parts).
 """
@@ -74,10 +77,19 @@ def _call_name(call: ast.Call) -> str | None:
 _GERMAN_TEXT_FILES = frozenset({"app/platform/identity/services/mail_texts.py"})
 
 
+def _reads_its_docstring(tree: ast.Module) -> bool:
+    """A module that names `__doc__` prints it: a script's
+    `ArgumentParser(description=__doc__…)` is its `--help` text (KAN-772)."""
+
+    return any(isinstance(node, ast.Name) and node.id == "__doc__" for node in ast.walk(tree))
+
+
 def _runtime_literals(path: Path) -> list[ast.Constant]:
     tree = ast.parse(path.read_text(encoding="utf-8"))
     documentation: set[int] = set()
     for node in ast.walk(tree):
+        if isinstance(node, ast.Module) and _reads_its_docstring(node):
+            continue  # its docstring is runtime text
         if isinstance(node, (ast.Module, ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
             first = node.body[0] if node.body else None
             if isinstance(first, ast.Expr) and isinstance(first.value, ast.Constant):

@@ -1,8 +1,8 @@
-"""Fill Vehicle's projection of the records a Betrieb holds in stock for the
+"""Fill Vehicle's projection of the records a business holds in stock for the
 cars already in stock (KAN-667).
 
 Since KAN-667 the identity PATCH (`PATCH /v1/vehicle-mdm/{id}`) refuses a VIN
-change on a car the caller's Betrieb holds in stock, and the Vehicle 360 links
+change on a car the caller's business holds in stock, and the Vehicle 360 links
 it to «VIN korrigieren». Both read Vehicle's own projection
 (`vehicle_stock_holding`), fed by `inventory.pipeline_vehicle.vin_assigned`
 and `inventory.stock_item.sold` from the deploy on. A stock item that got its

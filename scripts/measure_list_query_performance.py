@@ -1,5 +1,5 @@
 """KAN-461 exit criterion 4: the Stock grid's sort and filter times at 10× the
-largest expected Betrieb (Anto, 2026-11-15: 5'000 stock items — a large
+largest expected business (Anto, 2026-11-15: 5'000 stock items — a large
 single-site Swiss dealer at ~500 cars, times ten), against the budget he set
 the same day: **p95 ≤ 250 ms server-side per list request** (the first page
 with its count, any sort or filter).
@@ -8,9 +8,9 @@ What it does, on a throwaway Postgres database (never the dev or test one):
 
 1. creates `dms_perf_<random>` on the server of `--database-url` and migrates
    it with `alembic upgrade heads` — the measured schema is the real one;
-2. inserts `--items` stock items for the measured Betrieb, with spread values
+2. inserts `--items` stock items for the measured business, with spread values
    and ~30% empty optional fields, plus `--other-tenants` × `--items` for other
-   Betriebe, so the planner sees a table of a realistic size; then ANALYZE;
+   businesses, so the planner sees a table of a realistic size; then ANALYZE;
 3. calls `GET /v1/inventory/stock-items` in-process (FastAPI's TestClient, a
    minted token), for every registry field sorted both ways and every
    condition it serves (the first page, limit 50, with its count): `--warmup`
