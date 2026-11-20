@@ -75,9 +75,9 @@ the invariants. Last verified against main@3b2bf69 (2026-11-18). -->
   `chassis_number_requires_pre_1981_registration`); stored and printed normalised like a VIN — one
   spelling per car — and **never** finds or links a vehicle-mdm record, created only by the booking
   (`is_chassis_number`). `scripts/repair_configuration_vins.py` (dry run unless `--commit`) cleans
-  VINs stored before the rule, once per environment (a pre-1981 car stored in another spelling is
-  left as stored until KAN-748 builds Anto's answer A, 2026-11-18: normalise what normalises, list the
-  rest in the dry run). A valuation's stored VIN is never edited.
+  VINs stored before the rule, once per environment; a pre-1981 car's number stored in another
+  spelling is normalised when that gives the one spelling, else kept and listed for a hand correction
+  (Anto, KAN-748 option A). A valuation's stored VIN is never edited.
 - **A licence plate is never an identifier** — Wechselschild, reassignment, cantonal changes.
   `vehicle_plate` is a child table with validity dates and a `plate_group_id`; an ambiguous lookup
   shows a picker and never guesses.

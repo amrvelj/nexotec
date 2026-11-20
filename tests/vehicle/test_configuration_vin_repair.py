@@ -4,9 +4,11 @@ lower case — could no longer be saved, because every PATCH judges the stored
 VIN (KAN-353) and, until KAN-340 gave the configure phase a VIN field, the
 user could not correct it on screen.
 `repair_stored_vins` (scripts/repair_configuration_vins.py) normalises what
-normalises to a VIN, clears what cannot be one, leaves a pre-1981 car alone
-(a chassis number stored in another spelling is KAN-502's question) and
-audits every change with the old value.
+normalises to a VIN, clears what cannot be one and audits every change with
+the old value. A car first registered before 1981 (KAN-748; Anto, 2026-11-18,
+option A): its chassis number is normalised when that gives the one spelling
+(upper case, no whitespace), and one that does not — punctuation — is left as
+stored and listed in the report for a hand correction, never cleared.
 """
 
 import datetime as dt
@@ -18,7 +20,7 @@ from app.core.audit_model import AuditEvent
 from app.core.outbox_model import OutboxMessage
 from app.vehicle.models.configuration import VehicleConfiguration
 from app.vehicle.services.configuration import VIN_REPAIR_REASON, repair_stored_vins
-from scripts.repair_configuration_vins import run
+from scripts.repair_configuration_vins import render, run
 from tests.configuration_test_support import seed_manual_coded_lists
 from tests.cross_context.test_vin_normalised_on_every_input import (
     VIN,
@@ -114,13 +116,13 @@ def test_a_valuation_created_from_a_repaired_configuration_is_accepted(client, d
     assert accepted.json()["vehicleVin"] == typed
 
 
-def test_the_repair_leaves_valid_vins_empty_ones_and_pre_1981_cars_alone(client, db_session):
+def test_the_repair_leaves_valid_vins_and_empty_ones_alone(client, db_session):
     seed_manual_coded_lists(db_session)
     tenant_id = uuid.uuid4()
     valid = _record_configuration(client, tenant_id, vin=VIN)
     empty = _record_configuration(client, tenant_id)
     oldtimer = _record_configuration(client, tenant_id)
-    _stored_as_before_kan_338(db_session, oldtimer, "911 230-0123", dt.date(1972, 5, 1))
+    _stored_as_before_kan_338(db_session, oldtimer, "9112300123", dt.date(1972, 5, 1))  # already one spelling
     events_before = db_session.query(OutboxMessage).count()
 
     assert run(db_session, commit=True) == []
@@ -128,9 +130,68 @@ def test_the_repair_leaves_valid_vins_empty_ones_and_pre_1981_cars_alone(client,
     db_session.expire_all()
     assert db_session.get(VehicleConfiguration, uuid.UUID(valid["id"])).vin == VIN
     assert db_session.get(VehicleConfiguration, uuid.UUID(empty["id"])).vin is None
-    assert db_session.get(VehicleConfiguration, uuid.UUID(oldtimer["id"])).vin == "911 230-0123"
+    assert db_session.get(VehicleConfiguration, uuid.UUID(oldtimer["id"])).vin == "9112300123"
     assert db_session.query(OutboxMessage).count() == events_before
-    assert _save_mileage(client, tenant_id, oldtimer["id"]).status_code == 200
+
+
+def test_a_pre_1981_chassis_number_is_normalised_when_it_normalises(client, db_session):
+    """KAN-748 option A: «911 230 0123» and «ab 12345» become the one spelling,
+    audited with the old value, published, never linked to vehicle-mdm."""
+
+    seed_manual_coded_lists(db_session)
+    tenant_id = uuid.uuid4()
+    spaced = _record_configuration(client, tenant_id)
+    lower = _record_configuration(client, tenant_id)
+    _stored_as_before_kan_338(db_session, spaced, "911 230 0123", dt.date(1972, 5, 1))
+    _stored_as_before_kan_338(db_session, lower, "ab 12345", dt.date(1965, 1, 1))
+
+    repairs = run(db_session, commit=True)
+
+    assert sorted((r.before, r.after, r.listed) for r in repairs) == [
+        ("911 230 0123", "9112300123", False),
+        ("ab 12345", "AB12345", False),
+    ]
+    db_session.expire_all()
+    for configuration, expected in ((spaced, "9112300123"), (lower, "AB12345")):
+        row = db_session.get(VehicleConfiguration, uuid.UUID(configuration["id"]))
+        assert (row.vin, row.vehicle_id, row.version) == (expected, None, configuration["version"] + 1)
+        audit = db_session.scalars(
+            select(AuditEvent).where(AuditEvent.entity_id == row.id, AuditEvent.action == "vin_repair")
+        ).one()
+        assert (audit.after["vin"], audit.actor_id, audit.reason) == (expected, None, VIN_REPAIR_REASON)
+        published = db_session.scalars(
+            select(OutboxMessage.event_type).where(OutboxMessage.aggregate_id == row.id)
+        ).all()
+        assert published.count("configuration.updated") == 1
+        assert _save_mileage(client, tenant_id, configuration["id"]).status_code == 200
+    assert run(db_session, commit=True) == []
+
+
+def test_a_pre_1981_chassis_number_that_does_not_normalise_is_listed_and_left_as_stored(client, db_session):
+    """KAN-748 option A: «911 230-0123» (punctuation) has no one spelling to
+    give it; it is listed for a hand correction and nothing is written."""
+
+    seed_manual_coded_lists(db_session)
+    tenant_id = uuid.uuid4()
+    oldtimer = _record_configuration(client, tenant_id)
+    _stored_as_before_kan_338(db_session, oldtimer, "911 230-0123", dt.date(1972, 5, 1))
+    events_before = db_session.query(OutboxMessage).count()
+
+    repairs = run(db_session, commit=True)
+
+    assert [(r.configuration_id, r.before, r.after, r.listed) for r in repairs] == [
+        (uuid.UUID(oldtimer["id"]), "911 230-0123", "911 230-0123", True)
+    ]
+    db_session.expire_all()
+    row = db_session.get(VehicleConfiguration, uuid.UUID(oldtimer["id"]))
+    assert (row.vin, row.version) == ("911 230-0123", oldtimer["version"])
+    assert not db_session.scalars(select(AuditEvent).where(AuditEvent.action == "vin_repair")).all()
+    assert db_session.query(OutboxMessage).count() == events_before
+    report = render(repairs, committed=True)
+    assert "left for a hand correction: 1" in report
+    assert "911 230-0123" in report
+    # A second run lists it again: it waits for a person, not for the script.
+    assert [r.listed for r in run(db_session, commit=True)] == [True]
 
 
 def test_the_dry_run_writes_nothing_and_a_second_run_finds_nothing(client, db_session):

@@ -41,6 +41,7 @@ from app.core.outbox import OutboxEvent, publish
 from app.core.validators import (
     PRE_ISO_VIN_CUTOFF,
     is_chassis_number,
+    is_chassis_number_spelling,
     is_valid_vin,
     normalise_vin,
     require_vin_or_pre_1981_chassis_number,
@@ -924,6 +925,9 @@ class VinRepair:
     tenant_id: uuid.UUID
     before: str
     after: str | None  # None: cleared
+    # KAN-748: a pre-1981 chassis number with no one spelling to give it — left
+    # as stored (`after == before`), nothing written, listed for a hand correction.
+    listed: bool = False
 
 
 def repair_stored_vins(db: Session) -> list[VinRepair]:
@@ -938,14 +942,18 @@ def repair_stored_vins(db: Session) -> list[VinRepair]:
     - **Which rows:** every configuration whose stored `vin` would be refused
       by `require_vin_or_pre_1981_chassis_number` against its stored first
       registration — not a valid VIN, and no first registration before 1981.
-      A configuration first registered before 1981 saves as it stands and is
-      not touched here: a chassis number has a VIN's one spelling (KAN-391,
-      option A), but what becomes of one stored before KAN-338 in another
-      spelling is KAN-502's question.
-    - **What it writes:** the VIN normalised as every typed VIN is (upper
+      **What it writes:** the VIN normalised as every typed VIN is (upper
       case, no whitespace) when that makes it a valid VIN; otherwise the VIN
       is cleared — it names no car, and cannot be kept. The vehicle link is
       re-derived from the new value, as on every VIN write (KAN-326).
+    - **A car first registered before 1981** (KAN-748; Anto, 2026-11-18,
+      option A): its chassis number has a VIN's one spelling (KAN-391,
+      option A). One stored before KAN-338 in another spelling is normalised
+      when that gives the one spelling («911 230 0123» → «9112300123»);
+      one that does not («911 230-0123»: punctuation is never removed, since
+      which character it hides is a person's call) is left as stored and
+      returned with `listed`, so the dry run names it for a hand correction.
+      It is never cleared: the number still names the car.
     - Each changed configuration's `version` moves once, an audit record with
       no actor (the system) and `VIN_REPAIR_REASON` keeps the old value —
       `updated_by` is cleared to match — and `configuration.updated` is
@@ -969,10 +977,24 @@ def repair_stored_vins(db: Session) -> list[VinRepair]:
         if before is None or not is_chassis_number(before):
             continue  # empty, or a valid VIN: every save passes it
         registered = configuration.first_registration_date
-        if registered is not None and registered < PRE_ISO_VIN_CUTOFF:
-            continue
         normalised = normalise_vin(before)
-        after = normalised if is_valid_vin(normalised) else None
+        if registered is not None and registered < PRE_ISO_VIN_CUTOFF:
+            if is_chassis_number_spelling(before):
+                continue  # already the one spelling
+            if not is_chassis_number_spelling(normalised):
+                repairs.append(
+                    VinRepair(
+                        configuration_id=configuration.id,
+                        tenant_id=configuration.tenant_id,
+                        before=before,
+                        after=before,
+                        listed=True,
+                    )
+                )
+                continue
+            after: str | None = normalised
+        else:
+            after = normalised if is_valid_vin(normalised) else None
         vehicle_before = configuration.vehicle_id
         configuration.vin = after
         _link_vehicle_if_vin_resolves(db, configuration)
