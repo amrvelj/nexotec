@@ -43,6 +43,7 @@ from sqlalchemy.orm import Session
 from app.core.audit import record_audit_event
 from app.core.constants import CANTON_CODES
 from app.core.errors import ConflictError, NotFoundError, UnprocessableEntityError
+from app.core.text_collation import TextSortKey
 from app.core.validators import validate_postal_code_for_country
 from app.platform.organisation.models.dealership import Dealership, Location
 from app.platform.organisation.models.dealership_bank_account import DealershipBankAccount
@@ -159,7 +160,7 @@ def list_locations(db: Session, *, dealership_id: uuid.UUID, active: bool | None
     stmt = select(Location).where(Location.tenant_id == dealership_id)
     if active is not None:
         stmt = stmt.where(Location.is_active.is_(active))
-    return list(db.scalars(stmt.order_by(Location.name, Location.id)).all())
+    return list(db.scalars(stmt.order_by(TextSortKey(Location.name), Location.id)).all())
 
 
 def get_location_or_404(db: Session, *, dealership_id: uuid.UUID, location_id: uuid.UUID) -> Location:

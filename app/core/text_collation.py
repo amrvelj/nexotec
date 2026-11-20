@@ -25,13 +25,16 @@ SQLite has no ICU collation.
 Cross-cutting: imports no bounded context.
 """
 
-from typing import Any
+from collections.abc import Callable, Iterable
+from typing import Any, TypeVar
 
-from sqlalchemy import DDL, String
+from sqlalchemy import DDL, String, bindparam, text
+from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.ext.compiler import compiles
+from sqlalchemy.orm import Session
 from sqlalchemy.sql import ColumnElement
 from sqlalchemy.sql.visitors import InternalTraversal
-from sqlalchemy.types import TypeDecorator
+from sqlalchemy.types import Text, TypeDecorator
 
 TEXT_SORT_COLLATION = "nexotec_text_sort"
 TEXT_SORT_LOCALE = "und-u-ks-level2"
@@ -162,6 +165,29 @@ def collated_sort_column(column: Any) -> Any:
     if isinstance(column, CollatedSortColumn) or not is_plain_text_column(column):
         return column
     return CollatedSortColumn(column)
+
+
+_Item = TypeVar("_Item")
+
+
+def sort_by_text(db: Session, items: Iterable[_Item], key: Callable[[_Item], str]) -> list[_Item]:
+    """`items` in the order their `key` sorts under the collation, for a list that is not a
+    query's rows (a provider's live answer, KAN-769): the database is asked for the order, so it
+    is exactly the ORDER BY's — never a Python key (`.lower()` puts «Š…» after «Z», and any
+    mirror drifts from ICU on punctuation). Equal keys keep their given order. One statement,
+    none for an empty list; on SQLite (the fast lane) Python's byte order, as the sorts there."""
+
+    listed = list(items)
+    if not listed:
+        return listed
+    if db.get_bind().dialect.name != "postgresql":
+        return sorted(listed, key=key)
+    statement = text(
+        "SELECT n FROM unnest(:values) WITH ORDINALITY AS t(v, n) "
+        f'ORDER BY v COLLATE "{TEXT_SORT_COLLATION}", n'
+    ).bindparams(bindparam("values", type_=ARRAY(Text())))
+    positions = db.scalars(statement, {"values": [key(item) for item in listed]}).all()
+    return [listed[position - 1] for position in positions]
 
 
 def _is_text_sort_index(index: Any) -> bool:

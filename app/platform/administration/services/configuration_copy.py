@@ -57,6 +57,7 @@ from app.core.auth import Principal
 from app.core.errors import AppError, ConflictError, NotFoundError
 from app.core.i18n import SwissLanguage
 from app.core.permissions import ModuleCode
+from app.core.text_collation import sort_by_text
 from app.platform.documents.models.document_template import DocumentTemplate
 from app.platform.documents.models.standard_text import StandardText, StandardTextSource
 from app.platform.documents.schemas.document_template import DocumentTemplateUpdate
@@ -192,7 +193,7 @@ def list_sources(db: Session, principal: Principal, *, target: Dealership) -> li
         if not is_dealer_manager_in(db, user=user, dealership_id=dealership.id):
             continue
         options.append(SourceOption(id=dealership.id, legal_name=dealership.legal_name))
-    return sorted(options, key=lambda option: option.legal_name.casefold())
+    return sort_by_text(db, options, key=lambda option: option.legal_name)
 
 
 # --- standard texts ------------------------------------------------------------------

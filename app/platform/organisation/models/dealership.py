@@ -42,6 +42,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 from app.core.base import PrimaryKeyMixin, TenantScopedMixin, TimestampMixin, VersionedMixin
 from app.core.enum_type import StoredEnum
 from app.core.i18n import SwissLanguage
+from app.core.text_collation import IDENTIFIER_TEXT
 from app.core.types import GUID, UTCDateTime
 from app.db import Base
 
@@ -394,7 +395,7 @@ class Location(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, TimestampMixi
     # saved (the service refuses a change; until number ranges and documents
     # exist, "used" means "saved"). NULL only on a row that predates KAN-204
     # or the one created with a new Betrieb, until the dealer sets it — once.
-    code: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    code: Mapped[str | None] = mapped_column(String(20), nullable=True, info=IDENTIFIER_TEXT)
     # Multi-valued: codes of `LocationType` (showroom, workshop, …) — most
     # sites are two of these. A JSON list like `association_memberships`.
     location_types: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)

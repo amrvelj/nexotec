@@ -56,6 +56,7 @@ from app.core.base import utcnow
 from app.core.errors import BadRequestError, ForbiddenError, NotFoundError, UnprocessableEntityError
 from app.core.object_store import ObjectStore, StoredObject
 from app.core.outbox import OutboxEvent, publish
+from app.core.text_collation import TextSortKey
 from app.core.uuid7 import uuid7
 from app.platform.identity.models.user import User, UserStatus
 from app.platform.organisation.models.branding_asset import (
@@ -784,7 +785,7 @@ def read_image(db: Session, store: ObjectStore, *, dealership_id: uuid.UUID, ima
 
 def list_lead_routing(db: Session, dealership_id: uuid.UUID) -> list[tuple[Location, LocationLeadRouting | None]]:
     locations = db.scalars(
-        select(Location).where(Location.tenant_id == dealership_id).order_by(Location.is_active.desc(), Location.name)
+        select(Location).where(Location.tenant_id == dealership_id).order_by(Location.is_active.desc(), TextSortKey(Location.name), Location.id)
     ).all()
     routing = {
         r.location_id: r
@@ -925,7 +926,7 @@ def missing_items(db: Session, dealership: Dealership, channel: str) -> list[Mis
     if not (profile.privacy_notice or {}).get(language):
         missing.append(MissingItem("privacy_notice_missing", "legal"))
     for location in db.scalars(
-        select(Location).where(Location.tenant_id == dealership.id, Location.is_active.is_(True)).order_by(Location.name)
+        select(Location).where(Location.tenant_id == dealership.id, Location.is_active.is_(True)).order_by(TextSortKey(Location.name), Location.id)
     ).all():
         if not location.lead_email:
             missing.append(MissingItem("lead_email_missing", "leadRouting", location.id, location.name))

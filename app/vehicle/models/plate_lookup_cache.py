@@ -40,6 +40,7 @@ from sqlalchemy import Date, Index, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.base import PrimaryKeyMixin, TenantScopedMixin
+from app.core.text_collation import IDENTIFIER_TEXT
 from app.core.types import GUID, UTCDateTime
 from app.db import Base
 
@@ -60,7 +61,7 @@ class PlateLookupCacheEntry(PrimaryKeyMixin, TenantScopedMixin, Base):
     production_to: Mapped[int | None] = mapped_column(Integer, nullable=True)
     type_approval_number: Mapped[str] = mapped_column(String(16), nullable=False)
     first_registration_date: Mapped[dt.date | None] = mapped_column(Date, nullable=True)
-    stammnummer: Mapped[str] = mapped_column(String(16), nullable=False)
+    stammnummer: Mapped[str] = mapped_column(String(16), nullable=False, info=IDENTIFIER_TEXT)
     # vehicle_model_variant.id (same context) the provider named; see the docstring.
     model_variant_id: Mapped[uuid.UUID | None] = mapped_column(GUID(), nullable=True)
     fetched_at: Mapped[dt.datetime] = mapped_column(UTCDateTime(), nullable=False)

@@ -17,6 +17,7 @@ from sqlalchemy import JSON, ForeignKey, Integer, PrimaryKeyConstraint, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.base import utcnow
+from app.core.text_collation import IDENTIFIER_TEXT
 from app.core.types import GUID, UTCDateTime
 from app.db import Base
 
@@ -31,7 +32,7 @@ class UserPreference(Base):
     # directly, and there is no use case for referencing a preference row
     # from elsewhere.
     user_id: Mapped[uuid.UUID] = mapped_column(GUID(), ForeignKey("user.id"), primary_key=True)
-    scope: Mapped[str] = mapped_column(String(128), primary_key=True)
+    scope: Mapped[str] = mapped_column(String(128), primary_key=True, info=IDENTIFIER_TEXT)
 
     # Generic JSON (not a Postgres-specific JSONB variant), matching the
     # portable-column convention every other model uses (see

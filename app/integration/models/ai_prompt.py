@@ -37,6 +37,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 from app.core.base import PrimaryKeyMixin, TimestampMixin, VersionedMixin
 from app.core.enum_type import StoredEnum
 from app.core.i18n import SwissLanguage
+from app.core.text_collation import IDENTIFIER_TEXT
 from app.core.types import GUID
 from app.db import Base
 
@@ -84,7 +85,7 @@ class IntegrationAiPrompt(PrimaryKeyMixin, VersionedMixin, TimestampMixin, Base)
         index=True,
         comment="Owned by the platform context (Dealership.id). No DB-level FK. NULL = a Nexotec seed.",
     )
-    code: Mapped[str] = mapped_column(String(64), nullable=False)
+    code: Mapped[str] = mapped_column(String(64), nullable=False, info=IDENTIFIER_TEXT)
     language: Mapped[SwissLanguage] = mapped_column(StoredEnum(SwissLanguage, length=8), nullable=False)
     # The name the editor shows; never what generation resolves by.
     title: Mapped[str] = mapped_column(String(200), nullable=False)

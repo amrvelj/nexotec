@@ -29,6 +29,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.status import StatusItem, StatusState
+from app.core.text_collation import TextSortKey
 from app.integration.models.connection import ConnectionScope, ConnectionStatus, IntegrationConnection
 from app.integration.models.notification import IntegrationNotification, NotificationKind
 from app.integration.models.provider import IntegrationProvider
@@ -89,7 +90,11 @@ class IntegrationStatusProvider:
                 IntegrationConnection.enabled.is_(True),
                 IntegrationConnection.status != ConnectionStatus.DISABLED,
             )
-            .order_by(IntegrationProvider.display_name, IntegrationConnection.display_name, IntegrationConnection.id)
+            .order_by(
+                TextSortKey(IntegrationProvider.display_name),
+                TextSortKey(IntegrationConnection.display_name),
+                IntegrationConnection.id,
+            )
         ).all()
         warnings: dict[uuid.UUID, dt.date] = {}
         if rows:

@@ -36,7 +36,10 @@ Last verified against main@3b2bf69 (2026-11-18). -->
   KAN-461 PR-2…4) takes filter fields, `sortableFields` and default visibility from the schema — never a hand list or `meta.sortField`.
 - **Text order** (ADR-190; Anto, 2026-11-18): every `SortField` over a word column sorts under the ICU collation
   `nexotec_text_sort` (case ignored, Ä/é beside A/e, one order for every language; `app/core/text_collation.py`); a code
-  or identifier column (VIN, numbers, phone) is `info=IDENTIFIER_TEXT` and keeps byte order. An index behind a word sort
+  or identifier column (VIN, numbers, phone, a code or key) is `info=IDENTIFIER_TEXT` and keeps byte order. A fixed
+  `order_by` on a word column wraps it in `TextSortKey(column)`, and a list that is not a query's rows (a provider's answer)
+  is ordered with `sort_by_text(db, items, key)` — never a `.lower()`/`casefold()` key (KAN-769;
+  `test_fixed_word_sorts_use_the_collation.py`). An index behind a word sort
   is declared over `text_sort_index_key` (`test_text_sort_indexes_use_the_collation.py`), left out of autogenerate (its
   reflection drops the collation; `pg_get_indexdef` compares it), so its migration is hand-written; a test asks the database for
   the expected order (`tests/text_sort_support.text_sort_order`), never plain `sorted()`.
