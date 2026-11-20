@@ -223,3 +223,23 @@ def test_a_repair_publishes_configuration_updated(client, db_session):
         select(OutboxMessage.event_type).where(OutboxMessage.aggregate_id == uuid.UUID(configuration["id"]))
     ).all()
     assert published.count("configuration.updated") == 1
+
+
+def test_a_stored_value_with_a_trailing_newline_is_not_taken_for_the_one_spelling(client, db_session):
+    """KAN-770: `$` also matches before a final newline, so a stored «9112300123\\n» passed as
+    already in the one spelling and the repair skipped it. (A 17-character VIN plus a newline
+    does not fit the column; `is_valid_vin` refusing one is pinned in
+    tests/core/test_validators_anchor_whole_value.py.)"""
+
+    seed_manual_coded_lists(db_session)
+    tenant_id = uuid.uuid4()
+    chassis = _record_configuration(client, tenant_id)
+    _stored_as_before_kan_338(db_session, chassis, "9112300123\n", dt.date(1972, 5, 1))
+
+    repairs = run(db_session, commit=True)
+
+    assert [(r.before, r.after, r.listed) for r in repairs] == [("9112300123\n", "9112300123", False)]
+    db_session.expire_all()
+    assert db_session.get(VehicleConfiguration, uuid.UUID(chassis["id"])).vin == "9112300123"
+    assert _save_mileage(client, tenant_id, chassis["id"]).status_code == 200
+    assert run(db_session, commit=True) == []
