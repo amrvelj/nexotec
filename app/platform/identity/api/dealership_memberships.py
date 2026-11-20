@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from app.core.auth import Principal
 from app.core.concurrency import check_version, require_if_match
 from app.core.idempotent_route import IdempotentRoute
+from app.core.impersonation import refuse_if_impersonating, refuse_under_impersonation
 from app.core.permissions import (
     require_read,
     require_write,
@@ -64,6 +65,8 @@ def grant_membership(
     principal: Principal = Depends(require_write("dealership_users")),
     db: Session = Depends(get_db),
 ):
+    if body.is_dealer_manager:
+        refuse_if_impersonating(principal)  # FR-A-17: never the manager flag (KAN-221)
     require_tenant_match(dealership_id, principal)
     user = user_reads_service.get_user_for_update_or_404(db, dealership_id, user_id)  # KAN-380
     row = membership_service.grant_membership(
@@ -90,7 +93,7 @@ def end_membership(
 
 
 @router.put(
-    "/dealerships/{dealership_id}/users/{user_id}/memberships/{member_dealership_id}/manager-flag",
+    "/dealerships/{dealership_id}/users/{user_id}/memberships/{member_dealership_id}/manager-flag", dependencies=[Depends(refuse_under_impersonation)],
     response_model=MembershipRead,
 )
 def set_membership_manager_flag(
@@ -116,7 +119,7 @@ def set_membership_manager_flag(
     return membership_service.read_membership(db, row)
 
 
-@router.put("/dealerships/{dealership_id}/users/{user_id}/manager-flag", response_model=UserAdminRead)
+@router.put("/dealerships/{dealership_id}/users/{user_id}/manager-flag", dependencies=[Depends(refuse_under_impersonation)], response_model=UserAdminRead)
 def set_home_manager_flag(
     dealership_id: uuid.UUID,
     user_id: uuid.UUID,

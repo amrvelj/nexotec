@@ -159,7 +159,13 @@ Roles, capabilities, the permission matrix and what the SPA may offer: `platform
 not for a platform_admin, oneself or a non-active user; one running per staff) and `…/{id}/end`
 (staff or the user; others 404). Over at `expires_at`: reads derive `timeout`, the nightly
 `platform.support_sessions.close_expired` writes it. Log: `…/dealerships/{id}/support-sessions`
-(manager), `/v1/platform/support-sessions` (staff). **Grants nothing until PR 3** (the token). Ruling:
+(manager), `/v1/platform/support-sessions` (staff). **Grants nothing until PR 3** (the token).
+**FR-A-17 (PR 4):** `app/core/impersonation.py::refuse_under_impersonation` — 403
+`impersonation_excluded`, the one deliberate 403 — on the MFA, session, invitation, auth-config,
+manager-flag, secret-slot, mailbox-link and connected-account routes and the support-session start,
+named in `tests/platform/test_kan221_impersonation_exclusions.py` (an unnamed carrier fails); a user
+PATCH touching `isDealerManager` or `email`, and a new user or membership as manager, too. The user
+gets `security.impersonation_started` / `_ended` (timeout when written); the manager nothing. Ruling:
 full write from the start; the token carries `sub` = staff, `actingFor` = the user; the audit
 shows both, never the dealer; a 60-minute box, a mandatory reason, a persistent banner;
 the user ends it; no manager notice or "View as". It never touches credentials, MFA,

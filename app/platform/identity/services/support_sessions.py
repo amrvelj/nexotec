@@ -26,8 +26,16 @@
   start and end is also an entry in the Betrieb's own audit log (the rows
   above), which needs nothing more.
 
-Not yet: the `acting_for` token (PR 3), the FR-A-17 exclusions and the
-security notices (PR 4), the banner and screens (PR 6).
+- **The user is told** (PR 4; D-A-24: no manager notification): a
+  `security.impersonation_started` notice when a session starts and a
+  `security.impersonation_ended` one when its ending is written — by the staff
+  member, by the user, or by timeout (the nightly job or the staff member's
+  next start). The security family is always immediate and cannot be switched
+  off. The notice carries the session's id, never the reason or a name.
+
+Not yet: the `acting_for` token (PR 3), the banner and screens (PR 6). The
+FR-A-17 exclusions (PR 4) are `app/core/impersonation.py`'s dependency on the
+routes it names.
 """
 
 import datetime as dt
@@ -49,6 +57,10 @@ from app.platform.identity.models.support_session import (
 )
 from app.platform.identity.models.user import User, UserStatus
 from app.platform.identity.schemas.support_session import SupportSessionLogEntry, SupportSessionRead
+from app.platform.identity.services import notifications
+from app.platform.identity.services.notification_catalogue import NotificationEventCode
+from app.platform.identity.services.notifications import NotificationSubject
+from app.platform.identity.services.security_alerts import SECURITY_LINK
 from app.platform.organisation.models.dealership import Dealership
 from app.platform.organisation.services.dealer_dealerships import is_platform_dealership
 
@@ -110,6 +122,30 @@ def _audit_end(db: Session, row: SupportSession, *, actor_id: uuid.UUID | None, 
     )
 
 
+def _subject(row: SupportSession) -> NotificationSubject:
+    return NotificationSubject(type=ENTITY_TYPE, id=row.id, link=SECURITY_LINK)
+
+
+def _notify_started(db: Session, row: SupportSession) -> None:
+    notifications.notify(
+        db,
+        NotificationEventCode.IMPERSONATION_STARTED,
+        user_id=row.target_user_id,
+        dealership_id=row.dealership_id,
+        subject=_subject(row),
+    )
+
+
+def _notify_ended(db: Session, row: SupportSession) -> None:
+    notifications.notify(
+        db,
+        NotificationEventCode.IMPERSONATION_ENDED,
+        user_id=row.target_user_id,
+        dealership_id=row.dealership_id,
+        subject=_subject(row),
+    )
+
+
 def _close_timed_out(db: Session, row: SupportSession) -> None:
     """Write a run-out session's ending into its row: at `expires_at`, by
     `timeout`, audited as a system write (no actor — nobody ended it)."""
@@ -118,6 +154,7 @@ def _close_timed_out(db: Session, row: SupportSession) -> None:
     row.ended_by = SupportSessionEndedBy.TIMEOUT
     row.updated_by = None
     _audit_end(db, row, actor_id=None, reason=TIMEOUT_REASON)
+    _notify_ended(db, row)
 
 
 def close_timed_out_sessions(db: Session, now: dt.datetime | None = None) -> int:
@@ -215,6 +252,7 @@ def start_support_session(
             "expiresAt": row.expires_at.isoformat(),
         },
     )
+    _notify_started(db, row)
     db.commit()
     db.refresh(row)
     return row
@@ -236,6 +274,7 @@ def end_support_session(db: Session, *, session_id: uuid.UUID, principal: Princi
     row.ended_by = SupportSessionEndedBy.STAFF if principal.user_id == row.staff_user_id else SupportSessionEndedBy.USER
     row.updated_by = principal.user_id
     _audit_end(db, row, actor_id=principal.user_id)
+    _notify_ended(db, row)
     db.commit()
     db.refresh(row)
     return row

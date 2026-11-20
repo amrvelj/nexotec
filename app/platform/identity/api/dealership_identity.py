@@ -14,6 +14,7 @@ from app.core.auth import Principal, require_mfa_session
 from app.core.concurrency import check_version, require_if_match
 from app.core.errors import ForbiddenError
 from app.core.idempotent_route import IdempotentRoute
+from app.core.impersonation import refuse_under_impersonation
 from app.core.permissions import (
     require_read,
     require_write,
@@ -44,7 +45,7 @@ router = APIRouter(tags=["dealerships"], route_class=IdempotentRoute)
 # --- Identity administration (KAN-196: FR-AU-10/11/12/17/21/25) -------------------------
 
 
-@router.post("/dealerships/{dealership_id}/users/{user_id}/invitations", status_code=202, dependencies=[Depends(require_mfa_session())])
+@router.post("/dealerships/{dealership_id}/users/{user_id}/invitations", status_code=202, dependencies=[Depends(refuse_under_impersonation), Depends(require_mfa_session())])
 def reissue_invitation(
     dealership_id: uuid.UUID,
     user_id: uuid.UUID,
@@ -104,6 +105,7 @@ def list_user_connected_accounts(
 
 @router.delete(
     "/dealerships/{dealership_id}/users/{user_id}/connected-accounts/{account_id}",
+    dependencies=[Depends(refuse_under_impersonation)],
     response_model=ConnectedAccountManagerRead,
 )
 def revoke_user_connected_account(
@@ -188,7 +190,7 @@ def get_auth_config(
 @router.put(
     "/dealerships/{dealership_id}/auth-config",
     response_model=AuthConfigRead,
-    dependencies=[Depends(require_mfa_session())],
+    dependencies=[Depends(refuse_under_impersonation), Depends(require_mfa_session())],
 )
 def set_auth_config(
     dealership_id: uuid.UUID,

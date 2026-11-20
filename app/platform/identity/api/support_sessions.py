@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from app.core.auth import AccessRole, Principal, get_current_principal, require_access_role
 from app.core.errors import ForbiddenError
 from app.core.idempotent_route import IdempotentRoute
+from app.core.impersonation import refuse_under_impersonation
 from app.core.pagination import PageParams, page_params
 from app.core.permissions import require_read
 from app.core.tenancy import require_tenant_match
@@ -40,7 +41,7 @@ def require_staff_support_session(principal: Principal = Depends(get_current_pri
 
 
 @router.post(
-    "/platform/support-sessions",
+    "/platform/support-sessions", dependencies=[Depends(refuse_under_impersonation)],
     response_model=SupportSessionRead,
     status_code=201,
     description=(

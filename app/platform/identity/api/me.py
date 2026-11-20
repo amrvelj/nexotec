@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session
 
 from app.core.auth import Principal, get_current_principal
 from app.core.concurrency import check_version, require_if_match
+from app.core.impersonation import refuse_under_impersonation
 from app.core.object_store import ObjectStore, get_object_store
 from app.db import get_db
 from app.platform.identity.schemas.me import ConnectedAccountListRead, ConnectedAccountRead, MeRead, MeUpdate
@@ -153,7 +154,7 @@ def list_my_connected_accounts(
     return ConnectedAccountListRead(items=[ConnectedAccountRead.model_validate(r, from_attributes=True) for r in rows])
 
 
-@router.delete("/me/connected-accounts/{account_id}", response_model=ConnectedAccountRead)
+@router.delete("/me/connected-accounts/{account_id}", dependencies=[Depends(refuse_under_impersonation)], response_model=ConnectedAccountRead)
 def revoke_my_connected_account(
     account_id: uuid.UUID,
     if_match: int = Depends(require_if_match),

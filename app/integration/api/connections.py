@@ -18,6 +18,7 @@ from app.core.auth import AccessRole, Principal, get_current_principal
 from app.core.concurrency import check_version, require_if_match
 from app.core.config import get_settings
 from app.core.idempotent_route import IdempotentRoute
+from app.core.impersonation import refuse_under_impersonation
 from app.core.pagination import SortPageParams
 from app.core.permissions import require_read, require_write
 from app.core.sorting import SortField, decode_cursor_for_sort, parse_sort
@@ -262,7 +263,7 @@ def delete_connection(
     connection_service.delete_connection(db, connection=connection, confirm=body.confirm, actor_id=principal.user_id)
 
 
-@router.put("/integrations/connections/{connection_id}/secrets/{slot}", response_model=SecretSlotRead)
+@router.put("/integrations/connections/{connection_id}/secrets/{slot}", dependencies=[Depends(refuse_under_impersonation)], response_model=SecretSlotRead)
 def set_secret(
     connection_id: uuid.UUID,
     slot: SecretSlot,
@@ -286,7 +287,7 @@ def set_secret(
     return SecretSlotRead.model_validate(ref, from_attributes=True)
 
 
-@router.delete("/integrations/connections/{connection_id}/secrets/{slot}", status_code=204)
+@router.delete("/integrations/connections/{connection_id}/secrets/{slot}", dependencies=[Depends(refuse_under_impersonation)], status_code=204)
 def remove_secret(
     connection_id: uuid.UUID,
     slot: SecretSlot,
