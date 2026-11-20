@@ -3,9 +3,10 @@ ADR-195, ADR-196).
 
 Every Business Profile request goes through Nexotec's own OAuth client, the
 one platform-scope connection to `google_business_profile` (ADR-195). When
-Google refuses that client or Nexotec's project, every bound location's push
-and drift job stops at once, and the cause is Nexotec's to fix, never the
-Betrieb's. Anto, 2026-11-20 (KAN-776, option C), rules who sees what:
+Google refuses that client or Nexotec's project, every Business Profile call
+fails at once — today the manager's link flow (`gbp_link`); the push and drift
+jobs (KAN-226 PR-3/PR-4) are not built yet — and the cause is Nexotec's to
+fix, never the Betrieb's. Anto, 2026-11-20 (KAN-776, option C), rules who sees what:
 
 - **Staff** see the cause on the platform status view: whether the client is
   set up, whether its breaker is open, the latest call's refusal identifier
@@ -25,12 +26,14 @@ The client counts as interrupted when any of these holds:
 - its circuit breaker is open in this process (`resilience`): the gateway
   charged it five times in a row. The breaker lives in memory per process,
   so the API's status page sees the API's calls and the worker's daily job
-  the worker's own, where the push and drift jobs run;
+  the worker's own (no worker job calls Business Profile yet);
 - its latest call-log row carries a client- or project-level refusal: one of
   ADR-196's `PROJECT_REFUSALS`, or `invalid_client` (Google refused the OAuth
   client itself). The adapter maps both to `ProviderRejectedError`, charged to
-  the breaker, so the refusal is Nexotec's setup, never one binding's. A
-  later successful call clears it. The mapping itself is the adapter's
+  the breaker, so the refusal is Nexotec's setup, never one binding's. Only
+  a later successful call on the client clears it — and today no staff
+  action makes one, so a fixed cause stays red until a manager links a
+  location (open with Anto on KAN-776). The mapping itself is the adapter's
   (`adapters/google_business_profile.py`) and is only read here.
 
 Derived on every read, never stored; a read never writes (`app.core.status`).
@@ -78,6 +81,10 @@ class GbpClientHealth:
 
 
 def _live_bindings():
+    # «Live» is the code's own meaning (`uq_integration_gbp_binding_location_live`):
+    # pending, active or error — a pending link needs the client to list its
+    # choices. An abandoned pending link keeps its Betrieb's item until the
+    # manager's next start replaces it.
     return GbpLocationBinding.status != GbpBindingStatus.DISCONNECTED
 
 
