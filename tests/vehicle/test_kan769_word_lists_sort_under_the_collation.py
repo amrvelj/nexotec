@@ -103,3 +103,27 @@ def test_kan769_provider_brands_sort_by_name_under_the_collation(db_session, mon
     names = [brand.name for brand in result.items]
     assert names == _collated(db_session, NAMES)
     assert names != sorted(NAMES, key=str.lower), "the old `.lower()` key must disagree too"
+
+
+@POSTGRES_SQL
+def test_kan769_a_variants_energy_labels_sort_by_gearbox_under_the_collation(db_session):
+    """`energy_labels_for_configuration`: the gearbox is the provider's word as delivered
+    («Automat», «Manuell»), shown to the seller — a word column, not a code."""
+
+    from app.vehicle.models.energy_rating import ModelVariantEnergyLabel
+    from app.vehicle.services.energy_rating import energy_labels_for_configuration
+
+    (variant,) = _variants(db_session, ["Golf 1.5 TSI"])
+    db_session.add_all(
+        ModelVariantEnergyLabel(
+            model_variant_id=variant.id, label_year=2024, gearbox=gearbox, energy_efficiency_category="B"
+        )
+        for gearbox in NAMES
+    )
+    db_session.commit()
+
+    labels = energy_labels_for_configuration(
+        db_session, model_variant_id=variant.id, first_registration_year=2024, model_year=None
+    )
+
+    assert [label.gearbox for label in labels] == _collated(db_session, NAMES)
