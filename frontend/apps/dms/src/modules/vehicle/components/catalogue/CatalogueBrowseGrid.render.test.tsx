@@ -535,3 +535,57 @@ describe('CatalogueBrowseGrid names the refused query (KAN-767)', () => {
     expect(alert).not.toHaveTextContent('ident_basis')
   })
 })
+
+// KAN-768: the empty grid under a provider state alert never claims the
+// provider holds no variant — the provider was not asked, refused, or could
+// not be reached. Only an `ok` answer with no rows says so.
+describe('CatalogueBrowseGrid empty state follows the provider state (KAN-768)', () => {
+  function answering(state: string) {
+    const available = state === 'ok'
+    installFakeBackend([
+      { method: 'GET', match: /\/catalogue\/brands$/, handler: () => BRANDS },
+      { method: 'GET', match: /\/catalogue\/model-groups$/, handler: () => MODEL_GROUPS },
+      { method: 'GET', match: /\/catalogue\/facets$/, handler: () => ({ ...FACETS, browseAvailable: available, state }) },
+      {
+        method: 'GET',
+        match: /\/catalogue\/variants$/,
+        handler: () => ({
+          items: [], nextCursor: null, total: available ? 0 : null, totalIsEstimate: false, browseAvailable: available, state,
+          ...(state === 'notInContract' ? { refusal: { operation: 'variants', licenceOption: null } } : {}),
+        }),
+      },
+      { method: 'GET', match: /\/reference-data\//, handler: () => ({ items: [], nextCursor: null }) },
+    ])
+  }
+
+  it.each([['notInContract'], ['unavailable'], ['notConfigured']])(
+    'under %s the grid defers to the alert and never says the provider holds no variant',
+    async (state) => {
+      answering(state)
+
+      // A model group is chosen as well: the grid then counts as filtered, and its
+      // «Keine Variante entspricht diesen Filtern» would be just as false.
+      for (const route of [SCOPED, `${SCOPED}&modelGroup=104`]) {
+        const { unmount } = renderWithProviders(<CatalogueBrowseGrid mode="build" />, { route })
+
+        await screen.findByTestId(`catalogue-state-${state}`)
+        expect(await screen.findByText(i18n.t('catalogueBrowse.providerEmptyState.title'))).toBeInTheDocument()
+        expect(screen.getByText(i18n.t('catalogueBrowse.providerEmptyState.description'))).toBeInTheDocument()
+        expect(screen.queryByText(i18n.t('catalogueBrowse.emptyState.description'))).not.toBeInTheDocument()
+        expect(screen.queryByText(i18n.t('catalogueBrowse.emptyState.title'))).not.toBeInTheDocument()
+        expect(screen.queryByText(i18n.t('catalogueBrowse.emptyFilteredState.description'))).not.toBeInTheDocument()
+        unmount()
+      }
+    },
+  )
+
+  it('an ok answer with no rows keeps «Der Anbieter führt keine Variante für diese Auswahl»', async () => {
+    answering('ok')
+
+    renderWithProviders(<CatalogueBrowseGrid mode="build" />, { route: SCOPED })
+
+    expect(await screen.findByText('Der Anbieter führt keine Variante für diese Auswahl.')).toBeInTheDocument()
+    expect(screen.getByText(i18n.t('catalogueBrowse.emptyState.title'))).toBeInTheDocument()
+    expect(screen.queryByText(i18n.t('catalogueBrowse.providerEmptyState.title'))).not.toBeInTheDocument()
+  })
+})

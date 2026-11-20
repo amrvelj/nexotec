@@ -89,6 +89,10 @@
     "clear": "Annulla selezione",
     "copyIds": "Copia ID"
   },
+  "providerEmptyState": {
+    "title": "Nessuna variante mostrata",
+    "description": "L'avviso qui sopra spiega perché non è stata caricata alcuna variante."
+  },
   "needsBrand": {
     "title": "Scegliere una marca",
     "description": "Scegliere genere di veicolo e marca — il catalogo viene interrogato in diretta dal fornitore, pagina per pagina."

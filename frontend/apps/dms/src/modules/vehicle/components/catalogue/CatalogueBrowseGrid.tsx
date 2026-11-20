@@ -303,6 +303,16 @@ export function CatalogueBrowseGrid({ mode, onSelectVariant }: CatalogueBrowseGr
   // KAN-767: which query was refused, from the same answer as the state.
   const refusal = (firstPage ? firstPage.refusal : brandsQuery.data?.refusal) ?? null
   const browseAvailable = state === null || state === 'ok'
+  // KAN-768: when the provider was not asked, refused or could not be reached, the state
+  // alert above the grid explains why; the empty grid only defers to it. «Der Anbieter
+  // führt keine Variante» (or «Keine Variante entspricht diesen Filtern») would be false.
+  const providerEmptyState = browseAvailable
+    ? null
+    : {
+        icon: <Database size={24} />,
+        title: t('catalogueBrowse.providerEmptyState.title'),
+        description: t('catalogueBrowse.providerEmptyState.description'),
+      }
   const rows = useMemo(
     () => variantsQuery.data?.pages.flatMap((p) => p.items) ?? [],
     [variantsQuery.data],
@@ -642,7 +652,8 @@ export function CatalogueBrowseGrid({ mode, onSelectVariant }: CatalogueBrowseGr
           onColumnLayoutChange={gridPrefs.setColumnLayout}
           labels={dataGridLabels}
           emptyState={
-            scoped
+            providerEmptyState ??
+            (scoped
               ? {
                   icon: <Database size={24} />,
                   title: t('catalogueBrowse.emptyState.title'),
@@ -652,13 +663,15 @@ export function CatalogueBrowseGrid({ mode, onSelectVariant }: CatalogueBrowseGr
                   icon: <Database size={24} />,
                   title: t('catalogueBrowse.needsBrand.title'),
                   description: t('catalogueBrowse.needsBrand.description'),
-                }
+                })
           }
-          emptyFilteredState={{
-            icon: <Database size={24} />,
-            title: t('catalogueBrowse.emptyFilteredState.title'),
-            description: t('catalogueBrowse.emptyFilteredState.description'),
-          }}
+          emptyFilteredState={
+            providerEmptyState ?? {
+              icon: <Database size={24} />,
+              title: t('catalogueBrowse.emptyFilteredState.title'),
+              description: t('catalogueBrowse.emptyFilteredState.description'),
+            }
+          }
         />
         </div>
       </OverviewShellRegion>

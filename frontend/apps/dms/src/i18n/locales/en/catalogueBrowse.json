@@ -89,6 +89,10 @@
     "clear": "Clear selection",
     "copyIds": "Copy IDs"
   },
+  "providerEmptyState": {
+    "title": "No variants shown",
+    "description": "The notice above explains why no variants were loaded."
+  },
   "needsBrand": {
     "title": "Choose a brand",
     "description": "Choose a vehicle kind and a brand — the catalogue is asked live from the provider, one page at a time."

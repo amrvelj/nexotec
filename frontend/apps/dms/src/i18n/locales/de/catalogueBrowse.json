@@ -89,6 +89,10 @@
     "clear": "Auswahl aufheben",
     "copyIds": "IDs kopieren"
   },
+  "providerEmptyState": {
+    "title": "Keine Varianten angezeigt",
+    "description": "Der Hinweis oben erklärt, warum keine Varianten geladen wurden."
+  },
   "needsBrand": {
     "title": "Marke wählen",
     "description": "Fahrzeugart und Marke wählen — der Katalog wird live beim Anbieter abgefragt, Seite für Seite."
