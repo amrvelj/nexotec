@@ -194,7 +194,7 @@ def _assert_recoverable(user: User, *, actor_id: uuid.UUID) -> None:
         raise ForbiddenError("Account recovery is for someone else's account.", details={"rule": "self"})
     if user.status == UserStatus.DEACTIVATED:
         raise ConflictError(
-            "This user is deactivated — the Betrieb reactivates them first.",
+            "This user is deactivated — the business reactivates them first.",
             details={"rule": "deactivated", "currentStatus": user.status.value},
         )
 
@@ -318,11 +318,11 @@ def grant_manager(
     _assert_recoverable(user, actor_id=actor_id)
     if user.status != UserStatus.ACTIVE:
         raise ConflictError(
-            "Only an active user can be made the Betrieb's manager.",
+            "Only an active user can be made the business's manager.",
             details={"rule": "not_active", "currentStatus": user.status.value},
         )
     if user.is_dealer_manager:
-        raise ConflictError("This user is already a manager of the Betrieb.", details={"rule": "already_manager"})
+        raise ConflictError("This user is already a manager of the business.", details={"rule": "already_manager"})
     event = _record(
         db,
         user=user,

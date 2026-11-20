@@ -30,8 +30,8 @@ for the pricing and document files. Last verified against main@3b2bf69 (2026-11-
   and «Zu bezahlen»; no `vat_rate`, no VAT line — never a guessed rate.
 - **The VAT line is computed on the full gross price, never on `payable`** (ADR-098): the trade-in
   pays part of the price, it does not reduce it (CHF 36,000 with a CHF 10,000 trade-in at 8.1 %
-  prints CHF 2,697.50). Open: no tax advisor has confirmed it (KAN-436); if one disagrees, ADR-098
-  is reopened, never overridden in code. Generated documents keep their frozen figure.
+  prints CHF 2,697.50). A tax advisor confirmed it on 2026-11-03 (KAN-436). Generated documents
+  keep their frozen figure.
 - Of ADR-033/ADR-053 only the **fiktiver Vorsteuerabzug** (Art. 28a MWSTG) survives; margin
   taxation (Art. 24a) is out of v1. It is a purchase-side fact owned by Stock; Sales reads it
   through the stock item's pricing and never writes it. Margin nets the notional credit whether
