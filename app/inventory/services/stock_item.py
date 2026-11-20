@@ -473,15 +473,11 @@ def apply_trade_in_seller(item: StockItem, *, customer_id: str | None, signed_at
 
 
 def apply_trade_in_vin(item: StockItem, *, vin: object) -> None:
-    """KAN-536: a trade-in's pipeline item keeps the VIN its contract holds,
-    as `sales.contract.confirmed` named it (`tradeIn.vin`) — in the one
-    spelling, and only a value a purchase can be booked with: a VIN, or
-    (KAN-746) a pre-1981 car's chassis number, which a contract holds only
-    with the configuration that carries it — the configuration's number then
-    decides at the booking (`configuration_vin_differs`). A confirmation
-    without one (published before KAN-536, or a contract that holds none)
-    leaves the item without: it is then bought as before, the VIN typed and
-    checked against its configuration only."""
+    """KAN-536: a trade-in's pipeline item keeps the VIN its contract holds
+    (`tradeIn.vin` of `sales.contract.confirmed`), in the one spelling, when a
+    purchase can be booked with it: a VIN, or a pre-1981 chassis number, held
+    only with its configuration (KAN-746), whose number decides at booking.
+    Without one (published before KAN-536, none held) the item keeps none."""
 
     if not isinstance(vin, str):
         return

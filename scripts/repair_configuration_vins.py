@@ -1,6 +1,6 @@
 """Repair the configuration VINs stored before KAN-338 that no save can pass
 (KAN-395; Anto, 2026-10-20, option B: clean the data once). The rules are
-app.vehicle.services.configuration.repair_stored_vins's docstring: a VIN that
+app.vehicle.services.configuration_vin_repair.repair_stored_vins's docstring: a VIN that
 normalises to a valid VIN is normalised, one that does not is cleared, and
 every change is audited with the old value. A configuration first registered
 before 1981 (KAN-748, option A): its chassis number is normalised when that
@@ -29,7 +29,7 @@ import sys
 from sqlalchemy.orm import Session
 
 from app.db import SessionLocal
-from app.vehicle.services.configuration import VinRepair, repair_stored_vins
+from app.vehicle.services.configuration_vin_repair import VinRepair, repair_stored_vins
 
 
 def run(db: Session, *, commit: bool) -> list[VinRepair]:

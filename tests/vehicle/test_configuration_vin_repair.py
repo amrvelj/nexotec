@@ -19,7 +19,7 @@ from sqlalchemy import select
 from app.core.audit_model import AuditEvent
 from app.core.outbox_model import OutboxMessage
 from app.vehicle.models.configuration import VehicleConfiguration
-from app.vehicle.services.configuration import VIN_REPAIR_REASON, repair_stored_vins
+from app.vehicle.services.configuration_vin_repair import VIN_REPAIR_REASON, repair_stored_vins
 from scripts.repair_configuration_vins import render, run
 from tests.configuration_test_support import seed_manual_coded_lists
 from tests.cross_context.test_vin_normalised_on_every_input import (
