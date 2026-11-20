@@ -1,5 +1,7 @@
-"""KAN-740 (ADR-190): the indexes behind the word sorts serve the collated sort — the first page
-and a page after a keyset cursor read the index in order instead of sorting every row. Without the
+"""KAN-740 (ADR-190): the indexes behind the word sorts serve the collated ascending sort — the
+first page reads the index in order instead of sorting every row. (A descending sort is `DESC NULLS
+LAST` in the preserved `pagination.py`, which no default-ordered b-tree serves, collated or not:
+unchanged by KAN-740.) Without the
 collation on the index (the state before KAN-740) the planner cannot use it for
 `ORDER BY … COLLATE "nexotec_text_sort"`, and every page is a full sort.
 
