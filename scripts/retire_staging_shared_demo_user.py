@@ -1,7 +1,7 @@
 """KAN-551: deactivates the shared demo login (`demo@nexotec-staging.example`)
 an earlier staging seed created, once a personal dealer manager of the demo
-Betrieb holds a session that proved a second factor (signed in with one, or
-enrolled one in it) — so retiring it can never leave the Betrieb without a
+business holds a session that proved a second factor (signed in with one, or
+enrolled one in it) — so retiring it can never leave the business without a
 way in.
 
 Dry run unless `--commit`. render.yaml's startCommand runs it with
@@ -10,7 +10,7 @@ no Shell to run it by hand): until the precondition holds it reports what it
 is waiting for and changes nothing; once it holds, the next deploy
 deactivates the shared user; after that it is a no-op.
 
-The precondition, judged on the database: a user homed in the demo Betrieb,
+The precondition, judged on the database: a user homed in the demo business,
 not the shared one, `active`, holding the manager flag, with a session whose
 `amr` carries `mfa` — a sign-in with a second factor, or the session in which
 one was enrolled and confirmed with its code (`_record_factor_on_session`):
@@ -31,7 +31,7 @@ job's retry leaves a user it did not deactivate alone. The status is judged
 again under the user-row lock (KAN-380), so a manager's deactivation racing
 this one wins. The last-manager rule (FR-A-13) still applies; a refusal
 (`last_manager_elsewhere`: the shared user is the last manager of a sister
-Betrieb) is reported and nothing is written.
+business) is reported and nothing is written.
 
     python scripts/retire_staging_shared_demo_user.py            # dry run
     python scripts/retire_staging_shared_demo_user.py --commit
@@ -108,7 +108,7 @@ def run(db: Session, *, commit: bool, session_factory=SessionLocal) -> int:
     manager = personal_manager_signed_in_with_mfa(db, dealership_id=dealership.id, shared_user_id=shared.id)
     if manager is None:
         print(
-            "Waiting: no personal dealer manager of the demo Betrieb has signed in with (or enrolled) a second "
+            "Waiting: no personal dealer manager of the demo business has signed in with (or enrolled) a second "
             "factor yet. "
             "The shared demo user stays as it is."
         )

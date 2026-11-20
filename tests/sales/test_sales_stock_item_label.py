@@ -134,4 +134,4 @@ def test_the_backfill_fills_rows_written_before_dry_run_first_and_reports_what_i
 
     again = backfill_script.backfill(db_session, commit=True)
     assert again.filled == [] and again.unresolved == [("offer", orphan_id, missing_item)]
-    assert "UNRESOLVED (no stock item of the row's own Betrieb): 1" in backfill_script.render(again, committed=True)
+    assert "UNRESOLVED (no stock item of the row's own business): 1" in backfill_script.render(again, committed=True)

@@ -1,5 +1,5 @@
 """Move every `dealership.logo_url` (the WP-6b external reference) into the
-object store as that Betrieb's `primary` branding asset (KAN-205; exit
+object store as that business's `primary` branding asset (KAN-205; exit
 criterion: "existing values become primary assets where fetchable, else
 reported").
 
@@ -13,7 +13,7 @@ It needs the environment's real object store: the local directory store is
 refused in production (KAN-402 brings the bucket), so on production it runs
 once that store exists; on staging and locally it runs as is.
 
-For each Betrieb with a `logo_url`, one line of the report:
+For each business with a `logo_url`, one line of the report:
 - `migrated` / `would migrate` — fetched, and accepted by the upload's own
   validation (`logo_validation.validate_logo`: SVG sanitised, PNG ≥ 600 px,
   JPEG refused). With `--commit` the file is stored through the upload's own
@@ -29,15 +29,15 @@ For each Betrieb with a `logo_url`, one line of the report:
   URIs only), so a `logo_url` alone prints nothing.
 - `unfetchable <why>` — not http(s), the request failed, the answer was not
   200, or the body exceeded the upload's size cap; `logo_url` stays.
-- `skipped: has a primary logo` — a Betrieb that already uploaded one; its
+- `skipped: has a primary logo` — a business that already uploaded one; its
   `logo_url` is left for a person to look at (the renderer prints the asset).
 
-Idempotent: a migrated Betrieb has no `logo_url` left, so a second run finds
+Idempotent: a migrated business has no `logo_url` left, so a second run finds
 nothing to do. Exits 1 when any `logo_url` remains after the run (or would,
 for a dry run), 0 otherwise. No outbox event: nothing consumes branding.
 
-The dry run fetches and validates but stores nothing — each Betrieb's row is
-independent of every other (one `primary` per Betrieb), so no conflict
+The dry run fetches and validates but stores nothing — each business's row is
+independent of every other (one `primary` per business), so no conflict
 between rows of one pass exists for a rolled-back real run to find.
 """
 
@@ -130,7 +130,7 @@ def main(argv: list[str] | None = None) -> int:
         for dealership, outcome in report:
             print(f"KAN-205 REPORT: {dealership.legal_name} ({dealership.id}): {outcome}")
         remaining = sum(1 for _d, outcome in report if outcome not in ("migrated",))
-        print(f"KAN-205: {len(report)} Betrieb(e) with a logo_url; {remaining} still hold one after this run")
+        print(f"KAN-205: {len(report)} business(es) with a logo_url; {remaining} still hold one after this run")
         return 1 if remaining else 0
     finally:
         db.close()

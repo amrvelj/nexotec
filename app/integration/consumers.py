@@ -9,8 +9,8 @@ register_handlers` lists them with the event type and `consumer_name`:
   (`services/connections.py::disable_offboarded_dealership_connections`),
   every mailbox of the Betrieb ended (`services/mail_sending.py::
   disconnect_offboarded_dealership_mailboxes`, KAN-215), and every live
-  Google Business Profile binding ended — revoked at Google as a best effort,
-  its secret dropped (`services/gbp_link.py::
+  Google Business Profile binding ended — its secret dropped, never revoked
+  at Google (KAN-774) (`services/gbp_link.py::
   disconnect_offboarded_dealership_bindings`, KAN-226).
 - `inventory.dealership_listings.withdrawn` ->
   `integration.marketplace_connections_disabled_on_withdrawn`

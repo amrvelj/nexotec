@@ -12,7 +12,7 @@ This script fills both columns of every trade-in item (`pipeline_ref`
 `contract:<id>:trade_in`) that lacks either, from that same read — the
 contract's customer, and its signature (else its creation), what the retired
 fallback answered — so the events those items publish from now on carry the
-seller. A contract this item's Betrieb does not have, or one that names no
+seller. A contract this item's business does not have, or one that names no
 customer, is reported, never guessed. Nothing is published and no version is
 bumped: the columns are Stock's copy of Sales' fact, read by no screen. Only
 inventory rows are written (CLAUDE.md rule 12: the Sales side is a read).
@@ -110,7 +110,7 @@ def _backfill(db: Session, *, commit: bool) -> Report:
         contract_id = uuid.UUID(origin["originContractId"])
         seller = get_trade_in_seller(db, tenant_id=item.tenant_id, contract_id=contract_id)
         if seller is None:
-            report.unresolved.append((item.id, contract_id, "no contract of this Betrieb naming a customer"))
+            report.unresolved.append((item.id, contract_id, "no contract of this business naming a customer"))
             continue
         item.trade_in_customer_id = seller.customer_id
         item.trade_in_signed_at = seller.known_since

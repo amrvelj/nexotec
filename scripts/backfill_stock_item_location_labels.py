@@ -8,7 +8,7 @@ script fills the rows written before — it is that same refresh
 (`app.inventory.public.refresh_stock_location_labels`, the production
 computation, reading names through `app.platform.public`) run once: every
 item with a location id takes its location's name, stamped now; a current
-name is only restamped. An id naming no location of the item's own Betrieb
+name is only restamped. An id naming no location of the item's own business
 is reported, never guessed (nightly reconciliation already reports one
 naming nothing). Nothing is published: a label is a copy. No `version` bump.
 
@@ -51,7 +51,7 @@ def render(report, *, committed: bool) -> str:
     lines = [f"KAN-739 stock item location labels ({mode})", "", f"filled or renamed: {len(report.changed)}"]
     lines += [f"  stock item {item_id}: {before!r} -> {after!r}" for item_id, before, after in report.changed]
     lines += ["", f"already current (restamped): {report.restamped}"]
-    lines += ["", f"UNRESOLVED (no location of the item's own Betrieb): {len(report.unresolved)}"]
+    lines += ["", f"UNRESOLVED (no location of the item's own business): {len(report.unresolved)}"]
     lines += [f"  stock item {item_id}: location {location_id}" for item_id, location_id in report.unresolved]
     return "\n".join(lines)
 

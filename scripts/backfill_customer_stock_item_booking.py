@@ -17,7 +17,7 @@ ordering guard is blind to it.
 This script runs the migration's seed again as an idempotent re-seed
 (`INSERT … SELECT … ON CONFLICT (event_id) DO NOTHING`,
 `app.customer.services.stock_item_booking.reseed_bookings_from_outbox`):
-every booking event of a Betrieb without its row gets one, a row already
+every booking event of a business without its row gets one, a row already
 there is left alone. Publishes no events: it copies facts Stock already
 published.
 

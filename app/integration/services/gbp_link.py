@@ -23,12 +23,19 @@ any Betrieb — may hold it (409 `google_location_already_bound`, which names
 nobody). One live binding per Nexotec location: a second start while one is
 active is 409 `location_already_bound`; a pending one is replaced.
 
-**Disconnect** revokes the grant at Google, drops the secret and keeps the row
-(`disconnected`). A grant Google already refuses counts as ended.
+**Disconnect** drops Nexotec's copy of the refresh token and keeps the row
+(`disconnected`). It never revokes at Google (KAN-774, Anto's option B;
+ADR-195 as amended): Google's revoke «removes all OAuth 2.0 scopes previously
+granted to a project», so it would end every binding the same Google user made,
+in every Betrieb. The same holds for a grant a refused link never keeps. The
+grant stays listed in the Google user's account until they remove it there.
 
 Every request goes through `call_capability` on Nexotec's client connection,
 so each is a call-log row; a refused grant (`ProviderAccountRefusedError`) is
-the binding's answer — it goes to `error`, never charged to the breaker.
+the binding's answer — it goes to `error`, never charged to the breaker. Google
+refusing Nexotec's client or project (`ProviderRejectedError`: `invalid_client`,
+a project-level 403) is Nexotec's setup: 409 `business_profile_not_configured`,
+charged, never «try again» (KAN-774).
 """
 
 import dataclasses
@@ -65,6 +72,7 @@ from app.integration.errors import (
     ProviderAccountRefusedError,
     ProviderConfigurationError,
     ProviderGatewayError,
+    ProviderRejectedError,
     ProviderRequestError,
 )
 from app.integration.models.connection import ConnectionScope, IntegrationConnection
@@ -171,13 +179,14 @@ def _unavailable() -> UnprocessableEntityError:
 
 
 @contextmanager
-def _google(db: Session, connection: IntegrationConnection, *, actor_id: uuid.UUID | None) -> Iterator[
-    GoogleBusinessProfileAdapter
-]:
+def _google(
+    db: Session, connection: IntegrationConnection, *, actor_id: uuid.UUID | None
+) -> Iterator[GoogleBusinessProfileAdapter]:
     """One `call_capability` block on Nexotec's client. A transport failure or
     an open breaker is 422 `provider_unavailable`; an incomplete client 409
     `business_profile_not_configured`. A refused grant passes through as
-    `ProviderAccountRefusedError` for the caller to judge."""
+    `ProviderAccountRefusedError` for the caller to judge; Google refusing
+    Nexotec's client or project is 409 `business_profile_not_configured`."""
 
     try:
         with call_capability(
@@ -189,6 +198,12 @@ def _google(db: Session, connection: IntegrationConnection, *, actor_id: uuid.UU
     except ProviderConfigurationError as exc:
         raise _refusal(
             "business_profile_not_configured", "Nexotec's Google Business Profile client is incomplete."
+        ) from exc
+    except ProviderRejectedError as exc:
+        # Permanent until staff fix Nexotec's client or project at Google: never
+        # «try again», and never the binding's fault (KAN-774).
+        raise _refusal(
+            "business_profile_not_configured", "Google refused Nexotec's Google Business Profile client or project."
         ) from exc
     except (ProviderGatewayError, CircuitOpenError) as exc:
         raise _unavailable() from exc
@@ -348,16 +363,16 @@ def complete_link(
             grant = adapter.redeem_code(code=code, code_verifier=code_verifier(state), redirect_uri=redirect_uri())
     except ProviderAccountRefusedError as exc:
         raise _refusal("provider_declined", "Google refused the sign-in.") from exc
+    # A grant refused below is never kept and never revoked (KAN-774): it is
+    # simply not stored.
     if grant.refresh_token is None or SCOPE not in grant.scopes:
-        _revoke_unused_grant(db, connection, grant, actor_id=user_id, link_id=row.id)
         raise _consent_incomplete()
     try:
         with _google(db, connection, actor_id=user_id) as adapter:
             choices = _choices(adapter, access_token=grant.access_token)
     except ProviderAccountRefusedError as exc:
-        _revoke_unused_grant(db, connection, grant, actor_id=user_id, link_id=row.id)
         raise _consent_incomplete() from exc
-    binding = _create_pending_binding(db, row, label=label, grant=grant, connection=connection)
+    binding = _create_pending_binding(db, row, label=label, grant=grant)
     return LinkOutcome(binding=binding, choices=choices)
 
 
@@ -365,22 +380,6 @@ def _consent_incomplete() -> ConflictError:
     return _refusal(
         "business_profile_consent_incomplete", "Google did not grant Nexotec access to the Business Profile."
     )
-
-
-def _revoke_unused_grant(
-    db: Session, connection: IntegrationConnection, grant: GbpGrant, *, actor_id: uuid.UUID, link_id: uuid.UUID
-) -> None:
-    """A refresh token Google issued for a link that is refused anyway is
-    ended at Google at once, never kept: best effort, one request. A failure is
-    logged by the link's id only and never changes the refusal that follows."""
-
-    if grant.refresh_token is None:
-        return
-    try:
-        with _google(db, connection, actor_id=actor_id) as adapter:
-            adapter.revoke_token(token=grant.refresh_token)
-    except (ProviderAccountRefusedError, ConflictError, UnprocessableEntityError):
-        logger.warning("business profile link %s: the unused grant could not be revoked at Google", link_id)
 
 
 def _choices(adapter: GoogleBusinessProfileAdapter, *, access_token: str) -> list[GoogleChoice]:
@@ -400,23 +399,15 @@ def _choice(account: GbpAccount, location: GbpLocation) -> GoogleChoice:
     )
 
 
-def _create_pending_binding(
-    db: Session, row: GbpLinkState, *, label: str, grant: GbpGrant, connection: IntegrationConnection
-) -> GbpLocationBinding:
+def _create_pending_binding(db: Session, row: GbpLinkState, *, label: str, grant: GbpGrant) -> GbpLocationBinding:
     assert grant.refresh_token is not None
     existing = _live_binding_of_location(db, row.location_id)
-    try:
-        _refuse_bound(existing)
-    except ConflictError:
-        # Bound meanwhile: the grant just redeemed is never kept (KAN-226 review).
-        _revoke_unused_grant(db, connection, grant, actor_id=row.user_id, link_id=row.id)
-        raise
+    # Bound meanwhile: the grant just redeemed is never kept (KAN-226 review),
+    # and never revoked (KAN-774).
+    _refuse_bound(existing)
     if existing is not None:
         # A pick never finished: the new sign-in replaces it.
-        _end(
-            db, existing, connection=connection, actor_id=row.user_id, action="business_profile_link_replaced",
-            best_effort=True,
-        )
+        _end(db, existing, actor_id=row.user_id, action="business_profile_link_replaced")
     now = utcnow()
     binding = GbpLocationBinding(
         tenant_id=row.tenant_id,
@@ -434,7 +425,6 @@ def _create_pending_binding(
             db.flush()
     except IntegrityError as exc:
         db.rollback()
-        _revoke_unused_grant(db, connection, grant, actor_id=row.user_id, link_id=row.id)
         raise _refusal(
             "location_already_bound",
             "This location is already connected to Google Business Profile; disconnect it first.",
@@ -565,14 +555,13 @@ def mark_grant_refused(db: Session, binding: GbpLocationBinding) -> None:
 
 
 def disconnect(db: Session, *, binding: GbpLocationBinding, actor_id: uuid.UUID) -> GbpLocationBinding:
-    """Ends the binding: the grant is revoked at Google first (unreachable:
-    422 `provider_unavailable`, nothing changed), then the secret is dropped and
-    the row kept, `disconnected`. Commits."""
+    """Ends the binding: Nexotec's copy of the token is dropped and the row
+    kept, `disconnected`. Nothing is sent to Google (KAN-774), so it cannot
+    fail on Google. Commits."""
 
     if binding.status == GbpBindingStatus.DISCONNECTED:
         raise _refusal("binding_already_disconnected", "This location is already disconnected.")
-    connection = client_connection(db)
-    _end(db, binding, connection=connection, actor_id=actor_id, action="business_profile_disconnected")
+    _end(db, binding, actor_id=actor_id, action="business_profile_disconnected")
     db.commit()
     db.refresh(binding)
     return binding
@@ -582,31 +571,15 @@ def _end(
     db: Session,
     binding: GbpLocationBinding,
     *,
-    connection: IntegrationConnection | None,
     actor_id: uuid.UUID | None,
     action: str,
-    best_effort: bool = False,
     reason: str | None = None,
     secret_must_go: bool = False,
 ) -> None:
-    """Revoke at Google, drop the secret, mark the row; the caller commits.
-    Without Nexotec's client (deleted by staff) nothing can be revoked: the
-    secret goes all the same. Google unreachable is 422 `provider_unavailable`
-    with nothing changed — unless `best_effort` (a pick that never finished,
-    replaced by a new sign-in), which logs it and goes on."""
+    """Drop Nexotec's copy of the token, mark the row; the caller commits.
+    Never revokes at Google (KAN-774, Anto's option B): a revoke would end
+    every binding the same Google user made."""
 
-    if connection is not None:
-        try:
-            with _google(db, connection, actor_id=actor_id) as adapter:
-                adapter.revoke(binding_id=binding.id)
-        except ProviderAccountRefusedError:
-            pass  # Google no longer honours the grant: it is ended.
-        except ConflictError:
-            pass  # the client is incomplete: nothing could be revoked
-        except UnprocessableEntityError:
-            if not best_effort:
-                raise
-            logger.warning("business profile binding %s: ended without revoking at Google", binding.id)
     if secret_must_go:
         # Raised, not logged: the consumer's harness retries, then dead-letters
         # with its alert (rule 10) — a disconnected row never keeps a live token.
@@ -622,16 +595,15 @@ def _end(
 
 def disconnect_offboarded_dealership_bindings(db: Session, *, tenant_id: uuid.UUID) -> int:
     """KAN-218 / KAN-226: on `platform.dealership.offboarded` every live
-    Business Profile binding of the Betrieb ends — revoked at Google as a best
-    effort (Google unreachable or the grant already refused: logged by id, the
-    binding ends all the same), its secret dropped, `disconnected`, audited as
-    a system write with the reason. Nothing is pushed to Google again.
+    Business Profile binding of the Betrieb ends — its secret dropped,
+    `disconnected`, audited as a system write with the reason; nothing is sent
+    to Google, no revoke (KAN-774). Nothing is pushed to Google again.
 
     Never commits: the caller is the offboarding consumer, whose harness
     commits this with its processed-event row. A redelivery finds nothing live
-    and changes nothing; a commit that failed after a revoke is retried safely
-    (Google answers a revoked token `invalid_token`, and a dropped secret is
-    already gone). Returns the bindings ended."""
+    and changes nothing; a commit that failed after the secret was dropped is
+    retried safely (a dropped secret is already gone). Returns the bindings
+    ended."""
 
     bindings = list(
         db.scalars(
@@ -646,11 +618,14 @@ def disconnect_offboarded_dealership_bindings(db: Session, *, tenant_id: uuid.UU
     )
     if not bindings:
         return 0
-    connection = client_connection(db)
     for binding in bindings:
         _end(
-            db, binding, connection=connection, actor_id=None, action="business_profile_disconnected",
-            best_effort=True, reason="dealership_offboarded", secret_must_go=True,
+            db,
+            binding,
+            actor_id=None,
+            action="business_profile_disconnected",
+            reason="dealership_offboarded",
+            secret_must_go=True,
         )
     return len(bindings)
 
@@ -694,4 +669,3 @@ def purge_spent_link_states(db: Session, *, now: dt.datetime | None = None) -> i
     )
     db.commit()
     return int(result.rowcount or 0)  # type: ignore[attr-defined]
-

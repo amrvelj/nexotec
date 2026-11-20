@@ -9,7 +9,7 @@ fills the rows written before: every offer and contract with a
 `stock_item_id` and no `stock_item_label` takes its item's stock number,
 read through `app.inventory.public.get_stock_numbers` (plain data, the
 row's own tenant), stamped now. An id naming no stock item of the row's own
-Betrieb is reported, never guessed — nightly reconciliation already reports
+business is reported, never guessed — nightly reconciliation already reports
 it as an orphan or a mismatch. Nothing is published: a label is a copy.
 
 MANDATORY DRY RUN. The default writes nothing: the real path runs in one
@@ -111,7 +111,7 @@ def render(report: Report, *, committed: bool) -> str:
     mode = "COMMITTED" if committed else "DRY RUN — nothing written"
     lines = [f"KAN-157 Sales stock-number labels ({mode})", "", f"filled: {len(report.filled)}"]
     lines += [f"  {kind} {row_id}: {number}" for kind, row_id, number in report.filled]
-    lines += ["", f"UNRESOLVED (no stock item of the row's own Betrieb): {len(report.unresolved)}"]
+    lines += ["", f"UNRESOLVED (no stock item of the row's own business): {len(report.unresolved)}"]
     lines += [f"  {kind} {row_id}: stock item {item_id}" for kind, row_id, item_id in report.unresolved]
     lines += ["", f"SKIPPED (held by another writer — run again): {sum(report.skipped.values())}"]
     lines += [f"  {kind}: {count}" for kind, count in sorted(report.skipped.items())]

@@ -154,7 +154,7 @@ def test_staff_already_in_the_platform_tenant_and_dealer_users_are_refused(clien
     lines = f"{colleague['id']},c@nexotec.ch\n{plain['id']},p@nexotec.ch\n{uuid.uuid4()},x@nexotec.ch\n"
     messages = [o.message for o in _run(db_session, mailbox, lines, actor, apply=True)]
     assert messages == [
-        "refused: is not homed in a dealer's Betrieb",
+        "refused: is not homed in a dealer's business",
         "refused: does not hold platform_admin",
         "refused: no such user",
     ]

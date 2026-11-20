@@ -11,7 +11,7 @@ through the consumer's own write (`vehicle_change.flag_deal`: merged fields,
 audit row reason `backfill:KAN-553`, deal row re-projected): the frozen
 `listPrice`/`effectivePrice` compared with the car's current ones, read
 through `app.inventory.public.get_stock_item_pricing` (plain data, the
-deal's own Betrieb). A deal already flagged or dismissed is left alone. A
+deal's own business). A deal already flagged or dismissed is left alone. A
 stock item that no longer resolves is reported, never guessed.
 
 MANDATORY DRY RUN. The default writes nothing: the real path runs in one
@@ -119,7 +119,7 @@ def render(report: Report, *, committed: bool) -> str:
     mode = "COMMITTED" if committed else "DRY RUN — nothing written"
     lines = [f"KAN-553 «Fahrzeug im Lager geändert» backfill ({mode})", "", f"flagged: {len(report.flagged)}"]
     lines += [f"  {kind} {row_id}: {', '.join(fields)}" for kind, row_id, fields in report.flagged]
-    lines += ["", f"UNRESOLVED (no stock item of the deal's own Betrieb): {len(report.unresolved)}"]
+    lines += ["", f"UNRESOLVED (no stock item of the deal's own business): {len(report.unresolved)}"]
     lines += [f"  {kind} {row_id}: stock item {item_id}" for kind, row_id, item_id in report.unresolved]
     lines += ["", f"SKIPPED (held by another writer — run again): {sum(report.skipped.values())}"]
     lines += [f"  {kind}: {count}" for kind, count in sorted(report.skipped.items())]

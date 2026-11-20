@@ -4,7 +4,7 @@ the rest of the platform — the UI word for the tenant is Betrieb · entreprise
 connection reason, log line or export description that says «Betrieb» shows
 an operator or API client two words for one thing.
 
-Two tests:
+Three tests:
 
 - the guard: no string literal in `app/` that a person reads at run time says
   «Betrieb». Out of scope, by the ticket: docstrings and comments (prose for
@@ -15,6 +15,9 @@ Two tests:
   a message and is checked), and the German texts, which are
   right to say it (`_GERMAN_TEXT_FILES`). The UI translates by
   `details.rule` / `details.reason`, which this change never touched;
+- the same guard over `scripts/` but `scripts/dev/` (KAN-772): a backfill's
+  report and its `--help` text are operator output; a script that prints its
+  module docstring through `__doc__` has the whole docstring checked;
 - the pin: each message KAN-771 changed still reads exactly so in its
   module (for an f-string, its literal parts).
 """
@@ -26,6 +29,11 @@ import pytest
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 _APP = _REPO_ROOT / "app"
+# KAN-772: the operator output of the one-off scripts in `scripts/` is read
+# in English too. `scripts/dev/` is the setup (KAN-255) and holds developer
+# tooling, not operator output; it is not scanned.
+_SCRIPTS = _REPO_ROOT / "scripts"
+_SETUP = _SCRIPTS / "dev"
 
 # Keyword arguments that hold API or schema documentation, not a message —
 # but only on the calls that document (a FastAPI parameter or route, a
@@ -69,10 +77,22 @@ def _call_name(call: ast.Call) -> str | None:
 _GERMAN_TEXT_FILES = frozenset({"app/platform/identity/services/mail_texts.py"})
 
 
+def _reads_its_docstring(tree: ast.Module) -> bool:
+    """A module that names `__doc__` prints some of it: a script's
+    `ArgumentParser(description=__doc__…)` is its `--help` text (KAN-772).
+    The whole docstring is then checked, a cautious superset of what a
+    `splitlines()[0]` or first-paragraph description prints. Only the bare
+    module `__doc__` is seen; a function's `f.__doc__` is not (none today)."""
+
+    return any(isinstance(node, ast.Name) and node.id == "__doc__" for node in ast.walk(tree))
+
+
 def _runtime_literals(path: Path) -> list[ast.Constant]:
     tree = ast.parse(path.read_text(encoding="utf-8"))
     documentation: set[int] = set()
     for node in ast.walk(tree):
+        if isinstance(node, ast.Module) and _reads_its_docstring(node):
+            continue  # its docstring is runtime text
         if isinstance(node, (ast.Module, ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
             first = node.body[0] if node.body else None
             if isinstance(first, ast.Expr) and isinstance(first.value, ast.Constant):
@@ -88,9 +108,9 @@ def _runtime_literals(path: Path) -> list[ast.Constant]:
     ]
 
 
-def test_no_english_runtime_message_in_app_says_betrieb():
+def _offenders(paths: list[Path]) -> list[str]:
     offenders = []
-    for path in sorted(_APP.rglob("*.py")):
+    for path in paths:
         relative = path.relative_to(_REPO_ROOT).as_posix()
         if relative in _GERMAN_TEXT_FILES:
             continue
@@ -99,9 +119,32 @@ def test_no_english_runtime_message_in_app_says_betrieb():
             for node in _runtime_literals(path)
             if "Betrieb" in node.value
         )
+    return offenders
+
+
+def _operator_scripts() -> list[Path]:
+    """Every Python file under `scripts/` but the setup's (`scripts/dev/`)."""
+
+    return sorted(path for path in _SCRIPTS.rglob("*.py") if _SETUP not in path.parents)
+
+
+def test_no_english_runtime_message_in_app_says_betrieb():
+    offenders = _offenders(sorted(_APP.rglob("*.py")))
     assert not offenders, (
         "English messages say «business» (KAN-760 option A, KAN-771); a German text belongs in "
         "_GERMAN_TEXT_FILES, API documentation in a documenting call's description=:\n" + "\n".join(offenders)
+    )
+
+
+def test_no_english_operator_output_in_scripts_says_betrieb():
+    """KAN-772: a backfill's or a seed's report is read by an operator, in
+    English; it says «business» like the platform's own messages."""
+
+    scripts = _operator_scripts()
+    assert scripts, "no operator script found under scripts/ — the scan root moved"
+    offenders = _offenders(scripts)
+    assert not offenders, "Operator output in scripts/ says «business» (KAN-760 option A, KAN-772):\n" + "\n".join(
+        offenders
     )
 
 
