@@ -457,8 +457,12 @@ def test_nexotecs_refused_client_is_its_setup_never_a_passing_outage(
     assert resilience._circuit_for(client_connection.id).failure_count >= 1  # charged to Nexotec's client
 
 
+@pytest.mark.parametrize(
+    ("shape", "reason"),
+    [("project_refusal", "SERVICE_DISABLED"), ("legacy_refusal", "accessNotConfigured")],
+)
 def test_a_project_level_403_charges_the_breaker_and_never_blames_the_binding(
-    client, db_session, google, client_connection, betrieb
+    client, db_session, google, client_connection, betrieb, shape, reason
 ):
     """KAN-774 part 3: Google answering 403 for Nexotec's project (the API not
     enabled or not approved: `google.rpc.ErrorInfo` reason SERVICE_DISABLED)
@@ -470,7 +474,7 @@ def test_a_project_level_403_charges_the_breaker_and_never_blames_the_binding(
     dealership, manager, location = betrieb
     binding = _pick(client, dealership, manager, _link(client, fake, dealership, manager, location)["binding"]).json()
     binding_id = uuid.UUID(binding["id"])
-    fake.project_refusal = "SERVICE_DISABLED"
+    setattr(fake, shape, reason)
 
     for _ in range(resilience._FAILURE_THRESHOLD):
         with (
@@ -487,7 +491,7 @@ def test_a_project_level_403_charges_the_breaker_and_never_blames_the_binding(
         .order_by(IntegrationCallLog.created_at)
     ).all()
     refused_rows = [(r.http_status, r.provider_error) for r in refused if r.http_status != 200]
-    assert refused_rows == [(403, "SERVICE_DISABLED")] * resilience._FAILURE_THRESHOLD
+    assert refused_rows == [(403, reason)] * resilience._FAILURE_THRESHOLD
     row = db_session.get(GbpLocationBinding, binding_id)
     db_session.refresh(row)
     assert (row.status, row.error_code) == (GbpBindingStatus.ACTIVE, None)
@@ -502,6 +506,42 @@ def test_a_project_level_403_charges_the_breaker_and_never_blames_the_binding(
     assert response.json()["error"]["details"]["reason"] == "business_profile_not_configured"
     db_session.refresh(row)
     assert (row.status, row.error_code) == (GbpBindingStatus.ACTIVE, None)
+
+
+@pytest.mark.parametrize(
+    ("shape", "reason", "status"),
+    [
+        ("project_refusal", "RATE_LIMIT_EXCEEDED", 429),
+        ("project_refusal", "RESOURCE_QUOTA_EXCEEDED", 403),
+        ("legacy_refusal", "dailyLimitExceeded", 403),
+    ],
+)
+def test_a_used_up_quota_is_an_outage_never_setup_and_never_the_bindings_fault(
+    client, db_session, google, client_connection, betrieb, shape, reason, status
+):
+    """KAN-774 review: a quota clears by itself — 422 `provider_unavailable`
+    («try again»), charged to the breaker; the binding stays as it was."""
+
+    fake, _ = google
+    dealership, manager, location = betrieb
+    binding = _link(client, fake, dealership, manager, location)["binding"]
+    setattr(fake, shape, reason)
+    fake.refusal_status = status
+
+    response = client.get(f"{_base(dealership.id)}/bindings/{binding['id']}/google-locations", headers=_as(manager))
+
+    assert response.status_code == 422
+    assert response.json()["error"]["details"]["reason"] == "provider_unavailable"
+    row = db_session.get(GbpLocationBinding, uuid.UUID(binding["id"]))
+    db_session.refresh(row)
+    assert (row.status, row.error_code) == (GbpBindingStatus.PENDING, None)
+    assert resilience._circuit_for(client_connection.id).failure_count >= 1
+    logged = db_session.scalar(
+        select(IntegrationCallLog).where(
+            IntegrationCallLog.capability == "accounts_list", IntegrationCallLog.http_status == status
+        )
+    )
+    assert logged is not None and logged.provider_error == reason
 
 
 def test_a_403_for_the_grant_itself_still_sends_the_binding_to_error(

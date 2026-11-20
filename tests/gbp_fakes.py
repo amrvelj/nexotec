@@ -90,11 +90,13 @@ class FakeGoogle:
         self.revoked: list[str] = []
         self.requests: list[httpx.Request] = []
         self.rotate_refresh_token: str | None = None
-        self.fail_revoke_with: int | None = None
         self.refuse_listing = False
         # KAN-774: every API call answers 403 with this `google.rpc.ErrorInfo`
         # reason (the project's refusal, e.g. SERVICE_DISABLED), not the grant's.
         self.project_refusal: str | None = None
+        self.refusal_status = 403
+        # The same in Google's older shape (`error.errors[].reason`).
+        self.legacy_refusal: str | None = None
         self.grant_refusal_reason: str | None = None
 
     # -- the test's side ---------------------------------------------------------
@@ -125,15 +127,16 @@ class FakeGoogle:
         if url == gbp.TOKEN_URL:
             return self._token(request)
         if url == REVOKE_URL:
-            if self.fail_revoke_with is not None:
-                return _json(self.fail_revoke_with, {"error": "backend_error"})
             token = dict(urllib.parse.parse_qsl(request.content.decode()))["token"]
             self.revoked.append(token)
             return httpx.Response(200)
         if request.headers.get("authorization", "").removeprefix("Bearer ") not in self.access_tokens:
             return _json(401, {"error": {"code": 401, "status": "UNAUTHENTICATED"}})
         if self.project_refusal is not None:
-            return _json(403, _error_info(self.project_refusal, consumer="projects/900000000001"))
+            body = _error_info(self.project_refusal, consumer="projects/900000000001")
+            return _json(self.refusal_status, body)
+        if self.legacy_refusal is not None:
+            return _json(self.refusal_status, _legacy_error(self.legacy_refusal))
         if self.grant_refusal_reason is not None:
             return _json(403, _error_info(self.grant_refusal_reason))
         params = dict(request.url.params)
@@ -215,6 +218,19 @@ def _error_info(reason: str, *, consumer: str | None = None) -> dict[str, Any]:
                     "metadata": metadata,
                 }
             ],
+        }
+    }
+
+
+def _legacy_error(reason: str) -> dict[str, Any]:
+    """Google's older error shape (`error.errors[]`), invented values."""
+
+    return {
+        "error": {
+            "code": 403,
+            "message": "invented message that names nothing",
+            "errors": [{"message": "invented", "domain": "usageLimits", "reason": reason}],
+            "status": "PERMISSION_DENIED",
         }
     }
 

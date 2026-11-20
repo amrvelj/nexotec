@@ -23,10 +23,12 @@ Nexotec's copy of its token (`services/gbp_link.py`).
 Error mapping (the gateway charges the breaker on every failure but the
 provider's coherent answers: `ProviderRequestError`, `ProviderAccountRefusedError`):
 - `invalid_client` (Nexotec's client refused) → `ProviderRejectedError`;
-- a 401 / 403 whose `google.rpc.ErrorInfo` reason concerns Nexotec's project
-  (`PROJECT_REFUSALS`: the API not enabled, not approved, quota, billing —
-  `google/api/error_reason.proto`) → `ProviderRejectedError`, charged: the
-  project's refusal, never one binding's (KAN-774);
+- a 401 / 403 whose reason concerns Nexotec's project (`PROJECT_REFUSALS`: the
+  API not enabled or not approved, billing, a suspended project) →
+  `ProviderRejectedError`, charged: the project's refusal, never one
+  binding's (KAN-774);
+- a 401 / 403 / 429 whose reason is a quota (`QUOTA_REASONS`) →
+  `ProviderTransportError`, charged: it passes by itself, so «try again»;
 - the token endpoint's `invalid_grant` / `unauthorized_client`, any other 401 /
   403 → `ProviderAccountRefusedError`: one binding's answer (access withdrawn
   at Google, the location gone) — the binding goes to error and the manager
@@ -73,10 +75,12 @@ UPLOAD_API = "https://mybusiness.googleapis.com/upload/v1/media"
 
 _TIMEOUT = httpx.Timeout(30.0, connect=10.0)
 
-# KAN-774: the `google.rpc.ErrorInfo` reasons (domain googleapis.com) that
-# name the consumer project, not the caller's token — from Google's published
-# `google/api/error_reason.proto`, read 2026-11-20. Not yet seen in a real
-# Business Profile answer (no API access yet).
+# KAN-774: the error reasons that name the consumer project, not the caller's
+# token. Upper case: a `google.rpc.ErrorInfo` reason (domain googleapis.com),
+# from Google's published `google/api/error_reason.proto`, read 2026-11-20.
+# Camel case: the older `error.errors[].reason` shape some Google APIs (the v4
+# media API among them, possibly) still answer in. None of them has been seen
+# in a real Business Profile answer yet (no API access).
 PROJECT_REFUSALS: frozenset[str] = frozenset(
     {
         "SERVICE_DISABLED",
@@ -86,12 +90,22 @@ PROJECT_REFUSALS: frozenset[str] = frozenset(
         "CONSUMER_INVALID",
         "CONSUMER_SUSPENDED",
         "GCP_SUSPENDED",
-        "RATE_LIMIT_EXCEEDED",
-        "RESOURCE_QUOTA_EXCEEDED",
         "SECURITY_POLICY_VIOLATED",
         "RESOURCE_USAGE_RESTRICTION_VIOLATED",
         "ENDPOINT_USAGE_RESTRICTION_VIOLATED",
         "ORG_RESTRICTION_VIOLATION",
+        "accessNotConfigured",
+    }
+)
+# A quota is used up: it passes by itself — an outage, never broken setup.
+QUOTA_REASONS: frozenset[str] = frozenset(
+    {
+        "RATE_LIMIT_EXCEEDED",
+        "RESOURCE_QUOTA_EXCEEDED",
+        "rateLimitExceeded",
+        "userRateLimitExceeded",
+        "dailyLimitExceeded",
+        "quotaExceeded",
     }
 )
 _ERROR_INFO_TYPE = "type.googleapis.com/google.rpc.ErrorInfo"
@@ -251,7 +265,6 @@ class GoogleBusinessProfileAdapter:
         data: dict[str, str] | None = None,
         json_body: dict[str, Any] | None = None,
         content: bytes | None = None,
-        expect: Callable[[httpx.Response], bool] | None = None,
     ) -> httpx.Response:
         """One metered request — one call-log row per attempt."""
 
@@ -278,8 +291,6 @@ class GoogleBusinessProfileAdapter:
                 return response
 
             response = request.attempt(_send)
-            if expect is not None and expect(response):
-                return response
             self._raise_for_status(response)
             return response
 
@@ -290,7 +301,9 @@ class GoogleBusinessProfileAdapter:
         code = self._error_code(response)
         if code == "invalid_client":
             raise ProviderRejectedError("Google refused Nexotec's OAuth client.")
-        reason = self._error_info_reason(response)
+        reason = self._google_reason(response)
+        if status in (401, 403, 429) and reason in QUOTA_REASONS:
+            raise ProviderTransportError(f"Google Business Profile's quota is used up for now ({reason}).")
         if status in (401, 403) and reason in PROJECT_REFUSALS:
             raise ProviderRejectedError(f"Google refused Nexotec's project for Business Profile ({reason}).")
         if status in (401, 403) or (status == 400 and code in ("invalid_grant", "unauthorized_client")):
@@ -306,7 +319,7 @@ class GoogleBusinessProfileAdapter:
     @classmethod
     def _error_code(cls, response: httpx.Response) -> str | None:
         """An identifier only: the OAuth `error` code, or a Google API error's
-        `google.rpc.ErrorInfo` reason (`SERVICE_DISABLED`, …) when it carries
+        reason (`SERVICE_DISABLED`, `accessNotConfigured`, …) when it carries
         one, else its `status` (`PERMISSION_DENIED`, …) — a word of letters,
         digits and underscores, never the message."""
 
@@ -318,20 +331,23 @@ class GoogleBusinessProfileAdapter:
             return None
         code = body.get("error")
         if isinstance(code, dict):
-            code = cls._error_info_reason(response) or code.get("status")
+            code = cls._google_reason(response) or code.get("status")
         return cls._identifier(code)
 
     @classmethod
-    def _error_info_reason(cls, response: httpx.Response) -> str | None:
-        """The `reason` of a Google API error's `google.rpc.ErrorInfo` detail
-        (domain googleapis.com), if it carries one (AIP-193)."""
+    def _google_reason(cls, response: httpx.Response) -> str | None:
+        """A Google API error's reason: its `google.rpc.ErrorInfo` detail
+        (domain googleapis.com, AIP-193), else the first `error.errors[]`
+        reason of the older shape. An identifier only."""
 
         try:
             body = response.json()
         except ValueError:
             return None
         error = body.get("error") if isinstance(body, dict) else None
-        details = error.get("details") if isinstance(error, dict) else None
+        if not isinstance(error, dict):
+            return None
+        details = error.get("details")
         for detail in details if isinstance(details, list) else []:
             if (
                 isinstance(detail, dict)
@@ -339,6 +355,9 @@ class GoogleBusinessProfileAdapter:
                 and detail.get("domain") == "googleapis.com"
             ):
                 return cls._identifier(detail.get("reason"))
+        legacy = error.get("errors")
+        if isinstance(legacy, list) and legacy and isinstance(legacy[0], dict):
+            return cls._identifier(legacy[0].get("reason"))
         return None
 
     @staticmethod
