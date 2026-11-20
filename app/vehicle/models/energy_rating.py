@@ -22,6 +22,7 @@ from sqlalchemy import ForeignKey, Integer, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.base import PrimaryKeyMixin, TimestampMixin
+from app.core.text_collation import IDENTIFIER_TEXT
 from app.core.types import GUID
 from app.db import Base
 from app.vehicle.models.catalogue import ModelVariant
@@ -78,6 +79,6 @@ class ModelVariantEnergyLabel(PrimaryKeyMixin, TimestampMixin, Base):
         GUID(), ForeignKey("vehicle_model_variant.id"), nullable=False, index=True
     )
     label_year: Mapped[int] = mapped_column(Integer, nullable=False)
-    gearbox: Mapped[str] = mapped_column(String(64), nullable=False, default="")
+    gearbox: Mapped[str] = mapped_column(String(64), nullable=False, default="", info=IDENTIFIER_TEXT)
     energy_efficiency_category: Mapped[str] = mapped_column(String(4), nullable=False)
     label_url: Mapped[str | None] = mapped_column(String(500), nullable=True)

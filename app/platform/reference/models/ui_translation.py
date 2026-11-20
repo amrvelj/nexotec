@@ -37,6 +37,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 from app.core.base import PrimaryKeyMixin, TimestampMixin, VersionedMixin, utcnow
 from app.core.enum_type import StoredEnum
 from app.core.i18n import SwissLanguage
+from app.core.text_collation import IDENTIFIER_TEXT
 from app.core.types import UTCDateTime
 from app.db import Base
 
@@ -56,8 +57,8 @@ class UiTranslation(PrimaryKeyMixin, VersionedMixin, TimestampMixin, Base):
         Index("ix_ui_translation_language_source", "language", "source"),
     )
 
-    namespace: Mapped[str] = mapped_column(String(64), nullable=False)
-    key: Mapped[str] = mapped_column(String(200), nullable=False)
+    namespace: Mapped[str] = mapped_column(String(64), nullable=False, info=IDENTIFIER_TEXT)
+    key: Mapped[str] = mapped_column(String(200), nullable=False, info=IDENTIFIER_TEXT)
     language: Mapped[SwissLanguage] = mapped_column(StoredEnum(SwissLanguage, length=2), nullable=False)
     value: Mapped[str] = mapped_column(Text, nullable=False)
     seed_value: Mapped[str] = mapped_column(
@@ -82,7 +83,7 @@ class MissingTranslation(PrimaryKeyMixin, Base):
     __tablename__ = "missing_translation"
     __table_args__ = (UniqueConstraint("key", "language", name="uq_missing_translation_key_language"),)
 
-    key: Mapped[str] = mapped_column(String(255), nullable=False, comment="The full dotted key the SPA asked for.")
+    key: Mapped[str] = mapped_column(String(255), nullable=False, comment="The full dotted key the SPA asked for.", info=IDENTIFIER_TEXT)
     language: Mapped[SwissLanguage] = mapped_column(StoredEnum(SwissLanguage, length=2), nullable=False)
     report_count: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     first_reported_at: Mapped[dt.datetime] = mapped_column(UTCDateTime(), default=utcnow, nullable=False)

@@ -18,6 +18,7 @@ from sqlalchemy import Boolean, ForeignKey, Index, Integer, String, UniqueConstr
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.base import PrimaryKeyMixin, TenantScopedMixin, TimestampMixin, utcnow
+from app.core.text_collation import IDENTIFIER_TEXT
 from app.core.types import GUID, UTCDateTime
 from app.db import Base
 
@@ -62,7 +63,7 @@ class ProviderCodeMap(PrimaryKeyMixin, TimestampMixin, Base):
     provider: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
     vehicle_kind: Mapped[str] = mapped_column(String(64), nullable=False)
     code_group: Mapped[str] = mapped_column(String(32), nullable=False)
-    provider_code: Mapped[str] = mapped_column(String(32), nullable=False)
+    provider_code: Mapped[str] = mapped_column(String(32), nullable=False, info=IDENTIFIER_TEXT)
     # The canonical list + value this resolves to — both named explicitly
     # rather than just a value_code string, since the same code string can
     # legitimately exist in more than one reference_list.

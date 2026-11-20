@@ -1,6 +1,8 @@
-"""KAN-770: every pattern of `app/core/validators.py` judges the whole value. Python's `$`
-also matches just before a final newline, so `re.match(r"^…$")` let «9112300123\\n» pass as
-a chassis number in the one spelling and a VIN with a trailing newline pass as valid."""
+"""KAN-770: the VIN and chassis-number patterns judge the whole value. Python's `$` also
+matches just before a final newline, so `re.match(r"^…$")` let «9112300123\\n» pass as a
+chassis number in the one spelling and a VIN with a trailing newline pass as valid. The other
+patterns of `app/core/validators.py` (and of `app/`) keep the idiom until KAN-775: a stored
+value they accepted must still read (`DealershipAddress` validates on read)."""
 
 import re
 from pathlib import Path
@@ -10,11 +12,8 @@ from pydantic import TypeAdapter, ValidationError
 
 from app.core import validators
 from app.core.validators import (
-    E164Phone,
-    HouseNumber,
     NormalisedVin,
     NormalisedVinOrChassisNumber,
-    SwissPostalCode,
     Vin,
     is_chassis_number_spelling,
     is_valid_vin,
@@ -30,13 +29,11 @@ def test_a_stored_value_with_a_trailing_newline_is_not_the_one_spelling():
     assert not is_chassis_number_spelling(f"{VIN}\n")
 
 
-@pytest.mark.parametrize(
-    ("annotation", "value"),
-    [(Vin, f"{VIN}\n"), (E164Phone, "+41791234567\n"), (SwissPostalCode, "8001\n"), (HouseNumber, "12a\n")],
-)
-def test_a_validator_refuses_a_value_with_a_trailing_newline(annotation, value):
+def test_the_vin_type_refuses_a_value_with_a_trailing_newline():
+    """`Vin` guards vehicle-mdm's own, never-normalised fields: a trailing newline is refused there."""
+
     with pytest.raises(ValidationError):
-        TypeAdapter(annotation).validate_python(value)
+        TypeAdapter(Vin).validate_python(f"{VIN}\n")
 
 
 def test_a_typed_vin_is_still_normalised_first():
@@ -46,8 +43,8 @@ def test_a_typed_vin_is_still_normalised_first():
     assert TypeAdapter(NormalisedVinOrChassisNumber).validate_python("911 230 0123\n") == "9112300123"
 
 
-def test_no_pattern_in_the_validators_is_applied_with_match():
-    """The idiom itself: `.match` with `$` is the defect; `.fullmatch` is the rule here."""
+def test_the_vin_and_chassis_patterns_are_applied_with_fullmatch():
+    """The idiom itself: `.match` with `$` is the defect; `.fullmatch` is the rule for these two."""
 
     source = Path(validators.__file__).read_text()
-    assert not re.findall(r"_RE\.match\(", source)
+    assert not re.findall(r"_(VIN|CHASSIS_NUMBER)_RE\.match\(", source)
