@@ -62,22 +62,23 @@ the invariants. Last verified against main@3b2bf69 (2026-11-18). -->
   winner's record (KAN-257), plain data back. No `app/` module outside `app/vehicle` names
   `create_or_get_vehicle_mdm` or copies the race predicate (`test_vin_resolution_is_vehicles.py`).
 - **A typed VIN is one spelling in every write** (FR-V-15): upper-cased, whitespace removed —
-  `app.core.validators.NormalisedVin` (stock create, trade-in; then ISO 3779) or
+  `app.core.validators.NormalisedVin` (stock create; then ISO 3779) or
   `NormalisedVinOrChassisNumber` (valuation, configuration, purchase booking, «VIN korrigieren»;
-  KAN-535); the SPA mirrors it (`utils/vin.ts`).
+  KAN-535; trade-in, KAN-746); the SPA mirrors it (`utils/vin.ts`).
   vehicle-mdm's own fields take `Vin`, which refuses an unnormalised value rather than fixing it.
   The shared lookup and the list search normalise their query the same way; the lookup answers 404
   for a value that is no VIN — a read, never 422. A refused VIN is named on screen
   (`common.invalidVin`).
 - **A pre-1981 chassis number** (Anto): 1–17 letters and digits, accepted on a valuation, a
-  configuration, the purchase booking or «VIN korrigieren» only with a first registration before 1981-01-01 — on a configuration PATCH the
+  configuration, the purchase booking, «VIN korrigieren» or a trade-in (with its configuration,
+  KAN-746) only with a first registration before 1981-01-01 — on a configuration PATCH the
   stored VIN and date count for whichever the PATCH leaves out (else 422
   `chassis_number_requires_pre_1981_registration`); stored and printed normalised like a VIN — one
   spelling per car — and **never** finds or links a vehicle-mdm record, created only by the booking
   (`is_chassis_number`). `scripts/repair_configuration_vins.py` (dry run unless `--commit`) cleans
-  VINs stored before the rule, once per environment (a pre-1981 car stored in another spelling is
-  left as stored until KAN-748 builds Anto's answer A, 2026-11-18: normalise what normalises, list the
-  rest in the dry run). A valuation's stored VIN is never edited.
+  VINs stored before the rule, once per environment; a pre-1981 car's number stored in another
+  spelling is normalised when that gives the one spelling, else kept and listed for a hand correction
+  (Anto, KAN-748 option A). A valuation's stored VIN is never edited.
 - **A licence plate is never an identifier** — Wechselschild, reassignment, cantonal changes.
   `vehicle_plate` is a child table with validity dates and a `plate_group_id`; an ambiguous lookup
   shows a picker and never guesses.

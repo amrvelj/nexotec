@@ -13429,6 +13429,9 @@ export interface components {
          *     KAN-331: the VIN is normalised and validated as Stock's is (FR-V-15),
          *     so a lower-cased or spaced spelling resolves to the car vehicle-mdm
          *     already holds, and a malformed one is a 422 that writes nothing.
+         *     KAN-746: a pre-1981 car's chassis number is taken as the purchase booking
+         *     takes it (`NormalisedVinOrChassisNumber`); the service then needs the
+         *     deal's trade-in configuration to carry it.
          */
         TradeInRequest: {
             /** Canton */
@@ -13443,7 +13446,10 @@ export interface components {
             plate?: string | null;
             /** Vehiclelabel */
             vehicleLabel: string;
-            /** Vin */
+            /**
+             * Vin
+             * @description The trade-in car's VIN, or a pre-1981 car's chassis number (1-17 letters and digits). A chassis number needs the deal's trade-in configuration to carry it, with a first registration before 1981: 422 `trade_in_chassis_number_requires_configuration` otherwise.
+             */
             vin?: string | null;
         };
         /**

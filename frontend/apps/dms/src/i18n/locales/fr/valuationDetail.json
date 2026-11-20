@@ -23,7 +23,8 @@
     "createOfferExpired": "Impossible : l’évaluation a expiré. Veuillez d’abord réévaluer.",
     "createOfferUsed": "Impossible : l’évaluation est déjà marquée comme utilisée.",
     "createOfferNoSales": "Impossible : cette entreprise ne dispose pas du module Vente.",
-    "createOfferNoVin": "Impossible : l’évaluation ne nomme aucun véhicule avec un VIN qui puisse être repris."
+    "createOfferNoVin": "Impossible : l’évaluation ne nomme aucun véhicule avec un VIN qui puisse être repris.",
+    "createOfferChassisNeedsConfiguration": "Impossible : l’évaluation indique un numéro de châssis mais aucune configuration. Une reprise avec numéro de châssis nécessite la configuration avec la marque et la première mise en circulation."
   },
   "expiredBanner": {
     "title": "Évaluation expirée",

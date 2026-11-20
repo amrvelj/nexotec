@@ -63,6 +63,7 @@
     "fromExistingValuation": "Aus bestehender Bewertung übernommen",
     "vinLabel": "VIN",
     "vinPlaceholder": "z. B. WVWZZZ1KZAW123456",
+    "vinOrChassisNeedsConfiguration": "Keine gültige VIN. Ist es ein Fahrzeug mit Fahrgestellnummer statt VIN (Erstzulassung vor 1981), erfassen Sie es über «Identifizieren und bewerten».",
     "labelLabel": "Fahrzeugbezeichnung",
     "add": "Eintauschfahrzeug hinzufügen",
     "valueWithConfigurator": "Identifizieren und bewerten",

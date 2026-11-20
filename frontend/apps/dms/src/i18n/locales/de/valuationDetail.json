@@ -23,7 +23,8 @@
     "createOfferExpired": "Nicht möglich: Die Bewertung ist abgelaufen. Bitte zuerst neu bewerten.",
     "createOfferUsed": "Nicht möglich: Die Bewertung ist bereits als verwendet markiert.",
     "createOfferNoSales": "Nicht möglich: Dieser Betrieb hat das Modul Verkauf nicht.",
-    "createOfferNoVin": "Nicht möglich: Die Bewertung nennt kein Fahrzeug mit VIN, das als Eintausch übernommen werden kann."
+    "createOfferNoVin": "Nicht möglich: Die Bewertung nennt kein Fahrzeug mit VIN, das als Eintausch übernommen werden kann.",
+    "createOfferChassisNeedsConfiguration": "Nicht möglich: Die Bewertung nennt eine Fahrgestellnummer, aber keine Konfiguration. Ein Eintausch mit Fahrgestellnummer braucht die Konfiguration mit Marke und Erstzulassung."
   },
   "expiredBanner": {
     "title": "Bewertung abgelaufen",

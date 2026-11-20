@@ -109,7 +109,7 @@ def test_a_trade_in_spelling_of_a_known_vin_is_the_known_car(client, db_session,
     assert _vehicle_count(db_session) == 1
 
 
-@pytest.mark.parametrize("malformed", MALFORMED)
+@pytest.mark.parametrize("malformed", MALFORMED_SHAPE)
 def test_a_malformed_trade_in_vin_is_422_and_writes_nothing(client, db_session, malformed):
     tenant_id = uuid.uuid4()
     offer = _offer(db_session, tenant_id)
@@ -117,6 +117,28 @@ def test_a_malformed_trade_in_vin_is_422_and_writes_nothing(client, db_session, 
     response = _post_trade_in(client, offer, tenant_id, malformed)
 
     _only_vin_refused(response)
+    assert _vehicle_count(db_session) == 0
+    db_session.expire_all()
+    stored = db_session.get(SalesOffer, offer.id)
+    assert stored.trade_in_vehicle_id is None and stored.trade_in_vin is None
+    assert stored.version == offer.version
+
+
+@pytest.mark.parametrize("not_a_vin", NOT_A_VIN)
+def test_a_trade_in_vin_that_is_no_vin_is_a_chassis_number_refused_without_its_configuration(
+    client, db_session, not_a_vin
+):
+    """KAN-746: since a trade-in takes a pre-1981 chassis number, a value of
+    its shape that is no VIN is judged as one — refused (422, nothing written)
+    unless the deal's trade-in configuration carries it."""
+
+    tenant_id = uuid.uuid4()
+    offer = _offer(db_session, tenant_id)
+
+    response = _post_trade_in(client, offer, tenant_id, not_a_vin)
+
+    assert response.status_code == 422, response.text
+    assert response.json()["error"]["details"]["reason"] == "trade_in_chassis_number_requires_configuration"
     assert _vehicle_count(db_session) == 0
     db_session.expire_all()
     stored = db_session.get(SalesOffer, offer.id)
@@ -266,9 +288,9 @@ def test_a_configuration_vin_can_still_be_cleared(client, db_session):
 
 
 def test_every_typed_vin_field_uses_the_one_shared_type():
-    """Stock and the trade-in take a VIN only. The valuation and the
-    configuration take a VIN or, before 1981, a chassis number (KAN-353) —
-    one shared type each, never a local copy."""
+    """Stock's create takes a VIN only. The valuation, the configuration
+    (KAN-353) and the trade-in (KAN-746) take a VIN or, before 1981, a
+    chassis number — one shared type each, never a local copy."""
 
     from app.core.validators import NormalisedVin, NormalisedVinOrChassisNumber
     from app.inventory.schemas.stock_item import StockItemCreate
@@ -276,9 +298,8 @@ def test_every_typed_vin_field_uses_the_one_shared_type():
     from app.valuation.schemas.valuation import ValuationCreate
     from app.vehicle.schemas.configuration import ConfigurationCreate, ConfigurationUpdate
 
-    for model in (StockItemCreate, TradeInRequest):
-        assert model.model_fields["vin"].annotation == NormalisedVin | None, model.__name__
-    for model in (ValuationCreate, ConfigurationCreate, ConfigurationUpdate):
+    assert StockItemCreate.model_fields["vin"].annotation == NormalisedVin | None
+    for model in (ValuationCreate, ConfigurationCreate, ConfigurationUpdate, TradeInRequest):
         assert model.model_fields["vin"].annotation == NormalisedVinOrChassisNumber | None, model.__name__
 
 

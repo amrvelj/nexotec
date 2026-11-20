@@ -117,7 +117,7 @@ Last verified against main@3b2bf69 (2026-11-18). -->
 - `sales.contract.confirmed`'s `tradeIn` carries the contract's `vin` (additive, left out when it holds
   none). Stock's consumer keeps it once, on the item it creates, as `stock_item.trade_in_vin` (inventory
   migration `2001f0c37ef5`) — never as `vin`, which stays empty until the booking (ADR-045), is unique among
-  live items and binds the booking — normalised, and only a valid VIN (a pre-1981 chassis number, a
+  live items and binds the booking — normalised, and only a VIN or chassis number (KAN-746; a
   confirmation without the key and an item created before keep none and are bought as before).
 - The item's read exposes it (`tradeInVin`; not in the group projection). `RecordPurchaseDialog` prefills it
   when the configuration carries no VIN; the booking still needs `vin` sent, and another is 422

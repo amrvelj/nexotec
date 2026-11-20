@@ -270,6 +270,8 @@ const REASON_KEYS: Record<string, string> = {
       'standard_text_template_id_required',
       'standard_text_template_whatsapp_only',
       'too_many_images',
+      // KAN-746 — a chassis-number trade-in comes with its configuration.
+      'trade_in_chassis_number_requires_configuration',
       // KAN-574 — a valuation names its car; a trade-in is a car.
       'trade_in_valuation_names_no_car',
       'ui_translation_blank',

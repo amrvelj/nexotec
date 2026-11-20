@@ -23,7 +23,8 @@
     "createOfferExpired": "Not possible: the valuation has expired. Revalue it first.",
     "createOfferUsed": "Not possible: the valuation is already marked as used.",
     "createOfferNoSales": "Not possible: this business does not have the Sales module.",
-    "createOfferNoVin": "Not possible: the valuation names no car with a VIN that can be taken in trade."
+    "createOfferNoVin": "Not possible: the valuation names no car with a VIN that can be taken in trade.",
+    "createOfferChassisNeedsConfiguration": "Not possible: the valuation names a chassis number but has no configuration. A trade-in with a chassis number needs the configuration with its make and first registration."
   },
   "expiredBanner": {
     "title": "Valuation expired",
