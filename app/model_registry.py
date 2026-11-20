@@ -34,6 +34,7 @@ from app.inventory.models.website_listing import StockItemWebsiteListing
 from app.platform.administration.models.export_job import ExportJob
 from app.platform.administration.models.setup_checklist import SetupChecklistRegression
 from app.platform.administration.models.status_page import PlatformStatusIncident, StatusItemState
+from app.platform.documents.models.document_link import DocumentLink
 from app.platform.documents.models.document_template import DocumentTemplate
 from app.platform.documents.models.standard_text import StandardText
 from app.platform.identity.models.auth_event import AuthEvent
@@ -137,6 +138,7 @@ __all__ = [
     "DealershipContactGroup",
     "DealershipMembership",
     "DealershipSettings",
+    "DocumentLink",
     "DocumentTemplate",
     "ExportJob",
     "Holiday",

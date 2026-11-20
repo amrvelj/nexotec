@@ -29,6 +29,7 @@ from app.platform.administration.api.publishing_profile import router as publish
 from app.platform.administration.api.setup import router as setup_router
 from app.platform.administration.api.status_page import router as status_page_router
 from app.platform.documents.api.branding import router as branding_router
+from app.platform.documents.api.document_links import router as document_links_router
 from app.platform.documents.api.document_template import router as document_template_router
 from app.platform.documents.api.standard_text_seeds import router as standard_text_seeds_router
 from app.platform.documents.api.standard_texts import router as standard_texts_router
@@ -79,6 +80,7 @@ api_v1_router.include_router(branding_router)
 api_v1_router.include_router(publishing_profile_router)
 api_v1_router.include_router(public_stock_router)
 api_v1_router.include_router(document_template_router)
+api_v1_router.include_router(document_links_router)
 api_v1_router.include_router(configuration_copy_router)
 api_v1_router.include_router(standard_texts_router)
 api_v1_router.include_router(number_ranges_router)

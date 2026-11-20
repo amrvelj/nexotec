@@ -19,8 +19,10 @@ from app.platform.public import (
     MessageType,
     MessageTypeKind,
     StandardTextAppliesTo,
+    register_document_source,
     register_message_type,
 )
+from app.sales.services.document import linked_contract_document, linked_offer_document
 
 OFFER = "offer"
 ORDER_CONFIRMATION = "order_confirmation"
@@ -63,3 +65,7 @@ SALES_MESSAGE_TYPES: tuple[MessageType, ...] = (
 def register_message_types() -> None:
     for message_type in SALES_MESSAGE_TYPES:
         register_message_type(message_type)
+    # KAN-217 PR-4: the documents a secure link (SMS, WhatsApp) may serve. The
+    # order confirmation has no document yet, so no link can name one.
+    register_document_source(OFFER, linked_offer_document)
+    register_document_source(SALES_CONTRACT, linked_contract_document)

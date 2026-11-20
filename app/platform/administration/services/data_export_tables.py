@@ -13,6 +13,7 @@ from app.core.object_store import ObjectStore, get_object_store
 from app.platform.administration.models.export_job import ExportJob
 from app.platform.administration.models.setup_checklist import SetupChecklistRegression
 from app.platform.administration.models.status_page import PlatformStatusIncident, StatusItemState
+from app.platform.documents.models.document_link import DocumentLink
 from app.platform.documents.models.document_template import DocumentTemplate
 from app.platform.documents.models.standard_text import StandardText
 from app.platform.identity.models.auth_event import AuthEvent
@@ -182,6 +183,15 @@ class PlatformExporter(TableExporter):
                 scope=_dealership_or_home_user(session),
                 in_archive=False,
                 exclusion_reason="Sign-in state; holds no record of its own.",
+                marks_write=False,
+            ),
+            # KAN-217 PR-4: a secure link's row is its token's hash — authentication
+            # material, like auth_token; the send's delivery record carries the fact.
+            ExportedTable(
+                table=table_of(DocumentLink),
+                scope=_by_dealership(table_of(DocumentLink), "tenant_id"),
+                in_archive=False,
+                exclusion_reason="Secure document links, stored hashed — authentication material, not a record.",
                 marks_write=False,
             ),
             _secret(table_of(Credential), "The password hash — a secret, never returned."),

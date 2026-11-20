@@ -24,6 +24,7 @@ from app.core.config import get_settings
 from app.core.reconciliation import ReconciliationRun, ReferenceCheck, StateCheck, run_reconciliation
 from app.platform.administration.models.export_job import ExportJob, ExportJobStatus
 from app.platform.administration.models.status_page import PlatformStatusIncident
+from app.platform.documents.models.document_link import DocumentLink
 from app.platform.documents.models.document_template import DocumentTemplate
 from app.platform.documents.models.standard_text import StandardText
 from app.platform.identity.models.auth_event import AuthEvent
@@ -93,6 +94,7 @@ ACTOR_TABLES = (
     ExportJob,  # created_by / updated_by: who requested the export (KAN-218)
     PlatformStatusIncident,  # created_by / updated_by: the staff user who opened or edited it (KAN-223)
     SupportSession,  # created_by / updated_by: the staff member or the user who ended it (KAN-221)
+    DocumentLink,  # created_by / updated_by: the user whose send issued the link (KAN-217)
 )
 
 # KAN-412 (FR-AU-24, rule 10): a revoked grant's provider end is recorded by

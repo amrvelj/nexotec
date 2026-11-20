@@ -470,6 +470,9 @@ _READS = {
     # KAN-217: Sales' customer message types into the send dialog's
     # in-process registry, at start-up (no database).
     "app.platform.public.register_message_type",
+    # KAN-217 PR-4: Sales' document sources for secure links into the same
+    # in-process registry, at start-up (no database).
+    "app.platform.public.register_document_source",
 }
 
 
