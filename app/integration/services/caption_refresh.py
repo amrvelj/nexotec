@@ -64,7 +64,7 @@ def _refusal(
         )
     if isinstance(failure, ProviderNotEntitledError):
         return ConflictError(
-            "Captions are not in this Betrieb's provider contract.",
+            "Captions are not in this business's provider contract.",
             details={"reason": "not_entitled", "languagesFetched": fetched},
         )
     return UnprocessableEntityError(
@@ -83,7 +83,7 @@ def refresh_captions(db: Session, *, tenant_id: uuid.UUID, actor_id: uuid.UUID) 
     found = _vehicle_data_connection(db, tenant_id=tenant_id)
     if found is None:
         raise ConflictError(
-            "This Betrieb has no enabled vehicle-data provider connection.", details={"reason": "no_provider_connection"}
+            "This business has no enabled vehicle-data provider connection.", details={"reason": "no_provider_connection"}
         )
     connection, provider_code = found
     connection_id = connection.id

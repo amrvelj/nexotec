@@ -60,7 +60,7 @@ class Onboarded:
 def _already_onboarded() -> ConflictError:
     # Names nothing about the other tenant: only that this UID is taken.
     return ConflictError(
-        "A Betrieb with this UID is already onboarded.", details={"reason": "uid_already_onboarded"}
+        "A business with this UID is already onboarded.", details={"reason": "uid_already_onboarded"}
     )
 
 

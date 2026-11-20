@@ -81,7 +81,7 @@ def activate(db: Session, *, dealership: Dealership, actor_id: uuid.UUID) -> Dea
 
     if dealership.status != DealershipStatus.PENDING_ONBOARDING:
         raise ConflictError(
-            "Only a Betrieb that is being set up can be activated.",
+            "Only a business that is being set up can be activated.",
             details={"reason": "dealership_not_pending", "currentStatus": dealership.status.value},
         )
     checklist = setup_checklist.derive(db, dealership)

@@ -491,7 +491,7 @@ def _refuse_tenant_bound_elsewhere(
     if any((group := _group(holder)) is not None and group != own_group for holder in sorted(holders)):
         raise _refusal(
             "tenant_bound_elsewhere",
-            "This mailbox's organisation is already connected to a Betrieb of another dealer group.",
+            "This mailbox's organisation is already connected to a business of another dealer group.",
         )
 
 

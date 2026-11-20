@@ -52,7 +52,7 @@ def location_label_for(db: Session, *, tenant_id: uuid.UUID, location_id: uuid.U
     current = get_location_labels(db, {location_id}).get(location_id)
     if current is None or current.dealership_id != tenant_id:
         raise UnprocessableEntityError(
-            "The location is not one of this Betrieb's.",
+            "The location is not one of this business's.",
             details={"reason": "unknown_location", "field": "locationId", "locationId": str(location_id)},
         )
     return current.label

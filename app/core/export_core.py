@@ -77,10 +77,10 @@ class CoreExporter(TableExporter):
         return {
             IdempotencyRecord.__tablename__: "A retry key kept 24 hours (KAN-119) — transport, not a record.",
             OutboxMessage.__tablename__: "The event transport; each fact is in the owning context's tables.",
-            ProcessedEvent.__tablename__: "Consumer bookkeeping, no Betrieb's data.",
-            DailyJobRun.__tablename__: "Nexotec's job scheduler, no Betrieb's data.",
-            ReconciliationRun.__tablename__: "Nexotec's nightly integrity check, no Betrieb's data.",
-            ReconciliationOrphan.__tablename__: "Nexotec's nightly integrity check, no Betrieb's data.",
+            ProcessedEvent.__tablename__: "Consumer bookkeeping, no business's data.",
+            DailyJobRun.__tablename__: "Nexotec's job scheduler, no business's data.",
+            ReconciliationRun.__tablename__: "Nexotec's nightly integrity check, no business's data.",
+            ReconciliationOrphan.__tablename__: "Nexotec's nightly integrity check, no business's data.",
         }
 
     def references(self, db: Session, scope: ExportScope) -> Mapping[str, frozenset[uuid.UUID]]:

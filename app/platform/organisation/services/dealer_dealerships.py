@@ -64,6 +64,6 @@ def refuse_platform_dealer_group(chosen_group: uuid.UUID | None) -> None:
 
     if chosen_group == PLATFORM_DEALER_GROUP_ID:
         raise UnprocessableEntityError(
-            "The Nexotec platform group holds no dealer Betrieb.",
+            "The Nexotec platform group holds no dealer business.",
             details={"reason": "platform_group_holds_no_dealer"},
         )

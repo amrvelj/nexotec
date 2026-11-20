@@ -751,12 +751,12 @@ def _http_client() -> httpx.Client:
 # A sandbox call enrols nobody and meets none of them (KAN-765).
 NO_ACTOR_REASON = NO_USER_TO_ENROL_REASON
 NO_TENANT_REASON = (
-    "This connection belongs to no Betrieb, so there is no user auto-i could enrol — "
-    "the identAPI service account is configured on a Betrieb's connection."
+    "This connection belongs to no business, so there is no user auto-i could enrol — "
+    "the identAPI service account is configured on a business's connection."
 )
 NOT_ACTING_IN_BETRIEB_REASON = (
-    "The signed-in user is not a member of this connection's Betrieb, so auto-i cannot enrol them for it — "
-    "test the connection as a member of that Betrieb (platform staff included)."
+    "The signed-in user is not a member of this connection's business, so auto-i cannot enrol them for it — "
+    "test the connection as a member of that business (platform staff included)."
 )
 
 

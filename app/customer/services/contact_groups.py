@@ -61,13 +61,13 @@ def check_contact_group_change(db: Session, *, dealership_id: uuid.UUID, current
     not_enabled = sorted(added - codes.settable)
     if not_enabled:
         raise UnprocessableEntityError(
-            f"Contact group not switched on for this Betrieb: {', '.join(not_enabled)}.",
+            f"Contact group not switched on for this business: {', '.join(not_enabled)}.",
             details={"reason": "contact_group_not_enabled", "valueCodes": not_enabled},
         )
     read_only = sorted(removed - codes.settable)
     if read_only:
         raise UnprocessableEntityError(
-            f"Contact group cannot be removed from this Betrieb: {', '.join(read_only)}.",
+            f"Contact group cannot be removed from this business: {', '.join(read_only)}.",
             details={"reason": "contact_group_read_only", "valueCodes": read_only},
         )
 

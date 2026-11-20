@@ -149,12 +149,12 @@ def resolve_sender(db: Session, *, dealership_id: uuid.UUID, author_user_id: uui
         if business.status == SendingIdentityStatus.ERROR:
             raise _sender_refusal(
                 "business_mailbox_in_error",
-                "The Betrieb's shared mailbox cannot send right now; a manager reconnects it.",
+                "The business's shared mailbox cannot send right now; a manager reconnects it.",
             )
         return ResolvedSender(identity_id=business.id, kind=business.kind, address=business.mailbox_address)
     raise _sender_refusal(
         "no_mailbox_connected",
-        "No mailbox is connected: connect your own in My account, or a manager connects the Betrieb's.",
+        "No mailbox is connected: connect your own in My account, or a manager connects the business's.",
     )
 
 

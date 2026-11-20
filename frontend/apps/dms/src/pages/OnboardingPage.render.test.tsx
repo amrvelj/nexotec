@@ -114,7 +114,7 @@ describe('OnboardingPage (KAN-210)', () => {
       {
         method: 'POST',
         match: /\/platform\/onboarding$/,
-        handler: () => status(409, { error: { code: 'conflict', message: 'A Betrieb with this UID is already onboarded.', details: { reason: 'uid_already_onboarded' } } }),
+        handler: () => status(409, { error: { code: 'conflict', message: 'A business with this UID is already onboarded.', details: { reason: 'uid_already_onboarded' } } }),
       },
     ])
     const user = userEvent.setup()

@@ -118,8 +118,8 @@ def test_a_fact_naming_two_betriebe_is_refused(db_session):
     try:
         handle_connection_expiry_approaching_message(db_session, message)
     except ValueError as exc:
-        assert "names two Betriebe" in str(exc)
+        assert "names two businesses" in str(exc)
     else:
-        raise AssertionError("a fact naming two Betriebe must be refused")
+        raise AssertionError("a fact naming two businesses must be refused")
     finally:
         db_session.rollback()

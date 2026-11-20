@@ -61,7 +61,7 @@ def _the_betriebs_own(principal: Principal) -> None:
 
     if AccessRole.PLATFORM_ADMIN in principal.roles:
         raise ForbiddenError(
-            "The Betrieb's own export is its manager's — staff produce an archive export on the platform path.",
+            "The business's own export is its manager's — staff produce an archive export on the platform path.",
             details={"reason": "staff_use_archive_export"},
         )
 

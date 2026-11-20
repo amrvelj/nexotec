@@ -169,7 +169,7 @@ def _assert_no_sister_loses_its_last_manager(db: Session, *, dealership_id: uuid
                 user_service.assert_not_last_manager(db, dealership_id=sister_id, excluding_user_id=user.id)
             except BadRequestError:
                 raise ConflictError(
-                    "A user of this Betrieb is the last manager of another Betrieb — give that Betrieb "
+                    "A user of this business is the last manager of another business — give that business "
                     "another manager first.",
                     details={"reason": "user_last_manager_of_sister"},
                 ) from None
@@ -248,7 +248,7 @@ def offboard(db: Session, *, dealership: Dealership, actor_id: uuid.UUID, reason
 
     state = readiness(db, dealership)
     if state.refusal == "already_offboarded":
-        raise ConflictError("This Betrieb is offboarded already.", details={"reason": "already_offboarded"})
+        raise ConflictError("This business is offboarded already.", details={"reason": "already_offboarded"})
     if state.refusal == "export_not_acknowledged":
         raise ConflictError(
             "Offboarding needs a final export the manager has acknowledged.",
@@ -257,7 +257,7 @@ def offboard(db: Session, *, dealership: Dealership, actor_id: uuid.UUID, reason
     if state.refusal == "export_out_of_date":
         assert state.export is not None and state.last_write_at is not None
         raise ConflictError(
-            "The Betrieb's data changed after its acknowledged export — the manager exports and acknowledges again.",
+            "The business's data changed after its acknowledged export — the manager exports and acknowledges again.",
             details={
                 "reason": "export_out_of_date",
                 "producedAt": state.export.produced_at.isoformat() if state.export.produced_at else None,

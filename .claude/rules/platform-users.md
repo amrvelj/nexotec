@@ -75,8 +75,8 @@ from platform.md by KAN-614, 2026-11-10. Last verified against main@3b2bf69 (202
 - UI word for the tenant (D-A-10, CLAUDE.md): Betrieb · entreprise · azienda · business — in the
   bundles and in the backend's sign-in and mail texts. Older backend messages still say
   "dealership" (some "dealer" or "tenant"); the Locations and Branding refusals say *business*
-  (KAN-204, KAN-205), and so do the recovery door's four (Anto, KAN-760: English says *business*;
-  the dialog says them by `details.rule`). A few English messages still say *Betrieb* (KAN-771).
+  (KAN-204, KAN-205), as does every other English message (Anto, KAN-760: English says *business*;
+  the UI says them by `details.rule`/`.reason`; `test_english_messages_say_business.py`).
 - **Platform tenant (KAN-221):** the one `dealership.kind = platform` row homes staff only;
   listings leave it out or say why (`test_dealer_dealership_reads.py`); the Betrieb's master data,
   settings, banking, entitlements, exports, locations, publishing profile, number ranges, contact

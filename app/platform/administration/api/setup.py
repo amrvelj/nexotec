@@ -56,7 +56,7 @@ from app.platform.organisation.services.dealership import (
 
 router = APIRouter(tags=["setup-checklist"], route_class=IdempotentRoute)
 
-_NOT_THE_MANAGER = "Only a manager of this Betrieb does this."
+_NOT_THE_MANAGER = "Only a manager of this business does this."
 
 
 def _require_manager_of(dealership_id: uuid.UUID, principal: Principal) -> None:

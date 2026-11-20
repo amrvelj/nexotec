@@ -162,7 +162,7 @@ def run(db: Session) -> StatusNotificationRun:
         except Exception:
             db.rollback()
             logger.exception(
-                "platform.status_page.notifications: Betrieb %s could not be checked",
+                "platform.status_page.notifications: business %s could not be checked",
                 dealership_id,
                 extra={"dealershipId": str(dealership_id)},
             )

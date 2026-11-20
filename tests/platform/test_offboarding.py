@@ -207,6 +207,7 @@ def test_offboarding_sets_the_status_the_retention_date_and_deactivates_every_us
     again = _offboard(client, dealership_id)
     assert again.status_code == 409
     assert _reason(again) == "already_offboarded"
+    assert again.json()["error"]["message"] == "This business is offboarded already."  # KAN-771
 
 
 def test_ten_full_years_from_the_offboarding_date():
