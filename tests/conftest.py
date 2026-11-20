@@ -102,14 +102,21 @@ def _admin_engine():
 
 
 def _create_worker_database() -> None:
+    _recreate_database(_TEST_DATABASE_URL)
+
+
+def _recreate_database(url: str) -> None:
     """An empty database, as bootstrap and CI hand the single one to a plain run. One a
-    killed run left behind is taken over: the schema build drops and recreates its tables."""
-    admin = _admin_engine()
-    name = make_url(_TEST_DATABASE_URL).database
+    killed run left behind is dropped first (KAN-773): the schema build only rebuilds the
+    tables the metadata maps, so a table a test created and the kill left behind (KAN-79's
+    downgrade test recreates the retired ``vehicle`` tables) would survive into the next run."""
+    admin = create_engine(make_url(url).set(database="postgres"), isolation_level="AUTOCOMMIT")
+    name = make_url(url).database
     try:
         with admin.connect() as conn:
-            if not conn.execute(text("SELECT 1 FROM pg_database WHERE datname = :name"), {"name": name}).scalar():
-                conn.execute(text(f"CREATE DATABASE {conn.dialect.identifier_preparer.quote(name)}"))
+            quoted = conn.dialect.identifier_preparer.quote(name)
+            conn.execute(text(f"DROP DATABASE IF EXISTS {quoted} WITH (FORCE)"))
+            conn.execute(text(f"CREATE DATABASE {quoted}"))
     finally:
         admin.dispose()
 
