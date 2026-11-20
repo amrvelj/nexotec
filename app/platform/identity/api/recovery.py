@@ -115,7 +115,7 @@ def search_users(
     cursor-paginated (API conventions)."""
 
     if not (email and email.strip()) and dealership_id is None:
-        raise BadRequestError("Search by e-mail address or Betrieb.", details={"rule": "search_criteria"})
+        raise BadRequestError("Search by e-mail address or business.", details={"rule": "search_criteria"})
     if dealership_id is not None:
         dealership_service.get_dealership_or_404(db, dealership_id)
     sort_fields = parse_sort(sort, allowed=RECOVERY_SORT_FIELDS) or _DEFAULT_SORT

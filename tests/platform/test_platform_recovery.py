@@ -229,10 +229,13 @@ def test_grant_manager_refuses_what_it_cannot_grant(client, login, db_session):
     already = _grant_manager(client, dealership, manager["id"])
     assert already.status_code == 409
     assert already.json()["error"]["details"] == {"rule": "already_manager"}
+    # KAN-760 (Anto, option A): English messages say «business», like the rest of the platform.
+    assert already.json()["error"]["message"] == "This user is already a manager of the business."
     # "An existing active user": not one who never accepted the invitation.
     not_active = _grant_manager(client, dealership, invited["id"])
     assert not_active.status_code == 409
     assert not_active.json()["error"]["details"]["rule"] == "not_active"
+    assert not_active.json()["error"]["message"] == "Only an active user can be made the business's manager."
     # A stale version is a 409 like any other write of the user row.
     assert _grant_manager(client, dealership, invited["id"], if_match=99).status_code == 409
     # Another Betrieb's user is not this Betrieb's: 404.
@@ -350,6 +353,7 @@ def test_staff_do_not_recover_their_own_account_nor_a_deactivated_one(client, lo
         assert mine.status_code == 403 and mine.json()["error"]["details"] == {"rule": "self"}
         gone = recover(client, beat["id"], action)
         assert gone.status_code == 409 and gone.json()["error"]["details"]["rule"] == "deactivated"
+        assert gone.json()["error"]["message"] == "This user is deactivated — the business reactivates them first."
     assert change_email(client, staff["id"], "nora.neu@example.ch", if_match=2, headers=own).status_code == 403
     assert recover(client, uuid.uuid4(), "reset-mfa").status_code == 404
     assert client.post(f"/v1/platform/users/{beat['id']}/recovery/set-password", json={"reason": REASON}, headers=platform_admin_headers()).status_code == 422
@@ -469,6 +473,16 @@ def test_the_invitation_re_send_still_wants_a_factor_from_staff(client):
     refused = client.post(path, headers=platform_admin_headers(mfa=False))
     assert refused.status_code == 403 and "second factor" in refused.json()["error"]["message"]
     assert client.post(path, headers=platform_admin_headers()).status_code == 202
+
+
+def test_the_search_without_criteria_is_refused_in_the_platform_word(client):
+    """KAN-760 (Anto, option A): the search's refusal says «business», like
+    every other English platform message; the dialog keys on details.rule."""
+
+    refused = client.get("/v1/platform/users", headers=platform_admin_headers())
+    assert refused.status_code == 400
+    assert refused.json()["error"]["details"] == {"rule": "search_criteria"}
+    assert refused.json()["error"]["message"] == "Search by e-mail address or business."
 
 
 def test_the_search_pages_by_cursor_and_sorts_on_the_server(client):
