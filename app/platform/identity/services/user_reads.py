@@ -20,6 +20,7 @@ from app.core.errors import NotFoundError
 from app.core.pagination import SortPageParams, paginate_query_sorted
 from app.core.sorting import build_page_for_sort
 from app.core.tenancy import get_or_404
+from app.core.text_collation import TextSortKey
 from app.platform.identity.models.auth_token import AuthToken, AuthTokenKind
 from app.platform.identity.models.dealership_membership import DealershipMembership
 from app.platform.identity.models.user import User, UserStatus
@@ -196,7 +197,7 @@ def list_active_users_acting_in(db: Session, *, dealership_id: uuid.UUID) -> lis
             (User.tenant_id == dealership_id) | User.id.in_(members),
             User.status.in_(tuple(_ACTIVE_USER_STATUSES)),
         )
-        .order_by(User.last_name, User.first_name, User.id)
+        .order_by(TextSortKey(User.last_name), TextSortKey(User.first_name), User.id)
     )
     return list(db.scalars(stmt).all())
 
@@ -371,7 +372,7 @@ def _other_dealership_names(
         select(DealershipMembership.user_id, DealershipMembership.dealership_id, Dealership.legal_name)
         .join(Dealership, Dealership.id == DealershipMembership.dealership_id)
         .where(DealershipMembership.user_id.in_(user_ids), membership_is_active())
-        .order_by(Dealership.legal_name, Dealership.id)
+        .order_by(TextSortKey(Dealership.legal_name), Dealership.id)
     ).all()
     if AccessRole.PLATFORM_ADMIN not in viewer_roles:
         viewer = db.get(User, viewer_id) if viewer_id is not None else None

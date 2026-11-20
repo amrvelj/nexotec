@@ -38,6 +38,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.base import PrimaryKeyMixin, TimestampMixin, VersionedMixin
 from app.core.enum_type import StoredEnum
+from app.core.text_collation import IDENTIFIER_TEXT
 from app.core.types import GUID
 from app.db import Base
 
@@ -73,7 +74,7 @@ class HolidayCalendar(PrimaryKeyMixin, VersionedMixin, TimestampMixin, Base):
 
     # The canton code for a canton's one calendar ("ZH"), the canton code
     # plus the region for a variant ("AG-BADEN").
-    code: Mapped[str] = mapped_column(String(32), nullable=False)
+    code: Mapped[str] = mapped_column(String(32), nullable=False, info=IDENTIFIER_TEXT)
     canton: Mapped[str] = mapped_column(String(2), nullable=False, index=True)
     label_de: Mapped[str] = mapped_column(String(300), nullable=False)
     label_fr: Mapped[str] = mapped_column(String(300), nullable=False)

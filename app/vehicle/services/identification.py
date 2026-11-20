@@ -60,6 +60,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.errors import UnprocessableEntityError
+from app.core.text_collation import TextSortKey
 from app.integration.public import (
     BuiltVehicleData,
     ProviderGatewayError,
@@ -163,7 +164,7 @@ def _identify_werkscode(
         live = _store_variants(db, provider_code=answer.provider_code, masters=list(answer.value))
     stored = list(
         db.scalars(
-            select(ModelVariant).where(ModelVariant.werkscode == werkscode).order_by(ModelVariant.name, ModelVariant.id)
+            select(ModelVariant).where(ModelVariant.werkscode == werkscode).order_by(TextSortKey(ModelVariant.name), ModelVariant.id)
         ).all()
     )
     variants = _merge_candidates(db, live=live, stored=stored, first_registration_date=None)

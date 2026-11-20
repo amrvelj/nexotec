@@ -34,6 +34,7 @@ from app.core.config import get_settings
 from app.core.errors import NotFoundError
 from app.core.pagination import SortPageParams, count_capped, paginate_query_sorted
 from app.core.sorting import build_page_for_sort
+from app.core.text_collation import sort_by_text
 from app.inventory.models.stock_item import StockItem
 from app.platform.public import DealershipRef, list_group_read_dealerships
 
@@ -72,7 +73,8 @@ def list_group_stock_dealerships(
     roster = _group_roster(
         db, principal_group_id=principal_group_id, requested_group_id=requested_group_id, is_authorized=is_authorized
     )
-    return sorted(roster.values(), key=lambda ref: (ref.label.casefold(), str(ref.id)))
+    # By label under the collation (KAN-769), equal labels by id: `sort_by_text` keeps the given order.
+    return sort_by_text(db, sorted(roster.values(), key=lambda ref: str(ref.id)), key=lambda ref: ref.label)
 
 
 def list_group_stock_items(

@@ -5,6 +5,7 @@ import uuid
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.text_collation import TextSortKey
 from app.vehicle.models.energy_rating import ModelVariantEnergyLabel, ModelVariantEnergyRating
 
 
@@ -110,6 +111,6 @@ def energy_labels_for_configuration(
         db.scalars(
             select(ModelVariantEnergyLabel)
             .where(ModelVariantEnergyLabel.model_variant_id == model_variant_id, ModelVariantEnergyLabel.label_year == year)
-            .order_by(ModelVariantEnergyLabel.gearbox)
+            .order_by(TextSortKey(ModelVariantEnergyLabel.gearbox))
         )
     )

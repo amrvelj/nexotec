@@ -41,6 +41,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.errors import UnprocessableEntityError
+from app.core.text_collation import sort_by_text
 from app.integration.public import (
     CatalogueBrandData,
     CatalogueModelGroupData,
@@ -350,7 +351,7 @@ def list_brands(db: Session, *, tenant_id: uuid.UUID, actor_id: uuid.UUID | None
         call=lambda adapter: adapter.list_catalogue_brands(vehicle_kind_code=kind_code),
     )
     brands: list[CatalogueBrandData] = list(value) if isinstance(value, list) else []  # type: ignore[arg-type]
-    return BrandsResult(state=state, items=sorted(brands, key=lambda b: b.name.lower()), refusal=refusal)
+    return BrandsResult(state=state, items=sort_by_text(db, brands, key=lambda b: b.name), refusal=refusal)
 
 
 def list_model_groups(

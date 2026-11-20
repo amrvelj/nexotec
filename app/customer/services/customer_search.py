@@ -13,6 +13,7 @@ from app.core.config import get_settings
 from app.core.pagination import SortPageParams, count_capped, paginate_query_sorted
 from app.core.relative_dates import start_of_current_period, start_of_day_days_ago
 from app.core.sorting import build_page_for_sort
+from app.core.text_collation import sort_by_text
 from app.core.validators import normalise_phone
 from app.customer.models.customer import (
     AddressType,
@@ -360,5 +361,7 @@ def duplicate_check(db: Session, *, group_id: uuid.UUID, q: str) -> list[dict[st
             }
         )
 
-    results.sort(key=lambda r: (r["match"] != "exact", (r["last_name"] or r["company_name"] or "").lower()))
+    # Exact matches first, each group by name under the collation (KAN-769): `sort` is stable.
+    results = sort_by_text(db, results, key=lambda r: r["last_name"] or r["company_name"] or "")
+    results.sort(key=lambda r: r["match"] != "exact")
     return results[:_DUPLICATE_CHECK_LIMIT]

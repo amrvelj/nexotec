@@ -35,6 +35,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 from app.core.base import PrimaryKeyMixin, TimestampMixin, VersionedMixin
 from app.core.enum_type import StoredEnum
 from app.core.i18n import SwissLanguage
+from app.core.text_collation import IDENTIFIER_TEXT
 from app.core.types import GUID
 from app.db import Base
 from app.platform.identity.models.standard_text_delegation import StandardTextCategory
@@ -129,7 +130,7 @@ class StandardText(PrimaryKeyMixin, VersionedMixin, TimestampMixin, Base):
     location_id: Mapped[uuid.UUID | None] = mapped_column(GUID(), ForeignKey("location.id"), nullable=True)
     scope: Mapped[StandardTextScope] = mapped_column(StoredEnum(StandardTextScope, length=16), nullable=False)
 
-    code: Mapped[str] = mapped_column(String(100), nullable=False)
+    code: Mapped[str] = mapped_column(String(100), nullable=False, info=IDENTIFIER_TEXT)
     category: Mapped[StandardTextCategory] = mapped_column(StoredEnum(StandardTextCategory, length=16), nullable=False)
     applies_to: Mapped[StandardTextAppliesTo] = mapped_column(
         StoredEnum(StandardTextAppliesTo, length=32), nullable=False

@@ -28,6 +28,7 @@ from sqlalchemy import Integer, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.base import PrimaryKeyMixin, TimestampMixin
+from app.core.text_collation import IDENTIFIER_TEXT
 from app.core.types import UTCDateTime
 from app.db import Base
 
@@ -42,8 +43,8 @@ class IntegrationProviderCaption(PrimaryKeyMixin, TimestampMixin, Base):
 
     provider: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
     caption_group: Mapped[str] = mapped_column(String(64), nullable=False)
-    kind: Mapped[str] = mapped_column(String(16), nullable=False)
-    code: Mapped[str] = mapped_column(String(32), nullable=False)
+    kind: Mapped[str] = mapped_column(String(16), nullable=False, info=IDENTIFIER_TEXT)
+    code: Mapped[str] = mapped_column(String(32), nullable=False, info=IDENTIFIER_TEXT)
     label_de: Mapped[str | None] = mapped_column(String(200), nullable=True)
     label_fr: Mapped[str | None] = mapped_column(String(200), nullable=True)
     label_it: Mapped[str | None] = mapped_column(String(200), nullable=True)

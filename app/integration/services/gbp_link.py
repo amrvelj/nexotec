@@ -58,6 +58,7 @@ from app.core.audit import record_audit_event
 from app.core.base import utcnow
 from app.core.config import get_settings
 from app.core.errors import ConflictError, ForbiddenError, NotFoundError, UnprocessableEntityError
+from app.core.text_collation import TextSortKey
 from app.integration.adapters.google_business_profile import (
     GBP_CAPABILITY,
     SCOPE,
@@ -221,7 +222,7 @@ def list_bindings(db: Session, *, dealership_id: uuid.UUID) -> list[GbpLocationB
                 GbpLocationBinding.tenant_id == dealership_id,
                 GbpLocationBinding.status != GbpBindingStatus.DISCONNECTED,
             )
-            .order_by(GbpLocationBinding.location_label, GbpLocationBinding.id)
+            .order_by(TextSortKey(GbpLocationBinding.location_label), GbpLocationBinding.id)
         )
     )
 

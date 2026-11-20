@@ -26,4 +26,4 @@ paths:
 - `Base.metadata` holds production tables only: test-only models sit on `DemoBase`; conftest
   builds and resets both (`TEST_METADATA`; `tests/test_demo_models_off_production_base.py`).
 - **`pytest -n auto` gives every worker its own database** (`<name>_gw0`, `_gw1` …): conftest
-  creates it, builds the schema as for the single one and drops it at the end (ADR-130).
+  creates it (dropping first one a killed run left behind, KAN-773), builds the schema as for the single one and drops it at the end (ADR-130).

@@ -234,3 +234,33 @@ def test_the_engine_fixture_fails_the_test_that_leaves_a_session_open_and_the_ru
     assert re.search(r"\b2 passed\b", output) and re.search(r"\b1 error\b", output), output
     assert re.search(r"^ERROR \S*test_leak\.py::test_leaves_a_session_open\b", output, re.MULTILINE), output
     assert "test_leak.py::test_leaves_a_session_open left a database session open" in output, output
+
+
+def test_a_worker_database_a_killed_run_left_behind_keeps_no_table_of_that_run():
+    """KAN-773: a killed run leaves `<name>_gw<n>` behind with whatever its tests created, a
+    table no model maps included (KAN-79's downgrade test recreates the retired `vehicle`
+    tables). The next run's setup takes the database over and must hand it on empty."""
+    from tests.conftest import _recreate_database
+
+    url = make_url(os.environ["DMS_TEST_DATABASE_URL"])
+    leftover = url.set(database=f"{url.database}_leftover_{os.getpid()}")
+    admin = create_engine(url.set(database="postgres"), isolation_level="AUTOCOMMIT")
+    try:
+        with admin.connect() as conn:
+            conn.execute(text(f'DROP DATABASE IF EXISTS "{leftover.database}" WITH (FORCE)'))
+            conn.execute(text(f'CREATE DATABASE "{leftover.database}"'))
+        killed_run = create_engine(leftover)
+        with killed_run.begin() as conn:
+            conn.execute(text("CREATE TABLE vehicle (id integer)"))
+        killed_run.dispose()
+
+        _recreate_database(leftover.render_as_string(hide_password=False))
+
+        next_run = create_engine(leftover)
+        with next_run.connect() as conn:
+            assert conn.execute(text("SELECT to_regclass('public.vehicle')")).scalar() is None
+        next_run.dispose()
+    finally:
+        with admin.connect() as conn:
+            conn.execute(text(f'DROP DATABASE IF EXISTS "{leftover.database}" WITH (FORCE)'))
+        admin.dispose()

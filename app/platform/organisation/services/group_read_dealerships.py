@@ -15,6 +15,7 @@ from dataclasses import dataclass
 from sqlalchemy import and_, select
 from sqlalchemy.orm import Session
 
+from app.core.text_collation import TextSortKey
 from app.platform.organisation.models.dealership import DealerGroup, Dealership, DealershipStatus
 from app.platform.organisation.services.dealer_dealerships import dealer_dealerships_only
 
@@ -61,7 +62,7 @@ def list_group_read_dealerships(db: Session, *, group_id: uuid.UUID) -> list[Dea
             ),
         )
         .where(DealerGroup.id == group_id)
-        .order_by(Dealership.legal_name, Dealership.id)
+        .order_by(TextSortKey(Dealership.legal_name), Dealership.id)
     ).all()
     if not rows or not rows[0].group_read_enabled:
         return None
