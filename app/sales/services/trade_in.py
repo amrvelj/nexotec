@@ -199,7 +199,7 @@ def _require_configuration_carrying(
             return
     raise UnprocessableEntityError(
         "A car with a chassis number instead of a VIN is taken in trade with its configuration: value it with "
-        "the configurator («Mit Konfigurator bewerten»), which records the chassis number, the make and the "
+        "the configurator («Identifizieren und bewerten»), which records the chassis number, the make and the "
         "first registration.",
         details={**details, "reason": CHASSIS_NUMBER_REQUIRES_CONFIGURATION},
     )

@@ -63,6 +63,7 @@
     "fromExistingValuation": "Ripreso da una valutazione esistente",
     "vinLabel": "VIN",
     "vinPlaceholder": "es. WVWZZZ1KZAW123456",
+    "vinOrChassisNeedsConfiguration": "VIN non valido. Se il veicolo ha un numero di telaio invece del VIN (prima immatricolazione prima del 1981), registratelo tramite «Identificare e valutare».",
     "labelLabel": "Descrizione del veicolo",
     "add": "Aggiungi veicolo permuta",
     "valueWithConfigurator": "Identificare e valutare",

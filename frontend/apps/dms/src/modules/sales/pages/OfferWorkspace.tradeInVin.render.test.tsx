@@ -61,13 +61,15 @@ afterEach(async () => {
 
 describe('OfferWorkspace — a refused trade-in VIN is named at the VIN input (KAN-351)', () => {
   it('a 422 on vin shows the translated VIN rule, not the generic save error', async () => {
+    // KAN-746: since the trade-in takes a chassis number, the body refuses
+    // only a value of neither shape — punctuation, say.
     install(() => VIN_REFUSED)
-    const user = await saveTradeIn('WVWZZZ1KZAO331338')
+    const user = await saveTradeIn('WVWZZZ1KZAW33133-')
 
     const vinInput = screen.getByLabelText<HTMLInputElement>(i18n.t('offerWorkspace.tradeIn.vinLabel'))
     expect(await screen.findByText(i18n.t('common.invalidVin'))).toBeInTheDocument()
     expect(vinInput).toHaveAttribute('aria-invalid', 'true')
-    expect(vinInput.value).toBe('WVWZZZ1KZAO331338')
+    expect(vinInput.value).toBe('WVWZZZ1KZAW33133-')
     expect(screen.queryByText(i18n.t('offerWorkspace.tradeIn.saveError'))).toBeNull()
     expect(screen.queryByText('Request validation failed.')).toBeNull()
 
@@ -85,22 +87,42 @@ describe('OfferWorkspace — a refused trade-in VIN is named at the VIN input (K
   })
 })
 
-describe('OfferWorkspace — a chassis-number trade-in refused without its configuration says why (KAN-746)', () => {
-  it('the refusal reason is said in the UI language, not the generic save error', async () => {
-    install(() =>
-      status(422, {
-        error: {
-          code: 'unprocessable_entity',
-          message: 'A car with a chassis number instead of a VIN is taken in trade with its configuration.',
-          details: { field: 'vin', reason: 'trade_in_chassis_number_requires_configuration' },
-        },
-      }),
-    )
-    await saveTradeIn('1130101234567')
+describe('OfferWorkspace — a value of chassis-number shape refused without a configuration (KAN-746)', () => {
+  // The server's answer for an O typed for a 0 — as for an oldtimer's number
+  // when the deal has no configuration carrying it.
+  const CHASSIS_REFUSED = status(422, {
+    error: {
+      code: 'unprocessable_entity',
+      message: 'A car with a chassis number instead of a VIN is taken in trade with its configuration.',
+      details: { field: 'vin', reason: 'trade_in_chassis_number_requires_configuration' },
+    },
+  })
 
-    expect(await screen.findByText(i18n.t('apiRefusal.reasons.trade_in_chassis_number_requires_configuration'))).toBeInTheDocument()
+  it.each([
+    ['a mistyped VIN', 'WVWZZZ1KZAO331338'],
+    ['an oldtimer chassis number', '1130101234567'],
+  ])('%s: the VIN input says «no valid VIN» first, then the way in for an oldtimer', async (_label, typed) => {
+    install(() => CHASSIS_REFUSED)
+    await saveTradeIn(typed)
+
+    const vinInput = screen.getByLabelText<HTMLInputElement>(i18n.t('offerWorkspace.tradeIn.vinLabel'))
+    expect(await screen.findByText(i18n.t('offerWorkspace.tradeIn.vinOrChassisNeedsConfiguration'))).toBeInTheDocument()
+    expect(vinInput).toHaveAttribute('aria-invalid', 'true')
+    expect(vinInput.value).toBe(typed)
     expect(screen.queryByText(i18n.t('offerWorkspace.tradeIn.saveError'))).toBeNull()
     expect(screen.queryByText(/taken in trade with its configuration/)).toBeNull()
+  })
+
+  it('another refusal with a reason is said in the UI language, not the generic save error', async () => {
+    install(() =>
+      status(422, {
+        error: { code: 'unprocessable_entity', message: 'Valuation names no car.', details: { reason: 'trade_in_valuation_names_no_car' } },
+      }),
+    )
+    await saveTradeIn('WVWZZZ1KZAW331338')
+
+    expect(await screen.findByText(i18n.t('apiRefusal.reasons.trade_in_valuation_names_no_car'))).toBeInTheDocument()
+    expect(screen.queryByText(i18n.t('offerWorkspace.tradeIn.saveError'))).toBeNull()
   })
 })
 

@@ -939,10 +939,10 @@ def repair_stored_vins(db: Session) -> list[VinRepair]:
     configuration could no longer be saved, and until KAN-340 gave the
     configure phase a VIN field the user could not correct it on screen.
 
-    - **Which rows:** every configuration whose stored `vin` would be refused
-      by `require_vin_or_pre_1981_chassis_number` against its stored first
-      registration — not a valid VIN, and no first registration before 1981.
-      **What it writes:** the VIN normalised as every typed VIN is (upper
+    - **A car first registered from 1981 on, or with none:** every
+      configuration whose stored `vin` `require_vin_or_pre_1981_chassis_number`
+      would refuse — not a valid VIN.
+    - **What it writes there:** the VIN normalised as every typed VIN is (upper
       case, no whitespace) when that makes it a valid VIN; otherwise the VIN
       is cleared — it names no car, and cannot be kept. The vehicle link is
       re-derived from the new value, as on every VIN write (KAN-326).
