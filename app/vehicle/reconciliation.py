@@ -183,7 +183,7 @@ CHECKS: list[ReferenceCheck | StateCheck] = [
         source_fk_column=VehiclePlate.group_id,
     ),
     StateCheck(
-        label="vehicle_plate kept in a group that is not its recording Betrieb's",
+        label="vehicle_plate kept in a group that is not its recording business's",
         source_model=VehiclePlate,
         source_row_id_column=VehiclePlate.id,
         where=lambda: dealership_outside_group(

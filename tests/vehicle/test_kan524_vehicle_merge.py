@@ -40,7 +40,7 @@ from tests.vehicle.test_vehicle_stock_holding import _bought, _deliver, _fed, _m
 SURVIVOR_VIN = "WVWZZZ1KZAW524100"
 DUPLICATE_VIN = "WVWZZZ1KZAW524101"
 CONSUMER = "inventory.stock_items_on_vehicle_merged"
-TWO_LIVE = "two live stock items of one Betrieb name one vehicle_mdm record"
+TWO_LIVE = "two live stock items of one business name one vehicle_mdm record"
 
 
 # --- helpers ---------------------------------------------------------------------
@@ -182,6 +182,8 @@ def test_a_merge_is_refused_when_the_callers_betrieb_holds_both_records_in_stock
     assert response.status_code == 409, response.text
     details = response.json()["error"]["details"]
     assert details["reason"] == "vehicle_merge_both_in_stock"
+    # KAN-771: English says «business».
+    assert response.json()["error"]["message"] == "Your business holds both records in stock: sell or cancel one stock car first."
     assert {details["duplicateStockNumber"], details["survivorStockNumber"]} == {
         on_duplicate.stock_number,
         on_survivor.stock_number,

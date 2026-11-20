@@ -156,7 +156,7 @@ def confirm_number_ranges(
 
     require_tenant_match(dealership_id, principal)
     if AccessRole.PLATFORM_ADMIN in principal.roles or not principal.is_dealer_manager:
-        raise ForbiddenError("Only a manager of this Betrieb does this.", details={"reason": "manager_only"})
+        raise ForbiddenError("Only a manager of this business does this.", details={"reason": "manager_only"})
     get_dealer_dealership_or_404(db, dealership_id)
     row = number_range_service.confirm_ranges(db, dealership_id=dealership_id, actor_id=principal.user_id)
     db.commit()

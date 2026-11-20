@@ -486,7 +486,7 @@ def _refresh_configuration_labels(db: Session) -> None:
 def _refresh_stock_location_labels(db: Session) -> None:
     report = refresh_stock_location_labels(db)
     logger.info(
-        "inventory.location_labels: %d stock item(s) relabelled, %d left alone (no location of the item's Betrieb)",
+        "inventory.location_labels: %d stock item(s) relabelled, %d left alone (no location of the item's business)",
         len(report.changed),
         len(report.unresolved),
     )

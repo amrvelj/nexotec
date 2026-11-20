@@ -110,7 +110,7 @@ def generate(
     found = _ai_connection(db, dealership_id)
     if found is None:
         raise ConflictError(
-            "No AI provider is connected for this Betrieb.",
+            "No AI provider is connected for this business.",
             details={"reason": "ai_not_connected", "link": "/administration/integrations"},
         )
     connection, provider = found

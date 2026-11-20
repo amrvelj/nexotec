@@ -93,7 +93,7 @@ def move_stock_items_on_vehicle_merge(db: Session, *, duplicate_vehicle_id: uuid
             # duplicate, and inventory's nightly check «stock_item.vehicle_id
             # names a merged vehicle_mdm record» names it to its Betrieb, whose
             # manager cancels one of the two (Q4 A's double booking).
-            logger.warning("stock item %s stays on merged record %s: its Betrieb holds the survivor (KAN-524)", item.id, duplicate_vehicle_id)
+            logger.warning("stock item %s stays on merged record %s: its business holds the survivor (KAN-524)", item.id, duplicate_vehicle_id)
             continue
         moved += 1
         before = {"vehicleId": str(item.vehicle_id), "vin": item.vin}

@@ -91,7 +91,7 @@ describe('ProviderCaptionsPanel (KAN-588)', () => {
           status(409, {
             error: {
               code: 'conflict',
-              message: "Captions are not in this Betrieb's provider contract.",
+              message: "Captions are not in this business's provider contract.",
               details: { reason: 'not_entitled', languagesFetched: ['de'] },
             },
           }),

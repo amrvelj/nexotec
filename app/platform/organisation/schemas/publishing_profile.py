@@ -278,7 +278,7 @@ class LeadRoutingUpdate(CamelModel):
         if self.recipient_user_id is not None and self.recipient_role is not None:
             raise ValueError("Name a user or a role as the recipient, not both.")
         if self.recipient_role == AccessRole.PLATFORM_ADMIN:
-            raise ValueError("Platform staff never receive a Betrieb's enquiries.")
+            raise ValueError("Platform staff never receive a business's enquiries.")
         return self
 
 

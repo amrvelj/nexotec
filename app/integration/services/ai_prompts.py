@@ -186,7 +186,7 @@ def create_override(
     except IntegrityError as exc:
         db.rollback()
         raise ConflictError(
-            f"The Betrieb has adapted {code} in {language.value} already — edit that one.",
+            f"The business has adapted {code} in {language.value} already — edit that one.",
             details={"reason": "ai_prompt_exists"},
         ) from exc
     _audit(db, row, action="create", actor_id=actor_id, before=None, after=_snapshot(row))

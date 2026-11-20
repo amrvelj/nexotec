@@ -86,7 +86,7 @@ class IntegrationExporter(TableExporter):
         )
 
     def excluded_tables(self) -> Mapping[str, str]:
-        catalogue = "Nexotec's provider catalogue, the same for every Betrieb."
+        catalogue = "Nexotec's provider catalogue, the same for every business."
         return {
             IntegrationProvider.__tablename__: catalogue,
             IntegrationProviderCaption.__tablename__: catalogue,

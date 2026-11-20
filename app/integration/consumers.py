@@ -41,7 +41,7 @@ from app.integration.services.mail_sending import disconnect_offboarded_dealersh
 def _dealership_id(message: OutboxMessage) -> uuid.UUID:
     dealership_id = uuid.UUID(message.payload["dealershipId"])
     if message.tenant_id is not None and message.tenant_id != dealership_id:
-        raise ValueError(f"{message.event_type} message {message.id} names two Betriebe.")
+        raise ValueError(f"{message.event_type} message {message.id} names two businesses.")
     return dealership_id
 
 

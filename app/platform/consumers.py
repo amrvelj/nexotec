@@ -97,7 +97,7 @@ def handle_connection_expiry_approaching_message(db: Session, message: OutboxMes
 
     dealership_id = uuid.UUID(message.payload["dealershipId"])
     if message.tenant_id is not None and message.tenant_id != dealership_id:
-        raise ValueError(f"{message.event_type} message {message.id} names two Betriebe.")
+        raise ValueError(f"{message.event_type} message {message.id} names two businesses.")
     connection_id = uuid.UUID(message.payload["connectionId"])
     for user_id in user_reads.list_dealer_manager_ids(db, dealership_id=dealership_id):
         notifications.notify(

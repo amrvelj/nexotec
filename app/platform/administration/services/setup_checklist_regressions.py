@@ -134,7 +134,7 @@ def run(db: Session) -> RegressionRun:
         except Exception:
             db.rollback()
             logger.exception(
-                "platform.setup_checklist.regressions: Betrieb %s could not be checked",
+                "platform.setup_checklist.regressions: business %s could not be checked",
                 dealership_id,
                 extra={"dealershipId": str(dealership_id)},
             )

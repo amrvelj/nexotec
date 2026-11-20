@@ -115,7 +115,7 @@ def merge_vehicle_records(
         and held_duplicate.stock_item_id != held_survivor.stock_item_id
     ):
         raise ConflictError(
-            "Your Betrieb holds both records in stock: sell or cancel one stock car first.",
+            "Your business holds both records in stock: sell or cancel one stock car first.",
             details={
                 "reason": "vehicle_merge_both_in_stock",
                 "duplicateStockNumber": held_duplicate.stock_number,
