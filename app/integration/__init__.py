@@ -43,6 +43,11 @@ from app.integration.adapters import auto_i_dat_ident as _auto_i_dat_ident  # no
 # import time.
 from app.integration.adapters import autoscout24 as _autoscout24  # noqa: F401
 
+# KAN-226 PR-2 — the Google Business Profile adapter (Nexotec's own OAuth
+# client, one platform-scope connection); httpx opens nothing until a request
+# is sent.
+from app.integration.adapters import google_business_profile as _google_business_profile  # noqa: F401
+
 # KAN-215 — the two mailbox adapters (Microsoft 365 Graph, Google Workspace
 # Gmail) behind `adapters/mail_base.py::MailGateway`; httpx opens nothing
 # until a request is sent.

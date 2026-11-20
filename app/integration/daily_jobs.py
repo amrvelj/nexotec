@@ -20,6 +20,7 @@ import logging
 
 from sqlalchemy.orm import Session
 
+from app.integration.services import gbp_link as gbp_link_service
 from app.integration.services import mail_link as mail_link_service
 from app.integration.services import notifications as notification_service
 from app.integration.services import retention as retention_service
@@ -78,3 +79,12 @@ def run_daily_mail_link_state_purge(db: Session) -> None:
     deleted = mail_link_service.purge_spent_link_states(db)
     if deleted:
         logger.info("mail link-state purge", extra={"deleted": deleted})
+
+
+def run_daily_business_profile_link_state_purge(db: Session) -> None:
+    """KAN-226 — the same for the Google Business Profile link states
+    (`services/gbp_link.py::purge_spent_link_states`), registered as its own job."""
+
+    deleted = gbp_link_service.purge_spent_link_states(db)
+    if deleted:
+        logger.info("business profile link-state purge", extra={"deleted": deleted})

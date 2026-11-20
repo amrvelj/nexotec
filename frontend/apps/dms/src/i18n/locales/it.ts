@@ -11,6 +11,7 @@ import ns_auth from './it/auth.json'
 import ns_branding from './it/branding.json'
 import ns_brandsAdmin from './it/brandsAdmin.json'
 import ns_business from './it/business.json'
+import ns_businessProfile from './it/businessProfile.json'
 import ns_catalogueBrowse from './it/catalogueBrowse.json'
 import ns_common from './it/common.json'
 import ns_configurator from './it/configurator.json'
@@ -75,6 +76,7 @@ const bundle = {
   branding: ns_branding,
   brandsAdmin: ns_brandsAdmin,
   business: ns_business,
+  businessProfile: ns_businessProfile,
   catalogueBrowse: ns_catalogueBrowse,
   common: ns_common,
   configurator: ns_configurator,

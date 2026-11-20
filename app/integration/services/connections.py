@@ -27,6 +27,7 @@ from app.integration.models.connection import (
     IntegrationConnection,
 )
 from app.integration.models.entitlement import EntitlementSource, IntegrationEntitlement
+from app.integration.models.google_business_profile import GBP_PROVIDER_CODE
 from app.integration.models.mail import MailProviderCode
 from app.integration.models.provider import IntegrationProvider
 from app.integration.models.secret_ref import IntegrationSecretRef, SecretSlot
@@ -254,6 +255,13 @@ def create_connection(
     # through the mail link flow (Administration › Mail), never with a
     # connection of its own.
     if is_platform_only(provider) and data.scope != ConnectionScope.PLATFORM:
+        if provider.provider_code == GBP_PROVIDER_CODE:
+            # KAN-226: Nexotec's own OAuth client at Google; a Betrieb binds
+            # its locations through the Business Profile link instead.
+            raise UnprocessableEntityError(
+                "This provider is connected by Nexotec once; connect each location through its Business Profile link.",
+                details={"reason": "business_profile_platform_only", "providerCode": provider.provider_code},
+            )
         raise UnprocessableEntityError(
             "This provider is connected by Nexotec once; connect your mailbox under Administration › Mail.",
             details={"reason": "mail_provider_platform_only", "providerCode": provider.provider_code},
@@ -321,7 +329,10 @@ def create_connection(
 # registration, held once by the platform. Keyed on the provider codes, not on
 # their `calendar_mail` category (KAN-762): a calendar provider a site holds
 # an account with of its own is a Betrieb's connection like any other.
-PLATFORM_ONLY_PROVIDER_CODES = frozenset(code.value for code in MailProviderCode)
+# KAN-226: Google Business Profile's connection is Nexotec's own OAuth client
+# too; a Betrieb's location bindings are rows of their own
+# (`models/google_business_profile.py`), never a connection per location.
+PLATFORM_ONLY_PROVIDER_CODES = frozenset({*(code.value for code in MailProviderCode), GBP_PROVIDER_CODE})
 
 # KAN-222 (FR-A-21): the categories whose accounts are per site — an
 # AutoScout24 branch number, a location's own calendar or mailbox account

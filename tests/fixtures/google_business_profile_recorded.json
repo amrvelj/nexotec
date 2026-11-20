@@ -1,0 +1,50 @@
+{
+  "_comment": "KAN-226 PR-2: Google Business Profile answers in the shapes Google documents (Account Management v1, Business Information v1, My Business v4 media, OAuth 2.0). Every value is invented; nothing here came from a real account.",
+  "accounts_page_1": {
+    "accounts": [
+      {"name": "accounts/1100000000000000001", "accountName": "Garage Beispiel AG", "type": "ORGANIZATION"}
+    ],
+    "nextPageToken": "page-2-token-invented"
+  },
+  "accounts_page_2": {
+    "accounts": [
+      {"name": "accounts/1100000000000000002", "accountName": "Beispiel Occasionen", "type": "LOCATION_GROUP"}
+    ]
+  },
+  "locations": {
+    "accounts/1100000000000000001": {
+      "locations": [
+        {
+          "name": "locations/2200000000000000001",
+          "title": "Garage Beispiel Zürich",
+          "storefrontAddress": {"regionCode": "CH", "postalCode": "8001", "locality": "Zürich", "addressLines": ["Beispielstrasse 1"]}
+        },
+        {
+          "name": "locations/2200000000000000002",
+          "title": "Garage Beispiel Winterthur",
+          "storefrontAddress": {"regionCode": "CH", "postalCode": "8400", "locality": "Winterthur", "addressLines": ["Musterweg 2"]}
+        }
+      ]
+    },
+    "accounts/1100000000000000002": {
+      "locations": [
+        {
+          "name": "locations/2200000000000000003",
+          "title": "Beispiel Occasionen Bern",
+          "storefrontAddress": {"regionCode": "CH", "postalCode": "3000", "locality": "Bern", "addressLines": ["Erfundene Gasse 3"]}
+        }
+      ]
+    }
+  },
+  "location_get": {
+    "name": "locations/2200000000000000001",
+    "title": "Garage Beispiel Zürich",
+    "websiteUri": "https://garage-beispiel.invalid/"
+  },
+  "media_start_upload": {"resourceName": "AF1QipInventedUploadReference0001"},
+  "media_create": {
+    "name": "accounts/1100000000000000001/locations/2200000000000000001/media/AF1QipInventedMediaItem0001",
+    "mediaFormat": "PHOTO",
+    "locationAssociation": {"category": "EXTERIOR"}
+  }
+}
