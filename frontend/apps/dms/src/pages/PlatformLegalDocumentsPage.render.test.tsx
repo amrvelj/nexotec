@@ -5,6 +5,7 @@ import userEvent from '@testing-library/user-event'
 import i18n from '../i18n'
 import { renderWithProviders } from '../test/renderWithProviders'
 import { installFakeBackend, status } from '../test/fakeBackend'
+import { languageEndonym } from '../i18n/languageEndonyms'
 import { PlatformLegalDocumentsPage } from './PlatformLegalDocumentsPage'
 
 // KAN-214 (FR-A-39) — Platform Administration › Legal documents: every version
@@ -58,5 +59,22 @@ describe('PlatformLegalDocumentsPage (KAN-214)', () => {
       bodyMarkdown: 'Text',
       acceptanceGraceDays: 30,
     })
+  })
+
+  it("names a version's language in itself, not in the UI language (KAN-750, option A)", async () => {
+    installFakeBackend([
+      {
+        method: 'GET',
+        match: /^\/platform\/legal-documents$/,
+        handler: () => ({ items: [{ ...draftTos, id: 'doc-fr', language: 'fr', title: "Conditions d'utilisation" }] }),
+      },
+    ])
+    renderWithProviders(<PlatformLegalDocumentsPage />, { route: '/platform/legal-documents' })
+
+    // The suite starts in German: a translated name would read «Französisch».
+    expect(i18n.language).toBe('de')
+    const table = await screen.findByRole('table', { name: i18n.t('setup.platform.title') })
+    expect(within(table).getByText(languageEndonym('fr'))).toBeInTheDocument()
+    expect(within(table).queryByText(/Französisch/)).toBeNull()
   })
 })
