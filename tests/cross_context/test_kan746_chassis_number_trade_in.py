@@ -200,6 +200,24 @@ def test_a_chassis_number_whose_only_valuation_has_no_configuration_is_refused(d
     _untouched(db_session, offer, version)
 
 
+def test_a_chassis_number_the_deals_own_configuration_carries_is_taken_without_a_valuation(db_session):
+    """The deal already carries the oldtimer's configuration (its valuation
+    was attached, then expired, say): typing its number finds no valuation to
+    offer, and the deal's own configuration carries it — taken."""
+
+    dealership = _dealership(db_session)
+    group_id = dealership.dealer_group_id
+    configuration = _oldtimer_configuration(db_session, dealership.id)
+    offer = create_offer(db_session, tenant_id=dealership.id, actor_id=uuid.uuid4())
+    offer.trade_in_configuration_id = configuration.id
+    db_session.commit()
+
+    offer = _set(db_session, offer, group_id, CHASSIS)
+
+    assert (offer.trade_in_vin, offer.trade_in_vehicle_id, offer.trade_in_valuation_id) == (CHASSIS, None, None)
+    assert offer.trade_in_configuration_id == configuration.id
+
+
 def test_a_chassis_number_another_cars_configuration_does_not_carry_is_refused(db_session):
     """A deal whose trade-in configuration describes another car (here a VIN
     car) does not take a chassis number typed over it."""

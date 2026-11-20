@@ -268,9 +268,10 @@ class StockItem(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, TimestampMix
     # another (422 `trade_in_vin_differs`); it is never written again — what
     # the contract said stays as history after the purchase, a storno or a
     # VIN correction. Stock's own copy of a fact of a signed, frozen
-    # contract, not another context's id: no label. Null on every other
-    # item, on a trade-in created before KAN-536, and when the contract held
-    # a pre-1981 chassis number (never a VIN a purchase can be booked with).
+    # contract, not another context's id: no label. A pre-1981 chassis
+    # number is kept too (KAN-746: a contract holds one only with the
+    # configuration carrying it, whose number decides at the booking). Null
+    # on every other item and on a trade-in created before KAN-536.
     trade_in_vin: Mapped[str | None] = mapped_column(String(17), nullable=True, info=IDENTIFIER_TEXT)
     order_date: Mapped[dt.date | None] = mapped_column(Date(), nullable=True)
     expected_delivery: Mapped[dt.date | None] = mapped_column(Date(), nullable=True)
