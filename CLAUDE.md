@@ -168,7 +168,7 @@ Edits to these `app/core/` files ask Anto first, whichever tool makes them.
 ## API conventions
 
 Path-versioned `/v1` · camelCase JSON and query parameters (the legacy snake_case ones, frozen in `test_query_parameters_are_camel_case.py`,
-gain a camelCase alias when their endpoint is next touched) · cursor pagination · `If-Match` on every mutation of a versioned entity
+gain a camelCase alias when their endpoint is next touched, or are retired when a list endpoint moves onto KAN-461's list-query layer — KAN-753) · cursor pagination · `If-Match` on every mutation of a versioned entity
 (reasoned exceptions: `test_versioned_mutations_take_if_match.py`) · `Idempotency-Key` honoured, never required, on every POST (exemptions:
 `test_every_post_accepts_idempotency_key.py`) · OpenAPI per service (one today). A newly required request field is a breaking contract change: it needs an explicit decision, never a side effect of a fix.
 
