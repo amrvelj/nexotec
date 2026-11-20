@@ -149,7 +149,7 @@ def derive(db: Session, dealership_id: uuid.UUID, *, now: dt.datetime) -> Status
                 items.extend(provider.items(db, dealership_id=dealership_id, now=now))
         except Exception:
             logger.exception(
-                "status page: source %s failed for Betrieb %s",
+                "status page: source %s failed for business %s",
                 provider.source,
                 dealership_id,
                 extra={"dealershipId": str(dealership_id), "source": provider.source},

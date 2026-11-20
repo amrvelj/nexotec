@@ -43,5 +43,5 @@ class InventoryExporter(TableExporter):
 
     def excluded_tables(self) -> Mapping[str, str]:
         return {
-            InventorySalesContractBackfill.__tablename__: "A one-off migration's bookkeeping, no Betrieb's data.",
+            InventorySalesContractBackfill.__tablename__: "A one-off migration's bookkeeping, no business's data.",
         }

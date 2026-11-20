@@ -358,7 +358,7 @@ def test_vehicle_reconciliation_reports_a_plate_in_a_group_that_does_not_exist(c
         vehicle_reconciliation.run(db_session)
 
     assert sorted(orphan.check_label for orphan in exc_info.value.orphans) == [
-        "vehicle_plate kept in a group that is not its recording Betrieb's",
+        "vehicle_plate kept in a group that is not its recording business's",
         "vehicle_plate.group_id -> dealer_group.id",
     ]
 

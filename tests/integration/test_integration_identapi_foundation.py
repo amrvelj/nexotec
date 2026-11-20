@@ -393,7 +393,7 @@ def test_a_user_who_does_not_act_in_the_betrieb_has_no_token(db_session, monkeyp
     updated = gateway.test_connection(db_session, connection=s.connection, actor_id=stranger.id)
 
     assert updated.status == ConnectionStatus.ERROR
-    assert "not a member of this connection's Betrieb" in (updated.last_error or "")
+    assert "not a member of this connection's business" in (updated.last_error or "")
     assert s.fake.seen == []
 
 
@@ -739,7 +739,7 @@ def test_a_connection_without_a_betrieb_says_so(db_session, monkeypatch):
     updated = gateway.test_connection(db_session, connection=s.connection, actor_id=s.user.id)
 
     assert updated.status == ConnectionStatus.ERROR
-    assert "belongs to no Betrieb" in (updated.last_error or "")
+    assert "belongs to no business" in (updated.last_error or "")
 
 
 def test_a_401_invalidates_only_that_users_token(db_session, monkeypatch):

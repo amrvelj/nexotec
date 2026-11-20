@@ -109,12 +109,12 @@ def request_export(
 
     if kind == ExportJobKind.SELF_SERVICE and dealership.status == DealershipStatus.OFFBOARDED:
         raise ConflictError(
-            "This Betrieb is offboarded: its archive is exported by Nexotec support.",
+            "This business is offboarded: its archive is exported by Nexotec support.",
             details={"reason": "dealership_offboarded"},
         )
     if kind == ExportJobKind.ARCHIVE and dealership.status != DealershipStatus.OFFBOARDED:
         raise ConflictError(
-            "An archive export is for an offboarded Betrieb; a live Betrieb's manager exports it.",
+            "An archive export is for an offboarded business; a live business's manager exports it.",
             details={"reason": "dealership_not_offboarded"},
         )
     job = ExportJob(
@@ -220,7 +220,7 @@ def acknowledge(db: Session, *, job: ExportJob, actor_id: uuid.UUID) -> ExportJo
     needs one acknowledged and produced after the Betrieb's last write."""
 
     if job.kind != ExportJobKind.SELF_SERVICE:
-        raise ConflictError("Only the Betrieb's own export is acknowledged.", details={"reason": "export_not_own"})
+        raise ConflictError("Only the business's own export is acknowledged.", details={"reason": "export_not_own"})
     if job.acknowledged_at is not None:
         raise ConflictError("This export is acknowledged already.", details={"reason": "export_already_acknowledged"})
     _assert_downloadable(job, utcnow())
@@ -331,7 +331,7 @@ def produce(db: Session, *, export_id: uuid.UUID, store: ObjectStore | None = No
     try:
         dealership_row = snapshot.get(Dealership, job.dealership_id)
         if dealership_row is None:
-            raise LookupError("the export's Betrieb is gone")
+            raise LookupError("the export's business is gone")
         scope = _with_references(snapshot, scope_for(snapshot, dealership_row))
         # KAN-715: the archive goes to a temporary file on disk, then to the
         # store in chunks — never the whole ZIP in the web process's memory.

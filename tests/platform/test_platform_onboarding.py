@@ -166,6 +166,8 @@ def test_a_uid_already_onboarded_is_409_and_writes_nothing(client, mailbox, db_s
 
     assert response.status_code == 409
     assert response.json()["error"]["details"] == {"reason": "uid_already_onboarded"}
+    # KAN-771: English says «business» (KAN-760, A); the code above is unchanged.
+    assert response.json()["error"]["message"] == "A business with this UID is already onboarded."
     assert "Garage Muster" not in response.text
     assert _counts(db_session) == before
     assert len(mailbox) == mails

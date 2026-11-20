@@ -211,15 +211,15 @@ class PlatformExporter(TableExporter):
         )
 
     def excluded_tables(self) -> Mapping[str, str]:
-        platform_reference = "Nexotec's platform reference data, the same for every Betrieb."
+        platform_reference = "Nexotec's platform reference data, the same for every business."
         return {
             HolidayCalendar.__tablename__: platform_reference,
             Holiday.__tablename__: platform_reference,
             ReferenceList.__tablename__: platform_reference,
             ReferenceValue.__tablename__: platform_reference,
             NotificationEvent.__tablename__: "Nexotec's catalogue of notification kinds.",
-            LegalDocument.__tablename__: "Nexotec's own Terms of Service and DPA, the same for every Betrieb.",
-            PlatformStatusIncident.__tablename__: "Nexotec's own platform status, the same for every Betrieb.",
+            LegalDocument.__tablename__: "Nexotec's own Terms of Service and DPA, the same for every business.",
+            PlatformStatusIncident.__tablename__: "Nexotec's own platform status, the same for every business.",
             UiTranslation.__tablename__: "Nexotec's interface texts.",
             UiTranslationRevision.__tablename__: "Nexotec's interface texts.",
             MissingTranslation.__tablename__: "Nexotec's interface texts.",

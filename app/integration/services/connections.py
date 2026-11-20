@@ -374,7 +374,7 @@ def _bind_location(
             )
         if not is_location_bindable(provider):
             raise UnprocessableEntityError(
-                f"A {provider.display_name} connection serves the whole Betrieb and is not bound to a location.",
+                f"A {provider.display_name} connection serves the whole business and is not bound to a location.",
                 details={"reason": "location_binding_not_supported", "category": provider.category},
             )
         # Imported here, not at module scope: this module loads with the
@@ -388,7 +388,7 @@ def _bind_location(
             location = get_location_or_404(db, dealership_id=connection.tenant_id, location_id=location_id)
         except NotFoundError:
             raise UnprocessableEntityError(
-                "The location is not one of this Betrieb's.",
+                "The location is not one of this business's.",
                 details={"reason": "unknown_location", "locationId": str(location_id)},
             ) from None
         label = location.name

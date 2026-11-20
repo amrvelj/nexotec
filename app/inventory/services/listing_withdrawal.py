@@ -119,7 +119,7 @@ def withdraw_live_listings(
             withdrawn += 1
     if blocked:
         raise ListingWithdrawalBlocked(
-            f"Betrieb {tenant_id}: no enabled connection to withdraw its delivered feed on {', '.join(blocked)}."
+            f"Business {tenant_id}: no enabled connection to withdraw its delivered feed on {', '.join(blocked)}."
         )
     # KAN-225: the Betrieb's own website reads Stock's facts, nothing to send.
     withdrawn += website_listing.withdraw_all(db, tenant_id=tenant_id)

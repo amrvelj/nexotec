@@ -49,5 +49,5 @@ def refresh_provider_captions(
     (each provider failure with `languagesFetched`)."""
 
     if principal.tenant_id is None or principal.user_id is None:
-        raise ConflictError("Act in a Betrieb to refresh its provider's captions.", details={"reason": "no_provider_connection"})
+        raise ConflictError("Act in a business to refresh its provider's captions.", details={"reason": "no_provider_connection"})
     return _list(refresh_captions(db, tenant_id=principal.tenant_id, actor_id=principal.user_id))

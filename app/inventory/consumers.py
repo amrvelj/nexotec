@@ -98,7 +98,7 @@ def handle_dealership_offboarded_message(db: Session, message: OutboxMessage) ->
 
     dealership_id = uuid.UUID(message.payload["dealershipId"])
     if message.tenant_id is not None and message.tenant_id != dealership_id:
-        raise ValueError(f"platform.dealership.offboarded message {message.id} names two Betriebe.")
+        raise ValueError(f"platform.dealership.offboarded message {message.id} names two businesses.")
     listing_withdrawal.withdraw_live_listings(
         db, tenant_id=dealership_id, causation_id=message.id, correlation_id=message.correlation_id
     )

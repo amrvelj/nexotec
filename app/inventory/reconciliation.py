@@ -145,7 +145,7 @@ def _two_live_items_name_one_record() -> StateCheck:
 
     other = aliased(StockItem)
     return StateCheck(
-        label="two live stock items of one Betrieb name one vehicle_mdm record",
+        label="two live stock items of one business name one vehicle_mdm record",
         source_model=StockItem,
         source_row_id_column=StockItem.id,
         where=lambda: StockItem.vehicle_id.is_not(None)

@@ -55,7 +55,7 @@ _odometer = table_of(VehicleOdometerReading)
 _accessory = table_of(VehicleAccessory)
 _vehicle = table_of(VehicleMdm)
 
-_MIRROR = "The provider's licensed catalogue data mirrored for the Betrieb, re-fetched on demand."
+_MIRROR = "The provider's licensed catalogue data mirrored for the business, re-fetched on demand."
 
 
 def _tenant(model, **kwargs) -> ExportedTable:
@@ -116,13 +116,13 @@ class VehicleExporter(TableExporter):
             _tenant(
                 PlateLookupCacheEntry,
                 in_archive=False,
-                exclusion_reason="A 30-day cache of registry lookups (KAN-42); no record of the Betrieb's.",
+                exclusion_reason="A 30-day cache of registry lookups (KAN-42); no record of the business's.",
                 marks_write=False,
             ),
         )
 
     def excluded_tables(self) -> Mapping[str, str]:
-        catalogue = "Nexotec's canonical vehicle catalogue, the same for every Betrieb."
+        catalogue = "Nexotec's canonical vehicle catalogue, the same for every business."
         return {
             **{
                 model.__tablename__: catalogue

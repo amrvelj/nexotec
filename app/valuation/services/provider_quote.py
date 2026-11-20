@@ -69,7 +69,7 @@ def _unavailable() -> UnprocessableEntityError:
 
 def _not_entitled() -> ConflictError:
     return ConflictError(
-        "Valuation is not in this Betrieb's provider contract.", details={"reason": "not_entitled"}
+        "Valuation is not in this business's provider contract.", details={"reason": "not_entitled"}
     )
 
 
@@ -86,7 +86,7 @@ def request_provider_quote(
     car = get_provider_valuation_input(db, tenant_id=tenant_id, configuration_id=data.configuration_id)
     if car is None:
         raise ConflictError(
-            "No vehicle-data provider is connected for this Betrieb.", details={"reason": "no_provider_connection"}
+            "No vehicle-data provider is connected for this business.", details={"reason": "no_provider_connection"}
         )
     if not valuation_granted(db, connection=car.connection):
         raise _not_entitled()

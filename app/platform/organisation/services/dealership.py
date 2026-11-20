@@ -344,7 +344,7 @@ def _assert_status_change(
 
     if not actor_is_staff:
         raise UnprocessableEntityError(
-            "The status of a Betrieb is not changed here: activation and offboarding are procedures of their own.",
+            "The status of a business is not changed here: activation and offboarding are procedures of their own.",
             details={"reason": "status_not_patchable", "field": "status"},
         )
     if new_status is None:
@@ -365,9 +365,9 @@ def _assert_status_change(
     if (dealership.status, new_status) in _STAFF_STATUS_TRANSITIONS:
         return
     if new_status == DealershipStatus.OFFBOARDED:
-        reason, message = "use_offboarding_procedure", "A Betrieb is offboarded through the offboarding procedure."
+        reason, message = "use_offboarding_procedure", "A business is offboarded through the offboarding procedure."
     elif new_status == DealershipStatus.ACTIVE and dealership.status == DealershipStatus.PENDING_ONBOARDING:
-        reason, message = "use_activation_procedure", "A Betrieb is activated through the activation procedure."
+        reason, message = "use_activation_procedure", "A business is activated through the activation procedure."
     else:
         reason, message = "status_transition_not_allowed", "This status change is not made here."
     raise UnprocessableEntityError(
