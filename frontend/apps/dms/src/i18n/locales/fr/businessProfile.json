@@ -1,0 +1,13 @@
+{
+  "refusals": {
+    "business_profile_not_configured": "Nexotec n'a pas encore configuré Google Business Profile.",
+    "business_profile_platform_only": "Ce fournisseur est configuré par Nexotec. Connectez chacun de vos sites séparément à Google Business Profile.",
+    "location_already_bound": "Ce site est déjà connecté à Google Business Profile. Déconnectez-le d'abord.",
+    "business_profile_consent_incomplete": "Google n'a pas accordé à Nexotec l'accès à la fiche d'établissement. Veuillez accepter toutes les autorisations lors de la connexion.",
+    "business_profile_grant_refused": "Google n'accorde plus l'accès à ce site. Veuillez le connecter à nouveau.",
+    "binding_not_pending": "L'établissement Google de ce site est déjà choisi.",
+    "google_location_not_accessible": "Cette connexion ne gère pas cet établissement Google.",
+    "google_location_already_bound": "Cet établissement Google est déjà connecté dans Nexotec.",
+    "binding_already_disconnected": "Ce site est déjà déconnecté."
+  }
+}

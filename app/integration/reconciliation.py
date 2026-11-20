@@ -18,6 +18,7 @@ from app.integration.models.call_payload import IntegrationCallPayload
 from app.integration.models.caption import IntegrationProviderCaption, IntegrationProviderCaptionFetch
 from app.integration.models.connection import IntegrationConnection
 from app.integration.models.entitlement import IntegrationEntitlement
+from app.integration.models.google_business_profile import GbpLinkState, GbpLocationBinding
 from app.integration.models.mail import MailLinkState, MessageDelivery, SendingIdentity
 from app.integration.models.notification import IntegrationNotification
 from app.integration.models.provider import IntegrationProvider
@@ -48,6 +49,8 @@ ACTOR_TABLES = (
     SendingIdentity,  # KAN-215: the user who connected or disconnected a mailbox
     MessageDelivery,  # KAN-215: the author of the send
     MailLinkState,  # KAN-215: none written (no actor columns are set)
+    GbpLocationBinding,  # KAN-226: the manager who linked, picked or disconnected
+    GbpLinkState,  # KAN-226: none written (no actor columns are set)
 )
 
 
@@ -145,6 +148,19 @@ CHECKS = [
         source_model=MessageDelivery,
         source_row_id_column=MessageDelivery.id,
         source_fk_column=MessageDelivery.author_user_id,
+    ),
+    # KAN-226: a Business Profile binding names its Betrieb and its location.
+    dealership_reference_check(
+        label="integration_gbp_location_binding.tenant_id -> dealership.id",
+        source_model=GbpLocationBinding,
+        source_row_id_column=GbpLocationBinding.id,
+        source_fk_column=GbpLocationBinding.tenant_id,
+    ),
+    location_reference_check(
+        label="integration_gbp_location_binding.location_id -> location.id",
+        source_model=GbpLocationBinding,
+        source_row_id_column=GbpLocationBinding.id,
+        source_fk_column=GbpLocationBinding.location_id,
     ),
     *actor_reference_checks(*ACTOR_TABLES),
 ]

@@ -1,0 +1,13 @@
+{
+  "refusals": {
+    "business_profile_not_configured": "Nexotec has not set up Google Business Profile yet.",
+    "business_profile_platform_only": "Nexotec sets up this provider. Connect each of your locations to Google Business Profile on its own.",
+    "location_already_bound": "This location is already connected to Google Business Profile. Disconnect it first.",
+    "business_profile_consent_incomplete": "Google did not grant Nexotec access to the Business Profile. Please accept every permission when you sign in.",
+    "business_profile_grant_refused": "Google no longer grants access to this location. Please connect it again.",
+    "binding_not_pending": "The Google location for this location has already been chosen.",
+    "google_location_not_accessible": "This sign-in does not manage that Google location.",
+    "google_location_already_bound": "This Google location is already connected in Nexotec.",
+    "binding_already_disconnected": "This location is already disconnected."
+  }
+}
