@@ -246,7 +246,7 @@ def enable_connection(
     return _connection_read(db, connection)
 
 
-@router.delete("/integrations/connections/{connection_id}", status_code=204)
+@router.delete("/integrations/connections/{connection_id}", dependencies=[Depends(refuse_under_impersonation)], status_code=204)
 def delete_connection(
     connection_id: uuid.UUID,
     body: DeleteConnectionRequest,

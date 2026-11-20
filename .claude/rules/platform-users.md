@@ -159,12 +159,12 @@ Roles, capabilities, the permission matrix and what the SPA may offer: `platform
 platform_admin, oneself or a non-active user; one running per staff), `…/{id}/end` (staff or the
 user; others 404). Over at `expires_at`: reads derive `timeout`, the nightly
 `platform.support_sessions.close_expired` writes it. Log: `…/dealerships/{id}/support-sessions`
-(manager), `/v1/platform/support-sessions` (staff). **Grants nothing until PR 3** (token).
+(manager), `/v1/platform/support-sessions` (staff). **Grants nothing until PR 3.**
 **FR-A-17:** `app/core/impersonation.py` — 403 `impersonation_excluded` on the routes named in
-`tests/platform/test_kan221_impersonation_exclusions.py`, and on a PATCH of `isDealerManager`/`email`
+`test_kan221_impersonation_exclusions.py`, and on a PATCH of `isDealerManager`/`email`
 or a new manager; the user gets `security.impersonation_started`/`_ended`, not the manager.
-Ruling: full write at once; `sub` = staff, `actingFor` = the user, both in the audit; 60 minutes, a reason, a
-banner the user ends; no "View as".
+Ruling: full write at once; `sub` = staff, `actingFor` = the user, both in the audit, never the dealer;
+60 min, a reason, a persistent banner the user ends; no "View as".
 
 ## My account
 - `/account/{profile,security,connected-accounts,signature,notifications}` for every user. Sessions

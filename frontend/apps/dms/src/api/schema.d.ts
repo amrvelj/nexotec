@@ -2594,7 +2594,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/document-links/{token}": {
+    "/v1/document-links/current": {
         parameters: {
             query?: never;
             header?: never;
@@ -2602,7 +2602,7 @@ export interface paths {
             cookie?: never;
         };
         /** Open Document Link */
-        get: operations["open_document_link_v1_document_links__token__get"];
+        get: operations["open_document_link_v1_document_links_current_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -18574,8 +18574,8 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                "If-Match"?: string | null;
                 authorization?: string | null;
+                "If-Match"?: string | null;
             };
             path: {
                 dealership_id: string;
@@ -21985,13 +21985,13 @@ export interface operations {
             };
         };
     };
-    open_document_link_v1_document_links__token__get: {
+    open_document_link_v1_document_links_current_get: {
         parameters: {
             query?: never;
-            header?: never;
-            path: {
-                token: string;
+            header?: {
+                "X-Document-Link"?: string;
             };
+            path?: never;
             cookie?: never;
         };
         requestBody?: never;
@@ -22487,8 +22487,8 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                "If-Match"?: string | null;
                 authorization?: string | null;
+                "If-Match"?: string | null;
             };
             path: {
                 connection_id: string;

@@ -8,6 +8,7 @@ cross_context.
 
 import datetime as dt
 import hashlib
+import logging
 import uuid
 from decimal import Decimal
 
@@ -15,6 +16,7 @@ import pytest
 from sqlalchemy import select
 
 from app.core.base import utcnow
+from app.core.redact import is_secret_field
 from app.platform.documents.models.document_link import LINK_VALID_DAYS, OPEN_WINDOW, OPENS_PER_WINDOW, DocumentLink
 from app.platform.documents.services import document_links
 from app.platform.documents.services.message_types import MessageTypeRegistrationError
@@ -73,8 +75,8 @@ def _issue(db, dealership: Dealership, document_id: uuid.UUID, message_type: str
     return issued
 
 
-def _path(issued) -> str:
-    return issued.url[issued.url.index("/v1/") :]
+def _open(client, token: str):
+    return client.get("/v1/document-links/current", headers={"X-Document-Link": token})
 
 
 # --- the token is a password ---------------------------------------------------
@@ -90,7 +92,8 @@ def test_only_the_tokens_sha256_is_stored(db_session):
     assert row.token_hash == hashlib.sha256(issued.token.encode()).hexdigest()
     stored = " ".join(str(getattr(row, column.key)) for column in DocumentLink.__table__.columns)
     assert issued.token not in stored
-    assert issued.url.endswith("/v1/document-links/" + issued.token)
+    # The token rides in the fragment, which no browser sends to a server.
+    assert issued.url.endswith("/d#" + issued.token)
     assert row.expires_at - utcnow() > dt.timedelta(days=LINK_VALID_DAYS) - dt.timedelta(minutes=1)
 
 
@@ -108,7 +111,7 @@ def test_a_link_serves_the_offer_pdf_without_a_sign_in(client, db_session):
     document = _offer_document(db_session, dealership)
     issued = _issue(db_session, dealership, document.id)
 
-    response = client.get(_path(issued))
+    response = _open(client, issued.token)
 
     assert response.status_code == 200
     assert response.headers["content-type"] == "application/pdf"
@@ -143,16 +146,32 @@ def test_a_link_serves_the_contract_pdf(client, db_session):
     document = generate_contract_document(db_session, contract=contract, actor_id=None)
     issued = _issue(db_session, dealership, document.id, message_type="sales_contract")
 
-    response = client.get(_path(issued))
+    response = _open(client, issued.token)
 
     assert response.status_code == 200
     assert response.headers["content-disposition"] == 'inline; filename="C-000007-v1.pdf"'
 
 
-@pytest.mark.parametrize("token", ["nope", "A" * 43, "A" * 42 + "!", "A" * 200])
-def test_an_unknown_or_malformed_token_is_404(client, token):
-    response = client.get(f"/v1/document-links/{token}")
-    assert response.status_code == 404
+@pytest.mark.parametrize("token", ["", "nope", "A" * 43, "A" * 42 + "!", "A" * 200])
+def test_an_unknown_missing_or_malformed_token_is_404(client, token):
+    assert _open(client, token).status_code == 404
+
+
+def test_the_token_never_reaches_a_log_line(client, db_session, caplog):
+    """ADR-193: the path an access log keeps holds no token, and the header
+    that carries it is a secret field by name."""
+
+    dealership = _dealership(db_session)
+    document = _offer_document(db_session, dealership)
+    issued = _issue(db_session, dealership, document.id)
+
+    with caplog.at_level(logging.DEBUG):
+        assert _open(client, issued.token).status_code == 200
+        assert _open(client, "B" * 43).status_code == 404
+    logged = " ".join(f"{record.getMessage()} {record.__dict__}" for record in caplog.records)
+    assert "/v1/document-links/current" in logged  # the request line was logged
+    assert issued.token not in logged and "B" * 43 not in logged
+    assert is_secret_field("X-Document-Link") and is_secret_field("x-document-link")
 
 
 def test_an_expired_link_is_404(client, db_session):
@@ -160,7 +179,7 @@ def test_an_expired_link_is_404(client, db_session):
     document = _offer_document(db_session, dealership)
     issued = _issue(db_session, dealership, document.id, now=utcnow() - dt.timedelta(days=LINK_VALID_DAYS, seconds=1))
 
-    assert client.get(_path(issued)).status_code == 404
+    assert _open(client, issued.token).status_code == 404
 
 
 def test_a_link_never_serves_another_betriebs_document(client, db_session):
@@ -172,7 +191,7 @@ def test_a_link_never_serves_another_betriebs_document(client, db_session):
     document = _offer_document(db_session, owner)
     issued = _issue(db_session, other, document.id)
 
-    assert client.get(_path(issued)).status_code == 404
+    assert _open(client, issued.token).status_code == 404
 
 
 def test_a_link_never_serves_a_document_of_another_type(client, db_session):
@@ -182,7 +201,7 @@ def test_a_link_never_serves_a_document_of_another_type(client, db_session):
     document = _offer_document(db_session, dealership)
     issued = _issue(db_session, dealership, document.id, message_type="sales_contract")
 
-    assert client.get(_path(issued)).status_code == 404
+    assert _open(client, issued.token).status_code == 404
 
 
 def test_an_offboarded_betriebs_link_is_404(client, db_session):
@@ -192,7 +211,7 @@ def test_an_offboarded_betriebs_link_is_404(client, db_session):
     dealership.status = DealershipStatus.OFFBOARDED
     db_session.commit()
 
-    assert client.get(_path(issued)).status_code == 404
+    assert _open(client, issued.token).status_code == 404
 
 
 def test_opens_are_rate_limited_per_link_in_a_rolling_window(db_session, monkeypatch):

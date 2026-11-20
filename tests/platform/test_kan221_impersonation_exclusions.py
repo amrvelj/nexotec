@@ -59,6 +59,15 @@ EXCLUDED: tuple[tuple[str, str], ...] = (
     ("POST", "/v1/integrations/mail/link-callback"),
     ("DELETE", "/v1/me/connected-accounts/{account_id}"),
     ("DELETE", "/v1/dealerships/{dealership_id}/users/{user_id}/connected-accounts/{account_id}"),
+    # Deleting a connection drops every secret slot and its folder at once.
+    ("DELETE", "/v1/integrations/connections/{connection_id}"),
+    # Google Business Profile: the location link stores a refresh token; disconnect drops it (KAN-226).
+    ("POST", "/v1/dealerships/{dealership_id}/business-profile/links"),
+    ("POST", "/v1/integrations/business-profile/link-callback"),
+    ("DELETE", "/v1/dealerships/{dealership_id}/business-profile/bindings/{binding_id}"),
+    # A browser subscribing to the user's notices — the security family included —
+    # would keep receiving them after the session ends.
+    ("POST", "/v1/me/push-subscriptions"),
     # Another impersonation
     ("POST", "/v1/platform/support-sessions"),
 )
@@ -100,7 +109,7 @@ def acting_as(client):
 
 def _call(client, method: str, path: str, tenant_id: uuid.UUID, json=None):
     url = path.replace("{dealership_id}", str(tenant_id))
-    for name in ("user_id", "member_dealership_id", "passkey_id", "session_id", "connection_id", "mailbox_id", "account_id"):
+    for name in ("user_id", "member_dealership_id", "passkey_id", "session_id", "connection_id", "mailbox_id", "account_id", "binding_id"):
         url = url.replace("{" + name + "}", _ID)
     url = url.replace("{slot}", "api_key")
     headers = {"Idempotency-Key": str(uuid.uuid4()), "If-Match": "1"}

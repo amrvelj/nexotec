@@ -14,6 +14,7 @@ import { LEGAL_PRIVACY_PATH, LEGAL_TERMS_PATH } from './config/legalPages'
 const PasswordResetRequestPage = lazyPage(() => import('./pages/PasswordResetRequestPage'), 'PasswordResetRequestPage')
 const PasswordResetConfirmPage = lazyPage(() => import('./pages/PasswordResetConfirmPage'), 'PasswordResetConfirmPage')
 const InvitationAcceptPage = lazyPage(() => import('./pages/InvitationAcceptPage'), 'InvitationAcceptPage')
+const DocumentLinkPage = lazyPage(() => import('./pages/DocumentLinkPage'), 'DocumentLinkPage')
 const TermsOfUsePage = lazyPage(() => import('./pages/TermsOfUsePage'), 'TermsOfUsePage')
 const PrivacyPolicyPage = lazyPage(() => import('./pages/PrivacyPolicyPage'), 'PrivacyPolicyPage')
 const AccountSecurityPage = lazyPage(() => import('./pages/AccountSecurityPage'), 'AccountSecurityPage')
@@ -94,6 +95,8 @@ export default function App() {
             <Route path="/password-reset" element={<PasswordResetRequestPage />} />
             <Route path="/password-reset/confirm" element={<PasswordResetConfirmPage />} />
             <Route path="/invitations/accept" element={<InvitationAcceptPage />} />
+            {/* KAN-217 PR-4: a customer's secure document link, `/d#<token>` — no session. */}
+            <Route path="/d" element={<DocumentLinkPage />} />
             {/* KAN-452: the public Terms of Use and Privacy Policy Google's Places
                 API policies require — no session, outside the shell, for everyone. */}
             <Route path={LEGAL_TERMS_PATH} element={<TermsOfUsePage />} />

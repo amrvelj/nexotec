@@ -26,6 +26,7 @@ import ns_customersList from './it/customersList.json'
 import ns_dashboard from './it/dashboard.json'
 import ns_dataExport from './it/dataExport.json'
 import ns_dealOwner from './it/dealOwner.json'
+import ns_documentLink from './it/documentLink.json'
 import ns_integrationEnums from './it/integrationEnums.json'
 import ns_integrationsList from './it/integrationsList.json'
 import ns_legal from './it/legal.json'
@@ -91,6 +92,7 @@ const bundle = {
   dashboard: ns_dashboard,
   dataExport: ns_dataExport,
   dealOwner: ns_dealOwner,
+  documentLink: ns_documentLink,
   integrationEnums: ns_integrationEnums,
   integrationsList: ns_integrationsList,
   legal: ns_legal,

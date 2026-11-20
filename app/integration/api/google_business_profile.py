@@ -20,6 +20,7 @@ from app.core.auth import Principal, get_current_principal
 from app.core.concurrency import check_version, require_if_match
 from app.core.errors import NotFoundError
 from app.core.idempotent_route import IdempotentRoute
+from app.core.impersonation import refuse_under_impersonation
 from app.core.permissions import may_write, require_read, require_write
 from app.core.tenancy import require_tenant_match
 from app.db import get_db
@@ -71,7 +72,7 @@ def list_bindings(
     )
 
 
-@router.post(f"{_BASE}/links", response_model=BusinessProfileLinkStartRead, status_code=201)
+@router.post(f"{_BASE}/links", dependencies=[Depends(refuse_under_impersonation)], response_model=BusinessProfileLinkStartRead, status_code=201)
 def start_link(
     dealership_id: uuid.UUID,
     body: BusinessProfileLinkCreate,
@@ -85,7 +86,7 @@ def start_link(
     return BusinessProfileLinkStartRead(authorize_url=url)
 
 
-@router.post("/integrations/business-profile/link-callback", response_model=BusinessProfileLinkOutcomeRead)
+@router.post("/integrations/business-profile/link-callback", dependencies=[Depends(refuse_under_impersonation)], response_model=BusinessProfileLinkOutcomeRead)
 def complete_link(
     body: BusinessProfileLinkCallback,
     principal: Principal = Depends(get_current_principal),
@@ -135,7 +136,7 @@ def pick_google_location(
     return _read(bound)
 
 
-@router.delete(f"{_BASE}/bindings/{{binding_id}}", status_code=204)
+@router.delete(f"{_BASE}/bindings/{{binding_id}}", dependencies=[Depends(refuse_under_impersonation)], status_code=204)
 def disconnect_binding(
     dealership_id: uuid.UUID,
     binding_id: uuid.UUID,

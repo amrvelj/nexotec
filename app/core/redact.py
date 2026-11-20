@@ -27,6 +27,9 @@ SECRET_FIELDS = frozenset(
         # KAN-488: an OAuth access token and the header it travels in are
         # credentials in flight; a log line carrying either is redacted.
         "access_token", "authorization", "Authorization",
+        # KAN-217 PR-4 (ADR-193): a secure document link's token travels in
+        # this request header, never in a URL a proxy or an access log keeps.
+        "x-document-link", "X-Document-Link", "x_document_link",
     }
 )
 

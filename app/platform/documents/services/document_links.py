@@ -11,7 +11,8 @@ link reads nothing outside the Betrieb that issued it.
 
 **Issuing** (`issue_document_link`) is the send's step (PR-5): it writes the row
 in the caller's transaction and hands back the raw token once; only its SHA-256
-is stored. **Opening** (`open_document_link`) is unauthenticated: the token is
+is stored. The URL carries it in the fragment (`/d#<token>`), never in a path
+or a query a proxy or an access log keeps; the SPA's page sends it in a header. **Opening** (`open_document_link`) is unauthenticated: the token is
 the whole authority. Unknown, malformed, expired, rate-limited, an offboarded
 Betrieb's, or naming a document its Betrieb does not hold — every one of them
 is the same 404 (`None` here), so an answer confirms nothing.
@@ -45,7 +46,10 @@ from app.platform.organisation.models.dealership import Dealership, DealershipSt
 
 logger = logging.getLogger(__name__)
 
-LINK_PATH = "/v1/document-links/"
+# The SPA's public page; the token follows in the fragment, which no browser
+# sends to a server (ADR-193): the page hands it to the API in TOKEN_HEADER.
+LINK_PAGE = "/d#"
+TOKEN_HEADER = "X-Document-Link"
 
 # secrets.token_urlsafe(32): 43 characters of the URL-safe alphabet. Anything
 # else is refused before the database is asked.
@@ -104,7 +108,7 @@ class IssuedDocumentLink:
 
 
 def link_url(token: str) -> str:
-    return get_settings().app_base_url.rstrip("/") + LINK_PATH + token
+    return get_settings().app_base_url.rstrip("/") + LINK_PAGE + token
 
 
 def issue_document_link(
