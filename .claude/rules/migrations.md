@@ -66,9 +66,7 @@ verified against main@3b2bf69 (2026-11-18). -->
   index whose stored definition differs (a partial index's `WHERE` included), and on an index or
   constraint only one side has by name. Declare every index and constraint on the model with the
   migration's exact name and shape; a missing column comment is fixed by a comment-only migration
-  in that context's chain. An index under the text sort collation (`text_sort_index_key`, ADR-190)
-  is left out of autogenerate (its reflection drops the collation) and compared by `pg_get_indexdef`
-  only: its migration is written by hand.
+  in that context's chain.
 - `Settings.legacy_vehicle_write_frozen` is read by nothing since the legacy `vehicle` table went
   (ADR-021 amended); its removal waits on a preserved-file edit (`config.py`).
 - `scripts/dev/check` mirrors both CI migration jobs when migrations, models or what a migration
