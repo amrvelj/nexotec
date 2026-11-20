@@ -8,8 +8,11 @@ Two tests:
 
 - the guard: no string literal in `app/` that a person reads at run time says
   «Betrieb». Out of scope, by the ticket: docstrings and comments (prose for
-  developers), OpenAPI documentation (a `description=` / `summary=` /
-  `title=` / column `comment=` keyword), and the German texts, which are
+  developers), OpenAPI and schema documentation (a `description=` /
+  `summary=` / `title=` / `comment=` keyword of a FastAPI parameter, a
+  route, a pydantic `Field` or a column — `_DOCUMENTING_CALLS`; the same
+  keyword on any other call, such as a stored notification's `summary=`, is
+  a message and is checked), and the German texts, which are
   right to say it (`_GERMAN_TEXT_FILES`). The UI translates by
   `details.rule` / `details.reason`, which this change never touched;
 - the pin: each message KAN-771 changed still reads exactly so in its
@@ -24,8 +27,43 @@ import pytest
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 _APP = _REPO_ROOT / "app"
 
-# Keyword arguments that hold API or schema documentation, not a message.
+# Keyword arguments that hold API or schema documentation, not a message —
+# but only on the calls that document (a FastAPI parameter or route, a
+# pydantic field, a column). The same keyword elsewhere is runtime text.
 _DOC_KEYWORDS = frozenset({"description", "summary", "title", "comment", "doc"})
+_DOCUMENTING_CALLS = frozenset(
+    {
+        # FastAPI parameters and routes
+        "Query",
+        "Path",
+        "Body",
+        "Header",
+        "Cookie",
+        "Form",
+        "File",
+        "Depends",
+        "get",
+        "post",
+        "put",
+        "patch",
+        "delete",
+        "api_route",
+        "APIRouter",
+        # pydantic and SQLAlchemy
+        "Field",
+        "mapped_column",
+        "Column",
+    }
+)
+
+
+def _call_name(call: ast.Call) -> str | None:
+    if isinstance(call.func, ast.Name):
+        return call.func.id
+    if isinstance(call.func, ast.Attribute):
+        return call.func.attr
+    return None
+
 
 # Files whose texts are German on purpose (the mail a user receives in DE).
 _GERMAN_TEXT_FILES = frozenset({"app/platform/identity/services/mail_texts.py"})
@@ -39,8 +77,10 @@ def _runtime_literals(path: Path) -> list[ast.Constant]:
             first = node.body[0] if node.body else None
             if isinstance(first, ast.Expr) and isinstance(first.value, ast.Constant):
                 documentation.add(id(first.value))
-        if isinstance(node, ast.keyword) and node.arg in _DOC_KEYWORDS:
-            documentation.update(id(inner) for inner in ast.walk(node.value))
+        if isinstance(node, ast.Call) and _call_name(node) in _DOCUMENTING_CALLS:
+            for keyword in node.keywords:
+                if keyword.arg in _DOC_KEYWORDS:
+                    documentation.update(id(inner) for inner in ast.walk(keyword.value))
     return [
         node
         for node in ast.walk(tree)
@@ -61,7 +101,7 @@ def test_no_english_runtime_message_in_app_says_betrieb():
         )
     assert not offenders, (
         "English messages say «business» (KAN-760 option A, KAN-771); a German text belongs in "
-        "_GERMAN_TEXT_FILES, API documentation in a description= keyword:\n" + "\n".join(offenders)
+        "_GERMAN_TEXT_FILES, API documentation in a documenting call's description=:\n" + "\n".join(offenders)
     )
 
 
