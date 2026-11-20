@@ -43,6 +43,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.base import PrimaryKeyMixin, TimestampMixin, VersionedMixin, utcnow
 from app.core.enum_type import StoredEnum
+from app.core.text_collation import IDENTIFIER_TEXT, text_sort_index_key
 from app.core.types import GUID, EncryptedString, UTCDateTime
 from app.db import Base
 
@@ -260,8 +261,8 @@ class Customer(PrimaryKeyMixin, VersionedMixin, TimestampMixin, Base):
     __tablename__ = "customer"
     __table_args__ = (
         UniqueConstraint("group_id", "customer_number", name="uq_customer_group_id_customer_number"),
-        # The customer-list sort keys within a group (d4a1f6c8e3b7, ADR-014).
-        Index("ix_customer_group_id_last_name", "group_id", "last_name"),
+        # The customer-list sort keys within a group (d4a1f6c8e3b7, ADR-014); the surname one,
+        # under the text sort collation, is declared below the class (KAN-740).
         Index("ix_customer_group_id_updated_at", "group_id", "updated_at"),
         Index("ix_customer_group_id_created_at", "group_id", "created_at"),
     )
@@ -275,7 +276,7 @@ class Customer(PrimaryKeyMixin, VersionedMixin, TimestampMixin, Base):
 
     # Immutable business key, allocated at creation. Indexed because it is a
     # first-class search term (FR-01) — staff search by it constantly.
-    customer_number: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
+    customer_number: Mapped[str] = mapped_column(String(20), nullable=False, index=True, info=IDENTIFIER_TEXT)
 
     customer_type: Mapped[CustomerType] = mapped_column(
         StoredEnum(CustomerType, length=32), nullable=False, default=CustomerType.INDIVIDUAL
@@ -306,7 +307,8 @@ class Customer(PrimaryKeyMixin, VersionedMixin, TimestampMixin, Base):
     )
     # Business-only. Indexed: without it, business customers were unfindable
     # by name at all (D-06) — the single worst gap Phase B closes.
-    company_name: Mapped[str | None] = mapped_column(String(200), nullable=True, index=True)
+    # Its sort index, under the text sort collation, is declared below the class (KAN-740).
+    company_name: Mapped[str | None] = mapped_column(String(200), nullable=True)
     legal_form: Mapped[LegalForm | None] = mapped_column(
         StoredEnum(LegalForm, length=32), nullable=True
     )
@@ -459,6 +461,17 @@ class Customer(PrimaryKeyMixin, VersionedMixin, TimestampMixin, Base):
             "canton": self.address_canton,
             "country": self.address_country,
         }
+
+
+# KAN-740 (ADR-190): the indexes behind the customer list's word sorts are built under the text
+# sort collation, the order those sorts run in — an index in the default collation serves neither
+# the ORDER BY nor the keyset cursor's `>`.
+Index(
+    "ix_customer_group_id_last_name",
+    Customer.__table__.c.group_id,
+    text_sort_index_key(Customer.__table__.c.last_name),
+)
+Index("ix_customer_company_name", text_sort_index_key(Customer.__table__.c.company_name))
 
 
 class ContactChannelMixin:

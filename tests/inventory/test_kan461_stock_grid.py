@@ -19,11 +19,13 @@ from sqlalchemy import inspect
 from app.core.auth import AccessRole
 from app.core.base import utcnow
 from app.core.list_query import OPERATORS_BY_TYPE
+from app.core.text_collation import is_plain_text_column
 from app.inventory.models.stock_item import LifecycleStatus, ReservationState, StockItem, StockItemCondition
 from app.inventory.schemas.stock_item import StockItemRead
 from app.inventory.services.stock_grid import STOCK_ITEM_COLUMNS, STOCK_ITEM_EXCLUDED_COLUMNS
 from app.inventory.services.stock_item import compute_ageing_bucket
 from tests.cross_context.test_grid_exclusion_filters import _headers
+from tests.text_sort_support import text_sort_order
 
 ZURICH = ZoneInfo("Europe/Zurich")
 SPECS = {spec.api_name: spec for spec in STOCK_ITEM_COLUMNS}
@@ -179,7 +181,7 @@ def _pages(client, headers, **params) -> list[str]:
 
 @pytest.mark.parametrize("field", list(SPECS))
 @pytest.mark.parametrize("direction", ["asc", "desc"])
-def test_every_field_sorts_both_ways_across_pages(client, stock, field, direction):
+def test_every_field_sorts_both_ways_across_pages(client, engine, stock, field, direction):
     tenant_id, items = stock
     spec = SPECS[field]
     ids = _pages(client, _headers(tenant_id, AccessRole.INVENTORY), sort=f"{field}:{direction}")
@@ -191,7 +193,12 @@ def test_every_field_sorts_both_ways_across_pages(client, stock, field, directio
     # The ageing bucket orders by days on the lot: green (most recent) first.
     descending = (direction == "desc") != spec.sort_inverted
     present = [k.value if hasattr(k, "value") and not isinstance(k, bool) else k for k in present]
-    assert present == sorted(present, reverse=descending)
+    # KAN-740: a word column sorts in the collation's order, asked of the database; a code or an
+    # identifier (`IDENTIFIER_TEXT`) and every other type in their own.
+    if is_plain_text_column(spec.sort_column if spec.sort_column is not None else spec.column):
+        assert present == text_sort_order(engine, present, descending=descending)
+    else:
+        assert present == sorted(present, reverse=descending)
 
 
 # --- Exit criterion 5(b): every condition filters, the rows are the right ones -------------

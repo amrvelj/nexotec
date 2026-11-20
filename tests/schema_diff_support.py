@@ -28,12 +28,20 @@ from alembic.migration import MigrationContext
 from sqlalchemy import Index, create_engine, text
 
 import app.model_registry  # noqa: F401  registers every model on Base.metadata
+from app.core.text_collation import autogenerate_include_object
 from app.db import Base
 
 # Mirrors the context.configure(...) call in alembic/env.py: the same
-# target_metadata, no include_object filter, Alembic's default compare_type
-# (on) and compare_server_default (off). Change both together.
-COMPARE_OPTS = {"target_metadata": Base.metadata, "compare_type": True, "compare_server_default": False}
+# target_metadata, the same include_object filter (it leaves out only the
+# indexes built under the text sort collation, which `index_definition_differences`
+# compares exactly — KAN-740), Alembic's default compare_type (on) and
+# compare_server_default (off). Change both together.
+COMPARE_OPTS = {
+    "target_metadata": Base.metadata,
+    "include_object": autogenerate_include_object(Base.metadata),
+    "compare_type": True,
+    "compare_server_default": False,
+}
 
 
 def describe(diff: tuple) -> str:

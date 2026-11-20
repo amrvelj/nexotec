@@ -23,6 +23,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.base import PrimaryKeyMixin, TimestampMixin, VersionedMixin
 from app.core.enum_type import StoredEnum
+from app.core.text_collation import IDENTIFIER_TEXT
 from app.core.types import GUID
 from app.db import Base
 from app.vehicle.models.catalogue import ModelVariant
@@ -121,7 +122,7 @@ class VehicleMdm(PrimaryKeyMixin, VersionedMixin, TimestampMixin, Base):
 
     # A 17-character ISO 3779 VIN, or — `identifier_kind` chassis_number — a
     # pre-1981 car's chassis number (KAN-535).
-    vin: Mapped[str] = mapped_column(String(17), nullable=False, index=True)
+    vin: Mapped[str] = mapped_column(String(17), nullable=False, index=True, info=IDENTIFIER_TEXT)
     identifier_kind: Mapped[VehicleIdentifierKind] = mapped_column(
         StoredEnum(VehicleIdentifierKind, length=16),
         nullable=False,
@@ -137,8 +138,8 @@ class VehicleMdm(PrimaryKeyMixin, VersionedMixin, TimestampMixin, Base):
             "(case, spaces, hyphens and accents ignored); with `vin` its identity. Null on a VIN record."
         ),
     )
-    vehicle_number: Mapped[str] = mapped_column(String(16), nullable=False, index=True)
-    stammnummer: Mapped[str | None] = mapped_column(String(9), nullable=True, index=True)
+    vehicle_number: Mapped[str] = mapped_column(String(16), nullable=False, index=True, info=IDENTIFIER_TEXT)
+    stammnummer: Mapped[str | None] = mapped_column(String(9), nullable=True, index=True, info=IDENTIFIER_TEXT)
     type_approval_number: Mapped[str | None] = mapped_column(String(6), nullable=True, index=True)
     first_registration_date: Mapped[dt.date | None] = mapped_column(Date, nullable=True)
 

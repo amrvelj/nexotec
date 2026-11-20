@@ -43,10 +43,11 @@ import datetime as dt
 import uuid
 from decimal import Decimal
 
-from sqlalchemy import DECIMAL, Integer, String
+from sqlalchemy import DECIMAL, Index, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.base import PrimaryKeyMixin, TenantScopedMixin, TimestampMixin
+from app.core.text_collation import IDENTIFIER_TEXT, text_sort_index_key
 from app.core.types import GUID, UTCDateTime
 from app.db import Base
 
@@ -70,7 +71,7 @@ class SalesDeal(PrimaryKeyMixin, TenantScopedMixin, TimestampMixin, Base):
     __tablename__ = "sales_deal"
 
     entity_type: Mapped[str] = mapped_column(String(16), nullable=False)  # "offer" | "contract"
-    number: Mapped[str] = mapped_column(String(16), nullable=False, index=True)
+    number: Mapped[str] = mapped_column(String(16), nullable=False, index=True, info=IDENTIFIER_TEXT)
     status: Mapped[str] = mapped_column(String(16), nullable=False)
 
     offer_id: Mapped[uuid.UUID | None] = mapped_column(GUID(), nullable=True, index=True)
@@ -86,14 +87,15 @@ class SalesDeal(PrimaryKeyMixin, TenantScopedMixin, TimestampMixin, Base):
     # KAN-570: the stock car's number, the live entity's rule-2 label
     # (`stock_item_label`, KAN-157 — copied once, never refreshed: a stock
     # number never changes). Indexed because the grid sorts by it (U-03).
-    stock_item_label: Mapped[str | None] = mapped_column(String(16), nullable=True, index=True)
+    stock_item_label: Mapped[str | None] = mapped_column(String(16), nullable=True, index=True, info=IDENTIFIER_TEXT)
     # KAN-200: the responsible seller of the live entity (the contract's once
     # one exists, else the offer's), so the list can show "whose" and filter
     # the unassigned queue (FR-A-37) without joining the entity tables.
     owner_user_id: Mapped[uuid.UUID | None] = mapped_column(
         GUID(), nullable=True, index=True, comment="Owned by the platform context (User). No DB-level FK."
     )
-    owner_label: Mapped[str | None] = mapped_column(String(200), nullable=True, index=True)
+    # Its sort index, under the text sort collation, is declared below the class (KAN-740).
+    owner_label: Mapped[str | None] = mapped_column(String(200), nullable=True)
     owner_label_refreshed_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)
 
     gross_price: Mapped[Decimal | None] = mapped_column(DECIMAL(12, 2), nullable=True)
@@ -106,3 +108,8 @@ class SalesDeal(PrimaryKeyMixin, TenantScopedMixin, TimestampMixin, Base):
     # KAN-553 (ADR-115): the live entity's «Fahrzeug im Lager geändert» flag,
     # for the grid's filter and marker.
     vehicle_changed_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)
+
+
+# KAN-740 (ADR-190): the deal list's sort by responsible seller runs under the text sort collation;
+# its index is built under the same one, or it serves neither the ORDER BY nor the keyset `>`.
+Index("ix_sales_deal_owner_label", text_sort_index_key(SalesDeal.__table__.c.owner_label))

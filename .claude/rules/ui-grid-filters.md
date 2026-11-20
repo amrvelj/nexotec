@@ -34,6 +34,11 @@ Last verified against main@3b2bf69 (2026-11-18). -->
 - **List-query layer** (ADR-179, `app/core/list_query.py`): one column registry per entity; `sort` and
   `filter=field:op[:value]` over it, 422 outside, served at `…/grid-schema` and generated into `src/api/gridSchemas.json` (`make generate-frontend-types`). A grid on it (Stock; more in
   KAN-461 PR-2…4) takes filter fields, `sortableFields` and default visibility from the schema — never a hand list or `meta.sortField`.
+- **Text order** (ADR-190; Anto, 2026-11-18): every `SortField` over a word column sorts under the ICU collation
+  `nexotec_text_sort` (case ignored, Ä/é beside A/e, one order for every language; `app/core/text_collation.py`); a code
+  or identifier column (VIN, numbers, phone) is `info=IDENTIFIER_TEXT` and keeps byte order. An index behind a word sort
+  is declared over `text_sort_index_key` (`test_text_sort_indexes_use_the_collation.py`); a test asks the database for
+  the expected order (`tests/text_sort_support.text_sort_order`), never plain `sorted()`.
 - **ADR-056** — grid state (search, filter, sort, tab, scope) lives in the URL, the shareable unit.
   Layout and density stay out of it: they belong on the user preference record.
 - **ADR-058** — views and filters are **one control**, labelled with the current view. A
