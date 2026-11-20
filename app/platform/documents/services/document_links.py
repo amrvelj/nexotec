@@ -1,5 +1,5 @@
 """Secure document links (KAN-217 PR-4; Dealer Administration FR-A-52,
-ADR-192): the link an SMS or WhatsApp send carries in place of the PDF.
+ADR-192, ADR-193): the link an SMS or WhatsApp send carries in place of the PDF.
 
 **Who renders.** Platform is the lowest layer and never imports a module above
 it (ADR-131). A module that registers a document message type also registers a
@@ -48,7 +48,7 @@ logger = logging.getLogger(__name__)
 
 # The SPA's public page; the token follows in the fragment, which no browser
 # sends to a server (ADR-193): the page hands it to the API in TOKEN_HEADER.
-LINK_PAGE = "/d#"
+LINK_PAGE = "/d"
 TOKEN_HEADER = "X-Document-Link"
 
 # secrets.token_urlsafe(32): 43 characters of the URL-safe alphabet. Anything
@@ -107,8 +107,16 @@ class IssuedDocumentLink:
     expires_at: dt.datetime
 
 
-def link_url(token: str) -> str:
-    return get_settings().app_base_url.rstrip("/") + LINK_PAGE + token
+_LANGUAGES = frozenset({"de", "fr", "it", "en"})
+
+
+def link_url(token: str, language: str | None = None) -> str:
+    """`{app}/d?lang=<customer's language>#<token>`: the page opens in the
+    language the message was written in (not a secret, so it may be a query);
+    the token only ever in the fragment."""
+
+    query = f"?lang={language}" if language in _LANGUAGES else ""
+    return get_settings().app_base_url.rstrip("/") + LINK_PAGE + query + "#" + token
 
 
 def issue_document_link(
@@ -118,10 +126,12 @@ def issue_document_link(
     message_type: str,
     document_id: uuid.UUID,
     actor_id: uuid.UUID | None,
+    language: str | None = None,
     now: dt.datetime | None = None,
 ) -> IssuedDocumentLink:
     """Writes a link to `document_id` of `tenant_id` (flushed, not committed:
-    the send's transaction holds it). The caller has already read the
+    the send's transaction holds it). `language` is the customer's
+    correspondence language, which the page opens in. The caller has already read the
     document in that Betrieb; serving re-reads it there in any case. A type
     without a registered source is a defect, not a user error: ValueError."""
 
@@ -142,7 +152,7 @@ def issue_document_link(
     )
     db.add(link)
     db.flush()
-    return IssuedDocumentLink(link_id=link.id, token=raw, url=link_url(raw), expires_at=link.expires_at)
+    return IssuedDocumentLink(link_id=link.id, token=raw, url=link_url(raw, language), expires_at=link.expires_at)
 
 
 def _within_rate(link: DocumentLink, now: dt.datetime) -> bool:

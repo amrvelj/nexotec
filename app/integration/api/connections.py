@@ -18,7 +18,7 @@ from app.core.auth import AccessRole, Principal, get_current_principal
 from app.core.concurrency import check_version, require_if_match
 from app.core.config import get_settings
 from app.core.idempotent_route import IdempotentRoute
-from app.core.impersonation import refuse_under_impersonation
+from app.core.impersonation import refuse_if_impersonating, refuse_under_impersonation
 from app.core.pagination import SortPageParams
 from app.core.permissions import require_read, require_write
 from app.core.sorting import SortField, decode_cursor_for_sort, parse_sort
@@ -187,6 +187,10 @@ def update_connection(
     principal: Principal = Depends(require_write("integration_connections")),
     db: Session = Depends(get_db),
 ):
+    # FR-A-17 (KAN-221): a connection's config says where its stored secret is
+    # sent (an FTP host, an endpoint) — never changed by a support session.
+    if "config" in body.model_fields_set:
+        refuse_if_impersonating(principal)
     tenant_id = None if _is_platform_admin(principal) else principal.tenant_id
     connection = connection_service.get_connection_for_update_or_404(
         db, tenant_id=tenant_id, connection_id=connection_id

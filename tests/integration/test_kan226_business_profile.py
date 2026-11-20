@@ -636,3 +636,26 @@ def test_offboarding_revokes_each_grant_at_google(client, db_session, google, cl
     row = db_session.get(GbpLocationBinding, binding_id)
     db_session.refresh(row)
     assert row.status == GbpBindingStatus.DISCONNECTED
+
+
+def test_a_link_that_finds_its_location_bound_meanwhile_revokes_its_fresh_grant(
+    client, db_session, google, client_connection, betrieb
+):
+    """Review of PR #364: a sign-in started before another one finished
+    redeems a grant that is refused as `location_already_bound` — that grant
+    is ended at Google, never kept."""
+
+    fake, secrets_store = google
+    dealership, manager, location = betrieb
+    late_start = _start(client, dealership, manager, location)
+    bound = _link(client, fake, dealership, manager, location)["binding"]
+    assert _pick(client, dealership, manager, bound).status_code == 200
+    kept = set(fake.refresh_tokens)
+
+    late = client.post(CALLBACK, json=fake.sign_in(late_start), headers=_as(manager))
+
+    assert late.status_code == 409 and late.json()["error"]["details"]["reason"] == "location_already_bound"
+    fresh = set(fake.refresh_tokens) - kept
+    assert len(fresh) == 1 and set(fake.revoked) == fresh
+    # The binding that holds the location keeps its grant.
+    assert (uuid.UUID(bound["id"]), "refresh_token") in secrets_store.values

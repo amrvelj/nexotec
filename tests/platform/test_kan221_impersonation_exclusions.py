@@ -68,6 +68,7 @@ EXCLUDED: tuple[tuple[str, str], ...] = (
     # A browser subscribing to the user's notices — the security family included —
     # would keep receiving them after the session ends.
     ("POST", "/v1/me/push-subscriptions"),
+    ("DELETE", "/v1/me/push-subscriptions/{subscription_id}"),
     # Another impersonation
     ("POST", "/v1/platform/support-sessions"),
 )
@@ -77,6 +78,15 @@ RECOVERY: tuple[tuple[str, str], ...] = (
     ("POST", "/v1/platform/users/{user_id}/recovery/reset-mfa"),
     ("POST", "/v1/platform/users/{user_id}/recovery/change-email"),
     ("POST", "/v1/platform/dealerships/{dealership_id}/recovery/grant-manager"),
+)
+
+
+# Deliberately open, with the reason: the login's own second-factor step runs
+# before any session exists, so there is no principal and nothing to refuse.
+OPEN_ON_PURPOSE: tuple[tuple[str, str], ...] = (
+    ("POST", "/v1/auth/mfa/verify"),
+    ("POST", "/v1/auth/mfa/passkey/options"),
+    ("POST", "/v1/auth/mfa/passkey/verify"),
 )
 
 
@@ -109,7 +119,7 @@ def acting_as(client):
 
 def _call(client, method: str, path: str, tenant_id: uuid.UUID, json=None):
     url = path.replace("{dealership_id}", str(tenant_id))
-    for name in ("user_id", "member_dealership_id", "passkey_id", "session_id", "connection_id", "mailbox_id", "account_id", "binding_id"):
+    for name in ("user_id", "member_dealership_id", "passkey_id", "session_id", "connection_id", "mailbox_id", "account_id", "binding_id", "subscription_id"):
         url = url.replace("{" + name + "}", _ID)
     url = url.replace("{slot}", "api_key")
     headers = {"Idempotency-Key": str(uuid.uuid4()), "If-Match": "1"}
@@ -133,6 +143,13 @@ def test_the_named_routes_are_exactly_the_routes_that_carry_the_gate():
         (method, path) for path, route in walked if _carries_gate(route.dependant) for method in route.methods
     }
     assert carrying == set(EXCLUDED)
+
+
+def test_the_routes_left_open_on_purpose_exist_and_carry_no_gate():
+    walked = {(method, path): route for path, route in api_routes(app.routes) for method in route.methods}
+    for key in OPEN_ON_PURPOSE:
+        assert key in walked, key
+        assert not _carries_gate(walked[key].dependant), key
 
 
 @pytest.mark.parametrize(("method", "path"), EXCLUDED)
@@ -206,6 +223,20 @@ def test_a_new_user_or_membership_under_a_support_session_is_never_a_manager(cli
         headers={"Idempotency-Key": str(uuid.uuid4())},
     )
     assert _excluded(granted), granted.text
+
+
+def test_a_connection_edit_under_a_support_session_may_not_change_its_config(client, acting_as, betrieb):
+    """A connection's config says where its stored secret is sent (an FTP host,
+    an endpoint): a support session never changes it; the rest of the edit is
+    refused only for what it is."""
+
+    tenant_id, _beat = betrieb
+    acting_as(_acting(tenant_id=tenant_id))
+    path = f"/v1/integrations/connections/{_ID}"
+    refused = client.patch(path, json={"config": {"ftpHost": "elsewhere.example"}}, headers={"If-Match": "1"})
+    assert _excluded(refused), refused.text
+    # Without config the edit reaches the route (no such connection here: 404).
+    assert client.patch(path, json={"displayName": "Feed"}, headers={"If-Match": "1"}).status_code == 404
 
 
 # --- the user's notices --------------------------------------------------------------

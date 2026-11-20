@@ -1,10 +1,11 @@
 """A secure link to a customer document (KAN-217 PR-4; Dealer Administration
-FR-A-52, ADR-192).
+FR-A-52, ADR-193).
 
 SMS and WhatsApp carry no attachment, so a send on those channels carries a
 link instead (Anto's smaller points, 2026-11-14: valid for 14 days). The link
-is served by the application, never by a bucket: `GET /v1/document-links/{token}`
-renders the document again from its frozen content, as the signed-in download
+is served by the application, never by a bucket: the URL is `{app}/d#<token>`
+(the fragment never reaches a server), the SPA's page sends the token in a
+header to `GET /v1/document-links/current`, which renders the document again from its frozen content, as the signed-in download
 does.
 
 **A token in a database is a password** (the `auth_token` posture): only its

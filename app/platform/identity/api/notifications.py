@@ -199,7 +199,7 @@ def register_my_push_subscription(
     return PushSubscriptionRead(id=row.id, session_id=row.session_id, created_at=row.created_at)
 
 
-@router.delete("/me/push-subscriptions/{subscription_id}", status_code=204)
+@router.delete("/me/push-subscriptions/{subscription_id}", dependencies=[Depends(refuse_under_impersonation)], status_code=204)
 def delete_my_push_subscription(
     subscription_id: uuid.UUID,
     principal: Principal = Depends(get_current_principal),

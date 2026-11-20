@@ -404,7 +404,12 @@ def _create_pending_binding(
 ) -> GbpLocationBinding:
     assert grant.refresh_token is not None
     existing = _live_binding_of_location(db, row.location_id)
-    _refuse_bound(existing)
+    try:
+        _refuse_bound(existing)
+    except ConflictError:
+        # Bound meanwhile: the grant just redeemed is never kept (KAN-226 review).
+        _revoke_unused_grant(db, connection, grant, actor_id=row.user_id, link_id=row.id)
+        raise
     if existing is not None:
         # A pick never finished: the new sign-in replaces it.
         _end(
@@ -428,6 +433,7 @@ def _create_pending_binding(
             db.flush()
     except IntegrityError as exc:
         db.rollback()
+        _revoke_unused_grant(db, connection, grant, actor_id=row.user_id, link_id=row.id)
         raise _refusal(
             "location_already_bound",
             "This location is already connected to Google Business Profile; disconnect it first.",

@@ -94,6 +94,11 @@ def test_only_the_tokens_sha256_is_stored(db_session):
     assert issued.token not in stored
     # The token rides in the fragment, which no browser sends to a server.
     assert issued.url.endswith("/d#" + issued.token)
+    # The page opens in the customer's language; that may be a query, the token never.
+    in_french = issue_document_link(
+        db_session, tenant_id=dealership.id, message_type="offer", document_id=document.id, actor_id=None, language="fr"
+    )
+    assert in_french.url.endswith("/d?lang=fr#" + in_french.token)
     assert row.expires_at - utcnow() > dt.timedelta(days=LINK_VALID_DAYS) - dt.timedelta(minutes=1)
 
 

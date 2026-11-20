@@ -177,12 +177,13 @@ from app.platform.reference.services.reference_data import get_active_reference_
 # link. A wrong or conflicting registration raises
 # MessageTypeRegistrationError at start-up. Plain values; it writes nothing.
 #
-# KAN-217 PR-4 (ADR-192): secure document links. The module that registers a
+# KAN-217 PR-4 (ADR-193): secure document links. The module that registers a
 # document type registers its DocumentSource (render one of its documents for
 # a Betrieb, or None) with register_document_source, from the same composition
 # root. issue_document_link writes a 14-day link in the caller's transaction
 # and returns the raw token once (IssuedDocumentLink); only its SHA-256 is
-# stored. Platform serves GET /v1/document-links/{token} itself.
+# stored; the URL carries it in the fragment ({app}/d#<token>), never a path.
+# Platform serves the SPA's GET /v1/document-links/current (token in a header).
 __all__ = [
     "PLACEHOLDER_UNRESOLVED",
     "ActingUser",
