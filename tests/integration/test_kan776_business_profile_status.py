@@ -443,6 +443,7 @@ def test_only_staff_with_a_second_factor_check(client, db_session, google, clien
         ("locations_get", 429, "RESOURCE_EXHAUSTED"),  # a 429 with no known quota reason
         ("locations_get", 403, "PERMISSION_DENIED"),  # one location's access
         ("locations_get", 403, None),  # no identifier at all
+        ("locations_get", 429, "SERVICE_DISABLED"),  # a 429 is transient, whatever it names
     ],
 )
 def test_a_row_that_proves_nothing_neither_clears_nor_raises_a_refusal(
@@ -587,3 +588,23 @@ def test_an_unreadable_client_secret_is_not_configured_and_no_binding_is_touched
     db_session.expire_all()
     assert db_session.get(GbpLocationBinding, first).status == GbpBindingStatus.ACTIVE
     assert db_session.get(GbpLocationBinding, second).status == GbpBindingStatus.ACTIVE
+
+
+def test_a_broken_client_is_not_configured_even_when_every_grant_is_unreadable(
+    client, db_session, google, client_connection, betrieb
+):
+    """KAN-780 (review): the client's credentials are read before a binding's
+    grant, so a missing `clientId` is the client's cause even when the grant
+    of every binding tried cannot be read either (a secrets-manager outage)."""
+
+    fake, secrets_store = google
+    dealership, manager, location = betrieb
+    binding = _active_binding(client, fake, dealership, manager, location)
+    del secrets_store.values[(binding, "refresh_token")]
+    client_connection.config = {}
+    db_session.commit()
+    response = _staff_check(client)
+    assert response.status_code == 409
+    assert response.json()["error"]["details"]["reason"] == "business_profile_not_configured"
+    db_session.expire_all()
+    assert db_session.get(GbpLocationBinding, binding).status == GbpBindingStatus.ACTIVE

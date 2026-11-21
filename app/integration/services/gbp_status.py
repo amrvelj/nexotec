@@ -47,7 +47,7 @@ import dataclasses
 import datetime as dt
 import uuid
 
-from sqlalchemy import Select, func, or_, select
+from sqlalchemy import Select, and_, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.core.status import StatusItem, StatusState
@@ -100,7 +100,7 @@ def _deciding_rows() -> tuple:
     and project: an HTTP answer below 500 that is not a quota answer (a quota
     passes by itself) — a timeout, a transport failure or a 5xx proves
     nothing either way. A 401, 403 or 429 decides only when its identifier
-    is one of `CLIENT_REFUSALS`, and then it raises (KAN-780): an
+    is one of `CLIENT_REFUSALS` on a 401 or 403, and then it raises (KAN-780): an
     `UNAUTHENTICATED` (the token refused before Google judges the project)
     or a 429 whose reason is no known quota (`RESOURCE_EXHAUSTED`) says
     nothing about the client and never clears a refusal. What clears one is
@@ -116,7 +116,9 @@ def _deciding_rows() -> tuple:
         or_(IntegrationCallLog.provider_error.is_(None), IntegrationCallLog.provider_error.not_in(QUOTA_REASONS)),
         or_(
             IntegrationCallLog.http_status.not_in(_UNJUDGED_STATUSES),
-            IntegrationCallLog.provider_error.in_(CLIENT_REFUSALS),
+            # A 429 never raises one: the adapter reads it as transient
+            # (`ProviderTransportError`), only a 401 / 403 as a refusal.
+            and_(IntegrationCallLog.http_status != 429, IntegrationCallLog.provider_error.in_(CLIENT_REFUSALS)),
         ),
         or_(
             IntegrationCallLog.capability.not_in(TOKEN_OPERATIONS),
