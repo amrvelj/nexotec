@@ -28,8 +28,9 @@ The client counts as interrupted when any of these holds:
   so the API's status page sees the API's calls and the worker's daily job
   the worker's own (no worker job calls Business Profile yet);
 - its latest **deciding** call-log row (`_deciding_rows`: an HTTP answer below
-  500, not a quota answer, and not a token-endpoint row unless that row is
-  `invalid_client`) carries a client- or project-level refusal: one of
+  500, not a quota answer, a 401 / 403 / 429 only when its identifier is a
+  client or project refusal (KAN-780), and not a token-endpoint row unless
+  that row is `invalid_client`) carries a client- or project-level refusal: one of
   ADR-196's `PROJECT_REFUSALS`, or `invalid_client` (Google refused the OAuth
   client itself). A timeout, a 5xx or a refreshed token neither raises nor
   clears it. The adapter maps both to `ProviderRejectedError`, charged to
@@ -70,6 +71,9 @@ CLIENT_REFUSALS: frozenset[str] = PROJECT_REFUSALS | frozenset({"invalid_client"
 # The adapter's token-endpoint operations (`oauth2_token` redeems a code,
 # `oauth2_token_refresh` refreshes a binding's grant).
 TOKEN_OPERATIONS: frozenset[str] = frozenset({"oauth2_token", "oauth2_token_refresh"})
+# The statuses Google also answers for one token or one quota (KAN-780): such a
+# row decides only when its identifier names the client or the project.
+_UNJUDGED_STATUSES: tuple[int, ...] = (401, 403, 429)
 
 
 @dataclasses.dataclass(frozen=True)
@@ -95,7 +99,13 @@ def _deciding_rows() -> tuple:
     """The call-log rows that can say whether Google accepts Nexotec's client
     and project: an HTTP answer below 500 that is not a quota answer (a quota
     passes by itself) — a timeout, a transport failure or a 5xx proves
-    nothing either way. A token-endpoint row decides only when it is
+    nothing either way. A 401, 403 or 429 decides only when its identifier
+    is one of `CLIENT_REFUSALS`, and then it raises (KAN-780): an
+    `UNAUTHENTICATED` (the token refused before Google judges the project)
+    or a 429 whose reason is no known quota (`RESOURCE_EXHAUSTED`) says
+    nothing about the client and never clears a refusal. What clears one is
+    a success or a 400 / 404 / 422, Google answering for the request itself.
+    A token-endpoint row decides only when it is
     `invalid_client`: a token granted says nothing about the project (Google
     reports a disabled API only on the API itself), and a refused grant is the
     binding's."""
@@ -104,7 +114,14 @@ def _deciding_rows() -> tuple:
         IntegrationCallLog.http_status.is_not(None),
         IntegrationCallLog.http_status < 500,
         or_(IntegrationCallLog.provider_error.is_(None), IntegrationCallLog.provider_error.not_in(QUOTA_REASONS)),
-        or_(IntegrationCallLog.capability.not_in(TOKEN_OPERATIONS), IntegrationCallLog.provider_error == "invalid_client"),
+        or_(
+            IntegrationCallLog.http_status.not_in(_UNJUDGED_STATUSES),
+            IntegrationCallLog.provider_error.in_(CLIENT_REFUSALS),
+        ),
+        or_(
+            IntegrationCallLog.capability.not_in(TOKEN_OPERATIONS),
+            IntegrationCallLog.provider_error == "invalid_client",
+        ),
     )
 
 

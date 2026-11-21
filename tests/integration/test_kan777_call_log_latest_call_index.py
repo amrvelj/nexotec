@@ -8,7 +8,7 @@ import os
 import uuid
 
 import pytest
-from sqlalchemy import inspect, insert, text
+from sqlalchemy import insert, inspect, text
 
 from app.integration.models.call_log import CallStatus, IntegrationCallLog
 from app.integration.services import gbp_status
@@ -40,7 +40,10 @@ def _seed(db_session, connection_id: uuid.UUID, count: int) -> None:
 
 
 def test_the_index_is_declared_with_the_migrations_shape(db_session):
-    indexes = {index["name"]: index["column_names"] for index in inspect(db_session.get_bind()).get_indexes("integration_call_log")}
+    indexes = {
+        index["name"]: index["column_names"]
+        for index in inspect(db_session.get_bind()).get_indexes("integration_call_log")
+    }
     assert indexes.get(INDEX) == ["connection_id", "created_at"]
 
 
