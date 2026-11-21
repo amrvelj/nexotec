@@ -351,6 +351,12 @@ def update_location(db: Session, *, location: Location, data: LocationUpdate, ac
     current = {field: getattr(location, field) for field in _SNAPSHOT_FIELDS}
     current["geo_lat"] = None if location.geo_lat is None else float(location.geo_lat)
     current["geo_lng"] = None if location.geo_lng is None else float(location.geo_lng)
+    # KAN-775: until then the postal code was judged with `re.match(r"^…$")`, whose `$` also
+    # matched before one final newline, so «8001\n» could be stored. A PATCH that changes
+    # another address field re-judges the whole block; the stored code is read without that
+    # newline (and so saved clean), while a newline the PATCH itself sends is still refused.
+    if isinstance(current["address_postal_code"], str):
+        current["address_postal_code"] = current["address_postal_code"].removesuffix("\n")
     merged = {**current, **changes}
 
     # The address block is judged only when the PATCH touches it: a row from
