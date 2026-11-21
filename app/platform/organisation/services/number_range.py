@@ -145,7 +145,7 @@ def parse_pattern(pattern: str) -> ParsedPattern:
     if not pattern or len(pattern) > 64:
         raise _invalid("length")
     tokens = _TOKEN_RE.findall(pattern)
-    if not _LITERAL_RE.match(_TOKEN_RE.sub("", pattern)):
+    if not _LITERAL_RE.fullmatch(_TOKEN_RE.sub("", pattern)):
         raise _invalid("character")
     digits: list[int] = []
     years = locations = 0
@@ -154,7 +154,7 @@ def parse_pattern(pattern: str) -> ParsedPattern:
             years += 1
         elif name == "location_code":
             locations += 1
-        elif match := _COUNTER_RE.match(name):
+        elif match := _COUNTER_RE.fullmatch(name):
             digits.append(int(match.group(1)))
         else:
             raise _invalid("unknown_token")

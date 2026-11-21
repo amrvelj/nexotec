@@ -341,7 +341,7 @@ def _render_logo(dealership: Dealership, logo: StoredObject | None, size: LogoSi
             f'src="data:{_esc(logo.content_type)};base64,{inline}" alt=""></div>'
         )
     color = dealership.brand_primary_color
-    if not color or not _HEX_COLOR.match(color):
+    if not color or not _HEX_COLOR.fullmatch(color):
         color = _DEFAULT_BRAND_COLOR
     name = dealership.trade_name or dealership.legal_name
     initial = _esc(name[:1].upper()) if name else ""

@@ -87,13 +87,13 @@ def _validate_canton(value: str) -> str:
 
 
 def _validate_e164_phone(value: str) -> str:
-    if not _E164_RE.match(value):
+    if not _E164_RE.fullmatch(value):
         raise ValueError("Phone number must be in E.164 format, e.g. '+41791234567'.")
     return value
 
 
 def _validate_postal_code(value: str) -> str:
-    if not _POSTAL_CODE_RE.match(value):
+    if not _POSTAL_CODE_RE.fullmatch(value):
         raise ValueError("Postal code must be 4 numeric digits.")
     return value
 
@@ -106,13 +106,13 @@ def validate_postal_code_for_country(value: str, country: str) -> str:
 
     if country.upper() == "CH":
         return _validate_postal_code(value)
-    if not _FOREIGN_POSTAL_CODE_RE.match(value):
+    if not _FOREIGN_POSTAL_CODE_RE.fullmatch(value):
         raise ValueError(f"'{value}' is not a plausible postal code for country '{country}'.")
     return value
 
 
 def _validate_house_number(value: str) -> str:
-    if not _HOUSE_NUMBER_RE.match(value):
+    if not _HOUSE_NUMBER_RE.fullmatch(value):
         raise ValueError("House number must be digits with an optional short letter suffix, e.g. '42' or '12a'.")
     return value
 
@@ -138,7 +138,7 @@ def iban_is_valid(value: str) -> bool:
     upper-cased IBAN. Exposed for callers that branch rather than reject."""
 
     compact = re.sub(r"\s", "", value or "").upper()
-    if not _IBAN_RE.match(compact):
+    if not _IBAN_RE.fullmatch(compact):
         return False
     rearranged = compact[4:] + compact[:4]
     digits = "".join(str(ord(ch) - 55) if ch.isalpha() else ch for ch in rearranged)
@@ -192,7 +192,7 @@ def _validate_qr_iban(value: str) -> str:
 
 def _validate_swiss_uid(value: str) -> str:
     normalised = value.strip().upper()
-    if not _UID_RE.match(normalised):
+    if not _UID_RE.fullmatch(normalised):
         raise ValueError("UID must be in the format 'CHE-123.456.789'.")
     digits = normalised[4:].replace(".", "")
     expected = uid_check_digit(digits[:8])
@@ -219,7 +219,7 @@ _VAT_NUMBER_RE = re.compile(r"^CHE-[0-9]{3}\.[0-9]{3}\.[0-9]{3} ?(MWST|TVA|IVA)$
 
 def _validate_swiss_vat_number(value: str) -> str:
     normalised = " ".join(value.strip().upper().split())
-    match = _VAT_NUMBER_RE.match(normalised)
+    match = _VAT_NUMBER_RE.fullmatch(normalised)
     if not match:
         raise ValueError("VAT number must be in the format 'CHE-123.456.789 MWST' (or TVA / IVA).")
     uid = _validate_swiss_uid(normalised[:15])

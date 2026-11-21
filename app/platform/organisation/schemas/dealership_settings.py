@@ -22,7 +22,7 @@ _CASH_ROUNDINGS = (Decimal("0.01"), Decimal("0.05"), Decimal("0.10"), Decimal("1
 
 
 def _validate_fiscal_year_start(value: str) -> str:
-    match = _FISCAL_START_RE.match(value)
+    match = _FISCAL_START_RE.fullmatch(value)
     if not match:
         raise ValueError("fiscalYearStart must be a day of the year as MM-DD, e.g. '01-01'.")
     month, day = int(match.group(1)), int(match.group(2))

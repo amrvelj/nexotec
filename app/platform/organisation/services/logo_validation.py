@@ -251,7 +251,7 @@ def _safe_href(element_name: str, value: str) -> bool:
     value = value.strip()
     if value.startswith("#"):
         return True
-    return element_name == "image" and bool(_INLINE_RASTER.match(value))
+    return element_name == "image" and bool(_INLINE_RASTER.fullmatch(value))
 
 
 def _copy_attributes(source: ET.Element, target: ET.Element, element_name: str) -> None:
@@ -265,7 +265,7 @@ def _copy_attributes(source: ET.Element, target: ET.Element, element_name: str) 
             if key in _ALLOWED_XML_ATTRIBUTES:
                 target.set(key, value)
             continue
-        if not _ATTRIBUTE_NAME.match(name) or name.lower().startswith("on"):
+        if not _ATTRIBUTE_NAME.fullmatch(name) or name.lower().startswith("on"):
             continue
         if _reaches_outside(value):
             continue

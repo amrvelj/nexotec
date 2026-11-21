@@ -236,7 +236,7 @@ def _check_scope(*, brand: str | None, model_group_key: str | None) -> tuple[str
         raise UnprocessableEntityError(
             "Not a brand name.", details={"reason": "catalogue_scope_invalid", "invalid": {"brand": brand}}
         )
-    if model_group_key is not None and not _MODEL_GROUP_KEY.match(model_group_key):
+    if model_group_key is not None and not _MODEL_GROUP_KEY.fullmatch(model_group_key):
         raise UnprocessableEntityError(
             "Not a model-group key.", details={"reason": "catalogue_scope_invalid", "invalid": {"modelGroupKey": model_group_key}}
         )

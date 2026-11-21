@@ -147,7 +147,7 @@ _SWISS_E164 = re.compile(r"^\+41(\d{2})(\d{3})(\d{2})(\d{2})$")
 def format_phone(value: str) -> str:
     """A Swiss number as it prints: +41 44 123 45 67; any other as stored."""
 
-    match = _SWISS_E164.match(value)
+    match = _SWISS_E164.fullmatch(value)
     if match is None:
         return value
     return "+41 " + " ".join(match.groups())

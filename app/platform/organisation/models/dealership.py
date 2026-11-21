@@ -108,6 +108,17 @@ class DealerGroup(PrimaryKeyMixin, VersionedMixin, TimestampMixin, Base):
     group_read_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
 
+def _stored_postal_code(value: str) -> str:
+    """The postal code as the address read shape validates it (KAN-775). The API
+    judged it with `re.match(r"^…$")` until KAN-775, and that `$` also matched
+    before one final newline, so «8001\\n» could be stored. The read shape is
+    also the write shape and now refuses that spelling; a row the old API
+    accepted must still read, so the one newline the old rule let through is
+    dropped here, on read only. Staging held none (2026-11-21)."""
+
+    return value.removesuffix("\n") if isinstance(value, str) else value
+
+
 class Dealership(PrimaryKeyMixin, VersionedMixin, TimestampMixin, Base):
     __tablename__ = "dealership"
 
@@ -314,7 +325,7 @@ class Dealership(PrimaryKeyMixin, VersionedMixin, TimestampMixin, Base):
         return {
             "street": self.address_street,
             "house_number": self.address_house_number,
-            "postal_code": self.address_postal_code,
+            "postal_code": _stored_postal_code(self.address_postal_code),
             "locality": self.address_locality,
             "canton": self.address_canton,
             "country": self.address_country,
@@ -327,7 +338,7 @@ class Dealership(PrimaryKeyMixin, VersionedMixin, TimestampMixin, Base):
         return {
             "street": street,
             "house_number": getattr(self, f"{prefix}_house_number"),
-            "postal_code": getattr(self, f"{prefix}_postal_code"),
+            "postal_code": _stored_postal_code(getattr(self, f"{prefix}_postal_code")),
             "locality": getattr(self, f"{prefix}_locality"),
             "canton": getattr(self, f"{prefix}_canton"),
             "country": getattr(self, f"{prefix}_country"),
