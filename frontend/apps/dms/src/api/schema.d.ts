@@ -3991,6 +3991,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/me/support-session": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get My Support Session
+         * @description KAN-221 PR-6 (FR-A-18, D-A-05): the support session running on the caller, for the banner — as the user it supports, or as the staff member acting for them. `session` is null when none runs. The SPA asks on focus and every minute (no Web Push adapter yet).
+         */
+        get: operations["get_my_support_session_v1_me_support_session_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/platform/ai-prompt-seeds": {
         parameters: {
             query?: never;
@@ -4208,6 +4228,50 @@ export interface paths {
          *     entitlements, first manager — one transaction, nothing commercial.
          */
         post: operations["onboard_dealership_v1_platform_onboarding_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/platform/staff": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Platform Staff
+         * @description KAN-221 PR-6: every holder of platform_admin — staff homed in the platform tenant, and legacy holders still homed in a dealer's Betrieb (`inPlatformTenant` false) — with the second-factor state and the running support session. Staff only.
+         */
+        get: operations["list_platform_staff_v1_platform_staff_get"];
+        put?: never;
+        /**
+         * Create Platform Staff
+         * @description KAN-221 PR-6 (ADR-188): grant platform_admin — a new staff account in the platform tenant, invited by e-mail. Staff with a second factor only; never under a support session.
+         */
+        post: operations["create_platform_staff_v1_platform_staff_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/platform/staff/{user_id}/revoke": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Revoke Platform Staff
+         * @description KAN-221 PR-6 (ADR-188): revoke platform_admin, with a reason. A staff account in the platform tenant is deactivated (it holds nothing else); a legacy holder keeps their Betrieb account without the role (422 `staff_role_is_the_only_role` when it is their only one). Never oneself (422 `platform_admin_self_revoke`), never the last active holder (422 `last_platform_admin`). If-Match.
+         */
+        post: operations["revoke_platform_staff_v1_platform_staff__user_id__revoke_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -10973,6 +11037,10 @@ export interface components {
          * @enum {string}
          */
         ModuleCode: "sales" | "aftersales" | "parts" | "finance" | "reporting";
+        /** MySupportSessionRead */
+        MySupportSessionRead: {
+            session: components["schemas"]["SupportSessionBanner"] | null;
+        };
         /**
          * NewPriceSource
          * @description Where a best-match Neupreis came from (FR-C-02 step 5) — shown with
@@ -11871,6 +11939,77 @@ export interface components {
             version: number;
         };
         /**
+         * PlatformStaffCreate
+         * @description A new Nexotec staff member: an account in the platform tenant holding
+         *     `platform_admin`, invited by e-mail to set their own password.
+         */
+        PlatformStaffCreate: {
+            /**
+             * Email
+             * Format: email
+             */
+            email: string;
+            /** Firstname */
+            firstName: string;
+            /** Lastname */
+            lastName: string;
+        };
+        /**
+         * PlatformStaffEntry
+         * @description One holder of `platform_admin`. `inPlatformTenant` false is a legacy
+         *     holder still homed in a dealer's Betrieb (KAN-199; ADR-188).
+         */
+        PlatformStaffEntry: {
+            /** Email */
+            email: string;
+            /** Firstname */
+            firstName: string;
+            /**
+             * Homedealershipid
+             * Format: uuid
+             */
+            homeDealershipId: string;
+            /** Homedealershipname */
+            homeDealershipName: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Inplatformtenant */
+            inPlatformTenant: boolean;
+            /** Lastname */
+            lastName: string;
+            /** Mfaenrolled */
+            mfaEnrolled: boolean;
+            /** Runningsupportsessionid */
+            runningSupportSessionId: string | null;
+            status: components["schemas"]["UserStatus"];
+            /** Version */
+            version: number;
+        };
+        /** PlatformStaffPage */
+        PlatformStaffPage: {
+            /** Items */
+            items: components["schemas"]["PlatformStaffEntry"][];
+            /** Nextcursor */
+            nextCursor: string | null;
+        };
+        /**
+         * PlatformStaffRevoke
+         * @description Why the staff access ends — mandatory, kept on the audit row.
+         */
+        PlatformStaffRevoke: {
+            /** Reason */
+            reason: string;
+        };
+        /** PlatformStaffRevoked */
+        PlatformStaffRevoked: {
+            /** Deactivated */
+            deactivated: boolean;
+            entry: components["schemas"]["PlatformStaffEntry"];
+        };
+        /**
          * PreferredChannel
          * @description How the customer wants to be reached. Sole contact-preference field
          *     since Phase B — the old `preferred_contact_method` (email/phone/sms)
@@ -12755,7 +12894,7 @@ export interface components {
          * SecretSlot
          * @enum {string}
          */
-        SecretSlot: "password" | "client_secret" | "refresh_token" | "certificate" | "api_key";
+        SecretSlot: "password" | "client_secret" | "refresh_token" | "certificate" | "api_key" | "access_token";
         /**
          * SecretSlotRead
          * @description The slot's own metadata only — never `secretRef`, never a value.
@@ -13554,6 +13693,41 @@ export interface components {
             newVin: string;
             /** Reason */
             reason: string;
+        };
+        /**
+         * SupportSessionBanner
+         * @description PR 6 (FR-A-18): what the banner says — who is in the account, why,
+         *     until when — and the id «Sitzung beenden» ends. `viewer` says which side
+         *     reads it: `user` (the supported user's own session) or `staff` (acting
+         *     for them, once PR 3 mints that token).
+         */
+        SupportSessionBanner: {
+            /**
+             * Expiresat
+             * Format: date-time
+             */
+            expiresAt: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Reason */
+            reason: string;
+            /** Staffname */
+            staffName: string;
+            /**
+             * Startedat
+             * Format: date-time
+             */
+            startedAt: string;
+            /** Targetusername */
+            targetUserName: string;
+            /**
+             * Viewer
+             * @enum {string}
+             */
+            viewer: "user" | "staff";
         };
         /**
          * SupportSessionEndedBy
@@ -21066,8 +21240,10 @@ export interface operations {
     list_dealership_support_sessions_v1_dealerships__dealership_id__support_sessions_get: {
         parameters: {
             query?: {
-                limit?: number;
+                /** @description `startedAt:desc` for newest first (the log screens); also `expiresAt`, `endedAt`, `reason`. Without it, oldest first. */
+                sort?: string | null;
                 cursor?: string | null;
+                limit?: number;
             };
             header?: {
                 authorization?: string | null;
@@ -25415,6 +25591,39 @@ export interface operations {
             };
         };
     };
+    get_my_support_session_v1_me_support_session_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MySupportSessionRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_ai_prompt_seeds_v1_platform_ai_prompt_seeds_get: {
         parameters: {
             query?: {
@@ -25912,6 +26121,123 @@ export interface operations {
             };
         };
     };
+    list_platform_staff_v1_platform_staff_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                cursor?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformStaffPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_platform_staff_v1_platform_staff_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlatformStaffCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformStaffEntry"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    revoke_platform_staff_v1_platform_staff__user_id__revoke_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "If-Match"?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                user_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlatformStaffRevoke"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformStaffRevoked"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_standard_text_seeds_v1_platform_standard_text_seeds_get: {
         parameters: {
             query?: {
@@ -26144,8 +26470,10 @@ export interface operations {
             query?: {
                 dealershipId?: string | null;
                 staffUserId?: string | null;
-                limit?: number;
+                /** @description `startedAt:desc` for newest first (the log screens); also `expiresAt`, `endedAt`, `reason`. Without it, oldest first. */
+                sort?: string | null;
                 cursor?: string | null;
+                limit?: number;
             };
             header?: {
                 authorization?: string | null;

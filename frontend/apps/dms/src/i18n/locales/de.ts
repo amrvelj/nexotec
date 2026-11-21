@@ -55,6 +55,7 @@ import ns_statusPage from './de/statusPage.json'
 import ns_stockDetail from './de/stockDetail.json'
 import ns_stockEnums from './de/stockEnums.json'
 import ns_stockList from './de/stockList.json'
+import ns_supportSessions from './de/supportSessions.json'
 import ns_translations from './de/translations.json'
 import ns_userRole from './de/userRole.json'
 import ns_usersAdmin from './de/usersAdmin.json'
@@ -121,6 +122,7 @@ const bundle = {
   stockDetail: ns_stockDetail,
   stockEnums: ns_stockEnums,
   stockList: ns_stockList,
+  supportSessions: ns_supportSessions,
   translations: ns_translations,
   userRole: ns_userRole,
   usersAdmin: ns_usersAdmin,

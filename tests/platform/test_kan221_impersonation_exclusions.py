@@ -71,6 +71,9 @@ EXCLUDED: tuple[tuple[str, str], ...] = (
     ("DELETE", "/v1/me/push-subscriptions/{subscription_id}"),
     # Another impersonation
     ("POST", "/v1/platform/support-sessions"),
+    # Granting or revoking platform_admin: the Platform users panel (PR 6).
+    ("POST", "/v1/platform/staff"),
+    ("POST", "/v1/platform/staff/{user_id}/revoke"),
 )
 
 # Excluded by their own staff gate before this PR (FR-AU-27): the recovery door.

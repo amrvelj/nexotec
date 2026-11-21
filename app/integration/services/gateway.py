@@ -42,6 +42,7 @@ from app.core.errors import ConflictError
 from app.integration.adapters.ai_base import AI_CATEGORY
 from app.integration.adapters.auto_i_dat_mock import MockAutoIDatAdapter
 from app.integration.adapters.base import ProviderAdapter
+from app.integration.adapters.messaging_base import MESSAGING_CATEGORY
 from app.integration.errors import (
     ProviderAccountRefusedError,
     ProviderConfigurationError,
@@ -567,8 +568,11 @@ def test_connection(
     # KAN-227: an AI connection's check is the smallest billed completion
     # (`AiGateway.verify`), which proves key, model and deployment together; it
     # has no captions and no licence options to probe.
-    is_ai = provider.category == AI_CATEGORY
-    check = (lambda adapter: adapter.verify()) if is_ai else entitlement_probes.access_check(provider.provider_code)  # type: ignore[attr-defined]
+    # KAN-217 PR-3: a messaging connection's check is one read of the
+    # account (`MessagingGateway.verify`: Twilio's account, Meta's phone
+    # number) — it sends nothing, and has no captions or options either.
+    verifies_itself = provider.category in (AI_CATEGORY, MESSAGING_CATEGORY)
+    check = (lambda adapter: adapter.verify()) if verifies_itself else entitlement_probes.access_check(provider.provider_code)  # type: ignore[attr-defined]
     healthy = False
     access_answer: object = None
     try:
@@ -590,7 +594,7 @@ def test_connection(
         connection.last_error = None
         healthy = True
     db.commit()
-    if healthy and not is_ai:
+    if healthy and not verifies_itself:
         _store_captions(
             db, connection=connection, provider_code=provider.provider_code, actor_id=actor_id,
             access_answer=access_answer,

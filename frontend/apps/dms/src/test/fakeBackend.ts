@@ -157,6 +157,9 @@ const INFRA_ROUTES: FakeRoute[] = [
   { method: 'GET', match: /\/dealerships\/[^/]+\/contact-groups$/, handler: () => ({ items: [] }) },
   // KAN-216 — the shell's bell asks for the unread count; none by default.
   { method: 'GET', match: /\/me\/notifications\/unread-count$/, handler: () => ({ count: 0 }) },
+  // KAN-221 PR-6 — the shell asks whether a support session runs on the
+  // person; none by default. A test about the banner shadows this route.
+  { method: 'GET', match: /\/me\/support-session$/, handler: () => ({ session: null }) },
   {
     method: 'GET',
     match: /\/reference-data\/country$/,

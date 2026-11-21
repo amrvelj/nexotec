@@ -30,6 +30,9 @@ class SecretSlot(str, enum.Enum):
     CERTIFICATE = "certificate"
     # KAN-227: the Betrieb's own key at its AI provider (BYO, D-A-33).
     API_KEY = "api_key"
+    # KAN-217 PR-3: the Betrieb's own access token at Meta's WhatsApp Cloud
+    # API (a system user's token; Twilio's API key secret is `api_key`).
+    ACCESS_TOKEN = "access_token"
 
 
 class IntegrationSecretRef(PrimaryKeyMixin, TimestampMixin, Base):

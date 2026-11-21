@@ -19,6 +19,7 @@ from app.core.config import get_settings
 from app.core.errors import ConflictError, NotFoundError, UnprocessableEntityError
 from app.core.pagination import SortPageParams, count_capped, paginate_query_sorted
 from app.core.sorting import build_page_for_sort
+from app.integration.adapters.messaging_base import MESSAGING_PROVIDER_CODES
 from app.integration.models.call_log import IntegrationCallLog
 from app.integration.models.connection import (
     ConnectionEnvironment,
@@ -267,6 +268,14 @@ def create_connection(
             details={"reason": "mail_provider_platform_only", "providerCode": provider.provider_code},
         )
 
+    # KAN-217 PR-3 (D-A-41, Q2 B): SMS and WhatsApp are the Betrieb's own
+    # accounts; Nexotec holds none, so a platform-wide one is refused.
+    if is_tenant_only(provider) and data.scope == ConnectionScope.PLATFORM:
+        raise UnprocessableEntityError(
+            "Each business connects its own SMS and WhatsApp account; Nexotec holds none.",
+            details={"reason": "messaging_provider_tenant_only", "providerCode": provider.provider_code},
+        )
+
     if data.scope == ConnectionScope.PLATFORM:
         resolved_tenant_id = None
     else:
@@ -340,6 +349,15 @@ PLATFORM_ONLY_PROVIDER_CODES = frozenset({*(code.value for code in MailProviderC
 # the whole Betrieb. A platform-only provider is never bindable, whatever its
 # category: its one connection belongs to no Betrieb (`is_location_bindable`).
 LOCATION_BINDABLE_CATEGORIES = frozenset({"marketplace", "calendar_mail"})
+
+
+# KAN-217 PR-3: the messaging providers are the Betrieb's own accounts (BYO,
+# D-A-41) — the mirror of the platform-only rule above, keyed on the codes too.
+TENANT_ONLY_PROVIDER_CODES = frozenset(MESSAGING_PROVIDER_CODES)
+
+
+def is_tenant_only(provider: IntegrationProvider) -> bool:
+    return provider.provider_code in TENANT_ONLY_PROVIDER_CODES
 
 
 def is_platform_only(provider: IntegrationProvider) -> bool:

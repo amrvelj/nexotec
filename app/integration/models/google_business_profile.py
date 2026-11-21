@@ -30,7 +30,7 @@ import datetime as dt
 import enum
 import uuid
 
-from sqlalchemy import Index, String, text
+from sqlalchemy import JSON, ForeignKey, Index, String, UniqueConstraint, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.base import PrimaryKeyMixin, TenantScopedMixin, TimestampMixin, VersionedMixin
@@ -105,3 +105,26 @@ class GbpLocationBinding(PrimaryKeyMixin, VersionedMixin, TimestampMixin, Tenant
     error_code: Mapped[str | None] = mapped_column(String(64), nullable=True)
     connected_at: Mapped[dt.datetime] = mapped_column(UTCDateTime(), nullable=False)
     disconnected_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)
+
+
+class GbpPushState(PrimaryKeyMixin, TimestampMixin, TenantScopedMixin, Base):
+    """KAN-226 PR-3: what Nexotec last pushed to one binding's Google location
+    (one row per binding, written by the push consumer only).
+
+    `source_hash` is the SHA-256 of the location's pushed facts as the last
+    successful push read them: an event whose facts hash the same sends
+    nothing (the per-location debounce — a burst of facts is one push of the
+    current state). `unmapped_departments` names the departments whose hours
+    Google's category offers no hours type for (not sent; PR-4's drift card
+    names them)."""
+
+    __tablename__ = "integration_gbp_push_state"
+    __table_args__ = (UniqueConstraint("binding_id", name="uq_integration_gbp_push_state_binding"),)
+
+    binding_id: Mapped[uuid.UUID] = mapped_column(
+        GUID(), ForeignKey("integration_gbp_location_binding.id"), nullable=False
+    )
+    source_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    pushed_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)
+    pushed_fields: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
+    unmapped_departments: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)

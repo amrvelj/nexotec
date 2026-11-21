@@ -16,7 +16,7 @@ from app.integration.models.call_payload import IntegrationCallPayload
 from app.integration.models.caption import IntegrationProviderCaption, IntegrationProviderCaptionFetch
 from app.integration.models.connection import IntegrationConnection
 from app.integration.models.entitlement import IntegrationEntitlement
-from app.integration.models.google_business_profile import GbpLinkState, GbpLocationBinding
+from app.integration.models.google_business_profile import GbpLinkState, GbpLocationBinding, GbpPushState
 from app.integration.models.mail import MailLinkState, MessageDelivery, SendingIdentity, SendingIdentityKind
 from app.integration.models.notification import IntegrationNotification
 from app.integration.models.provider import IntegrationProvider
@@ -40,8 +40,9 @@ def _business_mailboxes() -> ExportedTable:
     table = table_of(SendingIdentity)
     return ExportedTable(
         table=table,
-        scope=lambda scope: (table.c.tenant_id == scope.dealership_id)
-        & (table.c.kind == SendingIdentityKind.BUSINESS_MAILBOX.value),
+        scope=lambda scope: (
+            (table.c.tenant_id == scope.dealership_id) & (table.c.kind == SendingIdentityKind.BUSINESS_MAILBOX.value)
+        ),
     )
 
 
@@ -85,6 +86,9 @@ class IntegrationExporter(TableExporter):
                 exclusion_reason="A pending Business Profile link, valid ten minutes; a hash of a single-use state only.",
                 marks_write=False,
             ),
+            # KAN-226 PR-3: what the push last sent to Google — written by the
+            # worker, not the Betrieb.
+            _tenant(GbpPushState, marks_write=False),
             _tenant(IntegrationCallLog, marks_write=False),
             _tenant(IntegrationNotification, marks_write=False),
             _tenant(

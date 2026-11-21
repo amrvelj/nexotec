@@ -54,6 +54,9 @@ from app.customer.services.vehicle_merge import handle_vehicle_merged_message
 from app.db import SessionLocal
 from app.export_registry import register_exporters
 from app.integration.consumers import (
+    handle_business_profile_push_message,
+)
+from app.integration.consumers import (
     handle_dealership_listings_withdrawn_message as disable_marketplace_connections_on_listings_withdrawn,
 )
 from app.integration.consumers import handle_dealership_offboarded_message as disable_connections_on_offboarded
@@ -370,6 +373,17 @@ def register_handlers(transport: InProcessTransport) -> None:
         consumer_name="integration.marketplace_connections_disabled_on_withdrawn",
         handler=disable_marketplace_connections_on_listings_withdrawn,
     )
+    # KAN-226 PR-3 — Google Business Profile, Nexotec → Google: Platform's
+    # location facts (and Integration's own fact that a binding went live)
+    # push the location's fields (photos wait for KAN-784). Each reads the
+    # current state through platform.public; a refusal of the grant moves the
+    # binding to error, anything else is retried, then dead-letters.
+    for event_type, consumer_name in (
+        ("platform.location.updated", "integration.business_profile_push_on_location_updated"),
+        ("platform.location.schedule_changed", "integration.business_profile_push_on_schedule_changed"),
+        ("integration.gbp_location_binding.activated", "integration.business_profile_push_on_binding_activated"),
+    ):
+        transport.register(event_type, consumer_name=consumer_name, handler=handle_business_profile_push_message)
     # KAN-225 — the public stock projection the Betrieb's website reads
     # (FR-A-27), built from Stock's statements only.
     transport.register(

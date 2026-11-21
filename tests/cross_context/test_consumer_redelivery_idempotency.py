@@ -907,7 +907,94 @@ def _stock_holding_on_sold(db_session, engine, monkeypatch):
     return message, _stock_holding_rows(item.id, VehicleStockHolding.left_stock_at)
 
 
+def _business_profile_site(db_session, monkeypatch):
+    """KAN-226 PR-3: a Betrieb's location bound to Google Business Profile
+    (the fake Google of `tests/gbp_fakes.py`, Nexotec's client connection)."""
+
+    from app.integration.models.connection import ConnectionEnvironment, ConnectionScope, IntegrationConnection
+    from app.integration.models.google_business_profile import (
+        GBP_PROVIDER_CODE,
+        GbpBindingStatus,
+        GbpLocationBinding,
+    )
+    from app.integration.models.provider import IntegrationProvider
+    from app.integration.services import resilience
+    from app.platform.organisation.models.dealership import Location
+    from tests import gbp_fakes
+
+    resilience._CIRCUITS.clear()
+    fake, secrets_store = gbp_fakes.install(monkeypatch)
+    provider = IntegrationProvider(
+        provider_code=GBP_PROVIDER_CODE, category="marketplace", display_name="Google Business Profile",
+        auth_type="oauth2", required_secret_slots=["client_secret"], required_config_keys=["clientId"],
+        capability_codes=["business_profile"], supports_sandbox=False,
+    )
+    db_session.add(provider)
+    db_session.flush()
+    connection = IntegrationConnection(
+        provider_id=provider.id, scope=ConnectionScope.PLATFORM, tenant_id=None, display_name="Nexotec GBP",
+        environment=ConnectionEnvironment.PRODUCTION, config={"clientId": gbp_fakes.CLIENT_ID}, enabled=True,
+    )
+    dealership = _make_dealership(db_session)
+    location = Location(
+        tenant_id=dealership.id, name="Zürich", address_street="Beispielstrasse", address_house_number="1",
+        address_postal_code="8001", address_locality="Zürich", phone="+41440000000", location_types=[],
+    )
+    db_session.add_all([connection, location])
+    db_session.flush()
+    binding = GbpLocationBinding(
+        tenant_id=dealership.id, location_id=location.id, location_label="Zürich",
+        location_label_refreshed_at=dt.datetime.now(dt.UTC), status=GbpBindingStatus.ACTIVE,
+        google_account_name=gbp_fakes.ACCOUNT_1, google_location_name=gbp_fakes.LOCATION_1,
+        connected_at=dt.datetime.now(dt.UTC),
+    )
+    db_session.add(binding)
+    db_session.commit()
+    secrets_store.values[(connection.id, "client_secret")] = gbp_fakes.CLIENT_SECRET
+    fake.refresh_tokens.add("1//invented-refresh-redelivery")
+    secrets_store.values[(binding.id, "refresh_token")] = "1//invented-refresh-redelivery"
+    return fake, location, binding
+
+
+def _business_profile_patches(fake):
+    return lambda db: len(fake.patches())
+
+
+def _business_profile_push_on(event_type: str):
+    """KAN-226 PR-3 — a location fact pushes the location to its Google
+    location once: one PATCH."""
+
+    def fixture(db_session, engine, monkeypatch):
+        from app.platform.organisation.services import location_facts
+
+        fake, location, _binding = _business_profile_site(db_session, monkeypatch)
+        if event_type == location_facts.LOCATION_UPDATED_EVENT:
+            location_facts.publish_location_changes(db_session, location=location, changed_fields=["phone"])
+        else:
+            location_facts.publish_schedule_changed(db_session, location=location, changed=location_facts.CLOSURES)
+        db_session.commit()
+        return _message(db_session, event_type, location.id), _business_profile_patches(fake)
+
+    return fixture
+
+
+def _business_profile_activated(db_session, engine, monkeypatch):
+    """KAN-226 PR-3 — the binding goes live: the location pushed once."""
+
+    from app.integration.services import gbp_link
+
+    fake, _location, binding = _business_profile_site(db_session, monkeypatch)
+    gbp_link._publish_activated(db_session, binding)
+    db_session.commit()
+    return _message(db_session, gbp_link.BINDING_ACTIVATED_EVENT, binding.id), _business_profile_patches(fake)
+
+
 _FIXTURES: dict[str, Fixture] = {
+    "integration.business_profile_push_on_location_updated": _business_profile_push_on("platform.location.updated"),
+    "integration.business_profile_push_on_schedule_changed": _business_profile_push_on(
+        "platform.location.schedule_changed"
+    ),
+    "integration.business_profile_push_on_binding_activated": _business_profile_activated,
     "platform.connected_account_provider_revocation": _connected_account_revoked,
     "platform.administration_notification_on_connection_expiry": _connection_expiry_approaching,
     "inventory.listings_withdrawn_on_offboarded": _listings_withdrawn_on_offboarded,

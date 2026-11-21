@@ -4,6 +4,11 @@ contract allows `app.<other-context>` to import `app.platform.public`, never
 """
 
 from app.platform.administration.services.data_export_tables import PlatformExporter
+from app.platform.administration.services.location_channel_facts import (
+    ChannelOpeningHours,
+    LocationChannelFacts,
+    location_channel_facts,
+)
 from app.platform.administration.services.publishing_readiness import (
     PublishingMissingItem,
     publishing_profile_missing_items,
@@ -188,6 +193,7 @@ __all__ = [
     "PLACEHOLDER_UNRESOLVED",
     "ActingUser",
     "Addressee",
+    "ChannelOpeningHours",
     "ConnectedAccountProvider",
     "ConnectedAccountStatus",
     "ContactGroupCodes",
@@ -206,6 +212,7 @@ __all__ = [
     "LineItemsBlock",
     "LineStyle",
     "LinkedGrant",
+    "LocationChannelFacts",
     "LocationLabel",
     "LocationSummary",
     "MessageChannel",
@@ -264,6 +271,7 @@ __all__ = [
     "list_group_read_dealerships",
     "list_user_dealer_group_ids",
     "list_user_dealership_ids",
+    "location_channel_facts",
     "location_reference_check",
     "message_types",
     "notify",

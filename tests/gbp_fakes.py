@@ -98,6 +98,11 @@ class FakeGoogle:
         # The same in Google's older shape (`error.errors[].reason`).
         self.legacy_refusal: str | None = None
         self.grant_refusal_reason: str | None = None
+        # KAN-226 PR-3: the `hoursTypeId`s the location's category offers
+        # (answered on a read whose mask names `categories`), and a status
+        # every PATCH answers with instead of success.
+        self.more_hours_types: list[str] = []
+        self.patch_failure_status: int | None = None
 
     # -- the test's side ---------------------------------------------------------
 
@@ -153,6 +158,10 @@ class FakeGoogle:
                 return _json(404, {"error": {"code": 404, "status": "NOT_FOUND"}})
             return _json(200, RECORDED["locations"][account])
         if url.startswith(gbp.INFORMATION_API + "/locations/"):
+            if request.method == "PATCH" and self.patch_failure_status is not None:
+                return _json(self.patch_failure_status, {"error": {"code": self.patch_failure_status}})
+            if request.method == "GET" and "categories" in params.get("readMask", "").split(","):
+                return _json(200, self._categories(url.removeprefix(gbp.INFORMATION_API + "/")))
             if request.method == "PATCH":
                 if not params.get("updateMask"):
                     return _json(400, {"error": {"code": 400, "status": "INVALID_ARGUMENT"}})
@@ -165,6 +174,27 @@ class FakeGoogle:
         if url.startswith(gbp.MEDIA_API + "/accounts/") and url.endswith("/media"):
             return _json(200, RECORDED["media_create"])
         return _json(404, {"error": {"code": 404, "status": "NOT_FOUND"}})
+
+    def _categories(self, location_name: str) -> dict[str, Any]:
+        """A location's categories in Business Information v1's shape: an
+        invented category offering the test's `more_hours_types`."""
+
+        return {
+            "name": location_name,
+            "categories": {
+                "primaryCategory": {
+                    "name": "categories/gcid:invented_car_dealer",
+                    "displayName": "Invented car dealer",
+                    "moreHoursTypes": [
+                        {"hoursTypeId": type_id, "displayName": type_id.title(), "localizedDisplayName": type_id}
+                        for type_id in self.more_hours_types
+                    ],
+                }
+            },
+        }
+
+    def patches(self) -> list[httpx.Request]:
+        return [r for r in self.requests if r.method == "PATCH"]
 
     def _token(self, request: httpx.Request) -> httpx.Response:
         form = dict(urllib.parse.parse_qsl(request.content.decode()))

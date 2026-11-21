@@ -17,6 +17,7 @@ import {
   FileArchive,
   FileText,
   Handshake,
+  Headset,
   Hash,
   Languages,
   LayoutDashboard,
@@ -30,6 +31,7 @@ import {
   Receipt,
   Scale,
   ShieldCheck,
+  ShieldUser,
   Siren,
   Sparkles,
   Mail,
@@ -62,6 +64,8 @@ import type { CustomerPage, StatusState, VehicleSearchResult } from '../api/type
 import { filterNavGroupsByEntitlements } from './navEntitlements'
 import { useUnreadNotificationCount } from '../hooks/useNotifications'
 import { rebindPushToThisSession } from '../utils/webPush'
+import { SupportSessionBanner } from '../shared/supportSession/SupportSessionBanner'
+import { useSupportSession } from '../shared/supportSession/useSupportSession'
 
 // Translated at render time (not a module-level constant) — labels must
 // re-render when the user switches UI language via the top bar.
@@ -151,6 +155,10 @@ function buildNavGroups(t: (key: string) => string, statusIndicator?: NavItemInd
         // documents»). Any role reads; the manager writes and previews. Never role-hidden.
         { label: t('shell.nav.letterhead'), href: '/administration/letterhead', icon: FileImage, status: 'active' },
         { label: t('shell.nav.users'), href: '/administration/users', icon: UserCog, status: 'active' },
+        // KAN-221 PR-6 — Dealer Administration › Support sessions (FR-A-15): every
+        // session Nexotec staff held in the Betrieb. Manager-only at the API
+        // (`support_session_log`); never role-hidden (A-RULE-7).
+        { label: t('shell.nav.supportSessions'), href: '/administration/support-sessions', icon: Headset, status: 'active' },
         // KAN-208 — Dealer Administration › Standard texts. Any role reads; a
         // category is written by the manager or its delegate (FR-A-28) — the
         // entry is never role-hidden (A-RULE-7).
@@ -188,6 +196,10 @@ function buildNavGroups(t: (key: string) => string, statusIndicator?: NavItemInd
         // KAN-210 — Platform Administration › Onboarding. Staff-only at the API;
         // never role-hidden (A-RULE-7).
         { label: t('shell.nav.onboarding'), href: '/platform/onboarding', icon: Building2, status: 'active' },
+        // KAN-221 PR-6 — Platform Administration › Platform users: Nexotec staff, their
+        // second factor and support sessions, grant and revoke (ADR-188). Staff-only at
+        // the API; never role-hidden (A-RULE-7).
+        { label: t('shell.nav.platformUsers'), href: '/platform/users', icon: ShieldUser, status: 'active' },
         // KAN-218 — Platform Administration › Offboarding (FR-A-45). Staff-only
         // at the API; never role-hidden (A-RULE-7).
         { label: t('shell.nav.offboarding'), href: '/platform/offboarding', icon: Archive, status: 'active' },
@@ -431,6 +443,11 @@ function DmsShellInner({ children }: { children: ReactNode }) {
   const inboxReachable = !mfaEnrolmentRequired
   const unread = useUnreadNotificationCount(inboxReachable)
   const unreadCount = unread.data?.count ?? 0
+  // KAN-221 PR-6 (D-A-05, FR-A-18): a running support session on this person
+  // is said on every screen, in the one notice slot (ADR-084), until it ends —
+  // the enrolment screen of a session that still owes a factor included (the
+  // guard leaves the read and the ending open to it).
+  const supportSession = useSupportSession(Boolean(user)).data?.session ?? null
   // A browser that already pushes binds its subscription to this new
   // session (FR-A-49: the previous session's went with it).
   useEffect(() => {
@@ -534,9 +551,16 @@ function DmsShellInner({ children }: { children: ReactNode }) {
       // signed-in screen (ADR-084) rather than let a tester read a missing
       // pipeline item as a bug. Build-time setting, never the environment's
       // name.
+      // KAN-221 PR-6: the support-access banner shares the slot, stacked above
+      // the deployment notice when both apply — never a second banner.
       notice={
-        outboxWorkerAbsent() ? (
-          <EnvironmentNotice>{t('shell.environmentNotice.outboxWorkerAbsent')}</EnvironmentNotice>
+        supportSession || outboxWorkerAbsent() ? (
+          <>
+            {supportSession && <SupportSessionBanner session={supportSession} />}
+            {outboxWorkerAbsent() && (
+              <EnvironmentNotice>{t('shell.environmentNotice.outboxWorkerAbsent')}</EnvironmentNotice>
+            )}
+          </>
         ) : undefined
       }
     >

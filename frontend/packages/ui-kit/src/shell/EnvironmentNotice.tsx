@@ -5,6 +5,12 @@ import { semantic, spacing, typography } from "../tokens";
 export interface EnvironmentNoticeProps {
   /** The translated sentence — the kit renders no text of its own. */
   children: ReactNode;
+  /**
+   * KAN-221 PR-6 (D-A-05, FR-A-18): one control at the strip's end — the
+   * support-access banner's «Sitzung beenden». The app passes it, label
+   * included; the strip itself still has no dismiss control.
+   */
+  action?: ReactNode;
 }
 
 /**
@@ -19,8 +25,13 @@ export interface EnvironmentNoticeProps {
  * decides whether to pass one (AppShell's `notice` prop), and what it
  * says. AppShell measures it and publishes `--shell-notice-height` so the
  * overview grids keep filling the content region exactly.
+ *
+ * The same slot carries D-A-05's support-access banner (ADR-084: never a
+ * second banner): a fact about THIS SESSION as persistent as a deployment
+ * fact — a Nexotec staff member is in the account — with the one `action`
+ * that ends it. Both notices, when both apply, stack inside the one slot.
  */
-export function EnvironmentNotice({ children }: EnvironmentNoticeProps) {
+export function EnvironmentNotice({ children, action }: EnvironmentNoticeProps) {
   return (
     <div
       role="status"
@@ -38,7 +49,8 @@ export function EnvironmentNotice({ children }: EnvironmentNoticeProps) {
       }}
     >
       <AlertTriangle size={14} aria-hidden="true" />
-      <span>{children}</span>
+      <span style={{ flex: 1 }}>{children}</span>
+      {action}
     </div>
   );
 }
