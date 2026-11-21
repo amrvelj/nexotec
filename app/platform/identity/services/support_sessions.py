@@ -44,6 +44,7 @@ routes it names.
 
 import datetime as dt
 import uuid
+from typing import Literal
 
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -314,7 +315,7 @@ def running_session_for(db: Session, principal: Principal) -> MySupportSessionRe
                 *running,
             )
         ).first()
-        viewer = "staff"
+        viewer: Literal["user", "staff"] = "staff"
     else:
         row = db.scalars(
             select(SupportSession)

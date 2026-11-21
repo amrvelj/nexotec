@@ -97,6 +97,11 @@
       "error": "Non è stato possibile revocare l'accesso."
     },
     "sessionsOf": "Sessioni di supporto di {{name}}",
-    "showAll": "Mostra tutte"
+    "showAll": "Mostra tutte",
+    "refusals": {
+      "platform_admin_self_revoke": "Nessuno può revocare il proprio accesso alla piattaforma.",
+      "last_platform_admin": "Nexotec resterebbe senza alcuna persona attiva con accesso alla piattaforma.",
+      "staff_role_is_the_only_role": "L'accesso alla piattaforma è l'unico ruolo di questo account. Sull'account decide l'azienda nella sua gestione utenti."
+    }
   }
 }

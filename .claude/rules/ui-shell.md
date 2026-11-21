@@ -27,8 +27,9 @@ of ui.md by KAN-615 (2026-11-13). Last verified against main@3b2bf69 (2026-11-18
   when collapsed — because the top bar stays breadcrumb and search only.
 - **ADR-084 — one environment-notice slot.** `AppShell`'s optional `notice` strip (ui-kit
   `shell/EnvironmentNotice.tsx`, between the top bar and the content, `role="status"`, no dismiss)
-  is the only place for a persistent deployment-level notice — D-A-05's support-access banner uses
-  it when built, never a second banner. A build-time setting switches it on
+  is the only place for a persistent deployment-level notice — D-A-05's support-access banner
+  (`shared/supportSession/`, KAN-221) uses it with its one `action`, stacked above the deployment
+  notice, never a second banner. A build-time setting switches it on
   (`VITE_OUTBOX_WORKER_ABSENT=true` in `render.yaml`, `src/config/deployment.ts`), never the
   environment's name; its text is an i18n key in all four bundles.
 - **Every screen but the sign-in loads on demand:** a new route's page goes into `App.tsx` through

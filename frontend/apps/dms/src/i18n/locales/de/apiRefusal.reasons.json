@@ -202,8 +202,5 @@
   "operator_not_allowed": "Diese Bedingung gilt für dieses Feld nicht.",
   "invalid_filter_value": "Der Filterwert ist ungültig.",
   "sort_malformed": "Diese Sortierung ist ungültig.",
-  "field_not_sortable": "Nach diesem Feld kann nicht sortiert werden.",
-  "platform_admin_self_revoke": "Den eigenen Plattformzugang kann niemand selbst entziehen.",
-  "last_platform_admin": "Nexotec stünde sonst ohne aktive Person mit Plattformzugang da.",
-  "staff_role_is_the_only_role": "Plattformzugang ist die einzige Rolle dieses Kontos. Über das Konto entscheidet der Betrieb in seiner Benutzerverwaltung."
+  "field_not_sortable": "Nach diesem Feld kann nicht sortiert werden."
 }

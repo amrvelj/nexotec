@@ -97,6 +97,11 @@
       "error": "L'accès n'a pas pu être retiré."
     },
     "sessionsOf": "Sessions de support de {{name}}",
-    "showAll": "Tout afficher"
+    "showAll": "Tout afficher",
+    "refusals": {
+      "platform_admin_self_revoke": "Personne ne peut retirer son propre accès plateforme.",
+      "last_platform_admin": "Nexotec n'aurait alors plus aucune personne active avec un accès plateforme.",
+      "staff_role_is_the_only_role": "L'accès plateforme est le seul rôle de ce compte. L'entreprise décide de ce compte dans sa gestion des utilisateurs."
+    }
   }
 }

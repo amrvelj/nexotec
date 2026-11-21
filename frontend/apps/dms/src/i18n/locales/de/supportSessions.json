@@ -97,6 +97,11 @@
       "error": "Der Zugang konnte nicht entzogen werden."
     },
     "sessionsOf": "Support-Sitzungen von {{name}}",
-    "showAll": "Alle anzeigen"
+    "showAll": "Alle anzeigen",
+    "refusals": {
+      "platform_admin_self_revoke": "Den eigenen Plattformzugang kann niemand selbst entziehen.",
+      "last_platform_admin": "Nexotec stünde sonst ohne aktive Person mit Plattformzugang da.",
+      "staff_role_is_the_only_role": "Plattformzugang ist die einzige Rolle dieses Kontos. Über das Konto entscheidet der Betrieb in seiner Benutzerverwaltung."
+    }
   }
 }

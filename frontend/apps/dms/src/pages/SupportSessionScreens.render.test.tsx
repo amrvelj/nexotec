@@ -174,7 +174,7 @@ describe('PlatformUsersPage (staff)', () => {
     expect(submit).toBeDisabled()
     await userEvent.type(within(dialog).getByLabelText(new RegExp(i18n.t('supportSessions.staff.revokeDialog.reason'))), 'Austritt')
     await userEvent.click(submit)
-    expect(await screen.findByText(i18n.t('apiRefusal.reasons.last_platform_admin'))).toBeInTheDocument()
+    expect(await screen.findByText(i18n.t('supportSessions.staff.refusals.last_platform_admin'))).toBeInTheDocument()
     const [call] = backend.callsTo(/\/revoke$/, 'POST')
     expect(call.body).toEqual({ reason: 'Austritt' })
     expect(call.headers.get('If-Match')).toBe('4')
