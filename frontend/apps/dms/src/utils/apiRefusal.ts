@@ -407,6 +407,10 @@ const REASON_KEYS: Record<string, string> = {
       // a provider flipped to «no sandbox» while sandbox connections remain.
       'provider_has_no_sandbox',
       'provider_sandbox_connections_exist',
+      // KAN-217 PR-3 — SMS and WhatsApp are the Betrieb's own accounts, and
+      // a send needs one connected for its channel.
+      'messaging_not_connected',
+      'messaging_provider_tenant_only',
     ].map((reason) => [reason, `apiRefusal.reasons.${reason}`]),
   ),
 }

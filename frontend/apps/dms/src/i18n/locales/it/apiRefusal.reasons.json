@@ -202,5 +202,7 @@
   "operator_not_allowed": "Questa condizione non vale per questo campo.",
   "invalid_filter_value": "Il valore del filtro non è valido.",
   "sort_malformed": "Questo ordinamento non è valido.",
-  "field_not_sortable": "Questo campo non può essere ordinato."
+  "field_not_sortable": "Questo campo non può essere ordinato.",
+  "messaging_not_connected": "Nessun fornitore è collegato per questo canale. Collegane uno in Amministrazione › Integrazioni.",
+  "messaging_provider_tenant_only": "Ogni azienda collega il proprio account SMS e WhatsApp; Nexotec non ne detiene alcuno."
 }

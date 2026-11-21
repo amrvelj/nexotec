@@ -52,3 +52,8 @@ from app.integration.adapters import google_business_profile as _google_business
 # Gmail) behind `adapters/mail_base.py::MailGateway`; httpx opens nothing
 # until a request is sent.
 from app.integration.adapters import mail_providers as _mail_providers  # noqa: F401
+
+# KAN-217 PR-3 — the Betrieb's own SMS (Twilio) and WhatsApp (Meta Cloud API)
+# accounts behind `adapters/messaging_base.py::MessagingGateway`; httpx opens
+# nothing until a request is sent.
+from app.integration.adapters import messaging_providers as _messaging_providers  # noqa: F401

@@ -11,7 +11,8 @@
   "categories": {
     "marketplace": "Marketplace",
     "vehicle_data": "Vehicle data",
-    "ai": "AI provider"
+    "ai": "AI provider",
+    "messaging": "SMS and WhatsApp"
   },
   "fields": {
     "provider": "Provider",

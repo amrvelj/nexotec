@@ -15,7 +15,8 @@
     "client_secret": "Secret client",
     "refresh_token": "Jeton de rafraîchissement",
     "certificate": "Certificat",
-    "api_key": "Clé API"
+    "api_key": "Clé API",
+    "access_token": "Jeton d'accès"
   },
   "configKey": {
     "username": "Nom d'utilisateur",
@@ -27,6 +28,10 @@
     "kundennummer": "Numéro de client",
     "ftpHost": "Serveur FTP",
     "ftpUsername": "Nom d'utilisateur FTP",
-    "serviceAccountEmail": "Compte de service (e-mail)"
+    "serviceAccountEmail": "Compte de service (e-mail)",
+    "accountSid": "SID du compte",
+    "apiKeySid": "SID de la clé API",
+    "sender": "Expéditeur",
+    "phoneNumberId": "ID du numéro de téléphone"
   }
 }
