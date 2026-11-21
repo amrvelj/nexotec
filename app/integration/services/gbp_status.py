@@ -46,7 +46,7 @@ import dataclasses
 import datetime as dt
 import uuid
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import Select, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.core.status import StatusItem, StatusState
@@ -108,6 +108,30 @@ def _deciding_rows() -> tuple:
     )
 
 
+def _latest_call(connection_id: uuid.UUID) -> Select:
+    """The connection's latest call-log row's time. Served newest first by
+    `ix_integration_call_log_connection_id_created_at` (KAN-777)."""
+
+    return (
+        select(IntegrationCallLog.created_at)
+        .where(IntegrationCallLog.connection_id == connection_id)
+        .order_by(IntegrationCallLog.created_at.desc(), IntegrationCallLog.id.desc())
+        .limit(1)
+    )
+
+
+def _latest_deciding_call(connection_id: uuid.UUID) -> Select:
+    """The connection's latest deciding row (`_deciding_rows`), by the same
+    index (KAN-777)."""
+
+    return (
+        select(IntegrationCallLog.provider_error, IntegrationCallLog.created_at)
+        .where(IntegrationCallLog.connection_id == connection_id, *_deciding_rows())
+        .order_by(IntegrationCallLog.created_at.desc(), IntegrationCallLog.id.desc())
+        .limit(1)
+    )
+
+
 def _live_bindings():
     # «Live» is the code's own meaning (`uq_integration_gbp_binding_location_live`):
     # pending, active or error — a pending link needs the client to list its
@@ -137,18 +161,8 @@ def client_health(db: Session, *, count_bindings: bool = True) -> GbpClientHealt
             last_call_at=None,
             bound_dealerships=bound,
         )
-    last_call_at = db.scalar(
-        select(IntegrationCallLog.created_at)
-        .where(IntegrationCallLog.connection_id == connection.id)
-        .order_by(IntegrationCallLog.created_at.desc(), IntegrationCallLog.id.desc())
-        .limit(1)
-    )
-    deciding = db.execute(
-        select(IntegrationCallLog.provider_error, IntegrationCallLog.created_at)
-        .where(IntegrationCallLog.connection_id == connection.id, *_deciding_rows())
-        .order_by(IntegrationCallLog.created_at.desc(), IntegrationCallLog.id.desc())
-        .limit(1)
-    ).first()
+    last_call_at = db.scalar(_latest_call(connection.id))
+    deciding = db.execute(_latest_deciding_call(connection.id)).first()
     refusal = deciding.provider_error if deciding is not None and deciding.provider_error in CLIENT_REFUSALS else None
     return GbpClientHealth(
         configured=True,
