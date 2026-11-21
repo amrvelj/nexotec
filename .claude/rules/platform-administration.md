@@ -90,7 +90,7 @@ is interrupted — no client, breaker open, or a client/project refusal as its l
 no cause, its own notification `administration.business_profile_interrupted` («nothing to do on your
 side»); staff read the cause on `/platform/status` (`GET /v1/integrations/business-profile/client-status`) and
 «Erneut prüfen» (`POST …/client-status/check`, one real Google call, staff with a factor) clears it once
-Google answers for a location; a timeout, 5xx, quota or token-refresh row, or a 401/403/429 not naming the
+Google answers for a location; a timeout, 5xx, quota or token-refresh row, or a 429 or 401/403 not naming the
 client or project (KAN-780), neither raises nor clears it). The daily
 `platform.status_page.notifications` raises `administration.status_item_degraded` once per
 degradation (`status_item_state`, under a per-Betrieb advisory lock): a warning the source really

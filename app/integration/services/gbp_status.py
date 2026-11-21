@@ -99,11 +99,13 @@ def _deciding_rows() -> tuple:
     """The call-log rows that can say whether Google accepts Nexotec's client
     and project: an HTTP answer below 500 that is not a quota answer (a quota
     passes by itself) — a timeout, a transport failure or a 5xx proves
-    nothing either way. A 401, 403 or 429 decides only when its identifier
-    is one of `CLIENT_REFUSALS` on a 401 or 403, and then it raises (KAN-780): an
-    `UNAUTHENTICATED` (the token refused before Google judges the project)
-    or a 429 whose reason is no known quota (`RESOURCE_EXHAUSTED`) says
-    nothing about the client and never clears a refusal. What clears one is
+    nothing either way. A 401, 403 or 429 decides only when the adapter
+    reads it as the client's or the project's refusal, and then it raises
+    (KAN-780): `invalid_client` at any status, a `PROJECT_REFUSALS` reason on
+    a 401 or 403 only (a 429 is otherwise transient). An `UNAUTHENTICATED`
+    (the token refused before Google judges the project), a 429 whose reason
+    is no known quota (`RESOURCE_EXHAUSTED`) or a 403 `PERMISSION_DENIED`
+    says nothing about the client and never clears a refusal. What clears one is
     a success or a 400 / 404 / 422, Google answering for the request itself.
     A token-endpoint row decides only when it is
     `invalid_client`: a token granted says nothing about the project (Google
@@ -116,9 +118,11 @@ def _deciding_rows() -> tuple:
         or_(IntegrationCallLog.provider_error.is_(None), IntegrationCallLog.provider_error.not_in(QUOTA_REASONS)),
         or_(
             IntegrationCallLog.http_status.not_in(_UNJUDGED_STATUSES),
-            # A 429 never raises one: the adapter reads it as transient
-            # (`ProviderTransportError`), only a 401 / 403 as a refusal.
-            and_(IntegrationCallLog.http_status != 429, IntegrationCallLog.provider_error.in_(CLIENT_REFUSALS)),
+            # As the adapter maps them (`_raise_for_status`): `invalid_client`
+            # at any status is the client refused; a project reason only on a
+            # 401 / 403 — a 429 is otherwise transient.
+            IntegrationCallLog.provider_error == "invalid_client",
+            and_(IntegrationCallLog.http_status != 429, IntegrationCallLog.provider_error.in_(PROJECT_REFUSALS)),
         ),
         or_(
             IntegrationCallLog.capability.not_in(TOKEN_OPERATIONS),

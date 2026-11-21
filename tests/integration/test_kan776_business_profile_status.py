@@ -443,7 +443,9 @@ def test_only_staff_with_a_second_factor_check(client, db_session, google, clien
         ("locations_get", 429, "RESOURCE_EXHAUSTED"),  # a 429 with no known quota reason
         ("locations_get", 403, "PERMISSION_DENIED"),  # one location's access
         ("locations_get", 403, None),  # no identifier at all
-        ("locations_get", 429, "SERVICE_DISABLED"),  # a 429 is transient, whatever it names
+        # A 429 is transient whatever project reason it names: it must not
+        # replace the earlier SERVICE_DISABLED with its own.
+        ("locations_get", 429, "BILLING_DISABLED"),
     ],
 )
 def test_a_row_that_proves_nothing_neither_clears_nor_raises_a_refusal(
