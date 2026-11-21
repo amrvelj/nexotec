@@ -445,7 +445,13 @@ def test_each_message_is_counted_on_the_usage_view_under_its_operation(db_sessio
 @pytest.mark.parametrize(
     ("code", "url", "body"),
     [
-        ("twilio", f"https://api.twilio.com/2010-04-01/Accounts/{_ACCOUNT_SID}.json", {"sid": _ACCOUNT_SID}),
+        # A one-row page of messages, never the Accounts resource: a Standard
+        # API key may not read that (twilio.com/docs/iam/api-keys).
+        (
+            "twilio",
+            f"https://api.twilio.com/2010-04-01/Accounts/{_ACCOUNT_SID}/Messages.json?PageSize=1",
+            {"messages": [], "page_size": 1},
+        ),
         (
             "meta_whatsapp",
             (

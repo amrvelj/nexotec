@@ -4,7 +4,7 @@ directly for WhatsApp, over `httpx`. Each is the Betrieb's own account (BYO).
 
 One choke point per adapter, `_HttpMessagingAdapter._call`: one metered
 request under the provider's own operation name (`messages_create`,
-`account_fetch`; `messages`, `phone_number_fetch`), the HTTP status and the
+`messages_list`; `messages`, `phone_number_fetch`), the HTTP status and the
 provider's error **code** noted on that request's call-log row (KAN-767 —
 Twilio's numeric `code`, Meta's `error.code`; never their `message`, which can
 quote the recipient), and every failure translated into the
@@ -40,7 +40,8 @@ The wire formats, checked against the providers' public documentation on
   configured at Twilio) or `From` (a number or an alphanumeric sender ID);
   HTTP Basic with an API key (`SK…` sid and its secret). The answer's `sid`
   (`SM…`) and `status` (`queued`, `accepted`). «Test connection»:
-  `GET …/Accounts/{AccountSid}.json`.
+  `GET …/Accounts/{AccountSid}/Messages.json?PageSize=1` — a Standard API key
+  may not read the Accounts resource itself (https://www.twilio.com/docs/iam/api-keys).
 - Meta WhatsApp Cloud API: `POST https://graph.facebook.com/{version}/{phone-number-id}/messages`,
   `Authorization: Bearer <token>`, JSON `messaging_product: whatsapp`,
   `recipient_type: individual`, `to`, and `type: template` with
@@ -297,8 +298,15 @@ class TwilioSmsAdapter(_HttpMessagingAdapter):
         account_sid = self._account_sid()
         self._sender_field()  # a sender that could never send fails the test, not the first message
         auth = self._auth()
-        url = f"{_TWILIO_BASE}/Accounts/{account_sid}.json"
-        self._call("account_fetch", lambda client: client.get(url, auth=auth))
+        # Not `GET …/Accounts/{sid}.json`: a Standard API key has «access to
+        # all Twilio API resources, except for Accounts» (and the Keys
+        # resources) — https://www.twilio.com/docs/iam/api-keys, read
+        # 2026-11-21 — so a correctly configured dealer's test would fail.
+        # The one-row page of the account's messages proves the key, its
+        # secret and the account SID together and sends nothing; its body is
+        # not read (it would hold a customer's number and text).
+        url = f"{_TWILIO_BASE}/Accounts/{account_sid}/Messages.json"
+        self._call("messages_list", lambda client: client.get(url, params={"PageSize": 1}, auth=auth))
 
 
 class MetaWhatsAppAdapter(_HttpMessagingAdapter):

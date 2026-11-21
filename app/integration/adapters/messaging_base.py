@@ -146,7 +146,8 @@ class MessagingGateway(Protocol):
         ...
 
     def verify(self) -> None:
-        """«Test connection»: one read of the account (Twilio's account, Meta's
-        phone number) that proves the credential and the sender together and
+        """«Test connection»: one read of the account (a one-row page of
+        Twilio's messages — a Standard API key may not read the Accounts
+        resource; Meta's phone number) that proves the credential and the sender together and
         sends nothing."""
         ...
