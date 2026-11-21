@@ -20,7 +20,7 @@ import enum
 import uuid
 from decimal import Decimal
 
-from sqlalchemy import DECIMAL, Integer, SmallInteger, String
+from sqlalchemy import DECIMAL, Index, Integer, SmallInteger, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.base import PrimaryKeyMixin, TimestampMixin
@@ -37,6 +37,10 @@ class CallStatus(str, enum.Enum):
 
 class IntegrationCallLog(PrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "integration_call_log"
+    # KAN-777: the latest call of one connection (`gbp_status.client_health`,
+    # `ORDER BY created_at DESC, id DESC LIMIT 1`) walks this index newest
+    # first instead of sorting every row of the connection.
+    __table_args__ = (Index("ix_integration_call_log_connection_id_created_at", "connection_id", "created_at"),)
 
     # KAN-470 (Anto, 2026-10-26, option A): the call log outlives its
     # connection until ADR-024 retention purges it, so this is a plain id,
