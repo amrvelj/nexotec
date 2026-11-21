@@ -33,7 +33,7 @@ def _channel(value: int) -> float:
 
 
 def relative_luminance(hex_color: str) -> float:
-    if not HEX_COLOR.match(hex_color):
+    if not HEX_COLOR.fullmatch(hex_color):
         raise ValueError(f"not a #RRGGBB colour: {hex_color!r}")
     r, g, b = (int(hex_color[i : i + 2], 16) for i in (1, 3, 5))
     return 0.2126 * _channel(r) + 0.7152 * _channel(g) + 0.0722 * _channel(b)

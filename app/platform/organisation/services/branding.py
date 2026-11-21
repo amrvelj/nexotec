@@ -107,10 +107,10 @@ def _contrast(dealership: Dealership) -> ContrastCheckRead:
     # The API only ever writes #RRGGBB; a row written otherwise (by hand)
     # is judged as the renderer prints it — in the shipped default.
     primary = dealership.brand_primary_color
-    if not HEX_COLOR.match(primary or ""):
+    if not HEX_COLOR.fullmatch(primary or ""):
         primary = DEFAULT_BRAND_PRIMARY_COLOR
     secondary = dealership.brand_secondary_color
-    if secondary is not None and not HEX_COLOR.match(secondary):
+    if secondary is not None and not HEX_COLOR.fullmatch(secondary):
         secondary = None
     pairs = judge_brand_colors(primary, secondary)
     return ContrastCheckRead(

@@ -58,15 +58,15 @@ def resolve_identifier(db: Session, query: str, *, group_id: uuid.UUID) -> Searc
         )
         return SearchResolution(resolved=vehicle, picker_candidates=[])
 
-    if _VEHICLE_NUMBER_RE.match(q):
+    if _VEHICLE_NUMBER_RE.fullmatch(q):
         vehicle = db.scalar(select(VehicleMdm).where(VehicleMdm.vehicle_number == q.upper()))
         return SearchResolution(resolved=vehicle, picker_candidates=[])
 
-    if _STAMMNUMMER_RE.match(q):
+    if _STAMMNUMMER_RE.fullmatch(q):
         vehicle = db.scalar(select(VehicleMdm).where(VehicleMdm.stammnummer == q))
         return SearchResolution(resolved=vehicle, picker_candidates=[])
 
-    plate_match = _PLATE_RE.match(q)
+    plate_match = _PLATE_RE.fullmatch(q)
     if plate_match:
         canton, number = plate_match.group(1).upper(), plate_match.group(2)
         plate_str = f"{canton} {number}"

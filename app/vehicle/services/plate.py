@@ -89,7 +89,7 @@ def normalise_kontrollschild(*, canton: str, plate: str) -> tuple[str, str]:
         )
     compact = re.sub(r"[\s.\-]", "", plate.upper())
     compact = compact.removeprefix(code)
-    if not _PLATE_NUMBER_RE.match(compact):
+    if not _PLATE_NUMBER_RE.fullmatch(compact):
         raise UnprocessableEntityError(
             "A Kontrollschild is the canton and one to six digits.", details={"reason": "plate_invalid"}
         )

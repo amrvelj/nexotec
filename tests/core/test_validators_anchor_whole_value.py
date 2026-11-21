@@ -1,8 +1,8 @@
 """KAN-770: the VIN and chassis-number patterns judge the whole value. Python's `$` also
 matches just before a final newline, so `re.match(r"^…$")` let «9112300123\\n» pass as a
-chassis number in the one spelling and a VIN with a trailing newline pass as valid. The other
-patterns of `app/core/validators.py` (and of `app/`) keep the idiom until KAN-775: a stored
-value they accepted must still read (`DealershipAddress` validates on read)."""
+chassis number in the one spelling and a VIN with a trailing newline pass as valid. KAN-775
+applied `fullmatch` to every other anchored pattern of `app/`
+(`tests/architecture/test_anchored_patterns_judge_the_whole_value.py`)."""
 
 import re
 from pathlib import Path

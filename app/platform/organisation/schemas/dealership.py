@@ -26,7 +26,7 @@ def _validate_website(value: str) -> str:
     path; no spaces. Stored as written (trimmed)."""
 
     value = value.strip()
-    if not _WEBSITE_RE.match(value):
+    if not _WEBSITE_RE.fullmatch(value):
         raise ValueError("website must be a web address such as www.garage-muster.ch.")
     return value
 

@@ -127,7 +127,7 @@ class PublishingProfileUpdate(_OverridableFields):
         value = value.strip().lower().removeprefix("https://").removeprefix("http://").rstrip("/")
         if not value:
             return None
-        if not _DOMAIN_RE.match(value):
+        if not _DOMAIN_RE.fullmatch(value):
             raise ValueError("Give a domain such as garage-muster.ch, without https:// or a path.")
         return value
 
