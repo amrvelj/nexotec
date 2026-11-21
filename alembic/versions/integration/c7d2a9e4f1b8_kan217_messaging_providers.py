@@ -15,7 +15,7 @@ The downgrade refuses while a connection to either provider exists or an
 material it cannot reach (the KAN-550 rule).
 
 Revision ID: c7d2a9e4f1b8
-Revises: b2be6d0c6a85
+Revises: d8e3f5a1c7b4
 Create Date: 2026-11-21 12:00:00.000000
 
 """
@@ -30,7 +30,7 @@ from app.core.uuid7 import uuid7
 
 # revision identifiers, used by Alembic.
 revision: str = "c7d2a9e4f1b8"
-down_revision: str | Sequence[str] | None = "b2be6d0c6a85"
+down_revision: str | Sequence[str] | None = "d8e3f5a1c7b4"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
