@@ -128,21 +128,3 @@ class GbpPushState(PrimaryKeyMixin, TimestampMixin, TenantScopedMixin, Base):
     pushed_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)
     pushed_fields: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
     unmapped_departments: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
-
-
-class GbpPhoto(PrimaryKeyMixin, TimestampMixin, TenantScopedMixin, Base):
-    """KAN-226 PR-3: one of the location's publishing images uploaded to the
-    binding's Google location — so an image is uploaded once per binding."""
-
-    __tablename__ = "integration_gbp_photo"
-    __table_args__ = (UniqueConstraint("binding_id", "image_id", name="uq_integration_gbp_photo_binding_image"),)
-
-    binding_id: Mapped[uuid.UUID] = mapped_column(
-        GUID(), ForeignKey("integration_gbp_location_binding.id"), nullable=False, index=True
-    )
-    image_id: Mapped[uuid.UUID] = mapped_column(
-        GUID(), nullable=False, comment="Owned by the platform context (BrandingAsset.id). No DB-level FK."
-    )
-    category: Mapped[str] = mapped_column(String(32), nullable=False)
-    google_media_name: Mapped[str] = mapped_column(String(512), nullable=False)
-    uploaded_at: Mapped[dt.datetime] = mapped_column(UTCDateTime(), nullable=False)

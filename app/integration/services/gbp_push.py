@@ -2,13 +2,13 @@
 FR-A-35, D-A-32; Anto's Q1 A): Nexotec → Google, one way. Driven by facts,
 never by polling (rules 4–6):
 
-- `platform.location.updated`, `platform.location.schedule_changed` and
-  Integration's own `integration.gbp_location_binding.activated` push the
-  location's fields (`push_location`);
-- `platform.publishing_profile.updated` naming `imagery`, and the activation,
-  upload the location's publishing images not yet uploaded (`sync_photos`).
+`platform.location.updated`, `platform.location.schedule_changed` and
+Integration's own `integration.gbp_location_binding.activated` push the
+location's fields (`push_location`). Photos are not pushed yet: the worker
+cannot read the object store's disk in production (render.yaml, ADR-081 as
+amended, KAN-738), so they wait for KAN-784.
 
-Each handler reads the location's current state through
+The handler reads the location's current state through
 `platform.public.location_channel_facts` — never the payload, since delivery
 is at-least-once and unordered — and runs under its consumer's
 `processed_event` row (`app/core/consumer.py`), so a redelivered event is a
@@ -37,9 +37,18 @@ no-op.
   the phone → `phoneNumbers.primaryPhone`; the Betrieb's website →
   `websiteUri` (`https://` added to a bare domain).
 
-A field Nexotec holds no value for is left out of the `updateMask`, so the
-push never clears what the dealer keeps at Google. An inactive location is
-not pushed. Everything sent is in the adapter's closed `PATCHABLE_FIELDS`.
+**What is cleared at Google:** a field Nexotec never pushed and holds no
+value for is left out of the `updateMask`, so the push never clears what the
+dealer keeps at Google himself. A field the last successful push sent
+(`integration_gbp_push_state.pushed_fields`) and that is empty now — the last
+closure deleted, a department that lost its own hours or now has the main
+department's, the phone or the website removed, every opening hour removed —
+is in the mask with an empty value (`specialHours: {}`, `moreHours: []`,
+`regularHours: {}`, `phoneNumbers: {}`, `websiteUri` left out of the body), so
+Google clears it: a removal in Nexotec reaches Google. The address is never
+cleared: an address that became incomplete is not sent, and Google keeps the
+last one (a storefront without an address is refused there). An inactive
+location is not pushed. Everything sent is in the adapter's closed `PATCHABLE_FIELDS`.
 
 **The debounce, per location:** the binding row is locked (`FOR UPDATE`),
 and the facts the push reads are hashed. When the hash equals the last
@@ -60,7 +69,6 @@ import dataclasses
 import datetime as dt
 import hashlib
 import json
-import logging
 import uuid
 from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
@@ -74,20 +82,12 @@ from app.core.outbox_model import OutboxMessage
 from app.core.relative_dates import today_in_session_zone
 from app.integration.adapters.google_business_profile import GBP_CAPABILITY, GoogleBusinessProfileAdapter
 from app.integration.errors import ProviderAccountRefusedError, ProviderConfigurationError
-from app.integration.models.google_business_profile import GbpBindingStatus, GbpLocationBinding, GbpPhoto, GbpPushState
+from app.integration.models.google_business_profile import GbpBindingStatus, GbpLocationBinding, GbpPushState
 from app.integration.services import gbp_link
 from app.integration.services.gateway import call_capability
-from app.platform.public import (
-    ChannelOpeningHours,
-    LocationChannelFacts,
-    location_channel_facts,
-    location_channel_image,
-)
-
-logger = logging.getLogger(__name__)
+from app.platform.public import ChannelOpeningHours, LocationChannelFacts, location_channel_facts
 
 _PURPOSE = "business_profile_push"
-IMAGERY = "imagery"
 DEPARTMENTS = ("sales", "service", "parts")
 MAX_ADDRESS_LINES = 5
 CATEGORY_READ_MASK = ("categories",)
@@ -105,10 +105,15 @@ HOURS_TYPE_CANDIDATES: Mapping[str, tuple[str, ...]] = {
 
 _DAY_NAMES = {1: "MONDAY", 2: "TUESDAY", 3: "WEDNESDAY", 4: "THURSDAY", 5: "FRIDAY", 6: "SATURDAY", 7: "SUNDAY"}
 
-# A publishing image's kind → the Business Profile photo category. The
-# primary hero image is the cover; another hero image an additional photo.
-PHOTO_CATEGORY_BY_KIND: Mapping[str, str] = {"premises": "EXTERIOR", "team": "TEAMS", "hero": "ADDITIONAL"}
-COVER_CATEGORY = "COVER"
+# The fields Google clears when they are in the mask with an empty value —
+# every pushed field but the address (see the module docstring).
+CLEARABLE_FIELDS: Mapping[str, Any] = {
+    "phoneNumbers.primaryPhone": ("phoneNumbers", {}),
+    "websiteUri": None,  # in the mask, absent from the body
+    "regularHours": ("regularHours", {}),
+    "moreHours": ("moreHours", []),
+    "specialHours": ("specialHours", {}),
+}
 
 
 # -- the mapping (pure) -------------------------------------------------------------------
@@ -218,11 +223,19 @@ class LocationPatch:
     fields: dict[str, Any]
     update_mask: tuple[str, ...]
     unmapped_departments: tuple[str, ...]
+    pushed_fields: tuple[str, ...] = ()
 
 
-def build_patch(facts: LocationChannelFacts, *, offered_hours_types: frozenset[str]) -> LocationPatch:
+def build_patch(
+    facts: LocationChannelFacts,
+    *,
+    offered_hours_types: frozenset[str],
+    previously_pushed: frozenset[str] = frozenset(),
+) -> LocationPatch:
     """The Location body and its mask for the facts; pure, so every case is
-    tested without a fake Google."""
+    tested without a fake Google. `previously_pushed` is the last successful
+    push's mask: a field in it that is empty now is cleared at Google.
+    `LocationPatch.pushed_fields` names the fields sent with a value."""
 
     fields: dict[str, Any] = {}
     mask: list[str] = []
@@ -256,14 +269,21 @@ def build_patch(facts: LocationChannelFacts, *, offered_hours_types: frozenset[s
     if facts.closed_days:
         fields["specialHours"] = _special_hours(facts.closed_days)
         mask.append("specialHours")
-    return LocationPatch(fields=fields, update_mask=tuple(mask), unmapped_departments=tuple(unmapped))
+    valued = tuple(mask)
+    for path, empty in CLEARABLE_FIELDS.items():
+        if path in previously_pushed and path not in valued:
+            mask.append(path)
+            if empty is not None:
+                fields[empty[0]] = type(empty[1])()
+    return LocationPatch(
+        fields=fields, update_mask=tuple(mask), unmapped_departments=tuple(unmapped), pushed_fields=valued
+    )
 
 
 def source_hash(facts: LocationChannelFacts, *, google_location_name: str) -> str:
     """The hash of what a push reads — the debounce's key."""
 
     pushed = dataclasses.asdict(facts)
-    pushed.pop("images")  # photos are `sync_photos`' own
     blob = json.dumps({"target": google_location_name, "facts": pushed}, sort_keys=True, default=str)
     return hashlib.sha256(blob.encode()).hexdigest()
 
@@ -347,7 +367,9 @@ def push_location(db: Session, message: OutboxMessage) -> bool:
                     access_token=token, location_name=google_location, read_mask=CATEGORY_READ_MASK
                 )
                 offered = more_hours_types(read.body)
-            patch = build_patch(facts, offered_hours_types=offered)
+            patch = build_patch(
+                facts, offered_hours_types=offered, previously_pushed=frozenset(state.pushed_fields or [])
+            )
             if patch.update_mask:
                 adapter.patch_location(
                     access_token=token,
@@ -361,83 +383,6 @@ def push_location(db: Session, message: OutboxMessage) -> bool:
         return False
     state.source_hash = digest
     state.pushed_at = utcnow()
-    state.pushed_fields = list(patch.update_mask)
+    state.pushed_fields = list(patch.pushed_fields)
     state.unmapped_departments = list(patch.unmapped_departments)
     return bool(patch.update_mask)
-
-
-def _photo_category(kind: str, *, is_primary: bool) -> str:
-    if kind == "hero" and is_primary:
-        return COVER_CATEGORY
-    return PHOTO_CATEGORY_BY_KIND[kind]
-
-
-def sync_photos(db: Session, message: OutboxMessage) -> int:
-    """Uploads the location's publishing images this binding has not
-    received yet; returns how many. Each upload commits its own row, so a
-    retry after a failure never uploads an image twice."""
-
-    if message.event_type != BINDING_ACTIVATED and IMAGERY not in (message.payload.get("changedFields") or []):
-        return 0
-    dealership_id, location_id = _ids(message)
-    if location_id is None:
-        return 0
-    binding = _live_binding(db, dealership_id=dealership_id, location_id=location_id)
-    if binding is None:
-        return 0
-    facts = _facts(db, dealership_id, location_id)
-    if facts is None or not facts.is_active:
-        return 0
-    uploaded = set(db.scalars(select(GbpPhoto.image_id).where(GbpPhoto.binding_id == binding.id)).all())
-    pending = [image for image in facts.images if image.image_id not in uploaded]
-    if not pending:
-        return 0
-    binding_id, tenant_id = binding.id, binding.tenant_id
-    account, google_location = cast(str, binding.google_account_name), cast(str, binding.google_location_name)
-    count = 0
-    try:
-        with _google(db) as adapter:
-            token = adapter.access_token(binding_id=binding_id)
-            for image in pending:
-                stored = location_channel_image(
-                    db, dealership_id=dealership_id, location_id=location_id, image_id=image.image_id
-                )
-                if stored is None:
-                    logger.warning(
-                        "business profile photo not stored; skipped",
-                        extra={"bindingId": str(binding_id), "imageId": str(image.image_id)},
-                    )
-                    continue
-                content, content_type = stored
-                category = _photo_category(image.kind, is_primary=image.is_primary)
-                media = adapter.upload_photo(
-                    access_token=token,
-                    account_name=account,
-                    location_name=google_location,
-                    content=content,
-                    content_type=content_type,
-                    category=category,
-                )
-                db.add(
-                    GbpPhoto(
-                        binding_id=binding_id,
-                        tenant_id=tenant_id,
-                        image_id=image.image_id,
-                        category=category,
-                        google_media_name=media.name[:512],
-                        uploaded_at=utcnow(),
-                    )
-                )
-                db.commit()
-                count += 1
-                # The commit ended the binding's lock: take it again.
-                if _live_binding(db, dealership_id=dealership_id, location_id=location_id) is None:
-                    break
-    except ProviderAccountRefusedError:
-        refused = db.get(GbpLocationBinding, binding_id)
-        if refused is not None:
-            gbp_link.mark_grant_refused(db, refused)
-    return count
-
-
-BINDING_ACTIVATED = gbp_link.BINDING_ACTIVATED_EVENT

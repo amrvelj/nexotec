@@ -5,11 +5,8 @@ last sent to a binding's Google location.
   the last successful push read (an event whose facts hash the same sends
   nothing), when, which fields, and the departments Google's category offers
   no hours type for.
-- `integration_gbp_photo`: one row per publishing image uploaded to a
-  binding's Google location, so an image is uploaded once per binding.
-
-Both hold ids and hashes only; no secret material, so the downgrade drops
-them.
+Ids, hashes and field names only; no secret material, so the downgrade
+drops it. Photos are not pushed yet (KAN-784), so no photo table.
 
 Revision ID: 8c4f19b2d471
 Revises: c7d2a9e4f1b8
@@ -20,8 +17,8 @@ Create Date: 2026-11-21 14:10:43.168970
 from collections.abc import Sequence
 
 import sqlalchemy as sa
-from alembic import op
 
+from alembic import op
 from app.core.types import GUID, UTCDateTime
 
 # revision identifiers, used by Alembic.
@@ -44,25 +41,6 @@ def _audit_columns() -> list[sa.Column]:
 
 def upgrade() -> None:
     op.create_table(
-        "integration_gbp_photo",
-        sa.Column("binding_id", GUID(), nullable=False),
-        sa.Column(
-            "image_id",
-            GUID(),
-            nullable=False,
-            comment="Owned by the platform context (BrandingAsset.id). No DB-level FK.",
-        ),
-        sa.Column("category", sa.String(length=32), nullable=False),
-        sa.Column("google_media_name", sa.String(length=512), nullable=False),
-        sa.Column("uploaded_at", UTCDateTime(timezone=True), nullable=False),
-        *_audit_columns(),
-        sa.ForeignKeyConstraint(["binding_id"], ["integration_gbp_location_binding.id"]),
-        sa.PrimaryKeyConstraint("id"),
-        sa.UniqueConstraint("binding_id", "image_id", name="uq_integration_gbp_photo_binding_image"),
-    )
-    op.create_index("ix_integration_gbp_photo_binding_id", "integration_gbp_photo", ["binding_id"])
-    op.create_index("ix_integration_gbp_photo_tenant_id", "integration_gbp_photo", ["tenant_id"])
-    op.create_table(
         "integration_gbp_push_state",
         sa.Column("binding_id", GUID(), nullable=False),
         sa.Column("source_hash", sa.String(length=64), nullable=True),
@@ -80,6 +58,3 @@ def upgrade() -> None:
 def downgrade() -> None:
     op.drop_index("ix_integration_gbp_push_state_tenant_id", table_name="integration_gbp_push_state")
     op.drop_table("integration_gbp_push_state")
-    op.drop_index("ix_integration_gbp_photo_tenant_id", table_name="integration_gbp_photo")
-    op.drop_index("ix_integration_gbp_photo_binding_id", table_name="integration_gbp_photo")
-    op.drop_table("integration_gbp_photo")
