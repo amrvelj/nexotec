@@ -58,6 +58,7 @@ from app.core.audit import record_audit_event
 from app.core.base import utcnow
 from app.core.config import get_settings
 from app.core.errors import ConflictError, ForbiddenError, NotFoundError, UnprocessableEntityError
+from app.core.outbox import OutboxEvent, publish
 from app.core.text_collation import TextSortKey
 from app.integration.adapters.google_business_profile import (
     GBP_CAPABILITY,
@@ -511,9 +512,36 @@ def bind_google_location(
         db.rollback()
         raise _google_location_taken() from exc
     _audit(db, binding, action="business_profile_location_bound", actor_id=actor_id)
+    _publish_activated(db, binding)
     db.commit()
     db.refresh(binding)
     return binding
+
+
+BINDING_ACTIVATED_EVENT = "integration.gbp_location_binding.activated"
+
+
+def _publish_activated(db: Session, binding: GbpLocationBinding) -> None:
+    """KAN-226 PR-3: the binding is live — in the binding's transaction, so the
+    push consumers send the location's current state and photos once, the
+    first time, without waiting for the next change in Platform."""
+
+    publish(
+        db,
+        OutboxEvent(
+            event_type=BINDING_ACTIVATED_EVENT,
+            tenant_id=binding.tenant_id,
+            producer="integration",
+            aggregate_type="gbp_location_binding",
+            aggregate_id=binding.id,
+            payload={
+                "dealershipId": str(binding.tenant_id),
+                "bindingId": str(binding.id),
+                "locationId": str(binding.location_id),
+                "version": binding.version,
+            },
+        ),
+    )
 
 
 def _google_location_held(db: Session, location_name: str, *, except_id: uuid.UUID) -> bool:
