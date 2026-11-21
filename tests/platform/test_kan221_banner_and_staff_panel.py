@@ -328,3 +328,33 @@ def test_revoke_with_a_stale_version_is_409(client, scene, db_session):
     _activate(db_session, scene["staff"]["id"], other["id"])
     response = _revoke(client, scene["staff"], other["id"], _version(db_session, other["id"]) - 1)
     assert response.status_code in (409, 412), response.text
+
+
+# --- a session still owing a second factor sees and ends the session ----------------
+
+
+def test_a_session_owing_a_factor_reads_and_ends_the_running_session(client, login):
+    """D-A-36 confines a session that owes a factor to the enrolment; the
+    banner's read and the ending stay open to it (FR-A-18: the user ends it
+    from every screen they can reach). Everything else stays 403."""
+
+    enforced = create_dealership(client, mfa_enforced=True)
+    staff = create_staff(client, firstName="Petra", lastName="Support")
+    anna = create_user(client, enforced, isDealerManager=True)
+    login.accept_invitation(anna)
+    cookie = cookie_headers(login.session_cookie(anna))
+    assert client.get("/v1/auth/me", headers=cookie).json()["mfaEnrolmentRequired"] is True
+    assert client.get("/v1/me/notifications/unread-count", headers=cookie).status_code == 403
+
+    session = _start(client, staff, enforced, anna["id"])
+    read = client.get(ME, headers=cookie)
+    assert read.status_code == 200, read.text
+    assert read.json()["session"]["id"] == session["id"]
+    ended = client.post(
+        f"/v1/platform/support-sessions/{session['id']}/end",
+        headers={**cookie, "Idempotency-Key": str(uuid.uuid4())},
+    )
+    assert ended.status_code == 200, ended.text
+    assert ended.json()["endedBy"] == "user"
+    # Confined everywhere else, the manager's own log included.
+    assert client.get(f"/v1/dealerships/{enforced}/support-sessions", headers=cookie).status_code == 403
