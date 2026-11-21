@@ -39,7 +39,9 @@
     "status": "Stato",
     "platformStatus": "Stato di Nexotec",
     "aiTexts": "Testi IA",
-    "customerMail": "E-mail ai clienti"
+    "customerMail": "E-mail ai clienti",
+    "supportSessions": "Sessioni di supporto",
+    "platformUsers": "Utenti della piattaforma"
   },
   "signOut": "Disconnetti",
   "environmentNotice": {

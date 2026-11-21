@@ -35,6 +35,12 @@ export function formatDateTime(iso: string, locale = 'de-CH'): string {
   )
 }
 
+// KAN-221 PR-6 — a time of day within the hour (a support session's end, at
+// most 60 minutes away), rendered in the browser's zone.
+export function formatTime(iso: string, locale = 'de-CH'): string {
+  return new Intl.DateTimeFormat(locale, { hour: '2-digit', minute: '2-digit' }).format(new Date(iso))
+}
+
 // WP-6c PR-12 / KAN-156: formatNumber and formatCurrencyChf, the frontend
 // mirror of app.core.i18n's Swiss number formatting. Since KAN-160 their one
 // implementation lives in the ui-kit (packages/ui-kit/src/format/

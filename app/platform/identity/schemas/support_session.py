@@ -2,6 +2,7 @@
 
 import datetime as dt
 import uuid
+from typing import Literal
 
 from pydantic import Field, field_validator
 
@@ -51,3 +52,22 @@ class SupportSessionLogEntry(SupportSessionRead):
 class SupportSessionLogPage(CamelModel):
     items: list[SupportSessionLogEntry]
     next_cursor: str | None
+
+
+class SupportSessionBanner(CamelModel):
+    """PR 6 (FR-A-18): what the banner says — who is in the account, why,
+    until when — and the id «Sitzung beenden» ends. `viewer` says which side
+    reads it: `user` (the supported user's own session) or `staff` (acting
+    for them, once PR 3 mints that token)."""
+
+    id: uuid.UUID
+    viewer: Literal["user", "staff"]
+    staff_name: str
+    target_user_name: str
+    reason: str
+    started_at: dt.datetime
+    expires_at: dt.datetime
+
+
+class MySupportSessionRead(CamelModel):
+    session: SupportSessionBanner | None

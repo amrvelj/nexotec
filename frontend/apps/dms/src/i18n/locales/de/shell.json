@@ -39,7 +39,9 @@
     "status": "Status",
     "platformStatus": "Nexotec-Status",
     "aiTexts": "KI-Texte",
-    "customerMail": "Kundenmails"
+    "customerMail": "Kundenmails",
+    "supportSessions": "Support-Sitzungen",
+    "platformUsers": "Plattform-Benutzer"
   },
   "signOut": "Abmelden",
   "environmentNotice": {
