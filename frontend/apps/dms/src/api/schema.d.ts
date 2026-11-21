@@ -21240,7 +21240,7 @@ export interface operations {
     list_dealership_support_sessions_v1_dealerships__dealership_id__support_sessions_get: {
         parameters: {
             query?: {
-                /** @description `startedAt:desc` for newest first (the log screens); without it, oldest first. */
+                /** @description `startedAt:desc` for newest first (the log screens); also `expiresAt`, `endedAt`, `reason`. Without it, oldest first. */
                 sort?: string | null;
                 cursor?: string | null;
                 limit?: number;
@@ -26470,7 +26470,7 @@ export interface operations {
             query?: {
                 dealershipId?: string | null;
                 staffUserId?: string | null;
-                /** @description `startedAt:desc` for newest first (the log screens); without it, oldest first. */
+                /** @description `startedAt:desc` for newest first (the log screens); also `expiresAt`, `endedAt`, `reason`. Without it, oldest first. */
                 sort?: string | null;
                 cursor?: string | null;
                 limit?: number;
