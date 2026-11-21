@@ -539,7 +539,7 @@ def _google_location_taken() -> ConflictError:
 # -- a refused grant, disconnect ----------------------------------------------------------
 
 
-def mark_grant_refused(db: Session, binding: GbpLocationBinding) -> None:
+def mark_grant_refused(db: Session, binding: GbpLocationBinding, *, actor_id: uuid.UUID | None = None) -> None:
     """Google refused the binding's grant: `error`, on its own commit, so the
     refusal stands whatever the caller does next."""
 
@@ -550,7 +550,7 @@ def mark_grant_refused(db: Session, binding: GbpLocationBinding) -> None:
     binding.status = GbpBindingStatus.ERROR
     binding.error_code = "grant_refused"
     binding.version += 1
-    _audit(db, binding, action="business_profile_grant_refused", actor_id=None)
+    _audit(db, binding, action="business_profile_grant_refused", actor_id=actor_id)
     db.commit()
 
 

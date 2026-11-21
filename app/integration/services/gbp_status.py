@@ -27,11 +27,14 @@ The client counts as interrupted when any of these holds:
   charged it five times in a row. The breaker lives in memory per process,
   so the API's status page sees the API's calls and the worker's daily job
   the worker's own (no worker job calls Business Profile yet);
-- its latest call-log row carries a client- or project-level refusal: one of
+- its latest **deciding** call-log row (`_deciding_rows`: an HTTP answer below
+  500, not a quota answer, and not a token-endpoint row unless that row is
+  `invalid_client`) carries a client- or project-level refusal: one of
   ADR-196's `PROJECT_REFUSALS`, or `invalid_client` (Google refused the OAuth
-  client itself). The adapter maps both to `ProviderRejectedError`, charged to
-  the breaker, so the refusal is Nexotec's setup, never one binding's. Any
-  later answer that is not such a refusal clears it: staff make one with
+  client itself). A timeout, a 5xx or a refreshed token neither raises nor
+  clears it. The adapter maps both to `ProviderRejectedError`, charged to
+  the breaker, so the refusal is Nexotec's setup, never one binding's. Only a
+  later deciding answer that is not such a refusal clears it: staff make one with
   «Erneut prüfen» once the cause is fixed (`gbp_client_check`; Anto,
   2026-11-21, decision 1 A), and a manager's link flow makes one too. The mapping itself is the adapter's
   (`adapters/google_business_profile.py`) and is only read here.
@@ -43,11 +46,11 @@ import dataclasses
 import datetime as dt
 import uuid
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.core.status import StatusItem, StatusState
-from app.integration.adapters.google_business_profile import PROJECT_REFUSALS
+from app.integration.adapters.google_business_profile import PROJECT_REFUSALS, QUOTA_REASONS
 from app.integration.models.call_log import IntegrationCallLog
 from app.integration.models.google_business_profile import GbpBindingStatus, GbpLocationBinding
 from app.integration.services import resilience
@@ -64,6 +67,9 @@ NOTIFICATION_EVENT = "administration.business_profile_interrupted"
 # The refusal identifiers that name Nexotec's client or project rather than
 # one binding's grant (ADR-196).
 CLIENT_REFUSALS: frozenset[str] = PROJECT_REFUSALS | frozenset({"invalid_client"})
+# The adapter's token-endpoint operations (`oauth2_token` redeems a code,
+# `oauth2_token_refresh` refreshes a binding's grant).
+TOKEN_OPERATIONS: frozenset[str] = frozenset({"oauth2_token", "oauth2_token_refresh"})
 
 
 @dataclasses.dataclass(frozen=True)
@@ -83,6 +89,23 @@ class GbpClientHealth:
     @property
     def interrupted(self) -> bool:
         return not self.configured or self.breaker_open or self.refusal is not None
+
+
+def _deciding_rows() -> tuple:
+    """The call-log rows that can say whether Google accepts Nexotec's client
+    and project: an HTTP answer below 500 that is not a quota answer (a quota
+    passes by itself) — a timeout, a transport failure or a 5xx proves
+    nothing either way. A token-endpoint row decides only when it is
+    `invalid_client`: a token granted says nothing about the project (Google
+    reports a disabled API only on the API itself), and a refused grant is the
+    binding's."""
+
+    return (
+        IntegrationCallLog.http_status.is_not(None),
+        IntegrationCallLog.http_status < 500,
+        or_(IntegrationCallLog.provider_error.is_(None), IntegrationCallLog.provider_error.not_in(QUOTA_REASONS)),
+        or_(IntegrationCallLog.capability.not_in(TOKEN_OPERATIONS), IntegrationCallLog.provider_error == "invalid_client"),
+    )
 
 
 def _live_bindings():
@@ -114,20 +137,25 @@ def client_health(db: Session, *, count_bindings: bool = True) -> GbpClientHealt
             last_call_at=None,
             bound_dealerships=bound,
         )
-    latest = db.execute(
-        select(IntegrationCallLog.provider_error, IntegrationCallLog.created_at)
+    last_call_at = db.scalar(
+        select(IntegrationCallLog.created_at)
         .where(IntegrationCallLog.connection_id == connection.id)
         .order_by(IntegrationCallLog.created_at.desc(), IntegrationCallLog.id.desc())
         .limit(1)
+    )
+    deciding = db.execute(
+        select(IntegrationCallLog.provider_error, IntegrationCallLog.created_at)
+        .where(IntegrationCallLog.connection_id == connection.id, *_deciding_rows())
+        .order_by(IntegrationCallLog.created_at.desc(), IntegrationCallLog.id.desc())
+        .limit(1)
     ).first()
-    last_call_at = latest.created_at if latest is not None else None
-    refusal = latest.provider_error if latest is not None and latest.provider_error in CLIENT_REFUSALS else None
+    refusal = deciding.provider_error if deciding is not None and deciding.provider_error in CLIENT_REFUSALS else None
     return GbpClientHealth(
         configured=True,
         connection_id=connection.id,
         breaker_open=resilience.circuit_is_open_now(connection.id),
         refusal=refusal,
-        refused_at=last_call_at if refusal is not None else None,
+        refused_at=deciding.created_at if deciding is not None and refusal is not None else None,
         last_call_at=last_call_at,
         bound_dealerships=bound,
     )

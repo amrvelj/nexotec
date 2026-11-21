@@ -121,7 +121,7 @@
     },
     "businessProfileInterrupted": {
       "title": "Google Business Profile : connexion de Nexotec interrompue",
-      "body": "La connexion de Nexotec à Google Business Profile est interrompue – nous nous en occupons. Vous n'avez rien à faire ; vos sites seront de nouveau synchronisés avec Google dès que la connexion sera rétablie."
+      "body": "La connexion de Nexotec à Google Business Profile est interrompue – nous nous en occupons. Vous n'avez rien à faire."
     }
   },
   "recoveryActions": {

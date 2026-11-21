@@ -6301,8 +6301,11 @@ export interface components {
          *     `unavailable` — and the client's state after it.
          */
         BusinessProfileClientCheckRead: {
-            /** Outcome */
-            outcome: string;
+            /**
+             * Outcome
+             * @enum {string}
+             */
+            outcome: "answered" | "refused" | "unavailable";
             status: components["schemas"]["BusinessProfileClientStatusRead"];
         };
         /**

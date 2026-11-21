@@ -4,6 +4,7 @@ answered them."""
 
 import datetime as dt
 import uuid
+from typing import Literal
 
 from pydantic import Field
 
@@ -89,5 +90,5 @@ class BusinessProfileClientCheckRead(CamelModel):
     `answered` (client and project accepted), `refused` (refused again) or
     `unavailable` — and the client's state after it."""
 
-    outcome: str = Field(pattern="^(answered|refused|unavailable)$")
+    outcome: Literal["answered", "refused", "unavailable"]
     status: BusinessProfileClientStatusRead

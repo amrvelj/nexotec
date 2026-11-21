@@ -24,6 +24,7 @@ from app.integration.models.call_log import CallStatus, IntegrationCallLog
 from app.integration.models.connection import ConnectionEnvironment, ConnectionScope, IntegrationConnection
 from app.integration.models.google_business_profile import GBP_PROVIDER_CODE, GbpBindingStatus, GbpLocationBinding
 from app.integration.models.provider import IntegrationProvider
+from app.integration.models.secret_ref import IntegrationSecretRef, SecretSlot
 from app.integration.services import gbp_client_check, gbp_status, resilience
 from app.integration.services.gateway import call_capability
 from app.platform.administration.services import status_notifications, status_page
@@ -74,6 +75,12 @@ def client_connection(db_session, google):
         enabled=True,
     )
     db_session.add(connection)
+    db_session.flush()
+    db_session.add(
+        IntegrationSecretRef(
+            connection_id=connection.id, slot=SecretSlot.CLIENT_SECRET, secret_ref=f"/integrations/{connection.id}/client_secret"
+        )
+    )
     db_session.commit()
     secrets_store.values[(connection.id, "client_secret")] = CLIENT_SECRET
     return connection
@@ -407,3 +414,114 @@ def test_only_staff_with_a_second_factor_check(client, db_session, google, clien
     _, manager, _ = betrieb
     assert client.post(CHECK, headers=_as(manager)).status_code == 403
     assert _staff_check(client, mfa=False).status_code == 403
+
+
+
+# --- the second review (2026-11-21): only a deciding answer raises or clears it ----------
+
+
+@pytest.mark.parametrize(
+    ("capability", "http_status", "provider_error"),
+    [
+        ("accounts_list", None, None),  # a timeout or transport failure
+        ("locations_get", 503, None),  # Google failed to answer
+        ("locations_get", 429, "RATE_LIMIT_EXCEEDED"),  # a quota passes by itself
+        ("oauth2_token_refresh", 200, None),  # a token says nothing about the project
+        ("oauth2_token_refresh", 400, "invalid_grant"),  # one binding's grant
+    ],
+)
+def test_a_row_that_proves_nothing_neither_clears_nor_raises_a_refusal(
+    db_session, google, client_connection, capability, http_status, provider_error
+):
+    dealership = _make_dealership(db_session)
+    _bound(db_session, dealership.id)
+    _call(db_session, client_connection, provider_error="SERVICE_DISABLED", at=NOW - dt.timedelta(minutes=5))
+    row = _call(db_session, client_connection, provider_error=provider_error, http_status=http_status)
+    row.capability = capability
+    db_session.commit()
+    assert _item(db_session, dealership.id).state == StatusState.BLOCKED
+    health = gbp_status.client_health(db_session)
+    assert health.refusal == "SERVICE_DISABLED" and health.last_call_at is not None
+
+
+def test_an_invalid_client_at_the_token_endpoint_interrupts(db_session, google, client_connection):
+    dealership = _make_dealership(db_session)
+    _bound(db_session, dealership.id)
+    row = _call(db_session, client_connection, provider_error="invalid_client", http_status=401)
+    row.capability = "oauth2_token_refresh"
+    db_session.commit()
+    assert _item(db_session, dealership.id).state == StatusState.BLOCKED
+
+
+def test_a_check_while_google_fails_to_answer_is_unavailable_and_keeps_the_item_blocked(
+    client, db_session, google, client_connection, betrieb
+):
+    fake, _ = google
+    dealership, manager, location = betrieb
+    _active_binding(client, fake, dealership, manager, location)
+    _call(db_session, client_connection, provider_error="SERVICE_DISABLED", at=dt.datetime.now(dt.UTC))
+    fake.project_refusal, fake.refusal_status = "SERVICE_DISABLED", 503
+    body = _staff_check(client).json()
+    assert body["outcome"] == "unavailable"
+    assert body["status"]["interrupted"] is True and body["status"]["refusal"] == "SERVICE_DISABLED"
+    db_session.expire_all()
+    assert _item(db_session, dealership.id).state == StatusState.BLOCKED
+
+
+def test_a_check_with_every_grant_refused_keeps_the_item_blocked(
+    client, db_session, google, client_connection, betrieb
+):
+    fake, secrets_store = google
+    dealership, manager, location = betrieb
+    binding = _active_binding(client, fake, dealership, manager, location)
+    _call(db_session, client_connection, provider_error="SERVICE_DISABLED", at=dt.datetime.now(dt.UTC))
+    fake.refused_refresh_tokens.add(secrets_store.values[(binding, "refresh_token")])
+    response = _staff_check(client)
+    assert response.status_code == 409
+    assert response.json()["error"]["details"]["reason"] == "business_profile_no_active_binding"
+    db_session.expire_all()
+    assert _item(db_session, dealership.id).state == StatusState.BLOCKED
+    refused = db_session.scalars(select(AuditEvent).where(AuditEvent.action == "business_profile_grant_refused")).all()
+    assert [event.actor_id for event in refused] != [None]  # the staff user who checked
+
+
+def test_an_unreadable_grant_is_the_bindings_and_the_next_binding_is_asked(
+    client, db_session, google, client_connection, betrieb
+):
+    fake, secrets_store = google
+    dealership, manager, location = betrieb
+    first = _active_binding(client, fake, dealership, manager, location)
+    second = _active_binding(client, fake, dealership, manager, _location(db_session, dealership.id, name="Bern"), LOCATION_2)
+    del secrets_store.values[(first, "refresh_token")]
+    body = _staff_check(client).json()
+    assert body["outcome"] == "answered"
+    db_session.expire_all()
+    assert db_session.get(GbpLocationBinding, first).status == GbpBindingStatus.ACTIVE
+    assert db_session.get(GbpLocationBinding, second).status == GbpBindingStatus.ACTIVE
+
+
+def test_an_incomplete_client_is_not_configured(client, db_session, google, client_connection, betrieb):
+    fake, _ = google
+    dealership, manager, location = betrieb
+    _active_binding(client, fake, dealership, manager, location)
+    client_connection.config = {}
+    db_session.commit()
+    response = _staff_check(client)
+    assert response.status_code == 409
+    assert response.json()["error"]["details"]["reason"] == "business_profile_not_configured"
+
+
+def test_an_item_naming_no_known_notification_gets_the_generic_one(client, db_session):
+    from app.core.status import StatusItem
+    from tests.platform.test_kan223_status_page import _active
+
+    dealership_id, boss = _active(client, db_session)
+    manager_id = uuid.UUID(boss["id"]) if isinstance(boss, dict) else boss.id
+    item = StatusItem(
+        key="x", source="x", state=StatusState.BLOCKED, message_key="x", link=None, notification_event="x.unknown"
+    )
+    subject = status_notifications.notifications.NotificationSubject(type="status_item", id=uuid.uuid4(), link="/")
+    status_notifications._deliver(db_session, item, user_id=manager_id, dealership_id=dealership_id, subject=subject)
+    db_session.flush()
+    codes = [n.event_code for n in db_session.scalars(select(Notification)).all()]
+    assert codes == ["administration.status_item_degraded"]

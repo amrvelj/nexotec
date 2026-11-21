@@ -14,12 +14,16 @@ request** through the client:
   `business_profile_client_check`;
 - Google refusing that binding's grant is the binding's answer, not the
   client's: the binding goes to `error` (`gbp_link.mark_grant_refused`, as in
-  the link flow) and the next active binding is tried, at most
-  `MAX_BINDINGS_TRIED`;
+  the link flow, the staff user as the actor) and the next active binding is
+  tried, at most `MAX_BINDINGS_TRIED`; a grant the secrets manager cannot
+  read is skipped the same way (it stays as it is) while the client itself is
+  complete;
 - a client or project refusal is logged and the item stays blocked (the
-  outcome `refused`); a transport failure or a timeout is `unavailable`; any
-  answer Google gives for the location (a read, or a 404 for a location gone)
-  proves the client and project are accepted: `answered`.
+  outcome `refused`); a transport failure, a timeout or a 5xx is
+  `unavailable` and changes nothing (`gbp_status._deciding_rows` ignores such
+  rows); only an answer Google gives for the location itself (a read, or a
+  404 for a location gone) proves the client and project are accepted:
+  `answered`, which clears every Betrieb's item.
 
 Refusals (409): no enabled client (`business_profile_not_configured`), no
 active binding to ask with (`business_profile_no_active_binding`), the
@@ -49,6 +53,7 @@ from app.integration.errors import (
 )
 from app.integration.models.connection import IntegrationConnection
 from app.integration.models.google_business_profile import GbpBindingStatus, GbpLocationBinding
+from app.integration.models.secret_ref import IntegrationSecretRef, SecretSlot
 from app.integration.services import gbp_link, gbp_status
 from app.integration.services.gateway import call_capability
 from app.integration.services.resilience import CircuitOpenError, circuit_is_open_now
@@ -94,6 +99,24 @@ def _ask(db: Session, connection: IntegrationConnection, binding: GbpLocationBin
         adapter.get_location(access_token=token, location_name=cast(str, binding.google_location_name), read_mask=_READ_MASK)
 
 
+def _client_complete(db: Session, connection_id: uuid.UUID) -> bool:
+    """Whether Nexotec's client has its `clientId` and a secret reference —
+    read from the registry, never from the secrets manager."""
+
+    connection = db.get(IntegrationConnection, connection_id)
+    if connection is None or not (connection.config or {}).get("clientId"):
+        return False
+    return (
+        db.scalar(
+            select(IntegrationSecretRef.id).where(
+                IntegrationSecretRef.connection_id == connection_id,
+                IntegrationSecretRef.slot == SecretSlot.CLIENT_SECRET,
+            )
+        )
+        is not None
+    )
+
+
 def check_client(db: Session, *, actor_id: uuid.UUID) -> ClientCheck:
     connection = gbp_link.client_connection(db)
     if connection is None:
@@ -120,12 +143,15 @@ def check_client(db: Session, *, actor_id: uuid.UUID) -> ClientCheck:
             _ask(db, connection, binding, actor_id)
             outcome = ClientCheckOutcome.ANSWERED
         except ProviderAccountRefusedError:
-            gbp_link.mark_grant_refused(db, binding)
+            gbp_link.mark_grant_refused(db, binding, actor_id=actor_id)
             continue
         except ProviderConfigurationError as exc:
-            raise _refusal(
-                "business_profile_not_configured", "Nexotec's Google Business Profile client is incomplete."
-            ) from exc
+            if not _client_complete(db, connection_id):
+                raise _refusal(
+                    "business_profile_not_configured", "Nexotec's Google Business Profile client is incomplete."
+                ) from exc
+            # The client is set up: this binding's grant could not be read.
+            continue
         except ProviderRejectedError:
             outcome = ClientCheckOutcome.REFUSED
         except ProviderRequestError:

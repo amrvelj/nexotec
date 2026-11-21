@@ -89,7 +89,8 @@ Business Profile, KAN-776: one item for a Betrieb with a live binding, blocked w
 is interrupted — no client, breaker open, or a client/project refusal as its latest call — no link,
 no cause, its own notification `administration.business_profile_interrupted` («nothing to do on your
 side»); staff read the cause on `/platform/status` (`GET /v1/integrations/business-profile/client-status`) and
-«Erneut prüfen» (`POST …/client-status/check`, one real Google call, staff with a factor) clears it once fixed). The daily
+«Erneut prüfen» (`POST …/client-status/check`, one real Google call, staff with a factor) clears it once
+Google answers for a location; a timeout, 5xx, quota or token-refresh row neither raises nor clears it). The daily
 `platform.status_page.notifications` raises `administration.status_item_degraded` once per
 degradation (`status_item_state`, under a per-Betrieb advisory lock): a warning the source really
 announced is exempt, the move to blocked never; an unavailable source keeps its rows, its own
