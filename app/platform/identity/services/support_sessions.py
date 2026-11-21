@@ -33,7 +33,11 @@
   next start). The security family is always immediate and cannot be switched
   off. The notice carries the session's id, never the reason or a name.
 
-Not yet: the `acting_for` token (PR 3), the banner and screens (PR 6). The
+- **The banner** (PR 6) — `running_session_for`: the session running on
+  the caller, read on focus and every minute by the SPA (no Web Push adapter
+  yet). The log pages newest first with `sort=startedAt:desc`.
+
+Not yet: the `acting_for` token (PR 3). The
 FR-A-17 exclusions (PR 4) are `app/core/impersonation.py`'s dependency on the
 routes it names.
 """
@@ -49,14 +53,26 @@ from app.core.audit import record_audit_event
 from app.core.auth import AccessRole, Principal
 from app.core.base import utcnow
 from app.core.errors import ConflictError, NotFoundError, UnprocessableEntityError
-from app.core.pagination import PageParams, build_page, paginate_query
+from app.core.pagination import (
+    PageParams,
+    SortPageParams,
+    build_page,
+    paginate_query,
+    paginate_query_sorted,
+)
+from app.core.sorting import build_page_for_sort
 from app.platform.identity.models.support_session import (
     SUPPORT_SESSION_MINUTES,
     SupportSession,
     SupportSessionEndedBy,
 )
 from app.platform.identity.models.user import User, UserStatus
-from app.platform.identity.schemas.support_session import SupportSessionLogEntry, SupportSessionRead
+from app.platform.identity.schemas.support_session import (
+    MySupportSessionRead,
+    SupportSessionBanner,
+    SupportSessionLogEntry,
+    SupportSessionRead,
+)
 from app.platform.identity.services import notifications
 from app.platform.identity.services.notification_catalogue import NotificationEventCode
 from app.platform.identity.services.notifications import NotificationSubject
@@ -75,7 +91,11 @@ def _violated(exc: IntegrityError) -> str | None:
     name = getattr(diag, "constraint_name", None)
     if name:
         return str(name)
-    return OPEN_CONSTRAINT if OPEN_CONSTRAINT in str(exc.orig) or "support_session.staff_user_id" in str(exc.orig) else None
+    return (
+        OPEN_CONSTRAINT
+        if OPEN_CONSTRAINT in str(exc.orig) or "support_session.staff_user_id" in str(exc.orig)
+        else None
+    )
 
 
 def state_of(row: SupportSession, now: dt.datetime) -> tuple[dt.datetime | None, SupportSessionEndedBy | None, bool]:
@@ -175,9 +195,7 @@ def close_timed_out_sessions(db: Session, now: dt.datetime | None = None) -> int
     return len(rows)
 
 
-def start_support_session(
-    db: Session, *, staff: Principal, target_user_id: uuid.UUID, reason: str
-) -> SupportSession:
+def start_support_session(db: Session, *, staff: Principal, target_user_id: uuid.UUID, reason: str) -> SupportSession:
     target = db.get(User, target_user_id)
     if target is None:
         raise NotFoundError("User not found.")
@@ -280,10 +298,53 @@ def end_support_session(db: Session, *, session_id: uuid.UUID, principal: Princi
     return row
 
 
+def running_session_for(db: Session, principal: Principal) -> MySupportSessionRead:
+    """The banner's read (PR 6; FR-A-18, D-A-05): the support session running
+    on the caller — as the user it supports, or, under `acting_for` (PR 3),
+    as the staff member acting for that user. None when nothing runs. Only
+    the two people in a session ever see it."""
+
+    now = utcnow()
+    running = (SupportSession.ended_at.is_(None), SupportSession.expires_at > now)
+    if principal.acting_for is not None:
+        row = db.scalars(
+            select(SupportSession).where(
+                SupportSession.staff_user_id == principal.user_id,
+                SupportSession.target_user_id == principal.acting_for,
+                *running,
+            )
+        ).first()
+        viewer = "staff"
+    else:
+        row = db.scalars(
+            select(SupportSession)
+            .where(SupportSession.target_user_id == principal.user_id, *running)
+            .order_by(SupportSession.started_at.desc())
+        ).first()
+        viewer = "user"
+    if row is None:
+        return MySupportSessionRead(session=None)
+    people = {
+        user.id: f"{user.first_name} {user.last_name}".strip()
+        for user in db.scalars(select(User).where(User.id.in_([row.staff_user_id, row.target_user_id]))).all()
+    }
+    return MySupportSessionRead(
+        session=SupportSessionBanner(
+            id=row.id,
+            viewer=viewer,
+            staff_name=people.get(row.staff_user_id, ""),
+            target_user_name=people.get(row.target_user_id, ""),
+            reason=row.reason,
+            started_at=row.started_at,
+            expires_at=row.expires_at,
+        )
+    )
+
+
 def list_support_sessions(
     db: Session,
     *,
-    params: PageParams,
+    params: PageParams | SortPageParams,
     dealership_id: uuid.UUID | None = None,
     staff_user_id: uuid.UUID | None = None,
 ) -> tuple[list[SupportSessionLogEntry], str | None]:
@@ -296,9 +357,14 @@ def list_support_sessions(
         stmt = stmt.where(SupportSession.dealership_id == dealership_id)
     if staff_user_id is not None:
         stmt = stmt.where(SupportSession.staff_user_id == staff_user_id)
-    rows, next_cursor = build_page(
-        list(db.scalars(paginate_query(stmt, model=SupportSession, params=params)).all()), params
-    )
+    if isinstance(params, SortPageParams):
+        rows, next_cursor = build_page_for_sort(
+            list(db.scalars(paginate_query_sorted(stmt, model=SupportSession, params=params)).all()), params
+        )
+    else:
+        rows, next_cursor = build_page(
+            list(db.scalars(paginate_query(stmt, model=SupportSession, params=params)).all()), params
+        )
     user_ids = {row.staff_user_id for row in rows} | {row.target_user_id for row in rows}
     names = {
         user.id: f"{user.first_name} {user.last_name}".strip()

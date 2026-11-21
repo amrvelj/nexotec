@@ -9,14 +9,18 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.core.auth import AccessRole, Principal, get_current_principal, require_access_role
+from app.core.config import get_settings
 from app.core.errors import ForbiddenError
 from app.core.idempotent_route import IdempotentRoute
 from app.core.impersonation import refuse_under_impersonation
-from app.core.pagination import PageParams, page_params
+from app.core.pagination import PageParams, SortPageParams, decode_cursor
 from app.core.permissions import require_read
+from app.core.sorting import SortField, decode_cursor_for_sort, parse_sort
 from app.core.tenancy import require_tenant_match
 from app.db import get_db
+from app.platform.identity.models.support_session import SupportSession
 from app.platform.identity.schemas.support_session import (
+    MySupportSessionRead,
     SupportSessionLogPage,
     SupportSessionRead,
     SupportSessionStart,
@@ -24,6 +28,19 @@ from app.platform.identity.schemas.support_session import (
 from app.platform.identity.services import support_sessions
 
 router = APIRouter(tags=["platform-support-sessions"], route_class=IdempotentRoute)
+_settings = get_settings()
+
+# PR 6: the log screens read newest first. Without `sort` the log keeps the
+# shared oldest-first cursor it shipped with (PR 5).
+SUPPORT_SESSION_SORT_FIELDS = {"startedAt": SupportSession.started_at}
+_SORT_DESCRIPTION = "`startedAt:desc` for newest first (the log screens); without it, oldest first."
+
+
+def _log_params(limit: int, sort: str | None, cursor: str | None) -> PageParams | SortPageParams:
+    sort_fields: list[SortField] = parse_sort(sort, allowed=SUPPORT_SESSION_SORT_FIELDS)
+    if not sort_fields:
+        return PageParams(limit=limit, cursor=decode_cursor(cursor) if cursor else None)
+    return SortPageParams(limit=limit, cursor=decode_cursor_for_sort(cursor, sort_fields), sort_fields=sort_fields)
 
 
 def require_staff_support_session(principal: Principal = Depends(get_current_principal)) -> Principal:
@@ -41,7 +58,8 @@ def require_staff_support_session(principal: Principal = Depends(get_current_pri
 
 
 @router.post(
-    "/platform/support-sessions", dependencies=[Depends(refuse_under_impersonation)],
+    "/platform/support-sessions",
+    dependencies=[Depends(refuse_under_impersonation)],
     response_model=SupportSessionRead,
     status_code=201,
     description=(
@@ -92,12 +110,16 @@ def end_support_session(
 )
 def list_dealership_support_sessions(
     dealership_id: uuid.UUID,
-    params: PageParams = Depends(page_params),
+    sort: str | None = Query(default=None, description=_SORT_DESCRIPTION),
+    cursor: str | None = Query(default=None),
+    limit: int = Query(default=_settings.pagination_default_limit, ge=1, le=_settings.pagination_max_limit),
     principal: Principal = Depends(require_read("support_session_log")),
     db: Session = Depends(get_db),
 ):
     require_tenant_match(dealership_id, principal)
-    items, next_cursor = support_sessions.list_support_sessions(db, params=params, dealership_id=dealership_id)
+    items, next_cursor = support_sessions.list_support_sessions(
+        db, params=_log_params(limit, sort, cursor), dealership_id=dealership_id
+    )
     return SupportSessionLogPage(items=items, next_cursor=next_cursor)
 
 
@@ -112,11 +134,29 @@ def list_dealership_support_sessions(
 def list_platform_support_sessions(
     dealership_id: uuid.UUID | None = Query(default=None, alias="dealershipId"),
     staff_user_id: uuid.UUID | None = Query(default=None, alias="staffUserId"),
-    params: PageParams = Depends(page_params),
+    sort: str | None = Query(default=None, description=_SORT_DESCRIPTION),
+    cursor: str | None = Query(default=None),
+    limit: int = Query(default=_settings.pagination_default_limit, ge=1, le=_settings.pagination_max_limit),
     principal: Principal = Depends(require_access_role()),  # platform_admin only
     db: Session = Depends(get_db),
 ):
     items, next_cursor = support_sessions.list_support_sessions(
-        db, params=params, dealership_id=dealership_id, staff_user_id=staff_user_id
+        db, params=_log_params(limit, sort, cursor), dealership_id=dealership_id, staff_user_id=staff_user_id
     )
     return SupportSessionLogPage(items=items, next_cursor=next_cursor)
+
+
+@router.get(
+    "/me/support-session",
+    response_model=MySupportSessionRead,
+    description=(
+        "KAN-221 PR-6 (FR-A-18, D-A-05): the support session running on the caller, for the banner — as the "
+        "user it supports, or as the staff member acting for them. `session` is null when none runs. The SPA "
+        "asks on focus and every minute (no Web Push adapter yet)."
+    ),
+)
+def get_my_support_session(
+    principal: Principal = Depends(get_current_principal),
+    db: Session = Depends(get_db),
+):
+    return support_sessions.running_session_for(db, principal)

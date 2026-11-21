@@ -40,6 +40,10 @@ _ALLOWED: dict[str, str] = {
     "app/platform/identity/services/recovery.py::account_states": (
         "the names of the found users' own home Betriebe — staff's home is the platform tenant, and says so"
     ),
+    "app/platform/identity/services/platform_staff.py::entries_for": (
+        "the names of the listed staff members' own home Betriebe, by id — the platform tenant for staff, a "
+        "dealer's Betrieb for a legacy holder (KAN-221 PR-6), and says which"
+    ),
     "app/platform/identity/services/support_sessions.py::list_support_sessions": (
         "the names of the Betriebe the listed support sessions ran in, by id; a session never targets the "
         "platform tenant (support_target_platform_tenant)"
