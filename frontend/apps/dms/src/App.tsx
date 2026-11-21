@@ -52,6 +52,8 @@ const SetupInProgressPage = lazyPage(() => import('./pages/SetupInProgressPage')
 const PlatformLegalDocumentsPage = lazyPage(() => import('./pages/PlatformLegalDocumentsPage'), 'PlatformLegalDocumentsPage')
 const StatusPage = lazyPage(() => import('./pages/StatusPage'), 'StatusPage')
 const PlatformStatusPage = lazyPage(() => import('./pages/PlatformStatusPage'), 'PlatformStatusPage')
+const SupportSessionLogPage = lazyPage(() => import('./pages/SupportSessionLogPage'), 'SupportSessionLogPage')
+const PlatformUsersPage = lazyPage(() => import('./pages/PlatformUsersPage'), 'PlatformUsersPage')
 const ContactGroupsPage = lazyPage(() => import('./pages/ContactGroupsPage'), 'ContactGroupsPage')
 const DataExportPage = lazyPage(() => import('./pages/DataExportPage'), 'DataExportPage')
 const PlatformOffboardingPage = lazyPage(() => import('./pages/PlatformOffboardingPage'), 'PlatformOffboardingPage')
@@ -165,6 +167,10 @@ export default function App() {
                   Platform Administration › Nexotec status (staff write the incidents). */}
               <Route path="/administration/status" element={<StatusPage />} />
               <Route path="/platform/status" element={<PlatformStatusPage />} />
+              {/* KAN-221 PR-6 — Dealer Administration › Support sessions (the manager's
+                  log, FR-A-15) and Platform Administration › Platform users (ADR-188). */}
+              <Route path="/administration/support-sessions" element={<SupportSessionLogPage />} />
+              <Route path="/platform/users" element={<PlatformUsersPage />} />
               {/* KAN-222: the dealer's integrations are a section of Dealer Administration
                   (A-RULE-0), the platform's view is /platform/providers; the old path redirects. */}
               <Route path="/administration/integrations" element={<AdministrationIntegrationsPage />} />

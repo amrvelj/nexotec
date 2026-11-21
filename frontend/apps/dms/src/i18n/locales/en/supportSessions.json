@@ -1,0 +1,102 @@
+{
+  "banner": {
+    "user": "{{staff}} from Nexotec support is working in your account until {{until}}. Reason: {{reason}}",
+    "staff": "You are working in the account of {{user}} until {{until}} (support session). Reason: {{reason}}",
+    "end": "End session",
+    "endError": "The support session could not be ended. Please try again."
+  },
+  "log": {
+    "title": "Support sessions",
+    "intro": "Every session in which Nexotec staff worked in the account of a person of this business – running or over. Each start and end is also in the business's change log.",
+    "platformTitle": "Support sessions of every business",
+    "ariaLabel": "Support sessions",
+    "loadError": "The support sessions could not be loaded.",
+    "forbidden": {
+      "title": "Managers only",
+      "body": "Only whoever manages the business sees its support sessions."
+    },
+    "columns": {
+      "startedAt": "Started",
+      "staff": "Nexotec support",
+      "user": "User",
+      "dealership": "Business",
+      "reason": "Reason",
+      "expiresAt": "Expires",
+      "endedAt": "Ended",
+      "state": "State"
+    },
+    "state": {
+      "running": "Running",
+      "staff": "Ended by Nexotec",
+      "user": "Ended by the user",
+      "timeout": "Expired"
+    },
+    "empty": {
+      "title": "No support sessions",
+      "description": "Nobody from Nexotec has worked in an account of this business yet."
+    },
+    "loadMore": "Load older"
+  },
+  "staff": {
+    "title": "Platform users",
+    "intro": "The Nexotec staff with platform access. Whoever is given access gets their own Nexotec account and an invitation by e-mail.",
+    "ariaLabel": "Platform users",
+    "loadError": "The platform users could not be loaded.",
+    "forbidden": {
+      "title": "Nexotec staff only",
+      "body": "This view is open only to people with platform access."
+    },
+    "grant": "Grant access",
+    "columns": {
+      "name": "Name",
+      "email": "E-mail",
+      "status": "Status",
+      "home": "Account",
+      "mfa": "Second factor",
+      "session": "Support session"
+    },
+    "home": {
+      "platform": "Nexotec",
+      "legacy": "In the business {{name}} – still to be moved"
+    },
+    "mfa": {
+      "yes": "Set up",
+      "no": "Missing"
+    },
+    "session": {
+      "running": "Running"
+    },
+    "empty": {
+      "title": "No platform users",
+      "description": "Nobody holds platform access yet."
+    },
+    "rowMenu": {
+      "showSessions": "Show support sessions",
+      "revoke": "Revoke access",
+      "self": "Nobody can revoke their own access.",
+      "deactivated": "This account is already deactivated."
+    },
+    "grantDialog": {
+      "title": "Grant platform access",
+      "body": "The person gets a Nexotec account with platform access and an invitation to set their password. Their second factor is set up at the first sign-in.",
+      "firstName": "First name",
+      "lastName": "Last name",
+      "email": "E-mail",
+      "submit": "Send invitation",
+      "done": "The invitation to {{email}} is sent.",
+      "error": "The access could not be granted."
+    },
+    "revokeDialog": {
+      "title": "Revoke platform access",
+      "bodyPlatform": "The Nexotec account of {{name}} is deactivated. Every session ends at once; the account and its history are kept.",
+      "bodyLegacy": "{{name}} loses platform access and keeps the account in the business {{home}} with its other roles.",
+      "reason": "Reason",
+      "reasonPlaceholder": "e.g. leaving at the end of the month",
+      "submit": "Revoke access",
+      "done": "{{name}} no longer has platform access.",
+      "error": "The access could not be revoked."
+    },
+    "sessionsOf": "Support sessions of {{name}}",
+    "showAll": "Show all"
+  }
+}

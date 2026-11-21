@@ -1,0 +1,102 @@
+{
+  "banner": {
+    "user": "{{staff}} del supporto Nexotec lavora nel suo account fino alle {{until}}. Motivo: {{reason}}",
+    "staff": "Lei lavora nell'account di {{user}} fino alle {{until}} (sessione di supporto). Motivo: {{reason}}",
+    "end": "Termina sessione",
+    "endError": "Non è stato possibile terminare la sessione di supporto. Riprovi."
+  },
+  "log": {
+    "title": "Sessioni di supporto",
+    "intro": "Ogni sessione in cui collaboratori di Nexotec hanno lavorato nell'account di una persona di questa azienda – in corso o terminata. Inizio e fine figurano anche nel registro delle modifiche dell'azienda.",
+    "platformTitle": "Sessioni di supporto di tutte le aziende",
+    "ariaLabel": "Sessioni di supporto",
+    "loadError": "Non è stato possibile caricare le sessioni di supporto.",
+    "forbidden": {
+      "title": "Solo per la direzione",
+      "body": "Le sessioni di supporto di un'azienda le vede solo chi la dirige."
+    },
+    "columns": {
+      "startedAt": "Inizio",
+      "staff": "Supporto Nexotec",
+      "user": "Utente",
+      "dealership": "Azienda",
+      "reason": "Motivo",
+      "expiresAt": "Scade",
+      "endedAt": "Terminata",
+      "state": "Stato"
+    },
+    "state": {
+      "running": "In corso",
+      "staff": "Terminata da Nexotec",
+      "user": "Terminata dall'utente",
+      "timeout": "Scaduta"
+    },
+    "empty": {
+      "title": "Nessuna sessione di supporto",
+      "description": "Finora nessuno di Nexotec ha lavorato in un account di questa azienda."
+    },
+    "loadMore": "Carica le meno recenti"
+  },
+  "staff": {
+    "title": "Utenti della piattaforma",
+    "intro": "I collaboratori di Nexotec con accesso alla piattaforma. Chi riceve l'accesso ottiene un proprio account Nexotec e un invito per e-mail.",
+    "ariaLabel": "Utenti della piattaforma",
+    "loadError": "Non è stato possibile caricare gli utenti della piattaforma.",
+    "forbidden": {
+      "title": "Solo per i collaboratori di Nexotec",
+      "body": "Questa vista è aperta solo alle persone con accesso alla piattaforma."
+    },
+    "grant": "Concedi accesso",
+    "columns": {
+      "name": "Nome",
+      "email": "E-mail",
+      "status": "Stato",
+      "home": "Account",
+      "mfa": "Secondo fattore",
+      "session": "Sessione di supporto"
+    },
+    "home": {
+      "platform": "Nexotec",
+      "legacy": "Nell'azienda {{name}} – ancora da spostare"
+    },
+    "mfa": {
+      "yes": "Configurato",
+      "no": "Mancante"
+    },
+    "session": {
+      "running": "In corso"
+    },
+    "empty": {
+      "title": "Nessun utente della piattaforma",
+      "description": "Nessuno ha ancora l'accesso alla piattaforma."
+    },
+    "rowMenu": {
+      "showSessions": "Mostra sessioni di supporto",
+      "revoke": "Revoca accesso",
+      "self": "Nessuno può revocare il proprio accesso.",
+      "deactivated": "Questo account è già disattivato."
+    },
+    "grantDialog": {
+      "title": "Concedi accesso alla piattaforma",
+      "body": "La persona riceve un account Nexotec con accesso alla piattaforma e un invito a impostare la propria password. Il secondo fattore viene configurato al primo accesso.",
+      "firstName": "Nome",
+      "lastName": "Cognome",
+      "email": "E-mail",
+      "submit": "Invia invito",
+      "done": "L'invito a {{email}} è stato inviato.",
+      "error": "Non è stato possibile concedere l'accesso."
+    },
+    "revokeDialog": {
+      "title": "Revoca accesso alla piattaforma",
+      "bodyPlatform": "L'account Nexotec di {{name}} viene disattivato. Tutte le sessioni terminano subito; l'account e la sua cronologia restano.",
+      "bodyLegacy": "{{name}} perde l'accesso alla piattaforma e mantiene l'account nell'azienda {{home}} con gli altri ruoli.",
+      "reason": "Motivo",
+      "reasonPlaceholder": "p. es. uscita a fine mese",
+      "submit": "Revoca accesso",
+      "done": "{{name}} non ha più accesso alla piattaforma.",
+      "error": "Non è stato possibile revocare l'accesso."
+    },
+    "sessionsOf": "Sessioni di supporto di {{name}}",
+    "showAll": "Mostra tutte"
+  }
+}

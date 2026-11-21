@@ -202,5 +202,8 @@
   "operator_not_allowed": "Cette condition ne s'applique pas à ce champ.",
   "invalid_filter_value": "La valeur du filtre n'est pas valable.",
   "sort_malformed": "Ce tri n'est pas valable.",
-  "field_not_sortable": "Ce champ ne peut pas être trié."
+  "field_not_sortable": "Ce champ ne peut pas être trié.",
+  "platform_admin_self_revoke": "Personne ne peut retirer son propre accès plateforme.",
+  "last_platform_admin": "Nexotec n'aurait alors plus aucune personne active avec un accès plateforme.",
+  "staff_role_is_the_only_role": "L'accès plateforme est le seul rôle de ce compte. L'entreprise décide de ce compte dans sa gestion des utilisateurs."
 }

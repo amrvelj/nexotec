@@ -202,5 +202,8 @@
   "operator_not_allowed": "This condition does not apply to this field.",
   "invalid_filter_value": "The filter value is not valid.",
   "sort_malformed": "This sort order is not valid.",
-  "field_not_sortable": "This field cannot be sorted."
+  "field_not_sortable": "This field cannot be sorted.",
+  "platform_admin_self_revoke": "Nobody can revoke their own platform access.",
+  "last_platform_admin": "Nexotec would be left without an active person holding platform access.",
+  "staff_role_is_the_only_role": "Platform access is this account's only role. The business decides about the account in its user administration."
 }

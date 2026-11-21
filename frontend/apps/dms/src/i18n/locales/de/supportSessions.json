@@ -1,0 +1,102 @@
+{
+  "banner": {
+    "user": "{{staff}} vom Nexotec-Support arbeitet bis {{until}} Uhr in Ihrem Konto. Grund: {{reason}}",
+    "staff": "Sie arbeiten bis {{until}} Uhr im Konto von {{user}} (Support-Sitzung). Grund: {{reason}}",
+    "end": "Sitzung beenden",
+    "endError": "Die Support-Sitzung konnte nicht beendet werden. Bitte erneut versuchen."
+  },
+  "log": {
+    "title": "Support-Sitzungen",
+    "intro": "Jede Sitzung, in der Nexotec-Mitarbeiter im Konto einer Person dieses Betriebs gearbeitet haben – laufend oder beendet. Beginn und Ende stehen auch im Änderungsprotokoll des Betriebs.",
+    "platformTitle": "Support-Sitzungen aller Betriebe",
+    "ariaLabel": "Support-Sitzungen",
+    "loadError": "Die Support-Sitzungen konnten nicht geladen werden.",
+    "forbidden": {
+      "title": "Nur für die Geschäftsleitung",
+      "body": "Die Support-Sitzungen eines Betriebs sieht nur, wer den Betrieb leitet."
+    },
+    "columns": {
+      "startedAt": "Beginn",
+      "staff": "Nexotec-Support",
+      "user": "Benutzer",
+      "dealership": "Betrieb",
+      "reason": "Grund",
+      "expiresAt": "Läuft ab",
+      "endedAt": "Beendet",
+      "state": "Stand"
+    },
+    "state": {
+      "running": "Läuft",
+      "staff": "Von Nexotec beendet",
+      "user": "Vom Benutzer beendet",
+      "timeout": "Abgelaufen"
+    },
+    "empty": {
+      "title": "Keine Support-Sitzungen",
+      "description": "Bisher hat niemand von Nexotec in einem Konto dieses Betriebs gearbeitet."
+    },
+    "loadMore": "Ältere laden"
+  },
+  "staff": {
+    "title": "Plattform-Benutzer",
+    "intro": "Die Nexotec-Mitarbeiter mit Plattformzugang. Wer Zugang erhält, bekommt ein eigenes Konto bei Nexotec und eine Einladung per E-Mail.",
+    "ariaLabel": "Plattform-Benutzer",
+    "loadError": "Die Plattform-Benutzer konnten nicht geladen werden.",
+    "forbidden": {
+      "title": "Nur für Nexotec-Mitarbeiter",
+      "body": "Diese Ansicht steht nur Personen mit Plattformzugang offen."
+    },
+    "grant": "Zugang erteilen",
+    "columns": {
+      "name": "Name",
+      "email": "E-Mail",
+      "status": "Status",
+      "home": "Konto",
+      "mfa": "Zweiter Faktor",
+      "session": "Support-Sitzung"
+    },
+    "home": {
+      "platform": "Nexotec",
+      "legacy": "Im Betrieb {{name}} – noch zu verschieben"
+    },
+    "mfa": {
+      "yes": "Eingerichtet",
+      "no": "Fehlt"
+    },
+    "session": {
+      "running": "Läuft"
+    },
+    "empty": {
+      "title": "Keine Plattform-Benutzer",
+      "description": "Noch niemand hat Plattformzugang."
+    },
+    "rowMenu": {
+      "showSessions": "Support-Sitzungen anzeigen",
+      "revoke": "Zugang entziehen",
+      "self": "Den eigenen Zugang kann niemand selbst entziehen.",
+      "deactivated": "Dieses Konto ist bereits deaktiviert."
+    },
+    "grantDialog": {
+      "title": "Plattformzugang erteilen",
+      "body": "Die Person erhält ein Konto bei Nexotec mit Plattformzugang und eine Einladung, um ihr Passwort zu setzen. Ihr zweiter Faktor wird bei der ersten Anmeldung eingerichtet.",
+      "firstName": "Vorname",
+      "lastName": "Nachname",
+      "email": "E-Mail",
+      "submit": "Einladung senden",
+      "done": "Die Einladung an {{email}} ist versendet.",
+      "error": "Der Zugang konnte nicht erteilt werden."
+    },
+    "revokeDialog": {
+      "title": "Plattformzugang entziehen",
+      "bodyPlatform": "Das Nexotec-Konto von {{name}} wird deaktiviert. Alle Sitzungen enden sofort; das Konto und sein Verlauf bleiben erhalten.",
+      "bodyLegacy": "{{name}} verliert den Plattformzugang und behält das Konto im Betrieb {{home}} mit den übrigen Rollen.",
+      "reason": "Grund",
+      "reasonPlaceholder": "z. B. Austritt per Ende Monat",
+      "submit": "Zugang entziehen",
+      "done": "{{name}} hat keinen Plattformzugang mehr.",
+      "error": "Der Zugang konnte nicht entzogen werden."
+    },
+    "sessionsOf": "Support-Sitzungen von {{name}}",
+    "showAll": "Alle anzeigen"
+  }
+}

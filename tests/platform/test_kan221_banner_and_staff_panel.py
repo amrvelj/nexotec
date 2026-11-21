@@ -182,7 +182,7 @@ def test_the_logs_page_newest_first_with_sort(client, scene, login, db_session):
 
 def test_an_unknown_sort_field_is_422(client, scene):
     response = client.get(
-        "/v1/platform/support-sessions", params={"sort": "reason:asc"}, headers=_staff_headers(scene["staff"])
+        "/v1/platform/support-sessions", params={"sort": "staffName:asc"}, headers=_staff_headers(scene["staff"])
     )
     assert response.status_code == 422, response.text
 

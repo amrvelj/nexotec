@@ -30,10 +30,20 @@ from app.platform.identity.services import support_sessions
 router = APIRouter(tags=["platform-support-sessions"], route_class=IdempotentRoute)
 _settings = get_settings()
 
-# PR 6: the log screens read newest first. Without `sort` the log keeps the
-# shared oldest-first cursor it shipped with (PR 5).
-SUPPORT_SESSION_SORT_FIELDS = {"startedAt": SupportSession.started_at}
-_SORT_DESCRIPTION = "`startedAt:desc` for newest first (the log screens); without it, oldest first."
+# PR 6: the log screens read newest first and sort by each of the session's
+# own columns. Without `sort` the log keeps the shared oldest-first cursor it
+# shipped with (PR 5). The three names are read from other rows at request time
+# (never copied onto the session) and the state is derived, so they do not sort.
+SUPPORT_SESSION_SORT_FIELDS = {
+    "startedAt": SupportSession.started_at,
+    "expiresAt": SupportSession.expires_at,
+    "endedAt": SupportSession.ended_at,
+    "reason": SupportSession.reason,
+}
+_SORT_DESCRIPTION = (
+    "`startedAt:desc` for newest first (the log screens); also `expiresAt`, `endedAt`, `reason`. "
+    "Without it, oldest first."
+)
 
 
 def _log_params(limit: int, sort: str | None, cursor: str | None) -> PageParams | SortPageParams:

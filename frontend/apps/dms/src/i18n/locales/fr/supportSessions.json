@@ -1,0 +1,102 @@
+{
+  "banner": {
+    "user": "{{staff}}, du support Nexotec, travaille dans votre compte jusqu'à {{until}}. Motif : {{reason}}",
+    "staff": "Vous travaillez dans le compte de {{user}} jusqu'à {{until}} (session de support). Motif : {{reason}}",
+    "end": "Terminer la session",
+    "endError": "La session de support n'a pas pu être terminée. Veuillez réessayer."
+  },
+  "log": {
+    "title": "Sessions de support",
+    "intro": "Chaque session au cours de laquelle des collaborateurs de Nexotec ont travaillé dans le compte d'une personne de cette entreprise – en cours ou terminée. Le début et la fin figurent aussi dans le journal des modifications de l'entreprise.",
+    "platformTitle": "Sessions de support de toutes les entreprises",
+    "ariaLabel": "Sessions de support",
+    "loadError": "Les sessions de support n'ont pas pu être chargées.",
+    "forbidden": {
+      "title": "Réservé à la direction",
+      "body": "Seule la personne qui dirige l'entreprise voit ses sessions de support."
+    },
+    "columns": {
+      "startedAt": "Début",
+      "staff": "Support Nexotec",
+      "user": "Utilisateur",
+      "dealership": "Entreprise",
+      "reason": "Motif",
+      "expiresAt": "Expire",
+      "endedAt": "Terminée",
+      "state": "État"
+    },
+    "state": {
+      "running": "En cours",
+      "staff": "Terminée par Nexotec",
+      "user": "Terminée par l'utilisateur",
+      "timeout": "Expirée"
+    },
+    "empty": {
+      "title": "Aucune session de support",
+      "description": "Personne de Nexotec n'a encore travaillé dans un compte de cette entreprise."
+    },
+    "loadMore": "Charger les plus anciennes"
+  },
+  "staff": {
+    "title": "Utilisateurs de la plateforme",
+    "intro": "Les collaborateurs de Nexotec disposant de l'accès plateforme. Qui reçoit l'accès obtient son propre compte Nexotec et une invitation par e-mail.",
+    "ariaLabel": "Utilisateurs de la plateforme",
+    "loadError": "Les utilisateurs de la plateforme n'ont pas pu être chargés.",
+    "forbidden": {
+      "title": "Réservé aux collaborateurs de Nexotec",
+      "body": "Cette vue est ouverte uniquement aux personnes disposant de l'accès plateforme."
+    },
+    "grant": "Accorder l'accès",
+    "columns": {
+      "name": "Nom",
+      "email": "E-mail",
+      "status": "Statut",
+      "home": "Compte",
+      "mfa": "Second facteur",
+      "session": "Session de support"
+    },
+    "home": {
+      "platform": "Nexotec",
+      "legacy": "Dans l'entreprise {{name}} – encore à déplacer"
+    },
+    "mfa": {
+      "yes": "Configuré",
+      "no": "Manquant"
+    },
+    "session": {
+      "running": "En cours"
+    },
+    "empty": {
+      "title": "Aucun utilisateur de la plateforme",
+      "description": "Personne ne dispose encore de l'accès plateforme."
+    },
+    "rowMenu": {
+      "showSessions": "Afficher les sessions de support",
+      "revoke": "Retirer l'accès",
+      "self": "Personne ne peut retirer son propre accès.",
+      "deactivated": "Ce compte est déjà désactivé."
+    },
+    "grantDialog": {
+      "title": "Accorder l'accès plateforme",
+      "body": "La personne reçoit un compte Nexotec avec l'accès plateforme et une invitation à définir son mot de passe. Son second facteur est configuré lors de la première connexion.",
+      "firstName": "Prénom",
+      "lastName": "Nom",
+      "email": "E-mail",
+      "submit": "Envoyer l'invitation",
+      "done": "L'invitation à {{email}} est envoyée.",
+      "error": "L'accès n'a pas pu être accordé."
+    },
+    "revokeDialog": {
+      "title": "Retirer l'accès plateforme",
+      "bodyPlatform": "Le compte Nexotec de {{name}} est désactivé. Toutes les sessions prennent fin immédiatement ; le compte et son historique sont conservés.",
+      "bodyLegacy": "{{name}} perd l'accès plateforme et conserve le compte dans l'entreprise {{home}} avec ses autres rôles.",
+      "reason": "Motif",
+      "reasonPlaceholder": "p. ex. départ à la fin du mois",
+      "submit": "Retirer l'accès",
+      "done": "{{name}} n'a plus d'accès plateforme.",
+      "error": "L'accès n'a pas pu être retiré."
+    },
+    "sessionsOf": "Sessions de support de {{name}}",
+    "showAll": "Tout afficher"
+  }
+}
