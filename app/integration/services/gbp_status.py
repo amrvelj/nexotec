@@ -28,8 +28,9 @@ The client counts as interrupted when any of these holds:
   so the API's status page sees the API's calls and the worker's daily job
   the worker's own (no worker job calls Business Profile yet);
 - its latest **deciding** call-log row (`_deciding_rows`: an HTTP answer below
-  500, not a quota answer, and not a token-endpoint row unless that row is
-  `invalid_client`) carries a client- or project-level refusal: one of
+  500, not a quota answer, a 401 / 403 / 429 only when its identifier is a
+  client or project refusal (KAN-780), and not a token-endpoint row unless
+  that row is `invalid_client`) carries a client- or project-level refusal: one of
   ADR-196's `PROJECT_REFUSALS`, or `invalid_client` (Google refused the OAuth
   client itself). A timeout, a 5xx or a refreshed token neither raises nor
   clears it. The adapter maps both to `ProviderRejectedError`, charged to
@@ -46,7 +47,7 @@ import dataclasses
 import datetime as dt
 import uuid
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import Select, and_, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.core.status import StatusItem, StatusState
@@ -70,6 +71,9 @@ CLIENT_REFUSALS: frozenset[str] = PROJECT_REFUSALS | frozenset({"invalid_client"
 # The adapter's token-endpoint operations (`oauth2_token` redeems a code,
 # `oauth2_token_refresh` refreshes a binding's grant).
 TOKEN_OPERATIONS: frozenset[str] = frozenset({"oauth2_token", "oauth2_token_refresh"})
+# The statuses Google also answers for one token or one quota (KAN-780): such a
+# row decides only when its identifier names the client or the project.
+_UNJUDGED_STATUSES: tuple[int, ...] = (401, 403, 429)
 
 
 @dataclasses.dataclass(frozen=True)
@@ -95,7 +99,15 @@ def _deciding_rows() -> tuple:
     """The call-log rows that can say whether Google accepts Nexotec's client
     and project: an HTTP answer below 500 that is not a quota answer (a quota
     passes by itself) — a timeout, a transport failure or a 5xx proves
-    nothing either way. A token-endpoint row decides only when it is
+    nothing either way. A 401, 403 or 429 decides only when the adapter
+    reads it as the client's or the project's refusal, and then it raises
+    (KAN-780): `invalid_client` at any status, a `PROJECT_REFUSALS` reason on
+    a 401 or 403 only (a 429 is otherwise transient). An `UNAUTHENTICATED`
+    (the token refused before Google judges the project), a 429 whose reason
+    is no known quota (`RESOURCE_EXHAUSTED`) or a 403 `PERMISSION_DENIED`
+    says nothing about the client and never clears a refusal. What clears one is
+    a success or a 400 / 404 / 422, Google answering for the request itself.
+    A token-endpoint row decides only when it is
     `invalid_client`: a token granted says nothing about the project (Google
     reports a disabled API only on the API itself), and a refused grant is the
     binding's."""
@@ -104,7 +116,42 @@ def _deciding_rows() -> tuple:
         IntegrationCallLog.http_status.is_not(None),
         IntegrationCallLog.http_status < 500,
         or_(IntegrationCallLog.provider_error.is_(None), IntegrationCallLog.provider_error.not_in(QUOTA_REASONS)),
-        or_(IntegrationCallLog.capability.not_in(TOKEN_OPERATIONS), IntegrationCallLog.provider_error == "invalid_client"),
+        or_(
+            IntegrationCallLog.http_status.not_in(_UNJUDGED_STATUSES),
+            # As the adapter maps them (`_raise_for_status`): `invalid_client`
+            # at any status is the client refused; a project reason only on a
+            # 401 / 403 — a 429 is otherwise transient.
+            IntegrationCallLog.provider_error == "invalid_client",
+            and_(IntegrationCallLog.http_status != 429, IntegrationCallLog.provider_error.in_(PROJECT_REFUSALS)),
+        ),
+        or_(
+            IntegrationCallLog.capability.not_in(TOKEN_OPERATIONS),
+            IntegrationCallLog.provider_error == "invalid_client",
+        ),
+    )
+
+
+def _latest_call(connection_id: uuid.UUID) -> Select:
+    """The connection's latest call-log row's time. Served newest first by
+    `ix_integration_call_log_connection_id_created_at` (KAN-777)."""
+
+    return (
+        select(IntegrationCallLog.created_at)
+        .where(IntegrationCallLog.connection_id == connection_id)
+        .order_by(IntegrationCallLog.created_at.desc(), IntegrationCallLog.id.desc())
+        .limit(1)
+    )
+
+
+def _latest_deciding_call(connection_id: uuid.UUID) -> Select:
+    """The connection's latest deciding row (`_deciding_rows`), by the same
+    index (KAN-777)."""
+
+    return (
+        select(IntegrationCallLog.provider_error, IntegrationCallLog.created_at)
+        .where(IntegrationCallLog.connection_id == connection_id, *_deciding_rows())
+        .order_by(IntegrationCallLog.created_at.desc(), IntegrationCallLog.id.desc())
+        .limit(1)
     )
 
 
@@ -137,18 +184,8 @@ def client_health(db: Session, *, count_bindings: bool = True) -> GbpClientHealt
             last_call_at=None,
             bound_dealerships=bound,
         )
-    last_call_at = db.scalar(
-        select(IntegrationCallLog.created_at)
-        .where(IntegrationCallLog.connection_id == connection.id)
-        .order_by(IntegrationCallLog.created_at.desc(), IntegrationCallLog.id.desc())
-        .limit(1)
-    )
-    deciding = db.execute(
-        select(IntegrationCallLog.provider_error, IntegrationCallLog.created_at)
-        .where(IntegrationCallLog.connection_id == connection.id, *_deciding_rows())
-        .order_by(IntegrationCallLog.created_at.desc(), IntegrationCallLog.id.desc())
-        .limit(1)
-    ).first()
+    last_call_at = db.scalar(_latest_call(connection.id))
+    deciding = db.execute(_latest_deciding_call(connection.id)).first()
     refusal = deciding.provider_error if deciding is not None and deciding.provider_error in CLIENT_REFUSALS else None
     return GbpClientHealth(
         configured=True,

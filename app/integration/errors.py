@@ -53,6 +53,17 @@ class ProviderConfigurationError(ProviderGatewayError):
     """
 
 
+class ProviderAccountConfigurationError(ProviderConfigurationError):
+    """KAN-780: the credential of ONE account behind a shared connection
+    cannot be read — a Business Profile binding's grant the secrets manager
+    cannot resolve — as opposed to the connection's own client credentials
+    (its `clientId`, its client secret). A configuration error like any
+    other for every caller that does not look closer; a caller that walks
+    several accounts (`gbp_client_check`) skips to the next one, and only a
+    plain `ProviderConfigurationError` says the client itself is not set up.
+    """
+
+
 class ProviderRejectedError(ProviderGatewayError):
     """The provider understood the request and said no to the caller's
     credentials or to the call itself — a wrong client secret, a refused
@@ -106,4 +117,3 @@ class ProviderRequestError(ProviderGatewayError):
     message carries the status and the provider's bounded `title`, never its
     free-text `detail` and never a credential.
     """
-
