@@ -50,6 +50,7 @@ from sqlalchemy.orm import Session
 
 from app.core.audit import record_audit_event
 from app.integration.errors import (
+    ProviderAccountConfigurationError,
     ProviderAccountRefusedError,
     ProviderConfigurationError,
     ProviderRejectedError,
@@ -230,12 +231,19 @@ class GoogleBusinessProfileAdapter:
             raise ProviderConfigurationError("Nexotec's Google Business Profile client has no 'clientId' set.")
         return value.strip()
 
-    def _resolve(self, *, folder_id: uuid.UUID, slot: str, what: str) -> str:
+    def _resolve(
+        self,
+        *,
+        folder_id: uuid.UUID,
+        slot: str,
+        what: str,
+        unreadable: type[ProviderConfigurationError] = ProviderConfigurationError,
+    ) -> str:
         try:
             value = secrets_backend.resolve_secret(connection_id=folder_id, slot=slot)
         except Exception as exc:
             # Class name only: the secrets manager's message may name its path.
-            raise ProviderConfigurationError(f"The {what} could not be read ({type(exc).__name__}).") from exc
+            raise unreadable(f"The {what} could not be read ({type(exc).__name__}).") from exc
         record_audit_event(
             self._db,
             entity_type="integration_secret_ref",
@@ -424,7 +432,18 @@ class GoogleBusinessProfileAdapter:
         cached = self._access_tokens.get(binding_id)
         if cached is not None:
             return cached
-        refresh_token = self._resolve(folder_id=binding_id, slot=_REFRESH_SLOT, what="location binding's grant")
+        # The client's own credentials first (KAN-780): a missing `clientId`
+        # or an unreadable client secret is the client's, whatever the grant.
+        client_id = self._client_id()
+        client_secret = self._client_secret()
+        # A binding's grant is one account's: unreadable, it is that
+        # binding's failure, never the client's.
+        refresh_token = self._resolve(
+            folder_id=binding_id,
+            slot=_REFRESH_SLOT,
+            what="location binding's grant",
+            unreadable=ProviderAccountConfigurationError,
+        )
         body = self._json(
             self._request(
                 "oauth2_token_refresh",
@@ -432,8 +451,8 @@ class GoogleBusinessProfileAdapter:
                 TOKEN_URL,
                 data={
                     "grant_type": "refresh_token",
-                    "client_id": self._client_id(),
-                    "client_secret": self._client_secret(),
+                    "client_id": client_id,
+                    "client_secret": client_secret,
                     "refresh_token": refresh_token,
                 },
             )

@@ -11,9 +11,11 @@ health is never stored. What is kept here:
   Betrieb's page.
 - `status_item_state` — the daily job's notification ledger: one row per
   Betrieb × item key holding the last state it saw and when the managers were
-  told, so a degradation raises one `administration.status_item_degraded`
-  notification, nothing more while it stays degraded, and a new one only
-  after it was ok again. About who was told, never about health.
+  told, so a degradation raises one notification — the item's own code when
+  it names one (since KAN-776: `administration.business_profile_interrupted`
+  for Business Profile), else `administration.status_item_degraded` —
+  nothing more while it stays degraded, and a new one only after it was ok
+  again. About who was told, never about health.
 """
 
 import datetime as dt

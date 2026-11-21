@@ -78,7 +78,9 @@ def client_connection(db_session, google):
     db_session.flush()
     db_session.add(
         IntegrationSecretRef(
-            connection_id=connection.id, slot=SecretSlot.CLIENT_SECRET, secret_ref=f"/integrations/{connection.id}/client_secret"
+            connection_id=connection.id,
+            slot=SecretSlot.CLIENT_SECRET,
+            secret_ref=f"/integrations/{connection.id}/client_secret",
         )
     )
     db_session.commit()
@@ -94,7 +96,11 @@ def betrieb(db_session):
 
 
 def _item(db_session, dealership_id):
-    items = [item for item in status_page.derive(db_session, dealership_id, now=NOW).items if item.source == "google_business_profile"]
+    items = [
+        item
+        for item in status_page.derive(db_session, dealership_id, now=NOW).items
+        if item.source == "google_business_profile"
+    ]
     assert len(items) <= 1
     return items[0] if items else None
 
@@ -331,8 +337,8 @@ def _active_binding(client, fake, dealership, manager, location, google_location
     return uuid.UUID(binding["id"])
 
 
-def _staff_check(client, *, mfa=True):
-    return client.post(CHECK, headers=platform_admin_headers(mfa=mfa))
+def _staff_check(client, *, mfa=True, user_id=None):
+    return client.post(CHECK, headers=platform_admin_headers(mfa=mfa, user_id=user_id))
 
 
 def test_a_check_after_the_fix_clears_every_betriebs_item(client, db_session, google, client_connection, betrieb):
@@ -358,7 +364,9 @@ def test_a_check_after_the_fix_clears_every_betriebs_item(client, db_session, go
     assert len(audit) == 1 and audit[0].after == {"outcome": "answered"} and audit[0].entity_id == client_connection.id
 
 
-def test_a_check_while_google_still_refuses_keeps_the_item_blocked(client, db_session, google, client_connection, betrieb):
+def test_a_check_while_google_still_refuses_keeps_the_item_blocked(
+    client, db_session, google, client_connection, betrieb
+):
     fake, _ = google
     dealership, manager, location = betrieb
     _active_binding(client, fake, dealership, manager, location)
@@ -376,7 +384,9 @@ def test_a_refused_grant_is_the_bindings_and_the_next_binding_is_asked(
     fake, secrets_store = google
     dealership, manager, location = betrieb
     first = _active_binding(client, fake, dealership, manager, location)
-    second = _active_binding(client, fake, dealership, manager, _location(db_session, dealership.id, name="Bern"), LOCATION_2)
+    second = _active_binding(
+        client, fake, dealership, manager, _location(db_session, dealership.id, name="Bern"), LOCATION_2
+    )
     fake.refused_refresh_tokens.add(secrets_store.values[(first, "refresh_token")])
 
     body = _staff_check(client).json()
@@ -416,7 +426,6 @@ def test_only_staff_with_a_second_factor_check(client, db_session, google, clien
     assert _staff_check(client, mfa=False).status_code == 403
 
 
-
 # --- the second review (2026-11-21): only a deciding answer raises or clears it ----------
 
 
@@ -428,6 +437,15 @@ def test_only_staff_with_a_second_factor_check(client, db_session, google, clien
         ("locations_get", 429, "RATE_LIMIT_EXCEEDED"),  # a quota passes by itself
         ("oauth2_token_refresh", 200, None),  # a token says nothing about the project
         ("oauth2_token_refresh", 400, "invalid_grant"),  # one binding's grant
+        # KAN-780: a 401 / 403 / 429 whose identifier names neither the client
+        # nor the project is not Google judging them.
+        ("locations_get", 401, "UNAUTHENTICATED"),  # the token refused first
+        ("locations_get", 429, "RESOURCE_EXHAUSTED"),  # a 429 with no known quota reason
+        ("locations_get", 403, "PERMISSION_DENIED"),  # one location's access
+        ("locations_get", 403, None),  # no identifier at all
+        # A 429 is transient whatever project reason it names: it must not
+        # replace the earlier SERVICE_DISABLED with its own.
+        ("locations_get", 429, "BILLING_DISABLED"),
     ],
 )
 def test_a_row_that_proves_nothing_neither_clears_nor_raises_a_refusal(
@@ -476,13 +494,15 @@ def test_a_check_with_every_grant_refused_keeps_the_item_blocked(
     binding = _active_binding(client, fake, dealership, manager, location)
     _call(db_session, client_connection, provider_error="SERVICE_DISABLED", at=dt.datetime.now(dt.UTC))
     fake.refused_refresh_tokens.add(secrets_store.values[(binding, "refresh_token")])
-    response = _staff_check(client)
+    staff_id = uuid.uuid4()
+    response = _staff_check(client, user_id=staff_id)
     assert response.status_code == 409
     assert response.json()["error"]["details"]["reason"] == "business_profile_no_active_binding"
     db_session.expire_all()
     assert _item(db_session, dealership.id).state == StatusState.BLOCKED
     refused = db_session.scalars(select(AuditEvent).where(AuditEvent.action == "business_profile_grant_refused")).all()
-    assert [event.actor_id for event in refused] != [None]  # the staff user who checked
+    # KAN-780: exactly one event, the staff user who checked as its actor.
+    assert [event.actor_id for event in refused] == [staff_id]
 
 
 def test_an_unreadable_grant_is_the_bindings_and_the_next_binding_is_asked(
@@ -491,7 +511,9 @@ def test_an_unreadable_grant_is_the_bindings_and_the_next_binding_is_asked(
     fake, secrets_store = google
     dealership, manager, location = betrieb
     first = _active_binding(client, fake, dealership, manager, location)
-    second = _active_binding(client, fake, dealership, manager, _location(db_session, dealership.id, name="Bern"), LOCATION_2)
+    second = _active_binding(
+        client, fake, dealership, manager, _location(db_session, dealership.id, name="Bern"), LOCATION_2
+    )
     del secrets_store.values[(first, "refresh_token")]
     body = _staff_check(client).json()
     assert body["outcome"] == "answered"
@@ -525,3 +547,66 @@ def test_an_item_naming_no_known_notification_gets_the_generic_one(client, db_se
     db_session.flush()
     codes = [n.event_code for n in db_session.scalars(select(Notification)).all()]
     assert codes == ["administration.status_item_degraded"]
+
+
+@pytest.mark.parametrize("http_status", [200, 404])
+def test_a_success_or_an_answer_for_the_request_clears_a_refusal(db_session, google, client_connection, http_status):
+    """KAN-780: what clears a refusal is Google answering for the request
+    itself — a success, or a 400 / 404 / 422 for the location."""
+
+    dealership = _make_dealership(db_session)
+    _bound(db_session, dealership.id)
+    _call(db_session, client_connection, provider_error="SERVICE_DISABLED", at=NOW - dt.timedelta(minutes=5))
+    row = _call(
+        db_session,
+        client_connection,
+        provider_error=None if http_status == 200 else "NOT_FOUND",
+        http_status=http_status,
+        status=CallStatus.SUCCESS if http_status == 200 else CallStatus.ERROR,
+    )
+    row.capability = "locations_get"
+    db_session.commit()
+    assert gbp_status.client_health(db_session).refusal is None
+    assert _item(db_session, dealership.id).state == StatusState.OK
+
+
+def test_an_unreadable_client_secret_is_not_configured_and_no_binding_is_touched(
+    client, db_session, google, client_connection, betrieb
+):
+    """KAN-780: the client's secret reference exists but the secrets manager
+    cannot resolve it. That is Nexotec's client not set up, never «no active
+    binding»; the bindings stay as they are."""
+
+    fake, secrets_store = google
+    dealership, manager, location = betrieb
+    first = _active_binding(client, fake, dealership, manager, location)
+    second = _active_binding(
+        client, fake, dealership, manager, _location(db_session, dealership.id, name="Thun"), LOCATION_2
+    )
+    del secrets_store.values[(client_connection.id, "client_secret")]
+    response = _staff_check(client)
+    assert response.status_code == 409
+    assert response.json()["error"]["details"]["reason"] == "business_profile_not_configured"
+    db_session.expire_all()
+    assert db_session.get(GbpLocationBinding, first).status == GbpBindingStatus.ACTIVE
+    assert db_session.get(GbpLocationBinding, second).status == GbpBindingStatus.ACTIVE
+
+
+def test_a_broken_client_is_not_configured_even_when_every_grant_is_unreadable(
+    client, db_session, google, client_connection, betrieb
+):
+    """KAN-780 (review): the client's credentials are read before a binding's
+    grant, so a missing `clientId` is the client's cause even when the grant
+    of every binding tried cannot be read either (a secrets-manager outage)."""
+
+    fake, secrets_store = google
+    dealership, manager, location = betrieb
+    binding = _active_binding(client, fake, dealership, manager, location)
+    del secrets_store.values[(binding, "refresh_token")]
+    client_connection.config = {}
+    db_session.commit()
+    response = _staff_check(client)
+    assert response.status_code == 409
+    assert response.json()["error"]["details"]["reason"] == "business_profile_not_configured"
+    db_session.expire_all()
+    assert db_session.get(GbpLocationBinding, binding).status == GbpBindingStatus.ACTIVE
