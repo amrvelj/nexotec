@@ -444,8 +444,10 @@ function DmsShellInner({ children }: { children: ReactNode }) {
   const unread = useUnreadNotificationCount(inboxReachable)
   const unreadCount = unread.data?.count ?? 0
   // KAN-221 PR-6 (D-A-05, FR-A-18): a running support session on this person
-  // is said on every screen, in the one notice slot (ADR-084), until it ends.
-  const supportSession = useSupportSession(inboxReachable).data?.session ?? null
+  // is said on every screen, in the one notice slot (ADR-084), until it ends —
+  // the enrolment screen of a session that still owes a factor included (the
+  // guard leaves the read and the ending open to it).
+  const supportSession = useSupportSession(Boolean(user)).data?.session ?? null
   // A browser that already pushes binds its subscription to this new
   // session (FR-A-49: the previous session's went with it).
   useEffect(() => {

@@ -98,6 +98,33 @@ describe('DmsShell support-session banner (KAN-221 PR-6)', () => {
     expect(await screen.findByText(new RegExp(i18n.t('supportSessions.banner.endError')))).toBeInTheDocument()
   })
 
+  it('shows on the enrolment screen of a session that still owes a second factor', async () => {
+    const backend = renderShell([
+      { method: 'GET', match: /\/me\/support-session$/, handler: () => ({ session: SESSION }) },
+      {
+        method: 'GET',
+        match: /\/auth\/me$/,
+        handler: () => ({
+          user: {
+            id: 'user-2', dealershipId: 'd-1', firstName: 'Beat', lastName: 'Verkauf', email: 'beat@example.ch',
+            phone: null, role: 'sales', accessRoles: ['sales'], isDealerManager: false, employmentStatus: 'active',
+            authIdentityId: 'auth-2', status: 'active', version: 1,
+            createdAt: '2026-01-01T00:00:00Z', updatedAt: '2026-01-01T00:00:00Z',
+          },
+          activeDealership: { id: 'd-1', legalName: 'Garage Nord AG' },
+          memberships: [{ id: 'd-1', legalName: 'Garage Nord AG' }],
+          entitlements: [],
+          mfaEnrolmentRequired: true,
+        }),
+      },
+    ])
+    const banner = await screen.findByRole('status')
+    expect(banner).toHaveTextContent('Petra Support')
+    expect(within(banner).getByRole('button', { name: i18n.t('supportSessions.banner.end') })).toBeEnabled()
+    // The bell stays out of reach of a confined session; only the banner asks.
+    expect(backend.callsTo(/\/me\/notifications\/unread-count$/)).toHaveLength(0)
+  })
+
   it('the staff side names the user it acts for', async () => {
     renderShell([{ method: 'GET', match: /\/me\/support-session$/, handler: () => ({ session: { ...SESSION, viewer: 'staff' } }) }])
     const banner = await screen.findByRole('status')

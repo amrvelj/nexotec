@@ -9,6 +9,7 @@ bell's poll — KAN-216) is checked but is not activity. A malformed or expired 
 here: the route's own `get_current_principal` answers it, so an
 unauthenticated route stays reachable with a stale cookie in the jar."""
 
+import re
 import uuid
 
 from fastapi import Depends, Request
@@ -33,12 +34,23 @@ _ENROL_FIRST = "Enrol a second factor before anything else — your business req
 # Everything under /v1/auth (the front door is unauthenticated anyway; the
 # enrolment, the sessions, logout) and the preferences the shell loads.
 _ENROLMENT_PATHS = ("/v1/auth/", "/v1/me/preferences")
+# KAN-221 PR-6 (FR-A-18, D-A-05): a support session running on the person is
+# said on every screen they can reach — the enrolment screen and the legal
+# hold's acceptance included — and they end it from there. So the banner's
+# read and the ending stay open to a confined session: both name only a
+# session the caller is in (anyone else's is 404).
+_SUPPORT_SESSION_READ = "/v1/me/support-session"
+_SUPPORT_SESSION_END = re.compile(r"/v1/platform/support-sessions/[^/]+/end")
+
+
+def _support_session_path(path: str) -> bool:
+    return path == _SUPPORT_SESSION_READ or _SUPPORT_SESSION_END.fullmatch(path) is not None
 
 
 def _enrolment_path(path: str, claims: dict) -> bool:
     if not path.startswith("/v1/"):
         return True  # health, the SPA's own files — not the API's business
-    if path.startswith(_ENROLMENT_PATHS):
+    if path.startswith(_ENROLMENT_PATHS) or _support_session_path(path):
         return True
     # The Betrieb's OWN enforcement switch stays reachable to its manager: a
     # manager who decides against a second factor turns it off instead of
@@ -159,7 +171,11 @@ def _administration_route(request: Request) -> bool:
 
 
 def _legal_hold_path(path: str, tenant_id: str) -> bool:
-    return path.startswith(_LEGAL_HOLD_PATHS) or path == f"/v1/dealerships/{tenant_id}/legal-acceptances"
+    return (
+        path.startswith(_LEGAL_HOLD_PATHS)
+        or path == f"/v1/dealerships/{tenant_id}/legal-acceptances"
+        or _support_session_path(path)
+    )
 
 
 def enforce_activation_and_legal_acceptance(request: Request, db: Session, claims: dict) -> None:
