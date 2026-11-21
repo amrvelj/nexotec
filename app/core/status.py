@@ -76,6 +76,12 @@ class StatusItem:
     # KAN-222), so the status job does not tell them a second time. Honoured
     # for a warning only: the move to blocked is always announced.
     notified_by_source: bool = False
+    # The notification code the daily job raises for this item's degradation
+    # instead of the generic one — for an item whose text must say something
+    # the generic «how to fix it» would contradict (Google Business Profile's
+    # «we are on it, nothing to do on your side», KAN-776). A code platform's
+    # status job does not know falls back to the generic one.
+    notification_event: str | None = None
 
 
 class StatusProvider(Protocol):

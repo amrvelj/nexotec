@@ -104,7 +104,14 @@
       },
       "lastCall": "Letzter Aufruf: {{date}}",
       "noCall": "Noch kein Aufruf.",
-      "bound": "Betriebe mit verbundenem Standort: {{count, number}}"
+      "bound": "Betriebe mit verbundenem Standort: {{count, number}}",
+      "check": "Erneut prüfen",
+      "outcome": {
+        "answered": "Google hat geantwortet: Client und Projekt werden akzeptiert.",
+        "refused": "Google hat den Client oder das Projekt erneut abgelehnt.",
+        "unavailable": "Google war nicht erreichbar. Versuchen Sie es später erneut."
+      },
+      "checkError": "Die Prüfung konnte nicht ausgeführt werden."
     }
   },
   "refusals": {

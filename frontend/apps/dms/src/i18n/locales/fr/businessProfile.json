@@ -8,6 +8,8 @@
     "binding_not_pending": "L'établissement Google de ce site est déjà choisi.",
     "google_location_not_accessible": "Cette connexion ne gère pas cet établissement Google.",
     "google_location_already_bound": "Cet établissement Google est déjà connecté dans Nexotec.",
-    "binding_already_disconnected": "Ce site est déjà déconnecté."
+    "binding_already_disconnected": "Ce site est déjà déconnecté.",
+    "business_profile_breaker_open": "Trop d'appels à Google ont échoué à l'instant. Réessayez dans une minute.",
+    "business_profile_no_active_binding": "Aucun site connecté n'est disponible pour interroger Google."
   }
 }

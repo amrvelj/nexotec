@@ -118,6 +118,10 @@
     "statusItemDegraded": {
       "title": "La pagina di stato non è più verde",
       "body": "Un punto della pagina di stato della sua azienda richiede attenzione. Apra la pagina di stato per vedere quale e come risolverlo."
+    },
+    "businessProfileInterrupted": {
+      "title": "Google Business Profile: connessione di Nexotec interrotta",
+      "body": "La connessione di Nexotec a Google Business Profile è interrotta – ce ne stiamo occupando. Non deve fare nulla; le sue sedi saranno di nuovo sincronizzate con Google appena la connessione sarà ripristinata."
     }
   },
   "recoveryActions": {

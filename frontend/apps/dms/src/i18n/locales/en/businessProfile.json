@@ -8,6 +8,8 @@
     "binding_not_pending": "The Google location for this location has already been chosen.",
     "google_location_not_accessible": "This sign-in does not manage that Google location.",
     "google_location_already_bound": "This Google location is already connected in Nexotec.",
-    "binding_already_disconnected": "This location is already disconnected."
+    "binding_already_disconnected": "This location is already disconnected.",
+    "business_profile_breaker_open": "Too many failed calls to Google just now. Try again in a minute.",
+    "business_profile_no_active_binding": "No connected location is available to ask Google with."
   }
 }

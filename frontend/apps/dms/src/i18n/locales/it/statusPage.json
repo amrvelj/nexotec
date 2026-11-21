@@ -104,7 +104,14 @@
       },
       "lastCall": "Ultima chiamata: {{date}}",
       "noCall": "Ancora nessuna chiamata.",
-      "bound": "Aziende con una sede collegata: {{count, number}}"
+      "bound": "Aziende con una sede collegata: {{count, number}}",
+      "check": "Verifica di nuovo",
+      "outcome": {
+        "answered": "Google ha risposto: il client e il progetto sono accettati.",
+        "refused": "Google ha di nuovo rifiutato il client o il progetto.",
+        "unavailable": "Non è stato possibile raggiungere Google. Riprovi più tardi."
+      },
+      "checkError": "Non è stato possibile eseguire la verifica."
     }
   },
   "refusals": {

@@ -16,9 +16,9 @@ import uuid
 from fastapi import APIRouter, Depends, Response
 from sqlalchemy.orm import Session
 
-from app.core.auth import Principal, get_current_principal, require_access_role
+from app.core.auth import Principal, get_current_principal, require_access_role, require_mfa_session
 from app.core.concurrency import check_version, require_if_match
-from app.core.errors import NotFoundError
+from app.core.errors import ForbiddenError, NotFoundError
 from app.core.idempotent_route import IdempotentRoute
 from app.core.impersonation import refuse_under_impersonation
 from app.core.permissions import may_write, require_read, require_write
@@ -28,6 +28,7 @@ from app.integration.models.google_business_profile import GbpLocationBinding
 from app.integration.schemas.google_business_profile import (
     BusinessProfileBindingPage,
     BusinessProfileBindingRead,
+    BusinessProfileClientCheckRead,
     BusinessProfileClientStatusRead,
     BusinessProfileGoogleChoicePage,
     BusinessProfileGoogleChoiceRead,
@@ -37,7 +38,7 @@ from app.integration.schemas.google_business_profile import (
     BusinessProfileLinkOutcomeRead,
     BusinessProfileLinkStartRead,
 )
-from app.integration.services import gbp_link, gbp_status
+from app.integration.services import gbp_client_check, gbp_link, gbp_status
 from app.platform.public import is_platform_dealership
 
 router = APIRouter(tags=["business-profile"], route_class=IdempotentRoute)
@@ -162,7 +163,10 @@ def get_client_status(
     refusal and when, and how many Betriebe hold a live binding. Staff only:
     a Betrieb sees one item on its own status page and never the cause."""
 
-    health = gbp_status.client_health(db)
+    return _client_status(gbp_status.client_health(db))
+
+
+def _client_status(health: gbp_status.GbpClientHealth) -> BusinessProfileClientStatusRead:
     return BusinessProfileClientStatusRead(
         configured=health.configured,
         interrupted=health.interrupted,
@@ -172,3 +176,24 @@ def get_client_status(
         last_call_at=health.last_call_at,
         bound_dealerships=health.bound_dealerships,
     )
+
+
+@router.post(
+    "/integrations/business-profile/client-status/check",
+    response_model=BusinessProfileClientCheckRead,
+    dependencies=[Depends(require_mfa_session())],
+)
+def check_client_status(
+    principal: Principal = Depends(require_access_role()),  # platform_admin only
+    db: Session = Depends(get_db),
+):
+    """KAN-776 «Erneut prüfen»: one real request through Nexotec's client
+    (an active binding's grant, its location read with the smallest mask),
+    so a fixed cause clears every Betrieb's item. Staff with a second factor.
+    409 `business_profile_not_configured`, `business_profile_no_active_binding`
+    or `business_profile_breaker_open`. Audited."""
+
+    if principal.user_id is None:
+        raise ForbiddenError("A staff user checks the client.")
+    check = gbp_client_check.check_client(db, actor_id=principal.user_id)
+    return BusinessProfileClientCheckRead(outcome=check.outcome.value, status=_client_status(check.health))

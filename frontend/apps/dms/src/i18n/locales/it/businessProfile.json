@@ -8,6 +8,8 @@
     "binding_not_pending": "La sede Google di questa sede è già stata scelta.",
     "google_location_not_accessible": "Questo accesso non gestisce quella sede Google.",
     "google_location_already_bound": "Questa sede Google è già collegata in Nexotec.",
-    "binding_already_disconnected": "Questa sede è già scollegata."
+    "binding_already_disconnected": "Questa sede è già scollegata.",
+    "business_profile_breaker_open": "Troppe chiamate a Google sono fallite poco fa. Riprovi tra un minuto.",
+    "business_profile_no_active_binding": "Nessuna sede collegata è disponibile per interrogare Google."
   }
 }

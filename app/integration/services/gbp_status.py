@@ -30,10 +30,10 @@ The client counts as interrupted when any of these holds:
 - its latest call-log row carries a client- or project-level refusal: one of
   ADR-196's `PROJECT_REFUSALS`, or `invalid_client` (Google refused the OAuth
   client itself). The adapter maps both to `ProviderRejectedError`, charged to
-  the breaker, so the refusal is Nexotec's setup, never one binding's. Only
-  a later successful call on the client clears it — and today no staff
-  action makes one, so a fixed cause stays red until a manager links a
-  location (open with Anto on KAN-776). The mapping itself is the adapter's
+  the breaker, so the refusal is Nexotec's setup, never one binding's. Any
+  later answer that is not such a refusal clears it: staff make one with
+  «Erneut prüfen» once the cause is fixed (`gbp_client_check`; Anto,
+  2026-11-21, decision 1 A), and a manager's link flow makes one too. The mapping itself is the adapter's
   (`adapters/google_business_profile.py`) and is only read here.
 
 Derived on every read, never stored; a read never writes (`app.core.status`).
@@ -55,6 +55,11 @@ from app.integration.services.gbp_link import client_connection
 
 SOURCE = "google_business_profile"
 ITEM_KEY = "google_business_profile.client"
+# Platform's notification for this item's degradation (Anto, 2026-11-21,
+# decision 2 B): «Nexotec's connection is interrupted, we are on it — nothing
+# to do on your side», never the generic «how to fix it». A plain code: the
+# catalogue is platform's (`notification_catalogue.py`).
+NOTIFICATION_EVENT = "administration.business_profile_interrupted"
 
 # The refusal identifiers that name Nexotec's client or project rather than
 # one binding's grant (ADR-196).
@@ -152,5 +157,6 @@ class GbpStatusProvider:
                 state=StatusState.BLOCKED if interrupted else StatusState.OK,
                 message_key=f"statusPage.items.googleBusinessProfile.{'interrupted' if interrupted else 'ok'}",
                 link=None,
+                notification_event=NOTIFICATION_EVENT,
             )
         ]

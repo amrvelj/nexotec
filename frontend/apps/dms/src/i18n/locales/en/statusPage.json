@@ -104,7 +104,14 @@
       },
       "lastCall": "Last call: {{date}}",
       "noCall": "No call yet.",
-      "bound": "Businesses with a connected location: {{count, number}}"
+      "bound": "Businesses with a connected location: {{count, number}}",
+      "check": "Check again",
+      "outcome": {
+        "answered": "Google answered: the client and the project are accepted.",
+        "refused": "Google refused the client or the project again.",
+        "unavailable": "Google could not be reached. Try again later."
+      },
+      "checkError": "The check could not be run."
     }
   },
   "refusals": {

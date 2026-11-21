@@ -2735,6 +2735,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/integrations/business-profile/client-status/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Check Client Status
+         * @description KAN-776 «Erneut prüfen»: one real request through Nexotec's client
+         *     (an active binding's grant, its location read with the smallest mask),
+         *     so a fixed cause clears every Betrieb's item. Staff with a second factor.
+         *     409 `business_profile_not_configured`, `business_profile_no_active_binding`
+         *     or `business_profile_breaker_open`. Audited.
+         */
+        post: operations["check_client_status_v1_integrations_business_profile_client_status_check_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/integrations/business-profile/link-callback": {
         parameters: {
             query?: never;
@@ -6269,6 +6293,17 @@ export interface components {
             status: components["schemas"]["GbpBindingStatus"];
             /** Version */
             version: number;
+        };
+        /**
+         * BusinessProfileClientCheckRead
+         * @description «Erneut prüfen» (KAN-776): what Google answered this time —
+         *     `answered` (client and project accepted), `refused` (refused again) or
+         *     `unavailable` — and the client's state after it.
+         */
+        BusinessProfileClientCheckRead: {
+            /** Outcome */
+            outcome: string;
+            status: components["schemas"]["BusinessProfileClientStatusRead"];
         };
         /**
          * BusinessProfileClientStatusRead
@@ -22253,6 +22288,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BusinessProfileClientStatusRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    check_client_status_v1_integrations_business_profile_client_status_check_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BusinessProfileClientCheckRead"];
                 };
             };
             /** @description Validation Error */

@@ -14,7 +14,9 @@ import time
 import uuid
 
 import pytest
+from sqlalchemy import select
 
+from app.core.audit_model import AuditEvent
 from app.core.status import StatusState, status_providers
 from app.integration.adapters import google_business_profile as gbp
 from app.integration.errors import ProviderAccountRefusedError, ProviderRejectedError
@@ -22,11 +24,13 @@ from app.integration.models.call_log import CallStatus, IntegrationCallLog
 from app.integration.models.connection import ConnectionEnvironment, ConnectionScope, IntegrationConnection
 from app.integration.models.google_business_profile import GBP_PROVIDER_CODE, GbpBindingStatus, GbpLocationBinding
 from app.integration.models.provider import IntegrationProvider
-from app.integration.services import gbp_status, resilience
+from app.integration.services import gbp_client_check, gbp_status, resilience
 from app.integration.services.gateway import call_capability
-from app.platform.administration.services import status_page
+from app.platform.administration.services import status_notifications, status_page
+from app.platform.identity.models.notification import Notification
+from app.platform.organisation.models.dealership import Dealership
 from tests import gbp_fakes
-from tests.gbp_fakes import CLIENT_ID, CLIENT_SECRET
+from tests.gbp_fakes import CLIENT_ID, CLIENT_SECRET, LOCATION_1, LOCATION_2
 from tests.identapi_support import make_user
 from tests.identity_support import platform_admin_headers
 from tests.integration.test_kan226_business_profile import _as, _link, _location, _pick
@@ -277,3 +281,129 @@ def test_the_status_read_never_half_opens_the_breaker(db_session, google, client
 
 def test_the_client_refusals_are_adr_196s_project_refusals_plus_invalid_client():
     assert gbp_status.CLIENT_REFUSALS == gbp.PROJECT_REFUSALS | {"invalid_client"}
+
+
+# --- Anto, 2026-11-21, decision 2 B: the managers' own notification -----------------------
+
+
+def test_the_items_notification_is_a_catalogued_code():
+    from app.platform.identity.services.notification_catalogue import BY_CODE
+
+    assert gbp_status.NOTIFICATION_EVENT in BY_CODE
+
+
+def test_an_interruption_tells_the_managers_once_with_its_own_notice_never_the_generic_one(
+    client, db_session, google, client_connection
+):
+    from tests.platform.test_kan223_status_page import _active
+
+    dealership_id, _ = _active(client, db_session)
+    _bound(db_session, dealership_id)
+    _call(db_session, client_connection, provider_error="SERVICE_DISABLED", at=dt.datetime.now(dt.UTC))
+    dealership = db_session.get(Dealership, dealership_id)
+
+    run = status_notifications.check_dealership(db_session, dealership)
+    db_session.commit()
+    assert run.notified >= 1
+    codes = [n.event_code for n in db_session.scalars(select(Notification)).all()]
+    assert "administration.business_profile_interrupted" in codes
+    assert "administration.status_item_degraded" not in codes
+    # Still interrupted the next day: nothing more.
+    assert status_notifications.check_dealership(db_session, dealership).notified == 0
+
+
+# --- Anto, 2026-11-21, decision 1 A: «Erneut prüfen» -------------------------------------
+
+CHECK = "/v1/integrations/business-profile/client-status/check"
+
+
+def _active_binding(client, fake, dealership, manager, location, google_location=LOCATION_1) -> uuid.UUID:
+    binding = _link(client, fake, dealership, manager, location)["binding"]
+    picked = _pick(client, dealership, manager, binding, location=google_location)
+    assert picked.status_code == 200, picked.text
+    return uuid.UUID(binding["id"])
+
+
+def _staff_check(client, *, mfa=True):
+    return client.post(CHECK, headers=platform_admin_headers(mfa=mfa))
+
+
+def test_a_check_after_the_fix_clears_every_betriebs_item(client, db_session, google, client_connection, betrieb):
+    fake, _ = google
+    dealership, manager, location = betrieb
+    _active_binding(client, fake, dealership, manager, location)
+    _call(db_session, client_connection, provider_error="SERVICE_DISABLED", at=dt.datetime.now(dt.UTC))
+    assert _item(db_session, dealership.id).state == StatusState.BLOCKED
+
+    response = _staff_check(client)
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["outcome"] == "answered"
+    assert body["status"]["interrupted"] is False and body["status"]["refusal"] is None
+    db_session.expire_all()
+    assert _item(db_session, dealership.id).state == StatusState.OK
+    # One real request, logged on the client under its own purpose, and audited.
+    rows = db_session.scalars(
+        select(IntegrationCallLog).where(IntegrationCallLog.purpose == gbp_client_check.PURPOSE)
+    ).all()
+    assert {row.capability for row in rows} == {"oauth2_token_refresh", "locations_get"}
+    audit = db_session.scalars(select(AuditEvent).where(AuditEvent.action == "business_profile_client_checked")).all()
+    assert len(audit) == 1 and audit[0].after == {"outcome": "answered"} and audit[0].entity_id == client_connection.id
+
+
+def test_a_check_while_google_still_refuses_keeps_the_item_blocked(client, db_session, google, client_connection, betrieb):
+    fake, _ = google
+    dealership, manager, location = betrieb
+    _active_binding(client, fake, dealership, manager, location)
+    fake.project_refusal = "SERVICE_DISABLED"
+    body = _staff_check(client).json()
+    assert body["outcome"] == "refused"
+    assert body["status"]["interrupted"] is True and body["status"]["refusal"] == "SERVICE_DISABLED"
+    db_session.expire_all()
+    assert _item(db_session, dealership.id).state == StatusState.BLOCKED
+
+
+def test_a_refused_grant_is_the_bindings_and_the_next_binding_is_asked(
+    client, db_session, google, client_connection, betrieb
+):
+    fake, secrets_store = google
+    dealership, manager, location = betrieb
+    first = _active_binding(client, fake, dealership, manager, location)
+    second = _active_binding(client, fake, dealership, manager, _location(db_session, dealership.id, name="Bern"), LOCATION_2)
+    fake.refused_refresh_tokens.add(secrets_store.values[(first, "refresh_token")])
+
+    body = _staff_check(client).json()
+    assert body["outcome"] == "answered"
+    db_session.expire_all()
+    assert db_session.get(GbpLocationBinding, first).status == GbpBindingStatus.ERROR
+    assert db_session.get(GbpLocationBinding, second).status == GbpBindingStatus.ACTIVE
+
+
+def test_a_check_needs_a_client_an_active_binding_and_a_closed_breaker(
+    client, db_session, google, client_connection, betrieb
+):
+    fake, _ = google
+    dealership, manager, location = betrieb
+    response = _staff_check(client)
+    assert response.status_code == 409
+    assert response.json()["error"]["details"]["reason"] == "business_profile_no_active_binding"
+
+    _active_binding(client, fake, dealership, manager, location)
+    for _ in range(resilience._FAILURE_THRESHOLD):
+        resilience.record_failure(client_connection.id)
+    response = _staff_check(client)
+    assert response.status_code == 409
+    assert response.json()["error"]["details"]["reason"] == "business_profile_breaker_open"
+
+    resilience._CIRCUITS.clear()
+    client_connection.enabled = False
+    db_session.commit()
+    response = _staff_check(client)
+    assert response.status_code == 409
+    assert response.json()["error"]["details"]["reason"] == "business_profile_not_configured"
+
+
+def test_only_staff_with_a_second_factor_check(client, db_session, google, client_connection, betrieb):
+    _, manager, _ = betrieb
+    assert client.post(CHECK, headers=_as(manager)).status_code == 403
+    assert _staff_check(client, mfa=False).status_code == 403

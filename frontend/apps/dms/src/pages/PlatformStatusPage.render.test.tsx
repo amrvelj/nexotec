@@ -125,4 +125,37 @@ describe('PlatformStatusPage (KAN-223)', () => {
     expect(within(panel).getByText((text) => text.includes(t('statusPage.platform.businessProfile.noCall')))).toBeInTheDocument()
     expect(within(panel).queryByText((text) => text.includes('SERVICE_DISABLED'))).toBeNull()
   })
+
+  // KAN-776, Anto's decision 1 A: «Erneut prüfen» asks Google once; a success turns the panel green.
+  it('checks the client again and shows Google\'s answer', async () => {
+    const interrupted = {
+      configured: true,
+      interrupted: true,
+      breakerOpen: false,
+      refusal: 'SERVICE_DISABLED',
+      refusedAt: '2026-11-20T09:00:00Z',
+      lastCallAt: '2026-11-20T09:00:00Z',
+      boundDealerships: 2,
+    }
+    const backend = installFakeBackend([
+      { method: 'GET', match: /^\/platform\/status-incidents$/, handler: () => ({ items: [] }) },
+      { method: 'GET', match: /^\/integrations\/business-profile\/client-status$/, handler: () => interrupted },
+      {
+        method: 'POST',
+        match: /^\/integrations\/business-profile\/client-status\/check$/,
+        handler: () => ({
+          outcome: 'answered',
+          status: { ...interrupted, interrupted: false, refusal: null, refusedAt: null, lastCallAt: '2026-11-21T08:00:00Z' },
+        }),
+      },
+    ])
+    renderWithProviders(<PlatformStatusPage />, { route: '/platform/status' })
+    const panel = await screen.findByRole('region', { name: t('statusPage.platform.businessProfile.title') })
+    expect(await within(panel).findByText(t('statusPage.platform.businessProfile.state.interrupted'))).toBeInTheDocument()
+    await userEvent.click(within(panel).getByRole('button', { name: t('statusPage.platform.businessProfile.check') }))
+    await waitFor(() => expect(backend.callsTo(/\/client-status\/check$/, 'POST')).toHaveLength(1))
+    expect(await within(panel).findByText(t('statusPage.platform.businessProfile.outcome.answered'))).toBeInTheDocument()
+    expect(within(panel).getByText(t('statusPage.platform.businessProfile.state.working'))).toBeInTheDocument()
+    expect(within(panel).queryByText((text) => text.includes('SERVICE_DISABLED'))).toBeNull()
+  })
 })

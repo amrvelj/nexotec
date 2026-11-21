@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next'
 import { Badge, FormDialog, useSetBreadcrumb } from '@nexotec/ui-kit'
 import { api } from '../api/client'
 import type {
+  BusinessProfileClientCheckRead,
   BusinessProfileClientStatusRead,
   IncidentSeverity,
   StatusIncidentCreate, StatusIncidentList, StatusIncidentRead } from '../api/types'
@@ -49,10 +50,31 @@ function phase(row: StatusIncidentRead, now: Date): 'current' | 'ended' | 'sched
 function BusinessProfileClientPanel() {
   const { t, i18n } = useTranslation()
   const locale = toSwissLocale(i18n.language as SupportedLanguage)
+  const queryClient = useQueryClient()
+  const statusKey = ['integrations', 'business-profile', 'client-status']
   const status = useQuery({
-    queryKey: ['integrations', 'business-profile', 'client-status'],
+    queryKey: statusKey,
     queryFn: () => api.get<BusinessProfileClientStatusRead>('/integrations/business-profile/client-status'),
   })
+  const [checking, setChecking] = useState(false)
+  const [outcome, setOutcome] = useState<BusinessProfileClientCheckRead['outcome'] | null>(null)
+  const [checkError, setCheckError] = useState<string | null>(null)
+  // «Erneut prüfen» (KAN-776, Anto's decision 1 A): one real request to Google
+  // through Nexotec's client; a success clears every Betrieb's item.
+  const checkAgain = async () => {
+    setChecking(true)
+    setOutcome(null)
+    setCheckError(null)
+    try {
+      const result = await api.post<BusinessProfileClientCheckRead>('/integrations/business-profile/client-status/check', {})
+      queryClient.setQueryData(statusKey, result.status)
+      setOutcome(result.outcome)
+    } catch (err) {
+      setCheckError(apiRefusalText(t, err, 'statusPage.platform.businessProfile.checkError'))
+    } finally {
+      setChecking(false)
+    }
+  }
   const data = status.data
   const causes: string[] = []
   if (data && !data.configured) causes.push(t('statusPage.platform.businessProfile.cause.notConfigured'))
@@ -75,11 +97,26 @@ function BusinessProfileClientPanel() {
             </Text>
           </div>
           {data && (
-            <Badge tone={data.interrupted ? 'destructive' : 'success'} dot>
-              {t(`statusPage.platform.businessProfile.state.${data.interrupted ? 'interrupted' : 'working'}`)}
-            </Badge>
+            <Group gap="sm" wrap="nowrap">
+              <Badge tone={data.interrupted ? 'destructive' : 'success'} dot>
+                {t(`statusPage.platform.businessProfile.state.${data.interrupted ? 'interrupted' : 'working'}`)}
+              </Badge>
+              <Button size="xs" variant="light" loading={checking} onClick={() => void checkAgain()}>
+                {t('statusPage.platform.businessProfile.check')}
+              </Button>
+            </Group>
           )}
         </Group>
+        {outcome && (
+          <Alert color={outcome === 'answered' ? 'green' : outcome === 'refused' ? 'red' : 'yellow'} role="status">
+            {t(`statusPage.platform.businessProfile.outcome.${outcome}`)}
+          </Alert>
+        )}
+        {checkError && (
+          <Alert color="red" role="alert">
+            {checkError}
+          </Alert>
+        )}
         {status.isError && (
           <Alert color="red" role="alert">
             {apiRefusalText(t, status.error, 'statusPage.platform.businessProfile.loadError')}

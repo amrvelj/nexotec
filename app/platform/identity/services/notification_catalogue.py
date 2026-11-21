@@ -60,6 +60,10 @@ class NotificationEventCode(str, enum.Enum):
     # KAN-223 (D-A-38): an item of the status page that is no longer green —
     # once per degradation until it clears (`services/status_notifications.py`).
     STATUS_ITEM_DEGRADED = "administration.status_item_degraded"
+    # KAN-776 (Anto, 2026-11-21, decision 2 B): the Business Profile item's own
+    # degradation notice — Nexotec's connection is interrupted, nothing to do
+    # on the Betrieb's side. Named by the item (`StatusItem.notification_event`).
+    BUSINESS_PROFILE_INTERRUPTED = "administration.business_profile_interrupted"
 
 
 @dataclasses.dataclass(frozen=True)
@@ -250,6 +254,16 @@ CATALOGUE: tuple[NotificationEventSpec, ...] = (
             "fr": "La page d'état n'est plus au vert",
             "it": "La pagina di stato non è più verde",
             "en": "The status page is no longer green",
+        },
+    ),
+    _administration(
+        NotificationEventCode.BUSINESS_PROFILE_INTERRUPTED,
+        "businessProfileInterrupted",
+        {
+            "de": "Google Business Profile: Verbindung von Nexotec unterbrochen",
+            "fr": "Google Business Profile : connexion de Nexotec interrompue",
+            "it": "Google Business Profile: connessione di Nexotec interrotta",
+            "en": "Google Business Profile: Nexotec's connection interrupted",
         },
     ),
 )

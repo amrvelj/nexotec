@@ -118,6 +118,10 @@
     "statusItemDegraded": {
       "title": "Die Statusseite ist nicht mehr grün",
       "body": "Ein Punkt auf der Statusseite Ihres Betriebs braucht Aufmerksamkeit. Öffnen Sie die Statusseite, um zu sehen, welcher und wie Sie ihn beheben."
+    },
+    "businessProfileInterrupted": {
+      "title": "Google Business Profile: Verbindung von Nexotec unterbrochen",
+      "body": "Die Verbindung von Nexotec zu Google Business Profile ist unterbrochen – wir kümmern uns darum. Für Sie gibt es nichts zu tun; Ihre Standorte werden wieder mit Google abgeglichen, sobald die Verbindung wieder steht."
     }
   },
   "recoveryActions": {

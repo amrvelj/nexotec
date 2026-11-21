@@ -104,7 +104,14 @@
       },
       "lastCall": "Dernier appel : {{date}}",
       "noCall": "Aucun appel pour l'instant.",
-      "bound": "Entreprises ayant un site connecté : {{count, number}}"
+      "bound": "Entreprises ayant un site connecté : {{count, number}}",
+      "check": "Vérifier à nouveau",
+      "outcome": {
+        "answered": "Google a répondu : le client et le projet sont acceptés.",
+        "refused": "Google a de nouveau refusé le client ou le projet.",
+        "unavailable": "Google n'a pas pu être joint. Réessayez plus tard."
+      },
+      "checkError": "La vérification n'a pas pu être effectuée."
     }
   },
   "refusals": {

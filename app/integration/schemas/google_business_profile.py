@@ -82,3 +82,12 @@ class BusinessProfileClientStatusRead(CamelModel):
     refused_at: dt.datetime | None
     last_call_at: dt.datetime | None
     bound_dealerships: int
+
+
+class BusinessProfileClientCheckRead(CamelModel):
+    """«Erneut prüfen» (KAN-776): what Google answered this time —
+    `answered` (client and project accepted), `refused` (refused again) or
+    `unavailable` — and the client's state after it."""
+
+    outcome: str = Field(pattern="^(answered|refused|unavailable)$")
+    status: BusinessProfileClientStatusRead

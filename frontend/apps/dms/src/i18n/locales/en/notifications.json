@@ -118,6 +118,10 @@
     "statusItemDegraded": {
       "title": "The status page is no longer green",
       "body": "An item on your business's status page needs attention. Open the status page to see which one and how to fix it."
+    },
+    "businessProfileInterrupted": {
+      "title": "Google Business Profile: Nexotec's connection interrupted",
+      "body": "Nexotec's connection to Google Business Profile is interrupted – we are on it. There is nothing to do on your side; your locations are kept in step with Google again as soon as the connection is back."
     }
   },
   "recoveryActions": {
