@@ -92,5 +92,9 @@
     "field": "Location",
     "fieldHint": "The location this account serves — for example a site's branch number at AutoScout24. «Whole business» when it serves every location.",
     "error": "The location could not be assigned."
+  },
+  "refusals": {
+    "messaging_not_connected": "No provider is connected for this channel. Connect one under Administration › Integrations.",
+    "messaging_provider_tenant_only": "Each business connects its own SMS and WhatsApp account; Nexotec holds none."
   }
 }

@@ -202,7 +202,5 @@
   "operator_not_allowed": "Cette condition ne s'applique pas à ce champ.",
   "invalid_filter_value": "La valeur du filtre n'est pas valable.",
   "sort_malformed": "Ce tri n'est pas valable.",
-  "field_not_sortable": "Ce champ ne peut pas être trié.",
-  "messaging_not_connected": "Aucun fournisseur n'est connecté pour ce canal. Connectez-en un sous Administration › Intégrations.",
-  "messaging_provider_tenant_only": "Chaque entreprise connecte son propre compte SMS et WhatsApp ; Nexotec n'en détient aucun."
+  "field_not_sortable": "Ce champ ne peut pas être trié."
 }

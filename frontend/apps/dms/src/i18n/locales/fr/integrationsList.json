@@ -92,5 +92,9 @@
     "field": "Site",
     "fieldHint": "Le site auquel ce compte s'applique — par exemple le numéro de filiale d'un site chez AutoScout24. « Toute l'entreprise » s'il vaut pour tous les sites.",
     "error": "Le site n'a pas pu être attribué."
+  },
+  "refusals": {
+    "messaging_not_connected": "Aucun fournisseur n'est connecté pour ce canal. Connectez-en un sous Administration › Intégrations.",
+    "messaging_provider_tenant_only": "Chaque entreprise connecte son propre compte SMS et WhatsApp ; Nexotec n'en détient aucun."
   }
 }

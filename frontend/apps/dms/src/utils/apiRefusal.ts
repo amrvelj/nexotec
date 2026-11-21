@@ -49,6 +49,10 @@ const REASON_KEYS: Record<string, string> = {
   vehicle_party_exists: 'customerDetail.linkVehicleRefused.roleAlreadyHeld',
   vehicle_party_future_holder: 'customerDetail.linkVehicleRefused.futureHolder',
   vin_differs_from_configuration: 'valuationCreate.vinDiffersFromConfiguration',
+  // KAN-217 PR-3 — SMS and WhatsApp are the Betrieb's own accounts, and a send
+  // needs one connected for its channel (in their screen's bundle: the reasons file is at its size limit).
+  messaging_not_connected: 'integrationsList.refusals.messaging_not_connected',
+  messaging_provider_tenant_only: 'integrationsList.refusals.messaging_provider_tenant_only',
   // KAN-221 PR-6 — the Platform users panel's revoke.
   last_platform_admin: 'supportSessions.staff.refusals.last_platform_admin',
   platform_admin_self_revoke: 'supportSessions.staff.refusals.platform_admin_self_revoke',
@@ -411,10 +415,6 @@ const REASON_KEYS: Record<string, string> = {
       // a provider flipped to «no sandbox» while sandbox connections remain.
       'provider_has_no_sandbox',
       'provider_sandbox_connections_exist',
-      // KAN-217 PR-3 — SMS and WhatsApp are the Betrieb's own accounts, and
-      // a send needs one connected for its channel.
-      'messaging_not_connected',
-      'messaging_provider_tenant_only',
     ].map((reason) => [reason, `apiRefusal.reasons.${reason}`]),
   ),
 }

@@ -202,7 +202,5 @@
   "operator_not_allowed": "This condition does not apply to this field.",
   "invalid_filter_value": "The filter value is not valid.",
   "sort_malformed": "This sort order is not valid.",
-  "field_not_sortable": "This field cannot be sorted.",
-  "messaging_not_connected": "No provider is connected for this channel. Connect one under Administration › Integrations.",
-  "messaging_provider_tenant_only": "Each business connects its own SMS and WhatsApp account; Nexotec holds none."
+  "field_not_sortable": "This field cannot be sorted."
 }
