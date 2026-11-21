@@ -65,7 +65,7 @@ def is_draft(version: str) -> bool:
 
 def validate_version(version: str) -> str:
     version = version.strip()
-    if not _VERSION.match(version):
+    if not _VERSION.fullmatch(version):
         raise UnprocessableEntityError(
             "A version is one to three dotted numbers, for example 1.0 or 1.2.1.",
             details={"reason": "legal_document_version_invalid", "field": "version"},

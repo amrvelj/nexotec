@@ -200,16 +200,16 @@ def classify_identifier(raw: str) -> tuple[IdentifierKind, str] | None:
     compact = re.sub(r"[\s.]", "", raw.strip().upper())
     if not compact:
         return None
-    if _VIN_RE.match(compact):
+    if _VIN_RE.fullmatch(compact):
         return IdentifierKind.VIN, compact
     plate = normalise_plate(raw)
-    plate_match = _PLATE_RE.match(plate)
+    plate_match = _PLATE_RE.fullmatch(plate)
     if plate_match and plate_match.group(1) in _CANTONS:
         return IdentifierKind.KONTROLLSCHILD, plate
-    if _STAMMNUMMER_RE.match(compact):
+    if _STAMMNUMMER_RE.fullmatch(compact):
         return IdentifierKind.STAMMNUMMER, compact
-    if _TYPENSCHEIN_RE.match(compact) and re.search(r"[A-Z]", compact):
+    if _TYPENSCHEIN_RE.fullmatch(compact) and re.search(r"[A-Z]", compact):
         return IdentifierKind.TYPENSCHEIN, compact
-    if _WERKSCODE_RE.match(compact):
+    if _WERKSCODE_RE.fullmatch(compact):
         return IdentifierKind.WERKSCODE, compact
     return None

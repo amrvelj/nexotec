@@ -220,7 +220,7 @@ def propose_best_match(
     so the confirmed configuration can link it."""
 
     type_approval_number = type_approval_number.strip().upper()
-    if not _TYPENSCHEIN_RE.match(type_approval_number):
+    if not _TYPENSCHEIN_RE.fullmatch(type_approval_number):
         raise UnprocessableEntityError(
             "A best match needs a Typenschein.", details={"reason": "invalid_type_approval_number"}
         )

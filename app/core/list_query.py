@@ -221,7 +221,7 @@ def _refuse(reason: str, message: str, **details: Any) -> UnprocessableEntityErr
 
 
 def _parse_decimal(raw: str, pattern: re.Pattern[str], field: str) -> decimal.Decimal:
-    if not pattern.match(raw):
+    if not pattern.fullmatch(raw):
         raise _refuse("invalid_filter_value", f"'{raw}' is not a number for '{field}'.", field=field, value=raw)
     return decimal.Decimal(raw)
 
@@ -261,7 +261,7 @@ def _parse_value(spec: ColumnSpec, operator: str, raw: str | None) -> Any:
         return _parse_decimal(raw, pattern, field)
     if kind in ("date", "datetime"):
         if operator in ("inTheLastDays", "moreThanDaysAgo"):
-            if not _DAYS.match(raw) or int(raw) > MAX_FILTER_DAYS:
+            if not _DAYS.fullmatch(raw) or int(raw) > MAX_FILTER_DAYS:
                 raise _refuse("invalid_filter_value", f"A day count 0…{MAX_FILTER_DAYS} for '{field}'.", field=field)
             return int(raw)
         try:

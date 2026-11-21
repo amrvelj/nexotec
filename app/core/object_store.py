@@ -37,7 +37,7 @@ class InvalidObjectKey(ValueError):
 
 
 def validate_key(key: str) -> str:
-    if not _KEY.match(key) or "/../" in f"/{key}/" or "//" in key:
+    if not _KEY.fullmatch(key) or "/../" in f"/{key}/" or "//" in key:
         raise InvalidObjectKey(f"invalid object key: {key!r}")
     return key
 

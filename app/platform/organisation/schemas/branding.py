@@ -18,7 +18,7 @@ from app.platform.reference.schemas.patch import refuse_null_on_not_null_fields
 def _hex(value: str | None) -> str | None:
     if value is None:
         return None
-    if not HEX_COLOR.match(value):
+    if not HEX_COLOR.fullmatch(value):
         raise ValueError("A colour is written #RRGGBB, e.g. #7C3AED.")
     return value.upper()
 
