@@ -12,7 +12,7 @@ Both hold ids and hashes only; no secret material, so the downgrade drops
 them.
 
 Revision ID: 8c4f19b2d471
-Revises: b2be6d0c6a85
+Revises: c7d2a9e4f1b8
 Create Date: 2026-11-21 14:10:43.168970
 
 """
@@ -26,7 +26,7 @@ from app.core.types import GUID, UTCDateTime
 
 # revision identifiers, used by Alembic.
 revision: str = "8c4f19b2d471"
-down_revision: str | Sequence[str] | None = "b2be6d0c6a85"
+down_revision: str | Sequence[str] | None = "c7d2a9e4f1b8"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
