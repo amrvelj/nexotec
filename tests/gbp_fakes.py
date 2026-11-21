@@ -100,10 +100,9 @@ class FakeGoogle:
         self.grant_refusal_reason: str | None = None
         # KAN-226 PR-3: the `hoursTypeId`s the location's category offers
         # (answered on a read whose mask names `categories`), and a status
-        # every PATCH / media call answers with instead of success.
+        # every PATCH answers with instead of success.
         self.more_hours_types: list[str] = []
         self.patch_failure_status: int | None = None
-        self.media_failure_status: int | None = None
 
     # -- the test's side ---------------------------------------------------------
 
@@ -168,8 +167,6 @@ class FakeGoogle:
                     return _json(400, {"error": {"code": 400, "status": "INVALID_ARGUMENT"}})
                 return _json(200, {**RECORDED["location_get"], **json.loads(request.content)})
             return _json(200, RECORDED["location_get"])
-        if url.endswith("/media:startUpload") and self.media_failure_status is not None:
-            return _json(self.media_failure_status, {"error": {"code": self.media_failure_status}})
         if url.endswith("/media:startUpload"):
             return _json(200, RECORDED["media_start_upload"])
         if url.startswith(gbp.UPLOAD_API + "/"):

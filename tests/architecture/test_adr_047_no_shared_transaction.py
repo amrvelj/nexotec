@@ -355,10 +355,9 @@ _READS = {
     "app.platform.public.get_location_labels",
     # KAN-222: the location a manager binds a connection to, read by (Betrieb, id); a SELECT only.
     "app.platform.public.get_location_or_404",
-    # KAN-226 PR-3: a location's published state and one publishing image's bytes, for the
-    # Business Profile push consumers; a SELECT and an object-store read only.
+    # KAN-226 PR-3: a location's published state, for the Business Profile push consumers;
+    # a SELECT only.
     "app.platform.public.location_channel_facts",
-    "app.platform.public.location_channel_image",
     # KAN-403: users' names for the nightly advisor-label refresh; a SELECT only.
     "app.platform.public.get_user_display_labels",
     # KAN-410: the advisor picker — users homed in the Betrieb or members of it; a SELECT only.

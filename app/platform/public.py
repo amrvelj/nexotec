@@ -5,11 +5,9 @@ contract allows `app.<other-context>` to import `app.platform.public`, never
 
 from app.platform.administration.services.data_export_tables import PlatformExporter
 from app.platform.administration.services.location_channel_facts import (
-    ChannelImage,
     ChannelOpeningHours,
     LocationChannelFacts,
     location_channel_facts,
-    location_channel_image,
 )
 from app.platform.administration.services.publishing_readiness import (
     PublishingMissingItem,
@@ -195,7 +193,6 @@ __all__ = [
     "PLACEHOLDER_UNRESOLVED",
     "ActingUser",
     "Addressee",
-    "ChannelImage",
     "ChannelOpeningHours",
     "ConnectedAccountProvider",
     "ConnectedAccountStatus",
@@ -275,7 +272,6 @@ __all__ = [
     "list_user_dealer_group_ids",
     "list_user_dealership_ids",
     "location_channel_facts",
-    "location_channel_image",
     "location_reference_check",
     "message_types",
     "notify",

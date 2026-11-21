@@ -1,27 +1,29 @@
 """KAN-226 PR-3 (D-A-32, FR-A-35; Anto's Q1 A): the Google Business Profile
 push — Platform's location facts (and Integration's own fact that a binding
 went live) push the location's fields, hours and closed days to its Google
-location, and upload its publishing images, one way.
+location, one way. Photos are not pushed yet (KAN-784).
 
 What is pinned here:
 - the mapping (`gbp_push.build_patch`): the main department → regularHours,
   the other departments → moreHours under the type Google's category offers,
   one Google does not offer left out and recorded, two intervals, 00:00 as
   `{}`, closures and holidays → specialHours closed days, the address block,
-  phone and website, a field without a value never in the mask;
+  phone and website, a field never pushed and without a value never in the
+  mask, a field pushed before and empty now masked and cleared;
 - Platform's read (`platform.public.location_channel_facts`): tenant-scoped,
   closures and observed holidays within the horizon;
 - the consumers: a redelivered event pushes nothing again; a burst is one
   push (the debounce); a transient failure raises (retried, then
   dead-lettered); a refused grant moves the binding to error and is not
   retried; no live binding, an inactive site or another Betrieb's location
-  sends nothing; the activation pushes and uploads; a photo is uploaded once.
+  sends nothing; the activation pushes.
 
 Against the recorded fixture only (`tests/gbp_fakes.py`, invented values):
 nothing here has run against Google.
 """
 
 import datetime as dt
+import json
 import uuid
 
 import pytest
@@ -29,20 +31,17 @@ from sqlalchemy import select
 from sqlalchemy.orm import sessionmaker
 
 from app.core.base import utcnow
-from app.core.object_store import LocalDirectoryObjectStore
 from app.core.outbox_model import OutboxMessage, OutboxStatus
 from app.core.outbox_transport import DeliveryError, InProcessTransport
 from app.core.outbox_worker import MAX_ATTEMPTS, poll_once
-from app.integration.consumers import handle_business_profile_photos_message, handle_business_profile_push_message
+from app.core.relative_dates import today_in_session_zone
+from app.integration.consumers import handle_business_profile_push_message
 from app.integration.models.google_business_profile import (
     GbpBindingStatus,
     GbpLocationBinding,
-    GbpPhoto,
     GbpPushState,
 )
 from app.integration.services import gbp_link, gbp_push
-from app.platform.administration.services import location_channel_facts as facts_module
-from app.platform.organisation.models.branding_asset import BrandingAsset, BrandingAssetKind
 from app.platform.organisation.models.dealership import Location
 from app.platform.organisation.models.location_schedule import (
     LocationClosure,
@@ -95,7 +94,6 @@ def _facts(**overrides) -> LocationChannelFacts:
         website="garage-beispiel.invalid",
         opening_hours=tuple(_hours(d, w) for d in ("sales", "service", "parts") for w in (1, 2)),
         closed_days=(),
-        images=(),
     )
     base.update(overrides)
     return LocationChannelFacts(**base)
@@ -489,143 +487,107 @@ def test_a_fact_naming_another_betrieb_never_reaches_this_betriebs_binding(
     assert fake.requests == []
 
 
-# -- the activation and the photos ---------------------------------------------------------------
+# -- removals reach Google -----------------------------------------------------------------------
 
 
-@pytest.fixture
-def store(tmp_path, monkeypatch):
-    store = LocalDirectoryObjectStore(tmp_path)
-    monkeypatch.setattr(facts_module, "get_object_store", lambda: store)
-    return store
+def test_a_field_pushed_before_and_empty_now_is_masked_and_cleared():
+    """A removal in Nexotec reaches Google: the last closure deleted, a
+    department that lost its own hours, the phone cleared."""
 
-
-def _image(db_session, store, dealership_id, location_id, kind, *, primary=False, position=0, stored=True):
-    asset = BrandingAsset(
-        id=uuid.uuid4(),
-        dealership_id=dealership_id,
-        location_id=location_id,
-        kind=kind,
-        object_key=f"dealerships/{dealership_id}/publishing/locations/{location_id}/{kind.value}/{uuid.uuid4()}",
-        mime_type="image/png",
-        width=1200,
-        height=800,
-        byte_size=8,
-        uploaded_by=uuid.uuid4(),
-        position=position,
-        is_primary=primary,
-    )
-    db_session.add(asset)
-    db_session.commit()
-    if stored:
-        store.put(asset.object_key, b"\x89PNGfake", content_type="image/png")
-    return asset
-
-
-def _imagery_fact(db_session, dealership_id, location_id, changed=("imagery",)) -> OutboxMessage:
-    from app.core.outbox import OutboxEvent, publish
-
-    publish(
-        db_session,
-        OutboxEvent(
-            event_type="platform.publishing_profile.updated",
-            tenant_id=dealership_id,
-            producer="platform",
-            aggregate_type="publishing_profile",
-            aggregate_id=uuid.uuid4(),
-            payload={
-                "dealershipId": str(dealership_id),
-                "profileId": str(uuid.uuid4()),
-                "version": 2,
-                "locationId": str(location_id),
-                "changedFields": list(changed),
-            },
+    before = gbp_push.build_patch(
+        _facts(
+            opening_hours=(_hours("sales", 1, second=None), _hours("service", 2, second=None)),
+            closed_days=(TODAY,),
         ),
+        offered_hours_types=frozenset({"SERVICE"}),
     )
-    db_session.commit()
-    return _latest(db_session, "platform.publishing_profile.updated")
+    assert {"specialHours", "moreHours", "phoneNumbers.primaryPhone"} <= set(before.pushed_fields)
 
-
-def _photo_transport(engine):
-    return _transport(
-        engine,
-        consumer_name=PHOTOS,
-        handler=handle_business_profile_photos_message,
-        event_type="platform.publishing_profile.updated",
+    after = gbp_push.build_patch(
+        _facts(phone=None, opening_hours=(_hours("sales", 1, second=None),), closed_days=()),
+        offered_hours_types=frozenset({"SERVICE"}),
+        previously_pushed=frozenset(before.pushed_fields),
     )
 
-
-def test_each_image_is_uploaded_once_under_its_category(db_session, engine, google, client_connection, betrieb, store):
-    fake, _ = google
-    dealership, location = betrieb
-    binding = _bind(db_session, google, dealership.id, location.id)
-    hero = _image(db_session, store, dealership.id, location.id, BrandingAssetKind.HERO, primary=True)
-    _image(db_session, store, dealership.id, location.id, BrandingAssetKind.HERO, position=1)
-    premises = _image(db_session, store, dealership.id, location.id, BrandingAssetKind.PREMISES, primary=True)
-    _image(db_session, store, dealership.id, location.id, BrandingAssetKind.TEAM, stored=False)  # bytes gone: skipped
-
-    transport = _photo_transport(engine)
-    transport.deliver(_imagery_fact(db_session, dealership.id, location.id))
-    transport.deliver(_imagery_fact(db_session, dealership.id, location.id))  # a second fact: nothing new
-
-    db_session.expire_all()
-    photos = {p.image_id: p.category for p in db_session.scalars(select(GbpPhoto)).all()}
-    assert photos[hero.id] == "COVER" and photos[premises.id] == "EXTERIOR"
-    assert sorted(photos.values()) == ["ADDITIONAL", "COVER", "EXTERIOR"]
-    assert len(fake.calls("/media:startUpload")) == 3
-    assert all(p.binding_id == binding.id for p in db_session.scalars(select(GbpPhoto)).all())
+    assert {"specialHours", "moreHours", "phoneNumbers.primaryPhone"} <= set(after.update_mask)
+    assert after.fields["specialHours"] == {}
+    assert after.fields["moreHours"] == []
+    assert after.fields["phoneNumbers"] == {}
+    # What is cleared is not «pushed» any more: the next push does not clear it again.
+    assert not {"specialHours", "moreHours", "phoneNumbers.primaryPhone"} & set(after.pushed_fields)
 
 
-def test_a_profile_fact_without_imagery_uploads_nothing(db_session, engine, google, client_connection, betrieb, store):
-    fake, _ = google
-    dealership, location = betrieb
-    _bind(db_session, google, dealership.id, location.id)
-    _image(db_session, store, dealership.id, location.id, BrandingAssetKind.PREMISES, primary=True)
-    _photo_transport(engine).deliver(
-        _imagery_fact(db_session, dealership.id, location.id, changed=("shortDescription",))
+def test_a_department_that_now_has_the_main_hours_is_cleared_from_more_hours():
+    before = gbp_push.build_patch(
+        _facts(opening_hours=(_hours("sales", 1, second=None), _hours("service", 2, second=None))),
+        offered_hours_types=frozenset({"SERVICE"}),
     )
-    assert fake.requests == []
+    after = gbp_push.build_patch(
+        _facts(opening_hours=(_hours("sales", 1, second=None), _hours("service", 1, second=None))),
+        offered_hours_types=frozenset({"SERVICE"}),
+        previously_pushed=frozenset(before.pushed_fields),
+    )
+    assert "moreHours" in after.update_mask and after.fields["moreHours"] == []
 
 
-def test_a_failed_upload_keeps_the_ones_before_it_and_the_retry_sends_only_the_rest(
-    db_session, engine, google, client_connection, betrieb, store, monkeypatch
+def test_a_field_never_pushed_stays_out_of_the_mask_whatever_was_pushed_before():
+    after = gbp_push.build_patch(
+        _facts(phone=None, opening_hours=(_hours("sales", 1, second=None),), closed_days=()),
+        offered_hours_types=frozenset(),
+        previously_pushed=frozenset({"storefrontAddress", "regularHours"}),
+    )
+    assert not {"specialHours", "moreHours", "phoneNumbers.primaryPhone"} & set(after.update_mask)
+    assert "phoneNumbers" not in after.fields and "specialHours" not in after.fields
+
+
+def test_the_website_removed_is_masked_without_a_value_and_the_address_is_never_cleared():
+    after = gbp_push.build_patch(
+        _facts(website=None, address_postal_code=None, opening_hours=()),
+        offered_hours_types=frozenset(),
+        previously_pushed=frozenset({"websiteUri", "storefrontAddress", "regularHours"}),
+    )
+    assert "websiteUri" in after.update_mask and "websiteUri" not in after.fields
+    assert after.fields["regularHours"] == {}
+    assert "storefrontAddress" not in after.update_mask
+
+
+def test_deleting_the_last_closure_and_clearing_the_phone_reach_google(
+    db_session, engine, google, client_connection, betrieb
 ):
     fake, _ = google
     dealership, location = betrieb
-    _bind(db_session, google, dealership.id, location.id)
-    _image(db_session, store, dealership.id, location.id, BrandingAssetKind.PREMISES, primary=True)
-    _image(db_session, store, dealership.id, location.id, BrandingAssetKind.PREMISES, position=1)
-    message = _imagery_fact(db_session, dealership.id, location.id)
-    original = gbp_push.GoogleBusinessProfileAdapter.upload_photo
-    calls = {"n": 0}
+    binding = _bind(db_session, google, dealership.id, location.id)
+    closure = LocationClosure(
+        location_id=location.id, starts_on=today_in_session_zone()[0], ends_on=today_in_session_zone()[0], reason="x"
+    )
+    db_session.add(closure)
+    db_session.commit()
+    _transport(engine).deliver(_schedule_fact(db_session, location))
+    assert "specialHours" in _state(db_session, binding).pushed_fields
 
-    def flaky(self, **kwargs):
-        calls["n"] += 1
-        if calls["n"] == 2:
-            fake.media_failure_status = 503
-        try:
-            return original(self, **kwargs)
-        finally:
-            fake.media_failure_status = None
+    db_session.delete(closure)
+    location.phone = None
+    db_session.commit()
+    _transport(engine).deliver(_schedule_fact(db_session, location))
 
-    monkeypatch.setattr(gbp_push.GoogleBusinessProfileAdapter, "upload_photo", flaky)
-    with pytest.raises(DeliveryError):
-        _photo_transport(engine).deliver(message)
-    db_session.expire_all()
-    assert len(db_session.scalars(select(GbpPhoto)).all()) == 1
-
-    _photo_transport(engine).deliver(message)
-    db_session.expire_all()
-    assert len(db_session.scalars(select(GbpPhoto)).all()) == 2 and calls["n"] == 3
+    second = fake.patches()[-1]
+    mask = second.url.params["updateMask"].split(",")
+    assert "specialHours" in mask and "phoneNumbers.primaryPhone" in mask
+    body = json.loads(second.content)
+    assert body["specialHours"] == {} and body["phoneNumbers"] == {}
+    assert not {"specialHours", "phoneNumbers.primaryPhone"} & set(_state(db_session, binding).pushed_fields)
 
 
-def test_picking_the_google_location_states_the_activation_which_pushes_and_uploads(
-    client, db_session, engine, google, client_connection, store
+# -- the activation ---------------------------------------------------------------------------------
+
+
+def test_picking_the_google_location_states_the_activation_which_pushes(
+    client, db_session, engine, google, client_connection
 ):
     fake, _ = google
     dealership = _make_dealership(db_session)
     manager = make_user(db_session, tenant_id=dealership.id, email=f"chef-{uuid.uuid4().hex[:6]}@example.test")
     location = _site(db_session, dealership.id)
-    _image(db_session, store, dealership.id, location.id, BrandingAssetKind.PREMISES, primary=True)
     binding = _link(client, fake, dealership, manager, location)["binding"]
     assert _pick(client, dealership, manager, binding, location=LOCATION_2).status_code == 200
 
@@ -633,20 +595,12 @@ def test_picking_the_google_location_states_the_activation_which_pushes_and_uplo
     assert message.tenant_id == dealership.id and message.payload["locationId"] == str(location.id)
     assert message.payload["bindingId"] == binding["id"]
 
-    factory = sessionmaker(bind=engine, autoflush=False, autocommit=False, expire_on_commit=False)
-    transport = InProcessTransport(factory)
-    transport.register(
-        gbp_link.BINDING_ACTIVATED_EVENT,
+    _transport(
+        engine,
         consumer_name="integration.business_profile_push_on_binding_activated",
-        handler=handle_business_profile_push_message,
-    )
-    transport.register(
-        gbp_link.BINDING_ACTIVATED_EVENT,
-        consumer_name="integration.business_profile_photos_on_binding_activated",
-        handler=handle_business_profile_photos_message,
-    )
-    transport.deliver(message)
+        event_type=gbp_link.BINDING_ACTIVATED_EVENT,
+    ).deliver(message)
 
     [patch] = fake.patches()
     assert str(patch.url).split("?")[0].endswith(LOCATION_2)
-    assert len(fake.calls("/media:startUpload")) == 1
+    assert fake.calls("/media") == []  # photos wait for KAN-784

@@ -18,9 +18,10 @@ payloads):
 - its opening hours per department, as stored (one row per department and
   open weekday, a second interval for the lunch break);
 - the days it is closed within a horizon from `today`: its own closures and
-  the observed holidays of its holiday calendar, each day once;
-- its publishing imagery (premises, team, hero), in the order the dealer gave
-  it; `location_channel_image` hands out one image's bytes.
+  the observed holidays of its holiday calendar, each day once.
+
+Its publishing imagery is not read here yet: the push consumers run in the
+worker, which cannot read the object store's disk in production (KAN-784).
 """
 
 import dataclasses
@@ -30,8 +31,6 @@ import uuid
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.core.object_store import get_object_store
-from app.platform.organisation.models.branding_asset import IMAGERY_KINDS, BrandingAsset
 from app.platform.organisation.models.dealership import Dealership, Location
 from app.platform.organisation.models.holiday_calendar import Holiday
 from app.platform.organisation.models.location_schedule import LocationClosure, LocationOpeningHours
@@ -52,15 +51,6 @@ class ChannelOpeningHours:
 
 
 @dataclasses.dataclass(frozen=True)
-class ChannelImage:
-    image_id: uuid.UUID
-    kind: str  # `premises` | `team` | `hero`
-    is_primary: bool
-    position: int
-    mime_type: str
-
-
-@dataclasses.dataclass(frozen=True)
 class LocationChannelFacts:
     dealership_id: uuid.UUID
     location_id: uuid.UUID
@@ -76,7 +66,6 @@ class LocationChannelFacts:
     website: str | None
     opening_hours: tuple[ChannelOpeningHours, ...]
     closed_days: tuple[dt.date, ...]
-    images: tuple[ChannelImage, ...]
 
 
 def _location(db: Session, *, dealership_id: uuid.UUID, location_id: uuid.UUID) -> Location | None:
@@ -123,15 +112,6 @@ def location_channel_facts(
         .where(LocationOpeningHours.location_id == location.id)
         .order_by(LocationOpeningHours.department, LocationOpeningHours.weekday)
     ).all()
-    images = db.scalars(
-        select(BrandingAsset)
-        .where(
-            BrandingAsset.dealership_id == dealership_id,
-            BrandingAsset.location_id == location.id,
-            BrandingAsset.kind.in_(IMAGERY_KINDS),
-        )
-        .order_by(BrandingAsset.kind, BrandingAsset.position, BrandingAsset.id)
-    ).all()
     return LocationChannelFacts(
         dealership_id=dealership_id,
         location_id=location.id,
@@ -157,36 +137,4 @@ def location_channel_facts(
             for row in hours
         ),
         closed_days=_closed_days(db, location, today=today),
-        images=tuple(
-            ChannelImage(
-                image_id=image.id,
-                kind=image.kind.value,
-                is_primary=bool(image.is_primary),
-                position=image.position or 0,
-                mime_type=image.mime_type,
-            )
-            for image in images
-        ),
     )
-
-
-def location_channel_image(
-    db: Session, *, dealership_id: uuid.UUID, location_id: uuid.UUID, image_id: uuid.UUID
-) -> tuple[bytes, str] | None:
-    """One publishing image's bytes and media type; `None` when it is not this
-    location's (or no longer stored)."""
-
-    image = db.scalar(
-        select(BrandingAsset).where(
-            BrandingAsset.id == image_id,
-            BrandingAsset.dealership_id == dealership_id,
-            BrandingAsset.location_id == location_id,
-            BrandingAsset.kind.in_(IMAGERY_KINDS),
-        )
-    )
-    if image is None:
-        return None
-    stored = get_object_store().get(image.object_key)
-    if stored is None:
-        return None
-    return stored.data, image.mime_type
