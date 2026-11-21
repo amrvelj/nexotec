@@ -7,8 +7,11 @@ degradation is announced to the Betrieb's active managers **exactly once, by
 someone**:
 
 - an item that is warning or blocked and was ok (or never seen) raises one
-  `administration.status_item_degraded` notification to each active manager,
-  and the row records when (`notified_at`);
+  `administration.status_item_degraded` notification to each active manager
+  — or the item's own one when it names one this module knows
+  (`StatusItem.notification_event`; Google Business Profile's
+  `administration.business_profile_interrupted`, KAN-776) — and the row
+  records when (`notified_at`);
 - a warning its source really announced itself (`notified_by_source`: an
   integration whose expiry notice was sent, KAN-222) is recorded, not
   notified a second time — but the move on to **blocked** is never exempt: if
@@ -72,17 +75,39 @@ def _lock_dealership(db: Session, dealership_id: uuid.UUID) -> None:
     db.execute(text("SELECT pg_advisory_xact_lock(:key)"), {"key": int.from_bytes(digest[:8], "big", signed=True)})
 
 
+def _deliver(
+    db: Session, item: StatusItem, *, user_id: uuid.UUID, dealership_id: uuid.UUID, subject: notifications.NotificationSubject
+) -> uuid.UUID | None:
+    """The item's own notification when it names a catalogued one (KAN-776:
+    Google Business Profile's «nothing to do on your side»), else the generic
+    `administration.status_item_degraded`. Each call names its code as a
+    literal (`test_notify_call_sites_use_registered_codes.py`)."""
+
+    params = {"source": item.source, "state": item.state.value}
+    if item.notification_event == NotificationEventCode.BUSINESS_PROFILE_INTERRUPTED.value:
+        return notifications.notify(
+            db,
+            NotificationEventCode.BUSINESS_PROFILE_INTERRUPTED,
+            user_id=user_id,
+            dealership_id=dealership_id,
+            subject=subject,
+            params=params,
+        )
+    return notifications.notify(
+        db,
+        NotificationEventCode.STATUS_ITEM_DEGRADED,
+        user_id=user_id,
+        dealership_id=dealership_id,
+        subject=subject,
+        params=params,
+    )
+
+
 def _notify_managers(db: Session, dealership: Dealership, row: StatusItemState, item: StatusItem) -> int:
     notified = 0
+    subject = notifications.NotificationSubject(type=SUBJECT_TYPE, id=row.id, link=STATUS_PAGE_LINK)
     for manager in active_managers(db, dealership.id):
-        delivered = notifications.notify(
-            db,
-            NotificationEventCode.STATUS_ITEM_DEGRADED,
-            user_id=manager.id,
-            dealership_id=dealership.id,
-            subject=notifications.NotificationSubject(type=SUBJECT_TYPE, id=row.id, link=STATUS_PAGE_LINK),
-            params={"source": item.source, "state": item.state.value},
-        )
+        delivered = _deliver(db, item, user_id=manager.id, dealership_id=dealership.id, subject=subject)
         if delivered is not None:
             notified += 1
     return notified

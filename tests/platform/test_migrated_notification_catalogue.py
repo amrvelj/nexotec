@@ -77,5 +77,6 @@ def test_the_migrated_catalogue_is_the_declared_one(migrated_url):
     assert rows == _declared()
     # The security family of v1 (D-A-40, twelve) and the administration family's
     # events: an integration nearing its expiry (KAN-222), a checklist item regressed (KAN-214),
-    # a status-page item no longer green (KAN-223).
-    assert len(rows) == 15
+    # a status-page item no longer green (KAN-223), and Google Business Profile's own
+    # «Nexotec's connection is interrupted» (KAN-776).
+    assert len(rows) == 16

@@ -60,8 +60,9 @@ against main@3b2bf69 (2026-11-18). -->
   the `administration` family — `administration.integration_expiring` (KAN-222: platform's consumer
   of integration's `integration.connection.expiry_approaching` fact raises it for each active
   manager of the Betrieb; integration sends no e-mail and never calls `notify`),
-  `administration.checklist_item_regressed` (KAN-214) and `administration.status_item_degraded`
-  (KAN-223, `platform-administration.md`)). From another
+  `administration.checklist_item_regressed` (KAN-214), `administration.status_item_degraded`
+  (KAN-223, `platform-administration.md`) and `administration.business_profile_interrupted`
+  (KAN-776: the status job raises it for the item that names it, `StatusItem.notification_event`)). From another
   context it would write platform's tables in that context's transaction (rule 12, ADR-047): the
   first module to raise a notification needs a decided design and an ADR first — its own outbox
   event that platform consumes, or a call on a session of its own with a compensating action —

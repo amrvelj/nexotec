@@ -116,8 +116,10 @@ const REASON_KEYS: Record<string, string> = {
     [
       'binding_already_disconnected',
       'binding_not_pending',
+      'business_profile_breaker_open',
       'business_profile_consent_incomplete',
       'business_profile_grant_refused',
+      'business_profile_no_active_binding',
       'business_profile_not_configured',
       'business_profile_platform_only',
       'google_location_already_bound',

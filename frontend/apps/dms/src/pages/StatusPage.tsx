@@ -15,7 +15,7 @@ const STATE_TONE: Record<StatusState, BadgeTone> = {
   blocked: 'destructive',
 }
 
-const SOURCE_ORDER = ['number_ranges', 'integration', 'nexotec']
+const SOURCE_ORDER = ['number_ranges', 'integration', 'google_business_profile', 'nexotec']
 
 const LANGUAGES = ['de', 'fr', 'it', 'en'] as const
 type Language = (typeof LANGUAGES)[number]

@@ -118,6 +118,10 @@
     "statusItemDegraded": {
       "title": "La page d'état n'est plus au vert",
       "body": "Un point de la page d'état de votre entreprise demande votre attention. Ouvrez la page d'état pour voir lequel et comment le corriger."
+    },
+    "businessProfileInterrupted": {
+      "title": "Google Business Profile : connexion de Nexotec interrompue",
+      "body": "La connexion de Nexotec à Google Business Profile est interrompue – nous nous en occupons. Vous n'avez rien à faire."
     }
   },
   "recoveryActions": {

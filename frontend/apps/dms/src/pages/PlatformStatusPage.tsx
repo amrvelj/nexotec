@@ -4,7 +4,11 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Badge, FormDialog, useSetBreadcrumb } from '@nexotec/ui-kit'
 import { api } from '../api/client'
-import type { IncidentSeverity, StatusIncidentCreate, StatusIncidentList, StatusIncidentRead } from '../api/types'
+import type {
+  BusinessProfileClientCheckRead,
+  BusinessProfileClientStatusRead,
+  IncidentSeverity,
+  StatusIncidentCreate, StatusIncidentList, StatusIncidentRead } from '../api/types'
 import { toSwissLocale, type SupportedLanguage } from '../i18n'
 import { languageEndonym } from '../i18n/languageEndonyms'
 import { apiRefusalText } from '../utils/apiRefusal'
@@ -34,6 +38,110 @@ function phase(row: StatusIncidentRead, now: Date): 'current' | 'ended' | 'sched
   if (new Date(row.startsAt) > now) return 'scheduled'
   if (row.endsAt && new Date(row.endsAt) <= now) return 'ended'
   return 'current'
+}
+
+/**
+ * Nexotec's own Business Profile client at Google (KAN-776; ADR-195, ADR-196;
+ * Anto, 2026-11-20, option C): staff see whether it is interrupted and why —
+ * not set up, breaker open, or Google's refusal identifier of the latest call
+ * — and how many Betriebe hold a connected location. Those Betriebe see one
+ * «interrupted – we are on it» item on their own status page, never the cause.
+ */
+function BusinessProfileClientPanel() {
+  const { t, i18n } = useTranslation()
+  const locale = toSwissLocale(i18n.language as SupportedLanguage)
+  const queryClient = useQueryClient()
+  const statusKey = ['integrations', 'business-profile', 'client-status']
+  const status = useQuery({
+    queryKey: statusKey,
+    queryFn: () => api.get<BusinessProfileClientStatusRead>('/integrations/business-profile/client-status'),
+  })
+  const [checking, setChecking] = useState(false)
+  const [outcome, setOutcome] = useState<BusinessProfileClientCheckRead['outcome'] | null>(null)
+  const [checkError, setCheckError] = useState<string | null>(null)
+  // «Erneut prüfen» (KAN-776, Anto's decision 1 A): one real request to Google
+  // through Nexotec's client; a success clears every Betrieb's item.
+  const checkAgain = async () => {
+    setChecking(true)
+    setOutcome(null)
+    setCheckError(null)
+    try {
+      const result = await api.post<BusinessProfileClientCheckRead>('/integrations/business-profile/client-status/check', {})
+      queryClient.setQueryData(statusKey, result.status)
+      setOutcome(result.outcome)
+    } catch (err) {
+      setCheckError(apiRefusalText(t, err, 'statusPage.platform.businessProfile.checkError'))
+    } finally {
+      setChecking(false)
+    }
+  }
+  const data = status.data
+  const causes: string[] = []
+  if (data && !data.configured) causes.push(t('statusPage.platform.businessProfile.cause.notConfigured'))
+  if (data?.breakerOpen) causes.push(t('statusPage.platform.businessProfile.cause.breakerOpen'))
+  if (data?.refusal)
+    causes.push(
+      t('statusPage.platform.businessProfile.cause.refusal', {
+        reason: data.refusal,
+        date: data.refusedAt ? formatDateTime(data.refusedAt, locale) : '–',
+      })
+    )
+  return (
+    <Paper withBorder radius="md" p="md" aria-label={t('statusPage.platform.businessProfile.title')} role="region">
+      <Stack gap="xs">
+        <Group justify="space-between" align="flex-start">
+          <div>
+            <Title order={4}>{t('statusPage.platform.businessProfile.title')}</Title>
+            <Text c="dimmed" fz="sm">
+              {t('statusPage.platform.businessProfile.subtitle')}
+            </Text>
+          </div>
+          {data && (
+            <Group gap="sm" wrap="nowrap">
+              <Badge tone={data.interrupted ? 'destructive' : 'success'} dot>
+                {t(`statusPage.platform.businessProfile.state.${data.interrupted ? 'interrupted' : 'working'}`)}
+              </Badge>
+              <Button size="xs" variant="light" loading={checking} onClick={() => void checkAgain()}>
+                {t('statusPage.platform.businessProfile.check')}
+              </Button>
+            </Group>
+          )}
+        </Group>
+        {outcome && (
+          <Alert color={outcome === 'answered' ? 'green' : outcome === 'refused' ? 'red' : 'yellow'} role="status">
+            {t(`statusPage.platform.businessProfile.outcome.${outcome}`)}
+          </Alert>
+        )}
+        {checkError && (
+          <Alert color="red" role="alert">
+            {checkError}
+          </Alert>
+        )}
+        {status.isError && (
+          <Alert color="red" role="alert">
+            {apiRefusalText(t, status.error, 'statusPage.platform.businessProfile.loadError')}
+          </Alert>
+        )}
+        {status.isLoading && <Skeleton height={60} radius="md" />}
+        {data && (
+          <>
+            {causes.map((cause) => (
+              <Text key={cause} fz="sm">
+                {cause}
+              </Text>
+            ))}
+            <Text fz="sm" c="dimmed">
+              {data.lastCallAt
+                ? t('statusPage.platform.businessProfile.lastCall', { date: formatDateTime(data.lastCallAt, locale) })
+                : t('statusPage.platform.businessProfile.noCall')}
+              {' · '}
+              {t('statusPage.platform.businessProfile.bound', { count: data.boundDealerships })}
+            </Text>
+          </>
+        )}
+      </Stack>
+    </Paper>
+  )
 }
 
 /**
@@ -137,6 +245,7 @@ export function PlatformStatusPage() {
           </Table>
         </Paper>
       )}
+      <BusinessProfileClientPanel />
       {editing !== null && (
         <IncidentDialog incident={editing === 'new' ? null : editing} onClose={() => setEditing(null)} />
       )}

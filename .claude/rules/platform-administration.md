@@ -84,7 +84,13 @@ platform-notifications.md) by KAN-751, 2026-11-18, for platform's `administratio
 `GET /v1/dealerships/{id}/status`, derived on read (`administration/services/status_page.py`;
 every role reads, 404 cross-tenant): number ranges (warning 90 %, blocked 100 %), Nexotec's
 `platform_status_incident` (staff, `/platform/status`) and contributions through
-`app/core/status.py`, registered in `app/status_registry.py` (integration's connections). The daily
+`app/core/status.py`, registered in `app/status_registry.py` (integration's connections; Google
+Business Profile, KAN-776: one item for a Betrieb with a live binding, blocked while Nexotec's client
+is interrupted — no client, breaker open, or a client/project refusal as its latest call — no link,
+no cause, its own notification `administration.business_profile_interrupted` («nothing to do on your
+side»); staff read the cause on `/platform/status` (`GET /v1/integrations/business-profile/client-status`) and
+«Erneut prüfen» (`POST …/client-status/check`, one real Google call, staff with a factor) clears it once
+Google answers for a location; a timeout, 5xx, quota or token-refresh row neither raises nor clears it). The daily
 `platform.status_page.notifications` raises `administration.status_item_degraded` once per
 degradation (`status_item_state`, under a per-Betrieb advisory lock): a warning the source really
 announced is exempt, the move to blocked never; an unavailable source keeps its rows, its own

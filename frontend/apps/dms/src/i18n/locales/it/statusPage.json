@@ -21,7 +21,8 @@
   "sources": {
     "number_ranges": "Serie di numeri",
     "integration": "Integrazioni",
-    "nexotec": "Nexotec"
+    "nexotec": "Nexotec",
+    "google_business_profile": "Google Business Profile"
   },
   "open": "Apri",
   "since": "dal {{date}}",
@@ -43,7 +44,11 @@
       "ok": "Tutti i servizi di Nexotec funzionano normalmente.",
       "incident": "Guasto presso Nexotec"
     },
-    "sourceUnavailable": "Al momento non è stato possibile verificare questa fonte."
+    "sourceUnavailable": "Al momento non è stato possibile verificare questa fonte.",
+    "googleBusinessProfile": {
+      "ok": "Google Business Profile: la connessione di Nexotec funziona.",
+      "interrupted": "Google Business Profile: la connessione di Nexotec è interrotta – ce ne stiamo occupando."
+    }
   },
   "indicator": {
     "ok": "Stato: tutto verde",
@@ -83,7 +88,31 @@
       "save": "Salva",
       "allLanguages": "Titolo e testo servono in tutte e quattro le lingue."
     },
-    "saveError": "Non è stato possibile salvare il guasto."
+    "saveError": "Non è stato possibile salvare il guasto.",
+    "businessProfile": {
+      "title": "Google Business Profile – client di Nexotec",
+      "subtitle": "Tutti gli aggiornamenti Business Profile delle aziende passano da questo client. Finché è interrotto, ogni azienda con una sede collegata vede «interrotta – ce ne stiamo occupando», mai la causa indicata qui.",
+      "loadError": "Non è stato possibile caricare lo stato del client.",
+      "state": {
+        "working": "Funziona",
+        "interrupted": "Interrotto"
+      },
+      "cause": {
+        "notConfigured": "Nessun client attivato è configurato.",
+        "breakerOpen": "Interruttore di protezione aperto: troppe chiamate fallite di seguito.",
+        "refusal": "Nella sua ultima risposta Google ha rifiutato il client o il progetto: {{reason}} ({{date}})."
+      },
+      "lastCall": "Ultima chiamata: {{date}}",
+      "noCall": "Ancora nessuna chiamata.",
+      "bound": "Aziende con una sede collegata: {{count, number}}",
+      "check": "Verifica di nuovo",
+      "outcome": {
+        "answered": "Google ha risposto: il client e il progetto sono accettati.",
+        "refused": "Google ha di nuovo rifiutato il client o il progetto.",
+        "unavailable": "Non è stato possibile raggiungere Google. Riprovi più tardi."
+      },
+      "checkError": "Non è stato possibile eseguire la verifica."
+    }
   },
   "refusals": {
     "status_incident_ends_before_start": "Un guasto termina dopo il suo inizio.",

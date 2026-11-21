@@ -75,6 +75,19 @@ def is_circuit_open(connection_id: uuid.UUID) -> bool:
     return True
 
 
+def circuit_is_open_now(connection_id: uuid.UUID) -> bool:
+    """Whether the breaker currently refuses calls on this connection, for a
+    reader that must not change it (the status page, KAN-776): unlike
+    `is_circuit_open`, an expired open state is reported closed but left for
+    the next call to half-open. The state is this process's own, so the API
+    and the worker each see the calls they made."""
+
+    circuit = _CIRCUITS.get(connection_id)
+    if circuit is None or circuit.opened_at is None:
+        return False
+    return time.monotonic() - circuit.opened_at < _OPEN_DURATION_SECONDS
+
+
 def record_success(connection_id: uuid.UUID) -> None:
     circuit = _circuit_for(connection_id)
     circuit.failure_count = 0

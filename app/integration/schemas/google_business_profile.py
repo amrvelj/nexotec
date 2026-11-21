@@ -4,6 +4,7 @@ answered them."""
 
 import datetime as dt
 import uuid
+from typing import Literal
 
 from pydantic import Field
 
@@ -68,3 +69,26 @@ class BusinessProfileGoogleChoicePage(CamelModel):
 class BusinessProfileGoogleLocationPick(CamelModel):
     account_name: str = Field(pattern=_ACCOUNT)
     location_name: str = Field(pattern=_LOCATION)
+
+
+class BusinessProfileClientStatusRead(CamelModel):
+    """Staff's view of Nexotec's own client at Google (KAN-776): the cause
+    behind the Betriebe's «interrupted» item. `refusal` is Google's
+    identifier only (`SERVICE_DISABLED`, `invalid_client`), never its text."""
+
+    configured: bool
+    interrupted: bool
+    breaker_open: bool
+    refusal: str | None
+    refused_at: dt.datetime | None
+    last_call_at: dt.datetime | None
+    bound_dealerships: int
+
+
+class BusinessProfileClientCheckRead(CamelModel):
+    """«Erneut prüfen» (KAN-776): what Google answered this time —
+    `answered` (client and project accepted), `refused` (refused again) or
+    `unavailable` — and the client's state after it."""
+
+    outcome: Literal["answered", "refused", "unavailable"]
+    status: BusinessProfileClientStatusRead

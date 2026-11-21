@@ -8,6 +8,8 @@
     "binding_not_pending": "Für diesen Standort ist der Google-Standort bereits gewählt.",
     "google_location_not_accessible": "Diesen Google-Standort verwaltet die Anmeldung nicht.",
     "google_location_already_bound": "Dieser Google-Standort ist in Nexotec bereits verbunden.",
-    "binding_already_disconnected": "Dieser Standort ist bereits getrennt."
+    "binding_already_disconnected": "Dieser Standort ist bereits getrennt.",
+    "business_profile_breaker_open": "Zu viele fehlgeschlagene Aufrufe bei Google gerade eben. Versuchen Sie es in einer Minute erneut.",
+    "business_profile_no_active_binding": "Es ist kein verbundener Standort verfügbar, mit dem Google gefragt werden kann."
   }
 }
