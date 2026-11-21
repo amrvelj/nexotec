@@ -15,7 +15,8 @@
     "client_secret": "Client secret",
     "refresh_token": "Refresh token",
     "certificate": "Certificate",
-    "api_key": "API key"
+    "api_key": "API key",
+    "access_token": "Access token"
   },
   "configKey": {
     "username": "Username",
@@ -27,6 +28,10 @@
     "kundennummer": "Customer number",
     "ftpHost": "FTP server",
     "ftpUsername": "FTP username",
-    "serviceAccountEmail": "Service account (e-mail)"
+    "serviceAccountEmail": "Service account (e-mail)",
+    "accountSid": "Account SID",
+    "apiKeySid": "API key SID",
+    "sender": "Sender",
+    "phoneNumberId": "Phone number ID"
   }
 }

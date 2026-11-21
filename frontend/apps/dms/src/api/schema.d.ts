@@ -12894,7 +12894,7 @@ export interface components {
          * SecretSlot
          * @enum {string}
          */
-        SecretSlot: "password" | "client_secret" | "refresh_token" | "certificate" | "api_key";
+        SecretSlot: "password" | "client_secret" | "refresh_token" | "certificate" | "api_key" | "access_token";
         /**
          * SecretSlotRead
          * @description The slot's own metadata only — never `secretRef`, never a value.

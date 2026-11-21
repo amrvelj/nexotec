@@ -23,6 +23,8 @@ the value lives in the secrets manager).
   platform-scope connection per provider.
 - `google_business_profile` (KAN-226) — Nexotec's own OAuth client at Google
   (its client id), likewise one platform-scope connection.
+- `twilio`, `meta_whatsapp` (KAN-217 PR-3) — the Betrieb's own SMS account
+  (its account SID and the sender) and WhatsApp phone number id.
 
 A provider added to the catalogue adds its line here;
 `tests/integration/test_integration_connection_location.py::test_every_provider_with_an_adapter_names_its_account_identifier`
@@ -50,6 +52,10 @@ ACCOUNT_IDENTIFIER_CONFIG_KEYS: dict[str, tuple[str, ...]] = {
     "google_workspace_mail": ("clientId", "serviceAccountEmail"),
     # KAN-226: Nexotec's own OAuth client at Google Business Profile.
     "google_business_profile": ("clientId",),
+    # KAN-217 PR-3: the Betrieb's own messaging accounts — Twilio's account
+    # and the sender it sends as; Meta's WhatsApp phone number id.
+    "twilio": ("accountSid", "sender"),
+    "meta_whatsapp": ("phoneNumberId",),
 }
 
 _SEPARATOR = " · "

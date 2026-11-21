@@ -18,7 +18,7 @@ from app.integration.models.call_payload import IntegrationCallPayload
 from app.integration.models.caption import IntegrationProviderCaption, IntegrationProviderCaptionFetch
 from app.integration.models.connection import IntegrationConnection
 from app.integration.models.entitlement import IntegrationEntitlement
-from app.integration.models.google_business_profile import GbpLinkState, GbpLocationBinding
+from app.integration.models.google_business_profile import GbpLinkState, GbpLocationBinding, GbpPhoto, GbpPushState
 from app.integration.models.mail import MailLinkState, MessageDelivery, SendingIdentity
 from app.integration.models.notification import IntegrationNotification
 from app.integration.models.provider import IntegrationProvider
@@ -51,6 +51,8 @@ ACTOR_TABLES = (
     MailLinkState,  # KAN-215: none written (no actor columns are set)
     GbpLocationBinding,  # KAN-226: the manager who linked, picked or disconnected
     GbpLinkState,  # KAN-226: none written (no actor columns are set)
+    GbpPushState,  # KAN-226 PR-3: written by the push consumer only — null actors
+    GbpPhoto,  # KAN-226 PR-3: written by the photo consumer only — null actors
 )
 
 
@@ -161,6 +163,19 @@ CHECKS = [
         source_model=GbpLocationBinding,
         source_row_id_column=GbpLocationBinding.id,
         source_fk_column=GbpLocationBinding.location_id,
+    ),
+    # KAN-226 PR-3: what the push consumers record names its Betrieb.
+    dealership_reference_check(
+        label="integration_gbp_push_state.tenant_id -> dealership.id",
+        source_model=GbpPushState,
+        source_row_id_column=GbpPushState.id,
+        source_fk_column=GbpPushState.tenant_id,
+    ),
+    dealership_reference_check(
+        label="integration_gbp_photo.tenant_id -> dealership.id",
+        source_model=GbpPhoto,
+        source_row_id_column=GbpPhoto.id,
+        source_fk_column=GbpPhoto.tenant_id,
     ),
     *actor_reference_checks(*ACTOR_TABLES),
 ]

@@ -11,7 +11,8 @@
   "categories": {
     "marketplace": "Marketplace",
     "vehicle_data": "Dati veicolo",
-    "ai": "Fornitore IA"
+    "ai": "Fornitore IA",
+    "messaging": "SMS e WhatsApp"
   },
   "fields": {
     "provider": "Fornitore",
@@ -91,5 +92,9 @@
     "field": "Sede",
     "fieldHint": "La sede a cui vale questo conto — per esempio il numero di filiale di una sede presso AutoScout24. «Tutta l'azienda» se vale per tutte le sedi.",
     "error": "Non è stato possibile assegnare la sede."
+  },
+  "refusals": {
+    "messaging_not_connected": "Nessun fornitore è collegato per questo canale. Collegane uno in Amministrazione › Integrazioni.",
+    "messaging_provider_tenant_only": "Ogni azienda collega il proprio account SMS e WhatsApp; Nexotec non ne detiene alcuno."
   }
 }

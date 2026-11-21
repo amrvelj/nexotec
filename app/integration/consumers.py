@@ -23,6 +23,18 @@ register_handlers` lists them with the event type and `consumer_name`:
   connection enabled on the retry. Should Stock dead-letter, the connections
   stay enabled and the dead-letter alert fires (rule 10).
 
+- `platform.location.updated` -> `integration.business_profile_push_on_location_updated`,
+  `platform.location.schedule_changed` -> `integration.business_profile_push_on_schedule_changed`,
+  `integration.gbp_location_binding.activated` -> `integration.business_profile_push_on_binding_activated`
+  (`handle_business_profile_push_message`, KAN-226 PR-3): the location's
+  fields, hours and closed days pushed to its live Google Business Profile
+  binding, once per state (`services/gbp_push.py::push_location`).
+- `platform.publishing_profile.updated` -> `integration.business_profile_photos_on_profile_updated`,
+  `integration.gbp_location_binding.activated` -> `integration.business_profile_photos_on_binding_activated`
+  (`handle_business_profile_photos_message`): the location's publishing
+  images not yet uploaded to the binding (`gbp_push.sync_photos`). Its own
+  consumers, so a photo that cannot be read never holds the hours back.
+
 Platform and Stock state their facts and call nothing here (ADR-131, rule
 12); each consumer commits its own work with the processed-event row, so a
 redelivery is a no-op. Staging runs no worker (ADR-081): there the
@@ -39,6 +51,7 @@ from app.integration.services.connections import (
     disable_withdrawn_marketplace_connections,
 )
 from app.integration.services.gbp_link import disconnect_offboarded_dealership_bindings
+from app.integration.services.gbp_push import push_location, sync_photos
 from app.integration.services.mail_sending import disconnect_offboarded_dealership_mailboxes
 
 
@@ -58,3 +71,11 @@ def handle_dealership_offboarded_message(db: Session, message: OutboxMessage) ->
 
 def handle_dealership_listings_withdrawn_message(db: Session, message: OutboxMessage) -> None:
     disable_withdrawn_marketplace_connections(db, tenant_id=_dealership_id(message))
+
+
+def handle_business_profile_push_message(db: Session, message: OutboxMessage) -> None:
+    push_location(db, message)
+
+
+def handle_business_profile_photos_message(db: Session, message: OutboxMessage) -> None:
+    sync_photos(db, message)

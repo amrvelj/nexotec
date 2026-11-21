@@ -11,7 +11,8 @@
   "categories": {
     "marketplace": "Marktplatz",
     "vehicle_data": "Fahrzeugdaten",
-    "ai": "KI-Anbieter"
+    "ai": "KI-Anbieter",
+    "messaging": "SMS und WhatsApp"
   },
   "fields": {
     "provider": "Anbieter",
@@ -91,5 +92,9 @@
     "field": "Standort",
     "fieldHint": "Der Standort, für den dieses Konto gilt — zum Beispiel die Filialnummer eines Standorts bei AutoScout24. «Ganzer Betrieb», wenn es für alle Standorte gilt.",
     "error": "Der Standort konnte nicht zugeordnet werden."
+  },
+  "refusals": {
+    "messaging_not_connected": "Für diesen Kanal ist kein Anbieter verbunden. Verbinden Sie ihn unter Administration › Integrationen.",
+    "messaging_provider_tenant_only": "SMS- und WhatsApp-Konten verbindet jeder Betrieb selbst; Nexotec führt keines."
   }
 }
