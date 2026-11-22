@@ -149,7 +149,8 @@ def test_the_offboarded_fact_names_the_betrieb_and_the_date(db_session):
 
     assert message.producer == "platform" and message.tenant_id == dealership.id
     assert message.aggregate_type == "dealership" and message.aggregate_id == dealership.id
-    assert set(message.payload) == {"dealershipId", "offboardedAt"}
+    # KAN-790: the envelope every platform.dealership.* fact shares, its own date beside it.
+    assert set(message.payload) == {"dealershipId", "version", "changedFields", "dealership", "offboardedAt"}
     assert message.payload["dealershipId"] == str(dealership.id)
 
 

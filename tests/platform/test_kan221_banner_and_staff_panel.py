@@ -22,6 +22,7 @@ from app.main import app
 from app.platform.identity.models.support_session import SupportSession
 from app.platform.identity.models.user import User, UserStatus
 from app.platform.organisation.models.dealership import PLATFORM_DEALERSHIP_ID, Dealership, DealershipStatus
+from tests import setup_checklist_support as checklist
 from tests.identity_support import (
     PasswordLogin,
     cookie_headers,
@@ -29,7 +30,6 @@ from tests.identity_support import (
     create_user,
     platform_admin_headers,
 )
-from tests import setup_checklist_support as checklist
 from tests.platform_tenant_support import create_legacy_staff, create_staff
 
 REASON = "Die Offerte druckt das Logo nicht — Ticket 4712."
