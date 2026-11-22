@@ -234,6 +234,8 @@ const REASON_KEYS: Record<string, string> = {
       'platform_group_holds_no_dealer',
       'platform_tenant_holds_no_entitlements',
       'support_target_self',
+      // KAN-779 — a customer address PATCH judges the merged postal code.
+      'customer_address_postal_code_invalid',
       'customer_do_not_contact',
       'customer_tag_exists',
       'discount_suppressed_on_used_vehicle',
