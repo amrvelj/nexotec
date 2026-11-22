@@ -21,7 +21,7 @@ from app.core.auth import AccessRole, Principal, get_current_principal
 from app.main import app
 from app.platform.identity.models.support_session import SupportSession
 from app.platform.identity.models.user import User, UserStatus
-from app.platform.organisation.models.dealership import PLATFORM_DEALERSHIP_ID
+from app.platform.organisation.models.dealership import PLATFORM_DEALERSHIP_ID, Dealership, DealershipStatus
 from tests.identity_support import (
     PasswordLogin,
     cookie_headers,
@@ -29,6 +29,7 @@ from tests.identity_support import (
     create_user,
     platform_admin_headers,
 )
+from tests import setup_checklist_support as checklist
 from tests.platform_tenant_support import create_legacy_staff, create_staff
 
 REASON = "Die Offerte druckt das Logo nicht — Ticket 4712."
@@ -410,3 +411,45 @@ def test_a_session_owing_a_factor_reads_and_ends_the_running_session(client, log
     # Confined everywhere else, the manager's own log included.
     assert client.get(f"/v1/dealerships/{enforced}/support-sessions", headers=cookie).status_code == 403
 
+
+# --- a manager under the legal hold ends the session running on them (KAN-788) ------
+
+
+def test_a_manager_under_the_legal_hold_ends_the_session_on_them_and_no_other(client, db_session, mailbox):
+    """FR-A-39 holds a manager to the acceptance once the grace has passed;
+    `_legal_hold_path` keeps the banner's read and the ending open to them
+    (FR-A-18). Ending a session that runs on someone else is still 404, and
+    every other route stays held."""
+
+    dealership_id = checklist.pending_dealership(client, db_session)
+    boss = checklist.manager(client, db_session, dealership_id, active=False)
+    clerk = checklist.manager(client, db_session, dealership_id, active=False, isDealerManager=False)
+    dealership = db_session.get(Dealership, dealership_id)
+    dealership.status = DealershipStatus.ACTIVE
+    db_session.commit()
+    checklist.publish_both(db_session, "1.0", effective_date=dt.date(2026, 1, 1))  # the grace has passed
+    login = PasswordLogin(client, mailbox)
+    held = cookie_headers(login.session_cookie(boss))  # accepts the invitation: boss is active
+    login.session_cookie(clerk)
+    staff = create_staff(client, firstName="Petra", lastName="Support")
+    other_staff = create_staff(client, firstName="Marco", lastName="Hilfe")
+    on_boss = _start(client, staff, str(dealership_id), boss["id"])
+    on_clerk = _start(client, other_staff, str(dealership_id), clerk["id"])
+
+    refused = client.get("/v1/customers", headers=held)
+    assert refused.status_code == 403
+    assert refused.json()["error"]["details"] == {"legalAcceptanceRequired": True}
+
+    assert client.get(ME, headers=held).json()["session"]["id"] == on_boss["id"]
+    others = client.post(
+        f"/v1/platform/support-sessions/{on_clerk['id']}/end",
+        headers={**held, "Idempotency-Key": str(uuid.uuid4())},
+    )
+    assert others.status_code == 404, others.text
+    ended = client.post(
+        f"/v1/platform/support-sessions/{on_boss['id']}/end",
+        headers={**held, "Idempotency-Key": str(uuid.uuid4())},
+    )
+    assert ended.status_code == 200, ended.text
+    assert ended.json()["endedBy"] == "user"
+    assert client.get("/v1/customers", headers=held).status_code == 403  # still held everywhere else

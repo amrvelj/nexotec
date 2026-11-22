@@ -2,7 +2,8 @@
 PRD FR-A-35, D-A-32): the one read a mirroring channel — Google Business
 Profile first — takes of a site's current state when it handles one of
 Platform's location facts (`platform.location.updated`,
-`platform.location.schedule_changed`, `platform.publishing_profile.updated`).
+`platform.location.schedule_changed`) or the Betrieb's own
+(`platform.dealership.updated`, KAN-785: its website).
 
 Plain values only (ADR-162): never a mapped class crosses `platform.public`.
 Tenant-scoped: a location of another Betrieb reads as `None`, as a missing one

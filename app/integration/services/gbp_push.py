@@ -388,9 +388,12 @@ def _push(db: Session, *, dealership_id: uuid.UUID, location_id: uuid.UUID) -> b
         return False  # the debounce: this state is what Google already has from us
     try:
         with _google(db) as adapter:
-            token = adapter.access_token(binding_id=binding.id)
+            # A token only when Google is called (KAN-788): a patch whose mask
+            # is empty sends nothing, so it asks the token endpoint nothing.
+            token: str | None = None
             offered: frozenset[str] = frozenset()
             if other_departments(facts):
+                token = adapter.access_token(binding_id=binding.id)
                 read = adapter.get_location(
                     access_token=token, location_name=google_location, read_mask=CATEGORY_READ_MASK
                 )
@@ -400,7 +403,7 @@ def _push(db: Session, *, dealership_id: uuid.UUID, location_id: uuid.UUID) -> b
             )
             if patch.update_mask:
                 adapter.patch_location(
-                    access_token=token,
+                    access_token=token or adapter.access_token(binding_id=binding.id),
                     location_name=google_location,
                     fields=patch.fields,
                     update_mask=patch.update_mask,

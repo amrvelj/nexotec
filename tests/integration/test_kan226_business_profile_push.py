@@ -22,6 +22,7 @@ Against the recorded fixture only (`tests/gbp_fakes.py`, invented values):
 nothing here has run against Google.
 """
 
+import dataclasses
 import datetime as dt
 import json
 import uuid
@@ -62,7 +63,6 @@ client_connection = pr2.client_connection
 _link, _pick = pr2._link, pr2._pick
 
 PUSH = "integration.business_profile_push_on_schedule_changed"
-PHOTOS = "integration.business_profile_photos_on_profile_updated"
 TODAY = dt.date(2026, 11, 21)
 T = dt.time
 
@@ -346,6 +346,36 @@ def test_a_schedule_fact_pushes_the_current_state_once_and_a_redelivery_sends_no
     assert state.pushed_fields == ["storefrontAddress", "phoneNumbers.primaryPhone", "regularHours"]
     assert state.source_hash and state.unmapped_departments == []
     assert b"Intern Person" not in patch.content and b"leads@example.test" not in patch.content
+
+
+def test_a_state_with_nothing_to_send_asks_google_for_no_token(
+    db_session, engine, google, client_connection, betrieb, monkeypatch
+):
+    """KAN-788: a changed state whose patch masks nothing (no complete address,
+    no phone, website, hours or closed days, nothing pushed before) calls
+    Google not at all — not even the token endpoint. The state is still
+    recorded, so the next delivery is debounced."""
+
+    fake, _ = google
+    dealership, location = betrieb
+    binding = _bind(db_session, google, dealership.id, location.id)
+    real_facts = gbp_push._facts
+
+    def bare(db, dealership_id, location_id):
+        facts = real_facts(db, dealership_id, location_id)
+        return dataclasses.replace(
+            facts, address_street=None, address_house_number=None, phone=None, website=None, opening_hours=(), closed_days=()
+        )
+
+    monkeypatch.setattr(gbp_push, "_facts", bare)
+    message = _schedule_fact(db_session, location)
+    before = len(fake.requests)
+
+    _transport(engine).deliver(message)
+
+    assert fake.requests[before:] == []
+    state = _state(db_session, binding)
+    assert state.source_hash and state.pushed_fields == []
 
 
 def test_a_burst_of_facts_is_one_push_and_a_real_change_pushes_again(
