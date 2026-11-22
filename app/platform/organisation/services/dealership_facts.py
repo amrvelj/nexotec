@@ -19,7 +19,11 @@ The master-data fact:
 **One payload shape for every `platform.dealership.*` fact** (events.md: one
 entity's events share it; KAN-790), built by `dealership_envelope`:
 `dealershipId`, the dealership's `version` after the write, `changedFields`
-(the camelCase names of the dealership's fields the write set) and
+(the camelCase names of the dealership's fields the write set that a consumer
+may act on: the published fields among them, and `status` and its stamps for
+a lifecycle step — a creation names `status` and every published field,
+whether or not it holds a value, never the internal ones such as the legal
+name or the UID) and
 `dealership`, the published facts as they now stand. A lifecycle fact adds
 its own fields beside them, never inside: `platform.dealership.onboarded`
 (identity's onboarding) its group, legal name, entitlements, manager and

@@ -104,7 +104,10 @@ def _violated(exc: IntegrityError) -> str | None:
 # The end the log shows (`state_of`), as SQL: `ended_at`, else `expires_at`
 # once it has passed, else none (still running). `now` is bound per request
 # (`list_support_sessions`), so the order and the next page's cursor are read
-# at the same instant (KAN-786).
+# at the same instant (KAN-786). Each page binds its own `now`: a session that
+# times out between two pages moves from the running tail to its expiry, so
+# one walk may show it twice or (descending) not at all — inherent to sorting
+# on a derived end; the next walk is exact.
 _NOW = bindparam("support_session_now", type_=UTCDateTime())
 SHOWN_END = case(
     (SupportSession.ended_at.is_not(None), SupportSession.ended_at),

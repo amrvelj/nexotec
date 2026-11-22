@@ -27,10 +27,10 @@ main@3b2bf69 (2026-11-18). -->
 
 - **Bundles:** `frontend/apps/dms/src/i18n/locales/{de,en,fr,it}/<namespace>.json`, one file per
   top-level namespace. A new key goes into its screen's namespace file in all four languages at
-  once; a new namespace is four files plus `python3 scripts/split_locale_bundles.py index`, which
-  writes the generated `locales/<language>.ts`. `localeKeyParity.test.ts` fails on a key or file a
-  language lacks, a stale `<language>.ts`, or a file above 25'000 bytes (split it:
-  `<namespace>.<key>.json`).
+  once; a new file is four files plus `python3 scripts/split_locale_bundles.py index` (writes
+  `locales/<language>.ts`). `localeKeyParity.test.ts` fails on a key or file a language lacks, a
+  stale `<language>.ts`, or a file above 25'000 bytes (split: `<namespace>.<key>.json`; a flat child
+  into shards `<namespace>.<key>.<shard>.json`, a new refusal reason into its raising context's — ADR-203).
 - **A key missing from every bundle renders `⚠ MISSING I18N KEY: <key>`**; one missing only from
   the active locale falls back to English, never German — no marker when English has the text
   (Anto, KAN-104). No hardcoded user-visible string, labels in dialogs and wizards included.
@@ -53,8 +53,7 @@ main@3b2bf69 (2026-11-18). -->
   `details.reason` (`REASON_KEYS` — `apiRefusal.test.ts` and its backend-lane twin
   `tests/test_frontend_knows_backend_refusals.py` fail on a `"reason": "…"` in `app/` it does not
   translate, unless `utils/notARefusalReasons.json` lists it as a log or event value, and where;
-  the vitest file pins the twin's patterns and flags, `tests/test_dev_check_lanes.py` that an `app/`
-  diff runs the twin, KAN-679/KAN-732; a value the details carry
+  the vitest file pins the twin, KAN-679/KAN-732; a value the details carry
   goes through `REASON_PARAMS`); a 403, 404 and schema 422
   by status; anything else, a business rule refused without a reason included, is the screen's own
   key — so give such a refusal a `details.reason`. A screen with its own wording for a reason
