@@ -149,7 +149,7 @@ def _approve_whatsapp(db_session, dealer, *, template="offer_sent_v1"):
 
 def test_an_email_leaves_from_the_authors_own_mailbox_with_the_pdf_and_one_delivery_row(client, db_session, fakes, app_registrations, scene):
     providers, _ = fakes
-    dealer, author, customer_id, document = scene
+    _dealer_id, author, customer_id, document = scene
     _connect_own_ms(client, providers, author)
 
     response = _send(client, author, document.id, channel="email")
