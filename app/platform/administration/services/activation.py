@@ -38,6 +38,7 @@ from app.platform.identity.services import legal_documents
 from app.platform.organisation.models.dealership import Dealership, DealershipStatus
 from app.platform.organisation.models.number_range import NumberRange
 from app.platform.organisation.services import number_range as number_range_service
+from app.platform.organisation.services.dealership_facts import dealership_envelope
 
 ACTIVATED_EVENT_TYPE = "platform.dealership.activated"
 ACTIVATION_REASON = "dealership_activated"
@@ -147,7 +148,7 @@ def activate(db: Session, *, dealership: Dealership, actor_id: uuid.UUID) -> Dea
             aggregate_type="dealership",
             aggregate_id=dealership.id,
             payload={
-                "dealershipId": str(dealership.id),
+                **dealership_envelope(dealership, changed_fields=("status", "activated_at", "activated_by")),
                 "activatedAt": now.isoformat(),
                 "activatedBy": str(actor_id),
             },

@@ -1,0 +1,14 @@
+{
+  "discount_suppressed_on_used_vehicle": "Su un veicolo d’occasione lo sconto per riga è soppresso per impostazione predefinita. Per concederlo comunque, indica un motivo.",
+  "legacy_sale": "Questo contratto è stato ripreso dal sistema precedente, che lo ha gestito: non può essere modificato qui.",
+  "missing_containers": "L’offerta non è ancora completa. Manca: {{containers}}.",
+  "missing_price": "Questo contratto non ha ancora un prezzo. Completa prima la composizione del prezzo.",
+  "missing_vehicle": "Questo contratto non ha ancora un veicolo. Aggiungi prima un veicolo.",
+  "offer_already_contracted": "Questa offerta ha già un contratto; solo un contratto annullato libera un’offerta.",
+  "vehicle_not_purchased": "Il veicolo di questo contratto non è ancora stato acquistato: potrà essere fatturato non appena lo stock avrà registrato l’acquisto.",
+  "invoice_already_requested": "La fattura di questo contratto è già stata richiesta il {{date}}.",
+  "invoice_plate_vehicle_unknown": "Il veicolo di questo contratto non ha una scheda veicolo su cui registrare una targa. Richieda la fattura senza targa e registri poi la targa sul veicolo.",
+  "trade_in_valuation_names_no_car": "Questa valutazione non indica un veicolo con VIN che possa essere ritirato in permuta.",
+  "trade_in_chassis_number_requires_configuration": "Un veicolo con numero di telaio invece del VIN viene ritirato in permuta con la sua configurazione: valutatelo tramite «Identificare e valutare», che registra il numero di telaio, la marca e la prima immatricolazione.",
+  "vehicle_not_changed": "Il veicolo in stock non è stato modificato dal calcolo del prezzo."
+}

@@ -1,0 +1,19 @@
+{
+  "customer_tag_exists": "Ein Tag dieser Änderung ist beim Kunden bereits gesetzt – der Kunde wurde in der Zwischenzeit geändert. Laden Sie ihn neu und versuchen Sie es erneut.",
+  "email_already_on_customer": "Diese E-Mail-Adresse ist bei diesem Kunden bereits erfasst.",
+  "external_id_taken": "Für dieses System ist bei diesem Kunden bereits eine externe ID erfasst, oder diese externe ID ist im selben System schon einem anderen Kunden zugeordnet.",
+  "last_usable_contact_point": "Ein Kunde behält mindestens eine gültige Telefonnummer oder E-Mail-Adresse. Bitte zuerst eine weitere erfassen.",
+  "merged_party_row": "Diese Zeile ist die Kopie, die eine Kundenzusammenführung behalten hat; sie kann ihre Rolle nicht wieder übernehmen.",
+  "vehicle_merged_party_row": "Dieser Eintrag gehört zu einem zusammengeführten Fahrzeug und bleibt als Verlauf. Bearbeiten Sie den Eintrag beim Fahrzeug {{vin}}.",
+  "phone_already_on_customer": "Diese Telefonnummer ist bei diesem Kunden bereits erfasst.",
+  "primary_unset_directly": "Die Markierung «Primär» lässt sich nicht direkt entfernen. Bitte einen anderen Eintrag als primär markieren.",
+  "vehicle_merge_in_progress": "Dieses Fahrzeug wird gerade mit einem anderen Datensatz zusammengeführt. Bitte versuchen Sie es in einem Moment noch einmal.",
+  "contact_group_unknown": "Diese Kontaktgruppe gibt es nicht.",
+  "contact_group_not_enabled": "Diese Kontaktgruppe ist in Ihrem Betrieb nicht eingeschaltet. Die Geschäftsführung schaltet sie unter Verwaltung › Kontaktgruppen ein.",
+  "contact_group_read_only": "Diese Kontaktgruppe ist in Ihrem Betrieb nicht eingeschaltet und kann hier nicht entfernt werden.",
+  "customer_contact_group_exists": "Eine Kontaktgruppe dieser Änderung ist beim Kunden bereits gesetzt – der Kunde wurde in der Zwischenzeit geändert. Laden Sie ihn neu und versuchen Sie es erneut.",
+  "customer_role_required": "Dieses Feld gehört zur Rolle Kunde, die dieser Kontakt nicht hat. Geben Sie ihm zuerst die Rolle Kunde.",
+  "customer_role_not_permitted": "Die Rolle Kunde und ihre Felder (Status, Betreuer, Kreditsperre) ändern Verkauf und Kundendienst. Ihre Rolle gibt Kontakten die Rolle Lieferant.",
+  "customer_role_credit_blocked": "Die Rolle Kunde kann nicht entfernt werden, solange eine Kreditsperre besteht. Heben Sie die Sperre zuerst auf.",
+  "customer_role_exists": "Eine Rolle dieser Änderung hat der Kontakt bereits – er wurde in der Zwischenzeit geändert. Laden Sie ihn neu und versuchen Sie es erneut."
+}

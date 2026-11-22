@@ -1,0 +1,14 @@
+{
+  "duplicate_connection": "Esiste già una connessione a questo fornitore in questo ambiente.",
+  "missing_config_fields": "Per questa connessione mancano dati obbligatori: {{fields}}.",
+  "secrets_backend_failed": "L’archivio sicuro delle credenziali non ha eseguito la richiesta — non è stato salvato nulla. Riprovare più tardi; se l’errore persiste, informare il supporto Nexotec.",
+  "secret_slot_not_used_by_provider": "Questo fornitore non utilizza questa credenziale — non è stata salvata.",
+  "secret_store_not_configured": "Per questa installazione non è configurato alcun archivio sicuro per le credenziali — non è stato salvato nulla. Non dipende dai dati inseriti: informare il supporto Nexotec.",
+  "provider_has_no_captions": "Questo fornitore non ha un vocabolario da recuperare.",
+  "location_binding_needs_tenant": "Un collegamento a livello di piattaforma non appartiene a nessuna sede.",
+  "location_binding_not_supported": "Questo collegamento vale per tutta l'azienda e non viene assegnato a una sede.",
+  "usage_period_reversed": "La fine del periodo precede il suo inizio.",
+  "usage_period_too_long": "Un periodo copre al massimo un anno.",
+  "provider_has_no_sandbox": "Questo fornitore non offre un accesso di prova. Lo colleghi come produzione.",
+  "provider_sandbox_connections_exist": "Esistono ancora {{count, number}} connessioni di accesso di prova a questo fornitore. Le elimini prima."
+}

@@ -1,0 +1,14 @@
+{
+  "duplicate_connection": "Une connexion à ce fournisseur dans cet environnement existe déjà.",
+  "missing_config_fields": "Des informations obligatoires manquent pour cette connexion : {{fields}}.",
+  "secrets_backend_failed": "Le coffre-fort des identifiants n’a pas exécuté la demande — rien n’a été enregistré. Réessayez plus tard ; si l’erreur persiste, informez le support Nexotec.",
+  "secret_slot_not_used_by_provider": "Ce fournisseur n’utilise pas cet identifiant — il n’a pas été enregistré.",
+  "secret_store_not_configured": "Aucun stockage sécurisé des identifiants n'est configuré pour cette installation — rien n'a été enregistré. Votre saisie n'est pas en cause : veuillez informer le support Nexotec.",
+  "provider_has_no_captions": "Ce fournisseur n’a pas de vocabulaire à récupérer.",
+  "location_binding_needs_tenant": "Une connexion à l'échelle de la plateforme n'appartient à aucun site.",
+  "location_binding_not_supported": "Cette connexion vaut pour toute l'entreprise et n'est attribuée à aucun site.",
+  "usage_period_reversed": "La fin de la période précède son début.",
+  "usage_period_too_long": "Une période couvre au plus une année.",
+  "provider_has_no_sandbox": "Ce fournisseur n'offre pas d'accès de test. Connectez-le en production.",
+  "provider_sandbox_connections_exist": "{{count, number}} connexions d'accès de test à ce fournisseur existent encore. Supprimez-les d'abord."
+}

@@ -34,10 +34,13 @@ _settings = get_settings()
 # own columns. Without `sort` the log keeps the shared oldest-first cursor it
 # shipped with (PR 5). The three names are read from other rows at request time
 # (never copied onto the session) and the state is derived, so they do not sort.
+# KAN-786: `endedAt` sorts the end the log shows — a timed-out session the
+# nightly job has not closed yet ends at its `expires_at` (`state_of`), at the
+# request's own `now`.
 SUPPORT_SESSION_SORT_FIELDS = {
     "startedAt": SupportSession.started_at,
     "expiresAt": SupportSession.expires_at,
-    "endedAt": SupportSession.ended_at,
+    "endedAt": support_sessions.SHOWN_END,
     "reason": SupportSession.reason,
 }
 _SORT_DESCRIPTION = (

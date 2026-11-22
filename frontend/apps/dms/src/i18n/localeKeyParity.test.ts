@@ -79,10 +79,11 @@ describe('the locale folders (KAN-616)', () => {
     for (const [lang, bundle] of Object.entries(LOCALES)) {
       const expected: LocaleTree = {}
       for (const name of namespaceFiles(lang)) {
-        const [namespace, key] = name.replace(/\.json$/, '').split('.')
+        const [namespace, key, shard] = name.replace(/\.json$/, '').split('.')
         const content = JSON.parse(readFileSync(join(LOCALES_DIR, lang, name), 'utf-8')) as LocaleTree
         const slot = (expected[namespace] ??= {}) as LocaleTree
-        if (key) slot[key] = content
+        if (shard) Object.assign((slot[key] ??= {}) as LocaleTree, content)
+        else if (key) slot[key] = content
         else Object.assign(slot, content)
       }
       expect(bundle, `locales/${lang}.ts`).toEqual(expected)
@@ -96,6 +97,25 @@ describe('the locale folders (KAN-616)', () => {
         .filter(([, size]) => size > MAX_FILE_BYTES),
     )
     expect(tooBig).toEqual([])
+  })
+
+  // KAN-786: `<namespace>.<key>.<shard>.json` is one shard of `<namespace>.<key>`, merged by a spread
+  // that lets a later shard win silently — so a key sits in exactly one shard, the same in every language.
+  test('a key sits in exactly one shard, and each shard holds the same keys in every language', () => {
+    const shardKeys = (lang: string, name: string) =>
+      Object.keys(JSON.parse(readFileSync(join(LOCALES_DIR, lang, name), 'utf-8')) as LocaleTree).sort()
+    for (const lang of Object.keys(LOCALES)) {
+      const owner = new Map<string, string>()
+      for (const name of namespaceFiles(lang).filter((n) => n.split('.').length === 4)) {
+        const child = name.split('.').slice(0, 2).join('.')
+        for (const key of shardKeys(lang, name)) {
+          const path = `${child}.${key}`
+          expect(owner.get(path), `${lang}: ${path} is in ${owner.get(path)} and ${name}`).toBeUndefined()
+          owner.set(path, name)
+        }
+        expect(shardKeys(lang, name), `${lang}/${name} against de/${name}`).toEqual(shardKeys('de', name))
+      }
+    }
   })
 
   test('no bundle is left in the one-file-per-language layout', () => {

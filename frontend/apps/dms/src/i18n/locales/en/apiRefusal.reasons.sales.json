@@ -1,0 +1,14 @@
+{
+  "discount_suppressed_on_used_vehicle": "A per-line discount is suppressed by default on a used vehicle. To grant it anyway, give a reason.",
+  "legacy_sale": "This contract was migrated from the legacy system, which handled it there — it cannot be changed here.",
+  "missing_containers": "The offer is not complete yet. Missing: {{containers}}.",
+  "missing_price": "This contract has no price yet. Complete the price build-up first.",
+  "missing_vehicle": "This contract has no vehicle yet. Add a vehicle first.",
+  "offer_already_contracted": "This offer already has a contract; only a cancelled contract frees an offer.",
+  "vehicle_not_purchased": "The vehicle of this contract has not been purchased yet — it can be invoiced once Stock has booked its purchase.",
+  "invoice_already_requested": "The invoice for this contract was already requested on {{date}}.",
+  "invoice_plate_vehicle_unknown": "The vehicle of this contract has no vehicle record a licence plate could be recorded on. Request the invoice without a plate and record the plate on the vehicle afterwards.",
+  "trade_in_valuation_names_no_car": "This valuation names no car with a VIN that can be taken in trade.",
+  "trade_in_chassis_number_requires_configuration": "A car with a chassis number instead of a VIN is taken in trade with its configuration: value it through «Identify and value», which records the chassis number, the make and the first registration.",
+  "vehicle_not_changed": "The stock vehicle has not changed since the price was built."
+}

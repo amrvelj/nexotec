@@ -21,7 +21,8 @@ from app.core.auth import AccessRole, Principal, get_current_principal
 from app.main import app
 from app.platform.identity.models.support_session import SupportSession
 from app.platform.identity.models.user import User, UserStatus
-from app.platform.organisation.models.dealership import PLATFORM_DEALERSHIP_ID
+from app.platform.organisation.models.dealership import PLATFORM_DEALERSHIP_ID, Dealership, DealershipStatus
+from tests import setup_checklist_support as checklist
 from tests.identity_support import (
     PasswordLogin,
     cookie_headers,
@@ -178,6 +179,57 @@ def test_the_logs_page_newest_first_with_sort(client, scene, login, db_session):
         "/v1/platform/support-sessions", params={"sort": "startedAt:desc"}, headers=_staff_headers(scene["staff"])
     ).json()
     assert [e["id"] for e in platform["items"]] == list(reversed(ids))
+
+
+def test_ended_at_sorts_the_end_the_log_shows_a_timeout_at_its_expiry(client, scene, login, db_session):
+    """KAN-786: a session that timed out but that the nightly job has not
+    closed yet shows `endedAt` = its `expires_at`, and sorts there — not with
+    the running sessions' empty ends (nulls last, both directions). Paged one
+    row at a time, so each cursor carries the end it was ordered by."""
+
+    staff_cookie = _staff_headers(scene["staff"], tenant_id=scene["home"])
+    now = dt.datetime.now(dt.UTC)
+    explicit = _start(client, scene["staff"], scene["home"], scene["beat"]["id"])["id"]
+    client.post(
+        f"/v1/platform/support-sessions/{explicit}/end",
+        headers={**staff_cookie, "Idempotency-Key": str(uuid.uuid4())},
+    )
+    timed_out = _start(client, scene["staff"], scene["home"], scene["beat"]["id"])["id"]
+    db_session.execute(  # expired, not closed: frees the staff member's one running session
+        update(SupportSession)
+        .where(SupportSession.id == uuid.UUID(timed_out))
+        .values(started_at=now - dt.timedelta(hours=5), expires_at=now - dt.timedelta(hours=4))
+    )
+    db_session.execute(
+        update(SupportSession)
+        .where(SupportSession.id == uuid.UUID(explicit))
+        .values(started_at=now - dt.timedelta(hours=3), ended_at=now - dt.timedelta(hours=2))
+    )
+    db_session.commit()
+    # Another staff member: a start by the same one would close the expired session first.
+    colleague = create_staff(client, firstName="Marco", lastName="Hilfe")
+    running = _start(client, colleague, scene["home"], scene["manager"]["id"])["id"]
+    assert db_session.get(SupportSession, uuid.UUID(timed_out)).ended_at is None  # not closed yet
+
+    manager = cookie_headers(login.session_cookie(scene["manager"]))
+
+    def walk(direction: str) -> list[dict]:
+        items, cursor = [], None
+        while True:
+            params = {"sort": f"endedAt:{direction}", "limit": 1, **({"cursor": cursor} if cursor else {})}
+            response = client.get(f"/v1/dealerships/{scene['home']}/support-sessions", params=params, headers=manager)
+            assert response.status_code == 200, response.text
+            body = response.json()
+            items += body["items"]
+            cursor = body["nextCursor"]
+            if cursor is None:
+                return items
+
+    ascending = walk("asc")
+    assert [e["id"] for e in ascending] == [timed_out, explicit, running]
+    assert ascending[0]["endedBy"] == "timeout" and ascending[0]["endedAt"] == ascending[0]["expiresAt"]
+    assert ascending[2]["endedAt"] is None
+    assert [e["id"] for e in walk("desc")] == [explicit, timed_out, running]
 
 
 def test_an_unknown_sort_field_is_422(client, scene):
@@ -358,3 +410,46 @@ def test_a_session_owing_a_factor_reads_and_ends_the_running_session(client, log
     assert ended.json()["endedBy"] == "user"
     # Confined everywhere else, the manager's own log included.
     assert client.get(f"/v1/dealerships/{enforced}/support-sessions", headers=cookie).status_code == 403
+
+
+# --- a manager under the legal hold ends the session running on them (KAN-788) ------
+
+
+def test_a_manager_under_the_legal_hold_ends_the_session_on_them_and_no_other(client, db_session, mailbox):
+    """FR-A-39 holds a manager to the acceptance once the grace has passed;
+    `_legal_hold_path` keeps the banner's read and the ending open to them
+    (FR-A-18). Ending a session that runs on someone else is still 404, and
+    every other route stays held."""
+
+    dealership_id = checklist.pending_dealership(client, db_session)
+    boss = checklist.manager(client, db_session, dealership_id, active=False)
+    clerk = checklist.manager(client, db_session, dealership_id, active=False, isDealerManager=False)
+    dealership = db_session.get(Dealership, dealership_id)
+    dealership.status = DealershipStatus.ACTIVE
+    db_session.commit()
+    checklist.publish_both(db_session, "1.0", effective_date=dt.date(2026, 1, 1))  # the grace has passed
+    login = PasswordLogin(client, mailbox)
+    held = cookie_headers(login.session_cookie(boss))  # accepts the invitation: boss is active
+    login.session_cookie(clerk)
+    staff = create_staff(client, firstName="Petra", lastName="Support")
+    other_staff = create_staff(client, firstName="Marco", lastName="Hilfe")
+    on_boss = _start(client, staff, str(dealership_id), boss["id"])
+    on_clerk = _start(client, other_staff, str(dealership_id), clerk["id"])
+
+    refused = client.get("/v1/customers", headers=held)
+    assert refused.status_code == 403
+    assert refused.json()["error"]["details"] == {"legalAcceptanceRequired": True}
+
+    assert client.get(ME, headers=held).json()["session"]["id"] == on_boss["id"]
+    others = client.post(
+        f"/v1/platform/support-sessions/{on_clerk['id']}/end",
+        headers={**held, "Idempotency-Key": str(uuid.uuid4())},
+    )
+    assert others.status_code == 404, others.text
+    ended = client.post(
+        f"/v1/platform/support-sessions/{on_boss['id']}/end",
+        headers={**held, "Idempotency-Key": str(uuid.uuid4())},
+    )
+    assert ended.status_code == 200, ended.text
+    assert ended.json()["endedBy"] == "user"
+    assert client.get("/v1/customers", headers=held).status_code == 403  # still held everywhere else

@@ -44,13 +44,17 @@ DEFAULT_BUNDLES_DIR = Path(__file__).resolve().parents[1] / "frontend" / "apps" 
 
 def read_bundle(folder: Path) -> dict:
     """One language's bundle from its namespace files (KAN-616): `<namespace>.json` is that top-level
-    namespace, `<namespace>.<key>.json` one child of it split off for size — the same assembly as the
-    generated `locales/<language>.ts` (scripts/split_locale_bundles.py)."""
+    namespace, `<namespace>.<key>.json` one child of it split off for size, `<namespace>.<key>.<shard>.json`
+    one shard of that child (KAN-786) — the same assembly as the generated `locales/<language>.ts`
+    (scripts/split_locale_bundles.py)."""
     bundle: dict = {}
     for path in sorted(folder.glob("*.json")):
         namespace, _, key = path.stem.partition(".")
+        key, _, shard = key.partition(".")
         content = json.loads(path.read_text(encoding="utf-8"))
-        if key:
+        if shard:
+            bundle.setdefault(namespace, {}).setdefault(key, {}).update(content)
+        elif key:
             bundle.setdefault(namespace, {})[key] = content
         elif isinstance(content, dict):
             bundle.setdefault(namespace, {}).update(content)

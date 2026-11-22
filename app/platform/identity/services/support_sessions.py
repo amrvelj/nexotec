@@ -42,11 +42,12 @@ FR-A-17 exclusions (PR 4) are `app/core/impersonation.py`'s dependency on the
 routes it names.
 """
 
+import dataclasses
 import datetime as dt
 import uuid
 from typing import Literal
 
-from sqlalchemy import select
+from sqlalchemy import bindparam, case, null, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -62,6 +63,7 @@ from app.core.pagination import (
     paginate_query_sorted,
 )
 from app.core.sorting import build_page_for_sort
+from app.core.types import UTCDateTime
 from app.platform.identity.models.support_session import (
     SUPPORT_SESSION_MINUTES,
     SupportSession,
@@ -97,6 +99,22 @@ def _violated(exc: IntegrityError) -> str | None:
         if OPEN_CONSTRAINT in str(exc.orig) or "support_session.staff_user_id" in str(exc.orig)
         else None
     )
+
+
+# The end the log shows (`state_of`), as SQL: `ended_at`, else `expires_at`
+# once it has passed, else none (still running). `now` is bound per request
+# (`list_support_sessions`), so the order and the next page's cursor are read
+# at the same instant (KAN-786). Each page binds its own `now`: a session that
+# times out between two pages moves from the running tail (nulls last) to its
+# expiry, so one walk may miss it — descending, or in either direction once
+# the walk has reached the tail — but never shows it twice; the next walk is
+# exact. Inherent to sorting on a derived end.
+_NOW = bindparam("support_session_now", type_=UTCDateTime())
+SHOWN_END = case(
+    (SupportSession.ended_at.is_not(None), SupportSession.ended_at),
+    (SupportSession.expires_at <= _NOW, SupportSession.expires_at),
+    else_=null(),
+).label("shown_end")
 
 
 def state_of(row: SupportSession, now: dt.datetime) -> tuple[dt.datetime | None, SupportSessionEndedBy | None, bool]:
@@ -342,6 +360,22 @@ def running_session_for(db: Session, principal: Principal) -> MySupportSessionRe
     )
 
 
+@dataclasses.dataclass(frozen=True)
+class _SortedRow:
+    """One fetched row as `build_page_for_sort` reads it: each sort field's
+    value under its column's key, and the row id."""
+
+    id: uuid.UUID
+    shown_end: dt.datetime | None
+    started_at: dt.datetime
+    expires_at: dt.datetime
+    reason: str
+
+
+def _own_sort_values(session: SupportSession) -> dict:
+    return {"started_at": session.started_at, "expires_at": session.expires_at, "reason": session.reason}
+
+
 def list_support_sessions(
     db: Session,
     *,
@@ -353,15 +387,24 @@ def list_support_sessions(
     with no `dealership_id`, for platform staff — every Betrieb's. The caller
     has authorised the scope; this reads what it is given."""
 
+    now = utcnow()
     stmt = select(SupportSession)
     if dealership_id is not None:
         stmt = stmt.where(SupportSession.dealership_id == dealership_id)
     if staff_user_id is not None:
         stmt = stmt.where(SupportSession.staff_user_id == staff_user_id)
     if isinstance(params, SortPageParams):
-        rows, next_cursor = build_page_for_sort(
-            list(db.scalars(paginate_query_sorted(stmt, model=SupportSession, params=params)).all()), params
+        # The shown end rides along as a column of its own, so the next
+        # cursor carries the value the rows were ordered by (KAN-786).
+        fetched = db.execute(
+            paginate_query_sorted(stmt.add_columns(SHOWN_END), model=SupportSession, params=params),
+            {_NOW.key: now},
+        ).all()
+        positions, next_cursor = build_page_for_sort(
+            [_SortedRow(id=session.id, shown_end=shown_end, **_own_sort_values(session)) for session, shown_end in fetched],
+            params,
         )
+        rows = [session for session, _ in fetched[: len(positions)]]
     else:
         rows, next_cursor = build_page(
             list(db.scalars(paginate_query(stmt, model=SupportSession, params=params)).all()), params
@@ -378,7 +421,6 @@ def list_support_sessions(
             db.scalars(select(Dealership).where(Dealership.id.in_(dealership_ids))).all() if dealership_ids else ()
         )
     }
-    now = utcnow()
     entries = [
         SupportSessionLogEntry(
             **to_read(row, now).model_dump(),

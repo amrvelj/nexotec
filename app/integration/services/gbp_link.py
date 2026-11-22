@@ -523,8 +523,9 @@ BINDING_ACTIVATED_EVENT = "integration.gbp_location_binding.activated"
 
 def _publish_activated(db: Session, binding: GbpLocationBinding) -> None:
     """KAN-226 PR-3: the binding is live — in the binding's transaction, so the
-    push consumers send the location's current state and photos once, the
-    first time, without waiting for the next change in Platform."""
+    push consumer sends the location's current state once, the first time,
+    without waiting for the next change in Platform. Photos are not pushed
+    yet (KAN-784)."""
 
     publish(
         db,

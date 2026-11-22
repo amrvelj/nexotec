@@ -44,8 +44,10 @@ def assemble(language: str, names: list[str], read: Callable[[str], str]) -> dic
             bundle.setdefault(parts[0], {}).update(content)
         elif len(parts) == 1:
             bundle[parts[0]] = content
-        else:
+        elif len(parts) == 2:
             bundle.setdefault(parts[0], {})[parts[1]] = content
+        else:  # a shard of `<namespace>.<key>` (KAN-786)
+            bundle.setdefault(parts[0], {}).setdefault(parts[1], {}).update(content)
     return bundle
 
 

@@ -10,16 +10,26 @@ Betrieb's website as part of the location's facts
 website reached Google only when one of that Betrieb's location facts fired
 next (KAN-785).
 
-One event type:
+The master-data fact:
 
 - `platform.dealership.updated` — a published field of the Betrieb changed.
   Today that is `website` only (`PUBLISHED_FIELDS`); a field joins the list
   when a channel publishes it.
 
-Payload: `dealershipId`, the dealership's `version` after the write,
-`changedFields` (the camelCase names that changed) and `dealership`, the
-published facts as they now stand. A consumer re-reads the current state
-through `platform.public` (delivery is unordered and at-least-once).
+**One payload shape for every `platform.dealership.*` fact** (events.md: one
+entity's events share it; KAN-790), built by `dealership_envelope`:
+`dealershipId`, the dealership's `version` after the write, `changedFields`
+(the camelCase names of the dealership's fields the write set that a consumer
+may act on: the published fields among them, and `status` and its stamps for
+a lifecycle step — a creation names `status` and every published field,
+whether or not it holds a value, never the internal ones such as the legal
+name or the UID) and
+`dealership`, the published facts as they now stand. A lifecycle fact adds
+its own fields beside them, never inside: `platform.dealership.onboarded`
+(identity's onboarding) its group, legal name, entitlements, manager and
+actor; `.activated` and `.offboarded` (administration) when and, for an
+activation, by whom. A consumer re-reads the current state through
+`platform.public` (delivery is unordered and at-least-once).
 
 A write that changes no published field publishes nothing. `publish` adds and
 flushes in the caller's session; the caller's commit makes the row and its
@@ -49,13 +59,27 @@ def published_facts(dealership: Dealership) -> dict[str, Any]:
     return {to_camel(field): getattr(dealership, field) for field in PUBLISHED_FIELDS}
 
 
+def dealership_envelope(dealership: Dealership, *, changed_fields: Iterable[str]) -> dict[str, Any]:
+    """The payload every `platform.dealership.*` fact carries (KAN-790),
+    given the snake_case fields the write set. The caller has written the
+    row's new `version`."""
+
+    if dealership.version is None:
+        raise ValueError("A dealership fact needs the row's version after the write.")
+    return {
+        "dealershipId": str(dealership.id),
+        "version": dealership.version,
+        "changedFields": [to_camel(field) for field in changed_fields],
+        "dealership": published_facts(dealership),
+    }
+
+
 def publish_dealership_changes(db: Session, *, dealership: Dealership, changed_fields: Iterable[str]) -> bool:
     """Given the snake_case fields a write changed, adds
     `platform.dealership.updated` when a published one is among them.
     True when the fact was added."""
 
-    changed = [to_camel(field) for field in PUBLISHED_FIELDS if field in set(changed_fields)]
-    if not changed:
+    if not any(field in set(changed_fields) for field in PUBLISHED_FIELDS):
         return False
     publish(
         db,
@@ -65,12 +89,9 @@ def publish_dealership_changes(db: Session, *, dealership: Dealership, changed_f
             producer=_PRODUCER,
             aggregate_type=_AGGREGATE,
             aggregate_id=dealership.id,
-            payload={
-                "dealershipId": str(dealership.id),
-                "version": dealership.version,
-                "changedFields": changed,
-                "dealership": published_facts(dealership),
-            },
+            payload=dealership_envelope(
+                dealership, changed_fields=[field for field in PUBLISHED_FIELDS if field in set(changed_fields)]
+            ),
         ),
     )
     return True

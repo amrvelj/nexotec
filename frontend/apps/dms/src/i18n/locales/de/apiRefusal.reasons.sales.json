@@ -1,0 +1,14 @@
+{
+  "discount_suppressed_on_used_vehicle": "Auf einem Occasionsfahrzeug ist ein Rabatt pro Position standardmässig unterdrückt. Um ihn trotzdem zu gewähren, einen Grund angeben.",
+  "legacy_sale": "Dieser Vertrag wurde aus dem Altsystem übernommen, das ihn dort abgewickelt hat – er kann hier nicht geändert werden.",
+  "missing_containers": "Die Offerte ist noch nicht vollständig. Es fehlt: {{containers}}.",
+  "missing_price": "Dieser Vertrag hat noch keinen Preis. Vervollständigen Sie zuerst die Preiskalkulation.",
+  "missing_vehicle": "Dieser Vertrag hat noch kein Fahrzeug. Fügen Sie zuerst ein Fahrzeug hinzu.",
+  "offer_already_contracted": "Zu dieser Offerte gibt es bereits einen Vertrag; erst ein stornierter Vertrag gibt die Offerte wieder frei.",
+  "vehicle_not_purchased": "Das Fahrzeug dieses Vertrags ist noch nicht eingekauft – er kann verrechnet werden, sobald der Einkauf im Bestand erfasst ist.",
+  "invoice_already_requested": "Die Rechnung für diesen Vertrag wurde bereits am {{date}} angefordert.",
+  "invoice_plate_vehicle_unknown": "Für das Fahrzeug dieses Vertrags gibt es keinen Fahrzeugdatensatz, auf dem ein Kontrollschild erfasst werden kann. Fordern Sie die Rechnung ohne Kontrollschild an und erfassen Sie es danach beim Fahrzeug.",
+  "trade_in_valuation_names_no_car": "Diese Bewertung nennt kein Fahrzeug mit VIN, das als Eintausch übernommen werden kann.",
+  "trade_in_chassis_number_requires_configuration": "Ein Fahrzeug mit Fahrgestellnummer statt VIN wird mit seiner Konfiguration eingetauscht: Bewerten Sie es über «Identifizieren und bewerten» – dort werden Fahrgestellnummer, Marke und Erstzulassung erfasst.",
+  "vehicle_not_changed": "Das Lagerfahrzeug wurde seit der Preisberechnung nicht geändert."
+}

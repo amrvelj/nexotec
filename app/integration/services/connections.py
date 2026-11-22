@@ -884,6 +884,30 @@ def usage_period(period_from: dt.date | None, period_to: dt.date | None) -> tupl
     return start, end
 
 
+def _usage_window(connection_id: uuid.UUID, since: dt.datetime, until: dt.datetime) -> tuple:
+    """One connection's call-log rows in `[since, until)`: a range on
+    `ix_integration_call_log_connection_id_created_at` (KAN-777, KAN-781)."""
+    return (
+        IntegrationCallLog.connection_id == connection_id,
+        IntegrationCallLog.created_at >= since,
+        IntegrationCallLog.created_at < until,
+    )
+
+
+def _usage_counts_query(connection_id: uuid.UUID, since: dt.datetime, until: dt.datetime):
+    return (
+        select(IntegrationCallLog.capability, func.count())
+        .where(*_usage_window(connection_id, since, until))
+        .group_by(IntegrationCallLog.capability)
+    )
+
+
+def _usage_tokens_query(connection_id: uuid.UUID, since: dt.datetime, until: dt.datetime):
+    return select(func.sum(IntegrationCallLog.tokens_in), func.sum(IntegrationCallLog.tokens_out)).where(
+        *_usage_window(connection_id, since, until)
+    )
+
+
 def get_usage(
     db: Session, *, connection: IntegrationConnection, period_from: dt.date, period_to: dt.date
 ) -> ConnectionUsage:
@@ -900,23 +924,9 @@ def get_usage(
     zone = ZoneInfo(get_settings().session_timezone)
     since = dt.datetime.combine(period_from, dt.time.min, tzinfo=zone)
     until = dt.datetime.combine(period_to + dt.timedelta(days=1), dt.time.min, tzinfo=zone)
-    rows = db.execute(
-        select(IntegrationCallLog.capability, func.count())
-        .where(
-            IntegrationCallLog.connection_id == connection.id,
-            IntegrationCallLog.created_at >= since,
-            IntegrationCallLog.created_at < until,
-        )
-        .group_by(IntegrationCallLog.capability)
-    ).all()
+    rows = db.execute(_usage_counts_query(connection.id, since, until)).all()
     counters = sorted((UsageCounter(counter=name, count=int(n)) for name, n in rows), key=lambda c: (-c.count, c.counter))
-    tokens_in, tokens_out = db.execute(
-        select(func.sum(IntegrationCallLog.tokens_in), func.sum(IntegrationCallLog.tokens_out)).where(
-            IntegrationCallLog.connection_id == connection.id,
-            IntegrationCallLog.created_at >= since,
-            IntegrationCallLog.created_at < until,
-        )
-    ).one()
+    tokens_in, tokens_out = db.execute(_usage_tokens_query(connection.id, since, until)).one()
     return ConnectionUsage(
         period_from=period_from,
         period_to=period_to,

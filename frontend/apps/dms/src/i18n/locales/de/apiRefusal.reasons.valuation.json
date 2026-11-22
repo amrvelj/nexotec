@@ -1,0 +1,13 @@
+{
+  "no_signed_contract": "Kein unterzeichneter Vertrag führt diese Bewertung als Eintausch, daher kann sie nicht als verwendet markiert werden: Nur ein unterzeichnetes Geschäft verwendet eine Bewertung.",
+  "pending_contract_carries_it": "Ein offener Vertrag führt diese Bewertung als Eintausch; seine Bestätigung würde sie verwenden. Stornieren Sie zuerst diesen Vertrag.",
+  "signed_contract_carries_it": "Ein unterzeichneter Vertrag führt diese Bewertung als Eintausch, daher bleibt sie verwendet.",
+  "stamp_too_recent": "Diese Bewertung wurde vor weniger als einer Stunde als verwendet markiert; die Bestätigung ihres Vertrags läuft vielleicht noch. Bitte später erneut versuchen.",
+  "valuation_not_used": "Diese Bewertung ist nicht als verwendet markiert.",
+  "valuation_names_no_car": "Eine Bewertung braucht das Fahrzeug: VIN, Marke und Modell sind Pflicht.",
+  "provider_cannot_value": "auto-i-dat kann dieses Fahrzeug nicht bewerten: {{message}}",
+  "provider_quote_required": "Ein auto-i-dat-Wert kommt vom Anbieter — zuerst «Bewertung von auto-i-dat holen».",
+  "provider_quote_mismatch": "Diese auto-i-dat-Bewertung gehört zu einer anderen Konfiguration.",
+  "provider_quote_stale": "Erstinverkehrsetzung oder Kilometerstand weichen von der auto-i-dat-Bewertung ab. Bitte erneut holen.",
+  "provider_quote_inputs_missing": "Für die auto-i-dat-Bewertung braucht es Erstinverkehrsetzung und Kilometerstand."
+}

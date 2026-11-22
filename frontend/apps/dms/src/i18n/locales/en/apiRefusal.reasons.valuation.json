@@ -1,0 +1,13 @@
+{
+  "no_signed_contract": "No signed contract carries this valuation as its trade-in, so it cannot be marked as used: only a signed deal uses a valuation.",
+  "pending_contract_carries_it": "An open contract carries this valuation as its trade-in; its confirmation would use it. Cancel that contract first.",
+  "signed_contract_carries_it": "A signed contract carries this valuation as its trade-in, so it stays used.",
+  "stamp_too_recent": "This valuation was marked as used less than an hour ago; its contract's confirmation may still be in progress. Please try again later.",
+  "valuation_not_used": "This valuation is not marked as used.",
+  "valuation_names_no_car": "A valuation names its car: VIN, make and model are required.",
+  "provider_cannot_value": "auto-i-dat cannot value this vehicle: {{message}}",
+  "provider_quote_required": "An auto-i-dat value comes from the provider — use «Get valuation from auto-i-dat» first.",
+  "provider_quote_mismatch": "This auto-i-dat valuation belongs to another configuration.",
+  "provider_quote_stale": "The first registration or the mileage differ from the auto-i-dat valuation. Please get it again.",
+  "provider_quote_inputs_missing": "The auto-i-dat valuation needs the first registration and the mileage."
+}

@@ -6,7 +6,14 @@ import ns_addressSearch from './fr/addressSearch.json'
 import ns_aiPrompts from './fr/aiPrompts.json'
 import ns_apiRefusal__accessWindow from './fr/apiRefusal.accessWindow.json'
 import ns_apiRefusal from './fr/apiRefusal.json'
-import ns_apiRefusal__reasons from './fr/apiRefusal.reasons.json'
+import ns_apiRefusal__reasons__common from './fr/apiRefusal.reasons.common.json'
+import ns_apiRefusal__reasons__customer from './fr/apiRefusal.reasons.customer.json'
+import ns_apiRefusal__reasons__integration from './fr/apiRefusal.reasons.integration.json'
+import ns_apiRefusal__reasons__inventory from './fr/apiRefusal.reasons.inventory.json'
+import ns_apiRefusal__reasons__platform from './fr/apiRefusal.reasons.platform.json'
+import ns_apiRefusal__reasons__sales from './fr/apiRefusal.reasons.sales.json'
+import ns_apiRefusal__reasons__valuation from './fr/apiRefusal.reasons.valuation.json'
+import ns_apiRefusal__reasons__vehicle from './fr/apiRefusal.reasons.vehicle.json'
 import ns_auth from './fr/auth.json'
 import ns_branding from './fr/branding.json'
 import ns_brandsAdmin from './fr/brandsAdmin.json'
@@ -73,7 +80,7 @@ const bundle = {
   account: ns_account,
   addressSearch: ns_addressSearch,
   aiPrompts: ns_aiPrompts,
-  apiRefusal: { ...ns_apiRefusal, accessWindow: ns_apiRefusal__accessWindow, reasons: ns_apiRefusal__reasons },
+  apiRefusal: { ...ns_apiRefusal, accessWindow: ns_apiRefusal__accessWindow, reasons: { ...ns_apiRefusal__reasons__common, ...ns_apiRefusal__reasons__customer, ...ns_apiRefusal__reasons__integration, ...ns_apiRefusal__reasons__inventory, ...ns_apiRefusal__reasons__platform, ...ns_apiRefusal__reasons__sales, ...ns_apiRefusal__reasons__valuation, ...ns_apiRefusal__reasons__vehicle } },
   auth: ns_auth,
   branding: ns_branding,
   brandsAdmin: ns_brandsAdmin,

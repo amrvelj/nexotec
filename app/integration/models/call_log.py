@@ -39,7 +39,10 @@ class IntegrationCallLog(PrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "integration_call_log"
     # KAN-777: the latest call of one connection (`gbp_status.client_health`,
     # `ORDER BY created_at DESC, id DESC LIMIT 1`) walks this index newest
-    # first instead of sorting every row of the connection.
+    # first instead of sorting every row of the connection. KAN-781: it is
+    # the only index on `connection_id` — every read by connection (the two
+    # latest-call reads, the usage counts) leads with that column, so the
+    # single-column index it replaced was an extra write on every call.
     __table_args__ = (Index("ix_integration_call_log_connection_id_created_at", "connection_id", "created_at"),)
 
     # KAN-470 (Anto, 2026-10-26, option A): the call log outlives its
@@ -51,7 +54,6 @@ class IntegrationCallLog(PrimaryKeyMixin, TimestampMixin, Base):
     connection_id: Mapped[uuid.UUID] = mapped_column(
         GUID(),
         nullable=False,
-        index=True,
         comment="IntegrationConnection.id. No DB-level FK: the row outlives a deleted connection (KAN-470).",
     )
     connection_label: Mapped[str | None] = mapped_column(String(200), nullable=True)

@@ -1,0 +1,21 @@
+{
+  "colleague_cannot_act_there": "Il collega scelto non lavora nell’azienda a cui appartiene questo record.",
+  "customer_do_not_contact": "Il cliente {{customerNumber}} è contrassegnato come «non contattare» e non può essere associato a nessuna offerta né a nessun contratto.",
+  "no_provider_connection": "Nessun fornitore di dati veicolo è collegato.",
+  "nul_character": "Il dato inserito contiene un carattere non consentito. Rimuovilo e riprova.",
+  "too_many_images": "Un veicolo in stock ha al massimo {{max, number}} immagini. Rimuovi prima un’immagine.",
+  "valuation_expired": "Questa valutazione è scaduta.",
+  "configuration_vin_differs": "Il VIN della configurazione non è quello di questo veicolo. La configurazione descrive un altro veicolo.",
+  "cursor_invalid": "Pagina non valida.",
+  "not_entitled": "Questa richiesta non è compresa nel contratto con il fornitore.",
+  "provider_unavailable": "Il fornitore non è al momento disponibile. Riprovare più tardi.",
+  "provider_not_configured": "Il collegamento ad auto-i-dat non è configurato completamente — verificarlo nell’amministrazione dell’azienda, sotto Integrazioni.",
+  "vehicle_merged": "Il veicolo è stato unito a un altro nell'anagrafica veicolo. Ricaricate.",
+  "unknown_location": "Questa sede non appartiene alla sua azienda.",
+  "filter_malformed": "Questo filtro non è valido.",
+  "unknown_field": "Questo campo non può essere filtrato né ordinato.",
+  "operator_not_allowed": "Questa condizione non vale per questo campo.",
+  "invalid_filter_value": "Il valore del filtro non è valido.",
+  "sort_malformed": "Questo ordinamento non è valido.",
+  "field_not_sortable": "Questo campo non può essere ordinato."
+}

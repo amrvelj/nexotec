@@ -61,7 +61,15 @@ def test_activation_freezes_the_ranges_sets_active_audits_and_publishes(client, 
         select(OutboxMessage).where(OutboxMessage.event_type == "platform.dealership.activated")
     ).all()
     assert len(events) == 1
-    assert events[0].payload["dealershipId"] == str(dealership_id)
+    # KAN-790: the envelope every platform.dealership.* fact shares, its own fields beside it.
+    assert events[0].payload == {
+        "dealershipId": str(dealership_id),
+        "version": dealership.version,
+        "changedFields": ["status", "activatedAt", "activatedBy"],
+        "dealership": {"website": dealership.website},
+        "activatedAt": dealership.activated_at.isoformat(),
+        "activatedBy": boss["id"],
+    }
     audit = db_session.scalars(
         select(AuditEvent).where(AuditEvent.entity_id == dealership_id, AuditEvent.action == "activate")
     ).all()

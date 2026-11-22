@@ -1,0 +1,21 @@
+{
+  "colleague_cannot_act_there": "The chosen colleague does not work in the business this record belongs to.",
+  "customer_do_not_contact": "Customer {{customerNumber}} is marked do-not-contact and cannot be attached to an offer or a contract.",
+  "no_provider_connection": "No vehicle data provider is connected.",
+  "nul_character": "The entry contains a character that is not allowed. Remove it and try again.",
+  "too_many_images": "A stock vehicle has at most {{max, number}} images. Remove an image first.",
+  "valuation_expired": "This valuation has expired.",
+  "configuration_vin_differs": "The configuration's VIN is not this vehicle's VIN. The configuration describes another vehicle.",
+  "cursor_invalid": "Invalid page.",
+  "not_entitled": "This request is not in the contract with the provider.",
+  "provider_unavailable": "The provider is currently unavailable. Please try again later.",
+  "provider_not_configured": "The auto-i-dat connection is not fully set up — check it under Integrations in the business administration.",
+  "vehicle_merged": "The vehicle was merged with another in the vehicle records. Please reload.",
+  "unknown_location": "This location does not belong to your business.",
+  "filter_malformed": "This filter is not valid.",
+  "unknown_field": "This field cannot be filtered or sorted.",
+  "operator_not_allowed": "This condition does not apply to this field.",
+  "invalid_filter_value": "The filter value is not valid.",
+  "sort_malformed": "This sort order is not valid.",
+  "field_not_sortable": "This field cannot be sorted."
+}

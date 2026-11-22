@@ -111,6 +111,15 @@ def test_onboarding_writes_the_betrieb_its_manager_and_seeds_in_one_go(client, m
     assert len(events) == 1
     assert events[0].payload["managerUserId"] == result["managerUserId"]
     assert events[0].payload["entitlements"] == ["sales"]
+    # KAN-790: the envelope every platform.dealership.* fact shares.
+    db_session.expire_all()
+    dealership = db_session.get(Dealership, dealership_id)
+    assert {key: events[0].payload[key] for key in ("dealershipId", "version", "changedFields", "dealership")} == {
+        "dealershipId": str(dealership_id),
+        "version": dealership.version,
+        "changedFields": ["status", "website"],
+        "dealership": {"website": dealership.website},
+    }
     # MFA enforced by default.
     config = client.get(f"/v1/dealerships/{dealership_id}/auth-config", headers=platform_admin_headers())
     assert config.json()["mfaEnforced"] is True

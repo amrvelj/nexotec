@@ -109,6 +109,8 @@ QUOTA_REASONS: frozenset[str] = frozenset(
         "quotaExceeded",
     }
 )
+# The OAuth error codes of one binding's refused grant on a 400 (RFC 6749 §5.2).
+GRANT_REFUSALS: frozenset[str] = frozenset({"invalid_grant", "unauthorized_client"})
 _ERROR_INFO_TYPE = "type.googleapis.com/google.rpc.ErrorInfo"
 _REFRESH_SLOT = SecretSlot.REFRESH_TOKEN.value
 
@@ -314,7 +316,7 @@ class GoogleBusinessProfileAdapter:
             raise ProviderTransportError(f"Google Business Profile's quota is used up for now ({reason}).")
         if status in (401, 403) and reason in PROJECT_REFUSALS:
             raise ProviderRejectedError(f"Google refused Nexotec's project for Business Profile ({reason}).")
-        if status in (401, 403) or (status == 400 and code in ("invalid_grant", "unauthorized_client")):
+        if status in (401, 403) or (status == 400 and code in GRANT_REFUSALS):
             raise ProviderAccountRefusedError(f"Google refused the location's access (HTTP {status}).")
         if status in (400, 404, 422):
             raise ProviderRequestError(f"Google Business Profile refused the request (HTTP {status}).")

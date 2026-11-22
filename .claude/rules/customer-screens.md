@@ -38,6 +38,6 @@ verified against main@3b2bf69 (2026-11-18). -->
   one. Off, the forms are unchanged.
 - **Refusals are said in the user's language** (`ui-i18n.md`): every one carries a
   `details.reason`. A new one adds its key to `REASON_KEYS` (`utils/apiRefusal.ts`, said through
-  `apiRefusalText`) and its four translations — `apiRefusal.test.ts` and
+  `apiRefusalText`) and its four translations (the raising context's shard, `ui-i18n.md`) — `apiRefusal.test.ts` and
   `tests/test_frontend_knows_backend_refusals.py` fail otherwise. The merge and link surfaces
   (`MergeCustomerModal`, `shared/partyAllocationRefusal.ts`) map their own reasons first.

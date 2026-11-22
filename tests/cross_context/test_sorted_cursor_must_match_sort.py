@@ -369,7 +369,7 @@ def _sample_value(column):
     import decimal
 
     from app.core.enum_type import StoredEnum
-    from app.core.sorting import _bind_type, _cursor_python_type
+    from app.core.sorting import _bind_type, _column_type, _cursor_python_type
     from app.core.types import GUID
 
     expected = _cursor_python_type(column)
@@ -382,7 +382,7 @@ def _sample_value(column):
     if expected is int:
         return 7
     if expected is decimal.Decimal:
-        scale = _bind_type(column.property.columns[0].type).scale
+        scale = _bind_type(_column_type(column)).scale
         return decimal.Decimal("1234.5").quantize(decimal.Decimal(1).scaleb(-scale))
     if expected is dt.datetime:
         return dt.datetime(2026, 3, 1, 9, 30, tzinfo=dt.UTC)
@@ -399,9 +399,10 @@ def _round_trip(column, value):
     from types import SimpleNamespace
 
     from app.core.pagination import SortPageParams
-    from app.core.sorting import build_page_for_sort
+    from app.core.sorting import _nullable, build_page_for_sort
 
-    field = SortField(api_name="x", column=column, direction="asc", nullable=column.property.columns[0].nullable)
+    # A mapped column or a labelled expression (KAN-786: the support-session log's shown end).
+    field = SortField(api_name="x", column=column, direction="asc", nullable=_nullable(column))
     key = column.key
     rows = [SimpleNamespace(**{key: value, "id": uuid.uuid4()}) for _ in range(2)]
     page, cursor = build_page_for_sort(rows, SortPageParams(limit=1, cursor=None, sort_fields=[field]))

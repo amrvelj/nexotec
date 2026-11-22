@@ -202,7 +202,16 @@ def test_offboarding_sets_the_status_the_retention_date_and_deactivates_every_us
             OutboxMessage.aggregate_id == uuid.UUID(dealership_id),
         )
     ).all()
-    assert fact.payload == {"dealershipId": dealership_id, "offboardedAt": body["offboardedAt"].replace("Z", "+00:00")}
+    db_session.expire_all()
+    row = db_session.get(Dealership, uuid.UUID(dealership_id))
+    # KAN-790: the envelope every platform.dealership.* fact shares, its own field beside it.
+    assert fact.payload == {
+        "dealershipId": dealership_id,
+        "version": row.version,
+        "changedFields": ["status", "offboardedAt", "retentionUntil"],
+        "dealership": {"website": row.website},
+        "offboardedAt": body["offboardedAt"].replace("Z", "+00:00"),
+    }
 
     again = _offboard(client, dealership_id)
     assert again.status_code == 409
