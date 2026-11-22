@@ -29,6 +29,10 @@ register_handlers` lists them with the event type and `consumer_name`:
   (`handle_business_profile_push_message`, KAN-226 PR-3): the location's
   fields, hours and closed days pushed to its live Google Business Profile
   binding, once per state (`services/gbp_push.py::push_location`).
+- `platform.dealership.updated` -> `integration.business_profile_push_on_dealership_updated`
+  (`handle_business_profile_push_on_dealership_message`, KAN-785): the Betrieb's
+  website changed, so each of its bound locations is pushed through the same
+  debounce (`services/gbp_push.py::push_dealership_locations`).
 
 Platform and Stock state their facts and call nothing here (ADR-131, rule
 12); each consumer commits its own work with the processed-event row, so a
@@ -46,7 +50,7 @@ from app.integration.services.connections import (
     disable_withdrawn_marketplace_connections,
 )
 from app.integration.services.gbp_link import disconnect_offboarded_dealership_bindings
-from app.integration.services.gbp_push import push_location
+from app.integration.services.gbp_push import push_dealership_locations, push_location
 from app.integration.services.mail_sending import disconnect_offboarded_dealership_mailboxes
 
 
@@ -70,3 +74,7 @@ def handle_dealership_listings_withdrawn_message(db: Session, message: OutboxMes
 
 def handle_business_profile_push_message(db: Session, message: OutboxMessage) -> None:
     push_location(db, message)
+
+
+def handle_business_profile_push_on_dealership_message(db: Session, message: OutboxMessage) -> None:
+    push_dealership_locations(db, message)

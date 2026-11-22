@@ -16,7 +16,11 @@ _POSTAL_CODE_RE = re.compile(r"^\d{4}$")
 # Swiss addresses routinely carry a letter suffix ("12a", "4B"). The Customer
 # PRD source sheet said "only numbers allowed", which rejects real addresses
 # — Customer PRD decision D-10 relaxes it to digits + optional short suffix.
-_HOUSE_NUMBER_RE = re.compile(r"^\d{1,5}\s?[A-Za-z]{0,3}$")
+# The separator is one plain space, never `\s` (KAN-778): `\s` also matched a
+# newline or a tab, so «12\n» was stored and printed with a line break. The
+# value is refused rather than stripped — a house number is never silently
+# rewritten. [0-9], not \d: \d also matches other scripts' digits (KAN-197).
+_HOUSE_NUMBER_RE = re.compile(r"^[0-9]{1,5} ?[A-Za-z]{0,3}$")
 # Non-CH postal codes have no single shape (DE 5 digits, FR 5, IT 5, AT 4,
 # LI 4, NL "1234 AB", UK alphanumeric). Validate only that it is plausible
 # rather than inventing per-country rules we cannot maintain (D-11).

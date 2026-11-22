@@ -12,7 +12,8 @@
     "marketplace": "Marktplatz",
     "vehicle_data": "Fahrzeugdaten",
     "ai": "KI-Anbieter",
-    "messaging": "SMS und WhatsApp"
+    "messaging": "SMS und WhatsApp",
+    "calendar_mail": "Kalender und E-Mail"
   },
   "fields": {
     "provider": "Anbieter",

@@ -4,7 +4,9 @@ never by polling (rules 4–6):
 
 `platform.location.updated`, `platform.location.schedule_changed` and
 Integration's own `integration.gbp_location_binding.activated` push the
-location's fields (`push_location`). Photos are not pushed yet: the worker
+location's fields (`push_location`); `platform.dealership.updated` (the
+Betrieb's website changed, KAN-785) pushes each of its bound locations
+(`push_dealership_locations`). Photos are not pushed yet: the worker
 cannot read the object store's disk in production (render.yaml, ADR-081 as
 amended, KAN-738), so they wait for KAN-784.
 
@@ -347,6 +349,32 @@ def push_location(db: Session, message: OutboxMessage) -> bool:
     dealership_id, location_id = _ids(message)
     if location_id is None:
         return False
+    return _push(db, dealership_id=dealership_id, location_id=location_id)
+
+
+def push_dealership_locations(db: Session, message: OutboxMessage) -> int:
+    """KAN-785: a Betrieb-level fact (`platform.dealership.updated`, its
+    website changed) pushes every one of its locations with a live binding,
+    each through the same debounce, so a redelivery after the commit sends
+    nothing again. The pushes commit together with the processed-event row:
+    a retry after one location failed sends the earlier ones once more — the
+    same PATCH of the same state, which Google applies as a no-op.
+    Returns how many locations Google was written to."""
+
+    dealership_id, _ = _ids(message)
+    location_ids = db.scalars(
+        select(GbpLocationBinding.location_id)
+        .where(
+            GbpLocationBinding.tenant_id == dealership_id,
+            GbpLocationBinding.status == GbpBindingStatus.ACTIVE,
+            GbpLocationBinding.google_location_name.is_not(None),
+        )
+        .order_by(GbpLocationBinding.location_id)
+    ).all()
+    return sum(_push(db, dealership_id=dealership_id, location_id=location_id) for location_id in location_ids)
+
+
+def _push(db: Session, *, dealership_id: uuid.UUID, location_id: uuid.UUID) -> bool:
     binding = _live_binding(db, dealership_id=dealership_id, location_id=location_id)
     if binding is None:
         return False

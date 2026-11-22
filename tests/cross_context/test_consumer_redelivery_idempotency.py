@@ -989,7 +989,24 @@ def _business_profile_activated(db_session, engine, monkeypatch):
     return _message(db_session, gbp_link.BINDING_ACTIVATED_EVENT, binding.id), _business_profile_patches(fake)
 
 
+def _business_profile_push_on_dealership_updated(db_session, engine, monkeypatch):
+    """KAN-785 — the Betrieb's website changed: its bound location pushed once."""
+
+    from app.platform.organisation.models.dealership import Dealership
+    from app.platform.organisation.services import dealership_facts
+
+    fake, location, _binding = _business_profile_site(db_session, monkeypatch)
+    dealership = db_session.get(Dealership, location.tenant_id)
+    dealership.website = "www.garage-redelivery.example"
+    dealership_facts.publish_dealership_changes(db_session, dealership=dealership, changed_fields=["website"])
+    db_session.commit()
+    return _message(db_session, dealership_facts.DEALERSHIP_UPDATED_EVENT, dealership.id), _business_profile_patches(
+        fake
+    )
+
+
 _FIXTURES: dict[str, Fixture] = {
+    "integration.business_profile_push_on_dealership_updated": _business_profile_push_on_dealership_updated,
     "integration.business_profile_push_on_location_updated": _business_profile_push_on("platform.location.updated"),
     "integration.business_profile_push_on_schedule_changed": _business_profile_push_on(
         "platform.location.schedule_changed"

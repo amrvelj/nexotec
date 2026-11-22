@@ -6,9 +6,9 @@ filter or an object key. Each pattern is now applied with `fullmatch`
 (`tests/architecture/test_anchored_patterns_judge_the_whole_value.py` holds the rule); each test
 here is the input that passed before.
 
-`HouseNumber` is the exception the ticket names: its `\\s?` between the digits and the suffix
-accepts «12\\n» under `fullmatch` too — the character class decides that, not the anchor, and the
-ticket leaves the classes alone (KAN-778).
+`HouseNumber` was the exception the ticket named: its `\\s?` between the digits and the suffix
+accepted «12\\n» under `fullmatch` too — the character class decided that, not the anchor. KAN-778
+made the separator a plain space; the test below is turned round.
 """
 
 import pytest
@@ -54,12 +54,17 @@ def test_the_uid_vat_number_and_iban_are_normalised_before_the_pattern():
     assert iban_is_valid("CH9300762011623852957\n")
 
 
-def test_the_house_number_still_takes_a_trailing_newline_through_its_character_class():
-    """Pinned as it stands so the follow-up (KAN-778) changes it knowingly."""
+@pytest.mark.parametrize("value", ["12\n", "12\ta", "12\na", "12\r", "12\u00a0a", "\uff11\uff12"])
+def test_the_house_number_refuses_any_separator_but_a_plain_space(value):
+    """KAN-778: «12\\n» and «12\\ta» passed through `\\s?`; full-width digits through `\\d`."""
 
-    assert TypeAdapter(HouseNumber).validate_python("12\n") == "12\n"
     with pytest.raises(ValidationError):
-        TypeAdapter(HouseNumber).validate_python("12a\n")
+        TypeAdapter(HouseNumber).validate_python(value)
+
+
+@pytest.mark.parametrize("value", ["12", "12a", "12 a", "12 ABC", "99999"])
+def test_the_house_number_still_takes_digits_with_an_optional_spaced_suffix(value):
+    assert TypeAdapter(HouseNumber).validate_python(value) == value
 
 
 @pytest.mark.parametrize(

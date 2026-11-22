@@ -21,7 +21,7 @@ import uuid
 from decimal import Decimal
 from typing import Any
 
-from pydantic import EmailStr, Field, ValidationInfo, field_validator, model_validator
+from pydantic import BaseModel, EmailStr, Field, ValidationInfo, field_validator, model_validator
 from pydantic.alias_generators import to_camel
 
 from app.core.audit_schemas import AuditEventPage
@@ -61,6 +61,25 @@ def _require_scope_on_grant(granted: bool | None, scope: ConsentScope | None) ->
         raise ValueError(
             "A consent grant must name its scope: 'marketing', 'invoicing' or 'service' (FR-23 §1)."
         )
+
+
+# KAN-789: the fields of a contact-channel PATCH that clear a value when sent
+# as null — the columns that are nullable. Every other field is NOT NULL on
+# its row; a null there is a 422 naming the field, never a 500 from the
+# database. Pinned against the models' columns by
+# `tests/customer/test_kan789_channel_patch_refuses_null_on_required_fields.py`.
+_CHANNEL_NULLABLE = frozenset({"label", "valid_to", "do_not_use_reason", "consent_scope", "consent_source"})
+_ADDRESS_NULLABLE = _CHANNEL_NULLABLE | {"address_line2"}
+
+
+def _refuse_nulls(body: BaseModel, *, nullable: frozenset[str]) -> None:
+    cleared = [
+        field.alias or name
+        for name, field in type(body).model_fields.items()
+        if name not in nullable and name in body.model_fields_set and getattr(body, name) is None
+    ]
+    if cleared:
+        raise ValueError(f"{', '.join(cleared)} cannot be null — leave the field out to keep its value.")
 
 
 class CalendarPeriod(enum.StrEnum):
@@ -182,6 +201,11 @@ class CustomerPhoneUpdate(CamelModel):
         _require_scope_on_grant(self.consent_granted, self.consent_scope)
         return self
 
+    @model_validator(mode="after")
+    def _not_null(self) -> "CustomerPhoneUpdate":
+        _refuse_nulls(self, nullable=_CHANNEL_NULLABLE)
+        return self
+
 
 class CustomerPhoneRead(CamelModel):
     id: uuid.UUID
@@ -236,6 +260,11 @@ class CustomerEmailUpdate(CamelModel):
     @model_validator(mode="after")
     def _consent_scope_on_grant(self) -> "CustomerEmailUpdate":
         _require_scope_on_grant(self.consent_granted, self.consent_scope)
+        return self
+
+    @model_validator(mode="after")
+    def _not_null(self) -> "CustomerEmailUpdate":
+        _refuse_nulls(self, nullable=_CHANNEL_NULLABLE)
         return self
 
 
@@ -314,6 +343,11 @@ class CustomerAddressUpdate(CamelModel):
     @model_validator(mode="after")
     def _consent_scope_on_grant(self) -> "CustomerAddressUpdate":
         _require_scope_on_grant(self.consent_granted, self.consent_scope)
+        return self
+
+    @model_validator(mode="after")
+    def _not_null(self) -> "CustomerAddressUpdate":
+        _refuse_nulls(self, nullable=_ADDRESS_NULLABLE)
         return self
 
 

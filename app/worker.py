@@ -55,6 +55,7 @@ from app.db import SessionLocal
 from app.export_registry import register_exporters
 from app.integration.consumers import (
     handle_business_profile_push_message,
+    handle_business_profile_push_on_dealership_message,
 )
 from app.integration.consumers import (
     handle_dealership_listings_withdrawn_message as disable_marketplace_connections_on_listings_withdrawn,
@@ -384,6 +385,13 @@ def register_handlers(transport: InProcessTransport) -> None:
         ("integration.gbp_location_binding.activated", "integration.business_profile_push_on_binding_activated"),
     ):
         transport.register(event_type, consumer_name=consumer_name, handler=handle_business_profile_push_message)
+    # KAN-785 — the Betrieb's website is one of the pushed fields: its own
+    # fact pushes every bound location of that Betrieb.
+    transport.register(
+        "platform.dealership.updated",
+        consumer_name="integration.business_profile_push_on_dealership_updated",
+        handler=handle_business_profile_push_on_dealership_message,
+    )
     # KAN-225 — the public stock projection the Betrieb's website reads
     # (FR-A-27), built from Stock's statements only.
     transport.register(
