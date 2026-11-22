@@ -272,7 +272,8 @@ def test_whatsapp_refuses_a_text_the_provider_has_not_approved(client, db_sessio
 
     response = _send(client, author, document.id, channel="whatsapp")
 
-    assert response.status_code == 409 and response.json()["error"]["details"]["reason"] == "whatsapp_template_not_approved"
+    assert response.status_code == 409
+    assert response.json()["error"]["details"] == {"reason": "whatsapp_template_not_approved", "link": "/administration/texts"}
     assert provider["meta"].requests == []
     assert db_session.scalar(select(func.count()).select_from(DocumentLink)) == 0
 

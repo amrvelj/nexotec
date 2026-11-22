@@ -140,7 +140,7 @@ def check_deliverable(
     if messaging_channel == MessagingChannel.WHATSAPP and not has_whatsapp_template:
         raise ConflictError(
             "WhatsApp sends only a text the provider approved as a template; this one is not approved.",
-            details={"reason": WHATSAPP_TEMPLATE_NOT_APPROVED, "link": "/administration/standard-texts"},
+            details={"reason": WHATSAPP_TEMPLATE_NOT_APPROVED, "link": "/administration/texts"},
         )
     return channel
 
