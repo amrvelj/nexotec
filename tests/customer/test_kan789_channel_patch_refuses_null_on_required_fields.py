@@ -73,14 +73,32 @@ def test_a_null_on_a_required_field_is_a_422_naming_it(client, channel, field):
     response = client.patch(f"/v1/customers/{customer_id}/{channel}/{row_id}", json={field: None}, headers=_bearer(token))
 
     assert response.status_code == 422, response.text
-    assert field in response.text
+    # The error's location names the field — not the echo of the request body.
+    [error] = response.json()["error"]["details"]["errors"]
+    assert error["loc"] == ["body", field], error
+    assert "cannot be null" in error["msg"], error
+
+
+# A value each nullable field can hold, so that clearing it is observable.
+_SET = {
+    "label": "Zuhause",
+    "addressLine2": "c/o Muster",
+    "validTo": "2099-01-01T00:00:00Z",
+    "doNotUseReason": "Umgezogen",
+    "consentScope": "marketing",
+    "consentSource": "form",
+}
 
 
 @pytest.mark.parametrize(("channel", "field"), _CLEARABLE)
 def test_a_null_on_a_nullable_field_still_clears_it(client, channel, field):
     token, customer_id, row_id = _row(client, channel)
+    url = f"/v1/customers/{customer_id}/{channel}/{row_id}"
+    set_ = client.patch(url, json={field: _SET[field]}, headers=_bearer(token))
+    assert set_.status_code == 200, set_.text
+    assert set_.json()[field] is not None, "the precondition: a value to clear"
 
-    response = client.patch(f"/v1/customers/{customer_id}/{channel}/{row_id}", json={field: None}, headers=_bearer(token))
+    response = client.patch(url, json={field: None}, headers=_bearer(token))
 
     assert response.status_code == 200, response.text
     assert response.json()[field] is None
