@@ -15,6 +15,7 @@ import uuid
 from typing import Any
 
 from sqlalchemy import literal
+from sqlalchemy.sql.elements import Label
 from sqlalchemy.types import Boolean, Numeric, TypeDecorator
 
 from app.core.enum_type import StoredEnum
@@ -83,10 +84,25 @@ def parse_sort(sort: str | None, *, allowed: dict[str, Any]) -> list[SortField]:
                 api_name=name,
                 column=column,
                 direction=direction,
-                nullable=column.property.columns[0].nullable,
+                nullable=_nullable(column),
             )
         )
     return fields
+
+
+def _column_type(column: Any) -> Any:
+    """The SQL type a sort field binds: a mapped column's own, or a derived
+    expression's (a `Label`, KAN-786)."""
+
+    return column.type if isinstance(column, Label) else column.property.columns[0].type
+
+
+def _nullable(column: Any) -> bool:
+    """A mapped column's own `nullable`; a derived SQL expression (a `Label`
+    whose key names the value each row carries) may be NULL, so counts as
+    nullable (KAN-786)."""
+
+    return True if isinstance(column, Label) else column.property.columns[0].nullable
 
 
 # --- A sorted cursor answers the sort it is replayed with (KAN-182) ---------
@@ -118,7 +134,7 @@ def _cursor_python_type(column: Any) -> Any:
     """What a cursor value for `column` must be: a StoredEnum, GUID, or the
     Python type the column binds; None when the type cannot be judged."""
 
-    column_type = _bind_type(column.property.columns[0].type)
+    column_type = _bind_type(_column_type(column))
     if isinstance(column_type, (StoredEnum, GUID)):
         return column_type
     try:
@@ -134,7 +150,7 @@ def _numeric_scale(column: Any) -> int | None:
     """The fixed scale of a Numeric column (DECIMAL(12, 2) → 2); None when
     the column declares none, so no scaled integer is exact for it."""
 
-    column_type = _bind_type(column.property.columns[0].type)
+    column_type = _bind_type(_column_type(column))
     scale = column_type.scale if isinstance(column_type, Numeric) else None
     return scale if isinstance(scale, int) else None
 

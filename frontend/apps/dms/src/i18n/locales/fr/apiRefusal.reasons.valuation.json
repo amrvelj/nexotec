@@ -1,0 +1,13 @@
+{
+  "no_signed_contract": "Aucun contrat signé ne porte cette évaluation comme reprise ; elle ne peut donc pas être marquée comme utilisée : seule une affaire signée utilise une évaluation.",
+  "pending_contract_carries_it": "Un contrat ouvert porte cette évaluation comme reprise ; sa confirmation l'utiliserait. Annulez d'abord ce contrat.",
+  "signed_contract_carries_it": "Un contrat signé porte cette évaluation comme reprise ; elle reste donc utilisée.",
+  "stamp_too_recent": "Cette évaluation a été marquée comme utilisée il y a moins d'une heure ; la confirmation de son contrat est peut-être encore en cours. Veuillez réessayer plus tard.",
+  "valuation_not_used": "Cette évaluation n'est pas marquée comme utilisée.",
+  "valuation_names_no_car": "Une évaluation nomme son véhicule : le VIN, la marque et le modèle sont obligatoires.",
+  "provider_cannot_value": "auto-i-dat ne peut pas évaluer ce véhicule : {{message}}",
+  "provider_quote_required": "Une valeur auto-i-dat vient du fournisseur — utilisez d’abord « Obtenir l’évaluation auto-i-dat ».",
+  "provider_quote_mismatch": "Cette évaluation auto-i-dat appartient à une autre configuration.",
+  "provider_quote_stale": "La première mise en circulation ou le kilométrage diffèrent de l’évaluation auto-i-dat. Veuillez l’obtenir à nouveau.",
+  "provider_quote_inputs_missing": "L’évaluation auto-i-dat requiert la première mise en circulation et le kilométrage."
+}

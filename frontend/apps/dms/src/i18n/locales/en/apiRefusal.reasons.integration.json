@@ -1,0 +1,14 @@
+{
+  "duplicate_connection": "A connection to this provider in this environment already exists.",
+  "missing_config_fields": "This connection is missing required settings: {{fields}}.",
+  "secrets_backend_failed": "The secure credential store did not carry out the request — nothing was saved. Please try again later; if the error persists, tell Nexotec support.",
+  "secret_slot_not_used_by_provider": "This provider does not use this credential — it was not saved.",
+  "secret_store_not_configured": "No secure credential store is set up for this deployment — nothing was saved. This is not caused by what you entered: please tell Nexotec support.",
+  "provider_has_no_captions": "This provider has no vocabulary to fetch.",
+  "location_binding_needs_tenant": "A platform-wide connection belongs to no location.",
+  "location_binding_not_supported": "This connection serves the whole business and is not assigned to a location.",
+  "usage_period_reversed": "The period ends before it starts.",
+  "usage_period_too_long": "A period covers one year at most.",
+  "provider_has_no_sandbox": "This provider offers no test access. Connect it as production.",
+  "provider_sandbox_connections_exist": "{{count, number}} test-access connections to this provider still exist. Delete them first."
+}

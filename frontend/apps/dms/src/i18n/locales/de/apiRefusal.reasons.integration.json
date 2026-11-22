@@ -1,0 +1,14 @@
+{
+  "duplicate_connection": "Eine Verbindung zu diesem Anbieter in dieser Umgebung besteht bereits.",
+  "missing_config_fields": "Für diese Verbindung fehlen Pflichtangaben: {{fields}}.",
+  "secrets_backend_failed": "Der sichere Speicher für Zugangsdaten hat die Anfrage nicht ausgeführt — nichts wurde gespeichert. Bitte später erneut versuchen; bleibt der Fehler, den Nexotec-Support informieren.",
+  "secret_slot_not_used_by_provider": "Dieser Anbieter verwendet diese Zugangsdaten nicht — sie wurden nicht gespeichert.",
+  "secret_store_not_configured": "Für diese Installation ist kein sicherer Speicher für Zugangsdaten eingerichtet — nichts wurde gespeichert. Das liegt nicht an Ihrer Eingabe: Bitte den Nexotec-Support informieren.",
+  "provider_has_no_captions": "Dieser Anbieter hat kein Vokabular, das geholt werden kann.",
+  "location_binding_needs_tenant": "Eine plattformweite Verbindung gehört zu keinem Standort.",
+  "location_binding_not_supported": "Diese Verbindung gilt für den ganzen Betrieb und wird keinem Standort zugeordnet.",
+  "usage_period_reversed": "Das Ende des Zeitraums liegt vor seinem Beginn.",
+  "usage_period_too_long": "Ein Zeitraum umfasst höchstens ein Jahr.",
+  "provider_has_no_sandbox": "Dieser Anbieter bietet keinen Testzugang. Verbinden Sie ihn als Produktion.",
+  "provider_sandbox_connections_exist": "Zu diesem Anbieter bestehen noch {{count, number}} Testzugangs-Verbindungen. Löschen Sie diese zuerst."
+}

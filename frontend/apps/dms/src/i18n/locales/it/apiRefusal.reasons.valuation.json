@@ -1,0 +1,13 @@
+{
+  "no_signed_contract": "Nessun contratto firmato riporta questa valutazione come permuta, quindi non può essere contrassegnata come utilizzata: solo un affare firmato utilizza una valutazione.",
+  "pending_contract_carries_it": "Un contratto aperto riporta questa valutazione come permuta; la sua conferma la utilizzerebbe. Annullare prima quel contratto.",
+  "signed_contract_carries_it": "Un contratto firmato riporta questa valutazione come permuta, quindi resta utilizzata.",
+  "stamp_too_recent": "Questa valutazione è stata contrassegnata come utilizzata meno di un'ora fa; la conferma del suo contratto potrebbe essere ancora in corso. Riprovare più tardi.",
+  "valuation_not_used": "Questa valutazione non è contrassegnata come utilizzata.",
+  "valuation_names_no_car": "Una valutazione indica il suo veicolo: VIN, marca e modello sono obbligatori.",
+  "provider_cannot_value": "auto-i-dat non può valutare questo veicolo: {{message}}",
+  "provider_quote_required": "Un valore auto-i-dat proviene dal fornitore — usare prima «Ottieni la valutazione auto-i-dat».",
+  "provider_quote_mismatch": "Questa valutazione auto-i-dat appartiene a un’altra configurazione.",
+  "provider_quote_stale": "La prima immatricolazione o il chilometraggio differiscono dalla valutazione auto-i-dat. Ottenerla di nuovo.",
+  "provider_quote_inputs_missing": "La valutazione auto-i-dat richiede la prima immatricolazione e il chilometraggio."
+}

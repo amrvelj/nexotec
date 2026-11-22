@@ -1,0 +1,21 @@
+{
+  "colleague_cannot_act_there": "Le collègue choisi ne travaille pas dans l’entreprise à laquelle appartient cet enregistrement.",
+  "customer_do_not_contact": "Le client {{customerNumber}} est marqué « ne pas contacter » et ne peut être associé à aucune offre ni à aucun contrat.",
+  "no_provider_connection": "Aucun fournisseur de données véhicule n’est connecté.",
+  "nul_character": "La saisie contient un caractère non autorisé. Supprimez-le et réessayez.",
+  "too_many_images": "Un véhicule en stock a au plus {{max, number}} images. Retirez d’abord une image.",
+  "valuation_expired": "Cette évaluation a expiré.",
+  "configuration_vin_differs": "Le VIN de la configuration n'est pas celui de ce véhicule. La configuration décrit un autre véhicule.",
+  "cursor_invalid": "Page invalide.",
+  "not_entitled": "Cette requête n’est pas comprise dans le contrat avec le fournisseur.",
+  "provider_unavailable": "Le fournisseur n’est pas disponible actuellement. Veuillez réessayer plus tard.",
+  "provider_not_configured": "La connexion à auto-i-dat n’est pas entièrement configurée — vérifiez-la dans l’administration de l’entreprise, sous Intégrations.",
+  "vehicle_merged": "Le véhicule a été fusionné avec un autre dans la fiche véhicule. Veuillez recharger.",
+  "unknown_location": "Ce site n'appartient pas à votre entreprise.",
+  "filter_malformed": "Ce filtre n'est pas valable.",
+  "unknown_field": "Ce champ ne peut être ni filtré ni trié.",
+  "operator_not_allowed": "Cette condition ne s'applique pas à ce champ.",
+  "invalid_filter_value": "La valeur du filtre n'est pas valable.",
+  "sort_malformed": "Ce tri n'est pas valable.",
+  "field_not_sortable": "Ce champ ne peut pas être trié."
+}

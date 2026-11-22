@@ -67,3 +67,47 @@ def test_the_real_bundles_read_the_same_through_the_import_script_and_the_compar
         via_compare = compare_locale_bundles.assemble(language, names, lambda n: (root / n).read_text(encoding="utf-8"))
         assert import_ui_translation_bundles.read_bundle(root / language) == via_compare
         assert len(compare_locale_bundles.flatten(via_compare)) > 1000
+
+
+# --- KAN-786: a child too large for one file is cut into shards by hand -------------
+
+
+def _shard(locales, language, name, content):
+    (locales / language / name).write_text(split_locale_bundles.dump(content), encoding="utf-8")
+
+
+def test_the_shards_of_one_child_assemble_back_into_it_in_every_reader(locales):
+    split_locale_bundles.main(["split", "--locales-dir", str(locales)])
+    for language in split_locale_bundles.LANGUAGES:
+        (locales / language / "apiRefusal.reasons.json").unlink()
+        _shard(locales, language, "apiRefusal.reasons.vehicle.json", {"vin": "FIN"})
+        _shard(locales, language, "apiRefusal.reasons.common.json", {"km": "Kilometer"})
+    split_locale_bundles.main(["index", "--locales-dir", str(locales)])
+
+    index = (locales / "de.ts").read_text()
+    assert "import ns_apiRefusal__reasons__vehicle from './de/apiRefusal.reasons.vehicle.json'" in index
+    assert (
+        "reasons: { ...ns_apiRefusal__reasons__common, ...ns_apiRefusal__reasons__vehicle }" in index
+    ), index
+    names = [str(p.relative_to(locales)) for p in locales.rglob("*.json")]
+    assembled = compare_locale_bundles.assemble("fr", names, lambda n: (locales / n).read_text(encoding="utf-8"))
+    assert assembled == BUNDLE
+    assert import_ui_translation_bundles.read_bundle(locales / "fr") == BUNDLE
+
+
+def test_index_refuses_a_key_in_two_shards(locales):
+    split_locale_bundles.main(["split", "--locales-dir", str(locales)])
+    (locales / "de" / "apiRefusal.reasons.json").unlink()
+    _shard(locales, "de", "apiRefusal.reasons.vehicle.json", {"vin": "FIN", "km": "km"})
+    _shard(locales, "de", "apiRefusal.reasons.common.json", {"km": "Kilometer"})
+
+    with pytest.raises(SystemExit, match="'km' is in both"):
+        split_locale_bundles.main(["index", "--locales-dir", str(locales)])
+
+
+def test_index_refuses_a_fifth_level(locales):
+    split_locale_bundles.main(["split", "--locales-dir", str(locales)])
+    _shard(locales, "de", "apiRefusal.reasons.vehicle.more.json", {"x": "y"})
+
+    with pytest.raises(SystemExit, match="at most <namespace>.<key>.<shard>.json"):
+        split_locale_bundles.main(["index", "--locales-dir", str(locales)])

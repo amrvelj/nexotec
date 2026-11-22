@@ -1,0 +1,21 @@
+{
+  "colleague_cannot_act_there": "Der gewählte Kollege arbeitet nicht in dem Betrieb, zu dem dieser Datensatz gehört.",
+  "customer_do_not_contact": "Der Kunde {{customerNumber}} ist als «nicht kontaktieren» markiert und kann keiner Offerte und keinem Vertrag zugeordnet werden.",
+  "no_provider_connection": "Es ist kein Fahrzeugdaten-Anbieter verbunden.",
+  "nul_character": "Die Eingabe enthält ein unzulässiges Zeichen. Entfernen Sie es und versuchen Sie es erneut.",
+  "too_many_images": "Ein Bestandsfahrzeug hat höchstens {{max, number}} Bilder. Bitte zuerst ein Bild entfernen.",
+  "valuation_expired": "Diese Bewertung ist abgelaufen.",
+  "configuration_vin_differs": "Die VIN der Konfiguration ist nicht die VIN dieses Fahrzeugs. Die Konfiguration beschreibt ein anderes Fahrzeug.",
+  "cursor_invalid": "Ungültige Seite.",
+  "not_entitled": "Diese Abfrage ist nicht im Vertrag mit dem Anbieter.",
+  "provider_unavailable": "Der Anbieter ist derzeit nicht verfügbar. Bitte später erneut versuchen.",
+  "provider_not_configured": "Die Verbindung zu auto-i-dat ist nicht vollständig eingerichtet — in der Betriebsverwaltung unter Integrationen prüfen.",
+  "vehicle_merged": "Das Fahrzeug wurde im Fahrzeugstamm mit einem anderen zusammengeführt. Bitte neu laden.",
+  "unknown_location": "Dieser Standort gehört nicht zu Ihrem Betrieb.",
+  "filter_malformed": "Dieser Filter ist ungültig.",
+  "unknown_field": "Nach diesem Feld kann nicht gefiltert oder sortiert werden.",
+  "operator_not_allowed": "Diese Bedingung gilt für dieses Feld nicht.",
+  "invalid_filter_value": "Der Filterwert ist ungültig.",
+  "sort_malformed": "Diese Sortierung ist ungültig.",
+  "field_not_sortable": "Nach diesem Feld kann nicht sortiert werden."
+}

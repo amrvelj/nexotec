@@ -30,7 +30,8 @@ platform-users.md by KAN-221 PR-6 (2026-11-21), its budget being full. -->
   (the `acting_for` token, preserved `auth.py`/`audit.py`: attended session only).
 - **Logs:** `GET /v1/dealerships/{id}/support-sessions` (the manager, own Betrieb; another is 404)
   and `GET /v1/platform/support-sessions` (staff; `dealershipId`, `staffUserId`); `sort` over the
-  session's own columns (`startedAt:desc` = newest first, the screens' order). Every start and end is
+  session's own columns (`startedAt:desc` = newest first, the screens' order); `endedAt` sorts the end the log
+  shows — a timeout not yet closed at its `expires_at`, a running session last (KAN-786). Every start and end is
   also an audit row on the Betrieb — the staff member or the user as actor, a timeout a system write.
 - **The banner:** `GET /v1/me/support-session` (the session running on the caller — the user it
   supports, or the staff member under `acting_for`), polled on focus and each minute as a
