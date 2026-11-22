@@ -5,6 +5,7 @@ contract allows `app.<other-context>` to import `app.platform.public`, never
 
 from app.platform.administration.services.data_export_tables import PlatformExporter
 from app.platform.administration.services.location_channel_facts import (
+    CLOSED_DAYS_HORIZON,
     ChannelOpeningHours,
     LocationChannelFacts,
     location_channel_facts,
@@ -190,6 +191,7 @@ from app.platform.reference.services.reference_data import get_active_reference_
 # stored; the URL carries it in the fragment ({app}/d#<token>), never a path.
 # Platform serves the SPA's GET /v1/document-links/current (token in a header).
 __all__ = [
+    "CLOSED_DAYS_HORIZON",
     "PLACEHOLDER_UNRESOLVED",
     "ActingUser",
     "Addressee",

@@ -9,10 +9,22 @@ from typing import Literal
 from pydantic import Field
 
 from app.core.schemas import CamelModel
-from app.integration.models.google_business_profile import GbpBindingStatus
+from app.integration.models.google_business_profile import GbpBindingStatus, GbpDriftOutcome
 
 _ACCOUNT = r"^accounts/[0-9A-Za-z_-]{1,64}$"
 _LOCATION = r"^locations/[0-9A-Za-z_-]{1,64}$"
+
+
+class BusinessProfileDriftRead(CamelModel):
+    """KAN-226 PR-4: the binding's latest nightly drift check. `driftedFields`
+    are field codes (`address`, `phone`, `website`, `regularHours`,
+    `moreHours`, `specialHours`), never a value read from Google; `reason` a
+    closed code for a failed or skipped check."""
+
+    checked_at: dt.datetime
+    outcome: GbpDriftOutcome
+    drifted_fields: list[str]
+    reason: str | None
 
 
 class BusinessProfileBindingRead(CamelModel):
@@ -26,6 +38,10 @@ class BusinessProfileBindingRead(CamelModel):
     error_code: str | None
     connected_at: dt.datetime
     version: int
+    # KAN-226 PR-4, on the bindings list: the latest drift check (None before
+    # the first) and the departments the last push could not show at Google.
+    drift: BusinessProfileDriftRead | None = None
+    unmapped_departments: list[str] = Field(default_factory=list)
 
 
 class BusinessProfileBindingPage(CamelModel):

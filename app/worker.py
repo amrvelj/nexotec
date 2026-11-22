@@ -62,6 +62,7 @@ from app.integration.consumers import (
 )
 from app.integration.consumers import handle_dealership_offboarded_message as disable_connections_on_offboarded
 from app.integration.daily_jobs import (
+    run_daily_business_profile_drift_check,
     run_daily_business_profile_link_state_purge,
     run_daily_integration_jobs,
     run_daily_mail_link_state_purge,
@@ -552,7 +553,7 @@ def register_customer_message_types() -> None:
 
 
 def register_daily_jobs() -> None:
-    """Nineteen daily jobs, run in registration order once per day on this
+    """Twenty daily jobs, run in registration order once per day on this
     process (app.core.daily_scheduler):
 
     1. ``integration.daily_jobs`` — ADR-025's expiry warnings, ADR-024's
@@ -641,6 +642,12 @@ def register_daily_jobs() -> None:
        notification to the Betrieb's managers per regression; an item
        complete again closes it. Not a repair: the action the item blocks is
        refused meanwhile by the module that runs it.
+    17a. ``integration.business_profile.drift_check`` — KAN-226 PR-4: each
+       active Google Business Profile binding's location is read back from
+       Google and compared field by field with what the push sends; the
+       result is recorded per binding for the drift card and the status page
+       (app.integration.daily_jobs). It reports, never repairs; before 17b so
+       a drift found tonight is announced tonight.
     17b. ``platform.status_page.notifications`` — KAN-223 (D-A-38): an item
        of the Betrieb's status page that is no longer green raises one
        ``administration`` notification to its managers, nothing more until
@@ -689,6 +696,8 @@ def register_daily_jobs() -> None:
     # 16. (KAN-738) the export's expiry runs on the web service, beside its disk.
     # 17. KAN-214: one administration notification per checklist item broken after activation.
     register_daily_job("platform.setup_checklist.regressions", run_daily_setup_checklist_regressions)
+    # 17a. KAN-226 PR-4: every active Business Profile binding is read back and its drift recorded.
+    register_daily_job("integration.business_profile.drift_check", run_daily_business_profile_drift_check)
     # 17b. KAN-223: one administration notification per status-page item that is no longer green.
     register_daily_job("platform.status_page.notifications", run_daily_status_page_notifications)
     # 17c. KAN-221: a support session nobody ended has its timeout written into the row.
