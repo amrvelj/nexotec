@@ -90,8 +90,10 @@ is interrupted — no client, breaker open, or a client/project refusal as its l
 no cause, its own notification `administration.business_profile_interrupted` («nothing to do on your
 side»); staff read the cause on `/platform/status` (`GET /v1/integrations/business-profile/client-status`) and
 «Erneut prüfen» (`POST …/client-status/check`, one real Google call, staff with a factor) clears it once
-Google answers for a location; a timeout, 5xx, quota or token-refresh row, or a 429 or 401/403 not naming the
-client or project (KAN-780), neither raises nor clears it). The daily
+Google answers for a location; each call-log row is read exactly as the adapter's `_raise_for_status` maps
+it (KAN-782): `invalid_client` at any status or a project reason on a 401/403 raises it, a success or a
+400/404/422 for the request clears it, anything else — a timeout, 5xx, quota, refused grant or token-refresh
+row — neither raises nor clears it). The daily
 `platform.status_page.notifications` raises `administration.status_item_degraded` once per
 degradation (`status_item_state`, under a per-Betrieb advisory lock): a warning the source really
 announced is exempt, the move to blocked never; an unavailable source keeps its rows, its own
