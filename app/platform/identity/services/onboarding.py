@@ -42,6 +42,7 @@ from app.platform.organisation.models.dealership import Dealership, Location
 from app.platform.organisation.schemas.dealership import DealershipCreate
 from app.platform.organisation.services import dealership as dealership_service
 from app.platform.organisation.services import entitlement as entitlement_service
+from app.platform.organisation.services.dealership_facts import PUBLISHED_FIELDS, dealership_envelope
 from app.platform.reference.services.mailer import PlatformMailer
 from app.platform.reference_data_seed import LEGAL_FORM_LIST_CODE
 
@@ -135,7 +136,9 @@ def onboard(
             aggregate_type="dealership",
             aggregate_id=dealership.id,
             payload={
-                "dealershipId": str(dealership.id),
+                # A creation sets every field: `changedFields` names the
+                # published ones and the status it starts in (KAN-790).
+                **dealership_envelope(dealership, changed_fields=("status", *PUBLISHED_FIELDS)),
                 "dealerGroupId": str(dealership.dealer_group_id),
                 "legalName": dealership.legal_name,
                 "entitlements": sorted(entitlements),

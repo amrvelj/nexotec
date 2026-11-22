@@ -52,6 +52,7 @@ from app.platform.identity.services import connected_account, text_delegation
 from app.platform.identity.services import user as user_service
 from app.platform.identity.services.user_common import membership_is_active
 from app.platform.organisation.models.dealership import Dealership, DealershipStatus
+from app.platform.organisation.services.dealership_facts import dealership_envelope
 
 RETENTION_YEARS = 10
 OFFBOARDING_REASON = "dealership_offboarded"
@@ -235,7 +236,10 @@ def publish_offboarded(db: Session, *, dealership: Dealership, offboarded_at: dt
             producer="platform",
             aggregate_type="dealership",
             aggregate_id=dealership.id,
-            payload={"dealershipId": str(dealership.id), "offboardedAt": offboarded_at.isoformat()},
+            payload={
+                **dealership_envelope(dealership, changed_fields=("status", "offboarded_at", "retention_until")),
+                "offboardedAt": offboarded_at.isoformat(),
+            },
             occurred_at=offboarded_at,
         ),
     )

@@ -33,7 +33,9 @@ flows events-stock-sales.md (KAN-615). Last verified against main@3b2bf69 (2026-
 - **Consumers are idempotent** by `eventId`; delivery is at-least-once and unordered. Every
   registered consumer needs its fixture in `tests/cross_context/test_consumer_redelivery_idempotency.py`,
   which fails without one.
-- **Every envelope field carries meaning** and one entity's events share a payload shape.
+- **Every envelope field carries meaning** and one entity's events share a payload shape: the
+  entity's id, `version`, `changedFields` and its published snapshot, a lifecycle fact's own fields
+  beside them (`dealership_facts.dealership_envelope`, KAN-790; `location_facts`).
   `correlationId` and `causationId` each come from `app/core/correlation.py` when the producer
   does not name it (KAN-125, G-112): the request's (`X-Correlation-Id` when a UUID, else a fresh
   id), the consumed message's while its handler runs (its `eventId` the cause), a fresh one per
