@@ -70,7 +70,6 @@
   "location_geo_incomplete": "Latitude et longitude vont ensemble – saisissez ou videz les deux.",
   "location_inactive": "Personne ne peut être nouvellement attribué à un site désactivé.",
   "location_postal_code_invalid": "Ce NPA ne correspond pas au pays de l'adresse.",
-  "customer_address_postal_code_invalid": "Ce NPA ne correspond pas au pays de l'adresse.",
   "location_validity_inverted": "« Valable jusqu'au » précède « Valable dès ».",
   "unknown_bank_account": "Ce compte bancaire n'appartient pas à cette entreprise.",
   "unknown_holiday_calendar": "Ce calendrier des jours fériés n'existe pas.",

@@ -70,7 +70,6 @@
   "location_geo_incomplete": "Latitude and longitude go together – enter or clear both.",
   "location_inactive": "Nobody can be newly assigned to a deactivated location.",
   "location_postal_code_invalid": "This postal code does not fit the address's country.",
-  "customer_address_postal_code_invalid": "This postal code does not fit the address's country.",
   "location_validity_inverted": "'Valid to' lies before 'Valid from'.",
   "unknown_bank_account": "This bank account does not belong to this business.",
   "unknown_holiday_calendar": "This holiday calendar does not exist.",

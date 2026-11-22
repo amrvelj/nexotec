@@ -22,6 +22,9 @@ const REASON_KEYS: Record<string, string> = {
   contract_priced_without_inputs: 'contractDetail.edit.pricedWithoutInputs',
   creditor_prefix_needs_scor: 'business.errors.creditorPrefixNeedsScor',
   credit_block: 'contractDetail.errors.confirmRefused.creditBlock',
+  // KAN-779 — the same sentence as a location's refusal, in every language: the
+  // reasons bundle is at its 25 KB cap (de: 24,930 bytes), so the key is shared.
+  customer_address_postal_code_invalid: 'apiRefusal.reasons.location_postal_code_invalid',
   customer_already_merged: 'customerDetail.mergeRefused.alreadyMerged',
   customer_merged: 'customerDetail.linkVehicleRefused.customerMerged',
   default_conflict: 'business.errors.defaultConflict',
@@ -234,8 +237,6 @@ const REASON_KEYS: Record<string, string> = {
       'platform_group_holds_no_dealer',
       'platform_tenant_holds_no_entitlements',
       'support_target_self',
-      // KAN-779 — a customer address PATCH judges the merged postal code.
-      'customer_address_postal_code_invalid',
       'customer_do_not_contact',
       'customer_tag_exists',
       'discount_suppressed_on_used_vehicle',

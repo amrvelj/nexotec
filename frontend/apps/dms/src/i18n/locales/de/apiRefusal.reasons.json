@@ -70,7 +70,6 @@
   "location_geo_incomplete": "Breiten- und Längengrad gehören zusammen – erfassen oder leeren Sie beide.",
   "location_inactive": "Einem deaktivierten Standort kann niemand neu zugewiesen werden.",
   "location_postal_code_invalid": "Diese PLZ passt nicht zum Land der Adresse.",
-  "customer_address_postal_code_invalid": "Diese PLZ passt nicht zum Land der Adresse.",
   "location_validity_inverted": "«Gültig bis» liegt vor «Gültig ab».",
   "unknown_bank_account": "Diese Bankverbindung gehört nicht zu diesem Betrieb.",
   "unknown_holiday_calendar": "Diesen Feiertagskalender gibt es nicht.",
