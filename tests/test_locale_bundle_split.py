@@ -111,3 +111,14 @@ def test_index_refuses_a_fifth_level(locales):
 
     with pytest.raises(SystemExit, match="at most <namespace>.<key>.<shard>.json"):
         split_locale_bundles.main(["index", "--locales-dir", str(locales)])
+
+
+def test_index_refuses_a_child_with_both_a_whole_file_and_shards(locales):
+    """The readers would disagree on it: a spread merges both, the scripts' sorted reads let the
+    whole file replace the shards before it (KAN-786 review)."""
+
+    split_locale_bundles.main(["split", "--locales-dir", str(locales)])
+    _shard(locales, "de", "apiRefusal.reasons.common.json", {"other": "Anderes"})
+
+    with pytest.raises(SystemExit, match="both a whole file and shards"):
+        split_locale_bundles.main(["index", "--locales-dir", str(locales)])

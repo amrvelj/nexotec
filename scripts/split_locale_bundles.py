@@ -105,6 +105,11 @@ def index_source(folder: Path) -> str:
             if len(files) == 1 and files[0].count(".") == 2:
                 members.append(f"{sub}: {_identifier(files[0])}")
                 continue
+            if any(name.count(".") == 2 for name in files):
+                raise SystemExit(
+                    f"KAN-786 index: {folder.name}/{namespace}.{sub} has both a whole file and shards - "
+                    "the readers would disagree; keep one"
+                )
             _refuse_a_key_in_two_shards(folder, files)
             members.append(f"{sub}: {{ {', '.join(f'...{_identifier(name)}' for name in files)} }}")
         entries.append(f"  {namespace}: {{ {', '.join(members)} }},")

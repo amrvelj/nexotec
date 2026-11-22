@@ -22,8 +22,9 @@ const REASON_KEYS: Record<string, string> = {
   contract_priced_without_inputs: 'contractDetail.edit.pricedWithoutInputs',
   creditor_prefix_needs_scor: 'business.errors.creditorPrefixNeedsScor',
   credit_block: 'contractDetail.errors.confirmRefused.creditBlock',
-  // KAN-779 — the same sentence as a location's refusal, in every language: the
-  // reasons bundle is at its 25 KB cap (de: 24,930 bytes), so the key is shared.
+  // KAN-779 — the same sentence as a location's refusal, in every language. It was
+  // shared while the reasons bundle sat at its 25 KB cap; since KAN-786 split it
+  // into shards an own sentence fits — whether to give it one is a wording call.
   customer_address_postal_code_invalid: 'apiRefusal.reasons.location_postal_code_invalid',
   customer_already_merged: 'customerDetail.mergeRefused.alreadyMerged',
   customer_merged: 'customerDetail.linkVehicleRefused.customerMerged',
