@@ -39,6 +39,10 @@ class ProviderRead(CamelModel):
     docs_url: str | None
     supports_sandbox: bool
     version: int
+    # KAN-787 (Anto, 2026-11-22: option B): Nexotec connects this provider once
+    # for every Betrieb (`services/connections.py::PLATFORM_ONLY_PROVIDER_CODES`)
+    # — a Betrieb's own connection is refused, so the dealer view hides it.
+    platform_only: bool
 
 
 class ProviderPage(CamelModel):

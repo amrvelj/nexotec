@@ -12179,6 +12179,8 @@ export interface components {
              * Format: uuid
              */
             id: string;
+            /** Platformonly */
+            platformOnly: boolean;
             /** Providercode */
             providerCode: string;
             /** Requiredconfigkeys */

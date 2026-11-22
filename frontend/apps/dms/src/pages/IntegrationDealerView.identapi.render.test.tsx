@@ -22,7 +22,7 @@ const provider: IntegrationProviderRead = {
   capabilityCodes: ['ident_basis', 'ausstattung', 'bewertung', 'vin', 'pneu', 'energielabel'],
   requiredConfigKeys: ['clientId'],
   requiredSecretSlots: ['client_secret'],
-  supportsSandbox: true,
+  supportsSandbox: true, platformOnly: false,
   docsUrl: null,
   version: 1,
 } as unknown as IntegrationProviderRead

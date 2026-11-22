@@ -16,7 +16,7 @@ import { IntegrationDealerView } from './IntegrationDealerView'
 function provider(providerCode: string, displayName: string): IntegrationProviderRead {
   return {
     id: `prov-${providerCode}`, providerCode, displayName, category: 'vehicle_data', authType: 'oauth2_user_enrollment',
-    capabilityCodes: [], requiredConfigKeys: [], requiredSecretSlots: [], supportsSandbox: true, docsUrl: null,
+    capabilityCodes: [], requiredConfigKeys: [], requiredSecretSlots: [], supportsSandbox: true, platformOnly: false, docsUrl: null,
     version: 1,
   } as unknown as IntegrationProviderRead
 }

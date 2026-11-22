@@ -21,7 +21,7 @@ const provider = (id: string, code: string, name: string, category: string) => (
   capabilityCodes: [],
   requiredConfigKeys: [],
   requiredSecretSlots: [],
-  supportsSandbox: false,
+  supportsSandbox: false, platformOnly: false,
   docsUrl: null,
   version: 1,
 })

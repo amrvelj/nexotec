@@ -13,10 +13,17 @@ from app.core.auth import Principal, get_current_principal, require_access_role
 from app.core.concurrency import check_version, require_if_match
 from app.core.idempotent_route import IdempotentRoute
 from app.db import get_db
+from app.integration.models.provider import IntegrationProvider
 from app.integration.schemas.provider import ProviderCreate, ProviderPage, ProviderRead, ProviderUpdate
 from app.integration.services import providers as provider_service
+from app.integration.services.connections import is_platform_only
 
 router = APIRouter(tags=["integrations"], route_class=IdempotentRoute)
+
+
+def _read(provider: IntegrationProvider) -> ProviderRead:
+    fields = {name: getattr(provider, name) for name in ProviderRead.model_fields if name != "platform_only"}
+    return ProviderRead(**fields, platform_only=is_platform_only(provider))
 
 
 @router.get("/integrations/providers", response_model=ProviderPage)
@@ -25,7 +32,7 @@ def list_providers(
     db: Session = Depends(get_db),
 ):
     rows = provider_service.list_providers(db)
-    return ProviderPage(items=[ProviderRead.model_validate(p, from_attributes=True) for p in rows])
+    return ProviderPage(items=[_read(p) for p in rows])
 
 
 @router.post("/integrations/providers", response_model=ProviderRead, status_code=201)
@@ -35,7 +42,7 @@ def create_provider(
     db: Session = Depends(get_db),
 ):
     provider = provider_service.create_provider(db, data=body)
-    return ProviderRead.model_validate(provider, from_attributes=True)
+    return _read(provider)
 
 
 @router.patch("/integrations/providers/{provider_id}", response_model=ProviderRead)
@@ -49,4 +56,4 @@ def update_provider(
     provider = provider_service.get_provider_for_update_or_404(db, provider_id)
     check_version(provider.version, if_match, entity_name="IntegrationProvider")
     provider = provider_service.update_provider(db, provider=provider, data=body)
-    return ProviderRead.model_validate(provider, from_attributes=True)
+    return _read(provider)

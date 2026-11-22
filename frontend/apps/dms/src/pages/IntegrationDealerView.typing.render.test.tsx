@@ -16,7 +16,7 @@ import { IntegrationDealerView } from './IntegrationDealerView'
 
 const PROVIDER = {
   id: 'prov-1', providerCode: 'auto_i_dat', displayName: 'auto-i-dat', category: 'vehicle_data', authType: 'oauth2_user_enrollment',
-  capabilityCodes: [], requiredConfigKeys: ['clientId'], requiredSecretSlots: ['client_secret'], supportsSandbox: true,
+  capabilityCodes: [], requiredConfigKeys: ['clientId'], requiredSecretSlots: ['client_secret'], supportsSandbox: true, platformOnly: false,
   docsUrl: null, version: 1,
 } as unknown as IntegrationProviderRead
 

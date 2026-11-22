@@ -23,7 +23,7 @@ const providers = (): IntegrationProviderPage => ({
       capabilityCodes: [],
       requiredConfigKeys: ['clientId'],
       requiredSecretSlots: [],
-      supportsSandbox: true,
+      supportsSandbox: true, platformOnly: false,
       docsUrl: null,
       version: 1,
     },

@@ -16,7 +16,7 @@ import { IntegrationDealerView } from './IntegrationDealerView'
 const PROVIDER = {
   id: 'prov-ai', providerCode: 'openai', displayName: 'OpenAI', category: 'ai', authType: 'api_key',
   capabilityCodes: ['ai_text_generation'], requiredConfigKeys: ['model'], requiredSecretSlots: ['api_key'],
-  supportsSandbox: false, docsUrl: null, version: 1,
+  supportsSandbox: false, platformOnly: false, docsUrl: null, version: 1,
 } as unknown as IntegrationProviderRead
 
 const CREATED = {
