@@ -10,7 +10,7 @@ itself. Serving a link calls that function with the link's own Betrieb, so a
 link reads nothing outside the Betrieb that issued it.
 
 **Issuing** (`issue_document_link`) is the send's step (PR-5): it writes and
-commits the row on platform's own session (ADR-047, ADR-201) and hands back
+commits the row on platform's own session (ADR-047, ADR-204) and hands back
 the raw token once; only its SHA-256
 is stored. The URL carries it in the fragment (`/d#<token>`), never in a path
 or a query a proxy or an access log keeps; the SPA's page sends it in a header. **Opening** (`open_document_link`) is unauthenticated: the token is
@@ -133,7 +133,7 @@ def issue_document_link(
     now: dt.datetime | None = None,
 ) -> IssuedDocumentLink:
     """Writes a link to `document_id` of `tenant_id` and commits it on a
-    session of platform's own (ADR-047; KAN-217 PR-5, ADR-201 — the caller's
+    session of platform's own (ADR-047; KAN-217 PR-5, ADR-204 — the caller's
     session is neither written nor committed). `language` is the customer's
     correspondence language, which the page opens in. The caller has already read the
     document in that Betrieb; serving re-reads it there in any case. A type

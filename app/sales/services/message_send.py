@@ -1,5 +1,5 @@
 """Sending an offer or contract document to the customer (KAN-217 PR-5;
-Dealer Administration D-A-41, FR-A-51–54, A-RULE-10; ADR-201).
+Dealer Administration D-A-41, FR-A-51–54, A-RULE-10; ADR-204).
 
 `POST /v1/sales/documents/{id}/send` (`channel`, optional `text`). Sales owns
 the document, so Sales runs the send — every call goes down the layers:
@@ -193,7 +193,7 @@ def send_document(
         )
         link_id = link.link_id
         if template is not None:
-            # The link is the template's last parameter (ADR-201).
+            # The link is the template's last parameter (ADR-204).
             template = WhatsAppTemplate(
                 name=template.name, language=template.language, parameters=(*template.parameters, link.url)
             )

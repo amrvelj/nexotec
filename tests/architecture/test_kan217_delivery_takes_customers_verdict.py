@@ -1,4 +1,4 @@
-"""Architecture test (KAN-217 PR-5, A-RULE-10, ADR-201): consent is decided by
+"""Architecture test (KAN-217 PR-5, A-RULE-10, ADR-204): consent is decided by
 Customers and never stubbed.
 
 `integration.public.deliver_message` (and its pre-check `check_deliverable`)

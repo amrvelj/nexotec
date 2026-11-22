@@ -255,7 +255,7 @@ class RenderedStandardText:
     provider_template_id: str | None = None
     # The value of each placeholder in the order it appears in the body,
     # repeats included: an approved WhatsApp template's `{{1}}`, `{{2}}` …
-    # (KAN-217 PR-5, ADR-201).
+    # (KAN-217 PR-5, ADR-204).
     parameters: tuple[str, ...] = ()
 
 

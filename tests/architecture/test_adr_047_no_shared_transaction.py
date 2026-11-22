@@ -154,7 +154,7 @@ _IN_PROCESS_STATE = {
 # just "a commit somewhere", keeps a conditional second commit from hiding
 # the loss of the one that always runs.
 _OWN_COMMIT_WRITES = {
-    # KAN-217 PR-5 (ADR-201): the send. Platform commits the secure link on
+    # KAN-217 PR-5 (ADR-204): the send. Platform commits the secure link on
     # its own session; integration the delivery row on its own (an SMS or a
     # WhatsApp message here, an e-mail in mail_sending.send_customer_mail).
     "app.platform.public.issue_document_link": (

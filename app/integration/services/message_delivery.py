@@ -1,4 +1,4 @@
-"""`deliver_message` (KAN-217 PR-5; D-A-41, FR-A-51–54, A-RULE-10; ADR-201) —
+"""`deliver_message` (KAN-217 PR-5; D-A-41, FR-A-51–54, A-RULE-10; ADR-204) —
 the one door a customer message leaves Nexotec through, on every channel.
 
 The module that owns the document (Sales today) reads the recipient and the
@@ -29,7 +29,7 @@ function:
    session is neither written nor committed.
 
 Delivery reports (the providers' status callbacks) update the row in a later
-PR (KAN-217 PR-7, ADR-201).
+PR (KAN-217 PR-7, ADR-204).
 """
 
 import dataclasses

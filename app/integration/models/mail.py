@@ -156,7 +156,7 @@ class SendingIdentity(PrimaryKeyMixin, VersionedMixin, TimestampMixin, TenantSco
 
 class MessageDelivery(PrimaryKeyMixin, TimestampMixin, TenantScopedMixin, Base):
     """One row per send to a customer, on any channel (KAN-215 e-mail; KAN-217
-    PR-5 SMS and WhatsApp, ADR-201), written on integration's own session.
+    PR-5 SMS and WhatsApp, ADR-204), written on integration's own session.
 
     An e-mail names the mailbox it left from (`sending_identity_id`,
     `identity_kind`, `sender_address`) and its subject; an SMS or a WhatsApp
@@ -204,7 +204,7 @@ class MessageDelivery(PrimaryKeyMixin, TimestampMixin, TenantScopedMixin, Base):
     )
     # The recipient, three-column (rule 2). The label is the name the message
     # was addressed to, set at the send: a delivery is a fact in the past, so
-    # nothing refreshes it (ADR-201).
+    # nothing refreshes it (ADR-204).
     customer_id: Mapped[uuid.UUID | None] = mapped_column(
         GUID(), nullable=True, index=True, comment="Owned by the customer context (Customer.id). No DB-level FK."
     )

@@ -76,7 +76,7 @@ and published by nothing. Its refusals are the core error taxonomy (409
 `ai_not_connected`, 422 `ai_provider_unavailable`), so a caller needs no
 integration error type. `AI_PROMPT_VEHICLE_LISTING` names the one v1 code.
 
-`deliver_message` (KAN-217 PR-5, ADR-201; A-RULE-9, A-RULE-10) is the one door
+`deliver_message` (KAN-217 PR-5, ADR-204; A-RULE-9, A-RULE-10) is the one door
 a customer message leaves through, on e-mail, SMS and WhatsApp. It takes the
 consent verdict the caller read from `customer.public.message_recipient` and
 refuses without it (409 `recipient_refused`); e-mail leaves from the author's

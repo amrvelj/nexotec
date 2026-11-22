@@ -1,4 +1,4 @@
-"""KAN-217 PR-5 (D-A-41, FR-A-51–54, A-RULE-10; ADR-201): Sales sends an offer
+"""KAN-217 PR-5 (D-A-41, FR-A-51–54, A-RULE-10; ADR-204): Sales sends an offer
 or contract document to its customer — `POST /v1/sales/documents/{id}/send`.
 
 Customers decides whether the send may go (`message_recipient`), platform's

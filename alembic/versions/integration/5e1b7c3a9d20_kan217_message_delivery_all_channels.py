@@ -1,4 +1,4 @@
-"""KAN-217 PR-5 (D-A-41, FR-A-51–54, ADR-201): `integration_message_delivery`
+"""KAN-217 PR-5 (D-A-41, FR-A-51–54, ADR-204): `integration_message_delivery`
 records every customer send, e-mail, SMS and WhatsApp.
 
 - `channel` (every existing row is an e-mail: KAN-215 sent nothing else).
