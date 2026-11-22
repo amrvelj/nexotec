@@ -11,5 +11,69 @@
     "binding_already_disconnected": "Dieser Standort ist bereits getrennt.",
     "business_profile_breaker_open": "Zu viele fehlgeschlagene Aufrufe bei Google gerade eben. Versuchen Sie es in einer Minute erneut.",
     "business_profile_no_active_binding": "Es ist kein verbundener Standort verfügbar, mit dem Google gefragt werden kann."
+  },
+  "card": {
+    "title": "Google Business Profile",
+    "subtitle": "Nexotec überträgt Öffnungszeiten, Schliesstage, Adresse, Telefon und Website jedes verbundenen Standorts an sein Unternehmensprofil bei Google. Was bei Google geändert wird, übernimmt Nexotec nicht: Der nächtliche Abgleich zeigt es hier.",
+    "notConfigured": "Nexotec hat Google Business Profile noch nicht eingerichtet. Sobald es eingerichtet ist, verbinden Sie hier Ihre Standorte.",
+    "noLocations": "Ihr Betrieb hat noch keinen aktiven Standort.",
+    "loadError": "Die Verbindungen mit Google Business Profile konnten nicht geladen werden.",
+    "status": {
+      "not_connected": "Nicht verbunden",
+      "pending": "Google-Standort fehlt",
+      "active": "Verbunden",
+      "error": "Zugriff verweigert"
+    },
+    "fields": {
+      "googleLocation": "Google-Standort",
+      "drift": "Abgleich mit Google",
+      "unmapped": "Bei Google nicht gezeigt"
+    },
+    "drift": {
+      "never": "Noch nicht geprüft – der Abgleich läuft jede Nacht.",
+      "in_sync": "Stimmt überein (geprüft am {{date}})",
+      "drift": "Weicht ab: {{fields}} (geprüft am {{date}})",
+      "failed": "Google konnte nicht gelesen werden (geprüft am {{date}})",
+      "skipped": "Nicht geprüft: Der Standort ist deaktiviert.",
+      "hint": "Google zeigt hier etwas anderes als Nexotec. Korrigieren Sie es bei Google, oder ändern Sie den Standort in Nexotec – dann überträgt Nexotec ihn neu."
+    },
+    "fieldNames": {
+      "address": "Adresse",
+      "phone": "Telefon",
+      "website": "Website",
+      "regularHours": "Öffnungszeiten",
+      "moreHours": "Abteilungszeiten",
+      "specialHours": "Schliesstage"
+    },
+    "departments": {
+      "sales": "Verkauf",
+      "service": "Werkstatt",
+      "parts": "Teile"
+    },
+    "unmappedHint": "Google bietet für die Kategorie dieses Standorts keine eigenen Zeiten für diese Abteilung an. Ihre Zeiten werden bei Google nicht gezeigt.",
+    "pendingText": "Wählen Sie den Google-Standort, der zu diesem Standort gehört.",
+    "errorText": "Google gewährt keinen Zugriff mehr auf diesen Standort. Trennen Sie ihn und verbinden Sie ihn neu.",
+    "actions": {
+      "connect": "Mit Google verbinden",
+      "pick": "Google-Standort wählen",
+      "disconnect": "Trennen"
+    },
+    "pick": {
+      "title": "Google-Standort wählen",
+      "label": "Google-Standort",
+      "empty": "Diese Google-Anmeldung verwaltet keinen Standort.",
+      "confirm": "Übernehmen"
+    },
+    "disconnect": {
+      "title": "Standort von Google trennen?",
+      "body": "Nexotec überträgt danach nichts mehr an dieses Unternehmensprofil. Das Profil bei Google bleibt, wie es ist.",
+      "confirm": "Trennen"
+    },
+    "callback": {
+      "working": "Die Verbindung mit Google wird abgeschlossen …",
+      "failedTitle": "Die Verbindung mit Google ist nicht zustande gekommen",
+      "back": "Zu den Integrationen",
+      "expired": "Diese Anmeldung ist abgelaufen oder wurde schon verwendet. Bitte beginnen Sie neu."
+    }
   }
 }

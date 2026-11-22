@@ -103,6 +103,33 @@ class FakeGoogle:
         # every PATCH answers with instead of success.
         self.more_hours_types: list[str] = []
         self.patch_failure_status: int | None = None
+        # KAN-226 PR-4: a location the test tracks keeps its fields — a PATCH
+        # writes the masked ones, a read answers the masked ones (and the
+        # categories) — so a drift check reads back what was pushed, or what
+        # the test changed «at Google». A status every read answers with.
+        self.location_bodies: dict[str, dict[str, Any]] = {}
+        self.get_failure_status: int | None = None
+
+    def track(self, location_name: str, **fields: Any) -> None:
+        self.location_bodies[location_name] = {"name": location_name, **fields}
+
+    def _tracked_read(self, location_name: str, read_mask: str) -> httpx.Response:
+        body = self.location_bodies[location_name]
+        fields = set(read_mask.split(","))
+        answer = {"name": location_name, **{k: v for k, v in body.items() if k in fields}}
+        if "categories" in fields:
+            answer["categories"] = self._categories(location_name)["categories"]
+        return _json(200, answer)
+
+    def _tracked_patch(self, location_name: str, request: httpx.Request) -> None:
+        sent = json.loads(request.content)
+        body = self.location_bodies[location_name]
+        for path in request.url.params["updateMask"].split(","):
+            top = path.split(".")[0]
+            if top in sent and sent[top] not in ({}, []):
+                body[top] = sent[top]
+            else:
+                body.pop(top, None)  # cleared at Google
 
     # -- the test's side ---------------------------------------------------------
 
@@ -158,6 +185,14 @@ class FakeGoogle:
                 return _json(404, {"error": {"code": 404, "status": "NOT_FOUND"}})
             return _json(200, RECORDED["locations"][account])
         if url.startswith(gbp.INFORMATION_API + "/locations/"):
+            name = url.removeprefix(gbp.INFORMATION_API + "/")
+            if request.method == "GET" and self.get_failure_status is not None:
+                return _json(self.get_failure_status, {"error": {"code": self.get_failure_status}})
+            if name in self.location_bodies:
+                if request.method == "GET":
+                    return self._tracked_read(name, params.get("readMask", ""))
+                if request.method == "PATCH" and self.patch_failure_status is None and params.get("updateMask"):
+                    self._tracked_patch(name, request)
             if request.method == "PATCH" and self.patch_failure_status is not None:
                 return _json(self.patch_failure_status, {"error": {"code": self.patch_failure_status}})
             if request.method == "GET" and "categories" in params.get("readMask", "").split(","):

@@ -14,7 +14,7 @@ downgrade rebuilds it concurrently, after a `DROP INDEX CONCURRENTLY IF
 EXISTS` so a rerun repairs an INVALID one. DDL only, no data step.
 
 Revision ID: a4e81c9d3f27
-Revises: 8c4f19b2d471
+Revises: 5e1b7c3a9d20
 Create Date: 2026-11-22 06:00:00.000000
 
 """
@@ -25,7 +25,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = "a4e81c9d3f27"
-down_revision: str | Sequence[str] | None = "8c4f19b2d471"
+down_revision: str | Sequence[str] | None = "5e1b7c3a9d20"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

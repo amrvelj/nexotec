@@ -76,8 +76,16 @@ def _location(db: Session, *, dealership_id: uuid.UUID, location_id: uuid.UUID) 
     return location
 
 
+def closed_days_until(today: dt.date) -> dt.date:
+    """The last day (inclusive) a read made on `today` lists closed days
+    for — what a channel pushed on `today` knows of (KAN-226 PR-4's drift
+    check compares no later day). Pure; reads nothing."""
+
+    return today + CLOSED_DAYS_HORIZON
+
+
 def _closed_days(db: Session, location: Location, *, today: dt.date) -> tuple[dt.date, ...]:
-    until = today + CLOSED_DAYS_HORIZON
+    until = closed_days_until(today)
     days: set[dt.date] = set()
     closures = db.scalars(
         select(LocationClosure).where(

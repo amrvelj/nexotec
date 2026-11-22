@@ -56,9 +56,15 @@ from sqlalchemy import ColumnElement, Select, and_, func, not_, or_, select
 from sqlalchemy.orm import Session
 
 from app.core.status import StatusItem, StatusState
+from app.core.text_collation import TextSortKey
 from app.integration.adapters.google_business_profile import GRANT_REFUSALS, PROJECT_REFUSALS
 from app.integration.models.call_log import IntegrationCallLog
-from app.integration.models.google_business_profile import GbpBindingStatus, GbpLocationBinding
+from app.integration.models.google_business_profile import (
+    GbpBindingStatus,
+    GbpDriftCheck,
+    GbpDriftOutcome,
+    GbpLocationBinding,
+)
 from app.integration.services import resilience
 from app.integration.services.gbp_link import client_connection
 
@@ -249,3 +255,59 @@ class GbpStatusProvider:
                 notification_event=NOTIFICATION_EVENT,
             )
         ]
+
+
+DRIFT_SOURCE = "google_business_profile_drift"
+DRIFT_ITEM_PREFIX = "google_business_profile.drift."
+DRIFT_LINK = "/administration/integrations"
+_DRIFT_MESSAGE = {
+    GbpDriftOutcome.IN_SYNC: "inSync",
+    GbpDriftOutcome.DRIFT: "drift",
+    GbpDriftOutcome.FAILED: "checkFailed",
+}
+
+
+class GbpDriftStatusProvider:
+    """KAN-226 PR-4: one item per active binding the nightly drift job has
+    checked (`gbp_drift`) — ok when Google shows what Nexotec pushes, a
+    warning naming the location when a pushed field differs at Google or the
+    check could not read it, linked to the integrations screen, whose card
+    names the fields. A binding never checked yet, a skipped check (a
+    deactivated location, ADR-199) and a binding that is not active have no
+    item. Derived from the stored check on every read; writes nothing."""
+
+    source = DRIFT_SOURCE
+
+    def items(self, db: Session, *, dealership_id: uuid.UUID, now: dt.datetime) -> list[StatusItem]:
+        rows = db.execute(
+            select(
+                GbpLocationBinding.id,
+                GbpLocationBinding.location_label,
+                GbpDriftCheck.outcome,
+                GbpDriftCheck.drifted_fields,
+            )
+            .join(GbpDriftCheck, GbpDriftCheck.binding_id == GbpLocationBinding.id)
+            .where(
+                GbpLocationBinding.tenant_id == dealership_id,
+                GbpDriftCheck.tenant_id == dealership_id,
+                GbpLocationBinding.status == GbpBindingStatus.ACTIVE,
+                GbpDriftCheck.outcome != GbpDriftOutcome.SKIPPED,
+            )
+            .order_by(TextSortKey(GbpLocationBinding.location_label), GbpLocationBinding.id)
+        ).all()
+        items: list[StatusItem] = []
+        for binding_id, label, outcome, fields in rows:
+            params: dict[str, str | int] = {"location": label}
+            if outcome == GbpDriftOutcome.DRIFT:
+                params["count"] = len(fields or [])
+            items.append(
+                StatusItem(
+                    key=f"{DRIFT_ITEM_PREFIX}{binding_id}",
+                    source=DRIFT_SOURCE,
+                    state=StatusState.OK if outcome == GbpDriftOutcome.IN_SYNC else StatusState.WARNING,
+                    message_key=f"statusPage.items.googleBusinessProfileDrift.{_DRIFT_MESSAGE[outcome]}",
+                    link=DRIFT_LINK,
+                    params=params,
+                )
+            )
+        return items

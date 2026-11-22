@@ -84,6 +84,12 @@ CHANNEL_TEXT_CATEGORY: Mapping[MessageChannel, StandardTextCategory] = MappingPr
     }
 )
 
+def text_category_of(channel: MessageChannel) -> StandardTextCategory:
+    """The standard-text category a channel's bodies are written in."""
+
+    return CHANNEL_TEXT_CATEGORY[MessageChannel(channel)]
+
+
 # The channels that carry an attachment. SMS and WhatsApp send a secure link
 # (Anto's smaller points, 2026-11-14: «E-mail attaches the PDF. SMS and
 # WhatsApp send a secure link»).

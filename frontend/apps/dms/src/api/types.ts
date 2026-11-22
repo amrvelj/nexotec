@@ -150,6 +150,14 @@ export type IncidentSeverity = Schemas['StatusIncidentRead']['severity']
 // KAN-776 — Nexotec's Business Profile client on the platform status view.
 export type BusinessProfileClientStatusRead = Schemas['BusinessProfileClientStatusRead']
 export type BusinessProfileClientCheckRead = Schemas['BusinessProfileClientCheckRead']
+// KAN-226 PR-4 — a location's Business Profile binding, its drift and the link flow.
+export type BusinessProfileBindingRead = Schemas['BusinessProfileBindingRead']
+export type BusinessProfileBindingPage = Schemas['BusinessProfileBindingPage']
+export type BusinessProfileDriftRead = Schemas['BusinessProfileDriftRead']
+export type BusinessProfileLinkStartRead = Schemas['BusinessProfileLinkStartRead']
+export type BusinessProfileLinkOutcomeRead = Schemas['BusinessProfileLinkOutcomeRead']
+export type BusinessProfileGoogleChoicePage = Schemas['BusinessProfileGoogleChoicePage']
+export type BusinessProfileGoogleChoiceRead = Schemas['BusinessProfileGoogleChoiceRead']
 // KAN-214 — setup checklist, activation and the legal documents.
 export type SetupChecklistRead = Schemas['SetupChecklistRead']
 export type SetupChecklistItemRead = Schemas['SetupChecklistItemRead']

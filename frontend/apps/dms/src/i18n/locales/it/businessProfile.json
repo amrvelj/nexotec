@@ -11,5 +11,69 @@
     "binding_already_disconnected": "Questa sede è già scollegata.",
     "business_profile_breaker_open": "Troppe chiamate a Google sono fallite poco fa. Riprovi tra un minuto.",
     "business_profile_no_active_binding": "Nessuna sede collegata è disponibile per interrogare Google."
+  },
+  "card": {
+    "title": "Google Business Profile",
+    "subtitle": "Nexotec trasmette gli orari di apertura, i giorni di chiusura, l'indirizzo, il telefono e il sito web di ogni sede collegata al suo profilo dell'attività su Google. Le modifiche fatte su Google non vengono riprese: il confronto notturno le mostra qui.",
+    "notConfigured": "Nexotec non ha ancora configurato Google Business Profile. Una volta configurato, collegate qui le vostre sedi.",
+    "noLocations": "La vostra azienda non ha ancora una sede attiva.",
+    "loadError": "Non è stato possibile caricare i collegamenti con Google Business Profile.",
+    "status": {
+      "not_connected": "Non collegata",
+      "pending": "Sede Google mancante",
+      "active": "Collegata",
+      "error": "Accesso negato"
+    },
+    "fields": {
+      "googleLocation": "Sede Google",
+      "drift": "Confronto con Google",
+      "unmapped": "Non mostrato su Google"
+    },
+    "drift": {
+      "never": "Non ancora verificato – il confronto avviene ogni notte.",
+      "in_sync": "Corrisponde (verificato il {{date}})",
+      "drift": "Diverso: {{fields}} (verificato il {{date}})",
+      "failed": "Non è stato possibile leggere Google (verificato il {{date}})",
+      "skipped": "Non verificato: la sede è disattivata.",
+      "hint": "Google mostra qui qualcosa di diverso da Nexotec. Correggetelo su Google, oppure modificate la sede in Nexotec – Nexotec la trasmette di nuovo."
+    },
+    "fieldNames": {
+      "address": "Indirizzo",
+      "phone": "Telefono",
+      "website": "Sito web",
+      "regularHours": "Orari di apertura",
+      "moreHours": "Orari dei reparti",
+      "specialHours": "Giorni di chiusura"
+    },
+    "departments": {
+      "sales": "Vendita",
+      "service": "Officina",
+      "parts": "Ricambi"
+    },
+    "unmappedHint": "Per la categoria di questa sede Google non offre orari propri per questo reparto. I suoi orari non vengono mostrati su Google.",
+    "pendingText": "Scegliete la sede Google che corrisponde a questa sede.",
+    "errorText": "Google non concede più l'accesso a questa sede. Scollegatela e collegatela di nuovo.",
+    "actions": {
+      "connect": "Collega con Google",
+      "pick": "Scegli la sede Google",
+      "disconnect": "Scollega"
+    },
+    "pick": {
+      "title": "Scegli la sede Google",
+      "label": "Sede Google",
+      "empty": "Questo accesso Google non gestisce alcuna sede.",
+      "confirm": "Applica"
+    },
+    "disconnect": {
+      "title": "Scollegare la sede da Google?",
+      "body": "Nexotec non trasmette più nulla a questo profilo dell'attività. Il profilo su Google resta com'è.",
+      "confirm": "Scollega"
+    },
+    "callback": {
+      "working": "Completamento del collegamento con Google …",
+      "failedTitle": "Il collegamento con Google non è riuscito",
+      "back": "Alle integrazioni",
+      "expired": "Questo accesso è scaduto o è già stato usato. Ricominciate, per favore."
+    }
   }
 }
