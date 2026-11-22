@@ -79,7 +79,7 @@ from app.integration.models.google_business_profile import (
 from app.integration.services import gbp_link, gbp_push
 from app.integration.services.gateway import call_capability
 from app.integration.services.resilience import CircuitOpenError
-from app.platform.public import CLOSED_DAYS_HORIZON, LocationChannelFacts, location_channel_facts
+from app.platform.public import LocationChannelFacts, closed_days_until, location_channel_facts
 
 logger = logging.getLogger(__name__)
 
@@ -189,7 +189,7 @@ def _special_days(value: object, *, start: dt.date, end: dt.date | None) -> froz
         if not isinstance(period, dict):
             continue
         day = _date(period.get("startDate"))
-        if day is None or day < start or (end is not None and day >= end):
+        if day is None or day < start or (end is not None and day > end):
             continue
         out.add((day, bool(period.get("closed"))))
     return frozenset(out)
@@ -223,7 +223,7 @@ def drifted_fields(
         elif path == "moreHours":
             same = _more_hours(expected.get("moreHours")) == _more_hours(google.get("moreHours"))
         else:  # specialHours
-            end = pushed_on + CLOSED_DAYS_HORIZON if pushed_on is not None else None
+            end = closed_days_until(pushed_on) if pushed_on is not None else None
             same = _special_days(expected.get("specialHours"), start=today, end=end) == _special_days(
                 google.get("specialHours"), start=today, end=end
             )

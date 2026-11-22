@@ -51,6 +51,7 @@ from sqlalchemy import Select, and_, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.core.status import StatusItem, StatusState
+from app.core.text_collation import TextSortKey
 from app.integration.adapters.google_business_profile import PROJECT_REFUSALS, QUOTA_REASONS
 from app.integration.models.call_log import IntegrationCallLog
 from app.integration.models.google_business_profile import (
@@ -268,7 +269,7 @@ class GbpDriftStatusProvider:
                 GbpLocationBinding.status == GbpBindingStatus.ACTIVE,
                 GbpDriftCheck.outcome != GbpDriftOutcome.SKIPPED,
             )
-            .order_by(GbpLocationBinding.location_label, GbpLocationBinding.id)
+            .order_by(TextSortKey(GbpLocationBinding.location_label), GbpLocationBinding.id)
         ).all()
         items: list[StatusItem] = []
         for binding_id, label, outcome, fields in rows:

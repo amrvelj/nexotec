@@ -5,9 +5,9 @@ contract allows `app.<other-context>` to import `app.platform.public`, never
 
 from app.platform.administration.services.data_export_tables import PlatformExporter
 from app.platform.administration.services.location_channel_facts import (
-    CLOSED_DAYS_HORIZON,
     ChannelOpeningHours,
     LocationChannelFacts,
+    closed_days_until,
     location_channel_facts,
 )
 from app.platform.administration.services.publishing_readiness import (
@@ -191,7 +191,6 @@ from app.platform.reference.services.reference_data import get_active_reference_
 # stored; the URL carries it in the fragment ({app}/d#<token>), never a path.
 # Platform serves the SPA's GET /v1/document-links/current (token in a header).
 __all__ = [
-    "CLOSED_DAYS_HORIZON",
     "PLACEHOLDER_UNRESOLVED",
     "ActingUser",
     "Addressee",
@@ -242,6 +241,7 @@ __all__ = [
     "UserDisplayLabel",
     "actor_reference_checks",
     "allocate_number",
+    "closed_days_until",
     "connected_account_states",
     "contact_group_codes",
     "dealer_group_reference_check",
