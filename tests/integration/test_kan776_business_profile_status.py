@@ -13,13 +13,19 @@ import datetime as dt
 import time
 import uuid
 
+import httpx
 import pytest
 from sqlalchemy import select
 
 from app.core.audit_model import AuditEvent
 from app.core.status import StatusState, status_providers
 from app.integration.adapters import google_business_profile as gbp
-from app.integration.errors import ProviderAccountRefusedError, ProviderRejectedError
+from app.integration.errors import (
+    ProviderAccountRefusedError,
+    ProviderRejectedError,
+    ProviderRequestError,
+    ProviderTransportError,
+)
 from app.integration.models.call_log import CallStatus, IntegrationCallLog
 from app.integration.models.connection import ConnectionEnvironment, ConnectionScope, IntegrationConnection
 from app.integration.models.google_business_profile import GBP_PROVIDER_CODE, GbpBindingStatus, GbpLocationBinding
@@ -610,3 +616,112 @@ def test_a_broken_client_is_not_configured_even_when_every_grant_is_unreadable(
     assert response.json()["error"]["details"]["reason"] == "business_profile_not_configured"
     db_session.expire_all()
     assert db_session.get(GbpLocationBinding, binding).status == GbpBindingStatus.ACTIVE
+
+
+# --- KAN-782: a row decides exactly as the adapter reads the same answer ----------
+
+
+def _google_answer(http_status: int, code: str | None) -> httpx.Response:
+    """The answer `_raise_for_status` sees: an OAuth error code, a Google API
+    error with an ErrorInfo reason, a bare Google status, or no body."""
+
+    if code is None:
+        return httpx.Response(http_status)
+    if code in {"invalid_client", *gbp.GRANT_REFUSALS}:
+        return httpx.Response(http_status, json={"error": code})
+    if code in {"PERMISSION_DENIED", "UNAUTHENTICATED", "NOT_FOUND"}:
+        return httpx.Response(http_status, json={"error": {"status": code}})
+    detail = {"@type": "type.googleapis.com/google.rpc.ErrorInfo", "domain": "googleapis.com", "reason": code}
+    return httpx.Response(http_status, json={"error": {"status": "FAILED_PRECONDITION", "details": [detail]}})
+
+
+_STATUSES = (400, 401, 403, 404, 409, 422, 429, 500, 503)
+_CODES = (
+    None,
+    "invalid_client",
+    "invalid_grant",
+    "unauthorized_client",
+    "SERVICE_DISABLED",
+    "BILLING_DISABLED",
+    "accessNotConfigured",
+    "RATE_LIMIT_EXCEEDED",
+    "PERMISSION_DENIED",
+    "UNAUTHENTICATED",
+    "NOT_FOUND",
+)
+
+
+# A success carries no error identifier.
+_ANSWERS = [(200, None)] + [(status, code) for status in _STATUSES for code in _CODES]
+
+
+@pytest.mark.parametrize(("http_status", "code"), _ANSWERS)
+def test_the_read_decides_every_answer_as_the_adapter_maps_it(db_session, google, client_connection, http_status, code):
+    """The read and `_raise_for_status` never disagree: the adapter's
+    `ProviderRejectedError` raises the refusal, no error or a
+    `ProviderRequestError` clears it, every other answer leaves the earlier
+    refusal standing."""
+
+    answer = _google_answer(http_status, code)
+    adapter = object.__new__(gbp.GoogleBusinessProfileAdapter)
+    try:
+        adapter._raise_for_status(answer)
+        outcome = "clears"
+    except (ProviderAccountRefusedError, ProviderTransportError):  # one binding's, or an outage
+        outcome = "nothing"
+    except ProviderRejectedError:  # after its subclass ProviderAccountRefusedError
+        outcome = "raises"
+    except ProviderRequestError:
+        outcome = "clears"
+    recorded = gbp.GoogleBusinessProfileAdapter._error_code(answer) if http_status >= 400 else None
+
+    _call(db_session, client_connection, provider_error="SERVICE_DISABLED", at=NOW - dt.timedelta(minutes=5))
+    row = _call(
+        db_session,
+        client_connection,
+        provider_error=recorded,
+        http_status=http_status,
+        status=CallStatus.SUCCESS if http_status < 400 else CallStatus.ERROR,
+    )
+    row.capability = "locations_get"
+    db_session.commit()
+
+    refusal = gbp_status.client_health(db_session).refusal
+    expected = {"raises": recorded, "clears": None, "nothing": "SERVICE_DISABLED"}[outcome]
+    assert refusal == expected, (outcome, recorded)
+
+
+@pytest.mark.parametrize(
+    ("capability", "http_status", "provider_error"),
+    [
+        ("locations_get", 429, "invalid_client"),
+        ("locations_get", 503, "invalid_client"),  # the adapter raises it at any status
+    ],
+)
+def test_invalid_client_at_any_status_raises_the_refusal(
+    db_session, google, client_connection, capability, http_status, provider_error
+):
+    dealership = _make_dealership(db_session)
+    _bound(db_session, dealership.id)
+    row = _call(db_session, client_connection, provider_error=provider_error, http_status=http_status)
+    row.capability = capability
+    db_session.commit()
+    assert gbp_status.client_health(db_session).refusal == "invalid_client"
+    assert _item(db_session, dealership.id).state == StatusState.BLOCKED
+
+
+@pytest.mark.parametrize("http_status", [400, 404, 422])
+def test_a_project_reason_on_an_answer_for_the_request_clears_the_refusal(
+    db_session, google, client_connection, http_status
+):
+    """The adapter maps a 400 / 404 / 422 naming a project reason to
+    `ProviderRequestError`, Google answering for the request: so does the read."""
+
+    dealership = _make_dealership(db_session)
+    _bound(db_session, dealership.id)
+    _call(db_session, client_connection, provider_error="SERVICE_DISABLED", at=NOW - dt.timedelta(minutes=5))
+    row = _call(db_session, client_connection, provider_error="BILLING_DISABLED", http_status=http_status)
+    row.capability = "locations_get"
+    db_session.commit()
+    assert gbp_status.client_health(db_session).refusal is None
+    assert _item(db_session, dealership.id).state == StatusState.OK
