@@ -16,7 +16,7 @@ expressed in the old table, and a delivery record is kept as long as the
 document it sent (Q3 A), so it is not dropped silently.
 
 Revision ID: 5e1b7c3a9d20
-Revises: 8c4f19b2d471
+Revises: 5e1b7c9d3a20
 Create Date: 2026-11-22 10:30:00.000000
 
 """
@@ -31,7 +31,7 @@ from app.core.types import GUID, UTCDateTime
 
 # revision identifiers, used by Alembic.
 revision: str = "5e1b7c3a9d20"
-down_revision: str | Sequence[str] | None = "8c4f19b2d471"
+down_revision: str | Sequence[str] | None = "5e1b7c9d3a20"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

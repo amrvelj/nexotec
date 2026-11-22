@@ -16,7 +16,7 @@ pytestmark = pytest.mark.skipif(
     not __import__("os").environ.get("DMS_TEST_DATABASE_URL"), reason="Postgres-only (ADR-011)"
 )
 
-_BEFORE = "integration@8c4f19b2d471"
+_BEFORE = "integration@5e1b7c9d3a20"
 
 
 def _identity(url) -> uuid.UUID:
