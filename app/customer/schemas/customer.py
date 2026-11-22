@@ -63,6 +63,22 @@ def _require_scope_on_grant(granted: bool | None, scope: ConsentScope | None) ->
         )
 
 
+# KAN-789: a contact-channel PATCH field whose column is NOT NULL refuses an
+# explicit null — a 422 whose `loc` names the field, never a 500 from the
+# database. A field left out keeps its value (validators run only on values
+# sent); a null on a nullable column (label, validTo, doNotUseReason,
+# consentScope, consentSource, addressLine2) still clears it. Pinned against
+# the models' columns by
+# `tests/customer/test_kan789_channel_patch_refuses_null_on_required_fields.py`.
+_CHANNEL_REQUIRED = ("is_primary", "do_not_use", "consent_granted")
+
+
+def _not_null(value: Any) -> Any:
+    if value is None:
+        raise ValueError("cannot be null — leave the field out to keep its value.")
+    return value
+
+
 class CalendarPeriod(enum.StrEnum):
     """`GET /v1/customers?updated_since_start_of=` — the current calendar day,
     week (from Monday), month or year in the session time zone, resolved by
@@ -182,6 +198,8 @@ class CustomerPhoneUpdate(CamelModel):
         _require_scope_on_grant(self.consent_granted, self.consent_scope)
         return self
 
+    _required_not_null = field_validator("phone_type", "phone_e164", *_CHANNEL_REQUIRED)(_not_null)
+
 
 class CustomerPhoneRead(CamelModel):
     id: uuid.UUID
@@ -237,6 +255,8 @@ class CustomerEmailUpdate(CamelModel):
     def _consent_scope_on_grant(self) -> "CustomerEmailUpdate":
         _require_scope_on_grant(self.consent_granted, self.consent_scope)
         return self
+
+    _required_not_null = field_validator("email_type", "email_address", *_CHANNEL_REQUIRED)(_not_null)
 
 
 class CustomerEmailRead(CamelModel):
@@ -315,6 +335,8 @@ class CustomerAddressUpdate(CamelModel):
     def _consent_scope_on_grant(self) -> "CustomerAddressUpdate":
         _require_scope_on_grant(self.consent_granted, self.consent_scope)
         return self
+
+    _required_not_null = field_validator("address_type", "address_street", "address_house_number", "address_postal_code", "address_locality", "address_country", *_CHANNEL_REQUIRED)(_not_null)
 
 
 class CustomerAddressRead(CamelModel):

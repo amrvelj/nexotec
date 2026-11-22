@@ -34,6 +34,7 @@ from app.platform.organisation.services.dealer_dealerships import (
     dealer_dealerships_only,
     refuse_platform_dealer_group,
 )
+from app.platform.organisation.services.dealership_facts import publish_dealership_changes
 from app.platform.reference.services.reference_data import get_active_reference_value_codes
 from app.platform.reference.services.system_writes import system_write_reason
 from app.platform.reference_data_seed import ASSOCIATION_MEMBERSHIP_LIST_CODE, LEGAL_FORM_LIST_CODE
@@ -457,6 +458,10 @@ def update_dealership(
     except IntegrityError as exc:
         db.rollback()
         raise _uid_conflict(changes.get("uid")) from exc
+
+    # KAN-785: a changed field a channel publishes (the website, which the
+    # Business Profile push sends) is stated in the same transaction.
+    publish_dealership_changes(db, dealership=dealership, changed_fields=after.keys())
 
     if before or after:
         record_audit_event(

@@ -16,7 +16,7 @@ import { IntegrationDealerView } from './IntegrationDealerView'
 
 const PROVIDER = {
   id: 'prov-1', providerCode: 'autoscout24', displayName: 'AutoScout24', category: 'marketplace', authType: 'password',
-  capabilityCodes: [], requiredConfigKeys: [], requiredSecretSlots: ['password'], supportsSandbox: true,
+  capabilityCodes: [], requiredConfigKeys: [], requiredSecretSlots: ['password'], supportsSandbox: true, platformOnly: false,
   docsUrl: null, version: 1,
 } as unknown as IntegrationProviderRead
 

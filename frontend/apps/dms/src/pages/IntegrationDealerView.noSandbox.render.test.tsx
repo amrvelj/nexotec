@@ -17,7 +17,7 @@ function provider(supportsSandbox: boolean): IntegrationProviderRead {
   return {
     id: 'prov-m', providerCode: supportsSandbox ? 'auto_i_dat' : 'autoscout24', displayName: supportsSandbox ? 'auto-i-dat' : 'AutoScout24',
     category: supportsSandbox ? 'vehicle_data' : 'marketplace', authType: 'none',
-    capabilityCodes: [], requiredConfigKeys: [], requiredSecretSlots: [], supportsSandbox, docsUrl: null, version: 1,
+    capabilityCodes: [], requiredConfigKeys: [], requiredSecretSlots: [], supportsSandbox, platformOnly: false, docsUrl: null, version: 1,
   } as unknown as IntegrationProviderRead
 }
 

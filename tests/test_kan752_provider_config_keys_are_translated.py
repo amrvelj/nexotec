@@ -12,6 +12,10 @@ The truth is the migrated registry, not a list copied into this test: it runs
 pattern of `tests/platform/test_migrated_notification_catalogue.py`) and reads every provider
 row, so the next provider migration that names a new key fails here until the key is
 in all four bundles.
+
+KAN-787 adds the same rule for a provider's `category`: the dealer view heads each group of
+cards with `integrationsList.categories.<category>`, and KAN-215's `calendar_mail` had no label,
+so «Google Workspace (Gmail)» and «Microsoft 365 (Mail)» sat under the missing-key marker.
 """
 
 import json
@@ -69,6 +73,21 @@ def _migrated_config_keys(url: str) -> dict[str, list[str]]:
     return {code: list(keys or []) for code, keys in rows}
 
 
+def _migrated_categories(url: str) -> dict[str, str]:
+    engine = create_engine(url)
+    try:
+        with engine.connect() as conn:
+            rows = conn.execute(text("SELECT provider_code, category FROM integration_provider")).all()
+    finally:
+        engine.dispose()
+    return {code: category for code, category in rows}
+
+
+def _bundle_categories(language: str) -> set[str]:
+    bundle = json.loads((_LOCALES / language / "integrationsList.json").read_text(encoding="utf-8"))
+    return {key for key, value in bundle.get("categories", {}).items() if isinstance(value, str) and value.strip()}
+
+
 def _bundle_config_keys(language: str) -> set[str]:
     bundle = json.loads((_LOCALES / language / "integrationEnums.json").read_text(encoding="utf-8"))
     return {key for key, value in bundle.get("configKey", {}).items() if isinstance(value, str) and value.strip()}
@@ -94,3 +113,20 @@ def test_every_required_config_key_of_every_migrated_provider_has_a_label_in_all
 def test_the_autoscout24_labels_are_the_ones_the_ticket_names():
     de = json.loads((_LOCALES / "de" / "integrationEnums.json").read_text(encoding="utf-8"))["configKey"]
     assert (de["kundennummer"], de["ftpHost"], de["ftpUsername"]) == ("Kundennummer", "FTP-Server", "FTP-Benutzername")
+
+
+def test_every_category_of_every_migrated_provider_has_a_label_in_all_four_bundles(migrated_url):
+    """KAN-787: the next category a provider migration seeds fails here until it is labelled."""
+
+    categories = _migrated_categories(migrated_url)
+    assert categories.get("autoscout24") == "marketplace", categories
+    missing = sorted(
+        (language, code, category)
+        for language in _LANGUAGES
+        for code, category in categories.items()
+        if category not in _bundle_categories(language)
+    )
+    assert missing == [], (
+        "integrationsList.categories.<category> is missing for (language, provider, category): "
+        f"{missing} — the dealer view would head the group with the MISSING I18N KEY marker"
+    )

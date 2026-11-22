@@ -84,6 +84,11 @@ export function IntegrationDealerView() {
   const providersByCategory = useMemo(() => {
     const groups = new Map<string, IntegrationProviderRead[]>()
     for (const p of providersQuery.data?.items ?? []) {
+      // KAN-787 (Anto, 2026-11-22: option B): a provider Nexotec connects once
+      // for every Betrieb (the mailbox providers, Google Business Profile) is
+      // not the dealer's to connect — the backend refuses it — so it is not
+      // shown here; its category disappears with it when nothing else is left.
+      if (p.platformOnly) continue
       const list = groups.get(p.category) ?? []
       list.push(p)
       groups.set(p.category, list)

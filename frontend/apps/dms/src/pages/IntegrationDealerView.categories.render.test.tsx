@@ -26,7 +26,7 @@ const providers = (): IntegrationProviderPage => ({
       capabilityCodes: [],
       requiredConfigKeys: [],
       requiredSecretSlots: [],
-      supportsSandbox: false,
+      supportsSandbox: false, platformOnly: false,
       docsUrl: null,
       version: 1,
     },
@@ -75,4 +75,44 @@ describe('IntegrationDealerView — every seeded provider category has a real la
       expect(container.textContent).not.toMatch(MARKER)
     })
   }
+})
+
+// KAN-787 (Anto, 2026-11-22: option B) — a provider Nexotec connects once for
+// every Betrieb (`platformOnly`: the mailbox providers, Google Business
+// Profile) is the backend's to refuse for a dealer, so the dealer view does
+// not offer it. A category left with no provider disappears with it.
+function provider(id: string, displayName: string, category: string, platformOnly: boolean) {
+  return {
+    id, providerCode: id, displayName, category, authType: 'oauth2', capabilityCodes: [],
+    requiredConfigKeys: [], requiredSecretSlots: [], supportsSandbox: false, platformOnly, docsUrl: null, version: 1,
+  }
+}
+
+describe('IntegrationDealerView — platform-only providers are not offered to a dealer (KAN-787)', () => {
+  it('hides the mailbox providers and Google Business Profile, and the category left empty', async () => {
+    await i18n.changeLanguage('de')
+    installFakeBackend([
+      {
+        match: /^\/integrations\/providers$/,
+        handler: () => ({
+          items: [
+            provider('autoscout24', 'AutoScout24', 'marketplace', false),
+            provider('google_business_profile', 'Google Business Profile', 'marketplace', true),
+            provider('google_workspace_mail', 'Google Workspace (Gmail)', 'calendar_mail', true),
+            provider('microsoft_365_mail', 'Microsoft 365 (Mail)', 'calendar_mail', true),
+          ],
+        }),
+      },
+      { match: /^\/integrations\/connections/, handler: () => connections() },
+    ])
+    renderWithProviders(<IntegrationDealerView />)
+
+    expect(await screen.findByText('AutoScout24')).toBeInTheDocument()
+    expect(screen.getByText('Marktplatz')).toBeInTheDocument()
+    expect(screen.queryByText('Google Business Profile')).not.toBeInTheDocument()
+    expect(screen.queryByText('Google Workspace (Gmail)')).not.toBeInTheDocument()
+    expect(screen.queryByText('Microsoft 365 (Mail)')).not.toBeInTheDocument()
+    expect(screen.queryByText('Kalender und E-Mail')).not.toBeInTheDocument()
+    expect(screen.getAllByRole('button', { name: /Verbinden/ })).toHaveLength(1)
+  })
 })

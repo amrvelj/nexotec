@@ -9,8 +9,9 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.audit import record_audit_event
-from app.core.errors import NotFoundError
+from app.core.errors import NotFoundError, UnprocessableEntityError
 from app.core.postal_codes import derive_canton
+from app.core.validators import validate_postal_code_for_country
 from app.customer.models.customer import (
     Customer,
     CustomerAddress,
@@ -118,6 +119,25 @@ def create_customer_address(
     return address
 
 
+def _assert_merged_postal_code(address: CustomerAddress, changes: dict[str, Any]) -> None:
+    """KAN-779: a PATCH judges the postal code it would store against the country it would
+    store — the create path's rule (D-11, ``CustomerAddressCreate``), applied to the merged row.
+    Judged only when the PATCH touches the code or the country, so a stored row that predates
+    the rule still saves an unrelated field (as Locations do, ``_assert_address_block``)."""
+
+    if "address_postal_code" not in changes and "address_country" not in changes:
+        return
+    # A null for either never reaches here: the schema refuses it (KAN-789).
+    postal_code = changes.get("address_postal_code", address.address_postal_code)
+    country = changes.get("address_country", address.address_country)
+    try:
+        validate_postal_code_for_country(postal_code, country)
+    except ValueError as exc:
+        raise UnprocessableEntityError(
+            str(exc), details={"reason": "customer_address_postal_code_invalid"}
+        ) from exc
+
+
 def update_customer_address(
     db: Session,
     *,
@@ -129,6 +149,7 @@ def update_customer_address(
     changes = data.model_dump(exclude_unset=True)
     if "address_country" in changes:
         _validate_country_codes(db, {"addressCountry": changes["address_country"]})
+    _assert_merged_postal_code(address, changes)
     was_granted = address.consent_granted
     before = _address_audit_payload(address)
 
