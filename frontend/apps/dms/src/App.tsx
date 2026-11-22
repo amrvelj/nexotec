@@ -45,6 +45,10 @@ const StandardTextsPage = lazyPage(() => import('./pages/StandardTextsPage'), 'S
 const AiAdministrationPage = lazyPage(() => import('./pages/AiAdministrationPage'), 'AiAdministrationPage')
 const MailAdministrationPage = lazyPage(() => import('./pages/MailAdministrationPage'), 'MailAdministrationPage')
 const MailLinkCallbackPage = lazyPage(() => import('./pages/MailLinkCallbackPage'), 'MailLinkCallbackPage')
+const BusinessProfileLinkCallbackPage = lazyPage(
+  () => import('./pages/BusinessProfileLinkCallbackPage'),
+  'BusinessProfileLinkCallbackPage'
+)
 const NumberRangesPage = lazyPage(() => import('./pages/NumberRangesPage'), 'NumberRangesPage')
 const SetupChecklistPage = lazyPage(() => import('./pages/SetupChecklistPage'), 'SetupChecklistPage')
 const LegalAcceptancePage = lazyPage(() => import('./pages/LegalAcceptancePage'), 'LegalAcceptancePage')
@@ -146,6 +150,7 @@ export default function App() {
               {/* KAN-215: the Betrieb's shared mailbox, and where the provider sends the browser back. */}
               <Route path="/administration/mail" element={<MailAdministrationPage />} />
               <Route path="/mail-link/callback" element={<MailLinkCallbackPage />} />
+              <Route path="/business-profile-link/callback" element={<BusinessProfileLinkCallbackPage />} />
               <Route path="/administration/number-ranges" element={<NumberRangesPage />} />
               {/* KAN-214 — the setup checklist and «Betrieb aktivieren» (D-A-21, FR-A-34),
                   the re-acceptance of a new ToS / DPA version (FR-A-39), and what a

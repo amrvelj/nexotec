@@ -13,9 +13,10 @@ from app.core.idempotent_route import IdempotentRoute
 from app.core.permissions import ModuleCode, require_entitlement, require_write
 from app.db import get_db
 from app.sales.models.document import DocumentOwnerType
-from app.sales.schemas.document import DocumentPage, DocumentRead
+from app.sales.schemas.document import DocumentPage, DocumentRead, DocumentSendRequest, MessageDeliveryRead
 from app.sales.services import contract as contract_service
 from app.sales.services import document as document_service
+from app.sales.services import message_send
 from app.sales.services import offer as offer_service
 
 # KAN-198 (D-A-04): the entitlement gate runs before any role check; an
@@ -86,3 +87,35 @@ def download_document_pdf(
     document = document_service.get_document_or_404(db, tenant_id=principal.tenant_id, document_id=document_id)
     pdf_bytes = document_service.render_document_pdf(db, document=document, dealership_id=principal.tenant_id)
     return Response(content=pdf_bytes, media_type="application/pdf")
+
+
+@router.post("/sales/documents/{document_id}/send", response_model=MessageDeliveryRead, status_code=201)
+def send_document(
+    document_id: uuid.UUID,
+    body: DocumentSendRequest,
+    principal: Principal = Depends(require_write("customer_send_dialog")),
+    db: Session = Depends(get_db),
+):
+    """KAN-217 PR-5 (D-A-41, FR-A-51–54): sends the document to its customer
+    on one channel — consent from Customers, the text from the Betrieb's
+    library, the sender or provider and the delivery record from integration
+    (`services/message_send.py`). 201 with the delivery record, `failed`
+    included: the record says what the provider answered."""
+
+    record = message_send.send_document(
+        db,
+        tenant_id=principal.tenant_id,
+        group_id=principal.group_id,
+        author_user_id=principal.user_id,
+        document_id=document_id,
+        channel=body.channel,
+        text_override=body.text,
+    )
+    return MessageDeliveryRead(
+        delivery_id=record.delivery_id,
+        channel=record.channel.value,
+        status=record.status.value,
+        sender_address=record.sender_address,
+        failure_code=record.failure_code,
+        provider_status=record.provider_status,
+    )

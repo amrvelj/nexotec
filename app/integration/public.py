@@ -25,7 +25,8 @@ one place that decides what `None` should mean for a given screen.
 
 `IntegrationStatusProvider` (KAN-223) is the connections' contribution to the
 Betrieb's status page, `GbpStatusProvider` (KAN-776) the Business Profile
-item of a Betrieb with a live binding; both registered with `app.core.status` by the composition
+item of a Betrieb with a live binding, `GbpDriftStatusProvider` (KAN-226 PR-4)
+one drift item per checked binding; all registered with `app.core.status` by the composition
 root `app/status_registry.py` — platform never imports it.
 
 `refresh_location_labels` / `oldest_location_label_age_seconds` (KAN-222)
@@ -76,13 +77,19 @@ and published by nothing. Its refusals are the core error taxonomy (409
 `ai_not_connected`, 422 `ai_provider_unavailable`), so a caller needs no
 integration error type. `AI_PROMPT_VEHICLE_LISTING` names the one v1 code.
 
-`resolve_sender` / `send_customer_mail` (KAN-215, D-A-28 as re-cut 2026-11-14;
-A-RULE-9) are the one door to customer mail: the author's own connected
-mailbox, else the Betrieb's shared one, else a 409 naming both connection
-screens (`details.reason`: `no_mailbox_connected`, `own_mailbox_in_error`,
-`business_mailbox_in_error`). The send writes one delivery row on
-integration's own session (ADR-047) and answers a `DeliveryRecord` — plain
-values; it never raises after the resolution. `register_mail_grant_revokers`
+`deliver_message` (KAN-217 PR-5, ADR-204; A-RULE-9, A-RULE-10) is the one door
+a customer message leaves through, on e-mail, SMS and WhatsApp. It takes the
+consent verdict the caller read from `customer.public.message_recipient` and
+refuses without it (409 `recipient_refused`); e-mail leaves from the author's
+own connected mailbox, else the Betrieb's shared one, else a 409 naming both
+connection screens (`resolve_sender`, KAN-215: `no_mailbox_connected`,
+`own_mailbox_in_error`, `business_mailbox_in_error`); SMS and WhatsApp from
+the Betrieb's own provider account (409 `messaging_not_connected`), WhatsApp
+as an approved template only (409 `whatsapp_template_not_approved`). Each send
+writes one delivery row on integration's own session (ADR-047) and answers a
+`DeliveryRecord` — plain values; it never raises after its refusals. The mail
+send alone (`send_customer_mail`) is no longer handed out: nothing above
+integration sends without the verdict. `register_mail_grant_revokers`
 is the worker's wiring for ending a revoked mailbox grant (ADR-118).
 """
 
@@ -121,7 +128,7 @@ from app.integration.errors import (
     ProviderTimeoutError,
 )
 from app.integration.models.connection import ConnectionStatus
-from app.integration.models.mail import DeliveryStatus, SendingIdentityKind
+from app.integration.models.mail import DeliveryChannel, DeliveryStatus, SendingIdentityKind
 from app.integration.services.ai_generation import GeneratedText, generate
 from app.integration.services.ai_prompt_registry import VEHICLE_LISTING as AI_PROMPT_VEHICLE_LISTING
 from app.integration.services.captions import ProviderCaption, get_captions
@@ -141,15 +148,20 @@ from app.integration.services.gateway import (
     call_capability,
     resolve_adapter,
 )
-from app.integration.services.gbp_status import GbpStatusProvider
+from app.integration.services.gbp_status import GbpDriftStatusProvider, GbpStatusProvider
 from app.integration.services.location_labels import oldest_location_label_age_seconds, refresh_location_labels
 from app.integration.services.mail_sending import (
     DeliveryRecord,
     ResolvedSender,
     resolve_sender,
-    send_customer_mail,
 )
 from app.integration.services.mail_sending import register_revokers as register_mail_grant_revokers
+from app.integration.services.message_delivery import (
+    WhatsAppTemplate,
+    check_deliverable,
+    deliver_message,
+    refuse_unless_allowed,
+)
 from app.integration.services.resilience import CircuitOpenError
 from app.integration.services.status import IntegrationStatusProvider
 
@@ -165,10 +177,12 @@ __all__ = [
     "ConnectionDisabledError",
     "ConnectionRef",
     "ConnectionStatus",
+    "DeliveryChannel",
     "DeliveryRecord",
     "DeliveryStatus",
     "EnergyLabelData",
     "EntitlementState",
+    "GbpDriftStatusProvider",
     "GbpStatusProvider",
     "GeneratedText",
     "IntegrationExporter",
@@ -199,17 +213,20 @@ __all__ = [
     "VariantSearchPage",
     "VariantTyreSpecData",
     "VehiclePriceData",
+    "WhatsAppTemplate",
     "call_capability",
+    "check_deliverable",
+    "deliver_message",
     "generate",
     "get_captions",
     "get_enabled_connection",
     "get_entitlement",
     "oldest_location_label_age_seconds",
     "refresh_location_labels",
+    "refuse_unless_allowed",
     "register_mail_grant_revokers",
     "resolve_adapter",
     "resolve_sender",
-    "send_customer_mail",
     "valuation_granted",
     "vin_decode_granted",
 ]

@@ -40,7 +40,7 @@ from app.integration.models.provider import IntegrationProvider
 from app.integration.services.gateway import call_capability
 
 
-def _connection(db: Session, tenant_id: uuid.UUID, channel: MessagingChannel) -> IntegrationConnection | None:
+def connection_for(db: Session, tenant_id: uuid.UUID, channel: MessagingChannel) -> IntegrationConnection | None:
     return db.scalar(
         select(IntegrationConnection)
         .join(IntegrationProvider, IntegrationProvider.id == IntegrationConnection.provider_id)
@@ -54,11 +54,22 @@ def _connection(db: Session, tenant_id: uuid.UUID, channel: MessagingChannel) ->
     )
 
 
+def not_connected(channel: MessagingChannel) -> ConflictError:
+    return ConflictError(
+        f"No {channel.value} provider is connected for this business.",
+        details={
+            "reason": "messaging_not_connected",
+            "channel": channel.value,
+            "link": "/administration/integrations",
+        },
+    )
+
+
 def connected_channels(db: Session, *, tenant_id: uuid.UUID) -> frozenset[MessagingChannel]:
     """The channels the Betrieb has an enabled connection for — the send
     dialog offers only these (PR-6)."""
 
-    return frozenset(channel for channel in MessagingChannel if _connection(db, tenant_id, channel) is not None)
+    return frozenset(channel for channel in MessagingChannel if connection_for(db, tenant_id, channel) is not None)
 
 
 def send(
@@ -77,16 +88,9 @@ def send(
     # A malformed message is the caller's bug: refused before the gateway, so
     # it is never logged as a provider call nor charged to the breaker.
     check_message(message)
-    connection = _connection(db, tenant_id, message.channel)
+    connection = connection_for(db, tenant_id, message.channel)
     if connection is None:
-        raise ConflictError(
-            f"No {message.channel.value} provider is connected for this business.",
-            details={
-                "reason": "messaging_not_connected",
-                "channel": message.channel.value,
-                "link": "/administration/integrations",
-            },
-        )
+        raise not_connected(message.channel)
     with call_capability(
         db,
         connection=connection,

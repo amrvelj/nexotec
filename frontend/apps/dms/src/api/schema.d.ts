@@ -1341,7 +1341,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List Bindings */
+        /**
+         * List Bindings
+         * @description The Betrieb's bindings, each with its latest drift check and the
+         *     departments its last push could not show at Google (KAN-226 PR-4).
+         */
         get: operations["list_bindings_v1_dealerships__dealership_id__business_profile_bindings_get"];
         put?: never;
         post?: never;
@@ -4874,6 +4878,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/sales/documents/{document_id}/send": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send Document
+         * @description KAN-217 PR-5 (D-A-41, FR-A-51–54): sends the document to its customer
+         *     on one channel — consent from Customers, the text from the Betrieb's
+         *     library, the sender or provider and the delivery record from integration
+         *     (`services/message_send.py`). 201 with the delivery record, `failed`
+         *     included: the record says what the provider answered.
+         */
+        post: operations["send_document_v1_sales_documents__document_id__send_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/sales/offers": {
         parameters: {
             query?: never;
@@ -6334,6 +6362,7 @@ export interface components {
              * Format: date-time
              */
             connectedAt: string;
+            drift?: components["schemas"]["BusinessProfileDriftRead"] | null;
             /** Errorcode */
             errorCode: string | null;
             /** Googleaccountname */
@@ -6355,6 +6384,8 @@ export interface components {
             /** Locationlabel */
             locationLabel: string;
             status: components["schemas"]["GbpBindingStatus"];
+            /** Unmappeddepartments */
+            unmappedDepartments?: string[];
             /** Version */
             version: number;
         };
@@ -6393,6 +6424,25 @@ export interface components {
             refusal: string | null;
             /** Refusedat */
             refusedAt: string | null;
+        };
+        /**
+         * BusinessProfileDriftRead
+         * @description KAN-226 PR-4: the binding's latest nightly drift check. `driftedFields`
+         *     are field codes (`address`, `phone`, `website`, `regularHours`,
+         *     `moreHours`, `specialHours`), never a value read from Google; `reason` a
+         *     closed code for a failed or skipped check.
+         */
+        BusinessProfileDriftRead: {
+            /**
+             * Checkedat
+             * Format: date-time
+             */
+            checkedAt: string;
+            /** Driftedfields */
+            driftedFields: string[];
+            outcome: components["schemas"]["GbpDriftOutcome"];
+            /** Reason */
+            reason: string | null;
         };
         /** BusinessProfileGoogleChoicePage */
         BusinessProfileGoogleChoicePage: {
@@ -9264,6 +9314,16 @@ export interface components {
             version: number;
         };
         /**
+         * DocumentSendRequest
+         * @description KAN-217 PR-5: send one document to its customer. `text` replaces the
+         *     standard text on e-mail and SMS; WhatsApp sends its approved template.
+         */
+        DocumentSendRequest: {
+            channel: components["schemas"]["MessageChannel"];
+            /** Text */
+            text?: string | null;
+        };
+        /**
          * DocumentTemplateRead
          * @description Returned even when no row exists yet for the dealership — id/
          *     timestamps are null in that case
@@ -9597,6 +9657,11 @@ export interface components {
          * @enum {string}
          */
         GbpBindingStatus: "pending" | "active" | "error" | "disconnected";
+        /**
+         * GbpDriftOutcome
+         * @enum {string}
+         */
+        GbpDriftOutcome: "in_sync" | "drift" | "failed" | "skipped";
         /**
          * Gender
          * @description FR-17, added 2026-08-21. Distinct from `Salutation` (a form of
@@ -10949,6 +11014,33 @@ export interface components {
             isDealerManager: boolean;
             /** Validto */
             validTo: string | null;
+        };
+        /**
+         * MessageChannel
+         * @description FR-A-51: the send dialog's three channels.
+         * @enum {string}
+         */
+        MessageChannel: "email" | "sms" | "whatsapp";
+        /**
+         * MessageDeliveryRead
+         * @description The delivery record the send wrote (integration's row, as values).
+         */
+        MessageDeliveryRead: {
+            /** Channel */
+            channel: string;
+            /**
+             * Deliveryid
+             * Format: uuid
+             */
+            deliveryId: string;
+            /** Failurecode */
+            failureCode: string | null;
+            /** Providerstatus */
+            providerStatus: string | null;
+            /** Senderaddress */
+            senderAddress: string | null;
+            /** Status */
+            status: string;
         };
         /** MfaStatusRead */
         MfaStatusRead: {
@@ -27686,6 +27778,47 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    send_document_v1_sales_documents__document_id__send_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                document_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DocumentSendRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageDeliveryRead"];
                 };
             };
             /** @description Validation Error */

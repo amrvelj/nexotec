@@ -128,3 +128,37 @@ class GbpPushState(PrimaryKeyMixin, TimestampMixin, TenantScopedMixin, Base):
     pushed_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)
     pushed_fields: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
     unmapped_departments: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
+
+
+class GbpDriftOutcome(str, enum.Enum):
+    # Google shows what Nexotec pushes, field by field.
+    IN_SYNC = "in_sync"
+    # At least one pushed field differs at Google (`drifted_fields`).
+    DRIFT = "drift"
+    # Google could not be read (`reason` names why); nothing is known.
+    FAILED = "failed"
+    # Not compared (`reason`): the location is deactivated (ADR-199).
+    SKIPPED = "skipped"
+
+
+class GbpDriftCheck(PrimaryKeyMixin, TimestampMixin, TenantScopedMixin, Base):
+    """KAN-226 PR-4: the latest nightly drift check of one binding (one row
+    per binding, replaced by each check; written by the drift job only).
+
+    The job reads the binding's Google location back and compares it, field
+    by field, with what the push would send now (`gbp_push.build_patch`).
+    It never repairs: the row is what the drift card and the status page
+    read. `drifted_fields` holds the field codes of `gbp_drift.FIELD_CODES`
+    (`address`, `phone`, …), never a value from Google."""
+
+    __tablename__ = "integration_gbp_drift_check"
+    __table_args__ = (UniqueConstraint("binding_id", name="uq_integration_gbp_drift_check_binding"),)
+
+    binding_id: Mapped[uuid.UUID] = mapped_column(
+        GUID(), ForeignKey("integration_gbp_location_binding.id"), nullable=False
+    )
+    checked_at: Mapped[dt.datetime] = mapped_column(UTCDateTime(), nullable=False)
+    outcome: Mapped[GbpDriftOutcome] = mapped_column(StoredEnum(GbpDriftOutcome, length=16), nullable=False)
+    drifted_fields: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
+    # A closed code for `failed` / `skipped` (`provider_unavailable`, `location_inactive`, …).
+    reason: Mapped[str | None] = mapped_column(String(64), nullable=True)

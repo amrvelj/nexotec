@@ -64,6 +64,7 @@ from app.platform.documents.services.standard_text_placeholders import (
     render_body,
     sample_values,
     target_for,
+    tokens_in,
     validate_body,
 )
 from app.platform.identity.models.standard_text_delegation import StandardTextCategory
@@ -248,6 +249,14 @@ class RenderedStandardText:
     language: SwissLanguage
     standard_text_id: uuid.UUID
     version: int
+    # A WhatsApp text (FR-A-54): whether the Betrieb's provider approved it as
+    # a template, and the template's name there. False / None otherwise.
+    template_approved: bool = False
+    provider_template_id: str | None = None
+    # The value of each placeholder in the order it appears in the body,
+    # repeats included: an approved WhatsApp template's `{{1}}`, `{{2}}` …
+    # (KAN-217 PR-5, ADR-204).
+    parameters: tuple[str, ...] = ()
 
 
 def render_standard_text(
@@ -295,7 +304,14 @@ def render_standard_text(
         context={"code": row.code, "language": row.language.value},
     )
     return RenderedStandardText(
-        text=rendered, code=row.code, language=row.language, standard_text_id=row.id, version=row.version
+        text=rendered,
+        code=row.code,
+        language=row.language,
+        standard_text_id=row.id,
+        version=row.version,
+        template_approved=bool(row.template_approved),
+        provider_template_id=row.provider_template_id,
+        parameters=tuple(str(merged[name]) for name in tokens_in(row.body)),
     )
 
 

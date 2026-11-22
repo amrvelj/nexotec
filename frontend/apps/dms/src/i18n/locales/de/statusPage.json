@@ -22,7 +22,8 @@
     "number_ranges": "Nummernkreise",
     "integration": "Integrationen",
     "nexotec": "Nexotec",
-    "google_business_profile": "Google Business Profile"
+    "google_business_profile": "Google Business Profile",
+    "google_business_profile_drift": "Google Business Profile – Abgleich"
   },
   "open": "Öffnen",
   "since": "seit {{date}}",
@@ -48,6 +49,12 @@
     "googleBusinessProfile": {
       "ok": "Google Business Profile: Die Verbindung von Nexotec funktioniert.",
       "interrupted": "Google Business Profile: Die Verbindung von Nexotec ist unterbrochen – wir kümmern uns darum."
+    },
+    "googleBusinessProfileDrift": {
+      "inSync": "{{location}}: Google zeigt, was Nexotec überträgt.",
+      "drift_one": "{{location}}: {{count, number}} Feld weicht bei Google ab. Die Karte unter Integrationen nennt es.",
+      "drift_other": "{{location}}: {{count, number}} Felder weichen bei Google ab. Die Karte unter Integrationen nennt sie.",
+      "checkFailed": "{{location}}: Der nächtliche Abgleich konnte Google nicht lesen."
     }
   },
   "indicator": {

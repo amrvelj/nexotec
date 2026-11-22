@@ -11,5 +11,69 @@
     "binding_already_disconnected": "This location is already disconnected.",
     "business_profile_breaker_open": "Too many failed calls to Google just now. Try again in a minute.",
     "business_profile_no_active_binding": "No connected location is available to ask Google with."
+  },
+  "card": {
+    "title": "Google Business Profile",
+    "subtitle": "Nexotec sends the opening hours, closed days, address, phone and website of each connected location to its Business Profile at Google. Changes made at Google are not taken over: the nightly comparison shows them here.",
+    "notConfigured": "Nexotec has not set up Google Business Profile yet. Once it has, you connect your locations here.",
+    "noLocations": "Your business has no active location yet.",
+    "loadError": "The Google Business Profile connections could not be loaded.",
+    "status": {
+      "not_connected": "Not connected",
+      "pending": "Google location missing",
+      "active": "Connected",
+      "error": "Access refused"
+    },
+    "fields": {
+      "googleLocation": "Google location",
+      "drift": "Comparison with Google",
+      "unmapped": "Not shown at Google"
+    },
+    "drift": {
+      "never": "Not checked yet – the comparison runs every night.",
+      "in_sync": "In sync (checked on {{date}})",
+      "drift": "Differs: {{fields}} (checked on {{date}})",
+      "failed": "Google could not be read (checked on {{date}})",
+      "skipped": "Not checked: the location is deactivated.",
+      "hint": "Google shows something other than Nexotec here. Correct it at Google, or change the location in Nexotec – Nexotec then sends it again."
+    },
+    "fieldNames": {
+      "address": "Address",
+      "phone": "Phone",
+      "website": "Website",
+      "regularHours": "Opening hours",
+      "moreHours": "Department hours",
+      "specialHours": "Closed days"
+    },
+    "departments": {
+      "sales": "Sales",
+      "service": "Workshop",
+      "parts": "Parts"
+    },
+    "unmappedHint": "Google offers no hours of their own for this department in this location's category. Its hours are not shown at Google.",
+    "pendingText": "Choose the Google location that belongs to this location.",
+    "errorText": "Google no longer grants access to this location. Disconnect it and connect it again.",
+    "actions": {
+      "connect": "Connect with Google",
+      "pick": "Choose Google location",
+      "disconnect": "Disconnect"
+    },
+    "pick": {
+      "title": "Choose Google location",
+      "label": "Google location",
+      "empty": "This Google sign-in manages no location.",
+      "confirm": "Apply"
+    },
+    "disconnect": {
+      "title": "Disconnect the location from Google?",
+      "body": "Nexotec then sends nothing more to this Business Profile. The profile at Google stays as it is.",
+      "confirm": "Disconnect"
+    },
+    "callback": {
+      "working": "Completing the connection with Google …",
+      "failedTitle": "The connection with Google did not go through",
+      "back": "To Integrations",
+      "expired": "This sign-in has expired or was already used. Please start again."
+    }
   }
 }

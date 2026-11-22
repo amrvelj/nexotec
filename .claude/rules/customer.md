@@ -84,6 +84,7 @@ sales files belong to other rules. Last verified against main@3b2bf69 (2026-11-1
   by the send dialog's read) · `newsletter`. That read is
   `customer.public.message_recipient` (KAN-217): merged refuses every send, «Nicht kontaktieren» marketing
   only (Anto, option 2); a transactional send needs a usable row (Q1 A), marketing the three gates.
+  It also gives the letter opening (`letter_salutation.py`).
 - **D-20** — the address is optional at creation; an address-less customer is gated at contract
   **confirmation**.
 - **D-21** — `preferredChannel` ∈ `email` / `phone` / `post` / `whatsapp`; the retired `message`

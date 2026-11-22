@@ -11,5 +11,69 @@
     "binding_already_disconnected": "Ce site est déjà déconnecté.",
     "business_profile_breaker_open": "Trop d'appels à Google ont échoué à l'instant. Réessayez dans une minute.",
     "business_profile_no_active_binding": "Aucun site connecté n'est disponible pour interroger Google."
+  },
+  "card": {
+    "title": "Google Business Profile",
+    "subtitle": "Nexotec transmet les horaires d'ouverture, les jours de fermeture, l'adresse, le téléphone et le site web de chaque site connecté à sa fiche d'établissement chez Google. Les modifications faites chez Google ne sont pas reprises : la comparaison nocturne les affiche ici.",
+    "notConfigured": "Nexotec n'a pas encore configuré Google Business Profile. Une fois configuré, vous connectez vos sites ici.",
+    "noLocations": "Votre entreprise n'a pas encore de site actif.",
+    "loadError": "Les connexions à Google Business Profile n'ont pas pu être chargées.",
+    "status": {
+      "not_connected": "Non connecté",
+      "pending": "Site Google manquant",
+      "active": "Connecté",
+      "error": "Accès refusé"
+    },
+    "fields": {
+      "googleLocation": "Site Google",
+      "drift": "Comparaison avec Google",
+      "unmapped": "Non affiché chez Google"
+    },
+    "drift": {
+      "never": "Pas encore vérifié – la comparaison a lieu chaque nuit.",
+      "in_sync": "Concorde (vérifié le {{date}})",
+      "drift": "Diffère : {{fields}} (vérifié le {{date}})",
+      "failed": "Google n'a pas pu être lu (vérifié le {{date}})",
+      "skipped": "Non vérifié : le site est désactivé.",
+      "hint": "Google affiche ici autre chose que Nexotec. Corrigez-le chez Google, ou modifiez le site dans Nexotec – Nexotec le transmet alors à nouveau."
+    },
+    "fieldNames": {
+      "address": "Adresse",
+      "phone": "Téléphone",
+      "website": "Site web",
+      "regularHours": "Horaires d'ouverture",
+      "moreHours": "Horaires des services",
+      "specialHours": "Jours de fermeture"
+    },
+    "departments": {
+      "sales": "Vente",
+      "service": "Atelier",
+      "parts": "Pièces"
+    },
+    "unmappedHint": "Google ne propose pas d'horaires propres à ce service pour la catégorie de ce site. Ses horaires ne sont pas affichés chez Google.",
+    "pendingText": "Choisissez le site Google qui correspond à ce site.",
+    "errorText": "Google n'accorde plus l'accès à ce site. Déconnectez-le et connectez-le à nouveau.",
+    "actions": {
+      "connect": "Connecter à Google",
+      "pick": "Choisir le site Google",
+      "disconnect": "Déconnecter"
+    },
+    "pick": {
+      "title": "Choisir le site Google",
+      "label": "Site Google",
+      "empty": "Cette connexion Google ne gère aucun site.",
+      "confirm": "Appliquer"
+    },
+    "disconnect": {
+      "title": "Déconnecter le site de Google ?",
+      "body": "Nexotec ne transmet ensuite plus rien à cette fiche d'établissement. La fiche chez Google reste telle quelle.",
+      "confirm": "Déconnecter"
+    },
+    "callback": {
+      "working": "Finalisation de la connexion à Google …",
+      "failedTitle": "La connexion à Google n'a pas abouti",
+      "back": "Vers les intégrations",
+      "expired": "Cette connexion a expiré ou a déjà été utilisée. Veuillez recommencer."
+    }
   }
 }

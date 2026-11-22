@@ -51,6 +51,7 @@ from app.integration.errors import (
     ProviderRequestError,
 )
 from app.integration.models.mail import (
+    DeliveryChannel,
     DeliveryStatus,
     MailProviderCode,
     MessageDelivery,
@@ -85,13 +86,17 @@ class ResolvedSender:
 
 @dataclasses.dataclass(frozen=True)
 class DeliveryRecord:
-    """What a send answers: the delivery row's id, its status, the address the
-    customer sees and, when it failed, a closed code."""
+    """What a send answers: the delivery row's id, its channel and status, the
+    address the customer sees (an e-mail's mailbox; None on SMS and
+    WhatsApp, which leave from the Betrieb's provider account), the
+    provider's first status word and, when it failed, a closed code."""
 
     delivery_id: uuid.UUID
     status: DeliveryStatus
-    sender_address: str
+    sender_address: str | None
     failure_code: str | None
+    channel: DeliveryChannel = DeliveryChannel.EMAIL
+    provider_status: str | None = None
 
 
 def _sender_refusal(reason: str, message: str) -> ConflictError:
@@ -158,7 +163,7 @@ def resolve_sender(db: Session, *, dealership_id: uuid.UUID, author_user_id: uui
     )
 
 
-def _failure_code(exc: BaseException) -> str:
+def failure_code_of(exc: BaseException) -> str:
     if isinstance(exc, ProviderAccountRefusedError):
         return "mailbox_refused"
     if isinstance(exc, ProviderConfigurationError):
@@ -182,6 +187,8 @@ def send_customer_mail(
     subject: str,
     body_text: str,
     attachments: Sequence[MailAttachment] = (),
+    customer_id: uuid.UUID | None = None,
+    customer_label: str | None = None,
 ) -> DeliveryRecord:
     """Sends one customer mail from the resolved sender. Raises the
     resolution's 409 before anything is written; afterwards it answers, never
@@ -238,16 +245,21 @@ def send_customer_mail(
             )
         delivery = MessageDelivery(
             tenant_id=dealership_id,
+            channel=DeliveryChannel.EMAIL,
             sending_identity_id=identity.id,
             identity_kind=identity.kind,
             sender_address=sender.address,
             recipients=[*to, *cc],
             subject=subject,
+            body_text=body_text,
             document_type=document_type,
             document_id=document_id,
+            customer_id=customer_id,
+            customer_label=customer_label,
+            customer_label_refreshed_at=utcnow() if customer_id is not None else None,
             author_user_id=author_user_id,
             status=DeliveryStatus.FAILED if failure is not None else DeliveryStatus.SENT,
-            failure_code=_failure_code(failure) if failure is not None else None,
+            failure_code=failure_code_of(failure) if failure is not None else None,
             provider_message_id=provider_message_id,
             sent_at=utcnow(),
             created_by=author_user_id,
