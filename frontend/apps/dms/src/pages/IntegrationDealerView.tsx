@@ -7,6 +7,7 @@ import { ConnectionStatusBadge, KeyValueRow, OverviewCard, RowMenu } from '@nexo
 import { api } from '../api/client'
 import { buildConnectionRowMenu, connectionAccountIdentifier } from '../components/connectionRowMenu'
 import { BindLocationModal } from '../components/BindLocationModal'
+import { BusinessProfileSection } from './businessProfile/BusinessProfileSection'
 import { ConnectionUsageModal } from '../components/ConnectionUsageModal'
 import { DeleteConnectionModal } from '../components/DeleteConnectionModal'
 import { RotateSecretModal } from '../components/RotateSecretModal'
@@ -186,6 +187,10 @@ export function IntegrationDealerView() {
           </div>
         </Stack>
       ))}
+
+      {/* KAN-226 PR-4: a location's link to Google Business Profile — Nexotec's
+          client is the platform's, so the provider has no card above. */}
+      <BusinessProfileSection />
 
       <ConnectDialog
         provider={connectingProvider}

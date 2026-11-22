@@ -1341,7 +1341,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List Bindings */
+        /**
+         * List Bindings
+         * @description The Betrieb's bindings, each with its latest drift check and the
+         *     departments its last push could not show at Google (KAN-226 PR-4).
+         */
         get: operations["list_bindings_v1_dealerships__dealership_id__business_profile_bindings_get"];
         put?: never;
         post?: never;
@@ -6334,6 +6338,7 @@ export interface components {
              * Format: date-time
              */
             connectedAt: string;
+            drift?: components["schemas"]["BusinessProfileDriftRead"] | null;
             /** Errorcode */
             errorCode: string | null;
             /** Googleaccountname */
@@ -6355,6 +6360,8 @@ export interface components {
             /** Locationlabel */
             locationLabel: string;
             status: components["schemas"]["GbpBindingStatus"];
+            /** Unmappeddepartments */
+            unmappedDepartments?: string[];
             /** Version */
             version: number;
         };
@@ -6393,6 +6400,25 @@ export interface components {
             refusal: string | null;
             /** Refusedat */
             refusedAt: string | null;
+        };
+        /**
+         * BusinessProfileDriftRead
+         * @description KAN-226 PR-4: the binding's latest nightly drift check. `driftedFields`
+         *     are field codes (`address`, `phone`, `website`, `regularHours`,
+         *     `moreHours`, `specialHours`), never a value read from Google; `reason` a
+         *     closed code for a failed or skipped check.
+         */
+        BusinessProfileDriftRead: {
+            /**
+             * Checkedat
+             * Format: date-time
+             */
+            checkedAt: string;
+            /** Driftedfields */
+            driftedFields: string[];
+            outcome: components["schemas"]["GbpDriftOutcome"];
+            /** Reason */
+            reason: string | null;
         };
         /** BusinessProfileGoogleChoicePage */
         BusinessProfileGoogleChoicePage: {
@@ -9597,6 +9623,11 @@ export interface components {
          * @enum {string}
          */
         GbpBindingStatus: "pending" | "active" | "error" | "disconnected";
+        /**
+         * GbpDriftOutcome
+         * @enum {string}
+         */
+        GbpDriftOutcome: "in_sync" | "drift" | "failed" | "skipped";
         /**
          * Gender
          * @description FR-17, added 2026-08-21. Distinct from `Salutation` (a form of

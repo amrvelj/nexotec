@@ -15,6 +15,7 @@ export const GATED_CAPABILITIES = [
   'data_export',
   'dealership_settings',
   'document_templates',
+  'integration_connections',
   'locations',
   'marketplace_publishing',
   'number_ranges',

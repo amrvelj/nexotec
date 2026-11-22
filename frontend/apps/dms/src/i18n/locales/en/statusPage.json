@@ -22,7 +22,8 @@
     "number_ranges": "Number ranges",
     "integration": "Integrations",
     "nexotec": "Nexotec",
-    "google_business_profile": "Google Business Profile"
+    "google_business_profile": "Google Business Profile",
+    "google_business_profile_drift": "Google Business Profile – comparison"
   },
   "open": "Open",
   "since": "since {{date}}",
@@ -48,6 +49,12 @@
     "googleBusinessProfile": {
       "ok": "Google Business Profile: Nexotec's connection is working.",
       "interrupted": "Google Business Profile: Nexotec's connection is interrupted – we are on it."
+    },
+    "googleBusinessProfileDrift": {
+      "inSync": "{{location}}: Google shows what Nexotec sends.",
+      "drift_one": "{{location}}: {{count, number}} field differs at Google. The card under Integrations names it.",
+      "drift_other": "{{location}}: {{count, number}} fields differ at Google. The card under Integrations names them.",
+      "checkFailed": "{{location}}: the nightly comparison could not read Google."
     }
   },
   "indicator": {
