@@ -155,7 +155,12 @@ from app.integration.services.mail_sending import (
     resolve_sender,
 )
 from app.integration.services.mail_sending import register_revokers as register_mail_grant_revokers
-from app.integration.services.message_delivery import WhatsAppTemplate, check_deliverable, deliver_message
+from app.integration.services.message_delivery import (
+    WhatsAppTemplate,
+    check_deliverable,
+    deliver_message,
+    refuse_unless_allowed,
+)
 from app.integration.services.resilience import CircuitOpenError
 from app.integration.services.status import IntegrationStatusProvider
 
@@ -216,6 +221,7 @@ __all__ = [
     "get_entitlement",
     "oldest_location_label_age_seconds",
     "refresh_location_labels",
+    "refuse_unless_allowed",
     "register_mail_grant_revokers",
     "resolve_adapter",
     "resolve_sender",

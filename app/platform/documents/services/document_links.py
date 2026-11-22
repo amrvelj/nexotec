@@ -122,6 +122,14 @@ def link_url(token: str, language: object = None) -> str:
     return get_settings().app_base_url.rstrip("/") + LINK_PAGE + query + "#" + token
 
 
+def sample_document_link_url(language: object = None) -> str:
+    """A link URL of exactly the length a real one has (a token is always 43
+    characters): what a send checks its message against before it issues the
+    link, so a refused send leaves no link behind (ADR-204). Opens nothing."""
+
+    return link_url("_" * 43, language)
+
+
 def issue_document_link(
     db: Session,
     *,

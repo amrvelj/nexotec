@@ -114,9 +114,7 @@ def reseed_bookings_from_outbox(db: Session) -> int:
     return int(getattr(result, "rowcount", 0) or 0)
 
 
-def _booked_after(
-    db: Session, *, message: OutboxMessage, kinds: tuple[StockItemBookingKind, ...]
-) -> bool:
+def _booked_after(db: Session, *, message: OutboxMessage, kinds: tuple[StockItemBookingKind, ...]) -> bool:
     return (
         db.scalar(
             select(StockItemBooking.event_id)

@@ -125,10 +125,6 @@ and the discount cap: `sales-pricing.md`. **There is no `vatTreatment`.**
   judged on and has no vehicle-mdm record. The offer document itemises factory-option lines, the
   contract's does not; a stock car's lines carry four texts
   (`test_kan665_stock_options_four_languages.py`).
-- **Sending (KAN-217 PR-5, ADR-204):** `POST /v1/sales/documents/{id}/send` (`services/message_send.py`):
-  Customers' verdict and letter opening, the Betrieb's text, e-mail with the PDF or SMS/WhatsApp with a
-  secure link, then `integration.public.deliver_message` — the one door, which refuses without the verdict
-  (`test_kan217_delivery_takes_customers_verdict.py`) and sends WhatsApp as an approved template only.
 
 ## Visibility and numbers
 - **ADR-049** — full commercial visibility inside the dealership; **ADR-029** at the group boundary.

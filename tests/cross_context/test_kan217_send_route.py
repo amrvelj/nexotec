@@ -224,7 +224,9 @@ def test_an_sms_carries_the_text_and_the_secure_link_and_names_no_number_in_the_
     assert (delivery.channel, delivery.connection_id, delivery.recipients) == (
         DeliveryChannel.SMS, connection.id, ["+41790000217"]
     )
-    assert delivery.document_link_id == link.id and delivery.body_text == sms
+    # The record keeps the text, never the link: only the token's hash is stored (ADR-193).
+    assert delivery.document_link_id == link.id and delivery.body_text == sms.rsplit("\n", 1)[0]
+    assert link_line.split("#", 1)[1] not in (delivery.body_text or "")
     assert delivery.sending_identity_id is None and delivery.subject is None
     assert delivery.provider_message_id == _TWILIO_ACCEPTED["sid"]
     assert delivery.customer_id == customer_id
@@ -261,6 +263,7 @@ def test_an_sms_text_too_long_with_its_link_is_refused_before_the_provider(clien
 
     assert response.status_code == 422 and response.json()["error"]["details"]["reason"] == "message_invalid"
     assert provider["twilio"].requests == [] and _deliveries(db_session) == []
+    assert db_session.scalar(select(func.count()).select_from(DocumentLink)) == 0
 
 
 # -- WhatsApp: approved templates only (FR-A-54) -----------------------------------
@@ -375,3 +378,79 @@ def test_a_contract_document_is_sent_as_a_sales_contract(client, db_session, pro
 def test_an_unknown_channel_is_422(client, scene):
     _dealer_id, author, _customer_id, document = scene
     assert _send(client, author, document.id, channel="fax").status_code == 422
+
+
+def test_a_refused_customer_is_told_the_refusal_before_anything_else(client, db_session, provider, scene):
+    """Review finding 4: Customers' verdict is the first answer, even to a
+    request that would also be refused for its WhatsApp wording."""
+
+    dealer, author, customer_id, document = scene
+    _messaging_connection(db_session, "meta_whatsapp", tenant_id=dealer)
+    for phone in db_session.scalars(select(CustomerPhone).where(CustomerPhone.customer_id == customer_id)):
+        phone.do_not_use = True
+        phone.do_not_use_reason = "falsche Nummer"
+    db_session.commit()
+
+    response = _send(client, author, document.id, channel="whatsapp", text="Hallo!")
+
+    assert response.status_code == 409
+    assert response.json()["error"]["details"]["refusal"] == "no_usable_contact"
+
+
+def test_a_text_in_a_fallback_language_carries_the_whole_message_in_that_language(client, db_session, provider, scene):
+    """Review finding 3: the Betrieb switched its Italian WhatsApp text off, so
+    the library falls back to German — the opening, the link's page and the
+    template's language follow the German text, never a mix."""
+
+    dealer, author, _customer_id, _document = scene
+    _messaging_connection(db_session, "meta_whatsapp", tenant_id=dealer)
+    _approve_whatsapp(db_session, dealer)
+    italian = _customer(
+        client, author, firstName="Giulia", lastName="Rossi", language="it",
+        emails=[{"emailType": "personal", "emailAddress": "giulia@example.ch"}],
+        phones=[{"phoneType": "mobile", "phoneE164": "+41790000218"}],
+    )
+    seed = db_session.scalar(
+        select(StandardText).where(
+            StandardText.code == "whatsapp.offer_sent", StandardText.dealership_id.is_(None), StandardText.language == "it"
+        )
+    )
+    db_session.add(
+        StandardText(
+            dealership_id=dealer, code=seed.code, category=seed.category, applies_to=seed.applies_to, slot=seed.slot,
+            language=seed.language, title=seed.title, body=seed.body, scope=StandardTextScope.DEALERSHIP,
+            source=StandardTextSource.DEALER, overridden_from_id=seed.id, overridden_seed_version=seed.version,
+            is_default=True, active=False, sort_order=seed.sort_order,
+        )
+    )
+    db_session.commit()
+    document = _offer_document(db_session, tenant_id=dealer, customer_id=italian, number="O-2026/000218")
+
+    response = _send(client, author, document.id, channel="whatsapp")
+
+    assert response.status_code == 201, response.text
+    payload = json.loads(provider["meta"].requests[0].content)
+    assert payload["template"]["language"]["code"] == "de"
+    values = [parameter["text"] for parameter in payload["template"]["components"][0]["parameters"]]
+    assert values[0] == "Sehr geehrte Frau Rossi" and "/d?lang=de#" in values[-1]
+
+
+def test_a_name_longer_than_the_label_column_still_records_the_send(client, db_session, provider, scene):
+    """Review finding 5: a first and a last name of 100 characters each make a
+    201-character name; the record keeps the first 200 instead of failing
+    after the provider already sent."""
+
+    dealer, author, _customer_id, _document = scene
+    _messaging_connection(db_session, "twilio", tenant_id=dealer)
+    long_named = _customer(
+        client, author, firstName="A" * 100, lastName="B" * 100,
+        emails=[{"emailType": "personal", "emailAddress": "lang@example.ch"}],
+        phones=[{"phoneType": "mobile", "phoneE164": "+41790000219"}],
+    )
+    document = _offer_document(db_session, tenant_id=dealer, customer_id=long_named, number="O-2026/000219")
+
+    response = _send(client, author, document.id, channel="sms")
+
+    assert response.status_code == 201, response.text
+    (delivery,) = _deliveries(db_session)
+    assert delivery.customer_label == ("A" * 100 + " " + "B" * 100)[:200]

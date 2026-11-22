@@ -85,7 +85,11 @@ def customer_role_not_permitted(field: str) -> ForbiddenError:
 
 
 def check_customer_role_write_on_update(
-    customer: Customer, *, may_write_customer_role: bool, held_customer_before: bool, holds_customer_after: bool,
+    customer: Customer,
+    *,
+    may_write_customer_role: bool,
+    held_customer_before: bool,
+    holds_customer_after: bool,
     changes: dict[str, Any],
 ) -> None:
     """Q3: a PATCH by someone who may not write the customer role's data
@@ -124,11 +128,13 @@ def open_roles(db: Session, customer_id: uuid.UUID) -> list[str]:
 def holds_customer_role_any(db: Session, customer_ids: Iterable[uuid.UUID]) -> bool:
     return (
         db.scalar(
-            select(CustomerRole.id).where(
+            select(CustomerRole.id)
+            .where(
                 CustomerRole.customer_id.in_(list(customer_ids)),
                 CustomerRole.role == ContactRole.CUSTOMER,
                 CustomerRole.valid_to.is_(None),
-            ).limit(1)
+            )
+            .limit(1)
         )
         is not None
     )
@@ -156,22 +162,30 @@ def holds_role(role: ContactRole) -> ColumnElement[bool]:
     )
 
 
-def check_create(roles: list[ContactRole], *, fields_set: set[str], lifecycle_status: CustomerLifecycleStatus,
-                 advisor_id: uuid.UUID | None) -> CustomerLifecycleStatus:
+def check_create(
+    roles: list[ContactRole],
+    *,
+    fields_set: set[str],
+    lifecycle_status: CustomerLifecycleStatus,
+    advisor_id: uuid.UUID | None,
+) -> CustomerLifecycleStatus:
     """The lifecycle status a new contact is stored with; refuses a customer
     field on a contact created without the customer role."""
 
     if ContactRole.CUSTOMER in roles:
         return lifecycle_status
-    if "lifecycle_status" in fields_set and lifecycle_status in CUSTOMER_LIFECYCLE_STATUSES - {NEUTRAL_LIFECYCLE_STATUS}:
+    if "lifecycle_status" in fields_set and lifecycle_status in CUSTOMER_LIFECYCLE_STATUSES - {
+        NEUTRAL_LIFECYCLE_STATUS
+    }:
         raise customer_role_required("lifecycleStatus")
     if advisor_id is not None:
         raise customer_role_required("advisorId")
     return lifecycle_status if lifecycle_status not in CUSTOMER_LIFECYCLE_STATUSES else NEUTRAL_LIFECYCLE_STATUS
 
 
-def apply_role_rules_on_update(customer: Customer, *, holds_customer_after: bool, held_customer_before: bool,
-                               changes: dict[str, Any]) -> None:
+def apply_role_rules_on_update(
+    customer: Customer, *, holds_customer_after: bool, held_customer_before: bool, changes: dict[str, Any]
+) -> None:
     """Judges a PATCH against the roles it leaves the contact with, and puts
     the closing of the customer fields into `changes` when the PATCH takes
     the customer role away (module docstring). `changes` is the PATCH's

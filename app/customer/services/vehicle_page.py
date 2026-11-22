@@ -54,7 +54,9 @@ def customer_vehicle_page(
             update={
                 "other_parties": other_parties_by_vehicle.get(r.vehicle_id, []),
                 "stock_item": (
-                    VehicleStockLinkSummary(**stock_by_vehicle[r.vehicle_id]) if r.vehicle_id in stock_by_vehicle else None
+                    VehicleStockLinkSummary(**stock_by_vehicle[r.vehicle_id])
+                    if r.vehicle_id in stock_by_vehicle
+                    else None
                 ),
                 "merged_into_vehicle_vin": (
                     survivors[r.merged_into_vehicle_id].vin if r.merged_into_vehicle_id in survivors else None

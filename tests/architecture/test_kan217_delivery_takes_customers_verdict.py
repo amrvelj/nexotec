@@ -1,7 +1,8 @@
 """Architecture test (KAN-217 PR-5, A-RULE-10, ADR-204): consent is decided by
 Customers and never stubbed.
 
-`integration.public.deliver_message` (and its pre-check `check_deliverable`)
+`integration.public.deliver_message` (and its pre-checks `check_deliverable`
+and `refuse_unless_allowed`)
 take the consent verdict as `recipient=`. Python cannot stop a caller from
 handing it a home-made object, so this test does: outside `app/integration`
 every call passes `recipient=` a plain name that the same function bound to
@@ -18,7 +19,7 @@ import ast
 from pathlib import Path
 
 _APP = Path(__file__).resolve().parents[2] / "app"
-_GUARDED = {"deliver_message", "check_deliverable"}
+_GUARDED = {"deliver_message", "check_deliverable", "refuse_unless_allowed"}
 
 
 def _callee(node: ast.Call) -> str | None:
@@ -78,7 +79,7 @@ def test_the_check_sees_a_call_site():
     send = _APP / "sales" / "services" / "message_send.py"
     tree = ast.parse(send.read_text())
     calls = [n for n in ast.walk(tree) if isinstance(n, ast.Call) and _callee(n) in _GUARDED]
-    assert len(calls) == 2 and _offences(send) == []
+    assert len(calls) == 3 and _offences(send) == []
 
 
 def test_a_home_made_verdict_is_refused(tmp_path):

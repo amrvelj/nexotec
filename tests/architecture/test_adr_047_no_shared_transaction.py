@@ -389,6 +389,8 @@ _READS = {
     "app.platform.public.text_category_of",
     "app.customer.public.message_recipient",
     "app.integration.public.check_deliverable",
+    "app.integration.public.refuse_unless_allowed",
+    "app.platform.public.sample_document_link_url",
     # KAN-214 (FR-A-26): derives the setup checklist and raises when an item the
     # action needs is incomplete; a SELECT only, nothing written.
     "app.platform.public.require_setup_item_for",

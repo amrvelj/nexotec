@@ -35,6 +35,7 @@ from app.platform.documents.services.document_links import (
     RenderedDocument,
     issue_document_link,
     register_document_source,
+    sample_document_link_url,
 )
 from app.platform.documents.services.document_render import render_document
 from app.platform.documents.services.message_types import (
@@ -186,8 +187,10 @@ from app.platform.reference.services.reference_data import get_active_reference_
 # KAN-217 PR-4 (ADR-193): secure document links. The module that registers a
 # document type registers its DocumentSource (render one of its documents for
 # a Betrieb, or None) with register_document_source, from the same composition
-# root. issue_document_link writes a 14-day link in the caller's transaction
-# and returns the raw token once (IssuedDocumentLink); only its SHA-256 is
+# root. issue_document_link writes and commits a 14-day link on platform's own
+# session (ADR-204) and returns the raw token once (IssuedDocumentLink);
+# sample_document_link_url is one of the same length, for checking a message
+# before the link is issued. Only its SHA-256 is
 # stored; the URL carries it in the fragment ({app}/d#<token>), never a path.
 # Platform serves the SPA's GET /v1/document-links/current (token in a header).
 __all__ = [
@@ -285,6 +288,7 @@ __all__ = [
     "render_standard_text",
     "require_setup_item_for",
     "revoke_connected_account",
+    "sample_document_link_url",
     "text_category_of",
     "ui_language_of",
     "unregister_grant_revoker",

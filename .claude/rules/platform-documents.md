@@ -103,7 +103,7 @@ A-RULE-3). Cut from platform.md by KAN-614 (2026-11-10). Last verified against m
   code per channel) through `platform.public.register_message_type`, from the composition root
   `app/message_type_registry.py`; a wrong or conflicting one fails at start-up. E-mail attaches the
   document, SMS and WhatsApp send a secure link the send service appends — no text names it.
-  Sales registers `offer`, `order_confirmation`, `sales_contract` and sends them (`sales.md`, KAN-217 PR-5).
+  Sales registers `offer`, `order_confirmation`, `sales_contract`; it sends the first and last (ADR-204).
 - **Secure links (KAN-217 PR-4, ADR-193):** `document_link` holds a link's SHA-256, never the token;
   14 days; issued on platform's own session (ADR-204). The URL is `{app}/d?lang=<lang>#<token>`: the fragment never reaches a server, so no proxy or access
   log keeps it; the SPA's public `/d` sends it in the `X-Document-Link` header (a secret field,

@@ -43,7 +43,9 @@ None (the caller answers 404, rule 7).
 """
 
 import uuid
+from collections.abc import Mapping
 from dataclasses import dataclass
+from types import MappingProxyType
 from typing import Any
 
 from sqlalchemy import select
@@ -55,11 +57,12 @@ from app.customer.models.customer import (
     CustomerLifecycleStatus,
     CustomerPhone,
     EmailType,
+    Language,
     PhoneType,
     PreferredChannel,
 )
 from app.customer.services.contact_channels import channel_authorises_marketing
-from app.customer.services.customer_common import _is_usable_row
+from app.customer.services.customer_common import _is_usable_row, customer_display_name
 from app.customer.services.letter_salutation import letter_salutation
 from app.platform.public import MessageChannel, MessagePurpose
 
@@ -80,10 +83,19 @@ class MessageRecipient:
     address: str | None
     # The customer's correspondence language (D-01), the text's language.
     language: str
-    # The letter opening in that language, `{{customer.salutation}}`
-    # (`letter_salutation.py`), and the name the message is addressed to.
-    salutation: str
+    # The letter opening, `{{customer.salutation}}` (`letter_salutation.py`),
+    # in each of the four languages — the caller takes the one of the text it
+    # sends, which the library may have resolved in a fallback language — and
+    # the name the message is addressed to.
+    salutations: Mapping[str, str]
     display_name: str
+
+    @property
+    def salutation(self) -> str:
+        """The opening in the customer's own language."""
+
+        return self.salutations[self.language]
+
     allowed: bool
     # The stable reason of a refusal (the module constants above); None when allowed.
     refusal: str | None
@@ -120,15 +132,6 @@ def _customer_in_group(db: Session, *, group_id: uuid.UUID, customer_id: uuid.UU
     if customer is None or customer.group_id != group_id:
         return None
     return customer
-
-
-def _display_name(customer: Customer) -> str:
-    """Company name, else first and last name, else the number — the one
-    display rule (`customer_refs.customer_display_name`, KAN-140)."""
-
-    if customer.company_name:
-        return customer.company_name
-    return " ".join(part for part in [customer.first_name, customer.last_name] if part) or customer.customer_number
 
 
 def _row_for(db: Session, customer_id: uuid.UUID, channel: MessageChannel) -> Any | None:
@@ -181,8 +184,8 @@ def message_recipient(
         purpose=purpose,
         address=_address_of(row, channel),
         language=customer.language.value,
-        salutation=letter_salutation(customer),
-        display_name=_display_name(customer),
+        salutations=MappingProxyType({language.value: letter_salutation(customer, language) for language in Language}),
+        display_name=customer_display_name(customer),
         allowed=refusal is None,
         refusal=refusal,
     )

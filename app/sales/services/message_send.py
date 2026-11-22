@@ -11,13 +11,14 @@ the document, so Sales runs the send — every call goes down the layers:
    correspondence language, the letter opening and whether this send may go;
    a refusal is 409 `recipient_refused` with Customers' reason, nothing sent;
 3. **the text** from platform's library (`render_standard_text`, the type's
-   code per channel) in the customer's language. The author's own wording
+   code per channel) in the customer's language — or the language the
+   library fell back to, which the whole message then follows. The author's own wording
    (`text`) replaces it on e-mail and SMS; WhatsApp sends the approved
    template exactly (422 `whatsapp_text_fixed`);
 4. **the document** — e-mail attaches the PDF; SMS and WhatsApp carry a
-   secure link (`issue_document_link`, in the customer's language): on SMS
-   on a line of its own after the text, on WhatsApp as the template's last
-   parameter;
+   secure link (`issue_document_link`), which integration adds to the
+   message (SMS: its own line; WhatsApp: the template's last parameter) and
+   never to the delivery record;
 5. `integration.public.deliver_message` — sender, provider, template rule
    and the delivery record.
 
@@ -42,17 +43,20 @@ from app.integration.public import (
     WhatsAppTemplate,
     check_deliverable,
     deliver_message,
+    refuse_unless_allowed,
 )
 from app.platform.public import (
     MessageChannel,
     MessageDelivery,
     Placeholder,
+    RenderedStandardText,
     StandardTextSlot,
     delivery_of,
     get_active_user_acting_in,
     get_message_type,
     issue_document_link,
     render_standard_text,
+    sample_document_link_url,
     text_category_of,
 )
 from app.sales.i18n import t
@@ -115,37 +119,49 @@ def send_document(
     assert message_type is not None  # registered at start-up by app/message_type_registry.py
     if owner.customer_id is None:
         raise ConflictError("This document names no customer to send it to.", details={"reason": NO_CUSTOMER})
-    if channel == MessageChannel.WHATSAPP and text_override is not None:
-        raise UnprocessableEntityError(
-            "WhatsApp sends the approved template as it is; its text cannot be changed here.",
-            details={"reason": WHATSAPP_TEXT_FIXED},
-        )
 
     recipient = message_recipient(
         db, group_id=group_id, customer_id=owner.customer_id, channel=channel, purpose=message_type.purpose
     )
     if recipient is None:  # the customer left the group (a merge is followed, never this)
         raise ConflictError("This document names no customer to send it to.", details={"reason": NO_CUSTOMER})
-    language = SwissLanguage(recipient.language)
+    # Customers' refusal is the first answer a refused customer gets.
+    refuse_unless_allowed(recipient=recipient)
+    if channel == MessageChannel.WHATSAPP and text_override is not None:
+        raise UnprocessableEntityError(
+            "WhatsApp sends the approved template as it is; its text cannot be changed here.",
+            details={"reason": WHATSAPP_TEXT_FIXED},
+        )
     number = _number(owner)
+    values: dict[str, str | None] = {
+        Placeholder.DOCUMENT_NUMBER.value: number,
+        Placeholder.DOCUMENT_DATE.value: format_date_ch(document.rendered_at.date()),
+        Placeholder.VEHICLE_MAKE_MODEL.value: owner.vehicle_label,
+        Placeholder.USER_FULL_NAME.value: _author_name(db, tenant_id=tenant_id, user_id=author_user_id),
+    }
 
-    rendered = render_standard_text(
-        db,
-        dealership_id=tenant_id,
-        category=text_category_of(channel),
-        applies_to=message_type.applies_to,
-        slot=StandardTextSlot.BODY,
-        language=language,
-        values={
-            Placeholder.CUSTOMER_SALUTATION.value: recipient.salutation,
-            Placeholder.DOCUMENT_NUMBER.value: number,
-            Placeholder.DOCUMENT_DATE.value: format_date_ch(document.rendered_at.date()),
-            Placeholder.VEHICLE_MAKE_MODEL.value: owner.vehicle_label,
-            Placeholder.USER_FULL_NAME.value: _author_name(db, tenant_id=tenant_id, user_id=author_user_id),
-        },
-        location_id=document.location_id,
-        code=message_type.text_codes[channel],
-    )
+    def render(language: SwissLanguage) -> RenderedStandardText | None:
+        return render_standard_text(
+            db,
+            dealership_id=tenant_id,
+            category=text_category_of(channel),
+            applies_to=message_type.applies_to,
+            slot=StandardTextSlot.BODY,
+            language=language,
+            values={**values, Placeholder.CUSTOMER_SALUTATION.value: recipient.salutations[language.value]},
+            location_id=document.location_id,
+            code=message_type.text_codes[channel],
+        )
+
+    language = SwissLanguage(recipient.language)
+    rendered = render(language)
+    if rendered is not None and rendered.language != language:
+        # The library fell back to another language (the Betrieb has no text
+        # in the customer's): the whole message follows the text — opening,
+        # subject, the link's page and the WhatsApp template's language — so
+        # it never mixes two languages.
+        language = rendered.language
+        rendered = render(language)
     text = text_override if text_override is not None else (rendered.text if rendered is not None else None)
     if not text or not text.strip():
         raise ConflictError("There is no text to send on this channel.", details={"reason": TEXT_MISSING})
@@ -154,6 +170,7 @@ def send_document(
     attachments: tuple[MailAttachment, ...] = ()
     template: WhatsAppTemplate | None = None
     link_id: uuid.UUID | None = None
+    link_url: str | None = None
     if delivery_of(message_type, channel) == MessageDelivery.ATTACHMENT:
         subject = t(language, _TITLE_KEY[document.owner_type], number=number)
         attachments = (
@@ -171,17 +188,19 @@ def send_document(
             and rendered.provider_template_id
         ):
             template = WhatsAppTemplate(
-                name=rendered.provider_template_id,
-                language=language.value,
-                parameters=rendered.parameters,
+                name=rendered.provider_template_id, language=rendered.language.value, parameters=rendered.parameters
             )
-        # A refused send leaves no link behind: integration's refusals first.
+        # A refused send leaves no link behind: every refusal of integration's,
+        # the message's shape included (checked with a link of the real
+        # length), comes before the link is issued.
         check_deliverable(
             db,
             tenant_id=tenant_id,
             message_type=message_type.code,
             recipient=recipient,
-            has_whatsapp_template=template is not None,
+            text=text,
+            whatsapp_template=template,
+            link_url=sample_document_link_url(language),
         )
         link = issue_document_link(
             db,
@@ -191,14 +210,7 @@ def send_document(
             actor_id=author_user_id,
             language=language,
         )
-        link_id = link.link_id
-        if template is not None:
-            # The link is the template's last parameter (ADR-204).
-            template = WhatsAppTemplate(
-                name=template.name, language=template.language, parameters=(*template.parameters, link.url)
-            )
-        else:
-            text = f"{text.rstrip()}\n{link.url}"
+        link_id, link_url = link.link_id, link.url
 
     return deliver_message(
         db,
@@ -212,4 +224,5 @@ def send_document(
         attachments=attachments,
         whatsapp_template=template,
         document_link_id=link_id,
+        link_url=link_url,
     )

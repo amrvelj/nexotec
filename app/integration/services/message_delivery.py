@@ -61,6 +61,8 @@ RECIPIENT_REFUSED = "recipient_refused"
 CHANNEL_NOT_OFFERED = "channel_not_offered"
 WHATSAPP_TEMPLATE_NOT_APPROVED = "whatsapp_template_not_approved"
 MESSAGE_INVALID = "message_invalid"
+# `integration_message_delivery.customer_label` (a first and a last name may be 201 characters).
+LABEL_MAX = 200
 
 
 class ConsentVerdict(Protocol):
@@ -93,15 +95,44 @@ class WhatsAppTemplate:
     parameters: tuple[str, ...] = ()
 
 
-def _refuse(verdict: ConsentVerdict) -> ConflictError:
-    return ConflictError(
-        "This customer cannot be sent this message on this channel.",
-        details={
-            "reason": RECIPIENT_REFUSED,
-            "refusal": verdict.refusal,
-            "channel": MessageChannel(verdict.channel).value,
-        },
-    )
+def refuse_unless_allowed(*, recipient: ConsentVerdict) -> None:
+    """Customers' verdict, enforced: 409 `recipient_refused` with its own
+    reason. The caller asks this first, straight after reading the verdict, so
+    a refused customer is told so before any other answer."""
+
+    if not recipient.allowed or not recipient.address:
+        raise ConflictError(
+            "This customer cannot be sent this message on this channel.",
+            details={
+                "reason": RECIPIENT_REFUSED,
+                "refusal": recipient.refusal,
+                "channel": MessageChannel(recipient.channel).value,
+            },
+        )
+
+
+def _outbound(
+    channel: MessagingChannel,
+    *,
+    address: str,
+    text: str,
+    whatsapp_template: WhatsAppTemplate | None,
+    link_url: str | None,
+) -> OutboundMessage:
+    """The message the provider receives. The secure link goes on SMS on a
+    line of its own after the text, on WhatsApp as the template's last
+    parameter (ADR-204) — and never into the delivery record."""
+
+    if channel == MessagingChannel.WHATSAPP:
+        assert whatsapp_template is not None  # check_deliverable refused its absence
+        parameters = whatsapp_template.parameters + ((link_url,) if link_url else ())
+        return WhatsAppTemplateMessage(
+            to=address,
+            template_name=whatsapp_template.name,
+            language=whatsapp_template.language,
+            body_parameters=parameters,
+        )
+    return SmsMessage(to=address, body=f"{text.rstrip()}\n{link_url}" if link_url else text)
 
 
 def check_deliverable(
@@ -110,12 +141,16 @@ def check_deliverable(
     tenant_id: uuid.UUID,
     message_type: str,
     recipient: ConsentVerdict,
-    has_whatsapp_template: bool,
+    text: str,
+    whatsapp_template: WhatsAppTemplate | None,
+    link_url: str | None,
 ) -> MessageChannel:
     """Every refusal `deliver_message` raises before it sends, in its order,
     and the channel when none applies. A caller asks first when it must write
     something for the send (the secure link) that a refused send should not
-    leave behind; `deliver_message` asks again in any case."""
+    leave behind — then `link_url` is a sample of the same length
+    (`platform.public.sample_document_link_url`); `deliver_message` asks again
+    with the real one."""
 
     registered = get_message_type(message_type)
     if registered is None:
@@ -130,18 +165,32 @@ def check_deliverable(
             f"A {message_type} is not sent on {channel.value}.",
             details={"reason": CHANNEL_NOT_OFFERED, "channel": channel.value},
         )
-    if not recipient.allowed or not recipient.address:
-        raise _refuse(recipient)
+    refuse_unless_allowed(recipient=recipient)
     if channel == MessageChannel.EMAIL:
         return channel
     messaging_channel = MessagingChannel(channel.value)
     if messaging.connection_for(db, tenant_id, messaging_channel) is None:
         raise messaging.not_connected(messaging_channel)
-    if messaging_channel == MessagingChannel.WHATSAPP and not has_whatsapp_template:
+    if messaging_channel == MessagingChannel.WHATSAPP and whatsapp_template is None:
         raise ConflictError(
             "WhatsApp sends only a text the provider approved as a template; this one is not approved.",
             details={"reason": WHATSAPP_TEMPLATE_NOT_APPROVED, "link": "/administration/texts"},
         )
+    # The message's shape (a text too long with its link, say) is refused
+    # before any link, provider call or delivery row.
+    message = _outbound(
+        messaging_channel,
+        address=cast(str, recipient.address),
+        text=text,
+        whatsapp_template=whatsapp_template,
+        link_url=link_url,
+    )
+    try:
+        check_message(message)
+    except ValueError as exc:
+        raise UnprocessableEntityError(
+            str(exc), details={"reason": MESSAGE_INVALID, "channel": messaging_channel.value}
+        ) from exc
     return channel
 
 
@@ -158,17 +207,22 @@ def deliver_message(
     attachments: Sequence[MailAttachment] = (),
     whatsapp_template: WhatsAppTemplate | None = None,
     document_link_id: uuid.UUID | None = None,
+    link_url: str | None = None,
 ) -> DeliveryRecord:
-    """One message to one customer (the module docstring). Raises its
-    refusals before anything is written; afterwards it answers, never raises:
-    the delivery row says what happened."""
+    """One message to one customer (the module docstring). `text` is what the
+    delivery record keeps; `link_url` (SMS, WhatsApp) is added to the message
+    only — the raw token is never stored (ADR-193). Raises its refusals
+    before anything is written; afterwards it answers, never raises: the
+    delivery row says what happened."""
 
     channel = check_deliverable(
         db,
         tenant_id=tenant_id,
         message_type=message_type,
         recipient=recipient,
-        has_whatsapp_template=whatsapp_template is not None,
+        text=text,
+        whatsapp_template=whatsapp_template,
+        link_url=link_url,
     )
     if channel == MessageChannel.EMAIL:
         if not subject:
@@ -184,30 +238,17 @@ def deliver_message(
             body_text=text,
             attachments=attachments,
             customer_id=recipient.customer_id,
-            customer_label=recipient.display_name,
+            customer_label=recipient.display_name[:LABEL_MAX],
         )
 
     messaging_channel = MessagingChannel(channel.value)
-    address = cast(str, recipient.address)  # check_deliverable refused a missing one
-    message: OutboundMessage
-    if messaging_channel == MessagingChannel.WHATSAPP:
-        assert whatsapp_template is not None  # check_deliverable refused its absence
-        message = WhatsAppTemplateMessage(
-            to=address,
-            template_name=whatsapp_template.name,
-            language=whatsapp_template.language,
-            body_parameters=whatsapp_template.parameters,
-        )
-    else:
-        message = SmsMessage(to=address, body=text)
-    # A text too long for the channel (an author's own wording, say) is
-    # refused before any provider call or delivery row.
-    try:
-        check_message(message)
-    except ValueError as exc:
-        raise UnprocessableEntityError(
-            str(exc), details={"reason": MESSAGE_INVALID, "channel": messaging_channel.value}
-        ) from exc
+    message = _outbound(
+        messaging_channel,
+        address=cast(str, recipient.address),
+        text=text,
+        whatsapp_template=whatsapp_template,
+        link_url=link_url,
+    )
     return _send_on_own_session(
         db,
         tenant_id=tenant_id,
@@ -269,7 +310,7 @@ def _send_on_own_session(
             document_id=document_id,
             document_link_id=document_link_id,
             customer_id=recipient.customer_id,
-            customer_label=recipient.display_name,
+            customer_label=recipient.display_name[:LABEL_MAX],
             customer_label_refreshed_at=now,
             author_user_id=author_user_id,
             status=DeliveryStatus.FAILED if failure is not None else DeliveryStatus.SENT,

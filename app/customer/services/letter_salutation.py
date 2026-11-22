@@ -49,8 +49,13 @@ _NEUTRAL = {
 }
 
 
-def letter_salutation(customer: Customer) -> str:
-    language = customer.language if isinstance(customer.language, Language) else Language(customer.language)
+def letter_salutation(customer: Customer, language: Language | None = None) -> str:
+    """The opening in `language`, by default the customer's own. A dealer's
+    text may exist only in another language (the library falls back), and
+    the opening then follows the text, so a message never mixes two."""
+
+    if language is None:
+        language = customer.language if isinstance(customer.language, Language) else Language(customer.language)
     last = (customer.last_name or "").strip()
     name = " ".join(part.strip() for part in (customer.first_name, customer.last_name) if part and part.strip())
     if customer.salutation == Salutation.FIRMA or not name:
