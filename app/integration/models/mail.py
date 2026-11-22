@@ -16,8 +16,9 @@ sender, no paid mail provider.
   it) or `business_mailbox` (the Betrieb's shared mailbox, sent as by admin
   consent: Microsoft's application permission `Mail.Send`, Google's
   domain-wide delegation; no token is held per mailbox). No secret here.
-- `MessageDelivery` — one row per send, written on integration's own session
-  (ADR-047), success or failure.
+- `MessageDelivery` — one row per send on any channel (e-mail, SMS,
+  WhatsApp; KAN-217 PR-5), written on integration's own session (ADR-047),
+  success or failure.
 
 Platform's ids (`tenant_id` = Dealership.id, user ids, the connected account
 id) are plain GUIDs with an owner comment, never a foreign key (rule 2). The
@@ -29,7 +30,7 @@ import datetime as dt
 import enum
 import uuid
 
-from sqlalchemy import JSON, ForeignKey, Index, String, text
+from sqlalchemy import JSON, CheckConstraint, ForeignKey, Index, String, Text, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.base import PrimaryKeyMixin, TenantScopedMixin, TimestampMixin, VersionedMixin
@@ -69,6 +70,16 @@ class MailLinkLeg(str, enum.Enum):
 class DeliveryStatus(str, enum.Enum):
     SENT = "sent"
     FAILED = "failed"
+
+
+class DeliveryChannel(str, enum.Enum):
+    """The channel a delivery went out on — the values of platform's
+    `MessageChannel` (FR-A-51), kept here so a model imports no other
+    package's public door."""
+
+    EMAIL = "email"
+    SMS = "sms"
+    WHATSAPP = "whatsapp"
 
 
 class MailLinkState(PrimaryKeyMixin, TimestampMixin, Base):
@@ -144,23 +155,61 @@ class SendingIdentity(PrimaryKeyMixin, VersionedMixin, TimestampMixin, TenantSco
 
 
 class MessageDelivery(PrimaryKeyMixin, TimestampMixin, TenantScopedMixin, Base):
-    __tablename__ = "integration_message_delivery"
+    """One row per send to a customer, on any channel (KAN-215 e-mail; KAN-217
+    PR-5 SMS and WhatsApp, ADR-201), written on integration's own session.
 
-    sending_identity_id: Mapped[uuid.UUID] = mapped_column(
-        GUID(), ForeignKey("integration_sending_identity.id"), nullable=False, index=True
+    An e-mail names the mailbox it left from (`sending_identity_id`,
+    `identity_kind`, `sender_address`) and its subject; an SMS or a WhatsApp
+    message names the Betrieb's provider connection instead — the CHECK holds
+    each channel to its own source. Kept as long as the document it sent
+    (Anto, 2026-11-14, Q3 A): nothing purges it."""
+
+    __tablename__ = "integration_message_delivery"
+    __table_args__ = (
+        CheckConstraint(
+            "(channel = 'email' AND sending_identity_id IS NOT NULL AND identity_kind IS NOT NULL"
+            " AND sender_address IS NOT NULL AND subject IS NOT NULL)"
+            " OR (channel <> 'email' AND connection_id IS NOT NULL)",
+            name="ck_integration_message_delivery_channel_source",
+        ),
     )
-    identity_kind: Mapped[SendingIdentityKind] = mapped_column(
-        StoredEnum(SendingIdentityKind, length=24), nullable=False
+
+    channel: Mapped[DeliveryChannel] = mapped_column(StoredEnum(DeliveryChannel, length=16), nullable=False)
+    sending_identity_id: Mapped[uuid.UUID | None] = mapped_column(
+        GUID(), ForeignKey("integration_sending_identity.id"), nullable=True, index=True
     )
-    sender_address: Mapped[str] = mapped_column(String(320), nullable=False)
+    identity_kind: Mapped[SendingIdentityKind | None] = mapped_column(
+        StoredEnum(SendingIdentityKind, length=24), nullable=True
+    )
+    sender_address: Mapped[str | None] = mapped_column(String(320), nullable=True)
+    # An SMS or a WhatsApp message: the Betrieb's own provider connection.
+    connection_id: Mapped[uuid.UUID | None] = mapped_column(
+        GUID(), ForeignKey("integration_connection.id"), nullable=True, index=True
+    )
+    # The e-mail addresses or the E.164 number the message went to.
     recipients: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
-    subject: Mapped[str] = mapped_column(String(998), nullable=False)
+    subject: Mapped[str | None] = mapped_column(String(998), nullable=True)
+    # The text as sent (Q3 A: the proof stays with the document). NULL on the
+    # e-mails sent before KAN-217 PR-5, which kept the subject only.
+    body_text: Mapped[str | None] = mapped_column(Text, nullable=True)
     # The registered document type that was sent (`offer`, ...) and the
     # owning module's document id — plain values, no foreign key.
     document_type: Mapped[str] = mapped_column(String(64), nullable=False)
     document_id: Mapped[uuid.UUID | None] = mapped_column(
         GUID(), nullable=True, index=True, comment="Owned by the sending module (its document id). No DB-level FK."
     )
+    # The secure link an SMS or WhatsApp message carried (platform's row).
+    document_link_id: Mapped[uuid.UUID | None] = mapped_column(
+        GUID(), nullable=True, comment="Owned by the platform context (DocumentLink.id). No DB-level FK."
+    )
+    # The recipient, three-column (rule 2). The label is the name the message
+    # was addressed to, set at the send: a delivery is a fact in the past, so
+    # nothing refreshes it (ADR-201).
+    customer_id: Mapped[uuid.UUID | None] = mapped_column(
+        GUID(), nullable=True, index=True, comment="Owned by the customer context (Customer.id). No DB-level FK."
+    )
+    customer_label: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    customer_label_refreshed_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)
     author_user_id: Mapped[uuid.UUID] = mapped_column(
         GUID(), nullable=False, comment="Owned by the platform context (User.id). No DB-level FK."
     )
@@ -168,4 +217,7 @@ class MessageDelivery(PrimaryKeyMixin, TimestampMixin, TenantScopedMixin, Base):
     # A closed code when failed (`provider_unavailable`, `provider_refused`, ...); never the provider's text.
     failure_code: Mapped[str | None] = mapped_column(String(64), nullable=True)
     provider_message_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    # The provider's own first status word (`queued`, `accepted`), an
+    # identifier only; delivery reports update it later (KAN-217 PR-7).
+    provider_status: Mapped[str | None] = mapped_column(String(32), nullable=True)
     sent_at: Mapped[dt.datetime] = mapped_column(UTCDateTime(), nullable=False)

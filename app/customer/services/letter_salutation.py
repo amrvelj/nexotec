@@ -1,0 +1,62 @@
+"""The letter opening of a message to a customer — `{{customer.salutation}}`
+(KAN-217 PR-5; PRD-Customers D-15, D-22: «drives the letter opening in the
+customer's language»).
+
+Customers owns the salutation and the name, so the opening is formed here and
+handed out with the recipient (`message_recipient`); no module above forms it
+from its own copy. It follows `salutation` only — never `gender` (D-22) — in
+the customer's correspondence language (D-01):
+
+- `herr` / `frau` with a last name: «Sehr geehrter Herr Muster», «Monsieur»,
+  «Egregio Signor Rossi», «Dear Mr Smith» (French addresses without the name,
+  as a French letter does);
+- `firma`, and any customer without a personal name: «Sehr geehrte Damen und
+  Herren», «Madame, Monsieur», «Gentili Signore e Signori», «Dear Sir or
+  Madam»;
+- `neutral`, none, or `herr` / `frau` without a last name: the full name with
+  a neutral greeting, «Guten Tag Alex Muster» (D-22: neutral rather than a
+  guess).
+
+The wording matches the editor's preview samples (`sample_values`). A
+dealer's own text may avoid the token altogether.
+"""
+
+from app.customer.models.customer import Customer, Language, Salutation
+
+_HERR = {
+    Language.DE: "Sehr geehrter Herr {last}",
+    Language.FR: "Monsieur",
+    Language.IT: "Egregio Signor {last}",
+    Language.EN: "Dear Mr {last}",
+}
+_FRAU = {
+    Language.DE: "Sehr geehrte Frau {last}",
+    Language.FR: "Madame",
+    Language.IT: "Gentile Signora {last}",
+    Language.EN: "Dear Ms {last}",
+}
+_COMPANY = {
+    Language.DE: "Sehr geehrte Damen und Herren",
+    Language.FR: "Madame, Monsieur",
+    Language.IT: "Gentili Signore e Signori",
+    Language.EN: "Dear Sir or Madam",
+}
+_NEUTRAL = {
+    Language.DE: "Guten Tag {name}",
+    Language.FR: "Bonjour {name}",
+    Language.IT: "Buongiorno {name}",
+    Language.EN: "Dear {name}",
+}
+
+
+def letter_salutation(customer: Customer) -> str:
+    language = customer.language if isinstance(customer.language, Language) else Language(customer.language)
+    last = (customer.last_name or "").strip()
+    name = " ".join(part.strip() for part in (customer.first_name, customer.last_name) if part and part.strip())
+    if customer.salutation == Salutation.FIRMA or not name:
+        return _COMPANY[language]
+    if last and customer.salutation == Salutation.HERR:
+        return _HERR[language].format(last=last)
+    if last and customer.salutation == Salutation.FRAU:
+        return _FRAU[language].format(last=last)
+    return _NEUTRAL[language].format(name=name)

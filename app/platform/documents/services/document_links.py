@@ -9,8 +9,9 @@ the composition root `app/message_type_registry.py`, as it registers the type
 itself. Serving a link calls that function with the link's own Betrieb, so a
 link reads nothing outside the Betrieb that issued it.
 
-**Issuing** (`issue_document_link`) is the send's step (PR-5): it writes the row
-in the caller's transaction and hands back the raw token once; only its SHA-256
+**Issuing** (`issue_document_link`) is the send's step (PR-5): it writes and
+commits the row on platform's own session (ADR-047, ADR-201) and hands back
+the raw token once; only its SHA-256
 is stored. The URL carries it in the fragment (`/d#<token>`), never in a path
 or a query a proxy or an access log keeps; the SPA's page sends it in a header. **Opening** (`open_document_link`) is unauthenticated: the token is
 the whole authority. Unknown, malformed, expired, rate-limited, an offboarded
@@ -131,8 +132,9 @@ def issue_document_link(
     language: object = None,
     now: dt.datetime | None = None,
 ) -> IssuedDocumentLink:
-    """Writes a link to `document_id` of `tenant_id` (flushed, not committed:
-    the send's transaction holds it). `language` is the customer's
+    """Writes a link to `document_id` of `tenant_id` and commits it on a
+    session of platform's own (ADR-047; KAN-217 PR-5, ADR-201 — the caller's
+    session is neither written nor committed). `language` is the customer's
     correspondence language, which the page opens in. The caller has already read the
     document in that Betrieb; serving re-reads it there in any case. A type
     without a registered source is a defect, not a user error: ValueError."""
@@ -152,8 +154,9 @@ def issue_document_link(
         created_by=actor_id,
         updated_by=actor_id,
     )
-    db.add(link)
-    db.flush()
+    with Session(bind=db.get_bind(), autoflush=False, expire_on_commit=False) as own:
+        own.add(link)
+        own.commit()
     return IssuedDocumentLink(link_id=link.id, token=raw, url=link_url(raw, language), expires_at=link.expires_at)
 
 

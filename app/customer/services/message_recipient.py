@@ -60,6 +60,7 @@ from app.customer.models.customer import (
 )
 from app.customer.services.contact_channels import channel_authorises_marketing
 from app.customer.services.customer_common import _is_usable_row
+from app.customer.services.letter_salutation import letter_salutation
 from app.platform.public import MessageChannel, MessagePurpose
 
 CUSTOMER_MERGED = "customer_merged"
@@ -79,6 +80,10 @@ class MessageRecipient:
     address: str | None
     # The customer's correspondence language (D-01), the text's language.
     language: str
+    # The letter opening in that language, `{{customer.salutation}}`
+    # (`letter_salutation.py`), and the name the message is addressed to.
+    salutation: str
+    display_name: str
     allowed: bool
     # The stable reason of a refusal (the module constants above); None when allowed.
     refusal: str | None
@@ -115,6 +120,15 @@ def _customer_in_group(db: Session, *, group_id: uuid.UUID, customer_id: uuid.UU
     if customer is None or customer.group_id != group_id:
         return None
     return customer
+
+
+def _display_name(customer: Customer) -> str:
+    """Company name, else first and last name, else the number — the one
+    display rule (`customer_refs.customer_display_name`, KAN-140)."""
+
+    if customer.company_name:
+        return customer.company_name
+    return " ".join(part for part in [customer.first_name, customer.last_name] if part) or customer.customer_number
 
 
 def _row_for(db: Session, customer_id: uuid.UUID, channel: MessageChannel) -> Any | None:
@@ -167,6 +181,8 @@ def message_recipient(
         purpose=purpose,
         address=_address_of(row, channel),
         language=customer.language.value,
+        salutation=letter_salutation(customer),
+        display_name=_display_name(customer),
         allowed=refusal is None,
         refusal=refusal,
     )

@@ -69,9 +69,10 @@ def test_the_integration_migration_goes_down_with_mailboxes_and_deliveries_and_u
         "mailbox_address, external_account_id, provider_tenant, status, connected_at) VALUES "
         f"('{identity}', 1, now(), now(), '{uuid.uuid4()}', 'business_mailbox', 'microsoft_365_mail', "
         "'info@garage-muster.ch', 'obj', 'tid', 'active', now())",
-        "INSERT INTO integration_message_delivery (id, created_at, updated_at, tenant_id, sending_identity_id, "
+        # `channel` since KAN-217 PR-5 (integration 5e1b7c3a9d20), which the downgrade passes through.
+        "INSERT INTO integration_message_delivery (id, created_at, updated_at, tenant_id, channel, sending_identity_id, "
         "identity_kind, sender_address, recipients, subject, document_type, author_user_id, status, sent_at) VALUES "
-        f"('{uuid.uuid4()}', now(), now(), '{uuid.uuid4()}', '{identity}', 'business_mailbox', 'info@garage-muster.ch', "
+        f"('{uuid.uuid4()}', now(), now(), '{uuid.uuid4()}', 'email', '{identity}', 'business_mailbox', 'info@garage-muster.ch', "
         f"'[\"kunde@example.test\"]', 'Offerte', 'offer', '{uuid.uuid4()}', 'sent', now())",
         "INSERT INTO integration_mail_link_state (id, created_at, updated_at, state_hash, tenant_id, user_id, kind, "
         f"provider_code, leg, expires_at) VALUES ('{uuid.uuid4()}', now(), now(), '{'a' * 64}', '{uuid.uuid4()}', "

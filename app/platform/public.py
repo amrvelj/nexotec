@@ -48,6 +48,7 @@ from app.platform.documents.services.message_types import (
     get_message_type,
     message_types,
     register_message_type,
+    text_category_of,
 )
 from app.platform.documents.services.standard_text import RenderedStandardText, render_standard_text
 from app.platform.documents.services.standard_text_placeholders import PLACEHOLDER_UNRESOLVED, Placeholder
@@ -280,6 +281,7 @@ __all__ = [
     "register_document_source",
     "register_grant_revoker",
     "register_message_type",
+    "text_category_of",
     "render_document",
     "render_standard_text",
     "require_setup_item_for",

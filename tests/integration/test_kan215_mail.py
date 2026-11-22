@@ -27,9 +27,10 @@ from app.integration.models.mail import (
     SendingIdentityStatus,
 )
 from app.integration.models.provider import IntegrationProvider
-from app.integration.public import MailAttachment, send_customer_mail
+from app.integration.public import MailAttachment
 from app.integration.services import mail_link, mail_sending, resilience
 from app.integration.services.data_export import IntegrationExporter
+from app.integration.services.mail_sending import send_customer_mail
 from app.platform.identity.models.connected_account import (
     ConnectedAccountProvider,
     ConnectedAccountStatus,

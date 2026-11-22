@@ -136,6 +136,9 @@ POST_WITHOUT_IF_MATCH = {
     "/v1/sales/offers/{offer_id}/copy": _NEW_ROW,
     "/v1/sales/offers/{offer_id}/documents": "a new document and the grid's deal row (unversioned)",
     "/v1/sales/contracts/{contract_id}/documents": "a new document and the grid's deal row (unversioned)",
+    # KAN-217 PR-5: sends the document (an unversioned, append-only row) and
+    # writes a delivery record and a secure link; nothing versioned changes.
+    "/v1/sales/documents/{document_id}/send": "a delivery record and a secure link for an unversioned document",
     "/v1/integrations/connections/{connection_id}/test": "a provider call, its call-log row and the connection's "
     "health stamp (status, last error, last verified) — the gateway's own observation, not an edit; the version "
     "does not move",

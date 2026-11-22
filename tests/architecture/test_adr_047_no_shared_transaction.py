@@ -154,6 +154,17 @@ _IN_PROCESS_STATE = {
 # just "a commit somewhere", keeps a conditional second commit from hiding
 # the loss of the one that always runs.
 _OWN_COMMIT_WRITES = {
+    # KAN-217 PR-5 (ADR-201): the send. Platform commits the secure link on
+    # its own session; integration the delivery row on its own (an SMS or a
+    # WhatsApp message here, an e-mail in mail_sending.send_customer_mail).
+    "app.platform.public.issue_document_link": (
+        "app.platform.documents.services.document_links.issue_document_link",
+        "sales: send_document",
+    ),
+    "app.integration.public.deliver_message": (
+        "app.integration.services.message_delivery._send_on_own_session",
+        "sales: send_document",
+    ),
     # Stock reservation for a confirmed contract, and its release on
     # cancellation or as the confirmation's compensation (WP-7 PR-4). The
     # orphan sweep moved into inventory (KAN-122) and calls release itself.
@@ -371,6 +382,13 @@ _READS = {
     # Builds a PDF from content Sales supplies; persists nothing.
     "app.platform.public.render_document",
     "app.platform.public.render_standard_text",  # KAN-208: resolves and renders a text, writes nothing
+    # KAN-217 PR-5: the send's reads — the registry (in-process), Customers'
+    # recipient and verdict, integration's refusals before anything is written.
+    "app.platform.public.get_message_type",
+    "app.platform.public.delivery_of",
+    "app.platform.public.text_category_of",
+    "app.customer.public.message_recipient",
+    "app.integration.public.check_deliverable",
     # KAN-214 (FR-A-26): derives the setup checklist and raises when an item the
     # action needs is incomplete; a SELECT only, nothing written.
     "app.platform.public.require_setup_item_for",
