@@ -7,6 +7,7 @@ from app.platform.administration.services.data_export_tables import PlatformExpo
 from app.platform.administration.services.location_channel_facts import (
     ChannelOpeningHours,
     LocationChannelFacts,
+    closed_days_until,
     location_channel_facts,
 )
 from app.platform.administration.services.publishing_readiness import (
@@ -244,6 +245,7 @@ __all__ = [
     "UserDisplayLabel",
     "actor_reference_checks",
     "allocate_number",
+    "closed_days_until",
     "connected_account_states",
     "contact_group_codes",
     "dealer_group_reference_check",

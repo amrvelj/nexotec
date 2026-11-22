@@ -30,6 +30,7 @@ from app.integration.schemas.google_business_profile import (
     BusinessProfileBindingRead,
     BusinessProfileClientCheckRead,
     BusinessProfileClientStatusRead,
+    BusinessProfileDriftRead,
     BusinessProfileGoogleChoicePage,
     BusinessProfileGoogleChoiceRead,
     BusinessProfileGoogleLocationPick,
@@ -38,7 +39,7 @@ from app.integration.schemas.google_business_profile import (
     BusinessProfileLinkOutcomeRead,
     BusinessProfileLinkStartRead,
 )
-from app.integration.services import gbp_client_check, gbp_link, gbp_status
+from app.integration.services import gbp_client_check, gbp_drift, gbp_link, gbp_status
 from app.platform.public import is_platform_dealership
 
 router = APIRouter(tags=["business-profile"], route_class=IdempotentRoute)
@@ -67,11 +68,23 @@ def list_bindings(
     principal: Principal = Depends(require_read(_CAPABILITY)),
     db: Session = Depends(get_db),
 ):
+    """The Betrieb's bindings, each with its latest drift check and the
+    departments its last push could not show at Google (KAN-226 PR-4)."""
+
     _own_dealer_betrieb(db, dealership_id, principal)
-    return BusinessProfileBindingPage(
-        items=[_read(b) for b in gbp_link.list_bindings(db, dealership_id=dealership_id)],
-        configured=gbp_link.client_connection(db) is not None,
-    )
+    bindings = gbp_link.list_bindings(db, dealership_id=dealership_id)
+    ids = [b.id for b in bindings]
+    checks = gbp_drift.latest_checks(db, dealership_id=dealership_id, binding_ids=ids)
+    unmapped = gbp_drift.unmapped_departments(db, dealership_id=dealership_id, binding_ids=ids)
+    items = []
+    for binding in bindings:
+        read = _read(binding)
+        check = checks.get(binding.id)
+        if check is not None:
+            read.drift = BusinessProfileDriftRead.model_validate(check, from_attributes=True)
+        read.unmapped_departments = unmapped.get(binding.id, [])
+        items.append(read)
+    return BusinessProfileBindingPage(items=items, configured=gbp_link.client_connection(db) is not None)
 
 
 @router.post(f"{_BASE}/links", dependencies=[Depends(refuse_under_impersonation)], response_model=BusinessProfileLinkStartRead, status_code=201)

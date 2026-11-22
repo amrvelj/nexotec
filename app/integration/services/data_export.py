@@ -16,7 +16,12 @@ from app.integration.models.call_payload import IntegrationCallPayload
 from app.integration.models.caption import IntegrationProviderCaption, IntegrationProviderCaptionFetch
 from app.integration.models.connection import IntegrationConnection
 from app.integration.models.entitlement import IntegrationEntitlement
-from app.integration.models.google_business_profile import GbpLinkState, GbpLocationBinding, GbpPushState
+from app.integration.models.google_business_profile import (
+    GbpDriftCheck,
+    GbpLinkState,
+    GbpLocationBinding,
+    GbpPushState,
+)
 from app.integration.models.mail import MailLinkState, MessageDelivery, SendingIdentity, SendingIdentityKind
 from app.integration.models.notification import IntegrationNotification
 from app.integration.models.provider import IntegrationProvider
@@ -89,6 +94,9 @@ class IntegrationExporter(TableExporter):
             # KAN-226 PR-3: what the push last sent to Google — written by the
             # worker, not the Betrieb.
             _tenant(GbpPushState, marks_write=False),
+            # KAN-226 PR-4: the nightly drift check's latest result — written
+            # by the worker, not the Betrieb.
+            _tenant(GbpDriftCheck, marks_write=False),
             _tenant(IntegrationCallLog, marks_write=False),
             _tenant(IntegrationNotification, marks_write=False),
             _tenant(

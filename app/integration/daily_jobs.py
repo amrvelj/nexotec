@@ -20,6 +20,7 @@ import logging
 
 from sqlalchemy.orm import Session
 
+from app.integration.services import gbp_drift as gbp_drift_service
 from app.integration.services import gbp_link as gbp_link_service
 from app.integration.services import mail_link as mail_link_service
 from app.integration.services import notifications as notification_service
@@ -88,3 +89,15 @@ def run_daily_business_profile_link_state_purge(db: Session) -> None:
     deleted = gbp_link_service.purge_spent_link_states(db)
     if deleted:
         logger.info("business profile link-state purge", extra={"deleted": deleted})
+
+
+def run_daily_business_profile_drift_check(db: Session) -> None:
+    """KAN-226 PR-4 — reads every active Business Profile binding's Google
+    location back and records, per binding, whether Google shows what
+    Nexotec pushes (`services/gbp_drift.py`). Reports, never repairs. Registered
+    as its own job, before the status page's notifications, so the night's
+    drift reaches the managers the same night."""
+
+    counts = gbp_drift_service.run_drift_checks(db)
+    if any(counts.values()):
+        logger.info("business profile drift check", extra=counts)

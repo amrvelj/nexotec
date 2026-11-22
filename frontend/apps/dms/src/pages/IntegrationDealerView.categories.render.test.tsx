@@ -109,7 +109,12 @@ describe('IntegrationDealerView — platform-only providers are not offered to a
 
     expect(await screen.findByText('AutoScout24')).toBeInTheDocument()
     expect(screen.getByText('Marktplatz')).toBeInTheDocument()
-    expect(screen.queryByText('Google Business Profile')).not.toBeInTheDocument()
+    // No provider card for it; its own section (KAN-226 PR-4: the Betrieb's
+    // locations, each linked by the manager) is the only place it is named.
+    const outsideSection = screen
+      .queryAllByText('Google Business Profile')
+      .filter((el) => !el.closest('[role="region"][aria-label="Google Business Profile"]'))
+    expect(outsideSection).toHaveLength(0)
     expect(screen.queryByText('Google Workspace (Gmail)')).not.toBeInTheDocument()
     expect(screen.queryByText('Microsoft 365 (Mail)')).not.toBeInTheDocument()
     expect(screen.queryByText('Kalender und E-Mail')).not.toBeInTheDocument()

@@ -22,7 +22,8 @@
     "number_ranges": "Plages de numéros",
     "integration": "Intégrations",
     "nexotec": "Nexotec",
-    "google_business_profile": "Google Business Profile"
+    "google_business_profile": "Google Business Profile",
+    "google_business_profile_drift": "Google Business Profile – comparaison"
   },
   "open": "Ouvrir",
   "since": "depuis le {{date}}",
@@ -48,6 +49,12 @@
     "googleBusinessProfile": {
       "ok": "Google Business Profile : la connexion de Nexotec fonctionne.",
       "interrupted": "Google Business Profile : la connexion de Nexotec est interrompue – nous nous en occupons."
+    },
+    "googleBusinessProfileDrift": {
+      "inSync": "{{location}} : Google affiche ce que Nexotec transmet.",
+      "drift_one": "{{location}} : {{count, number}} champ diffère chez Google. La carte sous Intégrations l'indique.",
+      "drift_other": "{{location}} : {{count, number}} champs diffèrent chez Google. La carte sous Intégrations les indique.",
+      "checkFailed": "{{location}} : la comparaison nocturne n'a pas pu lire Google."
     }
   },
   "indicator": {

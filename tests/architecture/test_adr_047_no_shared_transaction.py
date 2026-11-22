@@ -369,6 +369,7 @@ _READS = {
     # KAN-226 PR-3: a location's published state, for the Business Profile push consumers;
     # a SELECT only.
     "app.platform.public.location_channel_facts",
+    "app.platform.public.closed_days_until",  # KAN-226 PR-4: pure date arithmetic, reads nothing
     # KAN-403: users' names for the nightly advisor-label refresh; a SELECT only.
     "app.platform.public.get_user_display_labels",
     # KAN-410: the advisor picker — users homed in the Betrieb or members of it; a SELECT only.

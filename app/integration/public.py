@@ -25,7 +25,8 @@ one place that decides what `None` should mean for a given screen.
 
 `IntegrationStatusProvider` (KAN-223) is the connections' contribution to the
 Betrieb's status page, `GbpStatusProvider` (KAN-776) the Business Profile
-item of a Betrieb with a live binding; both registered with `app.core.status` by the composition
+item of a Betrieb with a live binding, `GbpDriftStatusProvider` (KAN-226 PR-4)
+one drift item per checked binding; all registered with `app.core.status` by the composition
 root `app/status_registry.py` — platform never imports it.
 
 `refresh_location_labels` / `oldest_location_label_age_seconds` (KAN-222)
@@ -147,7 +148,7 @@ from app.integration.services.gateway import (
     call_capability,
     resolve_adapter,
 )
-from app.integration.services.gbp_status import GbpStatusProvider
+from app.integration.services.gbp_status import GbpDriftStatusProvider, GbpStatusProvider
 from app.integration.services.location_labels import oldest_location_label_age_seconds, refresh_location_labels
 from app.integration.services.mail_sending import (
     DeliveryRecord,
@@ -181,6 +182,7 @@ __all__ = [
     "DeliveryStatus",
     "EnergyLabelData",
     "EntitlementState",
+    "GbpDriftStatusProvider",
     "GbpStatusProvider",
     "GeneratedText",
     "IntegrationExporter",
