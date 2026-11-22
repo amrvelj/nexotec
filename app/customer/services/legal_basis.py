@@ -98,7 +98,9 @@ def has_any_basis_for_group(db: Session, *, group_id: uuid.UUID) -> bool:
     this only guards against flipping it on with zero paperwork at all.
     """
 
-    return db.scalar(select(LegalBasis.id).where(LegalBasis.group_id == group_id).limit(1)) is not None
+    return (
+        db.scalar(select(LegalBasis.id).where(LegalBasis.group_id == group_id).limit(1)) is not None
+    )
 
 
 def get_customer_group_read_or_404(
@@ -121,5 +123,6 @@ def get_customer_group_read_or_404(
         Customer,
         customer_id,
         group_id,
-        is_authorized=lambda: group_read_enabled and has_live_basis(db, customer_id=customer_id, group_id=group_id),
+        is_authorized=lambda: group_read_enabled
+        and has_live_basis(db, customer_id=customer_id, group_id=group_id),
     )

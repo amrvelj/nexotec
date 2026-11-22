@@ -194,7 +194,9 @@ def list_customers(
         )
     if lifecycle_status_not is not None:
         if lifecycle_status_not in CUSTOMER_LIFECYCLE_STATUSES:
-            stmt = stmt.where(or_(Customer.lifecycle_status != lifecycle_status_not, ~holds_role(ContactRole.CUSTOMER)))
+            stmt = stmt.where(
+                or_(Customer.lifecycle_status != lifecycle_status_not, ~holds_role(ContactRole.CUSTOMER))
+            )
         else:
             stmt = stmt.where(Customer.lifecycle_status != lifecycle_status_not)
     if role is not None:

@@ -41,7 +41,6 @@ from app.customer.services.vehicle_party_locks import _lock_vehicle_role_in_grou
 # KAN-392: the audit reason on a kept vehicle-link copy a later merge re-points.
 CUSTOMER_MERGED_REASON = "customer_merged"
 
-
 def _lock_merge_customers(db: Session, *, duplicate_id: uuid.UUID, target_id: uuid.UUID) -> None:
     """KAN-372: a merge locks both customer rows — the duplicate FOR NO KEY
     UPDATE (KAN-365), the survivor FOR SHARE — and decides on their committed

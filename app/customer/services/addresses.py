@@ -133,7 +133,9 @@ def _assert_merged_postal_code(address: CustomerAddress, changes: dict[str, Any]
     try:
         validate_postal_code_for_country(postal_code, country)
     except ValueError as exc:
-        raise UnprocessableEntityError(str(exc), details={"reason": "customer_address_postal_code_invalid"}) from exc
+        raise UnprocessableEntityError(
+            str(exc), details={"reason": "customer_address_postal_code_invalid"}
+        ) from exc
 
 
 def update_customer_address(

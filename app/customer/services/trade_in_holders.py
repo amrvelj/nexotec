@@ -179,11 +179,7 @@ def record_former_holder_on_purchase(
                 continue
             written.append(
                 _write_history_row(
-                    db,
-                    vehicle_id=vehicle_id,
-                    customer_id=customer_id,
-                    role=role,
-                    group_id=group_id,
+                    db, vehicle_id=vehicle_id, customer_id=customer_id, role=role, group_id=group_id,
                     effective_from=gap_from,
                     effective_to=gap_to,
                     actor_id=actor_id,
@@ -259,11 +255,8 @@ def _write_history_row(
     nobody (KAN-370); audited `vehicle_party_add`, published `linked`."""
 
     party = VehicleParty(
-        vehicle_id=vehicle_id,
-        customer_id=customer_id,
-        role=role,
-        effective_from=effective_from,
-        effective_to=effective_to,
+        vehicle_id=vehicle_id, customer_id=customer_id, role=role,
+        effective_from=effective_from, effective_to=effective_to,
     )
     _write_vehicle_labels(db, [party])
     db.add(party)

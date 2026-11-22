@@ -91,7 +91,8 @@ no cause, its own notification `administration.business_profile_interrupted` («
 side»); staff read the cause on `/platform/status` (`GET /v1/integrations/business-profile/client-status`) and
 «Erneut prüfen» (`POST …/client-status/check`, one real Google call, staff with a factor) clears it once
 Google answers for a location; a timeout, 5xx, quota or token-refresh row, or a 429 or 401/403 not naming the
-client or project (KAN-780), neither raises nor clears it). The daily
+client or project (KAN-780), neither raises nor clears it; drift, KAN-226/ADR-205: one item per checked
+binding, warning on drift or a failed read). The daily
 `platform.status_page.notifications` raises `administration.status_item_degraded` once per
 degradation (`status_item_state`, under a per-Betrieb advisory lock): a warning the source really
 announced is exempt, the move to blocked never; an unavailable source keeps its rows, its own

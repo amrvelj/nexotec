@@ -171,7 +171,8 @@ def list_advisor_options(db: Session, *, dealership_id: uuid.UUID) -> list[dict[
     Customer.advisor_label."""
 
     return [
-        {"id": user.id, "label": user.label} for user in list_active_users_acting_in(db, dealership_id=dealership_id)
+        {"id": user.id, "label": user.label}
+        for user in list_active_users_acting_in(db, dealership_id=dealership_id)
     ]
 
 
@@ -187,9 +188,7 @@ def _replace_customer_tags(db: Session, customer: Customer, tags: list[str], *, 
     transaction; the caller commits.
     """
 
-    existing = {
-        row.tag: row for row in db.scalars(select(CustomerTag).where(CustomerTag.customer_id == customer.id)).all()
-    }
+    existing = {row.tag: row for row in db.scalars(select(CustomerTag).where(CustomerTag.customer_id == customer.id)).all()}
     wanted = set(tags)
     for tag in wanted - existing.keys():
         db.add(
@@ -257,9 +256,7 @@ def _allocate_customer_number(db: Session, group_id: uuid.UUID) -> str:
         except IntegrityError:
             pass  # the concurrent caller's row now exists; re-read it below
         row = db.get(CustomerNumberSequence, group_id, with_for_update=True)
-        assert row is not None, (
-            "CustomerNumberSequence row missing after its first-use INSERT or the concurrent winner's"
-        )
+        assert row is not None, "CustomerNumberSequence row missing after its first-use INSERT or the concurrent winner's"
 
     value = row.next_value
     row.next_value = value + 1
@@ -351,7 +348,10 @@ def create_customer(
         db,
         {
             "nationality": data.nationality,
-            **{f"addresses[{i}].addressCountry": address.address_country for i, address in enumerate(data.addresses)},
+            **{
+                f"addresses[{i}].addressCountry": address.address_country
+                for i, address in enumerate(data.addresses)
+            },
         },
     )
     # KAN-464: a contact created without the customer role carries no
@@ -792,7 +792,9 @@ def list_customer_history(db: Session, *, group_id: uuid.UUID, customer_id: uuid
     return list(db.scalars(stmt).all())
 
 
-def history_labels(db: Session, *, group_id: uuid.UUID, dealership_id: uuid.UUID, events: list[Any]) -> dict[str, str]:
+def history_labels(
+    db: Session, *, group_id: uuid.UUID, dealership_id: uuid.UUID, events: list[Any]
+) -> dict[str, str]:
     """Id → display label for every id the customer's audit events carry
     under a known key (one value or a list of them), and for each event's
     actor: a Betrieb's and a user's name from platform

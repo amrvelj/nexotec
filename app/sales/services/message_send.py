@@ -155,9 +155,10 @@ def send_document(
 
     language = SwissLanguage(recipient.language)
     rendered = render(language)
-    if rendered is not None and rendered.language != language:
+    if text_override is None and rendered is not None and rendered.language != language:
         # The library fell back to another language (the Betrieb has no text
-        # in the customer's): the whole message follows the text — opening,
+        # in the customer's) and the author wrote nothing of their own: the
+        # whole message follows the text — opening,
         # subject, the link's page and the WhatsApp template's language — so
         # it never mixes two languages.
         language = rendered.language

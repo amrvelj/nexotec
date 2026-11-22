@@ -454,3 +454,38 @@ def test_a_name_longer_than_the_label_column_still_records_the_send(client, db_s
     assert response.status_code == 201, response.text
     (delivery,) = _deliveries(db_session)
     assert delivery.customer_label == ("A" * 100 + " " + "B" * 100)[:200]
+
+
+def test_the_authors_own_wording_keeps_the_customers_language_whatever_the_library_holds(client, db_session, provider, scene):
+    """Review 2, finding 4: an author who writes the Italian customer in
+    Italian gets the Italian link page, even when the Betrieb's SMS text exists
+    only in German."""
+
+    dealer, author, _customer_id, _document = scene
+    _messaging_connection(db_session, "twilio", tenant_id=dealer)
+    italian = _customer(
+        client, author, firstName="Giulia", lastName="Rossi", language="it",
+        emails=[{"emailType": "personal", "emailAddress": "giulia.r@example.ch"}],
+        phones=[{"phoneType": "mobile", "phoneE164": "+41790000220"}],
+    )
+    seed = db_session.scalar(
+        select(StandardText).where(
+            StandardText.code == "sms.offer_sent", StandardText.dealership_id.is_(None), StandardText.language == "it"
+        )
+    )
+    db_session.add(
+        StandardText(
+            dealership_id=dealer, code=seed.code, category=seed.category, applies_to=seed.applies_to, slot=seed.slot,
+            language=seed.language, title=seed.title, body=seed.body, scope=StandardTextScope.DEALERSHIP,
+            source=StandardTextSource.DEALER, overridden_from_id=seed.id, overridden_seed_version=seed.version,
+            is_default=True, active=False, sort_order=seed.sort_order,
+        )
+    )
+    db_session.commit()
+    document = _offer_document(db_session, tenant_id=dealer, customer_id=italian, number="O-2026/000220")
+
+    response = _send(client, author, document.id, channel="sms", text="Gentile Signora Rossi, ecco la Sua offerta.")
+
+    assert response.status_code == 201, response.text
+    body = parse_qs(provider["twilio"].requests[0].content.decode())["Body"][0]
+    assert body.startswith("Gentile Signora Rossi, ecco la Sua offerta.\n") and "/d?lang=it#" in body

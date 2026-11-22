@@ -95,7 +95,9 @@ def create_customer_vehicle(
     # either commits before the merge locks the customer (and is re-pointed
     # with the rest) or waits for it and is refused.
     # KAN-673: a merged vehicle is followed to its survivor, under its lock.
-    vehicle_id = _lock_live_vehicle_role_in_group(db, vehicle_id=vehicle.id, role=data.role, group_id=customer.group_id)
+    vehicle_id = _lock_live_vehicle_role_in_group(
+        db, vehicle_id=vehicle.id, role=data.role, group_id=customer.group_id
+    )
     _refuse_merged_customer(db, customer.id)
     party = VehicleParty(
         vehicle_id=vehicle_id,
@@ -346,7 +348,7 @@ def delete_customer_vehicle(
     acting_dealership_id: uuid.UUID | None,
     group_id: uuid.UUID,
 ) -> None:
-    """ "Disconnect" (FR-V-05) — CLOSES the allocation by setting
+    """"Disconnect" (FR-V-05) — CLOSES the allocation by setting
     effective_to; the row is never deleted, so history survives (WP-5
     PR-9, ADR-064). This was a hard db.delete() before PR-9 — a real
     correctness gap against ADR-064's explicit "never overwritten, never
