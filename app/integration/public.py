@@ -162,6 +162,7 @@ from app.integration.services.message_delivery import (
     deliver_message,
     refuse_unless_allowed,
 )
+from app.integration.services.reconciliation_sources import message_delivery_recipient_reference_check
 from app.integration.services.resilience import CircuitOpenError
 from app.integration.services.send_readiness import (
     ChannelReadiness,
@@ -231,6 +232,7 @@ __all__ = [
     "get_enabled_connection",
     "get_entitlement",
     "latest_deliveries",
+    "message_delivery_recipient_reference_check",
     "oldest_location_label_age_seconds",
     "refresh_location_labels",
     "refuse_unless_allowed",

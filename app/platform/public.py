@@ -52,6 +52,7 @@ from app.platform.documents.services.message_types import (
     register_message_type,
     text_category_of,
 )
+from app.platform.documents.services.reconciliation_targets import document_link_reference_check
 from app.platform.documents.services.standard_text import RenderedStandardText, render_standard_text
 from app.platform.documents.services.standard_text_placeholders import PLACEHOLDER_UNRESOLVED, Placeholder
 from app.platform.identity.models.connected_account import ConnectedAccountStatus
@@ -254,6 +255,7 @@ __all__ = [
     "dealership_outside_group",
     "dealership_reference_check",
     "delivery_of",
+    "document_link_reference_check",
     "enable_group_read",
     "find_dealer_group_ids",
     "find_dealership_group_ids",
