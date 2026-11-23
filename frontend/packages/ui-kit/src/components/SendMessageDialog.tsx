@@ -119,7 +119,7 @@ export function SendMessageDialog({
             <Chip.Group multiple={false} value={selected ?? ""} onChange={(value) => setSelected(value || null)}>
               <Group gap="xs" role="radiogroup" aria-labelledby="send-dialog-channels">
                 {channels.map((c) => (
-                  <Chip key={c.channel} value={c.channel} color="grape" variant="outline">
+                  <Chip key={c.channel} value={c.channel} variant="outline">
                     {c.label}
                   </Chip>
                 ))}
@@ -173,7 +173,7 @@ export function SendMessageDialog({
           <Button variant="default" onClick={onClose}>
             {labels.cancel}
           </Button>
-          <Button color="grape" leftSection={<Send size={14} />} loading={sending} disabled={!canSend} onClick={send}>
+          <Button leftSection={<Send size={14} />} loading={sending} disabled={!canSend} onClick={send}>
             {labels.send}
           </Button>
         </Group>
