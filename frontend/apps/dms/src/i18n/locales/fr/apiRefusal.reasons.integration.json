@@ -10,5 +10,9 @@
   "usage_period_reversed": "La fin de la période précède son début.",
   "usage_period_too_long": "Une période couvre au plus une année.",
   "provider_has_no_sandbox": "Ce fournisseur n'offre pas d'accès de test. Connectez-le en production.",
-  "provider_sandbox_connections_exist": "{{count, number}} connexions d'accès de test à ce fournisseur existent encore. Supprimez-les d'abord."
+  "provider_sandbox_connections_exist": "{{count, number}} connexions d'accès de test à ce fournisseur existent encore. Supprimez-les d'abord.",
+  "recipient_refused": "Ce client ne peut pas recevoir ce message sur ce canal. Vérifiez ses coordonnées et ses consentements.",
+  "channel_not_offered": "Ce message n'est pas envoyé sur ce canal. Choisissez un autre canal.",
+  "whatsapp_template_not_approved": "WhatsApp n'envoie que les textes que le fournisseur a approuvés comme modèle, et celui-ci ne l'est pas. Vérifiez-le dans l'administration, sous Textes standard.",
+  "message_invalid": "Le message ne peut pas être envoyé ainsi : le numéro de téléphone ou la longueur du texte ne convient pas au canal."
 }
