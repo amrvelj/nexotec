@@ -22,6 +22,7 @@ from sqlalchemy.orm import Session
 
 from app.integration.services import gbp_drift as gbp_drift_service
 from app.integration.services import gbp_link as gbp_link_service
+from app.integration.services import gbp_push as gbp_push_service
 from app.integration.services import mail_link as mail_link_service
 from app.integration.services import notifications as notification_service
 from app.integration.services import retention as retention_service
@@ -89,6 +90,21 @@ def run_daily_business_profile_link_state_purge(db: Session) -> None:
     deleted = gbp_link_service.purge_spent_link_states(db)
     if deleted:
         logger.info("business profile link-state purge", extra={"deleted": deleted})
+
+
+def run_daily_business_profile_horizon_push(db: Session) -> None:
+    """KAN-793 — pushes every active Business Profile binding whose facts
+    changed with the date (a closed day entered or left the one-year
+    horizon) though no location event fired (`services/gbp_push.py::
+    run_horizon_pushes`). Registered as its own job, just before the drift
+    check, so the check compares what Google holds against the full horizon;
+    a binding that failed makes the job raise and be retried the same day
+    (that night's drift row then names its special hours until the next
+    night's check)."""
+
+    counts = gbp_push_service.run_horizon_pushes(db)
+    if counts["pushed"]:
+        logger.info("business profile horizon push", extra=counts)
 
 
 def run_daily_business_profile_drift_check(db: Session) -> None:

@@ -361,8 +361,8 @@ def test_a_state_with_nothing_to_send_asks_google_for_no_token(
     binding = _bind(db_session, google, dealership.id, location.id)
     real_facts = gbp_push._facts
 
-    def bare(db, dealership_id, location_id):
-        facts = real_facts(db, dealership_id, location_id)
+    def bare(db, dealership_id, location_id, *, today=None):
+        facts = real_facts(db, dealership_id, location_id, today=today)
         return dataclasses.replace(
             facts, address_street=None, address_house_number=None, phone=None, website=None, opening_hours=(), closed_days=()
         )

@@ -43,6 +43,7 @@ from app.integration.models.google_business_profile import (
 from app.integration.services import gbp_drift, gbp_push
 from app.integration.services.gbp_status import DRIFT_SOURCE, GbpDriftStatusProvider
 from app.platform.organisation.models.location_schedule import LocationClosure
+from app.platform.public import closed_days_until
 from tests.gbp_fakes import LOCATION_1, LOCATION_2
 from tests.identapi_support import make_user
 from tests.integration import test_kan226_business_profile as pr2
@@ -99,7 +100,7 @@ TODAY = dt.date(2026, 11, 22)
 
 def test_what_the_push_sent_read_back_is_in_sync():
     patch = _patch()
-    assert gbp_drift.drifted_fields(patch, _as_google(patch), today=TODAY, pushed_on=TODAY) == ()
+    assert gbp_drift.drifted_fields(patch, _as_google(patch), today=TODAY) == ()
 
 
 def test_googles_own_formatting_is_not_drift():
@@ -111,7 +112,36 @@ def test_googles_own_formatting_is_not_drift():
     # A period without minutes at Google: the same time.
     first = google["regularHours"]["periods"][0]
     google["regularHours"]["periods"][0] = {**first, "openTime": {"hours": 8, "minutes": 0}}
-    assert gbp_drift.drifted_fields(patch, google, today=TODAY, pushed_on=TODAY) == ()
+    assert gbp_drift.drifted_fields(patch, google, today=TODAY) == ()
+
+
+@pytest.mark.parametrize(
+    ("country", "ours", "answered"),
+    [
+        ("CH", "+41441234567", "044 123 45 67"),
+        ("CH", "+41441234567", "0041 44 123 45 67"),
+        ("LI", "+4232345678", "234 56 78"),
+        ("DE", "+493012345678", "030 12345678"),
+    ],
+)
+def test_a_national_format_answer_is_the_same_phone(country, ours, answered):
+    """KAN-794: Google may answer `primaryPhone` in the national format of
+    the location's country; the number is the one Nexotec pushed."""
+
+    patch = _patch(phone=ours, address_country=country)
+    google = _as_google(patch)
+    google["phoneNumbers"] = {"primaryPhone": answered}
+    assert gbp_drift.drifted_fields(patch, google, today=TODAY) == ()
+
+
+def test_a_national_number_of_another_line_is_still_drift():
+    patch = _patch(phone="+41441234567", address_country="CH")
+    google = _as_google(patch)
+    google["phoneNumbers"] = {"primaryPhone": "044 123 45 68"}
+    assert gbp_drift.drifted_fields(patch, google, today=TODAY) == ("phone",)
+    # Read in another country's plan, the same digits are another number.
+    google["phoneNumbers"] = {"primaryPhone": "+49 44 123 45 67"}
+    assert gbp_drift.drifted_fields(patch, google, today=TODAY) == ("phone",)
 
 
 def test_a_changed_field_at_google_is_drift_by_its_code():
@@ -133,7 +163,7 @@ def test_a_changed_field_at_google_is_drift_by_its_code():
             {"startDate": {"year": 2026, "month": 12, "day": 31}, "closed": True},
         ]
     }
-    assert gbp_drift.drifted_fields(patch, google, today=TODAY, pushed_on=TODAY) == (
+    assert gbp_drift.drifted_fields(patch, google, today=TODAY) == (
         "phone",
         "regularHours",
         "moreHours",
@@ -144,7 +174,7 @@ def test_a_changed_field_at_google_is_drift_by_its_code():
 def test_a_field_nexotec_never_pushes_is_the_dealers_own_and_never_reported():
     patch = _patch(website=None, phone=None)
     google = {**_as_google(patch), "websiteUri": "https://dealer-own.invalid", "phoneNumbers": {"primaryPhone": "+41"}}
-    assert gbp_drift.drifted_fields(patch, google, today=TODAY, pushed_on=TODAY) == ()
+    assert gbp_drift.drifted_fields(patch, google, today=TODAY) == ()
 
 
 def test_a_field_being_cleared_is_drift_while_google_still_shows_it():
@@ -152,29 +182,43 @@ def test_a_field_being_cleared_is_drift_while_google_still_shows_it():
         _facts(phone=None), offered_hours_types=frozenset(), previously_pushed=frozenset({"phoneNumbers.primaryPhone"})
     )
     google = {**_as_google(patch), "phoneNumbers": {"primaryPhone": "+41440000000"}}
-    assert gbp_drift.drifted_fields(patch, google, today=TODAY, pushed_on=TODAY) == ("phone",)
+    assert gbp_drift.drifted_fields(patch, google, today=TODAY) == ("phone",)
     del google["phoneNumbers"]
-    assert gbp_drift.drifted_fields(patch, google, today=TODAY, pushed_on=TODAY) == ()
+    assert gbp_drift.drifted_fields(patch, google, today=TODAY) == ()
 
 
-def test_a_day_the_horizon_reached_after_the_last_push_is_not_missing_at_google():
-    pushed_on = TODAY - dt.timedelta(days=10)
-    late = pushed_on + dt.timedelta(days=366)  # beyond what the last push could send
-    patch = _patch(closed_days=(dt.date(2026, 12, 25), late))
+def test_special_hours_are_compared_over_the_full_horizon():
+    """KAN-793: the horizon push runs before the check, so every closed day
+    from today to a year on must be at Google; a past day and one beyond the
+    year are nobody's concern."""
+
+    horizon_end = closed_days_until(TODAY)
+    patch = _patch(closed_days=(dt.date(2026, 12, 25), horizon_end))
     google = _as_google(patch)
     google["specialHours"] = {
         "specialHourPeriods": [
-            # a past day the last push sent, and the one day both sides know
-            {"startDate": {"year": 2026, "month": 11, "day": 15}, "closed": True},
+            {"startDate": {"year": 2026, "month": 11, "day": 15}, "closed": True},  # past
             {"startDate": {"year": 2026, "month": 12, "day": 25}, "closed": True},
+            {
+                "startDate": {"year": horizon_end.year, "month": horizon_end.month, "day": horizon_end.day},
+                "closed": True,
+            },
+            {"startDate": {"year": horizon_end.year + 1, "month": 1, "day": 2}, "closed": True},  # beyond
         ]
     }
-    assert gbp_drift.drifted_fields(patch, google, today=TODAY, pushed_on=pushed_on) == ()
+    assert gbp_drift.drifted_fields(patch, google, today=TODAY) == ()
+    # The day that entered the year is missing at Google: drift, however
+    # long ago the last push was.
+    google["specialHours"]["specialHourPeriods"].pop(2)
+    assert gbp_drift.drifted_fields(patch, google, today=TODAY) == ("specialHours",)
+    google["specialHours"]["specialHourPeriods"].insert(
+        2, {"startDate": {"year": horizon_end.year, "month": horizon_end.month, "day": horizon_end.day}, "closed": True}
+    )
     # A special opening at Google within the window is drift.
     google["specialHours"]["specialHourPeriods"].append(
         {"startDate": {"year": 2026, "month": 12, "day": 24}, "closed": False, "openTime": {"hours": 9}}
     )
-    assert gbp_drift.drifted_fields(patch, google, today=TODAY, pushed_on=pushed_on) == ("specialHours",)
+    assert gbp_drift.drifted_fields(patch, google, today=TODAY) == ("specialHours",)
 
 
 # -- the job -------------------------------------------------------------------------------

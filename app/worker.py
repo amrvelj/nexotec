@@ -63,6 +63,7 @@ from app.integration.consumers import (
 from app.integration.consumers import handle_dealership_offboarded_message as disable_connections_on_offboarded
 from app.integration.daily_jobs import (
     run_daily_business_profile_drift_check,
+    run_daily_business_profile_horizon_push,
     run_daily_business_profile_link_state_purge,
     run_daily_integration_jobs,
     run_daily_mail_link_state_purge,
@@ -642,6 +643,13 @@ def register_daily_jobs() -> None:
        notification to the Betrieb's managers per regression; an item
        complete again closes it. Not a repair: the action the item blocks is
        refused meanwhile by the module that runs it.
+    17a0. ``integration.business_profile.horizon_push`` — KAN-793: every
+       active Google Business Profile binding is offered to the push with
+       today's facts, so a closed day that entered the one-year horizon
+       reaches Google though no location event fired; the push's debounce
+       sends nothing when the facts are unchanged. Not a repair: it is the
+       push following the calendar. Before 17a, so the drift check compares
+       the full horizon.
     17a. ``integration.business_profile.drift_check`` — KAN-226 PR-4: each
        active Google Business Profile binding's location is read back from
        Google and compared field by field with what the push sends; the
@@ -696,6 +704,8 @@ def register_daily_jobs() -> None:
     # 16. (KAN-738) the export's expiry runs on the web service, beside its disk.
     # 17. KAN-214: one administration notification per checklist item broken after activation.
     register_daily_job("platform.setup_checklist.regressions", run_daily_setup_checklist_regressions)
+    # 17a0. KAN-793: a closed day that entered the one-year horizon reaches Google with no location event.
+    register_daily_job("integration.business_profile.horizon_push", run_daily_business_profile_horizon_push)
     # 17a. KAN-226 PR-4: every active Business Profile binding is read back and its drift recorded.
     register_daily_job("integration.business_profile.drift_check", run_daily_business_profile_drift_check)
     # 17b. KAN-223: one administration notification per status-page item that is no longer green.

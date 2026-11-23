@@ -6,7 +6,13 @@ never by polling (rules 4–6):
 Integration's own `integration.gbp_location_binding.activated` push the
 location's fields (`push_location`); `platform.dealership.updated` (the
 Betrieb's website changed, KAN-785) pushes each of its bound locations
-(`push_dealership_locations`). Photos are not pushed yet: the worker
+(`push_dealership_locations`). One fact is the calendar's, not a record's:
+the closed days slide with the date, so a holiday more than a year away
+enters the horizon on a day no event fires. The nightly
+`run_horizon_pushes` (KAN-793) therefore offers every active binding to the
+same push: the debounce sends nothing unless today's facts differ from the
+last push's, which in practice is the day a closed day enters or leaves the
+year. Photos are not pushed yet: the worker
 cannot read the object store's disk in production (render.yaml, ADR-081 as
 amended, KAN-738), so they wait for KAN-784.
 
@@ -71,6 +77,7 @@ import dataclasses
 import datetime as dt
 import hashlib
 import json
+import logging
 import uuid
 from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
@@ -88,6 +95,8 @@ from app.integration.models.google_business_profile import GbpBindingStatus, Gbp
 from app.integration.services import gbp_link
 from app.integration.services.gateway import call_capability
 from app.platform.public import ChannelOpeningHours, LocationChannelFacts, location_channel_facts
+
+logger = logging.getLogger(__name__)
 
 _PURPOSE = "business_profile_push"
 DEPARTMENTS = ("sales", "service", "parts")
@@ -337,8 +346,11 @@ def _google(db: Session) -> Iterator[GoogleBusinessProfileAdapter]:
         yield cast(GoogleBusinessProfileAdapter, raw)
 
 
-def _facts(db: Session, dealership_id: uuid.UUID, location_id: uuid.UUID) -> LocationChannelFacts | None:
-    today, _ = today_in_session_zone()
+def _facts(
+    db: Session, dealership_id: uuid.UUID, location_id: uuid.UUID, *, today: dt.date | None = None
+) -> LocationChannelFacts | None:
+    if today is None:
+        today, _ = today_in_session_zone()
     return location_channel_facts(db, dealership_id=dealership_id, location_id=location_id, today=today)
 
 
@@ -374,11 +386,11 @@ def push_dealership_locations(db: Session, message: OutboxMessage) -> int:
     return sum(_push(db, dealership_id=dealership_id, location_id=location_id) for location_id in location_ids)
 
 
-def _push(db: Session, *, dealership_id: uuid.UUID, location_id: uuid.UUID) -> bool:
+def _push(db: Session, *, dealership_id: uuid.UUID, location_id: uuid.UUID, today: dt.date | None = None) -> bool:
     binding = _live_binding(db, dealership_id=dealership_id, location_id=location_id)
     if binding is None:
         return False
-    facts = _facts(db, dealership_id, location_id)
+    facts = _facts(db, dealership_id, location_id, today=today)
     if facts is None or not facts.is_active:
         return False
     google_location = cast(str, binding.google_location_name)
@@ -417,3 +429,69 @@ def _push(db: Session, *, dealership_id: uuid.UUID, location_id: uuid.UUID) -> b
     state.pushed_fields = list(patch.pushed_fields)
     state.unmapped_departments = list(patch.unmapped_departments)
     return bool(patch.update_mask)
+
+
+class HorizonPushFailedError(RuntimeError):
+    """Raised by the nightly horizon push after the last binding when one
+    or more could not be pushed, so the daily scheduler retries the job and
+    alarms (rule 10). The bindings pushed before it stay committed."""
+
+
+def run_horizon_pushes(db: Session, *, today: dt.date | None = None) -> dict[str, int]:
+    """KAN-793 — offers every active binding of every Betrieb to the push
+    with today's facts, so a closed day that entered the one-year horizon
+    reaches Google without any location change (ADR-199: «closed days slide
+    daily»). The debounce decides: nothing is sent for a location whose facts
+    are the ones Google already has from us. Each binding commits on its own;
+    a refused grant moves the binding to `error` as in the consumer (counted
+    `grantRefused`). Any other failure is logged per binding at WARNING, the
+    rest still pushed, and the job raises at the end
+    (`HorizonPushFailedError`, naming the locations) to be retried the same
+    day: the daily scheduler logs the episode's first failure at ERROR and
+    its retries at WARNING (KAN-303), so a broken location alarms once, not
+    on every retry. Registered before the drift check, which compares the
+    full horizon; when this job failed for a location, that night's check
+    reports its special hours as drift (true: Google lacks the days), and a
+    retry that pushes later in the day leaves that row until the next night."""
+
+    counts = {"pushed": 0, "unchanged": 0, "grantRefused": 0, "failed": 0}
+    if gbp_link.client_connection(db) is None:
+        logger.info("business profile horizon push: Nexotec's client is not set up; nothing pushed")
+        return counts
+    if today is None:
+        today, _ = today_in_session_zone()
+    rows = db.execute(
+        select(GbpLocationBinding.id, GbpLocationBinding.tenant_id, GbpLocationBinding.location_id)
+        .where(
+            GbpLocationBinding.status == GbpBindingStatus.ACTIVE,
+            GbpLocationBinding.google_location_name.is_not(None),
+        )
+        .order_by(GbpLocationBinding.tenant_id, GbpLocationBinding.location_id)
+    ).all()
+    db.rollback()
+    failed: list[str] = []
+    for binding_id, dealership_id, location_id in rows:
+        try:
+            pushed = _push(db, dealership_id=dealership_id, location_id=location_id, today=today)
+            refused = (
+                not pushed
+                and db.scalar(select(GbpLocationBinding.status).where(GbpLocationBinding.id == binding_id))
+                == GbpBindingStatus.ERROR
+            )
+            db.commit()
+        except Exception:
+            db.rollback()
+            failed.append(str(location_id))
+            logger.warning(
+                "business profile horizon push failed for one location",
+                exc_info=True,
+                extra={"dealershipId": str(dealership_id), "locationId": str(location_id)},
+            )
+            continue
+        counts["pushed" if pushed else "grantRefused" if refused else "unchanged"] += 1
+    counts["failed"] = len(failed)
+    if failed:
+        raise HorizonPushFailedError(
+            f"{len(failed)} Business Profile location(s) could not be pushed: {', '.join(failed)}."
+        )
+    return counts

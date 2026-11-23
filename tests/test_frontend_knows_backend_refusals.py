@@ -40,14 +40,32 @@ _REASON_LITERALS = (
 )
 
 
+# KAN-796: a reason raised through a named constant (`"reason": RECIPIENT_REFUSED`) is
+# resolved against the module-level string constants: the raising module's own, else
+# every module's of that name (an imported constant). apiRefusal.test.ts reads with the
+# same two patterns (its REASON_CONSTANT_* pair; a vitest case pins them).
+_REASON_CONSTANT_USE = re.compile(r'"reason":\s*([A-Z][A-Z0-9_]*)(?![\w.])')
+_REASON_CONSTANT_DEFINITION = re.compile(r'^([A-Z][A-Z0-9_]*)(?::[^=\n]*)?\s*=\s*"([a-z0-9_]+)"', re.MULTILINE)
+
+
 def raised_reasons(app_root: Path = APP) -> set[str]:
-    """Every literal reason a module under `app_root` raises (or logs)."""
+    """Every reason a module under `app_root` raises (or logs): the literal
+    ones, and the ones named by a module-level string constant."""
 
     raised: set[str] = set()
-    for path in sorted(app_root.rglob("*.py")):
-        source = path.read_text(encoding="utf-8")
+    sources = {path: path.read_text(encoding="utf-8") for path in sorted(app_root.rglob("*.py"))}
+    everywhere: dict[str, set[str]] = {}
+    for source in sources.values():
+        for name, value in _REASON_CONSTANT_DEFINITION.findall(source):
+            everywhere.setdefault(name, set()).add(value)
+    for path, source in sources.items():
         for pattern in _REASON_LITERALS:
             raised.update(pattern.findall(source))
+        own = dict(_REASON_CONSTANT_DEFINITION.findall(source))
+        for name in _REASON_CONSTANT_USE.findall(source):
+            values = {own[name]} if name in own else everywhere.get(name, set())
+            assert values, f"{path}: the reason constant {name} names no module-level string this scan can read"
+            raised.update(values)
     return raised
 
 
@@ -98,6 +116,33 @@ def test_a_new_untranslated_reason_under_app_alone_fails(tmp_path):
     module.write_text('raise ConflictError("x", details={"reason": "kan_679_probe"})\n', encoding="utf-8")
     raised = raised_reasons() | raised_reasons(tmp_path)
     assert untranslated(raised, translated_reasons(), not_a_refusal()) == ["kan_679_probe"]
+
+
+def test_a_reason_raised_through_a_named_constant_is_read(tmp_path):
+    """KAN-796: the send route raised seven reasons through constants, and the
+    scan read only literals — so none of them had to be translated."""
+
+    module = tmp_path / "sales" / "services" / "new_rule.py"
+    module.parent.mkdir(parents=True)
+    module.write_text(
+        'KAN_796_PROBE = "kan_796_probe"\nIMPORTED: Final = "kan_796_imported"\n'
+        'raise ConflictError("x", details={"reason": KAN_796_PROBE})\n',
+        encoding="utf-8",
+    )
+    user = tmp_path / "integration" / "services" / "user.py"
+    user.parent.mkdir(parents=True)
+    user.write_text('raise ConflictError("x", details={"reason": IMPORTED, "other": Model.reason})\n', encoding="utf-8")
+    assert raised_reasons(tmp_path) == {"kan_796_probe", "kan_796_imported"}
+    assert untranslated(raised_reasons() | raised_reasons(tmp_path), translated_reasons(), not_a_refusal()) == [
+        "kan_796_imported",
+        "kan_796_probe",
+    ]
+
+
+def test_the_send_routes_constant_named_reasons_are_read():
+    raised = raised_reasons()
+    for reason in ("recipient_refused", "whatsapp_template_not_approved", "document_has_no_customer"):
+        assert reason in raised
 
 
 def test_the_blocking_condition_banner_knows_every_field_the_api_names():
