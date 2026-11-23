@@ -3,7 +3,8 @@
 what every other context's nightly reconciliation checks against its
 `dealer_group`, `dealership`, `location` and `user` tables
 (`app/platform/organisation/services/reconciliation_targets.py`,
-`app/platform/identity/services/reconciliation_targets.py`).
+`app/platform/identity/services/reconciliation_targets.py`, and since KAN-795
+`app/platform/documents/services/reconciliation_targets.py` for `document_link`).
 
 Each builder is a ReferenceCheck, an EXISTS or a scalar subquery over
 platform's tables, or a plain read of them by id; none is scoped to the
@@ -30,6 +31,7 @@ _BUILDERS = (
     "dealership_group_of",
     "dealership_outside_group",
     "dealership_reference_check",
+    "document_link_reference_check",
     "find_dealer_group_ids",
     "find_dealership_group_ids",
     "location_reference_check",

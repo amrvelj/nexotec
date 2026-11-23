@@ -4,9 +4,11 @@ ADR-195, ADR-196).
 Every Business Profile request goes through Nexotec's own OAuth client, the
 one platform-scope connection to `google_business_profile` (ADR-195). When
 Google refuses that client or Nexotec's project, every Business Profile call
-fails at once — today the manager's link flow (`gbp_link`); the push and drift
-jobs (KAN-226 PR-3/PR-4) are not built yet — and the cause is Nexotec's to
-fix, never the Betrieb's. Anto, 2026-11-20 (KAN-776, option C), rules who sees what:
+fails at once — the manager's link flow (`gbp_link`) in the API, and in the
+worker the push consumers (`gbp_push`, KAN-226 PR-3: a location's, a
+Betrieb's or a binding's fact pushes its fields) and the daily drift job
+(`gbp_drift`, KAN-226 PR-4) — and the cause is Nexotec's to fix, never the
+Betrieb's. Anto, 2026-11-20 (KAN-776, option C), rules who sees what:
 
 - **Staff** see the cause on the platform status view: whether the client is
   set up, whether its breaker is open, the latest call's refusal identifier
@@ -24,9 +26,14 @@ The client counts as interrupted when any of these holds:
 - no enabled platform-scope client connection exists (a live binding cannot
   reach Google without one);
 - its circuit breaker is open in this process (`resilience`): the gateway
-  charged it five times in a row. The breaker lives in memory per process,
-  so the API's status page sees the API's calls and the worker's daily job
-  the worker's own (no worker job calls Business Profile yet);
+  charged it five times in a row. The breaker lives in memory per process:
+  the push consumers and the drift job run in the worker and charge the
+  worker's breaker, which the API's status read never sees — the API's
+  breaker opens only on the API's own calls (the link flow, «Erneut
+  prüfen»). A refusal the worker met still reaches this read through the
+  next condition, since every one of those calls writes its call-log row
+  (`gateway.call_capability`); a worker-only timeout or 5xx streak does
+  not, and is the worker's to alert on (retry, dead letter);
 - its latest **deciding** call-log row (`_deciding_rows`) carries a client-
   or project-level refusal. A row decides exactly as the adapter's
   `_raise_for_status` reads the same answer (KAN-782): it **raises** where

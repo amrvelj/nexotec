@@ -31,6 +31,7 @@ from app.integration.models.secret_ref import IntegrationSecretRef
 from app.platform.public import (
     actor_reference_checks,
     dealership_reference_check,
+    document_link_reference_check,
     location_reference_check,
     user_reference_check,
 )
@@ -155,6 +156,19 @@ CHECKS = [
         source_model=MessageDelivery,
         source_row_id_column=MessageDelivery.id,
         source_fk_column=MessageDelivery.author_user_id,
+    ),
+    # KAN-795: the secure link an SMS or WhatsApp message carried names
+    # platform's row (nothing purges a link). The delivery's `customer_id` is
+    # Customers' to check — it sits above integration (ADR-131), so the check
+    # is in app/customer/reconciliation.py, built by
+    # `services/reconciliation_sources.py`. Its `document_id` stays unchecked:
+    # its owner is whichever module registered the message type.
+    document_link_reference_check(
+        label="integration_message_delivery.document_link_id -> document_link.id",
+        source_model=MessageDelivery,
+        source_row_id_column=MessageDelivery.id,
+        source_fk_column=MessageDelivery.document_link_id,
+        nullable=True,  # an e-mail carries the document as an attachment, no link
     ),
     # KAN-226: a Business Profile binding names its Betrieb and its location.
     dealership_reference_check(
