@@ -134,6 +134,21 @@ describe('DocumentSendDialog — the one send dialog on an offer (KAN-217 PR-6)'
     expect(backend.callsTo(/\/send$/, 'POST')[0].body).toEqual({ channel: 'email', text: 'Guten Tag' })
   })
 
+  it('an own mailbox in error without a standard text says the mailbox first, not the missing text', async () => {
+    installWith([{ ...EMAIL, ready: false, notReadyReason: 'own_mailbox_in_error', senderAddress: null, text: null, blocked: 'own_mailbox_in_error' }])
+    const { dialog } = await openDialog()
+    expect(within(dialog).getByText(i18n.t('salesDocuments.send.blocked.own_mailbox_in_error'))).toBeInTheDocument()
+    expect(within(dialog).getByRole('button', { name: i18n.t('salesDocuments.send.submit') })).toBeDisabled()
+  })
+
+  it('WhatsApp without a standard text asks for an approved one, not for a text to write', async () => {
+    installWith([{ ...WHATSAPP, ready: true, notReadyReason: null, text: null, blocked: 'message_text_missing' }])
+    const { user, dialog } = await openDialog()
+    await user.click(within(dialog).getByText(i18n.t('salesDocuments.send.channel.whatsapp')))
+    expect(within(dialog).getByText(i18n.t('salesDocuments.send.blocked.message_text_missing_fixed'))).toBeInTheDocument()
+    expect(within(dialog).getByRole('button', { name: i18n.t('salesDocuments.send.submit') })).toBeDisabled()
+  })
+
   it('a send the provider refused says it was not delivered', async () => {
     install({ sentStatus: 'failed' })
     const { user, dialog } = await openDialog()

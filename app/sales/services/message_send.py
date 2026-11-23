@@ -281,15 +281,16 @@ WHATSAPP_TEMPLATE_NOT_APPROVED = "whatsapp_template_not_approved"
 class ChannelOption:
     """One channel of the send dialog, as the send would answer it now.
 
-    `blocked` is the first refusal the send without a text of the author's
-    own would give, in the send's own order: Customers' verdict
-    (`recipient_refused`, with `refusal`), then no text
-    (`message_text_missing` — the author's own wording lifts it on e-mail and
-    SMS), then the channel not ready (`no_mailbox_connected`,
-    `own_mailbox_in_error`, `messaging_not_connected` …), then a WhatsApp text
-    without an approved template. Not predicted: a message the provider's
-    shape refuses (`message_invalid`, an SMS too long once the link is
-    added) — the send says it."""
+    `blocked` is the first refusal the send would give, in the send's own
+    order, once the author has written what they may write: Customers'
+    verdict (`recipient_refused`, with `refusal`); on WhatsApp, whose text is
+    fixed, no text (`message_text_missing`); the channel not ready
+    (`no_mailbox_connected`, `own_mailbox_in_error`,
+    `messaging_not_connected` …); a WhatsApp text without an approved
+    template; and last, on e-mail and SMS, no standard text
+    (`message_text_missing`, which the author's own text lifts). Not
+    predicted: a message the provider's shape refuses (`message_invalid`, an
+    SMS too long once the link is added) — the send says it."""
 
     channel: MessageChannel
     ready: bool
@@ -327,8 +328,9 @@ def send_options(
     read: no link is issued, nothing is written, no provider is called.
 
     The pre-selected channel is Customers' (`preselected_message_channel`)
-    when it is offered and ready; otherwise none — the dialog never opens on
-    a channel it cannot send on (FR-A-52)."""
+    when it is offered and ready; otherwise none, so the dialog never opens
+    on a channel nothing is connected for (FR-A-52). A pre-selected channel
+    may still be refused (Customers' verdict, no text): the dialog says why."""
 
     document, owner, message_type, customer_id = _document_and_type(db, tenant_id=tenant_id, document_id=document_id)
     readiness = channel_readiness(db, tenant_id=tenant_id, author_user_id=author_user_id)
@@ -353,12 +355,12 @@ def send_options(
             text_override=None,
         )
         ready = readiness[channel]
+        text_missing = not text or not text.strip()
+        editable = channel != MessageChannel.WHATSAPP
         blocked: str | None = None
         if not recipient.allowed or not recipient.address:
             blocked = RECIPIENT_REFUSED
-        elif not text or not text.strip():
-            # Refused only without the author's own wording: the dialog lets
-            # the author write one (e-mail and SMS) and then sends it.
+        elif text_missing and not editable:
             blocked = TEXT_MISSING
         elif not ready.ready:
             blocked = ready.reason
@@ -366,6 +368,10 @@ def send_options(
             rendered is not None and rendered.template_approved and rendered.provider_template_id
         ):
             blocked = WHATSAPP_TEMPLATE_NOT_APPROVED
+        elif text_missing:
+            # On e-mail and SMS the author's own text lifts it, so it comes
+            # last: whatever else the send would refuse is said first.
+            blocked = TEXT_MISSING
         options.append(
             ChannelOption(
                 channel=channel,
@@ -377,7 +383,7 @@ def send_options(
                 refusal=recipient.refusal,
                 language=language.value,
                 text=text,
-                text_editable=channel != MessageChannel.WHATSAPP,
+                text_editable=editable,
                 delivery=delivery_of(message_type, channel),
                 blocked=blocked,
             )

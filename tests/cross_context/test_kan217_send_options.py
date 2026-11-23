@@ -133,6 +133,29 @@ def test_no_standard_text_is_said_and_the_authors_own_text_still_sends(client, d
     assert sent.status_code == 201, sent.text
 
 
+def test_a_missing_standard_text_comes_after_every_other_refusal_on_editable_channels(
+    client, db_session, fakes, app_registrations, scene
+):
+    """The author's own text lifts a missing text on e-mail and SMS, so a
+    failing mailbox or an unconnected provider is said first; WhatsApp's text
+    is fixed, so there a missing text is said before its connection."""
+
+    providers, _ = fakes
+    _dealer_id, author, _customer_id, document = scene
+    _connect_own_ms(client, providers, author)
+    for identity in db_session.scalars(select(SendingIdentity)):
+        identity.status = SendingIdentityStatus.ERROR
+    for text in db_session.scalars(select(StandardText).where(StandardText.code.like("%.offer_sent"))):
+        text.active = False
+    db_session.commit()
+
+    _body, channels = _options(client, author, document.id)
+
+    assert channels["email"]["text"] is None and channels["email"]["blocked"] == "own_mailbox_in_error"
+    assert channels["sms"]["blocked"] == "messaging_not_connected"
+    assert channels["whatsapp"]["blocked"] == "message_text_missing"
+
+
 def test_customers_refusal_is_the_channels_first_answer(client, db_session, provider, scene):
     dealer, author, customer_id, document = scene
     _messaging_connection(db_session, "twilio", tenant_id=dealer)

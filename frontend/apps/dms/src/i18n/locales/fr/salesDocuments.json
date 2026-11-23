@@ -36,7 +36,8 @@
       "business_mailbox_in_error": "La boîte de l’entreprise ne peut pas envoyer pour le moment. Un manager la reconnecte.",
       "whatsapp_template_not_approved": "Ce texte WhatsApp n’est pas approuvé comme modèle par le fournisseur. Vérifiez-le dans l’administration, sous Textes standard.",
       "message_text_missing": "Il n’y a pas de texte standard pour ce canal. Rédigez un texte ou créez un texte standard.",
-      "generic": "Le document ne peut pas être envoyé sur ce canal."
+      "generic": "Le document ne peut pas être envoyé sur ce canal.",
+      "message_text_missing_fixed": "Il n’y a pas de texte standard pour ce canal. Créez-le dans l’administration, sous Textes standard, et faites-le approuver comme modèle par le fournisseur."
     },
     "refusal": {
       "customer_merged": "Ce client a été fusionné avec un autre.",

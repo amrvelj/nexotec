@@ -28,6 +28,8 @@ const FAILING_CONNECTION = new Set(['own_mailbox_in_error', 'business_mailbox_in
 function blockedMessage(t: TFunction, option: SalesSendChannelOption): string | null {
   if (option.blocked == null) return null
   if (option.blocked === 'message_text_missing' && option.textEditable) return null
+  // WhatsApp's text is fixed: the author cannot write one, only create and approve it.
+  if (option.blocked === 'message_text_missing') return t('salesDocuments.send.blocked.message_text_missing_fixed')
   if (option.blocked === 'recipient_refused') {
     const key = option.refusal ? `salesDocuments.send.refusal.${option.refusal}` : null
     return key && t(key, { defaultValue: '' }) ? t(key) : t('salesDocuments.send.refusal.generic')

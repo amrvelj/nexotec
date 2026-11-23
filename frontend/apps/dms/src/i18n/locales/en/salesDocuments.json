@@ -36,7 +36,8 @@
       "business_mailbox_in_error": "The business's mailbox cannot send right now. A manager reconnects it.",
       "whatsapp_template_not_approved": "This WhatsApp text is not approved as a template by the provider. Check it in Administration under Standard texts.",
       "message_text_missing": "There is no standard text for this channel. Write a text or create a standard text.",
-      "generic": "The document cannot be sent on this channel."
+      "generic": "The document cannot be sent on this channel.",
+      "message_text_missing_fixed": "There is no standard text for this channel. Create it in Administration under Standard texts and have the provider approve it as a template."
     },
     "refusal": {
       "customer_merged": "This customer was merged into another.",

@@ -36,7 +36,8 @@
       "business_mailbox_in_error": "Das Postfach des Betriebs kann gerade nicht senden. Ein Manager verbindet es neu.",
       "whatsapp_template_not_approved": "Dieser WhatsApp-Text ist beim Anbieter nicht als Vorlage freigegeben. Prüfen Sie ihn in der Verwaltung unter Standardtexte.",
       "message_text_missing": "Für diesen Kanal gibt es keinen Standardtext. Schreiben Sie einen Text oder legen Sie einen Standardtext an.",
-      "generic": "Auf diesem Kanal kann das Dokument nicht gesendet werden."
+      "generic": "Auf diesem Kanal kann das Dokument nicht gesendet werden.",
+      "message_text_missing_fixed": "Für diesen Kanal gibt es keinen Standardtext. Legen Sie ihn in der Verwaltung unter Standardtexte an und lassen Sie ihn beim Anbieter als Vorlage freigeben."
     },
     "refusal": {
       "customer_merged": "Dieser Kunde wurde mit einem anderen zusammengeführt.",
