@@ -33,7 +33,7 @@ from app.customer.models.customer import (
 from app.customer.models.legal_basis import LegalBasis
 from app.customer.models.stock_item_booking import StockItemBooking
 from app.customer.models.vehicle_party import VehicleParty
-from app.integration.public import message_delivery_customer_reference_check
+from app.integration.public import message_delivery_recipient_reference_check
 from app.inventory.public import stock_item_reference_check
 from app.platform.public import (
     actor_reference_checks,
@@ -143,7 +143,7 @@ CHECKS: list[ReferenceCheck | StateCheck] = [
     # recipient. Integration sits below Customers and cannot ask customer.public,
     # so the owner checks it here, through integration's builder (the call
     # points down; neither mapped class crosses a public module).
-    message_delivery_customer_reference_check(target_model=Customer, target_id_column=Customer.id),
+    message_delivery_recipient_reference_check(target_model=Customer, target_id_column=Customer.id),
     *actor_reference_checks(*ACTOR_TABLES),
     StateCheck(
         # KAN-634 (rule 10, ADR-131): a vehicle merge moves the duplicate's

@@ -2,15 +2,15 @@
 ADR-107, ADR-131; KAN-795).
 
 Integration sits below Customers in the layer order (ADR-131), so its own
-`reconciliation.py` cannot call `customer.public.customer_reference_check`:
-a call would point up. A column of integration's naming a higher context's
+`reconciliation.py` cannot ask `customer.public` for the customer table: a
+call would point up. A column of integration's naming a higher context's
 record is therefore checked from the owner's side: the owner's
 `reconciliation.py` calls a builder here, passing its own target, and runs the
 check in its own context's run. The call points down, and neither mapped class
 leaves its context through a `public` module (ADR-162): `MessageDelivery`
 stays here, the target model is a plain argument.
 
-- `message_delivery_customer_reference_check` —
+- `message_delivery_recipient_reference_check` —
   `integration_message_delivery.customer_id` (KAN-217 PR-5, the recipient,
   three-column) names a customer. Null on the e-mails sent before PR-5,
   which named no customer.
@@ -33,7 +33,7 @@ from app.core.reconciliation import ReferenceCheck
 from app.integration.models.mail import MessageDelivery
 
 
-def message_delivery_customer_reference_check(
+def message_delivery_recipient_reference_check(
     *, target_model: type[DeclarativeBase], target_id_column: InstrumentedAttribute[Any]
 ) -> ReferenceCheck:
     """`integration_message_delivery.customer_id` names a row of

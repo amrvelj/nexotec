@@ -29,5 +29,5 @@ paths:
 - **`pytest -n auto` gives every worker its own database** (`<name>_gw0`, `_gw1` …): conftest
   creates it (dropping first one a killed run left behind, KAN-773), builds the schema as for the single one and drops it at the end (ADR-130).
 - **A run refuses another checkout** (KAN-783, `tests/checkout_guard.py`): `pytest_configure` exits
-  (code 4) when the imported `app` is not this checkout's, or `DMS_TEST_DATABASE_URL` names another
+  (code 4) when `sys.prefix` is another checkout's `.venv`, or `DMS_TEST_DATABASE_URL` names another
   checkout's `dms_test_<slug>`; names outside that scheme (CI's) are not judged.

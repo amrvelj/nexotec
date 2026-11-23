@@ -330,6 +330,9 @@ _READS = {
     "app.customer.public.resolve_live_customer_id",
     "app.integration.public.get_enabled_connection",
     "app.integration.public.get_entitlement",
+    # KAN-795 (ADR-206): what Customers' reconciliation checks against integration's
+    # delivery record, built by integration; reads nothing itself.
+    "app.integration.public.message_delivery_recipient_reference_check",
     "app.integration.public.resolve_adapter",
     # KAN-42: the identification waterfall asks whether VIN decode is entitled.
     "app.integration.public.vin_decode_granted",
@@ -481,6 +484,7 @@ _READS = {
     "app.platform.public.dealership_group_of",
     "app.platform.public.dealership_outside_group",
     "app.platform.public.dealership_reference_check",
+    "app.platform.public.document_link_reference_check",  # KAN-795: a builder, reads nothing itself
     "app.platform.public.find_dealer_group_ids",
     "app.platform.public.find_dealership_group_ids",
     "app.platform.public.location_reference_check",

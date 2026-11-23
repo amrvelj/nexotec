@@ -21,7 +21,7 @@ _REPO_ROOT = Path(__file__).resolve().parents[2]
 _APP = _REPO_ROOT / "app"
 
 # Each builder and the context whose reconciliation module calls it.
-_BUILDERS = {"message_delivery_customer_reference_check": "customer"}
+_BUILDERS = {"message_delivery_recipient_reference_check": "customer"}
 
 _NAMED = re.compile(r"\b(" + "|".join(_BUILDERS) + r")\b")
 
@@ -60,10 +60,10 @@ def test_every_builder_is_still_called_by_its_owner_reconciliation():
 def test_the_guard_reports_a_user_outside_reconciliation():
     # Red before green on synthetic sources.
     assert _users_outside_reconciliation({
-        "app/customer/services/customer.py": "from app.integration.public import message_delivery_customer_reference_check\n",
-        "app/customer/reconciliation.py": "message_delivery_customer_reference_check(target_model=C, target_id_column=C.id)\n",
-        "app/integration/services/reconciliation_sources.py": "def message_delivery_customer_reference_check(): ...\n",
+        "app/customer/services/customer.py": "from app.integration.public import message_delivery_recipient_reference_check\n",
+        "app/customer/reconciliation.py": "message_delivery_recipient_reference_check(target_model=C, target_id_column=C.id)\n",
+        "app/integration/services/reconciliation_sources.py": "def message_delivery_recipient_reference_check(): ...\n",
         "app/sales/services/untouched.py": "x = 1\n",
         # A longer name is not a use.
-        "app/sales/services/deal.py": "message_delivery_customer_reference_check_cached = 1\n",
+        "app/sales/services/deal.py": "message_delivery_recipient_reference_check_cached = 1\n",
     }) == ["app/customer/services/customer.py"]

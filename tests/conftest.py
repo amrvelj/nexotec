@@ -1,5 +1,6 @@
 import gc
 import os
+import sys
 from pathlib import Path
 
 import pytest
@@ -91,10 +92,8 @@ def _refuse_another_checkout() -> None:
     """KAN-783: never test another checkout's `app`, never write into its
     test database (`tests/checkout_guard.py`)."""
 
-    import app as app_package
-
     root = Path(__file__).resolve().parents[1]
-    refusal = checkout_guard.foreign_app(root, app_package.__file__)
+    refusal = checkout_guard.foreign_venv(root, sys.prefix)
     if refusal is None and _TEST_DATABASE_URL:
         own = checkout_guard.checkout_slug(root, is_worktree=checkout_guard.is_worktree(root))
         refusal = checkout_guard.foreign_database(make_url(_TEST_DATABASE_URL).database, own_slug=own)
