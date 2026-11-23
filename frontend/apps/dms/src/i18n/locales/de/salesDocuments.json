@@ -10,5 +10,55 @@
     "missingVehicle": "Ohne Fahrzeug kann kein Vertragsdokument erzeugt werden. Bitte zuerst ein Fahrzeug erfassen.",
     "missingPrice": "Ohne Preis kann kein Vertragsdokument erzeugt werden. Bitte zuerst den Preisaufbau vervollständigen.",
     "generic": "Das Dokument konnte nicht erzeugt werden."
+  },
+  "send": {
+    "action": "Senden",
+    "title": "Dokument senden",
+    "channels": "Kanal",
+    "text": "Text",
+    "textFixed": "WhatsApp sendet die freigegebene Vorlage unverändert; der Text kann hier nicht geändert werden.",
+    "noChannel": "Es ist kein Kanal verbunden. Verbinden Sie Ihr Postfach unter «Mein Postfach», oder ein Manager verbindet das Postfach des Betriebs oder einen SMS- bzw. WhatsApp-Anbieter unter Administration › Integrationen.",
+    "chooseChannel": "Wählen Sie einen Kanal.",
+    "submit": "Senden",
+    "cancel": "Abbrechen",
+    "channel": {
+      "email": "E-Mail",
+      "sms": "SMS",
+      "whatsapp": "WhatsApp"
+    },
+    "to": "An: {{address}}",
+    "note": {
+      "attachment": "Das PDF wird angehängt. Absender: {{sender}}",
+      "secureLink": "Ein sicherer Link zum Dokument wird angefügt; er ist 14 Tage gültig."
+    },
+    "blocked": {
+      "no_mailbox_connected": "Es ist kein Postfach verbunden.",
+      "own_mailbox_in_error": "Ihr eigenes Postfach kann gerade nicht senden. Verbinden Sie es unter «Mein Postfach» neu.",
+      "business_mailbox_in_error": "Das Postfach des Betriebs kann gerade nicht senden. Ein Manager verbindet es neu.",
+      "messaging_not_connected": "Für diesen Kanal ist kein Anbieter verbunden.",
+      "whatsapp_template_not_approved": "Dieser WhatsApp-Text ist beim Anbieter nicht als Vorlage freigegeben. Prüfen Sie ihn in der Verwaltung unter Standardtexte.",
+      "message_text_missing": "Für diesen Kanal gibt es keinen Standardtext. Schreiben Sie einen Text oder legen Sie einen Standardtext an.",
+      "generic": "Auf diesem Kanal kann das Dokument nicht gesendet werden."
+    },
+    "refusal": {
+      "customer_merged": "Dieser Kunde wurde mit einem anderen zusammengeführt.",
+      "customer_do_not_contact": "Der Kunde ist als «Nicht kontaktieren» markiert.",
+      "no_usable_contact": "Der Kunde hat auf diesem Kanal keine verwendbare Kontaktangabe.",
+      "marketing_consent_missing": "Es fehlt die Einwilligung des Kunden in Werbung.",
+      "channel_consent_missing": "Für diese Kontaktangabe fehlt die Einwilligung in Werbung.",
+      "newsletter_not_subscribed": "Der Kunde hat den Newsletter nicht abonniert.",
+      "generic": "Dieser Kunde kann diese Nachricht auf diesem Kanal nicht erhalten."
+    },
+    "status": {
+      "sent": "Gesendet",
+      "failed": "Nicht zugestellt"
+    },
+    "chip": "{{status}} · {{channel}} · {{date}}",
+    "success": "Das Dokument wurde per {{channel}} gesendet.",
+    "failedResult": "Der Anbieter hat die Nachricht nicht angenommen. Sie wurde nicht zugestellt.",
+    "errors": {
+      "generic": "Das Dokument konnte nicht gesendet werden.",
+      "loadOptions": "Die Versandoptionen konnten nicht geladen werden."
+    }
   }
 }

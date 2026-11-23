@@ -10,5 +10,55 @@
     "missingVehicle": "Senza veicolo non è possibile generare un documento di contratto. Registrare prima un veicolo.",
     "missingPrice": "Senza prezzo non è possibile generare un documento di contratto. Completare prima la composizione del prezzo.",
     "generic": "Non è stato possibile generare il documento."
+  },
+  "send": {
+    "action": "Invia",
+    "title": "Invia il documento",
+    "channels": "Canale",
+    "text": "Testo",
+    "textFixed": "WhatsApp invia il modello approvato così com’è; il testo non può essere modificato qui.",
+    "noChannel": "Nessun canale è collegato. Colleghi la sua casella in «La mia casella», oppure un manager collega quella dell’azienda o un fornitore SMS o WhatsApp in Amministrazione › Integrazioni.",
+    "chooseChannel": "Scelga un canale.",
+    "submit": "Invia",
+    "cancel": "Annulla",
+    "channel": {
+      "email": "E-mail",
+      "sms": "SMS",
+      "whatsapp": "WhatsApp"
+    },
+    "to": "A: {{address}}",
+    "note": {
+      "attachment": "Il PDF viene allegato. Mittente: {{sender}}",
+      "secureLink": "Viene aggiunto un link sicuro al documento, valido 14 giorni."
+    },
+    "blocked": {
+      "no_mailbox_connected": "Nessuna casella è collegata.",
+      "own_mailbox_in_error": "La sua casella al momento non può inviare. La ricolleghi in «La mia casella».",
+      "business_mailbox_in_error": "La casella dell’azienda al momento non può inviare. Un manager la ricollega.",
+      "messaging_not_connected": "Per questo canale non è collegato alcun fornitore.",
+      "whatsapp_template_not_approved": "Questo testo WhatsApp non è approvato come modello dal fornitore. Lo verifichi nell’amministrazione, in Testi standard.",
+      "message_text_missing": "Per questo canale non c’è un testo standard. Scriva un testo o crei un testo standard.",
+      "generic": "Il documento non può essere inviato su questo canale."
+    },
+    "refusal": {
+      "customer_merged": "Questo cliente è stato unito a un altro.",
+      "customer_do_not_contact": "Il cliente è contrassegnato come «Non contattare».",
+      "no_usable_contact": "Il cliente non ha un recapito utilizzabile su questo canale.",
+      "marketing_consent_missing": "Manca il consenso del cliente alla pubblicità.",
+      "channel_consent_missing": "Per questo recapito manca il consenso alla pubblicità.",
+      "newsletter_not_subscribed": "Il cliente non è iscritto alla newsletter.",
+      "generic": "Questo cliente non può ricevere questo messaggio su questo canale."
+    },
+    "status": {
+      "sent": "Inviato",
+      "failed": "Non recapitato"
+    },
+    "chip": "{{status}} · {{channel}} · {{date}}",
+    "success": "Il documento è stato inviato via {{channel}}.",
+    "failedResult": "Il fornitore non ha accettato il messaggio. Non è stato recapitato.",
+    "errors": {
+      "generic": "Non è stato possibile inviare il documento.",
+      "loadOptions": "Non è stato possibile caricare le opzioni di invio."
+    }
   }
 }

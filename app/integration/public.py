@@ -163,6 +163,12 @@ from app.integration.services.message_delivery import (
     refuse_unless_allowed,
 )
 from app.integration.services.resilience import CircuitOpenError
+from app.integration.services.send_readiness import (
+    ChannelReadiness,
+    DeliverySummary,
+    channel_readiness,
+    latest_deliveries,
+)
 from app.integration.services.status import IntegrationStatusProvider
 
 __all__ = [
@@ -173,6 +179,7 @@ __all__ = [
     "CaptionData",
     "CatalogueBrandData",
     "CatalogueModelGroupData",
+    "ChannelReadiness",
     "CircuitOpenError",
     "ConnectionDisabledError",
     "ConnectionRef",
@@ -180,6 +187,7 @@ __all__ = [
     "DeliveryChannel",
     "DeliveryRecord",
     "DeliveryStatus",
+    "DeliverySummary",
     "EnergyLabelData",
     "EntitlementState",
     "GbpDriftStatusProvider",
@@ -215,12 +223,14 @@ __all__ = [
     "VehiclePriceData",
     "WhatsAppTemplate",
     "call_capability",
+    "channel_readiness",
     "check_deliverable",
     "deliver_message",
     "generate",
     "get_captions",
     "get_enabled_connection",
     "get_entitlement",
+    "latest_deliveries",
     "oldest_location_label_age_seconds",
     "refresh_location_labels",
     "refuse_unless_allowed",

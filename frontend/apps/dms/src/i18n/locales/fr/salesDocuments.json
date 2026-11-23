@@ -10,5 +10,55 @@
     "missingVehicle": "Impossible de générer un document de contrat sans véhicule. Veuillez d'abord saisir un véhicule.",
     "missingPrice": "Impossible de générer un document de contrat sans prix. Veuillez d'abord compléter la composition du prix.",
     "generic": "Le document n'a pas pu être généré."
+  },
+  "send": {
+    "action": "Envoyer",
+    "title": "Envoyer le document",
+    "channels": "Canal",
+    "text": "Texte",
+    "textFixed": "WhatsApp envoie le modèle approuvé tel quel ; le texte ne peut pas être modifié ici.",
+    "noChannel": "Aucun canal n’est connecté. Connectez votre boîte sous « Ma boîte », ou un manager connecte celle de l’entreprise ou un fournisseur SMS ou WhatsApp sous Administration › Intégrations.",
+    "chooseChannel": "Choisissez un canal.",
+    "submit": "Envoyer",
+    "cancel": "Annuler",
+    "channel": {
+      "email": "E-mail",
+      "sms": "SMS",
+      "whatsapp": "WhatsApp"
+    },
+    "to": "À : {{address}}",
+    "note": {
+      "attachment": "Le PDF est joint. Expéditeur : {{sender}}",
+      "secureLink": "Un lien sécurisé vers le document est ajouté ; il est valable 14 jours."
+    },
+    "blocked": {
+      "no_mailbox_connected": "Aucune boîte n’est connectée.",
+      "own_mailbox_in_error": "Votre boîte ne peut pas envoyer pour le moment. Reconnectez-la sous « Ma boîte ».",
+      "business_mailbox_in_error": "La boîte de l’entreprise ne peut pas envoyer pour le moment. Un manager la reconnecte.",
+      "messaging_not_connected": "Aucun fournisseur n’est connecté pour ce canal.",
+      "whatsapp_template_not_approved": "Ce texte WhatsApp n’est pas approuvé comme modèle par le fournisseur. Vérifiez-le dans l’administration, sous Textes standard.",
+      "message_text_missing": "Il n’y a pas de texte standard pour ce canal. Rédigez un texte ou créez un texte standard.",
+      "generic": "Le document ne peut pas être envoyé sur ce canal."
+    },
+    "refusal": {
+      "customer_merged": "Ce client a été fusionné avec un autre.",
+      "customer_do_not_contact": "Le client est marqué « Ne pas contacter ».",
+      "no_usable_contact": "Le client n’a pas de coordonnée utilisable sur ce canal.",
+      "marketing_consent_missing": "Le consentement du client à la publicité fait défaut.",
+      "channel_consent_missing": "Le consentement à la publicité fait défaut pour cette coordonnée.",
+      "newsletter_not_subscribed": "Le client n’est pas abonné à la newsletter.",
+      "generic": "Ce client ne peut pas recevoir ce message sur ce canal."
+    },
+    "status": {
+      "sent": "Envoyé",
+      "failed": "Non remis"
+    },
+    "chip": "{{status}} · {{channel}} · {{date}}",
+    "success": "Le document a été envoyé par {{channel}}.",
+    "failedResult": "Le fournisseur n’a pas accepté le message. Il n’a pas été remis.",
+    "errors": {
+      "generic": "Le document n’a pas pu être envoyé.",
+      "loadOptions": "Les options d’envoi n’ont pas pu être chargées."
+    }
   }
 }
