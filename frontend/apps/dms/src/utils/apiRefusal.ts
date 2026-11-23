@@ -419,6 +419,15 @@ const REASON_KEYS: Record<string, string> = {
       // a provider flipped to «no sandbox» while sandbox connections remain.
       'provider_has_no_sandbox',
       'provider_sandbox_connections_exist',
+      // KAN-796 — the KAN-217 send route: integration's delivery refusals …
+      'recipient_refused',
+      'channel_not_offered',
+      'whatsapp_template_not_approved',
+      'message_invalid',
+      // … and Sales' send of a document.
+      'document_has_no_customer',
+      'whatsapp_text_fixed',
+      'message_text_missing',
     ].map((reason) => [reason, `apiRefusal.reasons.${reason}`]),
   ),
 }

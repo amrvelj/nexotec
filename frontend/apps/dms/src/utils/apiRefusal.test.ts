@@ -190,6 +190,44 @@ describe('the reason table', () => {
     /^(?:REFUSAL_REASON|COLLEAGUE_CANNOT_ACT_THERE)\s*=\s*"([a-z0-9_]+)"/gm,
     /reason: str = "([a-z0-9_]+)"/g,
   ]
+  // KAN-796 — a reason raised through a named constant (`"reason": RECIPIENT_REFUSED`)
+  // resolves to the raising module's own string constant of that name, else to every
+  // module's (an imported constant). The twin reads with the same two patterns.
+  const REASON_CONSTANT_USE = /"reason":\s*([A-Z][A-Z0-9_]*)(?![\w.])/g
+  const REASON_CONSTANT_DEFINITION = /^([A-Z][A-Z0-9_]*)(?::[^=\n]*)?\s*=\s*"([a-z0-9_]+)"/gm
+  const raisedIn = (sources: string[]): Set<string> => {
+    const raised = new Set<string>()
+    const everywhere = new Map<string, Set<string>>()
+    for (const source of sources)
+      for (const [, name, value] of source.matchAll(REASON_CONSTANT_DEFINITION)) {
+        if (!everywhere.has(name)) everywhere.set(name, new Set())
+        everywhere.get(name)?.add(value)
+      }
+    for (const source of sources) {
+      for (const pattern of REASON_LITERALS) for (const m of source.matchAll(pattern)) raised.add(m[1])
+      const own = new Map([...source.matchAll(REASON_CONSTANT_DEFINITION)].map((m) => [m[1], m[2]] as const))
+      for (const [, name] of source.matchAll(REASON_CONSTANT_USE)) {
+        const values = own.has(name) ? [own.get(name) as string] : [...(everywhere.get(name) ?? [])]
+        expect(values, `the reason constant ${name} names no module-level string this scan can read`).not.toEqual([])
+        for (const value of values) raised.add(value)
+      }
+    }
+    return raised
+  }
+  it('resolves a reason raised through a named constant, with the same patterns as its twin (KAN-796)', () => {
+    const twin = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', '..', '..', 'tests', 'test_frontend_knows_backend_refusals.py'), 'utf-8')
+    const declared = (name: string) => twin.match(new RegExp(`^${name} = re\\.compile\\(r'(.*)'(, re\\.MULTILINE)?\\)$`, 'm'))
+    expect(declared('_REASON_CONSTANT_USE')?.[1]).toBe(REASON_CONSTANT_USE.source)
+    expect(declared('_REASON_CONSTANT_USE')?.[2]).toBeUndefined()
+    expect(declared('_REASON_CONSTANT_DEFINITION')?.[1]).toBe(REASON_CONSTANT_DEFINITION.source)
+    expect(declared('_REASON_CONSTANT_DEFINITION')?.[2]).toBe(', re.MULTILINE')
+    expect(REASON_CONSTANT_DEFINITION.flags).toContain('m')
+    const raised = raisedIn([
+      'KAN_796_PROBE = "kan_796_probe"\nIMPORTED: Final = "kan_796_imported"\nraise ConflictError("x", details={"reason": KAN_796_PROBE})\n',
+      'raise ConflictError("x", details={"reason": IMPORTED, "other": Model.reason})\n',
+    ])
+    expect([...raised].sort()).toEqual(['kan_796_imported', 'kan_796_probe'])
+  })
   // KAN-732: the flags too — a pattern without `re.MULTILINE` (or `m`) quietly misses the
   // `REFUSAL_REASON = "…"` form, whose `^` would then match the file's start only.
   it('scans app/ for the same literal forms, with the same flags, as its backend-lane twin (KAN-679, KAN-732)', () => {
@@ -211,18 +249,19 @@ describe('the reason table', () => {
   })
   it('translates every literal reason the API raises', () => {
     const appRoot = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', '..', '..', 'app')
-    const raised = new Set<string>()
+    const sources: string[] = []
     const walk = (dir: string) => {
       for (const entry of readdirSync(dir)) {
         const full = join(dir, entry)
         if (statSync(full).isDirectory()) walk(full)
-        else if (entry.endsWith('.py')) {
-          const source = readFileSync(full, 'utf-8')
-          for (const pattern of REASON_LITERALS) for (const m of source.matchAll(pattern)) raised.add(m[1])
-        }
+        else if (entry.endsWith('.py')) sources.push(readFileSync(full, 'utf-8'))
       }
     }
     walk(appRoot)
+    const raised = raisedIn(sources)
+    // KAN-796: the send route's reasons are raised through named constants.
+    expect(raised).toContain('recipient_refused')
+    expect(raised).toContain('document_has_no_customer')
     // The scan read the backend: these are raised today.
     expect(raised).toContain('no_signed_contract')
     expect(raised).toContain('plate_read_limit_reached')

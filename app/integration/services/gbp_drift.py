@@ -23,13 +23,18 @@ is compared on what Nexotec sends, normalised the way Google answers:
 
 - `address` — region, postal code, locality, address lines and (when we send
   it) the canton; case and surrounding blanks ignored;
-- `phone` — digits and the leading `+` only (Google formats the number);
+- `phone` — the number, not its spelling: both sides read in the location's
+  country plan (our `regionCode`, else Google's, else CH as the push assumes)
+  and compared in E.164, so Google's national «044 123 45 67» is our
+  `+41441234567` (KAN-794); a value that is no phone number at all falls
+  back to its digits and a leading `+`;
 - `website` — case and a trailing `/` ignored;
 - `regularHours`, `moreHours` — the periods as sets, per `hoursTypeId` for
   more hours; a missing `TimeOfDay` part is 0 (Google's `{}` is 00:00);
-- `specialHours` — the closed days from today until the end of the horizon
-  both sides know: the last push sent a year from its own day, so a day the
-  horizon reached since then is not «missing» at Google. A day at Google
+- `specialHours` — the closed days of the full horizon, today until
+  `closed_days_until(today)`: the nightly horizon push runs just before this
+  check (KAN-793), so a day that entered the year since the last location
+  change is at Google by now, and one that is not is drift. A day at Google
   with special opening hours (not closed) in the window is drift.
 
 **Not compared:** photos (Nexotec never deletes a photo at Google, ADR-199,
@@ -58,6 +63,7 @@ from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
 from typing import Any, cast
 
+import phonenumbers
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -134,10 +140,25 @@ def _address_view(address: object, *, keys: tuple[str, ...]) -> tuple:
     )
 
 
-def _phone(value: object) -> str:
+def _phone(value: object, *, region: str) -> str:
     if not isinstance(value, dict):
         return ""
-    return re.sub(r"[^\d+]", "", str(value.get("primaryPhone") or ""))
+    raw = str(value.get("primaryPhone") or "")
+    try:
+        number = phonenumbers.parse(raw, region)
+    except phonenumbers.NumberParseException:
+        return re.sub(r"[^\d+]", "", raw)
+    return phonenumbers.format_number(number, phonenumbers.PhoneNumberFormat.E164)
+
+
+def _region(expected: Mapping[str, Any], google: Mapping[str, Any]) -> str:
+    """The country a national number is read in: the one the push sends,
+    else the one Google holds, else CH (the push's own default)."""
+
+    for address in (expected.get("storefrontAddress"), google.get("storefrontAddress")):
+        if isinstance(address, dict) and isinstance(address.get("regionCode"), str) and address["regionCode"].strip():
+            return address["regionCode"].strip().upper()
+    return "CH"
 
 
 def _website(value: object) -> str:
@@ -180,7 +201,7 @@ def _date(value: object) -> dt.date | None:
         return None
 
 
-def _special_days(value: object, *, start: dt.date, end: dt.date | None) -> frozenset[tuple[dt.date, bool]]:
+def _special_days(value: object, *, start: dt.date, end: dt.date) -> frozenset[tuple[dt.date, bool]]:
     periods = value.get("specialHourPeriods") if isinstance(value, dict) else None
     if not isinstance(periods, list):
         return frozenset()
@@ -189,7 +210,7 @@ def _special_days(value: object, *, start: dt.date, end: dt.date | None) -> froz
         if not isinstance(period, dict):
             continue
         day = _date(period.get("startDate"))
-        if day is None or day < start or (end is not None and day > end):
+        if day is None or day < start or day > end:
             continue
         out.add((day, bool(period.get("closed"))))
     return frozenset(out)
@@ -200,11 +221,10 @@ def drifted_fields(
     google: Mapping[str, Any],
     *,
     today: dt.date,
-    pushed_on: dt.date | None,
 ) -> tuple[str, ...]:
     """The codes (`FIELD_CODES`) of the fields the push owns whose value at
     Google differs from what the push sends now. `google` is the Location
-    body Google answered; `pushed_on` the day of the last successful push."""
+    body Google answered."""
 
     expected = patch.fields
     drifted: list[str] = []
@@ -215,7 +235,10 @@ def drifted_fields(
             keys = tuple(key for key in _ADDRESS_KEYS if key in ours)
             same = _address_view(ours, keys=keys) == _address_view(google.get("storefrontAddress"), keys=keys)
         elif path == "phoneNumbers.primaryPhone":
-            same = _phone(expected.get("phoneNumbers")) == _phone(google.get("phoneNumbers"))
+            region = _region(expected, google)
+            same = _phone(expected.get("phoneNumbers"), region=region) == _phone(
+                google.get("phoneNumbers"), region=region
+            )
         elif path == "websiteUri":
             same = _website(expected.get("websiteUri")) == _website(google.get("websiteUri"))
         elif path == "regularHours":
@@ -223,7 +246,7 @@ def drifted_fields(
         elif path == "moreHours":
             same = _more_hours(expected.get("moreHours")) == _more_hours(google.get("moreHours"))
         else:  # specialHours
-            end = closed_days_until(pushed_on) if pushed_on is not None else None
+            end = closed_days_until(today)
             same = _special_days(expected.get("specialHours"), start=today, end=end) == _special_days(
                 google.get("specialHours"), start=today, end=end
             )
@@ -263,7 +286,6 @@ def check_binding(db: Session, binding: GbpLocationBinding, *, connection, today
         return DriftResult(GbpDriftOutcome.SKIPPED, reason=LOCATION_INACTIVE)
     state = db.scalar(select(GbpPushState).where(GbpPushState.binding_id == binding.id))
     previously_pushed = frozenset(state.pushed_fields or []) if state is not None else frozenset()
-    pushed_on = state.pushed_at.date() if state is not None and state.pushed_at is not None else None
     try:
         with _google(db, connection) as adapter:
             token = adapter.access_token(binding_id=binding.id)
@@ -284,7 +306,7 @@ def check_binding(db: Session, binding: GbpLocationBinding, *, connection, today
         offered_hours_types=gbp_push.more_hours_types(read.body),
         previously_pushed=previously_pushed,
     )
-    drifted = drifted_fields(patch, read.body, today=today, pushed_on=pushed_on)
+    drifted = drifted_fields(patch, read.body, today=today)
     return DriftResult(GbpDriftOutcome.DRIFT if drifted else GbpDriftOutcome.IN_SYNC, drifted_fields=drifted)
 
 

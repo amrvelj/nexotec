@@ -10,5 +10,9 @@
   "usage_period_reversed": "Das Ende des Zeitraums liegt vor seinem Beginn.",
   "usage_period_too_long": "Ein Zeitraum umfasst höchstens ein Jahr.",
   "provider_has_no_sandbox": "Dieser Anbieter bietet keinen Testzugang. Verbinden Sie ihn als Produktion.",
-  "provider_sandbox_connections_exist": "Zu diesem Anbieter bestehen noch {{count, number}} Testzugangs-Verbindungen. Löschen Sie diese zuerst."
+  "provider_sandbox_connections_exist": "Zu diesem Anbieter bestehen noch {{count, number}} Testzugangs-Verbindungen. Löschen Sie diese zuerst.",
+  "recipient_refused": "Dieser Kunde kann diese Nachricht auf diesem Kanal nicht erhalten. Prüfen Sie seine Kontaktangaben und Einwilligungen.",
+  "channel_not_offered": "Diese Nachricht wird auf diesem Kanal nicht gesendet. Wählen Sie einen anderen Kanal.",
+  "whatsapp_template_not_approved": "WhatsApp sendet nur Texte, die der Anbieter als Vorlage freigegeben hat, und dieser ist nicht freigegeben. Prüfen Sie ihn in der Verwaltung unter Standardtexte.",
+  "message_invalid": "Die Nachricht kann so nicht gesendet werden: Sie entspricht nicht den Vorgaben des Kanals (Telefonnummer, Länge des Textes oder WhatsApp-Vorlage)."
 }
