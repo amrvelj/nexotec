@@ -32,10 +32,8 @@
       "secureLink": "Viene aggiunto un link sicuro al documento, valido 14 giorni."
     },
     "blocked": {
-      "no_mailbox_connected": "Nessuna casella è collegata.",
       "own_mailbox_in_error": "La sua casella al momento non può inviare. La ricolleghi in «La mia casella».",
       "business_mailbox_in_error": "La casella dell’azienda al momento non può inviare. Un manager la ricollega.",
-      "messaging_not_connected": "Per questo canale non è collegato alcun fornitore.",
       "whatsapp_template_not_approved": "Questo testo WhatsApp non è approvato come modello dal fornitore. Lo verifichi nell’amministrazione, in Testi standard.",
       "message_text_missing": "Per questo canale non c’è un testo standard. Scriva un testo o crei un testo standard.",
       "generic": "Il documento non può essere inviato su questo canale."

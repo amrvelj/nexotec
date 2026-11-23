@@ -5,9 +5,10 @@ D-A-41, FR-A-51–54; ADR-207).
 this Betrieb right now: e-mail through the mailbox `resolve_sender` would
 pick (the author's own, else the shared one; its refusal reason otherwise),
 SMS and WhatsApp through the Betrieb's enabled provider connection
-(`messaging_not_connected` otherwise). The dialog offers only the channels
-that are ready (FR-A-52, «connected channels only») and names why the others
-are not. A SELECT only; nothing is written, no provider is called.
+(`messaging_not_connected` otherwise). The dialog offers the channels that
+are ready (FR-A-52, «connected channels only»), and an e-mail channel whose
+mailbox is connected but failing, with its reason; a channel with nothing
+connected is not offered. A SELECT only; nothing is written, no provider is called.
 
 **`latest_deliveries`** — the newest delivery row per document, as plain
 values, for the delivery chip on the document (FR-A-51). One query for a

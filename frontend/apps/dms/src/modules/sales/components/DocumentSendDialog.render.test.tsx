@@ -27,7 +27,11 @@ const WHATSAPP = {
   delivery: 'secure_link', blocked: 'messaging_not_connected',
 }
 
-function install({ sentStatus = 'sent' }: { sentStatus?: string } = {}) {
+function installWith(channels: unknown[]) {
+  return install({ channels })
+}
+
+function install({ sentStatus = 'sent', channels = [EMAIL, SMS, WHATSAPP] }: { sentStatus?: string; channels?: unknown[] } = {}) {
   let delivered: Record<string, unknown> | null = null
   const backend = installFakeBackend([
     {
@@ -41,7 +45,7 @@ function install({ sentStatus = 'sent' }: { sentStatus?: string } = {}) {
     {
       method: 'GET',
       match: /^\/sales\/documents\/d1\/send-options$/,
-      handler: () => ({ documentId: 'd1', customerLabel: 'Anna Muster', preselectedChannel: 'email', channels: [EMAIL, SMS, WHATSAPP] }),
+      handler: () => ({ documentId: 'd1', customerLabel: 'Anna Muster', preselectedChannel: 'email', channels }),
     },
     {
       method: 'POST',
@@ -108,6 +112,26 @@ describe('DocumentSendDialog — the one send dialog on an offer (KAN-217 PR-6)'
     await user.click(within(dialog).getByRole('button', { name: i18n.t('salesDocuments.send.submit') }))
     await waitFor(() => expect(backend.callsTo(/\/send$/, 'POST')).toHaveLength(1))
     expect(backend.callsTo(/\/send$/, 'POST')[0].body).toEqual({ channel: 'email', text: 'Guten Tag Frau Muster' })
+  })
+
+  it('an own mailbox in error is offered with its reason, a channel with nothing connected is not', async () => {
+    installWith([{ ...EMAIL, ready: false, notReadyReason: 'own_mailbox_in_error', senderAddress: null, blocked: 'own_mailbox_in_error' }, SMS, WHATSAPP])
+    const { user, dialog } = await openDialog()
+    await user.click(within(dialog).getByText(i18n.t('salesDocuments.send.channel.email')))
+    expect(within(dialog).getByText(i18n.t('salesDocuments.send.blocked.own_mailbox_in_error'))).toBeInTheDocument()
+    expect(within(dialog).queryByText(i18n.t('salesDocuments.send.channel.whatsapp'))).toBeNull()
+  })
+
+  it('without a standard text the author writes their own, which is sent', async () => {
+    const backend = installWith([{ ...EMAIL, text: null, blocked: 'message_text_missing' }])
+    const { user, dialog } = await openDialog()
+    expect(within(dialog).getByText((text) => text.startsWith(i18n.t('salesDocuments.send.blocked.message_text_missing')))).toBeInTheDocument()
+    const submit = within(dialog).getByRole('button', { name: i18n.t('salesDocuments.send.submit') })
+    expect(submit).toBeDisabled()
+    await user.type(within(dialog).getByRole('textbox', { name: i18n.t('salesDocuments.send.text') }), 'Guten Tag')
+    await user.click(submit)
+    await waitFor(() => expect(backend.callsTo(/\/send$/, 'POST')).toHaveLength(1))
+    expect(backend.callsTo(/\/send$/, 'POST')[0].body).toEqual({ channel: 'email', text: 'Guten Tag' })
   })
 
   it('a send the provider refused says it was not delivered', async () => {

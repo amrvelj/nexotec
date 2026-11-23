@@ -12,9 +12,10 @@ import uuid
 from sqlalchemy import func, select
 
 from app.customer.models.customer import Customer, CustomerPhone, PreferredChannel
-from app.integration.models.mail import MessageDelivery
+from app.integration.models.mail import MessageDelivery, SendingIdentity, SendingIdentityStatus
 from app.integration.public import latest_deliveries
 from app.platform.documents.models.document_link import DocumentLink
+from app.platform.documents.models.standard_text import StandardText
 from tests.cross_context.test_kan217_send_route import (
     _approve_whatsapp,
     _as,
@@ -25,7 +26,7 @@ from tests.cross_context.test_kan217_send_route import (
     scene,
 )
 from tests.identapi_support import make_user
-from tests.integration.test_kan215_mail import _connect_own_ms, app_registrations, fakes
+from tests.integration.test_kan215_mail import _connect_business_ms, _connect_own_ms, app_registrations, fakes
 from tests.integration.test_kan217_messaging_providers import _connection as _messaging_connection
 
 __all__ = ["app_registrations", "fakes", "provider", "scene"]  # pytest fixtures, used by name
@@ -61,7 +62,9 @@ def test_nothing_connected_names_each_channels_reason_and_preselects_nothing(cli
     assert _written(db_session) == (0, 0)
 
 
-def test_an_own_mailbox_makes_email_ready_with_the_text_the_send_would_carry(client, db_session, fakes, app_registrations, scene):
+def test_an_own_mailbox_makes_email_ready_with_the_text_the_send_would_carry(
+    client, db_session, fakes, app_registrations, scene
+):
     providers, _ = fakes
     _dealer_id, author, _customer_id, document = scene
     _connect_own_ms(client, providers, author)
@@ -84,6 +87,50 @@ def test_an_own_mailbox_makes_email_ready_with_the_text_the_send_would_carry(cli
     sent = _send(client, author, document.id, channel="email")
     assert sent.status_code == 201, sent.text
     assert providers.sent[0].body["message"]["body"]["content"] == email["text"]
+
+
+def test_without_an_own_mailbox_the_shared_one_is_the_sender_the_preview_names(
+    client, db_session, fakes, app_registrations, scene
+):
+    providers, _ = fakes
+    dealer, author, _customer_id, document = scene
+    manager = make_user(db_session, tenant_id=dealer, email="chef@garage-muster.ch")
+    _connect_business_ms(client, providers, manager)
+
+    _body, channels = _options(client, author, document.id)
+
+    assert channels["email"]["ready"] is True and channels["email"]["blocked"] is None
+    assert channels["email"]["senderAddress"] == "info@garage-muster.ch"
+
+
+def test_an_own_mailbox_in_error_says_so_and_is_not_preselected(client, db_session, fakes, app_registrations, scene):
+    providers, _ = fakes
+    _dealer_id, author, _customer_id, document = scene
+    _connect_own_ms(client, providers, author)
+    for identity in db_session.scalars(select(SendingIdentity)):
+        identity.status = SendingIdentityStatus.ERROR
+    db_session.commit()
+
+    body, channels = _options(client, author, document.id)
+
+    assert channels["email"]["ready"] is False
+    assert channels["email"]["notReadyReason"] == channels["email"]["blocked"] == "own_mailbox_in_error"
+    assert body["preselectedChannel"] is None
+
+
+def test_no_standard_text_is_said_and_the_authors_own_text_still_sends(client, db_session, provider, scene):
+    dealer, author, _customer_id, document = scene
+    _messaging_connection(db_session, "twilio", tenant_id=dealer)
+    for text in db_session.scalars(select(StandardText).where(StandardText.code == "sms.offer_sent")):
+        text.active = False
+    db_session.commit()
+
+    _body, channels = _options(client, author, document.id)
+    assert channels["sms"]["text"] is None and channels["sms"]["blocked"] == "message_text_missing"
+    assert channels["sms"]["textEditable"] is True
+
+    sent = _send(client, author, document.id, channel="sms", text="Guten Tag Frau Muster, Ihre Offerte:")
+    assert sent.status_code == 201, sent.text
 
 
 def test_customers_refusal_is_the_channels_first_answer(client, db_session, provider, scene):

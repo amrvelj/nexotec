@@ -1,11 +1,11 @@
-import { useEffect, useState } from "react";
-import { Alert, Button, Chip, Group, Modal, Stack, Text, Textarea } from "@mantine/core";
+import { useEffect, useId, useState } from "react";
+import { Alert, Button, Chip, Group, Loader, Modal, Stack, Text, Textarea } from "@mantine/core";
 import { AlertTriangle, Send } from "lucide-react";
 import { slate } from "../tokens";
 
-/** One channel the dialog offers. The caller passes only the channels the
- * Betrieb can send on (FR-A-52, «connected channels only»), each with its
- * labels already translated. */
+/** One channel the dialog offers. The caller passes only connected channels
+ * (FR-A-52, «connected channels only») — one that is connected but failing
+ * with its `blockedMessage` — each with its labels already translated. */
 export interface SendMessageChannel {
   /** The channel's code (`email`, `sms`, `whatsapp`). */
   channel: string;
@@ -38,6 +38,8 @@ export interface SendMessageDialogLabels {
   chooseChannel: string;
   send: string;
   cancel: string;
+  /** The accessible name of the dialog's close button. */
+  close: string;
 }
 
 export interface SendMessageDialogProps {
@@ -56,6 +58,10 @@ export interface SendMessageDialogProps {
   sending?: boolean;
   /** The send's refusal, translated; shown above the footer. */
   error?: string | null;
+  /** True while the caller reads the options: the dialog shows a loader. */
+  loading?: boolean;
+  /** The options could not be read, translated: shown instead of the channels. */
+  loadError?: string | null;
   labels: SendMessageDialogLabels;
 }
 
@@ -76,26 +82,33 @@ export function SendMessageDialog({
   onSend,
   sending = false,
   error = null,
+  loading = false,
+  loadError = null,
   labels,
 }: SendMessageDialogProps) {
+  const channelsLabelId = useId();
   const offered = (code: string | null) => (code != null && channels.some((c) => c.channel === code) ? code : null);
   const [selected, setSelected] = useState<string | null>(offered(preselectedChannel));
   // The author's draft per channel; absent = the text as the server sends it.
   const [drafts, setDrafts] = useState<Record<string, string>>({});
 
+  // Reset on each opening, once the options are there: the dialog may open
+  // while the caller still reads them.
+  const ready = opened && !loading;
   useEffect(() => {
-    if (opened) {
+    if (ready) {
       setSelected(offered(preselectedChannel));
       setDrafts({});
     }
-    // Reset on each opening only; the options may refresh while it is open.
+    // Only when it becomes ready; the options may refresh while it is open.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [opened]);
+  }, [ready]);
 
   const current = channels.find((c) => c.channel === selected) ?? null;
   const shownText = current ? (drafts[current.channel] ?? current.text ?? "") : "";
   const edited = current != null && current.textEditable && current.channel in drafts && drafts[current.channel] !== (current.text ?? "");
-  const canSend = current != null && current.blockedMessage == null && shownText.trim() !== "" && !sending;
+  const canSend =
+    !loading && loadError == null && current != null && current.blockedMessage == null && shownText.trim() !== "" && !sending;
 
   const send = () => {
     if (!current || !canSend) return;
@@ -103,21 +116,27 @@ export function SendMessageDialog({
   };
 
   return (
-    <Modal opened={opened} onClose={onClose} title={labels.title} size="lg">
+    <Modal opened={opened} onClose={onClose} title={labels.title} size="lg" closeButtonProps={{ "aria-label": labels.close }}>
       <Stack gap="md">
-        <Text fw={600}>{recipientName}</Text>
+        {loading && <Loader size="sm" />}
+        {loadError && (
+          <Alert color="red" styles={{ root: { borderColor: slate[2] } }}>
+            {loadError}
+          </Alert>
+        )}
+        {!loading && loadError == null && <Text fw={600}>{recipientName}</Text>}
 
-        {channels.length === 0 ? (
+        {loading || loadError != null ? null : channels.length === 0 ? (
           <Alert icon={<AlertTriangle size={16} />} color="yellow" styles={{ root: { borderColor: slate[2] } }}>
             {labels.noChannel}
           </Alert>
         ) : (
           <Stack gap={6}>
-            <Text size="sm" fw={500} id="send-dialog-channels">
+            <Text size="sm" fw={500} id={channelsLabelId}>
               {labels.channels}
             </Text>
             <Chip.Group multiple={false} value={selected ?? ""} onChange={(value) => setSelected(value || null)}>
-              <Group gap="xs" role="radiogroup" aria-labelledby="send-dialog-channels">
+              <Group gap="xs" role="radiogroup" aria-labelledby={channelsLabelId}>
                 {channels.map((c) => (
                   <Chip key={c.channel} value={c.channel} variant="outline">
                     {c.label}
@@ -128,13 +147,13 @@ export function SendMessageDialog({
           </Stack>
         )}
 
-        {channels.length > 0 && current == null && (
+        {!loading && loadError == null && channels.length > 0 && current == null && (
           <Text size="sm" c="dimmed">
             {labels.chooseChannel}
           </Text>
         )}
 
-        {current && (
+        {!loading && loadError == null && current && (
           <Stack gap="xs">
             {current.recipientLine && <Text size="sm">{current.recipientLine}</Text>}
             {current.blockedMessage && (

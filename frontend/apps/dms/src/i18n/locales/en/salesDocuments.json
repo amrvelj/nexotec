@@ -32,10 +32,8 @@
       "secureLink": "A secure link to the document is added; it is valid for 14 days."
     },
     "blocked": {
-      "no_mailbox_connected": "No mailbox is connected.",
       "own_mailbox_in_error": "Your own mailbox cannot send right now. Reconnect it under «My mailbox».",
       "business_mailbox_in_error": "The business's mailbox cannot send right now. A manager reconnects it.",
-      "messaging_not_connected": "No provider is connected for this channel.",
       "whatsapp_template_not_approved": "This WhatsApp text is not approved as a template by the provider. Check it in Administration under Standard texts.",
       "message_text_missing": "There is no standard text for this channel. Write a text or create a standard text.",
       "generic": "The document cannot be sent on this channel."

@@ -22,6 +22,7 @@ const LABELS: SendMessageDialogLabels = {
   chooseChannel: "Choisissez un canal",
   send: "Envoyer",
   cancel: "Annuler",
+  close: "Fermer",
 };
 
 const EMAIL: SendMessageChannel = {
@@ -120,6 +121,28 @@ describe("SendMessageDialog", () => {
     dialog({ channels: [], preselectedChannel: null });
     expect(screen.getByText("Aucun canal connecté")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Envoyer" })).toBeDisabled();
+  });
+
+  it("an empty editable text waits for the author's own, which is then sent", async () => {
+    const user = userEvent.setup();
+    const onSend = dialog({ channels: [{ ...EMAIL, text: null, note: "Aucun texte standard" }] });
+    expect(screen.getByRole("button", { name: "Envoyer" })).toBeDisabled();
+    await user.type(screen.getByRole("textbox", { name: "Texte" }), "Bonjour");
+    await user.click(screen.getByRole("button", { name: "Envoyer" }));
+    expect(onSend).toHaveBeenCalledWith("email", "Bonjour");
+  });
+
+  it("names its close button and shows the loading and the load error instead of the channels", () => {
+    const { unmount } = render(
+      <MantineProvider theme={testTheme}>
+        <SendMessageDialog opened onClose={() => {}} recipientName="Anna" channels={[EMAIL]} preselectedChannel="email" onSend={() => {}} labels={LABELS} loadError="Options illisibles" />
+      </MantineProvider>,
+    );
+    expect(screen.getByRole("button", { name: "Fermer" })).toBeInTheDocument();
+    expect(screen.getByText("Options illisibles")).toBeInTheDocument();
+    expect(screen.queryByText("E-mail")).toBeNull();
+    expect(screen.getByRole("button", { name: "Envoyer" })).toBeDisabled();
+    unmount();
   });
 
   it("shows the send's refusal", () => {

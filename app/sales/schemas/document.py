@@ -59,9 +59,10 @@ class MessageDeliveryRead(CamelModel):
 
 class SendChannelOptionRead(CamelModel):
     """One channel of the send dialog (KAN-217 PR-6). `blocked` is the first
-    refusal the send would give now (`recipient_refused` with `refusal`, a
-    channel not ready, `whatsapp_template_not_approved`,
-    `message_text_missing`); None when the send may go."""
+    refusal the send without the author's own text would give now, in the
+    send's order: `recipient_refused` (with `refusal`), `message_text_missing`
+    (lifted by the author's own text on e-mail and SMS), the channel not
+    ready, `whatsapp_template_not_approved`; None when the send may go."""
 
     channel: MessageChannel
     ready: bool

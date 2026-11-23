@@ -281,10 +281,15 @@ WHATSAPP_TEMPLATE_NOT_APPROVED = "whatsapp_template_not_approved"
 class ChannelOption:
     """One channel of the send dialog, as the send would answer it now.
 
-    `blocked` is the first refusal the send would give, in the send's own
-    order: Customers' verdict (`recipient_refused`, with `refusal`), then the
-    channel not ready (`no_mailbox_connected`, `messaging_not_connected` …),
-    then a WhatsApp text without an approved template, then no text."""
+    `blocked` is the first refusal the send without a text of the author's
+    own would give, in the send's own order: Customers' verdict
+    (`recipient_refused`, with `refusal`), then no text
+    (`message_text_missing` — the author's own wording lifts it on e-mail and
+    SMS), then the channel not ready (`no_mailbox_connected`,
+    `own_mailbox_in_error`, `messaging_not_connected` …), then a WhatsApp text
+    without an approved template. Not predicted: a message the provider's
+    shape refuses (`message_invalid`, an SMS too long once the link is
+    added) — the send says it."""
 
     channel: MessageChannel
     ready: bool
@@ -351,14 +356,16 @@ def send_options(
         blocked: str | None = None
         if not recipient.allowed or not recipient.address:
             blocked = RECIPIENT_REFUSED
+        elif not text or not text.strip():
+            # Refused only without the author's own wording: the dialog lets
+            # the author write one (e-mail and SMS) and then sends it.
+            blocked = TEXT_MISSING
         elif not ready.ready:
             blocked = ready.reason
         elif channel == MessageChannel.WHATSAPP and not (
             rendered is not None and rendered.template_approved and rendered.provider_template_id
         ):
             blocked = WHATSAPP_TEMPLATE_NOT_APPROVED
-        elif not text or not text.strip():
-            blocked = TEXT_MISSING
         options.append(
             ChannelOption(
                 channel=channel,

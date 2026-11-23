@@ -32,10 +32,8 @@
       "secureLink": "Ein sicherer Link zum Dokument wird angefügt; er ist 14 Tage gültig."
     },
     "blocked": {
-      "no_mailbox_connected": "Es ist kein Postfach verbunden.",
       "own_mailbox_in_error": "Ihr eigenes Postfach kann gerade nicht senden. Verbinden Sie es unter «Mein Postfach» neu.",
       "business_mailbox_in_error": "Das Postfach des Betriebs kann gerade nicht senden. Ein Manager verbindet es neu.",
-      "messaging_not_connected": "Für diesen Kanal ist kein Anbieter verbunden.",
       "whatsapp_template_not_approved": "Dieser WhatsApp-Text ist beim Anbieter nicht als Vorlage freigegeben. Prüfen Sie ihn in der Verwaltung unter Standardtexte.",
       "message_text_missing": "Für diesen Kanal gibt es keinen Standardtext. Schreiben Sie einen Text oder legen Sie einen Standardtext an.",
       "generic": "Auf diesem Kanal kann das Dokument nicht gesendet werden."
