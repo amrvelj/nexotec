@@ -14,5 +14,5 @@
   "recipient_refused": "This customer cannot receive this message on this channel. Check their contact details and consents.",
   "channel_not_offered": "This message is not sent on this channel. Choose another channel.",
   "whatsapp_template_not_approved": "WhatsApp sends only texts the provider approved as a template, and this one is not approved. Check it under Standard texts in Administration.",
-  "message_invalid": "The message cannot be sent like this: the phone number or the length of the text does not suit the channel."
+  "message_invalid": "The message cannot be sent like this: it does not meet the channel's rules (phone number, length of the text or WhatsApp template)."
 }

@@ -11,11 +11,14 @@ unchanged, and the closure once it is inside the year.
 
 import datetime as dt
 import json
+import logging
 
 import pytest
 from sqlalchemy import select
 
 from app.core.relative_dates import today_in_session_zone
+from app.integration.adapters.google_business_profile import GoogleBusinessProfileAdapter
+from app.integration.errors import ProviderTransportError
 from app.integration.models.google_business_profile import GbpBindingStatus, GbpLocationBinding, GbpPushState
 from app.integration.services import gbp_push
 from app.platform.organisation.models.location_schedule import LocationClosure
@@ -24,6 +27,7 @@ from tests.gbp_fakes import LOCATION_1, LOCATION_2
 from tests.integration import test_kan226_business_profile as pr2
 from tests.integration import test_kan226_business_profile_push as pr3
 from tests.inventory.test_inventory_invoicing_gate import _make_dealership
+from tests.platform.test_kan204_locations import seed_holiday_calendars
 
 google = pr2.google
 client_connection = pr2.client_connection
@@ -55,21 +59,106 @@ def test_a_closure_entering_the_horizon_is_pushed_with_no_location_event(
     db_session.commit()
 
     # Tonight: the first push of the binding; the closure is not in it.
-    assert gbp_push.run_horizon_pushes(db_session, today=today) == {"pushed": 1, "unchanged": 0, "failed": 0}
+    assert gbp_push.run_horizon_pushes(db_session, today=today) == {
+        "pushed": 1,
+        "unchanged": 0,
+        "grantRefused": 0,
+        "failed": 0,
+    }
     assert far not in _special_days(fake.patches()[-1])
 
     # The next night, nothing changed: nothing is sent.
     sent = len(fake.patches())
-    assert gbp_push.run_horizon_pushes(db_session, today=today) == {"pushed": 0, "unchanged": 1, "failed": 0}
+    assert gbp_push.run_horizon_pushes(db_session, today=today) == {
+        "pushed": 0,
+        "unchanged": 1,
+        "grantRefused": 0,
+        "failed": 0,
+    }
     assert len(fake.patches()) == sent
 
     # Ten days on the closure is inside the year: pushed, though no location fact was stated.
     later = today + dt.timedelta(days=10)
-    assert gbp_push.run_horizon_pushes(db_session, today=later) == {"pushed": 1, "unchanged": 0, "failed": 0}
+    assert gbp_push.run_horizon_pushes(db_session, today=later) == {
+        "pushed": 1,
+        "unchanged": 0,
+        "grantRefused": 0,
+        "failed": 0,
+    }
     assert far in _special_days(fake.patches()[-1])
     db_session.expire_all()
     state = db_session.scalar(select(GbpPushState).where(GbpPushState.binding_id == binding.id))
     assert state is not None and "specialHours" in state.pushed_fields
+
+
+def test_a_calendar_holiday_entering_the_horizon_is_pushed_with_no_location_event(
+    db_session, google, client_connection
+):
+    """The criterion's own case: a public holiday of the site's calendar (ZH,
+    25 December), not a closure anyone entered."""
+
+    fake, _ = google
+    calendars = seed_holiday_calendars(db_session)
+    dealership = _make_dealership(db_session)
+    location = _site(db_session, dealership.id, holiday_calendar_id=calendars["ZH"].id)
+    fake.track(LOCATION_1)
+    _bind(db_session, google, dealership.id, location.id)
+    christmas_next_year = dt.date(2027, 12, 25)
+
+    eve = dt.date(2026, 12, 24)  # the horizon ends 24 December 2027
+    assert gbp_push.run_horizon_pushes(db_session, today=eve)["pushed"] == 1
+    assert christmas_next_year not in _special_days(fake.patches()[-1])
+
+    christmas = dt.date(2026, 12, 25)  # the horizon now reaches 25 December 2027
+    assert gbp_push.run_horizon_pushes(db_session, today=christmas)["pushed"] == 1
+    assert christmas_next_year in _special_days(fake.patches()[-1])
+
+
+def test_a_refused_grant_is_counted_and_moves_the_binding_to_error(db_session, google, client_connection, betrieb):
+    fake, secrets_store = google
+    dealership, location = betrieb
+    fake.track(LOCATION_1)
+    binding = _bind(db_session, google, dealership.id, location.id)
+    fake.refused_refresh_tokens.add(secrets_store.values[(binding.id, "refresh_token")])
+    assert gbp_push.run_horizon_pushes(db_session) == {"pushed": 0, "unchanged": 0, "grantRefused": 1, "failed": 0}
+    db_session.expire_all()
+    assert db_session.get(GbpLocationBinding, binding.id).status == GbpBindingStatus.ERROR
+    assert fake.patches() == []
+
+
+def test_a_failure_inside_the_push_rolls_back_that_location_only(
+    db_session, google, client_connection, caplog, monkeypatch
+):
+    """Google failing the PATCH after the push state row was added: nothing
+    of that location is kept, the other location is pushed, and the failure
+    is a WARNING (the scheduler raises the ERROR once per episode, KAN-303)."""
+
+    fake, _ = google
+    first, second = _make_dealership(db_session), _make_dealership(db_session)
+    failing, other = _site(db_session, first.id), _site(db_session, second.id)
+    fake.track(LOCATION_1)
+    fake.track(LOCATION_2)
+    failing_binding = _bind(db_session, google, first.id, failing.id, google_location=LOCATION_1)
+    other_binding = _bind(db_session, google, second.id, other.id, google_location=LOCATION_2)
+    real_patch = GoogleBusinessProfileAdapter.patch_location
+
+    def patch_location(self, *, location_name, **kwargs):
+        if location_name == LOCATION_1:
+            raise ProviderTransportError("Google unavailable")
+        return real_patch(self, location_name=location_name, **kwargs)
+
+    monkeypatch.setattr(GoogleBusinessProfileAdapter, "patch_location", patch_location)
+    with (
+        caplog.at_level(logging.WARNING, logger="app.integration.services.gbp_push"),
+        pytest.raises(gbp_push.HorizonPushFailedError, match=str(failing.id)),
+    ):
+        gbp_push.run_horizon_pushes(db_session)
+    db_session.expire_all()
+    states = {row.binding_id: row for row in db_session.scalars(select(GbpPushState)).all()}
+    assert failing_binding.id not in states
+    assert states[other_binding.id].source_hash is not None
+    mine = [r for r in caplog.records if r.name == "app.integration.services.gbp_push"]
+    assert mine and all(r.levelno == logging.WARNING for r in mine)
 
 
 def test_only_active_bindings_are_pushed(db_session, google, client_connection, betrieb):
@@ -77,7 +166,7 @@ def test_only_active_bindings_are_pushed(db_session, google, client_connection, 
     dealership, location = betrieb
     fake.track(LOCATION_1)
     _bind(db_session, google, dealership.id, location.id, status=GbpBindingStatus.PENDING)
-    assert gbp_push.run_horizon_pushes(db_session) == {"pushed": 0, "unchanged": 0, "failed": 0}
+    assert gbp_push.run_horizon_pushes(db_session) == {"pushed": 0, "unchanged": 0, "grantRefused": 0, "failed": 0}
     assert fake.patches() == []
 
 
@@ -86,38 +175,8 @@ def test_nothing_is_pushed_without_nexotecs_client(db_session, google, betrieb):
     dealership, location = betrieb
     fake.track(LOCATION_1)
     _bind(db_session, google, dealership.id, location.id)
-    assert gbp_push.run_horizon_pushes(db_session) == {"pushed": 0, "unchanged": 0, "failed": 0}
+    assert gbp_push.run_horizon_pushes(db_session) == {"pushed": 0, "unchanged": 0, "grantRefused": 0, "failed": 0}
     assert fake.patches() == []
-
-
-def test_one_failing_binding_never_stops_the_others_and_the_job_raises_to_be_retried(
-    db_session, google, client_connection, monkeypatch
-):
-    fake, _ = google
-    first, second = _make_dealership(db_session), _make_dealership(db_session)
-    sites = [_site(db_session, first.id), _site(db_session, second.id)]
-    for dealership, site, name in zip((first, second), sites, (LOCATION_1, LOCATION_2)):
-        fake.track(name)
-        _bind(db_session, google, dealership.id, site.id, google_location=name)
-    failing = min(sites, key=lambda s: (s.tenant_id, s.id))  # the first one the job meets
-    real_push = gbp_push._push
-
-    def push(db, *, dealership_id, location_id, today=None):
-        if location_id == failing.id:
-            raise RuntimeError("Google unavailable")
-        return real_push(db, dealership_id=dealership_id, location_id=location_id, today=today)
-
-    monkeypatch.setattr(gbp_push, "_push", push)
-    with pytest.raises(gbp_push.HorizonPushFailedError):
-        gbp_push.run_horizon_pushes(db_session)
-    db_session.expire_all()
-    other = next(s for s in sites if s.id != failing.id)
-    pushed = db_session.scalar(
-        select(GbpPushState)
-        .join(GbpLocationBinding, GbpLocationBinding.id == GbpPushState.binding_id)
-        .where(GbpLocationBinding.location_id == other.id)
-    )
-    assert pushed is not None and pushed.source_hash is not None
 
 
 def test_the_job_is_registered_before_the_drift_check():

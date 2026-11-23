@@ -14,5 +14,5 @@
   "recipient_refused": "Dieser Kunde kann diese Nachricht auf diesem Kanal nicht erhalten. Prüfen Sie seine Kontaktangaben und Einwilligungen.",
   "channel_not_offered": "Diese Nachricht wird auf diesem Kanal nicht gesendet. Wählen Sie einen anderen Kanal.",
   "whatsapp_template_not_approved": "WhatsApp sendet nur Texte, die der Anbieter als Vorlage freigegeben hat, und dieser ist nicht freigegeben. Prüfen Sie ihn in der Verwaltung unter Standardtexte.",
-  "message_invalid": "Die Nachricht kann so nicht gesendet werden: Die Telefonnummer oder die Länge des Textes passt nicht zum Kanal."
+  "message_invalid": "Die Nachricht kann so nicht gesendet werden: Sie entspricht nicht den Vorgaben des Kanals (Telefonnummer, Länge des Textes oder WhatsApp-Vorlage)."
 }

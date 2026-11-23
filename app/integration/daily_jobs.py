@@ -98,7 +98,9 @@ def run_daily_business_profile_horizon_push(db: Session) -> None:
     horizon) though no location event fired (`services/gbp_push.py::
     run_horizon_pushes`). Registered as its own job, just before the drift
     check, so the check compares what Google holds against the full horizon;
-    a binding that failed makes the job raise and be retried the same day."""
+    a binding that failed makes the job raise and be retried the same day
+    (that night's drift row then names its special hours until the next
+    night's check)."""
 
     counts = gbp_push_service.run_horizon_pushes(db)
     if counts["pushed"]:
