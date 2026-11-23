@@ -1,4 +1,4 @@
-"""KAN-217 PR-6 (D-A-41, FR-A-51–54; ADR-206): what the send dialog reads before
+"""KAN-217 PR-6 (D-A-41, FR-A-51–54; ADR-207): what the send dialog reads before
 a send — `GET /v1/sales/documents/{id}/send-options` — and the delivery chip's
 `lastDelivery` on the document list.
 

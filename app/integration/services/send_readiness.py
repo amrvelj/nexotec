@@ -1,5 +1,5 @@
 """What the send dialog reads from integration before a send (KAN-217 PR-6;
-D-A-41, FR-A-51–54; ADR-206).
+D-A-41, FR-A-51–54; ADR-207).
 
 **`channel_readiness`** — per channel, whether this author can send on it in
 this Betrieb right now: e-mail through the mailbox `resolve_sender` would
