@@ -4,6 +4,7 @@ paths:
   - "tests/*_support.py"
   - "tests/demo_models.py"
   - "tests/postgres_only.py"
+  - "tests/checkout_guard.py"
   - "tests/test_postgres_test_isolation.py"
   - "tests/test_demo_models_off_production_base.py"
 ---
@@ -27,3 +28,6 @@ paths:
   builds and resets both (`TEST_METADATA`; `tests/test_demo_models_off_production_base.py`).
 - **`pytest -n auto` gives every worker its own database** (`<name>_gw0`, `_gw1` …): conftest
   creates it (dropping first one a killed run left behind, KAN-773), builds the schema as for the single one and drops it at the end (ADR-130).
+- **A run refuses another checkout** (KAN-783, `tests/checkout_guard.py`): `pytest_configure` exits
+  (code 4) when the imported `app` is not this checkout's, or `DMS_TEST_DATABASE_URL` names another
+  checkout's `dms_test_<slug>`; names outside that scheme (CI's) are not judged.

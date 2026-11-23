@@ -1,5 +1,6 @@
 import gc
 import os
+from pathlib import Path
 
 import pytest
 from cryptography.fernet import Fernet
@@ -32,6 +33,7 @@ os.environ.setdefault(
 import app.model_registry  # noqa: F401  ensures all tables are registered on Base.metadata
 from app.db import Base, get_db, get_session_factory
 from app.main import app as fastapi_app
+from tests import checkout_guard
 from tests.demo_models import DemoBase
 
 # Two test lanes: Postgres when DMS_TEST_DATABASE_URL is set (the lane of
@@ -85,8 +87,25 @@ def _enforce_sqlite_foreign_keys(dbapi_connection, _connection_record) -> None:
 _WORKER_DATABASE = False
 
 
+def _refuse_another_checkout() -> None:
+    """KAN-783: never test another checkout's `app`, never write into its
+    test database (`tests/checkout_guard.py`)."""
+
+    import app as app_package
+
+    root = Path(__file__).resolve().parents[1]
+    refusal = checkout_guard.foreign_app(root, app_package.__file__)
+    if refusal is None and _TEST_DATABASE_URL:
+        own = checkout_guard.checkout_slug(root, is_worktree=checkout_guard.is_worktree(root))
+        refusal = checkout_guard.foreign_database(make_url(_TEST_DATABASE_URL).database, own_slug=own)
+    if refusal is not None:
+        pytest.exit(f"KAN-783: {refusal}", returncode=4)
+
+
 def pytest_configure(config) -> None:
     global _TEST_DATABASE_URL, _WORKER_DATABASE
+    if not hasattr(config, "workerinput"):
+        _refuse_another_checkout()  # once, in the controller; a worker inherits its verdict
     worker = getattr(config, "workerinput", {}).get("workerid")
     if not (_TEST_DATABASE_URL and worker):
         return
