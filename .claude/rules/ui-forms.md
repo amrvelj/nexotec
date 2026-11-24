@@ -16,11 +16,11 @@ paths:
   - "frontend/apps/dms/src/components/PhoneInput*"
   - "frontend/apps/dms/src/components/addressAutocomplete*"
   - "frontend/apps/dms/src/components/inlineEditRefusal*"
-  - "frontend/apps/dms/src/modules/customer/components/customer-detail/OverviewTab.tsx"
-  - "frontend/apps/dms/src/modules/customer/components/customer-detail/CustomerDetailContent.tsx"
-  - "frontend/apps/dms/src/modules/customer/components/customer-detail/ExternalIdsTab.tsx"
-  - "frontend/apps/dms/src/modules/customer/components/customer-detail/contactChannels*"
-  - "frontend/apps/dms/src/modules/customer/components/customer-detail/address*"
+  - "frontend/apps/dms/src/modules/contact/components/contact-detail/OverviewTab.tsx"
+  - "frontend/apps/dms/src/modules/contact/components/contact-detail/ContactDetailContent.tsx"
+  - "frontend/apps/dms/src/modules/contact/components/contact-detail/ExternalIdsTab.tsx"
+  - "frontend/apps/dms/src/modules/contact/components/contact-detail/contactChannels*"
+  - "frontend/apps/dms/src/modules/contact/components/contact-detail/address*"
   - "frontend/apps/dms/src/modules/stock/components/stock-detail/DetailsTab.tsx"
   - "frontend/apps/dms/src/modules/vehicle/components/vehicle-detail/IdentityTab.tsx"
   - "frontend/apps/dms/src/pages/ReferenceDataPage.tsx"
@@ -48,8 +48,8 @@ of ui.md by KAN-615 (2026-11-13); forms are listed by file pattern, inside the m
   Checkbox or Switch passes `{ descriptionId: useId() }` as the third argument. The icon
   (`common.fieldHintIcon`) joins the field's accessible name, so a role query matches the label as
   a prefix — `{ name: (n) => n.startsWith(label) }`, never an unescaped `RegExp` (labels contain
-  parentheses). Choice cards (the customer-type tiles) are not fields and keep their text.
-- **The kit's `Picker` is the entity-selection gesture** ("which customer?": a ranked list in a
+  parentheses). Choice cards (the contact-type tiles) are not fields and keep their text.
+- **The kit's `Picker` is the entity-selection gesture** ("which contact?": a ranked list in a
   panel, a create path, autofocus). A type-ahead that fills the form's own fields from an external
   service and selects no record — the app's `src/components/AddressSearchField.tsx` (ADR-101), on
   Mantine's `Combobox` — is a form input like `PhoneInput` and lives in the app, every string from

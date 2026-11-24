@@ -1,7 +1,7 @@
 """Purchase, landed cost, fiktiver Vorsteuerabzug (WP-7 PR-3, Art. 28a
 MWSTG). ADR-057: there is NO vatTreatment field anywhere in this module —
 notional_input_tax_* is a purchase-side fact belonging to Stock's own
-acquisition booking, never shown on a customer document, never read or
+acquisition booking, never shown on a contact document, never read or
 written by Sales.
 """
 
@@ -288,12 +288,12 @@ def storno_purchase(
     delay never lets a storno through that the direct read would have
     refused (app.inventory.services.sales_contract).
 
-    KAN-572 (Anto, 2026-11-07, option C): `returnedToCustomer` says a
-    trade-in went back to the customer who traded it in. The audit row and
+    KAN-572 (Anto, 2026-11-07, option C): `returnedToContact` says a
+    trade-in went back to the contact who traded it in. The audit row and
     the event carry it (with the cancelled purchase date and the trade-in's
-    contract), and the customer context's own consumer reopens that
-    customer as owner and keeper. Only a trade-in's car may say so (422
-    `storno_return_not_trade_in`); without it the customer's history stays
+    contract), and the contact context's own consumer reopens that
+    contact as owner and keeper. Only a trade-in's car may say so (422
+    `storno_return_not_trade_in`); without it the contact's history stays
     as the purchase wrote it.
 
     The caller loaded `item` with its row lock and checked If-Match.
@@ -310,11 +310,11 @@ def storno_purchase(
             details={"reason": "purchase_storno_left_stock", "stockItemId": str(item.id)},
         )
     origin = pipeline_origin(item.pipeline_ref)
-    if data.returned_to_customer and origin.get("originRole") != "trade_in":
-        # KAN-572: only a trade-in has a customer it can go back to.
+    if data.returned_to_contact and origin.get("originRole") != "trade_in":
+        # KAN-572: only a trade-in has a contact it can go back to.
         raise UnprocessableEntityError(
-            f"Stock item {item.stock_number} is not a trade-in — it cannot go back to a customer.",
-            details={"reason": "storno_return_not_trade_in", "field": "returnedToCustomer", "stockItemId": str(item.id)},
+            f"Stock item {item.stock_number} is not a trade-in — it cannot go back to a contact.",
+            details={"reason": "storno_return_not_trade_in", "field": "returnedToContact", "stockItemId": str(item.id)},
         )
     invoiced_by = contract_with_invoice_requested(db, tenant_id=item.tenant_id, stock_item_id=item.id)
     if invoiced_by is not None:
@@ -371,7 +371,7 @@ def storno_purchase(
         action="purchase_storno",
         actor_id=actor_id,
         before=before,
-        after={**_purchase_facts(item), "returnedToCustomer": data.returned_to_customer},
+        after={**_purchase_facts(item), "returnedToContact": data.returned_to_contact},
         reason=data.reason,
     )
     publish(
@@ -386,14 +386,14 @@ def storno_purchase(
                 "stockNumber": item.stock_number,
                 "vehicleId": str(item.vehicle_id) if item.vehicle_id else None,
                 "stornoedBy": str(actor_id) if actor_id else None,
-                # KAN-572 (additive): whether the car went back to the customer
+                # KAN-572 (additive): whether the car went back to the contact
                 # who traded it in, the purchase date the storno cancelled, and
                 # the trade-in's contract (`originContractId`/`originRole`, as
                 # `inventory.stock_item.purchased` carries them) — what the
-                # customer context needs to reopen that customer as holder.
+                # contact context needs to reopen that contact as holder.
                 # KAN-632 (additive): the trade-in's seller and signature, as
                 # the purchase event carries them (`trade_in_seller_fields`).
-                "returnedToCustomer": data.returned_to_customer,
+                "returnedToContact": data.returned_to_contact,
                 "purchaseDate": stornoed_purchase_date.isoformat() if stornoed_purchase_date else None,
                 **origin,
                 **trade_in_seller_fields(item),

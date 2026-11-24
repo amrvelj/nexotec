@@ -77,7 +77,7 @@ def test_ddl_a_test_runs_is_undone_before_the_next(engine, _postgres_schema):
     oid = _oid(engine, "customer")
     with engine.begin() as conn:
         conn.execute(text("CREATE RULE swallow_inserts AS ON INSERT TO reference_value DO INSTEAD NOTHING"))
-        conn.execute(text("ALTER TABLE customer DROP COLUMN last_name"))
+        conn.execute(text("ALTER TABLE contact DROP COLUMN last_name"))
         conn.execute(text("DROP INDEX ix_vehicle_mdm_vin"))
 
     _postgres_schema.reset()

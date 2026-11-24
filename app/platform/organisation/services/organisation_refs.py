@@ -22,7 +22,7 @@ from app.platform.organisation.services import location as location_service
 @dataclasses.dataclass(frozen=True)
 class DealershipSummary:
     """A Betrieb as another context reads it: its id, its dealer group (a
-    customer is group-scoped, ADR-014) and the VAT rate its documents and the
+    contact is group-scoped, ADR-014) and the VAT rate its documents and the
     notional input tax print with (None until the Betrieb sets it)."""
 
     id: uuid.UUID
@@ -66,7 +66,7 @@ def enable_group_read(
 ) -> DealerGroupRead:
     """ADR-030 (2): flip the group's read on — platform's write, on the row it
     loads itself. The caller passes whether a legal basis was ever recorded
-    (customer's fact, KAN-629); the refusals are the service's."""
+    (contact's fact, KAN-629); the refusals are the service's."""
 
     row = dealership_service.get_dealer_group_or_404(db, dealer_group_id)
     enabled = dealership_service.enable_group_read(

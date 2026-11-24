@@ -1,10 +1,10 @@
-"""The registry of customer message types (KAN-217 PR-1; Dealer Administration
+"""The registry of contact message types (KAN-217 PR-1; Dealer Administration
 D-A-41, FR-A-52, FR-A-53, A-RULE-10).
 
 The send dialog is the platform's; the modules own what is sent. A module
 registers each **document type** (an offer, an order confirmation, a sales
 contract …) and **reminder type** (an appointment reminder, «vehicle ready»
-…) it lets a user send to a customer, and the dialog — and the send service
+…) it lets a user send to a contact, and the dialog — and the send service
 behind it (later PRs) — read everything type-specific from here:
 
 - **purpose** — transactional or marketing (FR-A-53): a property of the type,
@@ -15,7 +15,7 @@ behind it (later PRs) — read everything type-specific from here:
   carries one (e-mail) and as a secure link where it does not (SMS, WhatsApp)
   — `delivery_of`.
 - **the standard text per channel** — one code per channel the type is sent
-  on; the dialog loads that code in the customer's correspondence language.
+  on; the dialog loads that code in the contact's correspondence language.
   Every code must be a valid message body for the type (its category is the
   channel's, its target exists in the closed placeholder registry) and must
   ship as a platform seed in all four languages

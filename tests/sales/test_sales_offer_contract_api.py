@@ -24,8 +24,8 @@ def _bearer(token: str) -> dict[str, str]:
 
 
 def _create_dealership(client) -> str:
-    """KAN-58's customer-attached contract tests need a real Dealership row
-    — POST /v1/customers 404s on get_dealership_or_404 otherwise (the
+    """KAN-58's contact-attached contract tests need a real Dealership row
+    — POST /v1/contacts 404s on get_dealership_or_404 otherwise (the
     tenant_id claim proving the caller's session is real)."""
 
     token = _token(AccessRole.PLATFORM_ADMIN)
@@ -41,7 +41,7 @@ def _create_dealership(client) -> str:
 
 
 def _buyer(client, token: str, **overrides) -> dict:
-    """A customer with a usable domicile address — what a contract needs to
+    """A contact with a usable domicile address — what a contract needs to
     be confirmed (D-20; a buyer at all since KAN-307). The token's dealership
     must exist (_create_dealership)."""
 
@@ -54,7 +54,7 @@ def _buyer(client, token: str, **overrides) -> dict:
         }],
         **overrides,
     }
-    response = client.post("/v1/customers", json=payload, headers=_bearer(token))
+    response = client.post("/v1/contacts", json=payload, headers=_bearer(token))
     assert response.status_code == 201, response.text
     return response.json()
 
@@ -108,16 +108,16 @@ def test_cancel_offer(client):
     assert response.json()["status"] == "cancelled"
 
 
-def test_a_contract_with_neither_an_offer_nor_a_customer_is_refused(client, db_session):
+def test_a_contract_with_neither_an_offer_nor_a_contact_is_refused(client, db_session):
     """KAN-276 (Anto, 2026-10-11: "no empty contracts"): a contract is created
-    from an offer, for a customer or (KAN-307) for a car, never from nothing."""
+    from an offer, for a contact or (KAN-307) for a car, never from nothing."""
 
     token = _token(role=AccessRole.SALES)
 
-    for body in ({}, {"offerId": None, "customerId": None, "stockItemId": None}):
+    for body in ({}, {"offerId": None, "contactId": None, "stockItemId": None}):
         response = client.post("/v1/sales/contracts", json=body, headers=_bearer(token))
         assert response.status_code == 422, response.text
-        assert "offerId, customerId or stockItemId" in response.text
+        assert "offerId, contactId or stockItemId" in response.text
 
     assert db_session.query(SalesContract).count() == 0
 
@@ -133,15 +133,15 @@ def test_create_contract_from_offer(client):
     assert body["offerNumber"] == offer["offerNumber"]
 
 
-# --- KAN-58: POST /sales/contracts { customerId } — "New contract" from the
-# customer's own surfaces, with no offer at all. ---------------------------
+# --- KAN-58: POST /sales/contracts { contactId } — "New contract" from the
+# contact's own surfaces, with no offer at all. ---------------------------
 
 
-def test_create_contract_for_a_customer(client):
+def test_create_contract_for_a_contact(client):
     dealership_id = _create_dealership(client)
     token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealership_id))
-    customer = client.post(
-        "/v1/customers",
+    contact = client.post(
+        "/v1/contacts",
         json={
             "firstName": "Ursula", "lastName": "Vogt", "language": "fr",
             "emails": [{"emailType": "personal", "emailAddress": "ursula@example.ch"}],
@@ -149,22 +149,22 @@ def test_create_contract_for_a_customer(client):
         headers=_bearer(token),
     ).json()
 
-    created = client.post("/v1/sales/contracts", json={"customerId": customer["id"]}, headers=_bearer(token))
+    created = client.post("/v1/sales/contracts", json={"contactId": contact["id"]}, headers=_bearer(token))
     assert created.status_code == 201, created.text
     body = created.json()
     assert body["offerId"] is None
-    assert body["customerId"] == customer["id"]
-    assert body["customerLabel"] == "Ursula Vogt"
+    assert body["contactId"] == contact["id"]
+    assert body["contactLabel"] == "Ursula Vogt"
 
 
-def test_confirming_a_contract_created_for_a_customer_with_no_vehicle_is_409(client):
+def test_confirming_a_contract_created_for_a_contact_with_no_vehicle_is_409(client):
     """KAN-66 / G-67, reproduced live on staging 2026-09-21: the contract
     above used to confirm (200) with every amount null. It must now refuse."""
 
     dealership_id = _create_dealership(client)
     token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealership_id))
-    customer = client.post(
-        "/v1/customers",
+    contact = client.post(
+        "/v1/contacts",
         json={
             "firstName": "Ursula", "lastName": "Vogt", "language": "fr",
             "emails": [{"emailType": "personal", "emailAddress": "ursula.vogt@example.ch"}],
@@ -175,7 +175,7 @@ def test_confirming_a_contract_created_for_a_customer_with_no_vehicle_is_409(cli
         },
         headers=_bearer(token),
     ).json()
-    created = client.post("/v1/sales/contracts", json={"customerId": customer["id"]}, headers=_bearer(token)).json()
+    created = client.post("/v1/sales/contracts", json={"contactId": contact["id"]}, headers=_bearer(token)).json()
 
     response = client.post(
         f"/v1/sales/contracts/{created['id']}/confirm", headers={**_bearer(token), "If-Match": str(created["version"])}
@@ -184,11 +184,11 @@ def test_confirming_a_contract_created_for_a_customer_with_no_vehicle_is_409(cli
     assert response.json()["error"]["details"]["reason"] == "missing_vehicle"
 
 
-def test_create_contract_for_a_do_not_contact_customer_is_409(client):
+def test_create_contract_for_a_do_not_contact_contact_is_409(client):
     dealership_id = _create_dealership(client)
     token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealership_id))
-    customer = client.post(
-        "/v1/customers",
+    contact = client.post(
+        "/v1/contacts",
         json={
             "firstName": "Beat", "lastName": "Frei", "language": "de",
             "emails": [{"emailType": "personal", "emailAddress": "beat@example.ch"}],
@@ -196,26 +196,26 @@ def test_create_contract_for_a_do_not_contact_customer_is_409(client):
         headers=_bearer(token),
     ).json()
     client.patch(
-        f"/v1/customers/{customer['id']}",
+        f"/v1/contacts/{contact['id']}",
         json={"lifecycleStatus": "do_not_contact"},
-        headers={**_bearer(token), "If-Match": str(customer["version"])},
+        headers={**_bearer(token), "If-Match": str(contact["version"])},
     )
 
-    response = client.post("/v1/sales/contracts", json={"customerId": customer["id"]}, headers=_bearer(token))
+    response = client.post("/v1/sales/contracts", json={"contactId": contact["id"]}, headers=_bearer(token))
     assert response.status_code == 409, response.text
     assert response.json()["error"]["details"] == {
-        "reason": "customer_do_not_contact",
-        "customerNumber": customer["customerNumber"],
+        "reason": "contact_do_not_contact",
+        "contactNumber": contact["contactNumber"],
     }
 
 
-def test_create_contract_offer_and_customer_together_is_422(client):
+def test_create_contract_offer_and_contact_together_is_422(client):
     token = _token(role=AccessRole.SALES)
     offer = client.post("/v1/sales/offers", headers=_bearer(token)).json()
 
     response = client.post(
         "/v1/sales/contracts",
-        json={"offerId": offer["id"], "customerId": str(uuid.uuid4())},
+        json={"offerId": offer["id"], "contactId": str(uuid.uuid4())},
         headers=_bearer(token),
     )
     assert response.status_code == 422, response.text
@@ -312,7 +312,7 @@ def test_request_invoice_for_a_vehicle_not_purchased_is_409_with_its_reason(clie
     offer = client.patch(
         f"/v1/sales/offers/{offer['id']}",
         json={
-            "customerId": buyer["id"],
+            "contactId": buyer["id"],
             "vehicleSource": "manual", "vehicleLabel": "Volkswagen ID.4 Pro", "manualVehicleCondition": "new",
             "manualBasePrice": "52000.00",
         },
@@ -380,7 +380,7 @@ def test_create_contract_for_a_stock_car(client, db_session):
 
     assert created.status_code == 201, created.text
     body = created.json()
-    assert (body["status"], body["customerId"], body["offerId"]) == ("pending", None, None)
+    assert (body["status"], body["contactId"], body["offerId"]) == ("pending", None, None)
     assert (body["vehicleSource"], body["stockItemId"], body["vehicleLabel"]) == ("stock", str(item.id), item.vehicle_label)
     # Priced through the contract's own Path A edit, as its PATCH would.
     assert body["grossPrice"] is not None
@@ -392,7 +392,7 @@ def test_create_contract_for_a_stock_car(client, db_session):
 def test_a_contract_started_from_a_car_gets_its_buyer_in_the_contract_and_is_then_confirmed(client, db_session):
     """KAN-307 (Anto, 2026-10-12, amending ADR-083): as on the offer, the
     buyer is picked inside the pending contract. Without one the contract
-    cannot be confirmed (409 missing_customer); with one it can."""
+    cannot be confirmed (409 missing_contact); with one it can."""
 
     from tests.sales.test_sales_lifecycle_reservation import _dealership
     from tests.sales.test_sales_offer_refinements import _stock_item
@@ -410,15 +410,15 @@ def test_a_contract_started_from_a_car_gets_its_buyer_in_the_contract_and_is_the
         f"/v1/sales/contracts/{contract['id']}/confirm", headers={**_bearer(token), "If-Match": str(contract["version"])}
     )
     assert unsigned.status_code == 409, unsigned.text
-    assert unsigned.json()["error"]["details"] == {"reason": "missing_customer"}
+    assert unsigned.json()["error"]["details"] == {"reason": "missing_contact"}
 
     with_buyer = client.patch(
-        f"/v1/sales/contracts/{contract['id']}", json={"customerId": buyer["id"]},
+        f"/v1/sales/contracts/{contract['id']}", json={"contactId": buyer["id"]},
         headers={**_bearer(token), "If-Match": str(contract["version"])},
     )
     assert with_buyer.status_code == 200, with_buyer.text
     body = with_buyer.json()
-    assert (body["customerId"], body["customerLabel"], body["version"]) == (buyer["id"], "Ursula Vogt", contract["version"] + 1)
+    assert (body["contactId"], body["contactLabel"], body["version"]) == (buyer["id"], "Ursula Vogt", contract["version"] + 1)
     assert {c["id"]: c["status"] for c in body["containers"]}["customer"] == "complete"
 
     confirmed = client.post(
@@ -429,14 +429,14 @@ def test_a_contract_started_from_a_car_gets_its_buyer_in_the_contract_and_is_the
 
     # A signed contract's buyer is frozen with the rest of it.
     frozen = client.patch(
-        f"/v1/sales/contracts/{contract['id']}", json={"customerId": None},
+        f"/v1/sales/contracts/{contract['id']}", json={"contactId": None},
         headers={**_bearer(token), "If-Match": str(confirmed.json()["version"])},
     )
     assert frozen.status_code == 409, frozen.text
     assert frozen.json()["error"]["details"]["reason"] == "contract_not_pending"
 
 
-def test_a_do_not_contact_customer_cannot_become_a_contracts_buyer(client, db_session):
+def test_a_do_not_contact_contact_cannot_become_a_contracts_buyer(client, db_session):
     from tests.sales.test_sales_lifecycle_reservation import _dealership
     from tests.sales.test_sales_offer_refinements import _stock_item
 
@@ -449,17 +449,17 @@ def test_a_do_not_contact_customer_cannot_become_a_contracts_buyer(client, db_se
     ).json()
 
     response = client.patch(
-        f"/v1/sales/contracts/{contract['id']}", json={"customerId": blocked["id"]},
+        f"/v1/sales/contracts/{contract['id']}", json={"contactId": blocked["id"]},
         headers={**_bearer(token), "If-Match": str(contract["version"])},
     )
 
     assert response.status_code == 409, response.text
     assert "do-not-contact" in response.json()["error"]["message"]
     assert response.json()["error"]["details"] == {
-        "reason": "customer_do_not_contact",
-        "customerNumber": blocked["customerNumber"],
+        "reason": "contact_do_not_contact",
+        "contactNumber": blocked["contactNumber"],
     }
-    assert client.get(f"/v1/sales/contracts/{contract['id']}", headers=_bearer(token)).json()["customerId"] is None
+    assert client.get(f"/v1/sales/contracts/{contract['id']}", headers=_bearer(token)).json()["contactId"] is None
 
 
 def test_a_contract_for_an_unknown_stock_car_is_404_and_leaves_no_contract(client, db_session):
@@ -473,14 +473,14 @@ def test_a_contract_for_an_unknown_stock_car_is_404_and_leaves_no_contract(clien
     assert db_session.query(SalesContract).count() == 0
 
 
-def test_a_stock_car_cannot_be_combined_with_an_offer_or_a_customer(client, db_session):
+def test_a_stock_car_cannot_be_combined_with_an_offer_or_a_contact(client, db_session):
     token = _token(role=AccessRole.SALES)
     car = str(uuid.uuid4())
 
-    for other in ({"offerId": str(uuid.uuid4())}, {"customerId": str(uuid.uuid4())}):
+    for other in ({"offerId": str(uuid.uuid4())}, {"contactId": str(uuid.uuid4())}):
         response = client.post("/v1/sales/contracts", json={"stockItemId": car, **other}, headers=_bearer(token))
         assert response.status_code == 422, response.text
-    label_alone = client.post("/v1/sales/contracts", json={"customerId": car, "vehicleLabel": "Golf"}, headers=_bearer(token))
+    label_alone = client.post("/v1/sales/contracts", json={"contactId": car, "vehicleLabel": "Golf"}, headers=_bearer(token))
     assert label_alone.status_code == 422, label_alone.text
 
     assert db_session.query(SalesContract).count() == 0

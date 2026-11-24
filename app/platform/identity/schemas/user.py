@@ -240,7 +240,7 @@ class OwnershipTransferRequest(CamelModel):
 class OwnershipTransfersRequest(CamelModel):
     """A hand-over outside the deactivation: the retry after a module failed,
     or a plain hand-over for a user who stays. `reason` lands on platform's
-    audit row and on the modules' own (a customer's advisor change, say)."""
+    audit row and on the modules' own (a contact's advisor change, say)."""
 
     transfers: list[OwnershipTransferRequest]
     reason: str | None = Field(default=None, max_length=500)

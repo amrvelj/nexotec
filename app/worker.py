@@ -37,20 +37,20 @@ from app.core.outbox import consumer_lag_seconds, dead_letter_count, oldest_pend
 from app.core.outbox_transport import InProcessTransport
 from app.core.outbox_worker import poll_once
 from app.core.reconciliation import seconds_since_last_reconciliation
-from app.customer.consumers import (
+from app.contact.consumers import (
     handle_stock_item_booking_purchased_message,
     handle_stock_item_booking_storno_message,
     handle_vehicle_summary_changed_message,
 )
-from app.customer.consumers import handle_stock_item_purchased_message as handle_trade_in_purchased_message
-from app.customer.consumers import handle_stock_item_storno_message as handle_trade_in_storno_message
-from app.customer.public import (
+from app.contact.consumers import handle_stock_item_purchased_message as handle_trade_in_purchased_message
+from app.contact.consumers import handle_stock_item_storno_message as handle_trade_in_storno_message
+from app.contact.public import (
     oldest_advisor_label_age_seconds,
     oldest_vehicle_party_label_age_seconds,
     refresh_advisor_labels,
     refresh_vehicle_party_labels,
 )
-from app.customer.services.vehicle_merge import handle_vehicle_merged_message
+from app.contact.services.vehicle_merge import handle_vehicle_merged_message
 from app.db import SessionLocal
 from app.export_registry import register_exporters
 from app.integration.consumers import (
@@ -117,7 +117,7 @@ from app.reporting.consumers import CONSUMER_NAME as REPORTING_PUBLIC_STOCK_CONS
 from app.reporting.consumers import EVENT_TYPE as REPORTING_WEBSITE_LISTING_EVENT
 from app.reporting.consumers import handle_website_listing_changed_message
 from app.sales.consumers import (
-    handle_customer_merged_message,
+    handle_contact_merged_message,
     handle_stock_item_added_message,
     handle_stock_item_commercial_changed_message,
     handle_stock_item_purchased_message,
@@ -125,9 +125,9 @@ from app.sales.consumers import (
     handle_stock_item_storno_message,
 )
 from app.sales.public import (
-    oldest_customer_label_age_seconds,
+    oldest_contact_label_age_seconds,
     oldest_owner_label_age_seconds,
-    refresh_customer_labels,
+    refresh_contact_labels,
     refresh_owner_labels,
 )
 from app.sales.public import referenced_configuration_ids as referenced_by_offers_and_contracts
@@ -208,16 +208,16 @@ def register_handlers(transport: InProcessTransport) -> None:
         consumer_name="sales.stock_item_commercial_changed",
         handler=handle_stock_item_commercial_changed_message,
     )
-    # KAN-185 (ADR-047; Anto, 2026-10-31, option A) — a customer merge moves
+    # KAN-185 (ADR-047; Anto, 2026-10-31, option A) — a contact merge moves
     # Sales' records of the duplicate (offers, contracts, deals) to the
     # survivor in Sales' own transaction; the merge writes nothing of Sales'. A failure is redelivered on the outbox's
     # backoff and dead-lettered (with its alert) after the last attempt.
     transport.register(
-        "customer.merged",
-        consumer_name="sales.customer_merged",
-        handler=handle_customer_merged_message,
+        "contact.merged",
+        consumer_name="sales.contact_merged",
+        handler=handle_contact_merged_message,
     )
-    # KAN-632 (ADR-147) — the customer context's record of Stock's bookings,
+    # KAN-632 (ADR-147) — the contact context's record of Stock's bookings,
     # which the two trade-in consumers below judge an event's order by. Its
     # own consumers, so a failing trade-in step never loses the row; and
     # registered first: the transport runs one event type's consumers in
@@ -225,28 +225,28 @@ def register_handlers(transport: InProcessTransport) -> None:
     # event's booking row is there before its own trade-in step runs.
     transport.register(
         "inventory.stock_item.purchased",
-        consumer_name="customer.stock_item_bookings_on_purchased",
+        consumer_name="contact.stock_item_bookings_on_purchased",
         handler=handle_stock_item_booking_purchased_message,
     )
     transport.register(
         "inventory.stock_item.storno",
-        consumer_name="customer.stock_item_bookings_on_storno",
+        consumer_name="contact.stock_item_bookings_on_storno",
         handler=handle_stock_item_booking_storno_message,
     )
-    # KAN-189 (Anto, 2026-11-02, option A) — a bought trade-in's customer is
-    # recorded as the car's former owner and keeper, in the customer
+    # KAN-189 (Anto, 2026-11-02, option A) — a bought trade-in's contact is
+    # recorded as the car's former owner and keeper, in the contact
     # context's own transaction.
     transport.register(
         "inventory.stock_item.purchased",
-        consumer_name="customer.trade_in_purchased",
+        consumer_name="contact.trade_in_purchased",
         handler=handle_trade_in_purchased_message,
     )
     # KAN-572 (Anto, 2026-11-07, option C) — a trade-in whose purchase was
-    # stornoed and which went back to its customer reopens that customer as
-    # owner and keeper, in the customer context's own transaction.
+    # stornoed and which went back to its contact reopens that contact as
+    # owner and keeper, in the contact context's own transaction.
     transport.register(
         "inventory.stock_item.storno",
-        consumer_name="customer.trade_in_storno",
+        consumer_name="contact.trade_in_storno",
         handler=handle_trade_in_storno_message,
     )
     # KAN-144 — a manual configuration's contract learns the pipeline stock
@@ -287,18 +287,18 @@ def register_handlers(transport: InProcessTransport) -> None:
     )
     # KAN-186 — a vehicle's changed label (a VIN correction, a new first
     # registration) reaches every party row naming it when the event is
-    # delivered; the nightly customer.vehicle_party_labels stays the backstop.
+    # delivered; the nightly contact.vehicle_party_labels stays the backstop.
     transport.register(
         "vehicle.vehicle_mdm.summary_changed",
-        consumer_name="customer.vehicle_party_labels_on_summary_changed",
+        consumer_name="contact.vehicle_party_labels_on_summary_changed",
         handler=handle_vehicle_summary_changed_message,
     )
-    # KAN-634 (ADR-131) — a vehicle merge (FR-V-12) moves customer's party
+    # KAN-634 (ADR-131) — a vehicle merge (FR-V-12) moves contact's party
     # rows from the duplicate onto the survivor when the fact is delivered;
-    # vehicle publishes it and never calls customer.
+    # vehicle publishes it and never calls contact.
     transport.register(
         "vehicle.vehicle_mdm.merged",
-        consumer_name="customer.vehicle_parties_on_vehicle_merged",
+        consumer_name="contact.vehicle_parties_on_vehicle_merged",
         handler=handle_vehicle_merged_message,
     )
     # KAN-524 (Anto, Q2 A, Q3 A) — the same fact moves Stock's items onto the
@@ -441,11 +441,11 @@ def _heartbeat(db, transport: InProcessTransport) -> None:
     vehicle_party_label_age = oldest_vehicle_party_label_age_seconds(db)
     record_label_age_seconds("vehicle_party.vehicle", vehicle_party_label_age)
     advisor_label_age = oldest_advisor_label_age_seconds(db)
-    record_label_age_seconds("customer.advisor", advisor_label_age)
+    record_label_age_seconds("contact.advisor", advisor_label_age)
     owner_label_age = oldest_owner_label_age_seconds(db)
     record_label_age_seconds("sales.owner", owner_label_age)
-    customer_label_age = oldest_customer_label_age_seconds(db)
-    record_label_age_seconds("sales.customer", customer_label_age)
+    contact_label_age = oldest_contact_label_age_seconds(db)
+    record_label_age_seconds("sales.contact", contact_label_age)
     configuration_label_age = oldest_configuration_label_age_seconds(db)
     record_label_age_seconds("inventory.configuration", configuration_label_age)
     stock_location_label_age = oldest_stock_location_label_age_seconds(db)
@@ -463,7 +463,7 @@ def _heartbeat(db, transport: InProcessTransport) -> None:
             "vehiclePartyLabelAgeSeconds": vehicle_party_label_age,
             "advisorLabelAgeSeconds": advisor_label_age,
             "ownerLabelAgeSeconds": owner_label_age,
-            "salesCustomerLabelAgeSeconds": customer_label_age,
+            "salesContactLabelAgeSeconds": contact_label_age,
             "configurationLabelAgeSeconds": configuration_label_age,
             "connectionLocationLabelAgeSeconds": location_label_age,
         },
@@ -488,12 +488,12 @@ def _purge_unattached_configurations(db: Session) -> None:
 
 def _refresh_vehicle_party_labels(db: Session) -> None:
     changed = refresh_vehicle_party_labels(db)
-    logger.info("customer.vehicle_party_labels: %d party row(s) relabelled", changed)
+    logger.info("contact.vehicle_party_labels: %d party row(s) relabelled", changed)
 
 
 def _refresh_advisor_labels(db: Session) -> None:
     changed = refresh_advisor_labels(db)
-    logger.info("customer.advisor_labels: %d customer(s) relabelled", changed)
+    logger.info("contact.advisor_labels: %d contact(s) relabelled", changed)
 
 
 def _refresh_owner_labels(db: Session) -> None:
@@ -501,9 +501,9 @@ def _refresh_owner_labels(db: Session) -> None:
     logger.info("sales.owner_labels: %d offer, contract or deal row(s) relabelled", changed)
 
 
-def _refresh_customer_labels(db: Session) -> None:
-    changed = refresh_customer_labels(db)
-    logger.info("sales.customer_labels: %d offer, contract or deal row(s) relabelled", changed)
+def _refresh_contact_labels(db: Session) -> None:
+    changed = refresh_contact_labels(db)
+    logger.info("sales.contact_labels: %d offer, contract or deal row(s) relabelled", changed)
 
 
 def _refresh_configuration_labels(db: Session) -> None:
@@ -546,7 +546,7 @@ def register_status() -> None:
     register_status_providers()
 
 
-def register_customer_message_types() -> None:
+def register_contact_message_types() -> None:
     """KAN-217: the send consumers and reminders to come read the message-type
     registry, which the composition root fills."""
 
@@ -562,23 +562,23 @@ def register_daily_jobs() -> None:
        (app/integration/daily_jobs.py), one registration. It ran the
        catalogue delta sync too until no provider was asked for its whole
        catalogue any more (2026-10-29, KAN-485).
-    2. ``customer.vehicle_party_labels`` — KAN-84: re-reads every
+    2. ``contact.vehicle_party_labels`` — KAN-84: re-reads every
        VehicleParty's denormalised vehicle label (VIN, number, make, model,
        year, trim) through app.vehicle.public, so a catalogue match or VIN
        correction made after the link shows within a day.
-    3. ``customer.advisor_labels`` — KAN-403: re-reads the name of every
-       customer's advisor through app.platform.public, so a renamed user's
-       new name reaches the customer cards within a day. A deactivated
+    3. ``contact.advisor_labels`` — KAN-403: re-reads the name of every
+       contact's advisor through app.platform.public, so a renamed user's
+       new name reaches the contact cards within a day. A deactivated
        user's label is kept as it was.
     4. ``sales.owner_labels`` — KAN-404: the same for the responsible
        seller's name on every offer, contract and deal row (KAN-200's
        ``owner_label``), so a renamed seller's new name reaches the Sales grid
        within a day.
-    5. ``sales.customer_labels`` — KAN-590: the same for the customer's
+    5. ``sales.contact_labels`` — KAN-590: the same for the contact's
        name (and correspondence language) on open work — an offer no
        signed contract was made from, a pending contract and their deal
        rows — through
-       app.customer.public, so a corrected name reaches the Sales list and the
+       app.contact.public, so a corrected name reaches the Sales list and the
        next document within a day. A signed contract keeps the name the buyer
        signed under (Anto, 2026-11-10).
     6. ``inventory.configuration_labels`` — KAN-534: the same for Stock's
@@ -679,10 +679,10 @@ def register_daily_jobs() -> None:
     """
 
     register_daily_job("integration.daily_jobs", run_daily_integration_jobs)
-    register_daily_job("customer.vehicle_party_labels", _refresh_vehicle_party_labels)
-    register_daily_job("customer.advisor_labels", _refresh_advisor_labels)
+    register_daily_job("contact.vehicle_party_labels", _refresh_vehicle_party_labels)
+    register_daily_job("contact.advisor_labels", _refresh_advisor_labels)
     register_daily_job("sales.owner_labels", _refresh_owner_labels)
-    register_daily_job("sales.customer_labels", _refresh_customer_labels)
+    register_daily_job("sales.contact_labels", _refresh_contact_labels)
     register_daily_job("inventory.configuration_labels", _refresh_configuration_labels)
     register_daily_job("inventory.location_labels", _refresh_stock_location_labels)
     register_daily_job("integration.location_labels", _refresh_location_labels)
@@ -728,7 +728,7 @@ def run(*, max_iterations: int | None = None) -> None:
     register_ownership()
     register_exports()
     register_status()
-    register_customer_message_types()
+    register_contact_message_types()
     register_daily_jobs()
     # KAN-215 (ADR-118): the mailbox providers' revokers end a revoked grant
     # at Google / drop its token; platform's consumer runs them, here only.

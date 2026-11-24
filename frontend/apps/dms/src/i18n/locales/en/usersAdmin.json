@@ -43,8 +43,8 @@
     "whatsapp": "WhatsApp"
   },
   "ownedGroup": {
-    "customer": {
-      "customers": "Customers they advise"
+    "contact": {
+      "contacts": "Customers they advise"
     },
     "sales": {
       "offers": "Open offers",

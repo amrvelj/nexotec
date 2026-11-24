@@ -4,10 +4,10 @@ and the composition root registers it like a context's.
 
 The Betrieb's audit log is in the export (Anto, 2026-11-13, Q4 A): its own
 rows (`tenant_id` = the Betrieb) and, since KAN-722 (Anto, 2026-11-15), the
-rows it wrote in a group-owned customer's History (`tenant_id` = the group),
+rows it wrote in a group-owned contact's History (`tenant_id` = the group),
 attributed by the one rule the History read uses to hide them from its
 sisters (`app.core.audit_attribution`) — the exported set is the hidden set.
-The customers those rows are about come with them (`references`), so each
+The contacts those rows are about come with them (`references`), so each
 entry is readable in the archive on its own. Nothing here rewrites or
 deletes it: the deletion ten years after offboarding is a
 manual staff step (Anto, 2026-11-14).
@@ -40,8 +40,8 @@ _audit = table_of(AuditEvent)
 
 
 def _group_history_rows(scope: ExportScope) -> ColumnElement[bool]:
-    """KAN-722: the rows this Betrieb wrote in a group customer's History —
-    the same rows (`entity_type` customer, the group as tenant, the one
+    """KAN-722: the rows this Betrieb wrote in a group contact's History —
+    the same rows (`entity_type` contact, the group as tenant, the one
     attribution rule) the History read hides from its sisters once it is
     offboarded, so the two sets are equal by construction. The group is
     the Betrieb's own, handed in by platform (`ExportScope.group_id`)."""
@@ -55,7 +55,7 @@ def _group_history_rows(scope: ExportScope) -> ColumnElement[bool]:
 
 def _own_audit_rows(scope: ExportScope) -> ColumnElement[bool]:
     """The Betrieb's own rows, and the rows it wrote in its group's
-    customers' History (KAN-722)."""
+    contacts' History (KAN-722)."""
 
     return or_(_audit.c.tenant_id == scope.dealership_id, _group_history_rows(scope))
 
@@ -84,9 +84,9 @@ class CoreExporter(TableExporter):
         }
 
     def references(self, db: Session, scope: ExportScope) -> Mapping[str, frozenset[uuid.UUID]]:
-        """KAN-722: the group customers whose History holds a row this
-        Betrieb wrote — so the exported entry finds its customer in the
-        archive (the relationship already includes "the customers its
+        """KAN-722: the group contacts whose History holds a row this
+        Betrieb wrote — so the exported entry finds its contact in the
+        archive (the relationship already includes "the contacts its
         history names", `ExportScope.references`)."""
 
         if scope.audit_attribution.is_empty():

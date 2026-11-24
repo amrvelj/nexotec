@@ -26,7 +26,7 @@ export interface DetailHeaderProps {
   /** 54px square — an icon, initials circle, or similar entity mark. */
   entityMark: ReactNode;
   title: string;
-  /** The business key (e.g. customer number), rendered in mono. */
+  /** The business key (e.g. contact number), rendered in mono. */
   businessKey: string;
   /** Status/type badge row, rendered directly below the title. */
   badges?: ReactNode;
@@ -49,8 +49,8 @@ export interface DetailHeaderProps {
 
 /**
  * § UI/UX Core Principles — Detail Screens, "Identity header" row. "The
- * Customer 360 pattern generalises to every entity. Every detail screen
- * in the DMS has this shape" — so this carries no customer-specific
+ * Contact 360 pattern generalises to every entity. Every detail screen
+ * in the DMS has this shape" — so this carries no contact-specific
  * knowledge; the caller supplies the entity mark, title, key and badges.
  */
 export function DetailHeader({

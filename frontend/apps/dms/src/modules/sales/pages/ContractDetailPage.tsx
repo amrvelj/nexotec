@@ -15,11 +15,11 @@ import {
 } from '@nexotec/ui-kit'
 import { api, ApiError } from '../../../api/client'
 import {
-  DealCustomerContainer,
+  DealContactContainer,
   DealPricingContainer,
   DealTradeInContainer,
   DealVehicleContainer,
-  useDealCustomer,
+  useDealContact,
 } from '../components/deal-workspace/DealWorkspaceContainers'
 import { SalesDocumentsSection } from '../components/SalesDocumentsSection'
 import { RequestInvoiceDialog, type RequestInvoiceBody } from '../components/contract-detail/RequestInvoiceDialog'
@@ -27,7 +27,7 @@ import { DealOwnerSelect } from '../components/deal-workspace/DealOwnerSelect'
 import { InventoryNumberLink } from '../components/deal-workspace/InventoryNumberLink'
 import { buildDealTakeOverAction } from '../components/dealRowMenu'
 import { useAuth } from '../../../auth/AuthContext'
-import { CustomerDetailContent } from '../../customer'
+import { ContactDetailContent } from '../../contact'
 import { StockDetailContent } from '../../stock'
 import { useIdempotencyKey } from '../../../hooks/useIdempotencyKey'
 import { useDealSaveQueue } from '../../../shared/useSaveQueue'
@@ -61,7 +61,7 @@ export interface ContractDetailContentProps {
  * this same shell in PR-7/8.
  *
  * KAN-67 (ADR-083) — while the contract is pending, the offer workspace's
- * own customer (since KAN-307, ADR-083 amended), vehicle, price build-up
+ * own contact (since KAN-307, ADR-083 amended), vehicle, price build-up
  * and trade-in containers complete or adjust it in place. Confirming
  * freezes it: the containers are gone and the server refuses any edit. A
  * contract without a buyer cannot be confirmed (KAN-307).
@@ -107,7 +107,7 @@ export function ContractDetailContent({ contractId: id, embedded = false }: Cont
 
   // KAN-307 — the buyer's record, for its do-not-contact state (the server
   // refuses that confirmation; the button says so first).
-  const buyer = useDealCustomer(contractQuery.data?.customerId).data ?? null
+  const buyer = useDealContact(contractQuery.data?.contactId).data ?? null
 
   // KAN-288 / KAN-314 — every save (autosave PATCH, line items, trade-in)
   // runs through one queue: one after the other, each with the version the
@@ -133,10 +133,10 @@ export function ContractDetailContent({ contractId: id, embedded = false }: Cont
       if (details.reason === 'contract_not_pending') return t('contractDetail.errors.editRefused.notPending')
       if (details.reason === 'contract_priced_without_inputs') return t('contractDetail.edit.pricedWithoutInputs')
     }
-    // KAN-656: the buyer chosen was merged into another; the customer
+    // KAN-656: the buyer chosen was merged into another; the contact
     // container offers the survivor.
-    if (err instanceof ApiError && err.status === 409 && err.details?.reason === 'customer_merged') {
-      return t('offerWorkspace.customer.mergedRefused')
+    if (err instanceof ApiError && err.status === 409 && err.details?.reason === 'contact_merged') {
+      return t('offerWorkspace.contact.mergedRefused')
     }
     return t('contractDetail.errors.editRefused.generic')
   }
@@ -153,11 +153,11 @@ export function ContractDetailContent({ contractId: id, embedded = false }: Cont
     }
   }
 
-  // Confirmation is refused (409) for a customer the dealership may not
+  // Confirmation is refused (409) for a contact the dealership may not
   // contact, may not extend credit to (FR-S-24), or whose address it does
   // not have (D-20 / KAN-55); or the page is stale (If-Match version
   // conflict). The backend names a machine-readable `details.reason` for
-  // the customer guards; the English message it also sends is never shown
+  // the contact guards; the English message it also sends is never shown
   // — the localised sentence is built here, and an unknown 409 falls back
   // to the localised generic, never the backend string.
   const confirmRefusalMessage = (err: unknown): string => {
@@ -166,14 +166,14 @@ export function ContractDetailContent({ contractId: id, embedded = false }: Cont
     }
     const details = (err.details ?? {}) as Record<string, unknown>
     if (details.currentVersion != null) {
-      // check_version fires before the customer guards — a contract
+      // check_version fires before the contact guards — a contract
       // confirmed / cancelled in another tab, not yet refetched here.
       void contractQuery.refetch()
       return t('contractDetail.errors.confirmRefused.staleVersion')
     }
     switch (details.reason) {
-      case 'missing_customer':
-        return t('contractDetail.errors.confirmRefused.missingCustomer')
+      case 'missing_contact':
+        return t('contractDetail.errors.confirmRefused.missingContact')
       case 'missing_address':
         return t('contractDetail.errors.confirmRefused.missingAddress')
       case 'missing_vehicle':
@@ -281,7 +281,7 @@ export function ContractDetailContent({ contractId: id, embedded = false }: Cont
   const businessKey = contract.offerNumber ? `${contract.contractNumber} ← ${contract.offerNumber}` : contract.contractNumber
   const isPending = contract.status === 'pending'
   const isTerminal = contract.status === 'cancelled' || contract.status === 'invoiced'
-  // KAN-66 (G-67) — a contract born from a customer with no offer
+  // KAN-66 (G-67) — a contract born from a contact with no offer
   // (KAN-58) has no vehicle and no price. Mirror the backend's own
   // completeness guard here (ADR-061: don't invite a click that will only
   // be refused) rather than waiting for the 409 to say so.
@@ -289,8 +289,8 @@ export function ContractDetailContent({ contractId: id, embedded = false }: Cont
   // one is refused, as on the server.
   const isEmpty = contract.vehicleSource == null || contract.grossPrice == null
   // KAN-307 (Anto, 2026-10-12) — never signed without a buyer; mirrors the
-  // server's `missing_customer` refusal.
-  const hasNoBuyer = contract.customerId == null
+  // server's `missing_contact` refusal.
+  const hasNoBuyer = contract.contactId == null
   const buyerDoNotContact = buyer?.lifecycleStatus === 'do_not_contact'
   // A contract priced before contracts kept their pricing inputs: its
   // figures stand, but the server refuses to rebuild them (409
@@ -344,11 +344,11 @@ export function ContractDetailContent({ contractId: id, embedded = false }: Cont
   }
   // ADR-059 — the buyer's and the stock record open over the contract, never
   // instead of it.
-  const openCustomerOverlay = () => {
-    if (!contract.customerId) return
+  const openContactOverlay = () => {
+    if (!contract.contactId) return
     overlay.push({
-      key: `customer-overlay-${contract.customerId}`,
-      content: <CustomerDetailContent customerId={contract.customerId} embedded />,
+      key: `contact-overlay-${contract.contactId}`,
+      content: <ContactDetailContent contactId={contract.contactId} embedded />,
     })
   }
   const openStockItemOverlay = () => {
@@ -461,9 +461,9 @@ export function ContractDetailContent({ contractId: id, embedded = false }: Cont
       {contract.financing && <Text size="sm" c="dimmed">{t('contractDetail.financing')}: {t(`salesEnums.financing.${contract.financing}`)}</Text>}
 
       {/* KAN-315 (Anto, 2026-10-12) — its price stays as it stands, but one
-          without a buyer may be given one: the customer container alone,
+          without a buyer may be given one: the contact container alone,
           never the vehicle, price or trade-in. The server takes a PATCH of
-          the customer only, for a contract that has none. */}
+          the contact only, for a contract that has none. */}
       {isPending && pricedWithoutInputs && (
         <Stack gap="md" data-testid="contract-priced-without-inputs">
           <Alert color="gray">
@@ -475,7 +475,7 @@ export function ContractDetailContent({ contractId: id, embedded = false }: Cont
             </Alert>
           )}
           {ownerSelect}
-          <DealCustomerContainer ownerType="contract" deal={contract} patch={patchContract} onOpenCustomer={openCustomerOverlay} />
+          <DealContactContainer ownerType="contract" deal={contract} patch={patchContract} onOpenContact={openContactOverlay} />
         </Stack>
       )}
 
@@ -506,7 +506,7 @@ export function ContractDetailContent({ contractId: id, embedded = false }: Cont
             </Alert>
           )}
           {ownerSelect}
-          <DealCustomerContainer ownerType="contract" deal={contract} patch={patchContract} onOpenCustomer={openCustomerOverlay} />
+          <DealContactContainer ownerType="contract" deal={contract} patch={patchContract} onOpenContact={openContactOverlay} />
           <DealVehicleContainer {...containerProps} onOpenStockItem={openStockItemOverlay} />
           <DealPricingContainer {...containerProps} onOpenStockItem={openStockItemOverlay} onUnsavedChange={setPricingUnsaved} />
           <DealTradeInContainer {...containerProps} />

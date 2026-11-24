@@ -159,12 +159,12 @@ def test_the_footers_move_into_the_library_and_come_back_on_downgrade(scratch_ur
             def footers(dealership_id: uuid.UUID, language: str) -> tuple[str | None, str | None]:
                 offer = SalesOffer(
                     tenant_id=dealership_id, offer_number=f"O-{uuid.uuid4().hex[:6]}", status=OfferStatus.OPEN,
-                    customer_label="Peter Beispiel", vehicle_label="VW Golf GTI", customer_language=language,
+                    contact_label="Peter Beispiel", vehicle_label="VW Golf GTI", contact_language=language,
                 )
                 contract = SalesContract(
                     tenant_id=dealership_id, contract_number=f"C-{uuid.uuid4().hex[:6]}",
-                    status=ContractStatus.PENDING, customer_label="Peter Beispiel", vehicle_source="manual",
-                    vehicle_label="VW Golf GTI", gross_price=Decimal("36000.00"), customer_language=language,
+                    status=ContractStatus.PENDING, contact_label="Peter Beispiel", vehicle_source="manual",
+                    vehicle_label="VW Golf GTI", gross_price=Decimal("36000.00"), contact_language=language,
                 )
                 session.add_all([offer, contract])
                 session.flush()

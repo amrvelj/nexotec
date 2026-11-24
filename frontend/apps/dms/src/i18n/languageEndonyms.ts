@@ -5,7 +5,7 @@ import type { Language } from '../api/types'
 // This is the one ruled exception to "no hardcoded user-visible string"
 // (.claude/rules/ui-i18n.md): an endonym reads the same in every UI language,
 // so it has no translation to look up. Every screen that names one of the four
-// languages as a reference-data column or a customer's correspondence language
+// languages as a reference-data column or a contact's correspondence language
 // takes it from here; a second literal list is the defect this file removes.
 export const LANGUAGE_ENDONYMS: Readonly<Record<Language, string>> = {
   de: 'Deutsch',

@@ -40,7 +40,7 @@ register_exporters()
 # KAN-223: every context's status-page contribution, so the status page asks
 # the registry (app.core.status) and imports no context itself.
 register_status_providers()
-# KAN-217: every module's customer message types, so the send dialog asks
+# KAN-217: every module's contact message types, so the send dialog asks
 # platform's registry and platform imports no module.
 register_message_types()
 

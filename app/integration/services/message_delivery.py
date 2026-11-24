@@ -1,16 +1,16 @@
 """`deliver_message` (KAN-217 PR-5; D-A-41, FR-A-51–54, A-RULE-10; ADR-204) —
-the one door a customer message leaves Nexotec through, on every channel.
+the one door a contact message leaves Nexotec through, on every channel.
 
 The module that owns the document (Sales today) reads the recipient and the
-consent verdict from `customer.public.message_recipient`, renders the text
+consent verdict from `contact.public.message_recipient`, renders the text
 through `platform.public.render_standard_text`, and hands both here. This
 function:
 
 1. **refuses without a verdict** — the verdict's channel and purpose must be
    the message's, and a refused verdict is 409 `recipient_refused` with the
-   verdict's own reason. Consent is decided in Customers and never stubbed:
+   verdict's own reason. Consent is decided in Contacts and never stubbed:
    an architecture test holds every call site in `app/` to pass a verdict it
-   took from `message_recipient` (`test_kan217_delivery_takes_customers_verdict.py`);
+   took from `message_recipient` (`test_kan217_delivery_takes_contacts_verdict.py`);
 2. **refuses a channel the type is not sent on** (422 `channel_not_offered`);
 3. **e-mail** — sends from the resolved mailbox (`mail_sending`, KAN-215: the
    author's own, else the Betrieb's shared one, else a 409 naming both
@@ -19,7 +19,7 @@ function:
    `messaging_not_connected`, before anything is written), the text with the
    secure link on its own line (the caller appends it);
 5. **WhatsApp** — an **approved template only** (FR-A-54). The 24-hour
-   customer-service window opens only when the customer writes in, and
+   customer-service window opens only when the contact writes in, and
    Nexotec receives no inbound message yet, so every send is outside it: no
    approved template → 409 `whatsapp_template_not_approved`, free text is
    never sent;
@@ -52,7 +52,7 @@ from app.integration.adapters.messaging_base import (
 )
 from app.integration.models.mail import DeliveryChannel, DeliveryStatus, MessageDelivery
 from app.integration.services import messaging
-from app.integration.services.mail_sending import DeliveryRecord, failure_code_of, send_customer_mail
+from app.integration.services.mail_sending import DeliveryRecord, failure_code_of, send_contact_mail
 from app.platform.public import MessageChannel, get_message_type
 
 logger = logging.getLogger(__name__)
@@ -61,16 +61,16 @@ RECIPIENT_REFUSED = "recipient_refused"
 CHANNEL_NOT_OFFERED = "channel_not_offered"
 WHATSAPP_TEMPLATE_NOT_APPROVED = "whatsapp_template_not_approved"
 MESSAGE_INVALID = "message_invalid"
-# `integration_message_delivery.customer_label` (a first and a last name may be 201 characters).
+# `integration_message_delivery.contact_label` (a first and a last name may be 201 characters).
 LABEL_MAX = 200
 
 
 class ConsentVerdict(Protocol):
-    """The shape of `customer.public.MessageRecipient`: integration sits below
-    Customers (ADR-131), so it names the fields it reads, never the class."""
+    """The shape of `contact.public.MessageRecipient`: integration sits below
+    Contacts (ADR-131), so it names the fields it reads, never the class."""
 
     @property
-    def customer_id(self) -> uuid.UUID: ...
+    def contact_id(self) -> uuid.UUID: ...
     @property
     def channel(self) -> Any: ...
     @property
@@ -96,13 +96,13 @@ class WhatsAppTemplate:
 
 
 def refuse_unless_allowed(*, recipient: ConsentVerdict) -> None:
-    """Customers' verdict, enforced: 409 `recipient_refused` with its own
+    """Contacts' verdict, enforced: 409 `recipient_refused` with its own
     reason. The caller asks this first, straight after reading the verdict, so
-    a refused customer is told so before any other answer."""
+    a refused contact is told so before any other answer."""
 
     if not recipient.allowed or not recipient.address:
         raise ConflictError(
-            "This customer cannot be sent this message on this channel.",
+            "This contact cannot be sent this message on this channel.",
             details={
                 "reason": RECIPIENT_REFUSED,
                 "refusal": recipient.refusal,
@@ -209,7 +209,7 @@ def deliver_message(
     document_link_id: uuid.UUID | None = None,
     link_url: str | None = None,
 ) -> DeliveryRecord:
-    """One message to one customer (the module docstring). `text` is what the
+    """One message to one contact (the module docstring). `text` is what the
     delivery record keeps; `link_url` (SMS, WhatsApp) is added to the message
     only — the raw token is never stored (ADR-193). Raises its refusals
     before anything is written; afterwards it answers, never raises: the
@@ -227,7 +227,7 @@ def deliver_message(
     if channel == MessageChannel.EMAIL:
         if not subject:
             raise ValueError("An e-mail needs a subject.")
-        return send_customer_mail(
+        return send_contact_mail(
             db,
             dealership_id=tenant_id,
             author_user_id=author_user_id,
@@ -237,8 +237,8 @@ def deliver_message(
             subject=subject,
             body_text=text,
             attachments=attachments,
-            customer_id=recipient.customer_id,
-            customer_label=recipient.display_name[:LABEL_MAX],
+            contact_id=recipient.contact_id,
+            contact_label=recipient.display_name[:LABEL_MAX],
         )
 
     messaging_channel = MessagingChannel(channel.value)
@@ -309,9 +309,9 @@ def _send_on_own_session(
             document_type=message_type,
             document_id=document_id,
             document_link_id=document_link_id,
-            customer_id=recipient.customer_id,
-            customer_label=recipient.display_name[:LABEL_MAX],
-            customer_label_refreshed_at=now,
+            contact_id=recipient.contact_id,
+            contact_label=recipient.display_name[:LABEL_MAX],
+            contact_label_refreshed_at=now,
             author_user_id=author_user_id,
             status=DeliveryStatus.FAILED if failure is not None else DeliveryStatus.SENT,
             failure_code=failure_code_of(failure) if failure is not None else None,

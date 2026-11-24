@@ -44,9 +44,9 @@
       "keeper": "Keeper",
       "driver": "Driver"
     },
-    "searchCustomer": "Search customer…",
-    "noCustomers": "No customers found",
-    "unnamedCustomer": "Unnamed customer",
+    "searchContact": "Search customer…",
+    "noContacts": "No customers found",
+    "unnamedContact": "Unnamed customer",
     "showFormer": "Show former parties",
     "hideFormer": "Hide former parties",
     "allocateError": "The customer could not be allocated.",

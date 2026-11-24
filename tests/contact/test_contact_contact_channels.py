@@ -1,0 +1,1343 @@
+"""Contact channels become child records (WP-3 PR-5, ADR-067, Contacts
+FR-07): ContactAddress CRUD, the six read-model projections, the FR-03
+"usable contact point" amendment, and merge behaviour across all three
+contact-channel tables. Per-(contact, type) primary defaulting itself is
+covered in test_contact.py alongside the rest of ContactPhone/Email —
+this file is scoped to what's new in PR-5.
+"""
+
+import uuid
+
+import pytest
+
+from app.core.auth import AccessRole, create_access_token
+from tests.dealership_support import valid_uid
+from tests.token_support import dealer_group_of
+
+
+def _token(
+    role: AccessRole | None = None,
+    tenant_id: uuid.UUID | None = None,
+    *,
+    is_dealer_manager: bool = False,
+) -> str:
+    _tid = tenant_id or uuid.uuid4()
+    return create_access_token(
+        user_id=uuid.uuid4(),
+        tenant_id=_tid,
+        group_id=dealer_group_of(str(_tid)),
+        roles=frozenset({role}) if role is not None else frozenset(),
+        is_dealer_manager=is_dealer_manager,
+    )
+
+
+def _bearer(token: str) -> dict[str, str]:
+    return {"Authorization": f"Bearer {token}"}
+
+
+def _create_dealer(client) -> str:
+    token = _token(AccessRole.PLATFORM_ADMIN)
+    payload = {
+        "legalName": "Garage Musterbetrieb AG",
+        "franchiseType": "independent",
+        "address": {
+            "street": "Bahnhofstrasse", "houseNumber": "1", "postalCode": "8001",
+            "locality": "Zürich", "canton": "ZH",
+        },
+        "phone": "+41441234567",
+        "uid": valid_uid(),
+    }
+    response = client.post("/v1/dealerships", json=payload, headers=_bearer(token))
+    assert response.status_code == 201, response.text
+    return response.json()["id"]
+
+
+def _create_contact(client, dealer_id: str, **overrides) -> dict:
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
+    payload = {
+        "firstName": "Anna",
+        "lastName": "Muster",
+        "language": "de",
+        "emails": [{"emailType": "personal", "emailAddress": f"anna-{uuid.uuid4().hex[:8]}@example.ch"}],
+    }
+    payload.update(overrides)
+    response = client.post("/v1/contacts", json=payload, headers=_bearer(token))
+    assert response.status_code == 201, response.text
+    return response.json()
+
+
+# --- ContactAddress CRUD -----------------------------------------------------
+
+
+def test_first_address_of_a_type_is_auto_primary(client):
+    dealer_id = _create_dealer(client)
+    contact = _create_contact(client, dealer_id)
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
+    response = client.post(
+        f"/v1/contacts/{contact['id']}/addresses",
+        json={
+            "addressType": "domicile", "addressStreet": "Marktgasse", "addressHouseNumber": "10",
+            "addressPostalCode": "3011", "addressLocality": "Bern",
+        },
+        headers=_bearer(token),
+    )
+    assert response.status_code == 201, response.text
+    assert response.json()["isPrimary"] is True
+
+
+def test_domicile_and_billing_addresses_can_both_be_primary(client):
+    """Per-type primary (ADR-067) — different types don't compete."""
+
+    dealer_id = _create_dealer(client)
+    contact = _create_contact(client, dealer_id)
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
+    domicile = client.post(
+        f"/v1/contacts/{contact['id']}/addresses",
+        json={
+            "addressType": "domicile", "addressStreet": "Marktgasse", "addressHouseNumber": "10",
+            "addressPostalCode": "3011", "addressLocality": "Bern",
+        },
+        headers=_bearer(token),
+    ).json()
+    billing = client.post(
+        f"/v1/contacts/{contact['id']}/addresses",
+        json={
+            "addressType": "billing", "addressStreet": "Postfach", "addressHouseNumber": "1",
+            "addressPostalCode": "8001", "addressLocality": "Zürich",
+        },
+        headers=_bearer(token),
+    ).json()
+    assert domicile["isPrimary"] is True
+    assert billing["isPrimary"] is True
+
+
+def test_update_and_delete_contact_address(client):
+    dealer_id = _create_dealer(client)
+    contact = _create_contact(client, dealer_id)
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
+    address = client.post(
+        f"/v1/contacts/{contact['id']}/addresses",
+        json={
+            "addressType": "domicile", "addressStreet": "Marktgasse", "addressHouseNumber": "10",
+            "addressPostalCode": "3011", "addressLocality": "Bern",
+        },
+        headers=_bearer(token),
+    ).json()
+
+    update = client.patch(
+        f"/v1/contacts/{contact['id']}/addresses/{address['id']}",
+        json={"addressLocality": "Ostermundigen"},
+        headers=_bearer(token),
+    )
+    assert update.status_code == 200, update.text
+    assert update.json()["addressLocality"] == "Ostermundigen"
+
+    delete = client.delete(
+        f"/v1/contacts/{contact['id']}/addresses/{address['id']}", headers=_bearer(token)
+    )
+    assert delete.status_code == 204
+
+    listed = client.get(f"/v1/contacts/{contact['id']}/addresses", headers=_bearer(token)).json()["items"]
+    assert listed == []
+
+
+def test_address_line2_is_optional_and_exempt_from_all_or_nothing(client):
+    """FR-17 (2026-08-21) — c/o/department/building/PO box. Creatable
+    without it, settable and clearable afterwards, and never required
+    alongside the other address sub-fields."""
+
+    dealer_id = _create_dealer(client)
+    contact = _create_contact(client, dealer_id)
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
+
+    created = client.post(
+        f"/v1/contacts/{contact['id']}/addresses",
+        json={
+            "addressType": "domicile", "addressStreet": "Marktgasse", "addressHouseNumber": "10",
+            "addressPostalCode": "3011", "addressLocality": "Bern",
+        },
+        headers=_bearer(token),
+    )
+    assert created.status_code == 201, created.text
+    assert created.json()["addressLine2"] is None
+
+    with_line2 = client.post(
+        f"/v1/contacts/{contact['id']}/addresses",
+        json={
+            "addressType": "billing", "addressStreet": "Postfach", "addressLine2": "c/o Muster Treuhand AG",
+            "addressHouseNumber": "1", "addressPostalCode": "8001", "addressLocality": "Zürich",
+        },
+        headers=_bearer(token),
+    )
+    assert with_line2.status_code == 201, with_line2.text
+    assert with_line2.json()["addressLine2"] == "c/o Muster Treuhand AG"
+
+    update = client.patch(
+        f"/v1/contacts/{contact['id']}/addresses/{created.json()['id']}",
+        json={"addressLine2": "Postfach 42"},
+        headers=_bearer(token),
+    )
+    assert update.status_code == 200, update.text
+    assert update.json()["addressLine2"] == "Postfach 42"
+
+    cleared = client.patch(
+        f"/v1/contacts/{contact['id']}/addresses/{created.json()['id']}",
+        json={"addressLine2": None},
+        headers=_bearer(token),
+    )
+    assert cleared.status_code == 200, cleared.text
+    assert cleared.json()["addressLine2"] is None
+
+
+def test_address_cross_tenant_is_404(client):
+    dealer_a = _create_dealer(client)
+    dealer_b = _create_dealer(client)
+    contact = _create_contact(client, dealer_a)
+    token_a = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_a))
+    address = client.post(
+        f"/v1/contacts/{contact['id']}/addresses",
+        json={
+            "addressType": "domicile", "addressStreet": "Marktgasse", "addressHouseNumber": "10",
+            "addressPostalCode": "3011", "addressLocality": "Bern",
+        },
+        headers=_bearer(token_a),
+    ).json()
+
+    # No single-resource GET exists for an address (same convention as
+    # phone/email — only list/PATCH/DELETE), so the cross-tenant check goes
+    # through PATCH, which is group-scoped via get_contact_address_or_404.
+    token_b = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_b))
+    response = client.patch(
+        f"/v1/contacts/{contact['id']}/addresses/{address['id']}",
+        json={"label": "should not reach this row"},
+        headers=_bearer(token_b),
+    )
+    assert response.status_code == 404
+
+
+# --- six read-model projections (ADR-067) -------------------------------------
+
+
+def test_six_projections_reflect_primary_rows_per_type(client):
+    dealer_id = _create_dealer(client)
+    contact = _create_contact(
+        client,
+        dealer_id,
+        emails=[{"emailType": "personal", "emailAddress": "personal@example.ch"}],
+    )
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
+
+    client.post(
+        f"/v1/contacts/{contact['id']}/phones",
+        json={"phoneType": "mobile", "phoneE164": "+41791111111"},
+        headers=_bearer(token),
+    )
+    client.post(
+        f"/v1/contacts/{contact['id']}/phones",
+        json={"phoneType": "landline", "phoneE164": "+41449998877"},
+        headers=_bearer(token),
+    )
+    client.post(
+        f"/v1/contacts/{contact['id']}/emails",
+        json={"emailType": "work", "emailAddress": "work@example.ch"},
+        headers=_bearer(token),
+    )
+    client.post(
+        f"/v1/contacts/{contact['id']}/addresses",
+        json={
+            "addressType": "domicile", "addressStreet": "Marktgasse", "addressHouseNumber": "10",
+            "addressPostalCode": "3011", "addressLocality": "Bern",
+        },
+        headers=_bearer(token),
+    )
+
+    body = client.get(f"/v1/contacts/{contact['id']}", headers=_bearer(token)).json()
+    assert body["phoneMobile"] == "+41791111111"
+    assert body["phoneLandline"] == "+41449998877"
+    assert body["phoneWork"] is None
+    assert body["email"] == "personal@example.ch"
+    assert body["emailSecondary"] == "work@example.ch"
+    assert body["address"]["addressLocality"] == "Bern"
+
+
+def test_projections_appear_in_list_view_too(client):
+    dealer_id = _create_dealer(client)
+    contact = _create_contact(client, dealer_id)
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
+    client.post(
+        f"/v1/contacts/{contact['id']}/phones",
+        json={"phoneType": "mobile", "phoneE164": "+41791111111"},
+        headers=_bearer(token),
+    )
+
+    items = client.get("/v1/contacts", headers=_bearer(token)).json()["items"]
+    listed = next(c for c in items if c["id"] == contact["id"])
+    assert listed["phoneMobile"] == "+41791111111"
+
+
+def test_closed_row_with_no_survivor_of_type_empties_its_projection(client):
+    """valid_to marks a row closed — it drops out of the six projections
+    (ADR-067). When it was the only row of its type, the projection is
+    simply null: KAN-46 re-election elects nothing rather than forcing a
+    dead row to stay primary.
+    """
+
+    dealer_id = _create_dealer(client)
+    contact = _create_contact(client, dealer_id)
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
+    phone = client.post(
+        f"/v1/contacts/{contact['id']}/phones",
+        json={"phoneType": "mobile", "phoneE164": "+41791111111"},
+        headers=_bearer(token),
+    ).json()
+    # A usable email keeps FR-03 satisfied, so closing the only mobile is allowed.
+    client.patch(
+        f"/v1/contacts/{contact['id']}/phones/{phone['id']}",
+        json={"validTo": "2020-01-01T00:00:00Z"},
+        headers=_bearer(token),
+    )
+
+    body = client.get(f"/v1/contacts/{contact['id']}", headers=_bearer(token)).json()
+    assert body["phoneMobile"] is None
+
+
+# --- FR-03 amendment: only a USABLE contact point counts (ADR-067) -----------
+
+
+def test_closing_the_last_usable_email_is_rejected(client):
+    dealer_id = _create_dealer(client)
+    contact = _create_contact(client, dealer_id)
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
+    only_email = client.get(f"/v1/contacts/{contact['id']}/emails", headers=_bearer(token)).json()["items"][0]
+
+    response = client.patch(
+        f"/v1/contacts/{contact['id']}/emails/{only_email['id']}",
+        json={"validTo": "2020-01-01T00:00:00Z"},
+        headers=_bearer(token),
+    )
+    assert response.status_code == 400
+    assert response.json()["error"]["details"] == {"reason": "last_usable_contact_point"}
+
+
+def test_marking_the_last_usable_phone_do_not_use_is_rejected(client):
+    dealer_id = _create_dealer(client)
+    contact = _create_contact(
+        client, dealer_id, emails=[], phones=[{"phoneType": "mobile", "phoneE164": "+41791234567"}]
+    )
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
+    only_phone = client.get(f"/v1/contacts/{contact['id']}/phones", headers=_bearer(token)).json()["items"][0]
+
+    response = client.patch(
+        f"/v1/contacts/{contact['id']}/phones/{only_phone['id']}",
+        json={"doNotUse": True, "doNotUseReason": "bounced"},
+        headers=_bearer(token),
+    )
+    assert response.status_code == 400
+    assert response.json()["error"]["details"] == {"reason": "last_usable_contact_point"}
+
+
+def test_closing_an_email_is_allowed_when_a_usable_phone_remains(client):
+    dealer_id = _create_dealer(client)
+    contact = _create_contact(
+        client, dealer_id, phones=[{"phoneType": "mobile", "phoneE164": "+41791234567"}]
+    )
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
+    only_email = client.get(f"/v1/contacts/{contact['id']}/emails", headers=_bearer(token)).json()["items"][0]
+
+    response = client.patch(
+        f"/v1/contacts/{contact['id']}/emails/{only_email['id']}",
+        json={"validTo": "2020-01-01T00:00:00Z"},
+        headers=_bearer(token),
+    )
+    assert response.status_code == 200, response.text
+
+
+# KAN-330: the guard counts the OTHER usable rows, and only a usable row can
+# be "the last usable" one. Each case: one usable email, plus one dead phone.
+
+
+def _contact_with_one_usable_email_and_a_phone(client):
+    dealer_id = _create_dealer(client)
+    contact = _create_contact(
+        client, dealer_id, phones=[{"phoneType": "mobile", "phoneE164": "+41791234567"}]
+    )
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
+    base = f"/v1/contacts/{contact['id']}"
+    phone = client.get(f"{base}/phones", headers=_bearer(token)).json()["items"][0]
+    email = client.get(f"{base}/emails", headers=_bearer(token)).json()["items"][0]
+    return token, base, phone, email
+
+
+def test_closing_a_do_not_use_phone_beside_one_usable_email_is_allowed(client):
+    token, base, phone, _ = _contact_with_one_usable_email_and_a_phone(client)
+    flagged = client.patch(
+        f"{base}/phones/{phone['id']}", json={"doNotUse": True, "doNotUseReason": "bounced"}, headers=_bearer(token)
+    )
+    assert flagged.status_code == 200, flagged.text
+
+    closed = client.patch(f"{base}/phones/{phone['id']}", json={"validTo": "2020-01-01T00:00:00Z"}, headers=_bearer(token))
+    assert closed.status_code == 200, closed.text
+
+
+def test_flagging_a_closed_phone_do_not_use_beside_one_usable_email_is_allowed(client):
+    token, base, phone, _ = _contact_with_one_usable_email_and_a_phone(client)
+    closed = client.patch(f"{base}/phones/{phone['id']}", json={"validTo": "2020-01-01T00:00:00Z"}, headers=_bearer(token))
+    assert closed.status_code == 200, closed.text
+
+    flagged = client.patch(
+        f"{base}/phones/{phone['id']}", json={"doNotUse": True, "doNotUseReason": "number given up"},
+        headers=_bearer(token),
+    )
+    assert flagged.status_code == 200, flagged.text
+
+
+def test_deleting_a_dead_phone_beside_one_usable_email_is_allowed(client):
+    token, base, phone, _ = _contact_with_one_usable_email_and_a_phone(client)
+    closed = client.patch(f"{base}/phones/{phone['id']}", json={"validTo": "2020-01-01T00:00:00Z"}, headers=_bearer(token))
+    assert closed.status_code == 200, closed.text
+
+    deleted = client.delete(f"{base}/phones/{phone['id']}", headers=_bearer(token))
+    assert deleted.status_code == 204, deleted.text
+    assert client.get(f"{base}/phones", headers=_bearer(token)).json()["items"] == []
+
+
+def test_deleting_a_dead_email_beside_one_usable_phone_is_allowed(client):
+    token, base, _, email = _contact_with_one_usable_email_and_a_phone(client)
+    flagged = client.patch(
+        f"{base}/emails/{email['id']}", json={"doNotUse": True, "doNotUseReason": "bounced"}, headers=_bearer(token)
+    )
+    assert flagged.status_code == 200, flagged.text
+
+    deleted = client.delete(f"{base}/emails/{email['id']}", headers=_bearer(token))
+    assert deleted.status_code == 204, deleted.text
+
+
+def test_removing_the_one_usable_row_beside_a_dead_one_is_still_rejected(client):
+    """The other half of KAN-330: with the phone dead, the email is the one
+    usable contact point — closing, flagging or deleting it stays a 400."""
+
+    token, base, phone, email = _contact_with_one_usable_email_and_a_phone(client)
+    flagged = client.patch(
+        f"{base}/phones/{phone['id']}", json={"doNotUse": True, "doNotUseReason": "bounced"}, headers=_bearer(token)
+    )
+    assert flagged.status_code == 200, flagged.text
+
+    closing = client.patch(f"{base}/emails/{email['id']}", json={"validTo": "2020-01-01T00:00:00Z"}, headers=_bearer(token))
+    flagging = client.patch(
+        f"{base}/emails/{email['id']}", json={"doNotUse": True, "doNotUseReason": "bounced"}, headers=_bearer(token)
+    )
+    deleting = client.delete(f"{base}/emails/{email['id']}", headers=_bearer(token))
+    assert [closing.status_code, flagging.status_code, deleting.status_code] == [400, 400, 400]
+    assert {r.json()["error"]["details"]["reason"] for r in (closing, flagging, deleting)} == {
+        "last_usable_contact_point"
+    }
+    assert "last usable email address" in deleting.json()["error"]["message"]
+
+
+# --- consent + do-not-use round trip ------------------------------------------
+
+
+def test_consent_and_do_not_use_fields_round_trip(client):
+    dealer_id = _create_dealer(client)
+    contact = _create_contact(
+        client, dealer_id, phones=[{"phoneType": "mobile", "phoneE164": "+41791234567"}]
+    )
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
+    only_email = client.get(f"/v1/contacts/{contact['id']}/emails", headers=_bearer(token)).json()["items"][0]
+
+    # FR-23 §1 (KAN-52): consent_source is a closed enum and a grant must
+    # name its scope.
+    assert (
+        client.patch(
+            f"/v1/contacts/{contact['id']}/emails/{only_email['id']}",
+            json={"consentGranted": True, "consentSource": "form"},  # no scope
+            headers=_bearer(token),
+        ).status_code
+        == 422
+    )
+    assert (
+        client.patch(
+            f"/v1/contacts/{contact['id']}/emails/{only_email['id']}",
+            json={"consentGranted": True, "consentScope": "marketing", "consentSource": "signup-form"},
+            headers=_bearer(token),
+        ).status_code
+        == 422  # free-text source rejected
+    )
+
+    response = client.patch(
+        f"/v1/contacts/{contact['id']}/emails/{only_email['id']}",
+        json={
+            "consentGranted": True,
+            "consentScope": "marketing",
+            "consentSource": "form",
+            "label": "Newsletter address",
+        },
+        headers=_bearer(token),
+    )
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["consentGranted"] is True
+    assert body["consentScope"] == "marketing"
+    assert body["consentSource"] == "form"
+    assert body["consentTimestamp"] is not None
+    assert body["label"] == "Newsletter address"
+
+
+# --- merge repoints addresses too ---------------------------------------------
+
+
+def test_merge_repoints_addresses(client):
+    dealer_id = _create_dealer(client)
+    survivor = _create_contact(client, dealer_id, email="survivor-addr@example.ch")
+    duplicate = _create_contact(client, dealer_id, email="dup-addr@example.ch")
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
+
+    client.post(
+        f"/v1/contacts/{duplicate['id']}/addresses",
+        json={
+            "addressType": "domicile", "addressStreet": "Dorfstrasse", "addressHouseNumber": "3",
+            "addressPostalCode": "3000", "addressLocality": "Bern",
+        },
+        headers=_bearer(token),
+    )
+
+    response = client.post(
+        f"/v1/contacts/{duplicate['id']}/merge",
+        json={"duplicateOfContactId": survivor["id"]},
+        headers={**_bearer(token), "If-Match": "1"},
+    )
+    assert response.status_code == 200, response.text
+
+    addresses = client.get(
+        f"/v1/contacts/{survivor['id']}/addresses", headers=_bearer(token)
+    ).json()["items"]
+    assert len(addresses) == 1
+    assert addresses[0]["addressLocality"] == "Bern"
+    assert addresses[0]["isPrimary"] is True
+
+    log = client.get(f"/v1/contacts/{duplicate['id']}/audit-log", headers=_bearer(token)).json()["items"]
+    merge_event = next(item for item in log if item["action"] == "merge")
+    assert merge_event["after"]["addressesRepointed"] == 1
+
+
+# --- KAN-46: re-elect the primary when the primary goes dead -----------------
+#
+# Layer 1 (re-elect on the write path) and Layer 2 (oldest-usable fallback in
+# the projection, PRD-Contacts FR-23 §2/§3).
+
+
+def _add_phone(client, token, contact_id, e164, phone_type="mobile"):
+    return client.post(
+        f"/v1/contacts/{contact_id}/phones",
+        json={"phoneType": phone_type, "phoneE164": e164},
+        headers=_bearer(token),
+    ).json()
+
+
+def _add_address(client, token, contact_id, street, postal="3000", locality="Bern", address_type="domicile"):
+    return client.post(
+        f"/v1/contacts/{contact_id}/addresses",
+        json={
+            "addressType": address_type, "addressStreet": street, "addressHouseNumber": "1",
+            "addressPostalCode": postal, "addressLocality": locality,
+        },
+        headers=_bearer(token),
+    ).json()
+
+
+def _projections(client, token, contact_id):
+    return client.get(f"/v1/contacts/{contact_id}", headers=_bearer(token)).json()
+
+
+def test_closing_primary_mobile_reelects_the_second_usable_one(client):
+    dealer_id = _create_dealer(client)
+    contact = _create_contact(client, dealer_id)
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
+    primary = _add_phone(client, token, contact["id"], "+41791111111")
+    second = _add_phone(client, token, contact["id"], "+41792222222")
+    assert primary["isPrimary"] is True and second["isPrimary"] is False
+
+    client.patch(
+        f"/v1/contacts/{contact['id']}/phones/{primary['id']}",
+        json={"validTo": "2020-01-01T00:00:00Z"},
+        headers=_bearer(token),
+    )
+
+    assert _projections(client, token, contact["id"])["phoneMobile"] == "+41792222222"
+    phones = client.get(f"/v1/contacts/{contact['id']}/phones", headers=_bearer(token)).json()["items"]
+    assert {p["phoneE164"]: p["isPrimary"] for p in phones} == {
+        "+41791111111": False,
+        "+41792222222": True,
+    }
+
+
+def test_flagging_primary_mobile_do_not_use_reelects(client):
+    dealer_id = _create_dealer(client)
+    contact = _create_contact(client, dealer_id)
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
+    primary = _add_phone(client, token, contact["id"], "+41791111111")
+    _add_phone(client, token, contact["id"], "+41792222222")
+
+    client.patch(
+        f"/v1/contacts/{contact['id']}/phones/{primary['id']}",
+        json={"doNotUse": True, "doNotUseReason": "number no longer in service"},
+        headers=_bearer(token),
+    )
+
+    assert _projections(client, token, contact["id"])["phoneMobile"] == "+41792222222"
+
+
+def test_deleting_primary_mobile_reelects(client):
+    dealer_id = _create_dealer(client)
+    contact = _create_contact(client, dealer_id)
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
+    primary = _add_phone(client, token, contact["id"], "+41791111111")
+    _add_phone(client, token, contact["id"], "+41792222222")
+
+    response = client.delete(
+        f"/v1/contacts/{contact['id']}/phones/{primary['id']}", headers=_bearer(token)
+    )
+    assert response.status_code in (200, 204), response.text
+
+    assert _projections(client, token, contact["id"])["phoneMobile"] == "+41792222222"
+
+
+def test_closing_the_only_mobile_leaves_projection_null_and_fr03_still_guards(client):
+    dealer_id = _create_dealer(client)
+    # personal email from the default payload keeps FR-03 satisfied.
+    contact = _create_contact(client, dealer_id)
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
+    only_mobile = _add_phone(client, token, contact["id"], "+41791111111")
+
+    ok = client.patch(
+        f"/v1/contacts/{contact['id']}/phones/{only_mobile['id']}",
+        json={"validTo": "2020-01-01T00:00:00Z"},
+        headers=_bearer(token),
+    )
+    assert ok.status_code == 200, ok.text
+    assert _projections(client, token, contact["id"])["phoneMobile"] is None
+
+    # FR-03 guard intact: the personal email is now the last usable point.
+    only_email = client.get(
+        f"/v1/contacts/{contact['id']}/emails", headers=_bearer(token)
+    ).json()["items"][0]
+    rejected = client.patch(
+        f"/v1/contacts/{contact['id']}/emails/{only_email['id']}",
+        json={"doNotUse": True, "doNotUseReason": "bounced"},
+        headers=_bearer(token),
+    )
+    assert rejected.status_code == 400
+
+
+def test_projection_falls_back_to_oldest_usable_when_none_flagged(client, db_session):
+    """A type-group history left with NO flagged primary (e.g. rows that
+    predate the KAN-46 write-path fix and were never repaired) still
+    projects the oldest usable row — FR-23 §2 layer 2, independent of
+    layer 1."""
+
+    import datetime as dt
+
+    from app.contact.models.contact import Contact, ContactPhone, PhoneType
+
+    dealer_id = _create_dealer(client)
+    contact = _create_contact(client, dealer_id)
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
+
+    row = db_session.get(Contact, uuid.UUID(contact["id"]))
+    base = dt.datetime(2024, 1, 1, tzinfo=dt.UTC)
+    for i, e164 in enumerate(("+41792222222", "+41791111111")):
+        db_session.add(
+            ContactPhone(
+                group_id=row.group_id,
+                contact_id=row.id,
+                phone_type=PhoneType.MOBILE,
+                phone_e164=e164,
+                phone_normalised=e164.lstrip("+"),
+                is_primary=False,
+                created_at=base + dt.timedelta(days=i),
+                updated_at=base + dt.timedelta(days=i),
+                created_by=uuid.uuid4(),
+                updated_by=uuid.uuid4(),
+            )
+        )
+    db_session.commit()
+
+    body = _projections(client, token, contact["id"])
+    assert body["phoneMobile"] == "+41792222222"  # the older created_at
+
+
+def test_business_contact_email_falls_back_to_work_row(client):
+    dealer_id = _create_dealer(client)
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
+    created = client.post(
+        "/v1/contacts",
+        json={
+            "contactType": "business",
+            "companyName": "Muster Logistik AG",
+            "language": "de",
+            "emails": [{"emailType": "work", "emailAddress": "office@muster-logistik.ch"}],
+        },
+        headers=_bearer(token),
+    )
+    assert created.status_code == 201, created.text
+    body = _projections(client, token, created.json()["id"])
+    assert body["email"] == "office@muster-logistik.ch"
+    assert body["emailSecondary"] is None
+
+
+def test_closing_primary_domicile_reelects_the_second_usable_address(client):
+    dealer_id = _create_dealer(client)
+    contact = _create_contact(client, dealer_id)
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
+    primary = _add_address(client, token, contact["id"], "Marktgasse", postal="3011", locality="Bern")
+    _add_address(client, token, contact["id"], "Spitalgasse", postal="3011", locality="Bern")
+
+    client.patch(
+        f"/v1/contacts/{contact['id']}/addresses/{primary['id']}",
+        json={"validTo": "2020-01-01T00:00:00Z"},
+        headers=_bearer(token),
+    )
+
+    body = _projections(client, token, contact["id"])
+    assert body["address"]["addressStreet"] == "Spitalgasse"
+    addresses = client.get(
+        f"/v1/contacts/{contact['id']}/addresses", headers=_bearer(token)
+    ).json()["items"]
+    assert {a["addressStreet"]: a["isPrimary"] for a in addresses} == {
+        "Marktgasse": False,
+        "Spitalgasse": True,
+    }
+
+
+def test_has_usable_domicile_address_tracks_the_address_projection(client, db_session):
+    """The contact.public predicate Sales' D-20 contract gate reads
+    (KAN-55). It must agree with `ContactRead.address` in every state —
+    both resolve through `_is_usable_row`."""
+
+    import datetime as dt
+
+    from app.core.base import utcnow
+    from app.contact.public import has_usable_domicile_address
+
+    dealer_id = _create_dealer(client)
+    contact = _create_contact(client, dealer_id)
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
+    cid = uuid.UUID(contact["id"])
+
+    # no address at all
+    assert has_usable_domicile_address(db_session, contact_id=cid) is False
+    assert _projections(client, token, contact["id"])["address"] is None
+
+    # a billing address does not count
+    _add_address(client, token, contact["id"], "Rechnungsweg", postal="3011", locality="Bern", address_type="billing")
+    assert has_usable_domicile_address(db_session, contact_id=cid) is False
+
+    # a usable domicile does — and the projection resolves too
+    domicile = _add_address(client, token, contact["id"], "Marktgasse", postal="3011", locality="Bern")
+    db_session.expire_all()
+    assert has_usable_domicile_address(db_session, contact_id=cid) is True
+    assert _projections(client, token, contact["id"])["address"] is not None
+
+    # closing it removes the only usable domicile
+    client.patch(
+        f"/v1/contacts/{contact['id']}/addresses/{domicile['id']}",
+        json={"validTo": "2020-01-01T00:00:00Z"},
+        headers=_bearer(token),
+    )
+    db_session.expire_all()
+    assert has_usable_domicile_address(db_session, contact_id=cid) is False
+    assert _projections(client, token, contact["id"])["address"] is None
+
+    # the one state where an is_primary-filtered check would diverge from
+    # the projection's oldest-usable fallback: usable domicile rows with
+    # NONE flagged primary (pre-KAN-46 / bulk-import shape). Written
+    # straight to the table so no re-election runs.
+    from app.contact.models.contact import AddressType, Contact, ContactAddress
+
+    row = db_session.get(Contact, cid)
+    for street in ("Kramgasse", "Junkerngasse"):
+        db_session.add(
+            ContactAddress(
+                group_id=row.group_id, contact_id=cid, address_type=AddressType.DOMICILE,
+                address_street=street, address_house_number="1", address_postal_code="3011",
+                address_locality="Bern", address_country="CH", is_primary=False,
+                created_by=uuid.uuid4(), updated_by=uuid.uuid4(),
+            )
+        )
+    db_session.commit()
+    db_session.expire_all()
+    assert has_usable_domicile_address(db_session, contact_id=cid) is True
+    assert _projections(client, token, contact["id"])["address"] is not None
+
+    # closing every usable domicile row empties both sides
+    for addr in db_session.query(ContactAddress).filter_by(contact_id=cid, address_type=AddressType.DOMICILE):
+        if addr.valid_to is None:
+            addr.valid_to = utcnow() - dt.timedelta(days=1)
+    db_session.commit()
+    db_session.expire_all()
+    assert has_usable_domicile_address(db_session, contact_id=cid) is False
+    assert _projections(client, token, contact["id"])["address"] is None
+
+
+# --- KAN-102: changing the type of a row keeps one primary per type-group ----
+#
+# ADR-067's invariant has two groups to settle when a row changes type: the
+# one it leaves (re-elect if the primary left) and the one it joins. Anto's
+# ruling (KAN-102, 2026-09-29): the joined group's existing primary stays
+# and the moved row is demoted, unless the same PATCH says `isPrimary: true`;
+# a moved primary joining a group with no primary stays primary.
+
+
+def _add_email(client, token, contact_id, address, email_type="personal"):
+    return client.post(
+        f"/v1/contacts/{contact_id}/emails",
+        json={"emailType": email_type, "emailAddress": address},
+        headers=_bearer(token),
+    ).json()
+
+
+def _primaries(client, token, contact_id, channel, type_key, value_key):
+    """{type: [values flagged primary]} — the invariant is one entry per list."""
+
+    items = client.get(f"/v1/contacts/{contact_id}/{channel}", headers=_bearer(token)).json()["items"]
+    groups: dict[str, list[str]] = {}
+    for item in items:
+        groups.setdefault(item[type_key], [])
+        if item["isPrimary"]:
+            groups[item[type_key]].append(item[value_key])
+    return groups
+
+
+@pytest.mark.parametrize("channel", ["phones", "emails"])
+def test_unsetting_the_primary_directly_is_rejected_with_its_reason(client, channel):
+    """KAN-472: `isPrimary: false` on the primary is refused with a stable
+    reason, so the SPA can say "mark a different one as primary" itself."""
+
+    dealer_id = _create_dealer(client)
+    contact = _create_contact(client, dealer_id)
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
+    if channel == "phones":
+        primary = _add_phone(client, token, contact["id"], "+41791111111")
+    else:
+        primary = client.get(f"/v1/contacts/{contact['id']}/emails", headers=_bearer(token)).json()["items"][0]
+    assert primary["isPrimary"] is True
+
+    response = client.patch(
+        f"/v1/contacts/{contact['id']}/{channel}/{primary['id']}",
+        json={"isPrimary": False},
+        headers=_bearer(token),
+    )
+    assert response.status_code == 400, response.text
+    assert response.json()["error"]["details"] == {"reason": "primary_unset_directly"}
+
+
+def test_moving_primary_phone_into_a_group_with_a_primary_keeps_that_primary(client):
+    dealer_id = _create_dealer(client)
+    contact = _create_contact(client, dealer_id)
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
+    moved = _add_phone(client, token, contact["id"], "+41791111111")
+    _add_phone(client, token, contact["id"], "+41792222222")
+    _add_phone(client, token, contact["id"], "+41443333333", phone_type="work")
+    assert moved["isPrimary"] is True
+
+    response = client.patch(
+        f"/v1/contacts/{contact['id']}/phones/{moved['id']}",
+        json={"phoneType": "work"},
+        headers=_bearer(token),
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["isPrimary"] is False
+
+    assert _primaries(client, token, contact["id"], "phones", "phoneType", "phoneE164") == {
+        "mobile": ["+41792222222"],
+        "work": ["+41443333333"],
+    }
+    body = _projections(client, token, contact["id"])
+    assert body["phoneMobile"] == "+41792222222"
+    assert body["phoneWork"] == "+41443333333"
+
+
+def test_moving_primary_phone_into_an_empty_group_stays_primary(client):
+    dealer_id = _create_dealer(client)
+    contact = _create_contact(client, dealer_id)
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
+    moved = _add_phone(client, token, contact["id"], "+41791111111")
+    _add_phone(client, token, contact["id"], "+41792222222")
+
+    response = client.patch(
+        f"/v1/contacts/{contact['id']}/phones/{moved['id']}",
+        json={"phoneType": "work"},
+        headers=_bearer(token),
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["isPrimary"] is True
+
+    assert _primaries(client, token, contact["id"], "phones", "phoneType", "phoneE164") == {
+        "mobile": ["+41792222222"],
+        "work": ["+41791111111"],
+    }
+
+
+def test_moving_primary_phone_with_is_primary_true_takes_over_the_new_group(client):
+    dealer_id = _create_dealer(client)
+    contact = _create_contact(client, dealer_id)
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
+    moved = _add_phone(client, token, contact["id"], "+41791111111")
+    _add_phone(client, token, contact["id"], "+41792222222")
+    _add_phone(client, token, contact["id"], "+41443333333", phone_type="work")
+
+    response = client.patch(
+        f"/v1/contacts/{contact['id']}/phones/{moved['id']}",
+        json={"phoneType": "work", "isPrimary": True},
+        headers=_bearer(token),
+    )
+    assert response.status_code == 200, response.text
+
+    assert _primaries(client, token, contact["id"], "phones", "phoneType", "phoneE164") == {
+        "mobile": ["+41792222222"],
+        "work": ["+41791111111"],
+    }
+
+
+def test_moving_a_non_primary_phone_into_an_empty_group_makes_it_primary(client):
+    dealer_id = _create_dealer(client)
+    contact = _create_contact(client, dealer_id)
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
+    _add_phone(client, token, contact["id"], "+41791111111")
+    moved = _add_phone(client, token, contact["id"], "+41792222222")
+    assert moved["isPrimary"] is False
+
+    response = client.patch(
+        f"/v1/contacts/{contact['id']}/phones/{moved['id']}",
+        json={"phoneType": "work"},
+        headers=_bearer(token),
+    )
+    assert response.status_code == 200, response.text
+
+    assert _primaries(client, token, contact["id"], "phones", "phoneType", "phoneE164") == {
+        "mobile": ["+41791111111"],
+        "work": ["+41792222222"],
+    }
+
+
+def test_moving_primary_email_keeps_one_primary_in_both_groups(client):
+    dealer_id = _create_dealer(client)
+    contact = _create_contact(client, dealer_id, emails=[{"emailType": "personal", "emailAddress": "anna@example.ch"}])
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
+    moved = client.get(f"/v1/contacts/{contact['id']}/emails", headers=_bearer(token)).json()["items"][0]
+    assert moved["isPrimary"] is True
+    _add_email(client, token, contact["id"], "anna.privat@example.ch")
+    _add_email(client, token, contact["id"], "anna@muster-ag.ch", email_type="work")
+
+    response = client.patch(
+        f"/v1/contacts/{contact['id']}/emails/{moved['id']}",
+        json={"emailType": "work"},
+        headers=_bearer(token),
+    )
+    assert response.status_code == 200, response.text
+
+    assert _primaries(client, token, contact["id"], "emails", "emailType", "emailAddress") == {
+        "personal": ["anna.privat@example.ch"],
+        "work": ["anna@muster-ag.ch"],
+    }
+
+
+def test_moving_and_closing_primary_email_in_one_patch_reelects_both_groups(client):
+    dealer_id = _create_dealer(client)
+    contact = _create_contact(client, dealer_id, emails=[{"emailType": "personal", "emailAddress": "anna@example.ch"}])
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
+    moved = client.get(f"/v1/contacts/{contact['id']}/emails", headers=_bearer(token)).json()["items"][0]
+    _add_email(client, token, contact["id"], "anna.privat@example.ch")
+
+    response = client.patch(
+        f"/v1/contacts/{contact['id']}/emails/{moved['id']}",
+        json={"emailType": "work", "validTo": "2020-01-01T00:00:00Z"},
+        headers=_bearer(token),
+    )
+    assert response.status_code == 200, response.text
+
+    # The closed row is primary nowhere; the group it left re-elected.
+    assert _primaries(client, token, contact["id"], "emails", "emailType", "emailAddress") == {
+        "personal": ["anna.privat@example.ch"],
+        "work": [],
+    }
+
+
+def test_moving_primary_address_keeps_one_primary_in_both_groups(client):
+    dealer_id = _create_dealer(client)
+    contact = _create_contact(client, dealer_id)
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
+    moved = _add_address(client, token, contact["id"], "Marktgasse", postal="3011", locality="Bern")
+    _add_address(client, token, contact["id"], "Spitalgasse", postal="3011", locality="Bern")
+    _add_address(client, token, contact["id"], "Rechnungsweg", postal="3011", locality="Bern", address_type="billing")
+    assert moved["isPrimary"] is True
+
+    response = client.patch(
+        f"/v1/contacts/{contact['id']}/addresses/{moved['id']}",
+        json={"addressType": "billing"},
+        headers=_bearer(token),
+    )
+    assert response.status_code == 200, response.text
+
+    assert _primaries(client, token, contact["id"], "addresses", "addressType", "addressStreet") == {
+        "domicile": ["Spitalgasse"],
+        "billing": ["Rechnungsweg"],
+    }
+    assert _projections(client, token, contact["id"])["address"]["addressStreet"] == "Spitalgasse"
+
+
+def _make_second_phone_primary(client, token, contact_id):
+    """Oldest row A not primary, B primary — so "kept the primary" and
+    "elected the oldest" give different answers."""
+
+    _add_phone(client, token, contact_id, "+41791111111")
+    b = _add_phone(client, token, contact_id, "+41792222222")
+    response = client.patch(
+        f"/v1/contacts/{contact_id}/phones/{b['id']}", json={"isPrimary": True}, headers=_bearer(token)
+    )
+    assert response.status_code == 200, response.text
+
+
+def test_flagging_and_closing_a_phone_in_one_patch_keeps_the_existing_primary(client):
+    dealer_id = _create_dealer(client)
+    contact = _create_contact(client, dealer_id)
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
+    _make_second_phone_primary(client, token, contact["id"])
+    closing = _add_phone(client, token, contact["id"], "+41793333333")
+
+    response = client.patch(
+        f"/v1/contacts/{contact['id']}/phones/{closing['id']}",
+        json={"isPrimary": True, "validTo": "2020-01-01T00:00:00Z"},
+        headers=_bearer(token),
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["isPrimary"] is False
+
+    assert _primaries(client, token, contact["id"], "phones", "phoneType", "phoneE164") == {
+        "mobile": ["+41792222222"],
+    }
+
+
+def test_moving_flagging_and_closing_a_phone_in_one_patch_keeps_the_target_primary(client):
+    dealer_id = _create_dealer(client)
+    contact = _create_contact(client, dealer_id)
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
+    _make_second_phone_primary(client, token, contact["id"])
+    moving = _add_phone(client, token, contact["id"], "+41443333333", phone_type="work")
+
+    response = client.patch(
+        f"/v1/contacts/{contact['id']}/phones/{moving['id']}",
+        json={"phoneType": "mobile", "isPrimary": True, "doNotUse": True, "doNotUseReason": "wrong number"},
+        headers=_bearer(token),
+    )
+    assert response.status_code == 200, response.text
+
+    assert _primaries(client, token, contact["id"], "phones", "phoneType", "phoneE164") == {
+        "mobile": ["+41792222222"],
+    }
+
+
+# --- KAN-151: a create in a type-group with no usable primary elects it ----
+# The group's only row was closed or flagged doNotUse, which demoted it
+# (_fixup_single_primary). A new row of that type, sent without isPrimary,
+# must become the group's one primary; before KAN-151 create elected only
+# the first row of a type ever written.
+
+_DEAD_ROW_PATCHES = [
+    pytest.param({"validTo": "2020-01-01T00:00:00Z"}, id="closed"),
+    pytest.param({"doNotUse": True, "doNotUseReason": "no longer valid"}, id="do_not_use"),
+]
+
+
+def _kill(client, token, contact_id, channel, row_id, patch):
+    response = client.patch(
+        f"/v1/contacts/{contact_id}/{channel}/{row_id}", json=patch, headers=_bearer(token)
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["isPrimary"] is False
+
+
+@pytest.mark.parametrize("patch", _DEAD_ROW_PATCHES)
+def test_new_phone_in_a_group_with_only_dead_rows_becomes_primary(client, patch):
+    dealer_id = _create_dealer(client)
+    contact = _create_contact(client, dealer_id)
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
+    dead = _add_phone(client, token, contact["id"], "+41791111111")
+    _kill(client, token, contact["id"], "phones", dead["id"], patch)
+
+    new = _add_phone(client, token, contact["id"], "+41792222222")
+
+    assert new["isPrimary"] is True
+    assert _primaries(client, token, contact["id"], "phones", "phoneType", "phoneE164")["mobile"] == [
+        "+41792222222"
+    ]
+
+
+@pytest.mark.parametrize("patch", _DEAD_ROW_PATCHES)
+def test_new_email_in_a_group_with_only_dead_rows_becomes_primary(client, patch):
+    dealer_id = _create_dealer(client)
+    contact = _create_contact(client, dealer_id)
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
+    # The fixture's contact already has a usable personal email, so the
+    # dead-row group under test is `work`.
+    dead = _add_email(client, token, contact["id"], "old@example.ch", email_type="work")
+    _kill(client, token, contact["id"], "emails", dead["id"], patch)
+
+    new = _add_email(client, token, contact["id"], "new@example.ch", email_type="work")
+
+    assert new["isPrimary"] is True
+    assert _primaries(client, token, contact["id"], "emails", "emailType", "emailAddress")["work"] == [
+        "new@example.ch"
+    ]
+
+
+@pytest.mark.parametrize("patch", _DEAD_ROW_PATCHES)
+def test_new_address_in_a_group_with_only_dead_rows_becomes_primary(client, patch):
+    dealer_id = _create_dealer(client)
+    contact = _create_contact(client, dealer_id)
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
+    dead = _add_address(client, token, contact["id"], "Altweg")
+    _kill(client, token, contact["id"], "addresses", dead["id"], patch)
+
+    new = _add_address(client, token, contact["id"], "Neuweg")
+
+    assert new["isPrimary"] is True
+    assert _primaries(client, token, contact["id"], "addresses", "addressType", "addressStreet")["domicile"] == [
+        "Neuweg"
+    ]
+
+
+def test_new_phone_never_takes_the_flag_from_a_usable_primary(client):
+    dealer_id = _create_dealer(client)
+    contact = _create_contact(client, dealer_id)
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
+    dead = _add_phone(client, token, contact["id"], "+41791111111")
+    _add_phone(client, token, contact["id"], "+41792222222")
+    _kill(client, token, contact["id"], "phones", dead["id"], {"doNotUse": True, "doNotUseReason": "x"})
+    # +41792222222 was re-elected when the first went doNotUse.
+
+    new = _add_phone(client, token, contact["id"], "+41793333333")
+
+    assert new["isPrimary"] is False
+    assert _primaries(client, token, contact["id"], "phones", "phoneType", "phoneE164")["mobile"] == [
+        "+41792222222"
+    ]
+
+
+# --- KAN-113: reopening a row settles its type-group -------------------------
+# A closed or doNotUse row is demoted when it dies (KAN-46). Reopening it
+# (`validTo: null`, `doNotUse: false`) in a group with no usable row must
+# elect it, the mirror of the KAN-46 re-election; before KAN-113 the group
+# came back with a usable row and no primary. A reopened row never takes the
+# flag from an existing usable primary unless the same PATCH says
+# `isPrimary: true` (KAN-349, below), and `isPrimary: true` on a row that
+# is unusable after the PATCH leaves the group's usable primary alone.
+
+_REOPEN_PATCHES = [
+    pytest.param({"validTo": "2020-01-01T00:00:00Z"}, {"validTo": None}, id="closed-then-reopened"),
+    pytest.param({"doNotUse": True, "doNotUseReason": "no longer valid"}, {"doNotUse": False}, id="do_not_use-then-cleared"),
+]
+
+
+def _patch(client, token, contact_id, channel, row_id, body):
+    response = client.patch(
+        f"/v1/contacts/{contact_id}/{channel}/{row_id}", json=body, headers=_bearer(token)
+    )
+    assert response.status_code == 200, response.text
+    return response.json()
+
+
+@pytest.mark.parametrize(("kill", "reopen"), _REOPEN_PATCHES)
+def test_reopening_the_only_phone_of_a_type_makes_it_primary(client, kill, reopen):
+    dealer_id = _create_dealer(client)
+    contact = _create_contact(client, dealer_id)
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
+    only = _add_phone(client, token, contact["id"], "+41791111111")
+    _kill(client, token, contact["id"], "phones", only["id"], kill)
+
+    reopened = _patch(client, token, contact["id"], "phones", only["id"], reopen)
+
+    assert reopened["isPrimary"] is True
+    assert _primaries(client, token, contact["id"], "phones", "phoneType", "phoneE164") == {
+        "mobile": ["+41791111111"],
+    }
+    assert _projections(client, token, contact["id"])["phoneMobile"] == "+41791111111"
+
+
+@pytest.mark.parametrize(("kill", "reopen"), _REOPEN_PATCHES)
+def test_reopening_the_only_email_of_a_type_makes_it_primary(client, kill, reopen):
+    dealer_id = _create_dealer(client)
+    contact = _create_contact(client, dealer_id)
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
+    # The fixture's contact already has a usable personal email, so the
+    # group under test is `work`.
+    only = _add_email(client, token, contact["id"], "work@example.ch", email_type="work")
+    _kill(client, token, contact["id"], "emails", only["id"], kill)
+
+    reopened = _patch(client, token, contact["id"], "emails", only["id"], reopen)
+
+    assert reopened["isPrimary"] is True
+    assert _primaries(client, token, contact["id"], "emails", "emailType", "emailAddress")["work"] == [
+        "work@example.ch"
+    ]
+
+
+@pytest.mark.parametrize(("kill", "reopen"), _REOPEN_PATCHES)
+def test_reopening_the_only_address_of_a_type_makes_it_primary(client, kill, reopen):
+    dealer_id = _create_dealer(client)
+    contact = _create_contact(client, dealer_id)
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
+    only = _add_address(client, token, contact["id"], "Altweg")
+    _kill(client, token, contact["id"], "addresses", only["id"], kill)
+
+    reopened = _patch(client, token, contact["id"], "addresses", only["id"], reopen)
+
+    assert reopened["isPrimary"] is True
+    assert _primaries(client, token, contact["id"], "addresses", "addressType", "addressStreet")["domicile"] == [
+        "Altweg"
+    ]
+    assert _projections(client, token, contact["id"])["address"] is not None
+
+
+@pytest.mark.parametrize(("kill", "reopen"), _REOPEN_PATCHES)
+def test_a_reopened_phone_never_takes_the_flag_from_a_usable_primary(client, kill, reopen):
+    dealer_id = _create_dealer(client)
+    contact = _create_contact(client, dealer_id)
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
+    first = _add_phone(client, token, contact["id"], "+41791111111")
+    _add_phone(client, token, contact["id"], "+41792222222")
+    _kill(client, token, contact["id"], "phones", first["id"], kill)
+    # +41792222222 was re-elected when the first died (KAN-46).
+
+    reopened = _patch(client, token, contact["id"], "phones", first["id"], reopen)
+
+    assert reopened["isPrimary"] is False
+    assert _primaries(client, token, contact["id"], "phones", "phoneType", "phoneE164") == {
+        "mobile": ["+41792222222"],
+    }
+
+
+@pytest.mark.parametrize("kill", _DEAD_ROW_PATCHES)
+def test_is_primary_on_an_already_dead_phone_keeps_the_usable_primary(client, kill):
+    """The UI cannot send this; the API can. Usability is judged after the
+    PATCH, not by what this PATCH changes: a row an earlier PATCH closed or
+    flagged doNotUse cannot take the flag either."""
+
+    dealer_id = _create_dealer(client)
+    contact = _create_contact(client, dealer_id)
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
+    dead = _add_phone(client, token, contact["id"], "+41791111111")
+    _add_phone(client, token, contact["id"], "+41792222222")
+    _kill(client, token, contact["id"], "phones", dead["id"], kill)
+
+    body = _patch(client, token, contact["id"], "phones", dead["id"], {"isPrimary": True})
+
+    assert body["isPrimary"] is False
+    assert _primaries(client, token, contact["id"], "phones", "phoneType", "phoneE164") == {
+        "mobile": ["+41792222222"],
+    }
+    assert _projections(client, token, contact["id"])["phoneMobile"] == "+41792222222"
+
+
+@pytest.mark.parametrize("kill", _DEAD_ROW_PATCHES)
+def test_is_primary_on_an_already_dead_email_keeps_the_usable_primary(client, kill):
+    dealer_id = _create_dealer(client)
+    contact = _create_contact(client, dealer_id)
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
+    dead = _add_email(client, token, contact["id"], "old@example.ch", email_type="work")
+    _add_email(client, token, contact["id"], "new@example.ch", email_type="work")
+    _kill(client, token, contact["id"], "emails", dead["id"], kill)
+
+    body = _patch(client, token, contact["id"], "emails", dead["id"], {"isPrimary": True})
+
+    assert body["isPrimary"] is False
+    assert _primaries(client, token, contact["id"], "emails", "emailType", "emailAddress")["work"] == [
+        "new@example.ch"
+    ]
+
+
+@pytest.mark.parametrize("kill", _DEAD_ROW_PATCHES)
+def test_is_primary_on_an_already_dead_address_keeps_the_usable_primary(client, kill):
+    dealer_id = _create_dealer(client)
+    contact = _create_contact(client, dealer_id)
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
+    dead = _add_address(client, token, contact["id"], "Altweg")
+    _add_address(client, token, contact["id"], "Neuweg")
+    _kill(client, token, contact["id"], "addresses", dead["id"], kill)
+
+    body = _patch(client, token, contact["id"], "addresses", dead["id"], {"isPrimary": True})
+
+    assert body["isPrimary"] is False
+    assert _primaries(client, token, contact["id"], "addresses", "addressType", "addressStreet")["domicile"] == [
+        "Neuweg"
+    ]
+
+
+# --- KAN-349: reopen + isPrimary: true in one PATCH (Anto, 2026-11-11, option A) ---
+# A PATCH that reopens a row AND says `isPrimary: true` is an explicit
+# request: the reopened row becomes the primary and the group's usable
+# primary is demoted, as for a moved row (KAN-102). A PATCH that only
+# reopens still leaves the flag where it is (KAN-113, above).
+# Both orders are pinned: when the reopened row is the older one,
+# `_fixup_single_primary`'s oldest-wins tiebreak alone would give it the
+# flag; only the younger case shows the current primary is really demoted.
+
+_REOPENED = [pytest.param(0, id="older-row-reopened"), pytest.param(1, id="younger-row-reopened")]
+
+
+@pytest.mark.parametrize("which", _REOPENED)
+@pytest.mark.parametrize(("kill", "reopen"), _REOPEN_PATCHES)
+def test_a_reopened_phone_with_is_primary_takes_the_flag(client, kill, reopen, which):
+    dealer_id = _create_dealer(client)
+    contact = _create_contact(client, dealer_id)
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
+    numbers = ["+41791111111", "+41792222222"]
+    rows = [_add_phone(client, token, contact["id"], number) for number in numbers]
+    _kill(client, token, contact["id"], "phones", rows[which]["id"], kill)
+    # The other row is the usable primary now (KAN-46 re-election, or it already was).
+
+    reopened = _patch(client, token, contact["id"], "phones", rows[which]["id"], {**reopen, "isPrimary": True})
+
+    assert reopened["isPrimary"] is True
+    assert _primaries(client, token, contact["id"], "phones", "phoneType", "phoneE164") == {
+        "mobile": [numbers[which]],
+    }
+    assert _projections(client, token, contact["id"])["phoneMobile"] == numbers[which]
+
+
+@pytest.mark.parametrize("which", _REOPENED)
+@pytest.mark.parametrize(("kill", "reopen"), _REOPEN_PATCHES)
+def test_a_reopened_email_with_is_primary_takes_the_flag(client, kill, reopen, which):
+    dealer_id = _create_dealer(client)
+    contact = _create_contact(client, dealer_id)
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
+    # The fixture's contact already has a usable personal email, so the
+    # group under test is `work`.
+    addresses = ["first@example.ch", "second@example.ch"]
+    rows = [_add_email(client, token, contact["id"], address, email_type="work") for address in addresses]
+    _kill(client, token, contact["id"], "emails", rows[which]["id"], kill)
+
+    reopened = _patch(client, token, contact["id"], "emails", rows[which]["id"], {**reopen, "isPrimary": True})
+
+    assert reopened["isPrimary"] is True
+    assert _primaries(client, token, contact["id"], "emails", "emailType", "emailAddress")["work"] == [
+        addresses[which]
+    ]
+
+
+@pytest.mark.parametrize("which", _REOPENED)
+@pytest.mark.parametrize(("kill", "reopen"), _REOPEN_PATCHES)
+def test_a_reopened_address_with_is_primary_takes_the_flag(client, kill, reopen, which):
+    dealer_id = _create_dealer(client)
+    contact = _create_contact(client, dealer_id)
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
+    streets = ["Altweg", "Neuweg"]
+    rows = [_add_address(client, token, contact["id"], street) for street in streets]
+    _kill(client, token, contact["id"], "addresses", rows[which]["id"], kill)
+
+    reopened = _patch(client, token, contact["id"], "addresses", rows[which]["id"], {**reopen, "isPrimary": True})
+
+    assert reopened["isPrimary"] is True
+    assert _primaries(client, token, contact["id"], "addresses", "addressType", "addressStreet")["domicile"] == [
+        streets[which]
+    ]

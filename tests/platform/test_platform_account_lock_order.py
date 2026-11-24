@@ -30,7 +30,7 @@ from app.platform.identity.api import auth as auth_api
 from app.platform.identity.models.auth_session import AuthSession
 from app.platform.identity.models.mfa import MfaRecoveryCode, MfaTotp
 from app.platform.identity.services import auth_sessions, auth_tokens, mfa
-from tests.customer.test_customer_vehicle_party_close_rule import (
+from tests.contact.test_contact_vehicle_party_close_rule import (
     _postgres_only,
     _run,
     _wait_until_a_backend_waits_on_a_lock,

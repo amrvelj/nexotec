@@ -1,6 +1,6 @@
 """KAN-371 (ADR-093): the display labels of ids another context recorded —
 a Betrieb's name and a user's name — resolved on read for the History tab of
-a group-owned customer. Its own module so the ambient-group-read allowlist
+a group-owned contact. Its own module so the ambient-group-read allowlist
 (`tests/architecture/test_no_ambient_group_read.py`) names this one read and
 nothing beside it."""
 

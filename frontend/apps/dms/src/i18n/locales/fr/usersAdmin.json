@@ -43,8 +43,8 @@
     "whatsapp": "WhatsApp"
   },
   "ownedGroup": {
-    "customer": {
-      "customers": "Clients suivis"
+    "contact": {
+      "contacts": "Clients suivis"
     },
     "sales": {
       "offers": "Offres ouvertes",

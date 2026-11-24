@@ -3,7 +3,7 @@
   "newValuation": "Crea valutazione",
   "searchPlaceholder": "Numero valutazione, VIN, targa, cliente …",
   "allView": "Tutte le valutazioni",
-  "noCustomer": "Senza cliente",
+  "noContact": "Senza cliente",
   "loadError": "Impossibile caricare le valutazioni.",
   "chips": {
     "all": "Tutte",
@@ -16,7 +16,7 @@
   "columns": {
     "number": "Numero",
     "vehicle": "Veicolo",
-    "customer": "Cliente",
+    "contact": "Cliente",
     "mileage": "Chilometraggio",
     "finalOffer": "Offerta di permuta",
     "source": "Fonte",

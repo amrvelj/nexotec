@@ -1,7 +1,7 @@
 """KAN-217 PR-5 (D-A-41, FR-A-51–54, A-RULE-10; ADR-204): Sales sends an offer
-or contract document to its customer — `POST /v1/sales/documents/{id}/send`.
+or contract document to its contact — `POST /v1/sales/documents/{id}/send`.
 
-Customers decides whether the send may go (`message_recipient`), platform's
+Contacts decides whether the send may go (`message_recipient`), platform's
 library gives the text and the secure link, integration's `deliver_message`
 sends it and writes the delivery record. The flow spans four contexts, hence
 cross_context. Fake mail and messaging providers only: nothing real is
@@ -17,7 +17,7 @@ import pytest
 from sqlalchemy import func, select
 
 from app.core.auth import AccessRole
-from app.customer.models.customer import Customer, CustomerLifecycleStatus, CustomerPhone
+from app.contact.models.contact import Contact, ContactLifecycleStatus, ContactPhone
 from app.integration.adapters import messaging_providers
 from app.integration.models.mail import DeliveryChannel, DeliveryStatus, MessageDelivery
 from app.integration.services import resilience, secrets_backend
@@ -60,7 +60,7 @@ def _as(user) -> dict[str, str]:
     return bearer(token(tenant_id=user.tenant_id, user_id=user.id, is_dealer_manager=True))
 
 
-def _customer(client, author, **overrides) -> uuid.UUID:
+def _contact(client, author, **overrides) -> uuid.UUID:
     payload = {
         "firstName": "Anna",
         "lastName": "Muster",
@@ -70,15 +70,15 @@ def _customer(client, author, **overrides) -> uuid.UUID:
         "phones": [{"phoneType": "mobile", "phoneE164": "+41790000217"}],
         **overrides,
     }
-    response = client.post("/v1/customers", json=payload, headers=_as(author))
+    response = client.post("/v1/contacts", json=payload, headers=_as(author))
     assert response.status_code == 201, response.text
     return uuid.UUID(response.json()["id"])
 
 
-def _offer_document(db, *, tenant_id, customer_id, number="O-2026/000217"):
+def _offer_document(db, *, tenant_id, contact_id, number="O-2026/000217"):
     offer = SalesOffer(
-        tenant_id=tenant_id, offer_number=number, status=OfferStatus.OPEN, customer_id=customer_id,
-        customer_label="Anna Muster", vehicle_label="VW Golf GTI", owner_label="Ben Verkäufer",
+        tenant_id=tenant_id, offer_number=number, status=OfferStatus.OPEN, contact_id=contact_id,
+        contact_label="Anna Muster", vehicle_label="VW Golf GTI", owner_label="Ben Verkäufer",
         base_price=Decimal("38000.00"), list_price=Decimal("38000.00"), gross_price=Decimal("36000.00"),
     )
     db.add(offer)
@@ -93,9 +93,9 @@ def scene(client, db_session):
     db_session.commit()
     dealer = _dealer(client)
     author = make_user(db_session, tenant_id=dealer, email="anna@garage-muster.ch", first_name="Lea", last_name="Senderin")
-    customer_id = _customer(client, author)
-    document = _offer_document(db_session, tenant_id=dealer, customer_id=customer_id)
-    return dealer, author, customer_id, document
+    contact_id = _contact(client, author)
+    document = _offer_document(db_session, tenant_id=dealer, contact_id=contact_id)
+    return dealer, author, contact_id, document
 
 
 @pytest.fixture
@@ -149,7 +149,7 @@ def _approve_whatsapp(db_session, dealer, *, template="offer_sent_v1"):
 
 def test_an_email_leaves_from_the_authors_own_mailbox_with_the_pdf_and_one_delivery_row(client, db_session, fakes, app_registrations, scene):
     providers, _ = fakes
-    _dealer_id, author, customer_id, document = scene
+    _dealer_id, author, contact_id, document = scene
     _connect_own_ms(client, providers, author)
 
     response = _send(client, author, document.id, channel="email")
@@ -167,13 +167,13 @@ def test_an_email_leaves_from_the_authors_own_mailbox_with_the_pdf_and_one_deliv
     assert "Sehr geehrte Frau Muster" in text and "{{" not in text
     (delivery,) = _deliveries(db_session)
     assert delivery.channel == DeliveryChannel.EMAIL and delivery.document_id == document.id
-    assert delivery.customer_id == customer_id and delivery.customer_label == "Anna Muster"
+    assert delivery.contact_id == contact_id and delivery.contact_label == "Anna Muster"
     assert delivery.body_text == text and delivery.document_type == "offer"
 
 
 def test_without_an_own_mailbox_the_shared_one_sends_and_without_either_nothing_is_written(client, db_session, fakes, app_registrations, scene):
     providers, _ = fakes
-    dealer, author, _customer_id, document = scene
+    dealer, author, _contact_id, document = scene
 
     refused = _send(client, author, document.id, channel="email")
     assert refused.status_code == 409 and refused.json()["error"]["details"]["reason"] == "no_mailbox_connected"
@@ -188,7 +188,7 @@ def test_without_an_own_mailbox_the_shared_one_sends_and_without_either_nothing_
 
 def test_the_authors_own_wording_replaces_the_standard_text_on_email(client, db_session, fakes, app_registrations, scene):
     providers, _ = fakes
-    _dealer_id, author, _customer_id, document = scene
+    _dealer_id, author, _contact_id, document = scene
     _connect_own_ms(client, providers, author)
 
     response = _send(client, author, document.id, channel="email", text="Guten Tag Frau Muster, anbei die Offerte.")
@@ -201,7 +201,7 @@ def test_the_authors_own_wording_replaces_the_standard_text_on_email(client, db_
 
 
 def test_an_sms_carries_the_text_and_the_secure_link_and_names_no_number_in_the_call_log(client, db_session, provider, scene):
-    dealer, author, customer_id, document = scene
+    dealer, author, contact_id, document = scene
     connection = _messaging_connection(db_session, "twilio", tenant_id=dealer)
 
     response = _send(client, author, document.id, channel="sms")
@@ -229,11 +229,11 @@ def test_an_sms_carries_the_text_and_the_secure_link_and_names_no_number_in_the_
     assert link_line.split("#", 1)[1] not in (delivery.body_text or "")
     assert delivery.sending_identity_id is None and delivery.subject is None
     assert delivery.provider_message_id == _TWILIO_ACCEPTED["sid"]
-    assert delivery.customer_id == customer_id
+    assert delivery.contact_id == contact_id
 
 
 def test_an_sms_without_a_connected_provider_is_refused_and_leaves_no_link(client, db_session, provider, scene):
-    _dealer_id, author, _customer_id, document = scene
+    _dealer_id, author, _contact_id, document = scene
 
     response = _send(client, author, document.id, channel="sms")
 
@@ -243,7 +243,7 @@ def test_an_sms_without_a_connected_provider_is_refused_and_leaves_no_link(clien
 
 
 def test_a_provider_failure_is_a_failed_delivery_row_not_a_500(client, db_session, provider, scene):
-    dealer, author, _customer_id, document = scene
+    dealer, author, _contact_id, document = scene
     _messaging_connection(db_session, "twilio", tenant_id=dealer)
     provider["twilio"].status, provider["twilio"].body = 400, {"code": 21211, "message": "invalid number"}
 
@@ -256,7 +256,7 @@ def test_a_provider_failure_is_a_failed_delivery_row_not_a_500(client, db_sessio
 
 
 def test_an_sms_text_too_long_with_its_link_is_refused_before_the_provider(client, db_session, provider, scene):
-    dealer, author, _customer_id, document = scene
+    dealer, author, _contact_id, document = scene
     _messaging_connection(db_session, "twilio", tenant_id=dealer)
 
     response = _send(client, author, document.id, channel="sms", text="x" * 1590)
@@ -270,7 +270,7 @@ def test_an_sms_text_too_long_with_its_link_is_refused_before_the_provider(clien
 
 
 def test_whatsapp_refuses_a_text_the_provider_has_not_approved(client, db_session, provider, scene):
-    dealer, author, _customer_id, document = scene
+    dealer, author, _contact_id, document = scene
     _messaging_connection(db_session, "meta_whatsapp", tenant_id=dealer)
 
     response = _send(client, author, document.id, channel="whatsapp")
@@ -282,7 +282,7 @@ def test_whatsapp_refuses_a_text_the_provider_has_not_approved(client, db_sessio
 
 
 def test_whatsapp_sends_the_approved_template_with_its_values_and_the_link_last(client, db_session, provider, scene):
-    dealer, author, _customer_id, document = scene
+    dealer, author, _contact_id, document = scene
     _messaging_connection(db_session, "meta_whatsapp", tenant_id=dealer)
     _approve_whatsapp(db_session, dealer)
 
@@ -302,7 +302,7 @@ def test_whatsapp_sends_the_approved_template_with_its_values_and_the_link_last(
 
 
 def test_whatsapp_refuses_the_authors_own_wording(client, db_session, provider, scene):
-    dealer, author, _customer_id, document = scene
+    dealer, author, _contact_id, document = scene
     _messaging_connection(db_session, "meta_whatsapp", tenant_id=dealer)
     _approve_whatsapp(db_session, dealer)
 
@@ -315,11 +315,11 @@ def test_whatsapp_refuses_the_authors_own_wording(client, db_session, provider, 
 # -- consent, scope, permissions ----------------------------------------------------
 
 
-def test_customers_refusal_is_the_answer_and_nothing_is_sent_or_linked(client, db_session, provider, scene):
-    dealer, author, customer_id, document = scene
+def test_contacts_refusal_is_the_answer_and_nothing_is_sent_or_linked(client, db_session, provider, scene):
+    dealer, author, contact_id, document = scene
     _messaging_connection(db_session, "twilio", tenant_id=dealer)
-    # The customer's only mobile number marked «nicht verwenden»: no usable row on SMS.
-    for phone in db_session.scalars(select(CustomerPhone).where(CustomerPhone.customer_id == customer_id)):
+    # The contact's only mobile number marked «nicht verwenden»: no usable row on SMS.
+    for phone in db_session.scalars(select(ContactPhone).where(ContactPhone.contact_id == contact_id)):
         phone.do_not_use = True
         phone.do_not_use_reason = "falsche Nummer"
     db_session.commit()
@@ -332,12 +332,12 @@ def test_customers_refusal_is_the_answer_and_nothing_is_sent_or_linked(client, d
     assert db_session.scalar(select(func.count()).select_from(DocumentLink)) == 0
 
 
-def test_a_do_not_contact_customer_still_receives_a_transactional_send(client, db_session, provider, scene):
+def test_a_do_not_contact_contact_still_receives_a_transactional_send(client, db_session, provider, scene):
     """Anto, 2026-11-19 (option 2): «Nicht kontaktieren» refuses marketing only."""
 
-    dealer, author, customer_id, document = scene
+    dealer, author, contact_id, document = scene
     _messaging_connection(db_session, "twilio", tenant_id=dealer)
-    db_session.get(Customer, customer_id).lifecycle_status = CustomerLifecycleStatus.DO_NOT_CONTACT
+    db_session.get(Contact, contact_id).lifecycle_status = ContactLifecycleStatus.DO_NOT_CONTACT
     db_session.commit()
 
     response = _send(client, author, document.id, channel="sms")
@@ -346,7 +346,7 @@ def test_a_do_not_contact_customer_still_receives_a_transactional_send(client, d
 
 
 def test_another_betriebs_document_is_404(client, db_session, provider, scene):
-    _dealer_id, _author, _customer_id, document = scene
+    _dealer_id, _author, _contact_id, document = scene
     other = _dealer(client)
     stranger = make_user(db_session, tenant_id=other, email="fremd@example.ch")
 
@@ -356,11 +356,11 @@ def test_another_betriebs_document_is_404(client, db_session, provider, scene):
 
 
 def test_a_contract_document_is_sent_as_a_sales_contract(client, db_session, provider, scene):
-    dealer, author, customer_id, _document = scene
+    dealer, author, contact_id, _document = scene
     _messaging_connection(db_session, "twilio", tenant_id=dealer)
     contract = SalesContract(
-        tenant_id=dealer, contract_number="C-000217", status=ContractStatus.PENDING, customer_id=customer_id,
-        customer_label="Anna Muster", vehicle_source="manual", vehicle_label="VW Golf GTI",
+        tenant_id=dealer, contract_number="C-000217", status=ContractStatus.PENDING, contact_id=contact_id,
+        contact_label="Anna Muster", vehicle_source="manual", vehicle_label="VW Golf GTI",
         base_price=Decimal("38000.00"), list_price=Decimal("38000.00"), gross_price=Decimal("36000.00"),
     )
     db_session.add(contract)
@@ -376,17 +376,17 @@ def test_a_contract_document_is_sent_as_a_sales_contract(client, db_session, pro
 
 
 def test_an_unknown_channel_is_422(client, scene):
-    _dealer_id, author, _customer_id, document = scene
+    _dealer_id, author, _contact_id, document = scene
     assert _send(client, author, document.id, channel="fax").status_code == 422
 
 
-def test_a_refused_customer_is_told_the_refusal_before_anything_else(client, db_session, provider, scene):
-    """Review finding 4: Customers' verdict is the first answer, even to a
+def test_a_refused_contact_is_told_the_refusal_before_anything_else(client, db_session, provider, scene):
+    """Review finding 4: Contacts' verdict is the first answer, even to a
     request that would also be refused for its WhatsApp wording."""
 
-    dealer, author, customer_id, document = scene
+    dealer, author, contact_id, document = scene
     _messaging_connection(db_session, "meta_whatsapp", tenant_id=dealer)
-    for phone in db_session.scalars(select(CustomerPhone).where(CustomerPhone.customer_id == customer_id)):
+    for phone in db_session.scalars(select(ContactPhone).where(ContactPhone.contact_id == contact_id)):
         phone.do_not_use = True
         phone.do_not_use_reason = "falsche Nummer"
     db_session.commit()
@@ -402,10 +402,10 @@ def test_a_text_in_a_fallback_language_carries_the_whole_message_in_that_languag
     the library falls back to German — the opening, the link's page and the
     template's language follow the German text, never a mix."""
 
-    dealer, author, _customer_id, _document = scene
+    dealer, author, _contact_id, _document = scene
     _messaging_connection(db_session, "meta_whatsapp", tenant_id=dealer)
     _approve_whatsapp(db_session, dealer)
-    italian = _customer(
+    italian = _contact(
         client, author, firstName="Giulia", lastName="Rossi", language="it",
         emails=[{"emailType": "personal", "emailAddress": "giulia@example.ch"}],
         phones=[{"phoneType": "mobile", "phoneE164": "+41790000218"}],
@@ -424,7 +424,7 @@ def test_a_text_in_a_fallback_language_carries_the_whole_message_in_that_languag
         )
     )
     db_session.commit()
-    document = _offer_document(db_session, tenant_id=dealer, customer_id=italian, number="O-2026/000218")
+    document = _offer_document(db_session, tenant_id=dealer, contact_id=italian, number="O-2026/000218")
 
     response = _send(client, author, document.id, channel="whatsapp")
 
@@ -440,30 +440,30 @@ def test_a_name_longer_than_the_label_column_still_records_the_send(client, db_s
     201-character name; the record keeps the first 200 instead of failing
     after the provider already sent."""
 
-    dealer, author, _customer_id, _document = scene
+    dealer, author, _contact_id, _document = scene
     _messaging_connection(db_session, "twilio", tenant_id=dealer)
-    long_named = _customer(
+    long_named = _contact(
         client, author, firstName="A" * 100, lastName="B" * 100,
         emails=[{"emailType": "personal", "emailAddress": "lang@example.ch"}],
         phones=[{"phoneType": "mobile", "phoneE164": "+41790000219"}],
     )
-    document = _offer_document(db_session, tenant_id=dealer, customer_id=long_named, number="O-2026/000219")
+    document = _offer_document(db_session, tenant_id=dealer, contact_id=long_named, number="O-2026/000219")
 
     response = _send(client, author, document.id, channel="sms")
 
     assert response.status_code == 201, response.text
     (delivery,) = _deliveries(db_session)
-    assert delivery.customer_label == ("A" * 100 + " " + "B" * 100)[:200]
+    assert delivery.contact_label == ("A" * 100 + " " + "B" * 100)[:200]
 
 
-def test_the_authors_own_wording_keeps_the_customers_language_whatever_the_library_holds(client, db_session, provider, scene):
-    """Review 2, finding 4: an author who writes the Italian customer in
+def test_the_authors_own_wording_keeps_the_contacts_language_whatever_the_library_holds(client, db_session, provider, scene):
+    """Review 2, finding 4: an author who writes the Italian contact in
     Italian gets the Italian link page, even when the Betrieb's SMS text exists
     only in German."""
 
-    dealer, author, _customer_id, _document = scene
+    dealer, author, _contact_id, _document = scene
     _messaging_connection(db_session, "twilio", tenant_id=dealer)
-    italian = _customer(
+    italian = _contact(
         client, author, firstName="Giulia", lastName="Rossi", language="it",
         emails=[{"emailType": "personal", "emailAddress": "giulia.r@example.ch"}],
         phones=[{"phoneType": "mobile", "phoneE164": "+41790000220"}],
@@ -482,7 +482,7 @@ def test_the_authors_own_wording_keeps_the_customers_language_whatever_the_libra
         )
     )
     db_session.commit()
-    document = _offer_document(db_session, tenant_id=dealer, customer_id=italian, number="O-2026/000220")
+    document = _offer_document(db_session, tenant_id=dealer, contact_id=italian, number="O-2026/000220")
 
     response = _send(client, author, document.id, channel="sms", text="Gentile Signora Rossi, ecco la Sua offerta.")
 

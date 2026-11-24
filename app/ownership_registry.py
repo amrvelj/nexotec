@@ -11,7 +11,7 @@ registry replaces by module.
 
 from app.aftersales.ownership import AftersalesOwnershipProvider
 from app.core.ownership import register_ownership_provider
-from app.customer.public import CustomerOwnershipProvider
+from app.contact.public import ContactOwnershipProvider
 from app.inventory.public import InventoryOwnershipProvider
 from app.parts.ownership import PartsOwnershipProvider
 from app.sales.public import SalesOwnershipProvider
@@ -19,7 +19,7 @@ from app.sales.public import SalesOwnershipProvider
 
 def register_ownership_providers() -> None:
     for provider in (
-        CustomerOwnershipProvider(),
+        ContactOwnershipProvider(),
         SalesOwnershipProvider(),
         InventoryOwnershipProvider(),
         AftersalesOwnershipProvider(),

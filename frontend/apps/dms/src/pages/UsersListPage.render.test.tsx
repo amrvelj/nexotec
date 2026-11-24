@@ -185,11 +185,11 @@ describe('UsersListPage (KAN-200)', () => {
     const user = userEvent.setup()
     installFakeBackend([
       ...routes(),
-      { method: 'GET', match: /\/users\/u-1\/ownership$/, handler: () => ({ groups: [{ module: 'customer', group: 'customers', count: 1200 }], modules: ['customer'] }) },
+      { method: 'GET', match: /\/users\/u-1\/ownership$/, handler: () => ({ groups: [{ module: 'customer', group: 'contacts', count: 1200 }], modules: ['customer'] }) },
       {
         method: 'POST',
         match: /\/users\/u-1\/ownership\/transfers$/,
-        handler: () => ({ transfers: [], failed: [{ module: 'customer', group: 'customers', reason: 'module_failed', message: 'The module could not complete the hand-over; the error is in the log.' }] }),
+        handler: () => ({ transfers: [], failed: [{ module: 'customer', group: 'contacts', reason: 'module_failed', message: 'The module could not complete the hand-over; the error is in the log.' }] }),
       },
     ])
     renderWithProviders(<UsersListPage />, { route: '/administration/users' })

@@ -3,7 +3,7 @@
   "newValuation": "Bewertung erstellen",
   "searchPlaceholder": "Bewertungsnummer, VIN, Kontrollschild, Kunde …",
   "allView": "Alle Bewertungen",
-  "noCustomer": "Ohne Kunde",
+  "noContact": "Ohne Kunde",
   "loadError": "Bewertungen konnten nicht geladen werden.",
   "chips": {
     "all": "Alle",
@@ -16,7 +16,7 @@
   "columns": {
     "number": "Nummer",
     "vehicle": "Fahrzeug",
-    "customer": "Kunde",
+    "contact": "Kunde",
     "mileage": "Kilometerstand",
     "finalOffer": "Eintauschangebot",
     "source": "Quelle",

@@ -3,7 +3,7 @@
   "newValuation": "Créer une évaluation",
   "searchPlaceholder": "Numéro d’évaluation, VIN, plaque, client …",
   "allView": "Toutes les évaluations",
-  "noCustomer": "Sans client",
+  "noContact": "Sans client",
   "loadError": "Impossible de charger les évaluations.",
   "chips": {
     "all": "Toutes",
@@ -16,7 +16,7 @@
   "columns": {
     "number": "Numéro",
     "vehicle": "Véhicule",
-    "customer": "Client",
+    "contact": "Client",
     "mileage": "Kilométrage",
     "finalOffer": "Offre de reprise",
     "source": "Source",

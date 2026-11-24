@@ -5,7 +5,7 @@ export interface OverviewCardProps {
   title: string;
   /** WP-8 PR-2 — the container workspace's own status badge
    * (Erforderlich/Optional/Platzhalter, confirmed live), rendered beside
-   * the title. Optional: most Overview-tab cards (Customer 360, Stock)
+   * the title. Optional: most Overview-tab cards (Contact 360, Stock)
    * have no such concept and simply omit it. */
   badge?: ReactNode;
   children: ReactNode;

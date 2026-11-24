@@ -61,15 +61,15 @@ describe("Topbar breadcrumb — the dashboard is the root, screens are links (KA
   }
 
   it("puts the root first, as a link", () => {
-    renderWithRoot(["Stammdaten", { label: "Kunden", href: "/customers" }, "Marco Rossi"]);
+    renderWithRoot(["Stammdaten", { label: "Kunden", href: "/contacts" }, "Marco Rossi"]);
     const segments = Array.from(document.querySelectorAll<HTMLElement>("[data-breadcrumb-segment]")).map((s) => s.textContent);
     expect(segments).toEqual(["Übersicht", "/Stammdaten", "/Kunden", "/Marco Rossi"]);
     expect(screen.getByRole("link", { name: "Übersicht" })).toHaveAttribute("href", "/");
   });
 
   it("links a segment that names a screen, never a plain group or the current screen", () => {
-    renderWithRoot(["Stammdaten", { label: "Kunden", href: "/customers" }, { label: "Marco Rossi", href: "/customers/1" }]);
-    expect(screen.getByRole("link", { name: "Kunden" })).toHaveAttribute("href", "/customers");
+    renderWithRoot(["Stammdaten", { label: "Kunden", href: "/contacts" }, { label: "Marco Rossi", href: "/contacts/1" }]);
+    expect(screen.getByRole("link", { name: "Kunden" })).toHaveAttribute("href", "/contacts");
     expect(screen.queryByRole("link", { name: "Stammdaten" })).toBeNull();
     expect(screen.queryByRole("link", { name: "Marco Rossi" })).toBeNull();
     expect(screen.getByText("Marco Rossi")).toHaveAttribute("aria-current", "page");
@@ -96,7 +96,7 @@ describe("Topbar breadcrumb — the dashboard is the root, screens are links (KA
   });
 
   it("keeps a segment's ellipsis and full text when it is a link", () => {
-    renderWithRoot([{ label: "Kunden", href: "/customers" }, "Marco Rossi"]);
+    renderWithRoot([{ label: "Kunden", href: "/contacts" }, "Marco Rossi"]);
     const label = screen.getByText("Kunden");
     expect(label.getAttribute("title")).toBe("Kunden");
     const link = screen.getByRole("link", { name: "Kunden" });

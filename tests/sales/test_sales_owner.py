@@ -23,7 +23,7 @@ def _as(user: dict) -> dict[str, str]:
 
 def _buyer(client, user: dict) -> dict:
     response = client.post(
-        "/v1/customers",
+        "/v1/contacts",
         json={
             "firstName": "Ursula",
             "lastName": "Vogt",
@@ -99,7 +99,7 @@ def test_a_contract_takes_the_offers_seller_and_a_direct_one_its_creator_and_the
     assert from_offer.status_code == 201, from_offer.text
     assert from_offer.json()["ownerUserId"] == seller["id"] and from_offer.json()["ownerLabel"] == "Sara Seller"
 
-    direct = client.post("/v1/sales/contracts", json={"customerId": buyer["id"]}, headers=_as(other))
+    direct = client.post("/v1/sales/contracts", json={"contactId": buyer["id"]}, headers=_as(other))
     assert direct.status_code == 201, direct.text
     assert direct.json()["ownerUserId"] == other["id"] and direct.json()["ownerLabel"] == "Otto Other"
 

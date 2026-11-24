@@ -136,7 +136,7 @@ class ConfigurationEnergyLabelRead(CamelModel):
     """KAN-597 (ADR-142) — one gearbox's Energieetikette as the identAPI
     delivers it: the class, the gearbox as delivered (null when the provider
     named none) and the link to the label as PDF. Shown to the seller beside
-    the class; printed on no customer document."""
+    the class; printed on no contact document."""
 
     year: int
     gearbox: str | None

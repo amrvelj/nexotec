@@ -5,11 +5,11 @@ import type { DetailHeaderAction, RowMenuGroups } from '@nexotec/ui-kit'
  * FR-V-16 (amended by KAN-468; Anto, 2026-10-26) — the ONE definition of
  * what can be done to a vehicle (ADR-061): the Vehicle 360 header renders
  * its primary, alternative and overflow from it, the way
- * `buildCustomerRowMenu` serves the customer screens.
+ * `buildContactRowMenu` serves the contact screens.
  *
  * There is no «Edit»: the identity fields are edited inline on the Identity
  * tab (FR-V-15), so an Edit button could only select that tab. The primary
- * is «Allocate to customer» (FR-V-05), the alternative «Request valuation»
+ * is «Allocate to contact» (FR-V-05), the alternative «Request valuation»
  * (FR-V-09). A valuation is a Sales-module surface (KAN-198, D-A-04), so a
  * Betrieb without `sales` gets neither the alternative nor its overflow
  * entry — presentation only, the API's 404 stays the boundary.
@@ -34,7 +34,7 @@ export interface VehicleRowMenuHandlers {
 
 /**
  * KAN-503 — the row-menu actions that need Vehicle 360's own state (the
- * Identity tab's customer picker, the odometer and accessory forms). The
+ * Identity tab's contact picker, the odometer and accessory forms). The
  * Vehicles list opens the vehicle with one of these in the router state
  * (`vehicleOpenState`); the detail screen runs the same handler as its
  * header, then drops the state, so a reload or Back never repeats it.

@@ -32,9 +32,9 @@ Moved out of inventory.md by KAN-615 (2026-11-13). Last verified against main@3b
   `vehicle_id`** — it still blocks the VIN and is booked again without a new one (`record_purchase`
   restocks it without promoting; another VIN is 422 `purchase_vin_mismatch`) — audited with the
   reason, and `inventory.stock_item.storno` published.
-- **A trade-in may go back to its customer** (Anto, KAN-572 option C): `returnedToCustomer: true` on
-  the storno (default false; refused on any other car), audited with it; the customer context then
-  reopens that customer as owner and keeper (`customer-vehicle-party.md`).
+- **A trade-in may go back to its contact** (Anto, KAN-572 option C): `returnedToContact: true` on
+  the storno (default false; refused on any other car), audited with it; the contact context then
+  reopens that contact as owner and keeper (`contact-vehicle-party.md`).
 - A reserved car may be stornoed; the reservation stays. **Refused:** no booked purchase, a car that
   left stock, a contract on the car that requested its invoice (from Stock's contract projection,
   `events-stock-sales.md`), or a car published on any marketplace (409 `purchase_storno_published`,

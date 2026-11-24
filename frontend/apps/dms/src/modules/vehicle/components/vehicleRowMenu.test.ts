@@ -24,7 +24,7 @@ const labels = (menu: ReturnType<typeof buildVehicleRowMenu>) => [
 ]
 
 describe('buildVehicleRowMenu (KAN-468; FR-V-16 amended, ADR-061)', () => {
-  it('the primary is «Allocate to customer», the alternative «Request valuation»; no «Edit» anywhere', () => {
+  it('the primary is «Allocate to contact», the alternative «Request valuation»; no «Edit» anywhere', () => {
     const h = handlers()
     const menu = buildVehicleRowMenu(t, h)
 

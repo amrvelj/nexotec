@@ -12,7 +12,7 @@ import { VehiclesListPage } from './VehiclesListPage'
 // past its first page (hasNextPage={false}, nextCursor ignored).
 
 // jsdom has no layout, so TanStack Virtual windows down to zero rows. Same
-// "render every row" shim as CustomersListPage.columns.render.test.tsx —
+// "render every row" shim as ContactsListPage.columns.render.test.tsx —
 // with every row rendered, the last row is within 10 of the end and the
 // grid asks for the next page (FR-UI-04), exactly as a scroll would.
 vi.mock('@tanstack/react-virtual', () => ({

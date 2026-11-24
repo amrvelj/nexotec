@@ -36,7 +36,7 @@ after a change.
 | Piece | Loaded | Job |
 |---|---|---|
 | `CLAUDE.md` | every session | Rules true in every session. No build status. At most 200 lines. |
-| `.claude/rules/*.md` | when Claude reads a file matching the rule's `paths` | Rulings for one area (UI, customer, vehicle, sales, …) |
+| `.claude/rules/*.md` | when Claude reads a file matching the rule's `paths` | Rulings for one area (UI, contact, vehicle, sales, …) |
 | `.claude/skills/*/SKILL.md` | when invoked (`/ticket`, `/verify`, `/spec-review`, `/architect`, `/drift-audit`) | Workflows |
 | `.claude/agents/reviewer.md` | when delegated to | Independent review with fresh context; cannot edit |
 | `.claude/hooks/nexotec_hooks.py` | on events, via `settings.json` | Every gate and guard |

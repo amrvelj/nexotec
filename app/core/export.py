@@ -59,11 +59,11 @@ class ExportScope:
     - `dealership_id`: the Betrieb (the tenant);
     - `group_id`: its dealer group, for group-owned records (ADR-014);
     - `references`: ids of records another context's exported rows name
-      (`{"customer": {…}}`), so a group-owned customer is exported for the
-      Betrieb's own relationship only — the customers it created or its
+      (`{"customer": {…}}`), so a group-owned contact is exported for the
+      Betrieb's own relationship only — the contacts it created or its
       history names;
     - `group_is_single`: the group holds this one Betrieb only, so every
-      group-owned record is its own (a customer that predates provenance too);
+      group-owned record is its own (a contact that predates provenance too);
     - `audit_attribution` (KAN-722): which rows of a group-owned record's audit
       trail (`tenant_id` = the group) this Betrieb wrote — the rows its sisters
       stop seeing once it is offboarded (`app.core.audit_attribution`).

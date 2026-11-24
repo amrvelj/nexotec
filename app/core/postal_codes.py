@@ -1,12 +1,12 @@
 """Swiss postal code (PLZ) -> canton lookup (D-13).
 
-Used to derive Customer.address_canton server-side (D-13) — needed for
+Used to derive Contact.address_canton server-side (D-13) — needed for
 marketing segmentation and reporting, never asked from the client (the PRD
 is explicit: canton is "derived automatically from the Swiss postal code,
 read-only in the UI"). This is a *derivation* aid, not the full address
 autofill D-09 asked for (street/locality lookup) — that one is Google Places
 Autocomplete in the SPA since KAN-37 (ADR-101), which fills the fields and
-never the canton: a customer's canton stays this table's derivation, the
+never the canton: a contact's canton stays this table's derivation, the
 Betrieb's own addresses keep the manager's pick. A postal-code-to-canton table
 is self-contained and far smaller, so there was no reason to wait for it.
 

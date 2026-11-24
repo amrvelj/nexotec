@@ -23,7 +23,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
-from app.customer.services.customer import _allocate_customer_number
+from app.contact.services.contact import _allocate_contact_number
 from app.inventory.services.stock_item import allocate_stock_number
 from app.sales.services.numbering import allocate_contract_number, allocate_offer_number
 from app.valuation.services.valuation import allocate_valuation_number
@@ -34,7 +34,7 @@ _KEY = uuid.UUID("01900000-0000-7000-8000-000000000070")
 ALLOCATORS: dict[str, tuple[Callable[[Session], str], str]] = {
     "sales-offer": (lambda db: allocate_offer_number(db, _KEY), "O"),
     "sales-contract": (lambda db: allocate_contract_number(db, _KEY), "C"),
-    "customer": (lambda db: _allocate_customer_number(db, _KEY), "K"),
+    "customer": (lambda db: _allocate_contact_number(db, _KEY), "K"),
     "vehicle": (allocate_vehicle_number, "F"),
     "stock-item": (lambda db: allocate_stock_number(db, _KEY), "S"),
     "valuation": (lambda db: allocate_valuation_number(db, _KEY), "B"),

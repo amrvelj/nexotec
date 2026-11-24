@@ -6,7 +6,7 @@ import userEvent from '@testing-library/user-event'
 import i18n from '../../../i18n'
 import { renderWithProviders } from '../../../test/renderWithProviders'
 import { installFakeBackend, status } from '../../../test/fakeBackend'
-import { customer } from '../../../test/fixtures'
+import { contact } from '../../../test/fixtures'
 import type { SalesOfferRead } from '../../../api/types'
 import { OfferWorkspacePage } from './OfferWorkspacePage'
 
@@ -18,7 +18,7 @@ import { OfferWorkspacePage } from './OfferWorkspacePage'
 
 const offer = (overrides: Partial<SalesOfferRead> = {}) =>
   ({
-    id: 'o1', offerNumber: 'ANG-2026-0001', status: 'draft', customerId: null, customerLabel: null,
+    id: 'o1', offerNumber: 'ANG-2026-0001', status: 'draft', contactId: null, contactLabel: null,
     vehicleSource: null, stockItemId: null, vehicleLabel: null, tradeInVehicleId: null, tradeInConfigurationId: null,
     tradeInLabel: null, tradeInVin: null, tradeInValuationId: null, tradeInValue: null, containers: [], version: 4,
     leasingDownPayment: null, leasingTermMonths: null, leasingKmPerYear: null,
@@ -30,9 +30,9 @@ const CONTRACTED = offer({ liveContractId: 'k7', liveContractNumber: 'V-000007' 
 
 function install(read: SalesOfferRead, tradeIn: () => unknown = () => read, lineItems: unknown[] = []) {
   return installFakeBackend([
-    { method: 'GET', match: /^\/customers\/cust-1$/, handler: () => customer({ id: 'cust-1', firstName: 'Hans', lastName: 'Muster' }) },
-    { method: 'GET', match: /^\/customers\/cust-1\/(phones|emails)$/, handler: () => ({ items: [] }) },
-    { method: 'GET', match: /^\/customers\/cust-1\/(vehicles|external-ids|audit-log)$/, handler: () => ({ items: [], nextCursor: null }) },
+    { method: 'GET', match: /^\/contacts\/cust-1$/, handler: () => contact({ id: 'cust-1', firstName: 'Hans', lastName: 'Muster' }) },
+    { method: 'GET', match: /^\/contacts\/cust-1\/(phones|emails)$/, handler: () => ({ items: [] }) },
+    { method: 'GET', match: /^\/contacts\/cust-1\/(vehicles|external-ids|audit-log)$/, handler: () => ({ items: [], nextCursor: null }) },
     { method: 'GET', match: /^\/sales\/offers\/o1$/, handler: () => read },
     { method: 'GET', match: /^\/sales\/offers\/o1\/line-items$/, handler: () => ({ items: lineItems }) },
     { method: 'GET', match: /^\/integrations\/capabilities\//, handler: () => ({ capabilityCode: 'x', granted: false }) },
@@ -73,7 +73,7 @@ describe('OfferWorkspace — an offer with a live contract is read-only (KAN-426
     expect(await screen.findByText(refusalText('V-000007'))).toBeInTheDocument()
     expect(screen.getByRole('textbox', { name: i18n.t('offerWorkspace.leasing.termMonths') })).toBeDisabled()
     expect(screen.getByRole('button', { name: i18n.t('offerWorkspace.tradeIn.add') })).toBeDisabled()
-    expect(screen.getByRole('button', { name: i18n.t('offerWorkspace.customer.search') })).toBeDisabled()
+    expect(screen.getByRole('button', { name: i18n.t('offerWorkspace.contact.search') })).toBeDisabled()
     const continueButton = screen.getByRole('button', { name: i18n.t('offerWorkspace.continue') })
     expect(continueButton).toBeDisabled()
     await user.hover(continueButton.parentElement as HTMLElement)
@@ -137,16 +137,16 @@ describe('OfferWorkspace — an offer with a live contract is read-only (KAN-426
   })
 
   // KAN-501 — read-only must not take the view-only paths with it: the
-  // selected customer and «Lagerbestand öffnen» still open their overlays
+  // selected contact and «Lagerbestand öffnen» still open their overlays
   // (ADR-059), while the controls that write stay disabled.
-  it('the selected customer still opens as an overlay while the workspace stays read-only', async () => {
+  it('the selected contact still opens as an overlay while the workspace stays read-only', async () => {
     const user = userEvent.setup()
-    const backend = install(offer({ liveContractId: 'k7', liveContractNumber: 'V-000007', customerId: 'cust-1', customerLabel: 'Hans Muster' }))
+    const backend = install(offer({ liveContractId: 'k7', liveContractNumber: 'V-000007', contactId: 'cust-1', contactLabel: 'Hans Muster' }))
     renderWorkspace()
 
-    const customerButton = await screen.findByRole('button', { name: 'Hans Muster' })
-    expect(customerButton).toBeEnabled()
-    await user.click(customerButton)
+    const contactButton = await screen.findByRole('button', { name: 'Hans Muster' })
+    expect(contactButton).toBeEnabled()
+    await user.click(contactButton)
     expect(await screen.findByRole('dialog')).toBeInTheDocument()
     expect(screen.getByRole('textbox', { name: i18n.t('offerWorkspace.leasing.termMonths') })).toBeDisabled()
     expect(backend.callsTo(/^\/sales\/offers\/o1/, 'PATCH')).toHaveLength(0)
@@ -222,11 +222,11 @@ describe('OfferWorkspace — an offer with a live contract is read-only (KAN-426
     expect(backend.callsTo(/^\/sales\/offers\/o1/, 'PATCH')).toHaveLength(0)
   })
 
-  it('an offer with a live contract and no customer offers neither search nor create', async () => {
+  it('an offer with a live contract and no contact offers neither search nor create', async () => {
     install(offer({ liveContractId: 'k7', liveContractNumber: 'V-000007' }))
     renderWorkspace()
 
-    expect(await screen.findByRole('button', { name: i18n.t('offerWorkspace.customer.search') })).toBeDisabled()
-    expect(screen.getByRole('button', { name: i18n.t('offerWorkspace.customer.createNew') })).toBeDisabled()
+    expect(await screen.findByRole('button', { name: i18n.t('offerWorkspace.contact.search') })).toBeDisabled()
+    expect(screen.getByRole('button', { name: i18n.t('offerWorkspace.contact.createNew') })).toBeDisabled()
   })
 })

@@ -1,6 +1,6 @@
 {
   "colleague_cannot_act_there": "Il collega scelto non lavora nell’azienda a cui appartiene questo record.",
-  "customer_do_not_contact": "Il cliente {{customerNumber}} è contrassegnato come «non contattare» e non può essere associato a nessuna offerta né a nessun contratto.",
+  "contact_do_not_contact": "Il cliente {{customerNumber}} è contrassegnato come «non contattare» e non può essere associato a nessuna offerta né a nessun contratto.",
   "no_provider_connection": "Nessun fornitore di dati veicolo è collegato.",
   "nul_character": "Il dato inserito contiene un carattere non consentito. Rimuovilo e riprova.",
   "too_many_images": "Un veicolo in stock ha al massimo {{max, number}} immagini. Rimuovi prima un’immagine.",

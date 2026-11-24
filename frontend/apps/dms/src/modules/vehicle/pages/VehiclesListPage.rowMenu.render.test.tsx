@@ -147,7 +147,7 @@ describe('Vehicles list — the row menu is Vehicle 360\'s (KAN-503)', () => {
     expect(screen.getByPlaceholderText(i18n.t('vehicleDetail.mergeDialog.searchPlaceholder'))).toBeInTheDocument()
   })
 
-  it('«Kunde zuordnen» opens the car with the Identity tab\'s customer picker open', async () => {
+  it('«Kunde zuordnen» opens the car with the Identity tab\'s contact picker open', async () => {
     const user = userEvent.setup()
     install()
     render()
@@ -155,7 +155,7 @@ describe('Vehicles list — the row menu is Vehicle 360\'s (KAN-503)', () => {
     await openRowMenu(user)
     await user.click(await item('allocate'))
 
-    expect(await screen.findByPlaceholderText(i18n.t('vehicleDetail.parties.searchCustomer'))).toBeInTheDocument()
+    expect(await screen.findByPlaceholderText(i18n.t('vehicleDetail.parties.searchContact'))).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: new RegExp(i18n.t('vehicleDetail.tabs.identity')) })).toHaveAttribute(
       'aria-selected',
       'true',
@@ -215,7 +215,7 @@ describe('Vehicles list — the row menu is Vehicle 360\'s (KAN-503)', () => {
     await openRowMenu(user)
     await user.click(await item('allocate'))
 
-    expect(await screen.findByPlaceholderText(i18n.t('vehicleDetail.parties.searchCustomer'))).toBeInTheDocument()
+    expect(await screen.findByPlaceholderText(i18n.t('vehicleDetail.parties.searchContact'))).toBeInTheDocument()
     await waitFor(() => expect(screen.getByTestId('router-state')).toHaveTextContent('null'))
   })
 

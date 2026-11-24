@@ -1,6 +1,6 @@
 """UserPreference service: per-user layout state, keyed by scope.
 
-Not audit-logged like Customer PII writes (FR-11) — a column drag or a
+Not audit-logged like Contact PII writes (FR-11) — a column drag or a
 density toggle is UX state, not a business record, and the UI/UX doc is
 explicit that preference writes must never block or interrupt the user.
 """
@@ -29,7 +29,7 @@ def default_ui_language(db: Session, *, user_id: uuid.UUID) -> str | None:
     """KAN-104 item 2 (Anto, 2026-11-03, decision 1 B): the language a user
     who has never chosen one starts in — their home Betrieb's correspondence
     language. Only a starting value: the user's own choice is the `ui`
-    preference's `uiLanguage`, a field of its own (CLAUDE.md: the customer's
+    preference's `uiLanguage`, a field of its own (CLAUDE.md: the contact's
     correspondence language is not the user's UI language). None for a user
     row that no longer exists."""
 

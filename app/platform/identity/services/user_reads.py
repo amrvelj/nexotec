@@ -181,7 +181,7 @@ def list_dealer_manager_ids(db: Session, *, dealership_id: uuid.UUID) -> list[uu
 def list_active_users_acting_in(db: Session, *, dealership_id: uuid.UUID) -> list[User]:
     """The users `get_active_user_acting_in` admits for a dealership — homed
     there or an active member, active or invited — ordered by name, for a
-    picker such as the customer record's advisor field (KAN-50; members
+    picker such as the contact record's advisor field (KAN-50; members
     since KAN-410). Deliberately narrower than list_users (no pagination, no
     role filter): a picker wants the short, current list, and it is reachable
     through platform.public without the manager-only `dealership_users` read
@@ -256,7 +256,7 @@ def list_user_dealership_ids(db: Session, *, user_id: uuid.UUID) -> frozenset[uu
 
 def list_user_dealer_group_ids(db: Session, *, user_id: uuid.UUID) -> frozenset[uuid.UUID]:
     """The dealer group of every dealership this user may act in
-    (`list_user_dealership_ids`) — what a group-scoped record (a customer,
+    (`list_user_dealership_ids`) — what a group-scoped record (a contact,
     ADR-014) asks of a colleague it is handed to: they must work in a
     Betrieb of its group (KAN-423). Empty for an id that names no user."""
 
@@ -283,7 +283,7 @@ def get_user_acting_in(db: Session, *, dealership_id: uuid.UUID, user_id: uuid.U
 
 def get_active_user_acting_in(db: Session, *, dealership_id: uuid.UUID, user_id: uuid.UUID) -> User | None:
     """The user when they may be responsible for an open record in this
-    dealership — Sales' responsible seller (KAN-200) or a customer's advisor
+    dealership — Sales' responsible seller (KAN-200) or a contact's advisor
     (KAN-410; Anto, 2026-10-23: the same rule for both) — else None: they act
     in it (`get_user_acting_in`: homed there or an active member, so a
     sister-Betrieb member owns what they take on there) and are active or

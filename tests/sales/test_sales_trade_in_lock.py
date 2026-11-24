@@ -24,7 +24,7 @@ from sqlalchemy.orm import Session
 import app.sales.services.trade_in as trade_in_module
 from app.sales.models.contract import ContractStatus, SalesContract
 from tests.sales.test_sales_contract_edit import (
-    _customer_born_contract,
+    _contact_born_contract,
     _manual_car,
     _postgres_only_row_locks,
     _token,
@@ -44,8 +44,8 @@ def test_a_trade_in_save_holds_the_contracts_row_lock_until_its_commit(client, d
 
     dealership = _dealership(db_session)
     group_id = uuid.uuid4()
-    contract = _manual_car(db_session, _customer_born_contract(db_session, dealership.id, group_id))
-    assert contract.customer_id is not None  # before KAN-189 this made the save allocate parties and commit
+    contract = _manual_car(db_session, _contact_born_contract(db_session, dealership.id, group_id))
+    assert contract.contact_id is not None  # before KAN-189 this made the save allocate parties and commit
     version_before = contract.version
     headers = {**_token(dealership.id, group_id), "If-Match": str(version_before)}
 

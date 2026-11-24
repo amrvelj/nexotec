@@ -78,7 +78,7 @@ OPERATORS_BY_TYPE: dict[str, tuple[str, ...]] = {
 _VALUELESS = frozenset({"today", "thisWeek", "thisMonth", "thisYear"})
 _PERIOD_OF = {"today": "day", "thisWeek": "week", "thisMonth": "month", "thisYear": "year"}
 
-# The bounds every N-days condition takes (the customer list's own, KAN-474).
+# The bounds every N-days condition takes (the contact list's own, KAN-474).
 MAX_FILTER_DAYS = 36500
 MAX_TEXT_FILTER_LENGTH = 200
 # The calendar days a date filter takes: a veteran car's first registration

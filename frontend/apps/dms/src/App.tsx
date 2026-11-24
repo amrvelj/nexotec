@@ -26,9 +26,9 @@ const AccountSignaturePage = lazyPage(() => import('./pages/account/AccountSigna
 const AccountNotificationsPage = lazyPage(() => import('./pages/account/AccountNotificationsPage'), 'AccountNotificationsPage')
 const NotificationsPage = lazyPage(() => import('./pages/NotificationsPage'), 'NotificationsPage')
 const DashboardPage = lazyPage(() => import('./pages/DashboardPage'), 'DashboardPage')
-const CustomersListPage = lazyPage(() => import('./modules/customer/pages/CustomersListPage'), 'CustomersListPage')
-const CustomerCreatePage = lazyPage(() => import('./modules/customer/pages/CustomerCreatePage'), 'CustomerCreatePage')
-const CustomerDetailPage = lazyPage(() => import('./modules/customer/pages/CustomerDetailPage'), 'CustomerDetailPage')
+const ContactsListPage = lazyPage(() => import('./modules/contact/pages/ContactsListPage'), 'ContactsListPage')
+const ContactCreatePage = lazyPage(() => import('./modules/contact/pages/ContactCreatePage'), 'ContactCreatePage')
+const ContactDetailPage = lazyPage(() => import('./modules/contact/pages/ContactDetailPage'), 'ContactDetailPage')
 const CatalogueBrowsePage = lazyPage(() => import('./modules/vehicle/pages/CatalogueBrowsePage'), 'CatalogueBrowsePage')
 const ReferenceDataPage = lazyPage(() => import('./pages/ReferenceDataPage'), 'ReferenceDataPage')
 const AccountRecoveryPage = lazyPage(() => import('./pages/AccountRecoveryPage'), 'AccountRecoveryPage')
@@ -101,7 +101,7 @@ export default function App() {
             <Route path="/password-reset" element={<PasswordResetRequestPage />} />
             <Route path="/password-reset/confirm" element={<PasswordResetConfirmPage />} />
             <Route path="/invitations/accept" element={<InvitationAcceptPage />} />
-            {/* KAN-217 PR-4: a customer's secure document link, `/d?lang=…#<token>` — no session. */}
+            {/* KAN-217 PR-4: a contact's secure document link, `/d?lang=…#<token>` — no session. */}
             <Route path="/d" element={<DocumentLinkPage />} />
             {/* KAN-452: the public Terms of Use and Privacy Policy Google's Places
                 API policies require — no session, outside the shell, for everyone. */}
@@ -115,7 +115,7 @@ export default function App() {
                 <Route path="profile" element={<AccountProfilePage />} />
                 <Route path="security" element={<AccountSecurityPage />} />
                 <Route path="connected-accounts" element={<AccountConnectedAccountsPage />} />
-                {/* KAN-215: the user's own mailbox for customer mail. */}
+                {/* KAN-215: the user's own mailbox for contact mail. */}
                 <Route path="mailbox" element={<AccountMailboxPage />} />
                 <Route path="signature" element={<AccountSignaturePage />} />
                 {/* KAN-216: the user's own notification preferences and this device's push. */}
@@ -123,9 +123,9 @@ export default function App() {
               </Route>
               {/* KAN-216 (FR-A-50): the inbox — the bell in the sidebar opens it. */}
               <Route path="/notifications" element={<NotificationsPage />} />
-              <Route path="/customers" element={<CustomersListPage />} />
-              <Route path="/customers/new" element={<CustomerCreatePage />} />
-              <Route path="/customers/:id" element={<CustomerDetailPage />} />
+              <Route path="/contacts" element={<ContactsListPage />} />
+              <Route path="/contacts/new" element={<ContactCreatePage />} />
+              <Route path="/contacts/:id" element={<ContactDetailPage />} />
               <Route path="/catalogue" element={<CatalogueBrowsePage />} />
               {/* C-B (KAN-40): the mapping-gap queue moved into /catalogue as a tab.
                   Kept as a redirect so existing deep links don't 404. */}

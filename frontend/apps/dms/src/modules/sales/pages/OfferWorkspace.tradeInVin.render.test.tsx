@@ -14,7 +14,7 @@ import { OfferWorkspacePage } from './OfferWorkspacePage'
 // it now names the VIN rule at the VIN input, in the user's language.
 
 const OFFER = {
-  id: 'o1', offerNumber: 'ANG-2026-0001', status: 'draft', customerId: null, customerLabel: null,
+  id: 'o1', offerNumber: 'ANG-2026-0001', status: 'draft', contactId: null, contactLabel: null,
   vehicleSource: null, stockItemId: null, vehicleLabel: null, tradeInVehicleId: null, tradeInConfigurationId: null,
   tradeInLabel: null, tradeInVin: null, tradeInValuationId: null, tradeInValue: null, containers: [], version: 4,
 } as unknown as SalesOfferRead
@@ -126,8 +126,8 @@ describe('OfferWorkspace — a value of chassis-number shape refused without a c
   })
 })
 
-describe('OfferWorkspace — the trade-in sends no customerId (KAN-562)', () => {
-  it('the POST body names the car only; the deprecated customerId is not sent', async () => {
+describe('OfferWorkspace — the trade-in sends no contactId (KAN-562)', () => {
+  it('the POST body names the car only; the deprecated contactId is not sent', async () => {
     let body: unknown
     install((req) => {
       body = req.body
@@ -137,6 +137,6 @@ describe('OfferWorkspace — the trade-in sends no customerId (KAN-562)', () => 
 
     await waitFor(() => expect(body).toBeDefined())
     expect(body).toEqual({ vin: 'WVWZZZ1KZAO331338', plate: null, canton: null, vehicleLabel: 'VW Golf' })
-    expect(body).not.toHaveProperty('customerId')
+    expect(body).not.toHaveProperty('contactId')
   })
 })

@@ -66,7 +66,7 @@ function VehicleRoute() {
   return <div>vehicle page {id}</div>
 }
 
-function renderShell(customers: { items: unknown[] } = { items: [] }): FakeBackend {
+function renderShell(contacts: { items: unknown[] } = { items: [] }): FakeBackend {
   const backend = installFakeBackend([
     {
       method: 'GET',
@@ -87,7 +87,7 @@ function renderShell(customers: { items: unknown[] } = { items: [] }): FakeBacke
         memberships: [{ id: 'd-1', legalName: 'Garage Nord AG' }], entitlements: ALL_ENTITLEMENTS
       }),
     },
-    { method: 'GET', match: /\/customers$/, handler: () => ({ ...customers, nextCursor: null }) },
+    { method: 'GET', match: /\/contacts$/, handler: () => ({ ...contacts, nextCursor: null }) },
     { method: 'GET', match: /\/vehicle-mdm\/search$/, handler: (req) => SEARCH[req.params.get('q') ?? ''] },
   ])
   renderWithProviders(
@@ -137,15 +137,15 @@ describe('DmsShell global search — identifiers resolve as on the Vehicles scre
     expect(within(options[0]).getByText(tr('vehicleDetail.plates.withheld'))).toBeInTheDocument()
   })
 
-  it('a resolved identifier leads, above any customer match', async () => {
+  it('a resolved identifier leads, above any contact match', async () => {
     renderShell({
-      items: [{ id: 'cust-1', customerNumber: 'K-000123', customerType: 'person', firstName: 'Anna', lastName: 'Meier', address: null }],
+      items: [{ id: 'cust-1', contactNumber: 'K-000123', contactType: 'person', firstName: 'Anna', lastName: 'Meier', address: null }],
     })
     await search('ZH 12345')
 
     const vehicles = await screen.findByText(tr('shell.nav.vehicles'))
-    const customers = screen.getByText(tr('shell.nav.customers'))
-    expect(vehicles.compareDocumentPosition(customers) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    const contacts = screen.getByText(tr('shell.nav.contacts'))
+    expect(vehicles.compareDocumentPosition(contacts) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
   it('a Wechselschild plate offers both cars under the Wechselschild heading, never guessing', async () => {

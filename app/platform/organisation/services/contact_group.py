@@ -3,7 +3,7 @@
 The groups themselves are the platform reference list `contact_group`
 (`reference_value` rows, maintained by platform staff). What a Betrieb owns is
 the switch: which of them it uses (`dealership_contact_group`, a row = on).
-A module never reads that table — Customers asks
+A module never reads that table — Contacts asks
 `platform.public.contact_group_codes` which codes the acting Betrieb may set.
 
 A group switched off stays on the contacts that carry it; it is no longer
@@ -27,7 +27,7 @@ from app.platform.reference.models.reference_data import ReferenceList, Referenc
 
 # The initial set, Anto's ruling of 2026-10-26, as the seed migration
 # (platform d72281c678c0) inserts it: (value_code, de, fr, it, en). The
-# migration holds its own literals (ADR-133); tests/customer/test_contact_groups.py
+# migration holds its own literals (ADR-133); tests/contact/test_contact_groups.py
 # keeps the two equal.
 SEEDED_CONTACT_GROUPS: tuple[tuple[str, str, str, str, str], ...] = (
     ("private", "Privat", "Privé", "Privato", "Private"),

@@ -72,7 +72,7 @@ class AgeingBucket(str, enum.Enum):
 
 class StockNumberSequence(Base):
     """Row-lock allocator for `S-000001`-style stock numbers, one row per
-    tenant — mirrors app.customer's per-group CustomerNumberSequence, not
+    tenant — mirrors app.contact's per-group ContactNumberSequence, not
     app.vehicle's single global row: a stock number is dealership-owned
     stock, not a global fact like a VIN.
     """
@@ -249,14 +249,14 @@ class StockItem(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, TimestampMix
     pipeline_ref: Mapped[str | None] = mapped_column(String(120), nullable=True, index=True, info=IDENTIFIER_TEXT)
     # KAN-632 — a trade-in's pipeline item keeps who traded the car in and
     # when the contract was signed, as `sales.contract.confirmed` said
-    # (`customerId`, `signedAt`), so its purchase and storno events carry
-    # them on (`tradeInCustomerId`, `tradeInSignedAt`) and the customer
+    # (`contactId`, `signedAt`), so its purchase and storno events carry
+    # them on (`tradeInContactId`, `tradeInSignedAt`) and the contact
     # context needs to ask nobody (ADR-131). A relayed fact, not a display
-    # reference: no label (it would copy a customer's name nobody here
+    # reference: no label (it would copy a contact's name nobody here
     # reads), as `reserved_by_contract_id`. Null on every other item and on
     # a trade-in created before KAN-632.
-    trade_in_customer_id: Mapped[uuid.UUID | None] = mapped_column(
-        GUID(), nullable=True, comment="Owned by the customer context (Customer). No DB-level FK."
+    trade_in_contact_id: Mapped[uuid.UUID | None] = mapped_column(
+        GUID(), nullable=True, comment="Owned by the contact context (Contact). No DB-level FK."
     )
     trade_in_signed_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)
     # KAN-536 (Anto, 2026-11-12, option A) — the VIN the trade-in's contract
@@ -298,7 +298,7 @@ class StockItem(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, TimestampMix
     # WP-7 PR-3: purchase / landed cost / fiktiver Vorsteuerabzug
     # (Art. 28a MWSTG). ADR-057 — there is NO vatTreatment field anywhere;
     # notional_input_tax_* is a purchase-side fact, never shown to a
-    # customer, never a per-vehicle "VAT treatment" the way pre-2010
+    # contact, never a per-vehicle "VAT treatment" the way pre-2010
     # Margenbesteuerung was.
     supplier_name: Mapped[str | None] = mapped_column(String(200), nullable=True)
     supplier_is_vat_registered: Mapped[bool | None] = mapped_column(Boolean, nullable=True)

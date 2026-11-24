@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 from app.core.audit_model import AuditEvent
 from app.core.base import utcnow
 from app.core.reconciliation import ReconciliationRun, ReferenceCheck, StateCheck, run_reconciliation
-from app.customer.public import customer_reference_check
+from app.contact.public import contact_reference_check
 from app.platform.public import actor_reference_checks, dealership_reference_check
 from app.sales.public import (
     CarryState,
@@ -215,11 +215,11 @@ CHECKS: list[ReferenceCheck | StateCheck] = [
         source_fk_column=Valuation.vehicle_id,
         nullable=True,  # creatable with no vehicle in the register (confirmed live)
     ),
-    customer_reference_check(
-        label="valuation.customer_id -> customer.id",
+    contact_reference_check(
+        label="valuation.contact_id -> contact.id",
         source_model=Valuation,
         source_row_id_column=Valuation.id,
-        source_fk_column=Valuation.customer_id,
+        source_fk_column=Valuation.contact_id,
         nullable=True,  # "Ohne Kunde" (confirmed live filter chip)
     ),
     # C-F (KAN-10): the configuration it was built or captured in.

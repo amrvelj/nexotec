@@ -44,9 +44,9 @@
       "keeper": "Halter",
       "driver": "Fahrzeugführer"
     },
-    "searchCustomer": "Kunde suchen…",
-    "noCustomers": "Keine Kunden gefunden",
-    "unnamedCustomer": "Kunde ohne Namen",
+    "searchContact": "Kunde suchen…",
+    "noContacts": "Keine Kunden gefunden",
+    "unnamedContact": "Kunde ohne Namen",
     "showFormer": "Frühere Beteiligte anzeigen",
     "hideFormer": "Frühere Beteiligte ausblenden",
     "allocateError": "Der Kunde konnte nicht zugeordnet werden.",

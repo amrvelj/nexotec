@@ -34,7 +34,7 @@ def test_a_betrieb_being_set_up_reaches_administration_and_my_account_only(clien
     boss = s.manager(client, db_session, dealership_id, active=False)
     headers = _session(client, mailbox, boss)
 
-    assert client.get("/v1/customers", headers=headers).status_code == 404
+    assert client.get("/v1/contacts", headers=headers).status_code == 404
     assert client.get("/v1/vehicles", headers=headers).status_code == 404
     assert client.get("/v1/inventory/stock-items", headers=headers).status_code == 404
     assert client.get(f"/v1/dealerships/{dealership_id}/setup-checklist", headers=headers).status_code == 200
@@ -45,7 +45,7 @@ def test_a_betrieb_being_set_up_reaches_administration_and_my_account_only(clien
     assert me.json()["activeDealership"]["status"] == "pending_onboarding"
 
     _set_status(db_session, dealership_id, DealershipStatus.ACTIVE)
-    assert client.get("/v1/customers", headers=headers).status_code == 200
+    assert client.get("/v1/contacts", headers=headers).status_code == 200
     assert client.get("/v1/auth/me", headers=headers).json()["activeDealership"]["status"] == "active"
 
 
@@ -53,7 +53,7 @@ def test_a_colleague_of_a_betrieb_being_set_up_is_gated_too(client, db_session, 
     dealership_id = s.pending_dealership(client, db_session)
     clerk = s.manager(client, db_session, dealership_id, active=False, isDealerManager=False)
     headers = _session(client, mailbox, clerk)
-    assert client.get("/v1/customers", headers=headers).status_code == 404
+    assert client.get("/v1/contacts", headers=headers).status_code == 404
     assert client.get("/v1/me", headers=headers).status_code == 200
 
 
@@ -67,10 +67,10 @@ def test_the_legal_hold_holds_the_manager_after_the_grace_and_no_one_else(client
     boss_headers = _session(client, mailbox, boss)
     clerk_headers = _session(client, mailbox, clerk)
 
-    held = client.get("/v1/customers", headers=boss_headers)
+    held = client.get("/v1/contacts", headers=boss_headers)
     assert held.status_code == 403
     assert held.json()["error"]["details"] == {"legalAcceptanceRequired": True}
-    assert client.get("/v1/customers", headers=clerk_headers).status_code == 200
+    assert client.get("/v1/contacts", headers=clerk_headers).status_code == 200
 
     me = client.get("/v1/auth/me", headers=boss_headers).json()
     assert me["legalAcceptanceDue"]["held"] is True
@@ -79,7 +79,7 @@ def test_the_legal_hold_holds_the_manager_after_the_grace_and_no_one_else(client
 
     assert client.get("/v1/legal-documents/current", headers=boss_headers).status_code == 200
     s.accept_both(client, dealership_id, documents, boss_headers)
-    assert client.get("/v1/customers", headers=boss_headers).status_code == 200
+    assert client.get("/v1/contacts", headers=boss_headers).status_code == 200
     assert client.get("/v1/auth/me", headers=boss_headers).json()["legalAcceptanceDue"] is None
 
 
@@ -89,7 +89,7 @@ def test_within_the_grace_the_manager_is_prompted_not_held(client, db_session, m
     _set_status(db_session, dealership_id, DealershipStatus.ACTIVE)
     s.publish_both(db_session, "1.0", effective_date=legal_documents.swiss_today())
     headers = _session(client, mailbox, boss)
-    assert client.get("/v1/customers", headers=headers).status_code == 200
+    assert client.get("/v1/contacts", headers=headers).status_code == 200
     due = client.get("/v1/auth/me", headers=headers).json()["legalAcceptanceDue"]
     assert due["held"] is False
     assert due["dueBy"] == (legal_documents.swiss_today() + dt.timedelta(days=30)).isoformat()

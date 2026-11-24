@@ -373,7 +373,7 @@ jobs:
           while IFS= read -r rev; do
             [ -n "$rev" ] && alembic upgrade "$rev"
           done <<< "${{ steps.previous.outputs.revisions }}"
-      - name: seed rows across customer, vehicle, transaction
+      - name: seed rows across contact, vehicle, transaction
         run: python scripts/seed_migration_smoke_test.py
       - name: alembic upgrade heads (this PR's migrations)
         run: alembic upgrade heads

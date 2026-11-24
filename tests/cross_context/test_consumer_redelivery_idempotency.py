@@ -30,8 +30,8 @@ from app.core.consumer import Handler
 from app.core.outbox_model import OutboxMessage
 from app.core.outbox_transport import InProcessTransport
 from app.core.processed_event_model import ProcessedEvent
-from app.customer.models.stock_item_booking import StockItemBooking
-from app.customer.models.vehicle_party import VehicleParty, VehiclePartyRole
+from app.contact.models.stock_item_booking import StockItemBooking
+from app.contact.models.vehicle_party import VehicleParty, VehiclePartyRole
 from app.inventory.models.sales_contract import InventorySalesContract, ProjectedContractStatus
 from app.inventory.models.stock_item import StockItem, StockItemCondition
 from app.inventory.models.stock_item_publishing import MarketplaceChannel
@@ -51,7 +51,7 @@ from app.sales.services.stock_item_purchase import record_stock_item_purchased
 from app.vehicle.models.plate import VehiclePlate
 from app.vehicle.models.stock_holding import VehicleStockHolding
 from app.worker import register_handlers
-from tests.cross_context.test_kan189_trade_in_without_register import _bought_trade_in, _customer_consumes
+from tests.cross_context.test_kan189_trade_in_without_register import _bought_trade_in, _contact_consumes
 from tests.inventory.test_inventory_invoicing_gate import _make_dealership
 from tests.inventory.test_inventory_marketplace_transmission import (
     FakeMarketplaceAdapter,
@@ -303,8 +303,8 @@ def _stock_item_commercial_changed(db_session, engine, monkeypatch):
 
 
 def _trade_in_purchased(db_session, engine, monkeypatch):
-    """KAN-189 — Stock books a trade-in's purchase: the customer context
-    records the contract's customer as former owner and keeper, once."""
+    """KAN-189 — Stock books a trade-in's purchase: the contact context
+    records the contract's contact as former owner and keeper, once."""
 
     _contract, _item, message = _bought_trade_in(db_session, engine)
     db_session.commit()
@@ -319,15 +319,15 @@ def _trade_in_purchased(db_session, engine, monkeypatch):
 
 def _trade_in_storno(db_session, engine, monkeypatch):
     """KAN-572 — a bought trade-in's purchase is stornoed and the car went
-    back to its customer: the customer context reopens that customer as
+    back to its contact: the contact context reopens that contact as
     owner and keeper, once."""
 
     _contract, item, purchased = _bought_trade_in(db_session, engine)
-    _customer_consumes(db_session, purchased)
+    _contact_consumes(db_session, purchased)
     db_session.refresh(item)
     storno_purchase(
         db_session, item=item,
-        data=PurchaseStornoRequest(reason="Kunde behält das Fahrzeug", returned_to_customer=True), actor_id=None,
+        data=PurchaseStornoRequest(reason="Kunde behält das Fahrzeug", returned_to_contact=True), actor_id=None,
     )
     message = _message(db_session, "inventory.stock_item.storno", item.id)
 
@@ -351,8 +351,8 @@ def _booking_rows(message: OutboxMessage) -> Measure:
 
 
 def _booking_on_purchased(db_session, engine, monkeypatch):
-    """KAN-632 — Stock books a purchase: the customer context records the
-    booking once (one customer_stock_item_booking row for the event)."""
+    """KAN-632 — Stock books a purchase: the contact context records the
+    booking once (one contact_stock_item_booking row for the event)."""
 
     _contract, _item, message = _bought_trade_in(db_session, engine)
     db_session.commit()
@@ -363,7 +363,7 @@ def _booking_on_storno(db_session, engine, monkeypatch):
     """KAN-632 — Stock stornos the purchase: the storno's booking row, once."""
 
     _contract, item, purchased = _bought_trade_in(db_session, engine)
-    _customer_consumes(db_session, purchased)
+    _contact_consumes(db_session, purchased)
     db_session.refresh(item)
     storno_purchase(
         db_session, item=item, data=PurchaseStornoRequest(reason="Lieferung storniert"), actor_id=None,
@@ -372,20 +372,20 @@ def _booking_on_storno(db_session, engine, monkeypatch):
     return message, _booking_rows(message)
 
 
-def _customer_merged(db_session, engine, monkeypatch):
-    """KAN-185 — a customer merge: Sales moves the duplicate's offer to the
+def _contact_merged(db_session, engine, monkeypatch):
+    """KAN-185 — a contact merge: Sales moves the duplicate's offer to the
     survivor once (the measure counts the offers on the survivor)."""
 
-    from tests.sales.test_sales_customer_merged_consumer import _customer, _merge, _offer
+    from tests.sales.test_sales_contact_merged_consumer import _contact, _merge, _offer
 
     tenant_id, group_id = uuid.uuid4(), uuid.uuid4()
-    survivor = _customer(db_session, group_id, tenant_id, "Survivor")
-    duplicate = _customer(db_session, group_id, tenant_id, "Duplicate")
+    survivor = _contact(db_session, group_id, tenant_id, "Survivor")
+    duplicate = _contact(db_session, group_id, tenant_id, "Duplicate")
     _offer(db_session, tenant_id, group_id, duplicate.id)
     message = _merge(db_session, duplicate_id=duplicate.id, survivor_id=survivor.id, group_id=group_id)
 
     def offers_on_survivor(db: Session) -> int:
-        return db.scalar(select(func.count()).select_from(SalesOffer).where(SalesOffer.customer_id == survivor.id))
+        return db.scalar(select(func.count()).select_from(SalesOffer).where(SalesOffer.contact_id == survivor.id))
 
     return message, offers_on_survivor
 
@@ -415,18 +415,18 @@ def _invoice_requested_with_plate(db_session, engine, monkeypatch):
 
 def _vehicle_summary_changed(db_session, engine, monkeypatch):
     """KAN-186 — a VIN correction on vehicle-mdm, from the real producer: the
-    customer's party row naming the car takes the corrected VIN, once."""
+    contact's party row naming the car takes the corrected VIN, once."""
 
-    from app.customer.models.vehicle_party import VehicleParty, VehiclePartyRole
-    from app.customer.services.vehicle_party import allocate_vehicle_party
+    from app.contact.models.vehicle_party import VehicleParty, VehiclePartyRole
+    from app.contact.services.vehicle_party import allocate_vehicle_party
     from app.vehicle.schemas.vehicle_mdm import VehicleMdmUpdate
     from app.vehicle.services.vehicle_mdm import SUMMARY_CHANGED_EVENT, create_vehicle_mdm, update_vehicle_mdm
-    from tests.sales.test_sales_lifecycle_reservation import _customer
+    from tests.sales.test_sales_lifecycle_reservation import _contact
 
     group_id = uuid.uuid4()
     vehicle = create_vehicle_mdm(db_session, vin="WVWZZZ1KZAW000186", catalogue_variant_id=None)
     allocate_vehicle_party(
-        db_session, vehicle_id=vehicle.id, customer_id=_customer(db_session, group_id).id,
+        db_session, vehicle_id=vehicle.id, contact_id=_contact(db_session, group_id).id,
         role=VehiclePartyRole.OWNER, group_id=group_id, actor_id=uuid.uuid4(), acting_dealership_id=None,
     )
     corrected = "WVWZZZ1KZAW000187"
@@ -447,17 +447,17 @@ def _vehicle_merged(db_session, engine, monkeypatch):
     """KAN-634 — a vehicle merge (FR-V-12), from the real producer: the
     duplicate's party row moves onto the survivor, once."""
 
-    from app.customer.models.vehicle_party import VehicleParty, VehiclePartyRole
-    from app.customer.services.vehicle_party import allocate_vehicle_party
+    from app.contact.models.vehicle_party import VehicleParty, VehiclePartyRole
+    from app.contact.services.vehicle_party import allocate_vehicle_party
     from app.vehicle.services.merge import MERGED_EVENT, merge_vehicles
     from app.vehicle.services.vehicle_mdm import create_vehicle_mdm
-    from tests.sales.test_sales_lifecycle_reservation import _customer
+    from tests.sales.test_sales_lifecycle_reservation import _contact
 
     group_id = uuid.uuid4()
     survivor = create_vehicle_mdm(db_session, vin="WVWZZZ1KZAW000634", catalogue_variant_id=None)
     duplicate = create_vehicle_mdm(db_session, vin="WVWZZZ1KZAW000635", catalogue_variant_id=None)
     allocate_vehicle_party(
-        db_session, vehicle_id=duplicate.id, customer_id=_customer(db_session, group_id).id,
+        db_session, vehicle_id=duplicate.id, contact_id=_contact(db_session, group_id).id,
         role=VehiclePartyRole.OWNER, group_id=group_id, actor_id=uuid.uuid4(), acting_dealership_id=None,
     )
     merge_vehicles(db_session, survivor_id=survivor.id, duplicate_id=duplicate.id, actor_id=uuid.uuid4())
@@ -817,10 +817,10 @@ def _contract_takes(db_session, dealership):
     from app.sales.schemas.contract import ContractUpdate
     from app.sales.services.contract import update_contract
     from tests.cross_context.test_configurator_hosts import _build_configuration
-    from tests.sales.test_sales_contract_edit import _customer_born_contract
+    from tests.sales.test_sales_contract_edit import _contact_born_contract
 
     config = _build_configuration(db_session, dealership.id)
-    contract = _customer_born_contract(db_session, dealership.id, uuid.uuid4())
+    contract = _contact_born_contract(db_session, dealership.id, uuid.uuid4())
     update_contract(
         db_session, contract=contract, group_id=uuid.uuid4(), data=ContractUpdate(configuration_id=config.id), actor_id=None
     )
@@ -1035,11 +1035,11 @@ _FIXTURES: dict[str, Fixture] = {
     "sales.stock_item_purchased": _stock_item_purchased,
     "sales.stock_item_storno": _stock_item_storno,
     "sales.stock_item_commercial_changed": _stock_item_commercial_changed,
-    "customer.stock_item_bookings_on_purchased": _booking_on_purchased,
-    "customer.stock_item_bookings_on_storno": _booking_on_storno,
-    "customer.trade_in_purchased": _trade_in_purchased,
-    "customer.trade_in_storno": _trade_in_storno,
-    "sales.customer_merged": _customer_merged,
+    "contact.stock_item_bookings_on_purchased": _booking_on_purchased,
+    "contact.stock_item_bookings_on_storno": _booking_on_storno,
+    "contact.trade_in_purchased": _trade_in_purchased,
+    "contact.trade_in_storno": _trade_in_storno,
+    "sales.contact_merged": _contact_merged,
     "sales.stock_item_reassigned": _stock_item_reassigned,
     "inventory.marketplace_transmission_on_publish": _stock_item_published,
     "reporting.public_stock_listing": _website_listing_changed,
@@ -1047,8 +1047,8 @@ _FIXTURES: dict[str, Fixture] = {
     "platform.web_push_on_notification": _notification_delivered,
     "platform.web_push_on_digest": _digest_released,
     "vehicle.plate_on_invoice_requested": _invoice_requested_with_plate,
-    "customer.vehicle_party_labels_on_summary_changed": _vehicle_summary_changed,
-    "customer.vehicle_parties_on_vehicle_merged": _vehicle_merged,
+    "contact.vehicle_party_labels_on_summary_changed": _vehicle_summary_changed,
+    "contact.vehicle_parties_on_vehicle_merged": _vehicle_merged,
     "inventory.stock_items_on_vehicle_merged": _stock_items_on_vehicle_merged,
     "vehicle.configuration_taken_by_offer": _configuration_taken("sales.offer.configuration_attached", _offer_takes),
     "vehicle.configuration_taken_by_contract": _configuration_taken(

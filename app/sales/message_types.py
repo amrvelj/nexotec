@@ -1,8 +1,8 @@
-"""The customer message types Sales registers with the platform's send dialog
+"""The contact message types Sales registers with the platform's send dialog
 (KAN-217 PR-1; Dealer Administration FR-A-52, FR-A-53).
 
 Three document types, each transactional — sending an offer, an order
-confirmation or a contract the customer asked for is contract preparation,
+confirmation or a contract the contact asked for is contract preparation,
 not marketing (Anto, 2026-11-14, Q1 A) — each sent on e-mail (the PDF
 attached), SMS and WhatsApp (a secure link). The texts are platform seeds in
 four languages (`app/platform/documents/services/message_text_seed.py`; the

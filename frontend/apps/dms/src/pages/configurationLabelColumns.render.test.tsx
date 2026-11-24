@@ -37,7 +37,7 @@ const STOCK_ITEM = {
 } as unknown as StockItemRead
 const VALUATION = {
   id: 'val-1', valuationNumber: 'B-000190', status: 'valid', source: 'manual', hasSignedContract: false,
-  customerId: null, customerLabel: null, vehicleId: null, vehicleMake: 'Škoda', vehicleModel: 'Octavia', vehicleTrim: null,
+  contactId: null, contactLabel: null, vehicleId: null, vehicleMake: 'Škoda', vehicleModel: 'Octavia', vehicleTrim: null,
   vehicleVin: null, finalOffer: '12000.00', deductions: [], version: 1, validFrom: '2026-10-01',
   validUntil: '2026-10-31', configurationId: 'cfg-1', configurationLabel: LABEL, createdAt: NOW, updatedAt: NOW,
 } as unknown as ValuationRead

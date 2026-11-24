@@ -27,7 +27,7 @@ export interface FilterBuilderProps {
   /** Live match count before committing a predicate. Omit for a screen
    * with no way yet to count matches for an arbitrary predicate — no
    * module ships a generic filter-count endpoint today, only fixed query
-   * parameters (e.g. `/customers?lifecycleStatus=...`); this stays an
+   * parameters (e.g. `/contacts?lifecycleStatus=...`); this stays an
    * open backend gap, not something faked on the frontend. */
   onPreviewCount?: (predicates: FilterPredicate[]) => Promise<number>;
   labels: FilterBuilderLabels;

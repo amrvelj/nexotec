@@ -104,7 +104,7 @@ describe('Stock list — one intake (KAN-463)', () => {
   })
 
   it('offers no intake to a role that may write neither a stock item nor a configuration (KAN-430)', async () => {
-    install({ items: [], writableCapabilities: ['customers'] })
+    install({ items: [], writableCapabilities: ['contacts'] })
     renderWithProviders(<StockListPage />, { route: '/stock' })
 
     expect(await screen.findByText(i18n.t('stockList.emptyState.title'))).toBeInTheDocument()

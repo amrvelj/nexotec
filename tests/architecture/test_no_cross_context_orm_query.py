@@ -3,7 +3,7 @@ no context runs SQL on another context's tables.
 
 import-linter (rule 3) lets a context import what another context's
 `public` module exports, and today those modules still export ORM classes
-(`app.platform.public.Dealership`, `app.customer.public.VehicleParty`, …;
+(`app.platform.public.Dealership`, `app.contact.public.VehicleParty`, …;
 KAN-123 is the ticket that stops it). Nothing stopped a context from
 putting such a class into its own query — `select(StockItem, Dealership)
 .join(Dealership, …)` — which is the cross-context join rule 2 forbids and

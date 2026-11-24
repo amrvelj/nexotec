@@ -15,7 +15,7 @@ fields, declared now for the same reason.
 
 Exactly one of `offer_id`/`contract_id` is set, enforced at the service
 layer (the house convention for cross-field rules — see
-app.customer.models.customer's own docstring on why this isn't a DB
+app.contact.models.contact's own docstring on why this isn't a DB
 CHECK), never both, never neither.
 """
 
@@ -49,7 +49,7 @@ class SalesLineItem(PrimaryKeyMixin, TenantScopedMixin, TimestampMixin, Base):
     # KAN-595 — a configured car's factory option in each language as the
     # provider delivered it, frozen with the line from the configuration's
     # price line (ADR-041). The document prints the one of its language
-    # (the customer's correspondence language), else `label`. NULL on every
+    # (the contact's correspondence language), else `label`. NULL on every
     # other line: an accessory or a colour/wheels line has the one text typed.
     label_de: Mapped[str | None] = mapped_column(String(200), nullable=True)
     label_fr: Mapped[str | None] = mapped_column(String(200), nullable=True)

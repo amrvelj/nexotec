@@ -117,7 +117,7 @@ def test_a_missing_fact_is_said_never_guessed_and_an_unknown_token_never_reaches
         f"Farbe: {NOT_STATED[SwissLanguage.FR]}"
     )
     with pytest.raises(UnprocessableEntityError) as caught:
-        render(entry, "{{ customer.name }}", values={"customer.name": "x"}, language=SwissLanguage.DE)
+        render(entry, "{{ contact.name }}", values={"contact.name": "x"}, language=SwissLanguage.DE)
     assert caught.value.details["reason"] == "ai_prompt_placeholder_unresolved"
 
 
@@ -153,7 +153,7 @@ def test_only_the_manager_adapts_a_prompt(client, seeds, dealership):
 
 
 def test_an_adaptation_refuses_a_placeholder_its_code_does_not_list(client, seeds, dealership):
-    body = {"code": VEHICLE_LISTING, "language": "de", "systemPrompt": "S", "userPrompt": "{{ customer.email }}"}
+    body = {"code": VEHICLE_LISTING, "language": "de", "systemPrompt": "S", "userPrompt": "{{ contact.email }}"}
     response = client.post(f"/v1/dealerships/{dealership.id}/ai-prompts", json=body, headers=_manager(dealership.id))
     assert response.status_code == 422
     assert response.json()["error"]["details"]["reason"] == "ai_prompt_placeholder_invalid"

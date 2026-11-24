@@ -1,6 +1,6 @@
 """The mailbox port (KAN-215): what the two mailbox providers — Microsoft 365
 (Graph `sendMail`) and Google Workspace (Gmail `messages.send`) — do for
-Nexotec, behind one shape. Customer mail leaves only through the dealer's own
+Nexotec, behind one shape. Contact mail leaves only through the dealer's own
 mailbox (Anto, 2026-11-14); nothing outside `adapters/` knows a provider's
 endpoint.
 

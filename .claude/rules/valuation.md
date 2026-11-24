@@ -22,7 +22,7 @@ valuation is valuation-trade-in.md. Last verified against main@3b2bf69 (2026-11-
 - **Single writer.** Sales' `trade_in_valuation_id` and Stock's `valuation_ref_*` are read-only
   references to the same record.
 - **Tenant-private even within a group** (ADR-029): a sister dealership never sees another's.
-- **A standalone application**: creatable with no customer, no offer and no vehicle in the
+- **A standalone application**: creatable with no contact, no offer and no vehicle in the
   register; it carries a **validity period**. Licensed with `sales` (router-level gate, 404).
 - **A vehicle carries a LIST of valuations** (ADR-048 as amended, ADR-066): the newest is current;
   older ones stay readable and are never edited or deleted (only `used_at` changes). «Neu
@@ -75,7 +75,7 @@ valuation is valuation-trade-in.md. Last verified against main@3b2bf69 (2026-11-
   `valuation.valuation.use_reverted`, like the compensation.
 - **The valuation screens:** «Neu bewerten» is the detail's primary; the alternative, also in the
   grid's row menu (`valuationRowMenu.tsx`, ADR-061), is «Offerte aus dieser Bewertung erstellen»
-  (Anto, KAN-569): a draft offer with the valuation's customer (none otherwise) and the valuation
+  (Anto, KAN-569): a draft offer with the valuation's contact (none otherwise) and the valuation
   as trade-in, then the workspace — a draft valuation allowed; an expired or used one, or one
   naming no car, disabled with the reason; hidden without the `sales_offers` write; a refused
   later step keeps the screen, names the offer made, and a retry continues it.

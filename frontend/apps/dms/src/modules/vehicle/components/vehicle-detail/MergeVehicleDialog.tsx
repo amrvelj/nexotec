@@ -47,7 +47,7 @@ export function mergeCandidates(result: VehicleSearchResult, openId: string): Ca
  * («Endgültig zusammenführen») unlocks.
  *
  * By default the open record goes and the record found stays; «Richtung
- * tauschen» turns it round. Customers' links and Stock's cars follow the
+ * tauschen» turns it round. Contacts' links and Stock's cars follow the
  * merge on their own (the server's consumers).
  */
 export function MergeVehicleDialog({ opened, onClose, vehicle, onMerged }: MergeVehicleDialogProps) {

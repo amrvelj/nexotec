@@ -6,7 +6,7 @@ the tenant_id used everywhere else (spec cross-cutting #1, issue #2) — the
 group does NOT become the tenant, and nothing about existing scoping changes.
 Not TenantScopedMixin — a Dealership IS the tenant, it doesn't belong to one.
 
-DealerGroup owns customers group-wide (ADR-014) once PR-2/PR-4 land, and
+DealerGroup owns contacts group-wide (ADR-014) once PR-2/PR-4 land, and
 carries the single point of contact for data-subject requests (ADR-030).
 Every existing dealership becomes a group of one at migration time — see
 alembic/versions/platform/<this-migration>.
@@ -60,9 +60,9 @@ class DealershipStatus(str, enum.Enum):
 
 
 class DealershipKind(str, enum.Enum):
-    """KAN-221 PR-1: what a Betrieb row is. `dealer` is every customer's
+    """KAN-221 PR-1: what a Betrieb row is. `dealer` is every contact's
     Betrieb; `platform` is the one row that homes Nexotec's staff (the
-    platform tenant) — it holds no stock, customers, entitlements or setup
+    platform tenant) — it holds no stock, contacts, entitlements or setup
     checklist, and it is left out of every dealer list
     (`organisation/services/dealer_dealerships.py`)."""
 
@@ -102,7 +102,7 @@ class DealerGroup(PrimaryKeyMixin, VersionedMixin, TimestampMixin, Base):
     # only to flip, and only once a legal_basis row exists for the group at
     # all (app.platform.organisation.services.dealership.enable_group_read's own
     # precondition — a fail-fast admin UX check, NOT the actual security
-    # boundary; the read helper re-checks a LIVE basis per customer on every
+    # boundary; the read helper re-checks a LIVE basis per contact on every
     # call regardless of this flag, since a basis can be withdrawn after the
     # flag was flipped ON and nothing else would catch that).
     group_read_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
@@ -220,7 +220,7 @@ class Dealership(PrimaryKeyMixin, VersionedMixin, TimestampMixin, Base):
     # and `association_memberships` hold codes of the platform-seeded
     # reference lists `legal_form` and `association_membership`; the service
     # checks membership on write (schemas cannot reach the DB), as the
-    # customer's country does. The Handelsregister office is the canton whose
+    # contact's country does. The Handelsregister office is the canton whose
     # register holds the entry; `hr_number` is the CH-number as printed in the
     # document footer. `astra_operator_number` is the garage/operator number
     # with ASTRA/MOFIS — the prerequisite for the `registry` integration
@@ -241,7 +241,7 @@ class Dealership(PrimaryKeyMixin, VersionedMixin, TimestampMixin, Base):
     )
 
     # WP-6b: document branding + the "dealership default" half of the
-    # correspondence-language rule (Customers FR-13 / ADR-051). logo_url is
+    # correspondence-language rule (Contacts FR-13 / ADR-051). logo_url is
     # an external reference only — this package builds no upload/hosting
     # mechanism, that's a WP-6c admin-screen concern; a dealership with no
     # logo renders an initials mark in brand_primary_color instead (same

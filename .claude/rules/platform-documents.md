@@ -119,7 +119,7 @@ A-RULE-3). Cut from platform.md by KAN-614 (2026-11-10). Last verified against m
 
 ## Number ranges (D-A-17, A-RULE-3, ADR-109) — built
 - **Gapless per legal entity**, one sequence across all its sites; `{location_code}` is a label.
-  One `number_range` row per Betrieb per document type (eleven, the PRD's table; customer numbers
+  One `number_range` row per Betrieb per document type (eleven, the PRD's table; contact numbers
   stay per group, not here), seeded unfrozen at `create_dealership` (`services/number_range.py::SEEDS`).
 - Pattern: literals `A–Z a–z 0–9 - / . _`, `{year}` (Swiss year), `{location_code}`, exactly one
   `{counter:N}` (N 1–9), at most 16 characters rendered (422 `number_pattern_*`). A yearly reset

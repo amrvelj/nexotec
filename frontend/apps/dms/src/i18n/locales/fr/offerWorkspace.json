@@ -5,13 +5,13 @@
     "optional": "Facultatif"
   },
   "containers": {
-    "customer": "Client",
+    "contact": "Client",
     "vehicle": "Véhicule",
     "pricing": "Structure de prix",
     "tradeIn": "Véhicule de reprise",
     "leasing": "Leasing"
   },
-  "customer": {
+  "contact": {
     "emptyHint": "Aucun client présélectionné — une offre porte le nom qui sera signé.",
     "emptyHintContract": "Pas encore d’acheteur — un contrat n’est confirmé qu’avec le client qui le signe.",
     "search": "Rechercher un client",
@@ -69,8 +69,8 @@
     "valueWithConfigurator": "Identifier et évaluer",
     "attachError": "L'évaluation n'a pas pu être reprise.",
     "saveError": "Le véhicule de reprise n'a pas pu être enregistré.",
-    "customerMerged": "Le client a été fusionné avec un autre client. Choisissez le client avec lequel il a été fusionné, puis saisissez à nouveau le véhicule de reprise.",
-    "customerMergedInto": "Le client a été fusionné avec {{name}} ({{customerNumber}}). Choisissez {{name}} comme client, puis saisissez à nouveau le véhicule de reprise."
+    "contactMerged": "Le client a été fusionné avec un autre client. Choisissez le client avec lequel il a été fusionné, puis saisissez à nouveau le véhicule de reprise.",
+    "contactMergedInto": "Le client a été fusionné avec {{name}} ({{customerNumber}}). Choisissez {{name}} comme client, puis saisissez à nouveau le véhicule de reprise."
   },
   "leasing": {
     "hint": "Pas de calculateur de leasing en v1 (S-D03). Saisies libres, pour qu'un futur calculateur puisse être intégré sans changement de schéma.",

@@ -7,7 +7,7 @@
   "columns": {
     "number": "Nummer",
     "type": "Art",
-    "customer": "Kunde",
+    "contact": "Kunde",
     "vehicle": "Fahrzeug",
     "grossPrice": "Verkaufspreis",
     "status": "Status",

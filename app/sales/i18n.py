@@ -13,7 +13,7 @@ lives in the code repository as static data, same tier the frontend's own
 new pattern.
 
 Consumed by app.sales.services.document at GENERATION time (never at
-render time) — the customer's correspondence language, never the
+render time) — the contact's correspondence language, never the
 generating seller's own UI language, and the result is frozen into
 SalesDocument.content_definition permanently (ADR-041's own "frozen
 once" posture, applied here to document TEXT rather than a vehicle
@@ -106,7 +106,7 @@ _STRINGS: dict[SwissLanguage, DocumentStrings] = {
 # a build-time bug (this module's own test asserts it), never a runtime
 # fallback to German (CLAUDE.md's own i18n rule: "a missing key renders a
 # loud marker and never a German fallback" — for a document that goes to
-# a customer, the loud marker IS the ValueError from t() below, since
+# a contact, the loud marker IS the ValueError from t() below, since
 # there is no on-screen UI to render a marker into).
 _KEYS = set(_STRINGS[SwissLanguage.DE])
 

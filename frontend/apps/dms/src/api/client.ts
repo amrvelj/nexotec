@@ -97,7 +97,7 @@ async function getBlobUrl(path: string): Promise<string> {
   return URL.createObjectURL(blob)
 }
 
-/** KAN-217 PR-4 (ADR-193) — a customer's secure document link. No session:
+/** KAN-217 PR-4 (ADR-193) — a contact's secure document link. No session:
  * the token is the whole authority and travels in a header, never in a URL a
  * proxy or an access log keeps; no cookie is sent. Returns a `blob:` URL the
  * caller revokes, and the file name the server gave it; any refusal is the

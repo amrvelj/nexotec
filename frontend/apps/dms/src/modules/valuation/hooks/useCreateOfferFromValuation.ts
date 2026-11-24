@@ -21,8 +21,8 @@ export interface CreateOfferFromValuationError {
  * makes elsewhere:
  *
  * 1. `POST /sales/offers` — a bare draft offer (the endpoint takes no body);
- * 2. `PATCH /sales/offers/{id}` with the valuation's `customerId`, only when
- *    it has one (1A: without a customer the offer starts without a buyer, as
+ * 2. `PATCH /sales/offers/{id}` with the valuation's `contactId`, only when
+ *    it has one (1A: without a contact the offer starts without a buyer, as
  *    an offer from a stock car does, and the seller picks one in the
  *    workspace);
  * 3. `POST /sales/offers/{id}/trade-in/valuation` — the workspace's own
@@ -36,7 +36,7 @@ export interface CreateOfferFromValuationError {
  * Idempotency-Key that a retry keeps (KAN-119).
  */
 export function useCreateOfferFromValuation(): {
-  run: (valuation: Pick<ValuationRead, 'id' | 'customerId'>) => Promise<void>
+  run: (valuation: Pick<ValuationRead, 'id' | 'contactId'>) => Promise<void>
   error: CreateOfferFromValuationError | null
   dismiss: () => void
 } {
@@ -58,7 +58,7 @@ export function useCreateOfferFromValuation(): {
   const inFlight = useRef(false)
 
   const run = useCallback(
-    async (valuation: Pick<ValuationRead, 'id' | 'customerId'>) => {
+    async (valuation: Pick<ValuationRead, 'id' | 'contactId'>) => {
       if (inFlight.current) return
       inFlight.current = true
       setError(null)
@@ -74,10 +74,10 @@ export function useCreateOfferFromValuation(): {
         return
       }
       try {
-        if (valuation.customerId && offer.customerId !== valuation.customerId) {
+        if (valuation.contactId && offer.contactId !== valuation.contactId) {
           offer = await api.patch<SalesOfferRead>(
             `/sales/offers/${offer.id}`,
-            { customerId: valuation.customerId },
+            { contactId: valuation.contactId },
             { 'If-Match': String(offer.version) }
           )
         }

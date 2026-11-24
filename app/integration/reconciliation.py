@@ -158,9 +158,9 @@ CHECKS = [
         source_fk_column=MessageDelivery.author_user_id,
     ),
     # KAN-795: the secure link an SMS or WhatsApp message carried names
-    # platform's row (nothing purges a link). The delivery's `customer_id` is
-    # Customers' to check — it sits above integration (ADR-131), so the check
-    # is in app/customer/reconciliation.py, built by
+    # platform's row (nothing purges a link). The delivery's `contact_id` is
+    # Contacts' to check — it sits above integration (ADR-131), so the check
+    # is in app/contact/reconciliation.py, built by
     # `services/reconciliation_sources.py`. Its `document_id` stays unchecked:
     # its owner is whichever module registered the message type.
     document_link_reference_check(

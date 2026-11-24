@@ -1,5 +1,5 @@
 """Architecture test (KAN-123 step 6, ADR-162): since `VehicleMdm` and
-`VehicleConfiguration` left `vehicle.public`, Vehicle builds what Customers',
+`VehicleConfiguration` left `vehicle.public`, Vehicle builds what Contacts',
 Sales', Valuation's and Stock's nightly reconciliation checks against its
 `vehicle_mdm` and `vehicle_configuration` tables
 (`app/vehicle/services/reconciliation_targets.py`).
@@ -72,7 +72,7 @@ def test_the_guard_reports_a_user_outside_reconciliation():
     assert _users_outside_reconciliation({
         "app/sales/services/offer.py": "from app.vehicle.public import configuration_untaken\n",
         "app/inventory/api/stock.py": "from app.vehicle.public import vehicle_is_merged\n",
-        "app/customer/services/vehicle_party.py": "vehicle_reference_check(label='x')\n",
+        "app/contact/services/vehicle_party.py": "vehicle_reference_check(label='x')\n",
         "app/vehicle/services/reconciliation_targets.py": "def vehicle_is_merged(): ...\n",
         "app/valuation/reconciliation.py": "from app.vehicle.public import vehicle_vin_differs\n",
         "app/sales/services/untouched.py": "x = 1\n",
@@ -80,7 +80,7 @@ def test_the_guard_reports_a_user_outside_reconciliation():
         "app/inventory/consumers.py": "def handle_vehicle_merged(db, message): ...\n",
         "app/inventory/services/vehicle_merge.py": "REASON = \"vehicle_merged\"\n",
     }) == [
-        "app/customer/services/vehicle_party.py",
+        "app/contact/services/vehicle_party.py",
         "app/inventory/api/stock.py",
         "app/sales/services/offer.py",
     ]

@@ -5,7 +5,7 @@ never a shared transaction. It would work today because everything
 shares one database. That is exactly why it is forbidden." reserve()/
 release() each own their own commit — Pattern B (as the vehicle merge's
 party re-point did before it became an event in KAN-634), never Pattern A ("join the caller's
-transaction" — the last such call, the customer merge's legacy-transaction
+transaction" — the last such call, the contact merge's legacy-transaction
 re-point, became an event in KAN-185). A future Sales caller (WP-8) calls this from OUTSIDE its
 own contract-write transaction, with its own Idempotency-Key, a timeout
 and one retry on its side — this module's only obligation is that ITS
@@ -295,7 +295,7 @@ def lock_contract(db: Session, *, tenant_id: uuid.UUID, contract_id: uuid.UUID) 
     recorded cancellation. SQLite (the fast local lane, ADR-011) has no
     advisory locks and serialises writers on its own, so this is a no-op
     there. Same idiom as
-    app.customer.services.vehicle_party_locks._lock_vehicle_role_in_group.
+    app.contact.services.vehicle_party_locks._lock_vehicle_role_in_group.
     """
 
     if db.get_bind().dialect.name != "postgresql":

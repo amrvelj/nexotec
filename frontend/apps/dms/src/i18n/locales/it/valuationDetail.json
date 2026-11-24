@@ -13,7 +13,7 @@
     "markUsed": "Segna come utilizzata",
     "markUsedAlreadyUsed": "Già segnata come utilizzata.",
     "markUsedNoSignedContract": "Possibile solo se un contratto firmato contiene questa valutazione come permuta.",
-    "openCustomer": "Apri cliente",
+    "openContact": "Apri cliente",
     "openVehicle": "Apri veicolo",
     "revertUse": "Annulla utilizzo",
     "revertUseNotUsed": "Solo per una valutazione contrassegnata come utilizzata.",
@@ -43,7 +43,7 @@
     "plate": "Targa",
     "mileage": "Chilometraggio",
     "firstRegistration": "Prima immatricolazione",
-    "customer": "Cliente"
+    "contact": "Cliente"
   },
   "noteCard": {
     "title": "Nota"

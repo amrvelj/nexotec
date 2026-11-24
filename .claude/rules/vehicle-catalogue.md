@@ -102,7 +102,7 @@ Last verified against main@3b2bf69 (2026-11-18). -->
   ADR-142): `vehicle_model_variant_energy_label`, one global row per (variant, year, gearbox) with
   its class and the provider's https PDF link (`label_url`), fill-if-absent, stored even for a year
   whose gearboxes disagree; `ConfigurationRead.energyLabels` carries the car's year to the seller
-  (the configuration summary, wherever a host shows it), printed on no customer document.
+  (the configuration summary, wherever a host shows it), printed on no contact document.
 - **Tyre rows are one per approved wheel** (KAN-596, ADR-141): key (Betrieb, variant, axle code,
   season code, size, rims), with the rim as delivered (`rims`, `rim_width`, `rim_size`,
   `rim_offset`) and `is_standard`; rows differing by gearbox alone are one row.

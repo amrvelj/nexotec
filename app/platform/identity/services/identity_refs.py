@@ -22,7 +22,7 @@ from app.platform.identity.services import user_reads
 class ActingUser:
     """A user who may be responsible for an open record in a Betrieb (a
     seller, an advisor; KAN-410): who they are and how they are named and
-    reached — what Customers, Sales and the identAPI enrolment read."""
+    reached — what Contacts, Sales and the identAPI enrolment read."""
 
     id: uuid.UUID
     first_name: str

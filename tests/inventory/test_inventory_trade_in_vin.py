@@ -64,7 +64,7 @@ def _confirmed_trade_in_contract(db_session, engine, dealership=None):
     )
     contract = set_trade_in(
         db_session, deal=contract, group_id=group_id, vin=CONTRACT_VIN, plate=None, canton=None,
-        vehicle_label="Seat Leon", customer_id=None, actor_id=uuid.uuid4(),
+        vehicle_label="Seat Leon", contact_id=None, actor_id=uuid.uuid4(),
     )
     contract = confirm_contract(
         db_session, contract=contract, group_id=group_id, actor_id=uuid.uuid4(),

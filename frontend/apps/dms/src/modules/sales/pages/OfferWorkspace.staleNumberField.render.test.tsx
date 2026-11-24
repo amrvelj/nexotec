@@ -5,7 +5,7 @@ import { act, fireEvent, screen, waitFor } from '@testing-library/react'
 import i18n from '../../../i18n'
 import { renderWithProviders } from '../../../test/renderWithProviders'
 import { installFakeBackend, status } from '../../../test/fakeBackend'
-import { customer } from '../../../test/fixtures'
+import { contact } from '../../../test/fixtures'
 import type { SalesOfferRead } from '../../../api/types'
 import { OfferWorkspacePage } from './OfferWorkspacePage'
 
@@ -19,9 +19,9 @@ const offerAt = (version: number, overrides: Partial<SalesOfferRead> = {}): Sale
   id: 'o1',
   offerNumber: 'ANG-2026-0327',
   status: 'draft',
-  customerId: 'cust-1',
-  customerLabel: 'Hans Muster',
-  customerLocality: null,
+  contactId: 'cust-1',
+  contactLabel: 'Hans Muster',
+  contactLocality: null,
   vehicleSource: 'stock',
   stockItemId: 'st-1',
   vehicleLabel: 'VW Golf 2024',
@@ -86,7 +86,7 @@ function setUp(initial: SalesOfferRead) {
     { method: 'GET', match: /^\/sales\/offers\/o1$/, handler: () => current },
     { match: /^\/integrations\/capabilities\/packages$/, handler: () => ({ capabilityCode: 'packages', granted: true }) },
     { method: 'GET', match: /^\/sales\/offers\/o1\/line-items$/, handler: () => ({ items: [] }) },
-    { match: /^\/customers\/cust-1$/, handler: () => customer({ id: 'cust-1', firstName: 'Hans', lastName: 'Muster' }) },
+    { match: /^\/contacts\/cust-1$/, handler: () => contact({ id: 'cust-1', firstName: 'Hans', lastName: 'Muster' }) },
   ])
   const view = renderWithProviders(
     <Routes>

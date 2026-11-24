@@ -5,13 +5,13 @@ one dealer group wrote into another group's history before KAN-99
 Before KAN-99, allocate_vehicle_party closed the open holder of
 (vehicle, role) without a group filter: an allocation in group A could
 close group B's holder for the same VIN, stamping the
-`vehicle_party_remove` audit row and the `customer.vehicle_party.unlinked`
+`vehicle_party_remove` audit row and the `contact.vehicle_party.unlinked`
 outbox event with group A. The trade-in path also passed a request-body
-customerId through without resolving it in the caller's group, so group
-A could link group B's customer, stamping the `vehicle_party_add` audit
-row and the `customer.vehicle_party.linked` event with group A. KAN-99
+contactId through without resolving it in the caller's group, so group
+A could link group B's contact, stamping the `vehicle_party_add` audit
+row and the `contact.vehicle_party.linked` event with group A. KAN-99
 stopped new ones; this finds the rows already written. The
-classification is app.customer.reconciliation's
+classification is app.contact.reconciliation's
 find_cross_group_vehicle_party_closes and
 find_cross_group_vehicle_party_links; both run here, in one transaction.
 
@@ -35,7 +35,7 @@ import sys
 
 from sqlalchemy import text
 
-from app.customer.reconciliation import (
+from app.contact.reconciliation import (
     StampCategory,
     VehiclePartyStampReport,
     find_cross_group_vehicle_party_closes,
@@ -62,8 +62,8 @@ def render(report: VehiclePartyStampReport) -> str:
         lines += ["", f"{title}: {len(rows)}"]
         for row in rows:
             lines.append(
-                f"  {row.source} {row.row_id} at {row.at.isoformat()} — customer {row.customer_id}"
-                f" (group {row.customer_group_id}), stamped {row.stamped_tenant_id} (group {row.stamped_group_id})"
+                f"  {row.source} {row.row_id} at {row.at.isoformat()} — contact {row.contact_id}"
+                f" (group {row.contact_group_id}), stamped {row.stamped_tenant_id} (group {row.stamped_group_id})"
             )
     return "\n".join(lines)
 

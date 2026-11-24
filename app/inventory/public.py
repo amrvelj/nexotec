@@ -36,7 +36,7 @@ of the records a Betrieb holds in stock (scripts/backfill_vehicle_stock_holding.
 every item with a record that has not left stock, plain data, a SELECT only.
 
 No mapped class leaves this module (KAN-123 step 3, ADR-162). What Sales',
-Customers' and Vehicle's nightly reconciliation checks against Stock's
+Contacts' and Vehicle's nightly reconciliation checks against Stock's
 `stock_item` table is built here (`stock_item_reference_check`,
 `stock_item_exists`, `stock_item_reservation_exists`, `stock_item_prices_moved`,
 `stock_item_differs_from_holding`, `purchased_stock_item_check`,

@@ -210,7 +210,7 @@ def selftest():
     assert [p["number"] for p in report["files"]["frontend/apps/dms/src/i18n/locales/de.json"]] == [330], report
     assert report["files"]["frontend/apps/dms/src/i18n/locales/de.json"][0]["tickets"] == ["KAN-700"]
     assert [p["number"] for p in report["files"][".claude/rules/old-ui.md"]] == [330], "a rename's old name was missed"
-    assert list(report["chains"]) == ["vehicle"], report["chains"]  # customer: 331 only modifies there
+    assert list(report["chains"]) == ["vehicle"], report["chains"]  # contact: 331 only modifies there
     assert report["chains"]["vehicle"][0]["tickets"] == ["KAN-701"]  # from the branch name: the title has none
     assert "README.md" not in report["files"] and report["open_prs"] == 3
     text = render(report)

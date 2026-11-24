@@ -5,7 +5,7 @@ import { screen, within } from '@testing-library/react'
 import i18n from '../../../i18n'
 import { renderWithProviders } from '../../../test/renderWithProviders'
 import { installFakeBackend } from '../../../test/fakeBackend'
-import { customer } from '../../../test/fixtures'
+import { contact } from '../../../test/fixtures'
 import type { SalesOfferRead, ValuationRead } from '../../../api/types'
 import { OfferWorkspacePage } from './OfferWorkspacePage'
 
@@ -17,9 +17,9 @@ const offerWithTradeIn = (): SalesOfferRead => ({
   id: 'o1',
   offerNumber: 'ANG-2026-0002',
   status: 'draft',
-  customerId: 'cust-1',
-  customerLabel: 'Hans Muster',
-  customerLocality: null,
+  contactId: 'cust-1',
+  contactLabel: 'Hans Muster',
+  contactLocality: null,
   vehicleSource: 'stock',
   stockItemId: 'st-1',
   vehicleLabel: 'Skoda Octavia 2.0 TDI',
@@ -72,10 +72,10 @@ function installBackend(source: ValuationRead['source']) {
     { match: /^\/valuations\/val-42$/, handler: () => valuation(source) },
     { match: /^\/integrations\/capabilities\/packages$/, handler: () => ({ capabilityCode: 'packages', granted: false }) },
     { match: /^\/sales\/offers\/o1\/line-items$/, handler: () => ({ items: [] }) },
-    { match: /^\/customers\/cust-1$/, handler: () => customer({ id: 'cust-1', firstName: 'Hans', lastName: 'Muster' }) },
-    { match: /^\/customers\/cust-1\/(phones|emails)$/, handler: () => ({ items: [] }) },
-    { match: /^\/customers\/cust-1\/(vehicles|external-ids)$/, handler: () => ({ items: [], nextCursor: null }) },
-    { match: /^\/customers\/cust-1\/audit-log$/, handler: () => ({ items: [], nextCursor: null }) },
+    { match: /^\/contacts\/cust-1$/, handler: () => contact({ id: 'cust-1', firstName: 'Hans', lastName: 'Muster' }) },
+    { match: /^\/contacts\/cust-1\/(phones|emails)$/, handler: () => ({ items: [] }) },
+    { match: /^\/contacts\/cust-1\/(vehicles|external-ids)$/, handler: () => ({ items: [], nextCursor: null }) },
+    { match: /^\/contacts\/cust-1\/audit-log$/, handler: () => ({ items: [], nextCursor: null }) },
   ])
 }
 

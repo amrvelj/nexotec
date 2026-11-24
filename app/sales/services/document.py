@@ -11,8 +11,8 @@ functions simply never reading those fields, and pinned by
 tests/architecture/test_margin_never_in_rendered_document.py.
 
 KAN-23: every label is resolved through app.sales.i18n.t() at GENERATION
-time, in the CUSTOMER's correspondence language (offer.customer_language/
-contract.customer_language), never the generating seller's own UI
+time, in the CONTACT's correspondence language (offer.contact_language/
+contract.contact_language), never the generating seller's own UI
 language — passed explicitly into build_offer_content/build_contract_
 content rather than read from ambient context, which is what makes
 "wrong language on the document" structurally impossible (CLAUDE.md's own
@@ -24,7 +24,7 @@ KAN-208: the offer's wording around the figures — its introduction
 (`offer` / `intro`) and footer (`offer` / `footer`), and the contract's
 footer (`contract` / `footer`) — is the Betrieb's
 standard text, resolved and rendered by platform's resolver
-(app.platform.public.render_standard_text: the customer's language → the
+(app.platform.public.render_standard_text: the contact's language → the
 Betrieb's default → DE, the Betrieb's own wording before the seed) with the
 facts Sales holds as placeholder values. A token it cannot fill fails the
 generation (422, A-RULE-4) before anything is written; the rendered text is
@@ -86,13 +86,13 @@ from app.sales.services.deal_projection import upsert_deal_projection
 from app.sales.services.priced_deal import require_no_live_contract
 
 
-def _document_language(db: Session, *, tenant_id: uuid.UUID, customer_language: str | None) -> SwissLanguage:
-    """The language a document is printed in: the customer's correspondence
-    language, else the Betrieb's own default for customers (KAN-104 item 5,
-    Anto 2026-11-03, decision 3 A; Customers FR-13) — never a silent German."""
+def _document_language(db: Session, *, tenant_id: uuid.UUID, contact_language: str | None) -> SwissLanguage:
+    """The language a document is printed in: the contact's correspondence
+    language, else the Betrieb's own default for contacts (KAN-104 item 5,
+    Anto 2026-11-03, decision 3 A; Contacts FR-13) — never a silent German."""
 
-    if customer_language:
-        return SwissLanguage(customer_language)
+    if contact_language:
+        return SwissLanguage(contact_language)
     return get_dealership_default_correspondence_language(db, tenant_id)
 
 
@@ -209,8 +209,8 @@ def build_offer_content(
     intro: str | None = None,
     footer: str | None = None,
 ) -> ContentDefinition:
-    """`language` is the CUSTOMER's correspondence language (offer.
-    customer_language), passed explicitly by the caller — never read from
+    """`language` is the CONTACT's correspondence language (offer.
+    contact_language), passed explicitly by the caller — never read from
     ambient/UI-locale context, which is what makes "wrong language on the
     document" structurally impossible. `vat_rate` is the dealership's own
     dealer_settings.vat_rate at generation time, also passed explicitly
@@ -224,7 +224,7 @@ def build_offer_content(
     return ContentDefinition(
         title=t(language, "offer.title", number=offer.offer_number),
         metadata=[KeyValueRow(label=t(language, "date"), value=utcnow().date().isoformat())],
-        addressee=Addressee(lines=[offer.customer_label or "—"]),
+        addressee=Addressee(lines=[offer.contact_label or "—"]),
         footer_text=footer,
         blocks=[
             *intro_blocks,
@@ -265,7 +265,7 @@ def build_contract_content(
     return ContentDefinition(
         title=t(language, "contract.title", number=contract.contract_number),
         metadata=[KeyValueRow(label=t(language, "date"), value=utcnow().date().isoformat())],
-        addressee=Addressee(lines=[contract.customer_label or "—"]),
+        addressee=Addressee(lines=[contract.contact_label or "—"]),
         footer_text=footer,
         blocks=[
             _vehicle_block(contract.vehicle_label, language=language),
@@ -404,9 +404,9 @@ def _print_location(db: Session, *, tenant_id: uuid.UUID, seller_id: uuid.UUID |
 def generate_offer_document(db: Session, *, offer: SalesOffer, actor_id: uuid.UUID | None) -> SalesDocument:
     # KAN-495 (Anto, 2026-10-29, option a): an offer with a live contract
     # prints no new offer document — the contract is the live record (ADR-083)
-    # and a fresh offer print could differ from what the customer signs.
+    # and a fresh offer print could differ from what the contact signs.
     require_no_live_contract(db, offer)
-    language = _document_language(db, tenant_id=offer.tenant_id, customer_language=offer.customer_language)
+    language = _document_language(db, tenant_id=offer.tenant_id, contact_language=offer.contact_language)
     dealership = get_dealership_or_404(db, offer.tenant_id)
     intro, footer = offer_standard_texts(db, offer=offer, language=language)
     content = build_offer_content(
@@ -441,7 +441,7 @@ def generate_contract_document(db: Session, *, contract: SalesContract, actor_id
     # KAN-67 — a contract with no vehicle or no price is refused by reason,
     # never rendered as an empty document; the same rule confirmation uses.
     require_complete(contract, action="printed")
-    language = _document_language(db, tenant_id=contract.tenant_id, customer_language=contract.customer_language)
+    language = _document_language(db, tenant_id=contract.tenant_id, contact_language=contract.contact_language)
     dealership = get_dealership_or_404(db, contract.tenant_id)
     footer = contract_footer(db, contract=contract, language=language)
     content = build_contract_content(contract, language=language, vat_rate=dealership.vat_rate, footer=footer)

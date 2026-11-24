@@ -7,8 +7,8 @@ import i18n from './index'
 import { renderWithProviders } from '../test/renderWithProviders'
 import { ALL_ENTITLEMENTS, installFakeBackend } from '../test/fakeBackend'
 import type { StockItemPage, StockItemRead } from '../api/types'
-import { ContactPointsEditor } from '../modules/customer/components/customer-detail/ContactPointsEditor'
-import { CustomerCreateFlow } from '../modules/customer/components/CustomerCreateFlow'
+import { ContactPointsEditor } from '../modules/contact/components/contact-detail/ContactPointsEditor'
+import { ContactCreateFlow } from '../modules/contact/components/ContactCreateFlow'
 import { SalesDocumentsSection } from '../modules/sales/components/SalesDocumentsSection'
 import { ValuationCreateDialog } from '../modules/valuation/components/ValuationCreateDialog'
 import { DetailsTab } from '../modules/stock/components/stock-detail/DetailsTab'
@@ -115,16 +115,16 @@ describe('kit components speak the UI language on the app\'s screens (KAN-364)',
     expect(englishOnScreen()).toEqual([])
   })
 
-  it('French UI: a customer\'s phone rows, their menu and the add row are French', async () => {
+  it('French UI: a contact\'s phone rows, their menu and the add row are French', async () => {
     await i18n.changeLanguage('fr')
     const user = userEvent.setup()
     installFakeBackend([])
-    const label = i18n.t('customerDetail.contactPoints.phoneNumbers')
+    const label = i18n.t('contactDetail.contactPoints.phoneNumbers')
     renderWithProviders(
       <ContactPointsEditor<'mobile'>
         label={label}
-        valueLabel={i18n.t('customerDetail.contactPoints.phoneValueColumn')}
-        addLabel={i18n.t('customerDetail.contactPoints.addPhone')}
+        valueLabel={i18n.t('contactDetail.contactPoints.phoneValueColumn')}
+        addLabel={i18n.t('contactDetail.contactPoints.addPhone')}
         typeOptions={[{ value: 'mobile', label: 'Mobile' }]}
         rows={[{ id: 'p1', type: 'mobile', value: '+41791112233', isPrimary: true, consentGranted: false }]}
         newRowType="mobile"
@@ -167,7 +167,7 @@ describe('kit components speak the UI language on the app\'s screens (KAN-364)',
         }),
       },
     ])
-    function OpenCustomer() {
+    function OpenContact() {
       const overlay = useOverlay()
       return (
         <button type="button" onClick={() => overlay.push({ key: 'c1', content: <p>Fiche client</p> })}>
@@ -177,7 +177,7 @@ describe('kit components speak the UI language on the app\'s screens (KAN-364)',
     }
     renderWithProviders(
       <DmsShell>
-        <OpenCustomer />
+        <OpenContact />
       </DmsShell>,
     )
     await screen.findByRole('navigation', { name: i18n.getFixedT('fr')('shell.sidebar.mainNavigation') })
@@ -214,7 +214,7 @@ const SHELL_ROUTES = [
 ]
 
 // KAN-422 — the rest of the kit took required labels. Several screens had
-// shown the English default: the valuation's customer picker («No matches»),
+// shown the English default: the valuation's contact picker («No matches»),
 // the document preview's hardcoded «Loading…». Each screen below renders the
 // component's labels in French, and nothing English is left. (PresentMode has
 // no app screen yet; the kit's own test covers it.)
@@ -230,10 +230,10 @@ describe('the rest of the kit speaks the UI language on the app\'s screens (KAN-
     expect(englishOnScreen()).toEqual([])
   })
 
-  it('Wizard: the customer create flow\'s footer buttons are French', async () => {
+  it('Wizard: the contact create flow\'s footer buttons are French', async () => {
     await i18n.changeLanguage('fr')
-    installFakeBackend([{ match: /^\/customers\/duplicate-check$/, handler: () => ({ items: [], nextCursor: null }) }])
-    renderWithProviders(<CustomerCreateFlow onSuccess={() => {}} onCancel={() => {}} />)
+    installFakeBackend([{ match: /^\/contacts\/duplicate-check$/, handler: () => ({ items: [], nextCursor: null }) }])
+    renderWithProviders(<ContactCreateFlow onSuccess={() => {}} onCancel={() => {}} />)
 
     expect(await screen.findByRole('button', { name: 'Suivant' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Annuler' })).toBeInTheDocument()
@@ -245,7 +245,7 @@ describe('the rest of the kit speaks the UI language on the app\'s screens (KAN-
     let failSearch = false
     installFakeBackend([
       ...SHELL_ROUTES,
-      { method: 'GET', match: /\/customers$/, handler: () => ({ items: [], nextCursor: null }) },
+      { method: 'GET', match: /\/contacts$/, handler: () => ({ items: [], nextCursor: null }) },
       {
         method: 'GET',
         match: /\/vehicle-mdm\/search$/,
@@ -268,12 +268,12 @@ describe('the rest of the kit speaks the UI language on the app\'s screens (KAN-
     expect(englishOnScreen()).toEqual([])
   })
 
-  it('Picker: the valuation\'s customer picker says «no matches» in French', async () => {
+  it('Picker: the valuation\'s contact picker says «no matches» in French', async () => {
     await i18n.changeLanguage('fr')
     const user = userEvent.setup()
     installFakeBackend([
       { method: 'GET', match: /^\/integrations\/capabilities\/valuation$/, handler: () => ({ capabilityCode: 'valuation', granted: true }) },
-      { method: 'GET', match: /^\/customers$/, handler: () => ({ items: [], nextCursor: null }) },
+      { method: 'GET', match: /^\/contacts$/, handler: () => ({ items: [], nextCursor: null }) },
     ])
     renderWithProviders(<ValuationCreateDialog opened onClose={() => {}} onCreated={() => {}} />)
 

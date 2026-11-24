@@ -29,7 +29,7 @@ interface PurchaseStornoDialogProps {
  * KAN-572 (Anto, 2026-11-07, option C): on a trade-in's car — a pipeline item
  * a contract's confirmation created for its trade-in (`pipelineRef`
  * `contract:<id>:trade_in`) — the user says whether the car went back to the
- * customer who traded it in (`returnedToCustomer`). Ticked, the customer is
+ * contact who traded it in (`returnedToContact`). Ticked, the contact is
  * their owner and keeper again; unticked (the default), their history stays
  * as the purchase wrote it. Any other car is never asked (the API refuses it,
  * 422 `storno_return_not_trade_in`).
@@ -39,7 +39,7 @@ export function PurchaseStornoDialog({ opened, onClose, item, onStornoed }: Purc
   const { t } = useTranslation()
   const [reason, setReason] = useState('')
   const [reasonError, setReasonError] = useState<string | null>(null)
-  const [returnedToCustomer, setReturnedToCustomer] = useState(false)
+  const [returnedToContact, setReturnedToContact] = useState(false)
   const tradeIn = isTradeInStockItem(item)
   const hint = useFieldHint()
   const returnedHintId = useId()
@@ -52,7 +52,7 @@ export function PurchaseStornoDialog({ opened, onClose, item, onStornoed }: Purc
     if (opened) {
       setReason('')
       setReasonError(null)
-      setReturnedToCustomer(false)
+      setReturnedToContact(false)
       setSubmitError(null)
       idempotency.renew()
     }
@@ -69,7 +69,7 @@ export function PurchaseStornoDialog({ opened, onClose, item, onStornoed }: Purc
       const path = `/inventory/stock-items/${item.id}/purchase/storno`
       const updated = await api.post<StockItemRead>(
         path,
-        tradeIn ? { reason: reason.trim(), returnedToCustomer } : { reason: reason.trim() },
+        tradeIn ? { reason: reason.trim(), returnedToContact } : { reason: reason.trim() },
         { 'If-Match': String(item.version), ...idempotency.headers([path]) },
       )
       idempotency.renew()
@@ -112,12 +112,12 @@ export function PurchaseStornoDialog({ opened, onClose, item, onStornoed }: Purc
         {tradeIn && (
           <Checkbox
             {...hint(
-              t('stockDetail.purchase.storno.returnedToCustomer'),
-              t('stockDetail.purchase.storno.returnedToCustomerHint'),
+              t('stockDetail.purchase.storno.returnedToContact'),
+              t('stockDetail.purchase.storno.returnedToContactHint'),
               { descriptionId: returnedHintId },
             )}
-            checked={returnedToCustomer}
-            onChange={(e) => setReturnedToCustomer(e.currentTarget.checked)}
+            checked={returnedToContact}
+            onChange={(e) => setReturnedToContact(e.currentTarget.checked)}
           />
         )}
         {submitError && (

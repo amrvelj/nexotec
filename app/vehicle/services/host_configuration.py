@@ -1,6 +1,6 @@
 """The value a host reads from a configuration (C-F / KAN-10) — kept free
 of service imports so `app.vehicle.public` can re-export it without
-loading the services (the customer ↔ vehicle import cycle `public.py` once
+loading the services (the contact ↔ vehicle import cycle `public.py` once
 documented is gone since KAN-634). Produced by
 `app.vehicle.services.configuration_host.get_configuration_for_host`.
 """

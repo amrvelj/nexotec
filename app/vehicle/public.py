@@ -72,11 +72,11 @@ logger = logging.getLogger(__name__)
 # get_vehicle_mdm_or_404 is wrapped, not re-exported directly from
 # app.vehicle.services.vehicle_mdm: that module imports app.vehicle.schemas.
 # vehicle_mdm (for update_vehicle_mdm's parameter type), which imported
-# app.customer.public — and app.customer's services import THIS module, so a
+# app.contact.public — and app.contact's services import THIS module, so a
 # module-level import here was a real import cycle, not just a slow
 # one. Deferred to call time, well after both modules have finished
 # loading at process startup. (Since KAN-634 the schemas no longer import
-# customer, so the cycle is gone; the deferral is kept, harmless.)
+# contact, so the cycle is gone; the deferral is kept, harmless.)
 # KAN-123 step 6 (ADR-162): it answers the record's id and VIN, never the row.
 def get_vehicle_mdm_or_404(db: Session, vehicle_id: uuid.UUID) -> ResolvedVehicleMdm:
     from app.vehicle.services.vehicle_mdm import get_vehicle_mdm_or_404 as _get_vehicle_mdm_or_404
@@ -89,7 +89,7 @@ def resolve_merged_vehicle_id(db: Session, vehicle_id: uuid.UUID) -> uuid.UUID:
     """KAN-634 (FR-V-12) — the record a merged vehicle-mdm id now lives on:
     follows `merged_into_vehicle_id` to the end of the chain (A merged into
     B, B later into C gives C). An id that was never merged, or names no
-    record, comes back unchanged. Read-only. Customer's consumer of
+    record, comes back unchanged. Read-only. Contact's consumer of
     `vehicle.vehicle_mdm.merged` asks it, so a merge delivered after a later
     one moves the party rows onto the live record, never onto a merged one."""
 
@@ -116,7 +116,7 @@ _SUMMARY_BATCH = 500
 
 
 def get_vehicle_summaries(db: Session, vehicle_ids: Iterable[uuid.UUID]) -> dict[uuid.UUID, VehicleSummary]:
-    """KAN-84 — the label source for customer's VehicleParty (and any other
+    """KAN-84 — the label source for contact's VehicleParty (and any other
     context that keeps a vehicle label), replacing the cross-context ORM
     relationship it used to join through. One query per 500 ids, with the
     catalogue chain (`catalogue_variant -> model_group -> brand`) eager-
@@ -275,7 +275,7 @@ def match_vehicle(
 ) -> VehicleMatch:
     """WP-8 PR-5 — FR-S-08's trade-in plate/VIN search, the first consumer
     outside vehicle itself. `app.vehicle.services.matching` has no import
-    of app.customer at all, so this one doesn't strictly need the deferred
+    of app.contact at all, so this one doesn't strictly need the deferred
     idiom the three above do.
 
     `group_id` is required (KAN-467): a plate is matched in the caller's dealer

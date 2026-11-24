@@ -6,7 +6,7 @@ import uuid
 from sqlalchemy import select
 
 from app.core.auth import AccessRole, decode_token_claims
-from app.customer.models.customer import Customer
+from app.contact.models.contact import Contact
 from tests.identity_support import create_dealership, platform_admin_headers
 from tests.membership_support import bearer, token
 from tests.token_support import dealer_group_of, synthetic_group_of
@@ -31,13 +31,13 @@ def test_the_shared_helpers_mint_the_betriebs_real_dealer_group(client):
     assert uuid.UUID(decode_token_claims(staff)["group_id"]) == real
 
 
-def test_a_customer_created_with_a_helper_token_lands_in_the_betriebs_group(client, db_session):
-    """What KAN-423's hand-over compares: the customer's group_id is the one
+def test_a_contact_created_with_a_helper_token_lands_in_the_betriebs_group(client, db_session):
+    """What KAN-423's hand-over compares: the contact's group_id is the one
     a real session in that Betrieb would have written."""
 
     dealership = create_dealership(client)
     response = client.post(
-        "/v1/customers",
+        "/v1/contacts",
         json={
             "firstName": "Ada",
             "lastName": "Byron",
@@ -49,7 +49,7 @@ def test_a_customer_created_with_a_helper_token_lands_in_the_betriebs_group(clie
     assert response.status_code == 201, response.text
 
     stored = db_session.execute(
-        select(Customer.group_id).where(Customer.id == uuid.UUID(response.json()["id"]))
+        select(Contact.group_id).where(Contact.id == uuid.UUID(response.json()["id"]))
     ).scalar_one()
     assert stored == _dealer_group_id(client, dealership)
 

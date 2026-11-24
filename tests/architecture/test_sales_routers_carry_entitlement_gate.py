@@ -5,7 +5,7 @@ The sales entitlement covers the sales, inventory and valuation contexts and
 the configurator (vehicle configuration + identification). A route added to
 one of those packages without the gate fails here; a route of another context
 that gains the gate by mistake fails too, because a gate on master data would
-hide customers or vehicles from a service-only Betrieb (D-A-10).
+hide contacts or vehicles from a service-only Betrieb (D-A-10).
 
 The walk uses tests.route_walk (KAN-241): under FastAPI 0.141 `app.routes`
 and `api_v1_router.routes` hold `_IncludedRouter` objects, not APIRoutes, so a

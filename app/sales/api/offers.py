@@ -28,7 +28,7 @@ from app.sales.services import line_items as line_items_service
 from app.sales.services import offer as offer_service
 from app.sales.services import trade_in as trade_in_service
 from app.sales.services import vehicle_change
-from app.sales.services.customer_attach_lock import lock_customer_for_attach
+from app.sales.services.contact_attach_lock import lock_contact_for_attach
 from app.sales.services.deal_projection import live_contracts_of
 from app.sales.services.priced_deal import compute_containers, vehicle_condition
 
@@ -88,7 +88,7 @@ def list_offers(
     sort: str | None = Query(default=None),
     limit: int = Query(default=settings.pagination_default_limit, ge=1, le=settings.pagination_max_limit),
     cursor: str | None = Query(default=None),
-    customer_id: uuid.UUID | None = Query(default=None),
+    contact_id: uuid.UUID | None = Query(default=None),
     principal: Principal = Depends(get_current_principal),
     db: Session = Depends(get_db),
 ):
@@ -97,7 +97,7 @@ def list_offers(
         limit=limit, cursor=decode_cursor_for_sort(cursor, sort_fields), sort_fields=sort_fields
     )
     rows, next_cursor, total, total_is_estimate = offer_service.list_offers(
-        db, tenant_id=principal.tenant_id, customer_id=customer_id, params=params
+        db, tenant_id=principal.tenant_id, contact_id=contact_id, params=params
     )
     return OfferPage(
         items=_offer_reads(db, rows),
@@ -126,7 +126,7 @@ def update_offer(
     db: Session = Depends(get_db),
 ):
     # KAN-657: a new buyer's attach lock comes before the offer's row lock.
-    lock_customer_for_attach(db, body.customer_id)
+    lock_contact_for_attach(db, body.contact_id)
     offer = offer_service.get_offer_or_404(db, principal.tenant_id, offer_id, for_update=True)
     check_version(offer.version, if_match, entity_name="SalesOffer")
     offer = offer_service.update_offer(
@@ -153,7 +153,7 @@ def set_trade_in(
         plate=body.plate,
         canton=body.canton,
         vehicle_label=body.vehicle_label,
-        customer_id=body.customer_id,
+        contact_id=body.contact_id,
         actor_id=principal.user_id,
     )
     return _offer_read(db, offer)

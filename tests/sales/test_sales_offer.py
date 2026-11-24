@@ -23,7 +23,7 @@ def test_create_offer_starts_as_a_bare_draft(db_session):
 
     assert offer.status == OfferStatus.DRAFT
     assert offer.offer_number == "O-000001"
-    assert offer.customer_id is None
+    assert offer.contact_id is None
     assert offer.vehicle_label is None
 
 

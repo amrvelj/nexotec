@@ -26,7 +26,7 @@ export interface PresentModeProps {
  * carries no cost/margin/supplier/internal reference. "A PRESENTATION
  * boundary, not a permission one" — it hides content structurally for
  * EVERY viewer regardless of role, because the thing being protected is
- * what's literally on the screen a customer might be looking at (a
+ * what's literally on the screen a contact might be looking at (a
  * shared monitor, a screen-share), not who is allowed to see it. A seller
  * with full commercial visibility (ADR-049) still sees nothing sensitive
  * here — this is not a permissions check, and must never become one.

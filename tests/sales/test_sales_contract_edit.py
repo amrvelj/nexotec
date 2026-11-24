@@ -2,7 +2,7 @@
 price build-up, line items, trade-in — through the offer's own services,
 and frozen once confirmed.
 
-Exit criteria covered here: a contract born from a customer reaches
+Exit criteria covered here: a contract born from a contact reaches
 `confirmed` with a vehicle and a price (2, at service and API level — the
 UI and staging are verified outside this file); generation of its document
 works once it is complete (3, the refusal itself is in
@@ -46,16 +46,16 @@ from app.valuation.models.valuation import ValuationSource
 from app.valuation.schemas.valuation import ValuationCreate
 from app.valuation.services.valuation import create_valuation
 from tests.cross_context.test_configurator_hosts import _build_configuration, _record_configuration
-from tests.sales.test_sales_lifecycle_reservation import _customer, _dealership, _session_factory
+from tests.sales.test_sales_lifecycle_reservation import _contact, _dealership, _session_factory
 from tests.sales.test_sales_offer_refinements import _offer_with_vehicle, _stock_item
 
 
-def _customer_born_contract(db_session, dealership_id: uuid.UUID, group_id: uuid.UUID) -> SalesContract:
-    """The KAN-58 entry point: a contract with a customer and nothing else."""
+def _contact_born_contract(db_session, dealership_id: uuid.UUID, group_id: uuid.UUID) -> SalesContract:
+    """The KAN-58 entry point: a contract with a contact and nothing else."""
 
-    customer = _customer(db_session, group_id)
+    contact = _contact(db_session, group_id)
     return create_contract(
-        db_session, tenant_id=dealership_id, offer=None, actor_id=uuid.uuid4(), customer_id=customer.id,
+        db_session, tenant_id=dealership_id, offer=None, actor_id=uuid.uuid4(), contact_id=contact.id,
         group_id=group_id,
     )
 
@@ -66,13 +66,13 @@ def _edit(db_session, contract: SalesContract, **fields) -> SalesContract:
     )
 
 
-# --- a customer-born contract can be completed and confirmed ----------------------
+# --- a contact-born contract can be completed and confirmed ----------------------
 
 
-def test_a_customer_born_contract_takes_a_stock_car_priced_from_the_frozen_snapshot(db_session):
+def test_a_contact_born_contract_takes_a_stock_car_priced_from_the_frozen_snapshot(db_session):
     dealership = _dealership(db_session)
     item = _stock_item(db_session, dealership.id)  # 38'000 base + LED option 800, bought for 30'000
-    contract = _customer_born_contract(db_session, dealership.id, uuid.uuid4())
+    contract = _contact_born_contract(db_session, dealership.id, uuid.uuid4())
     version = contract.version
 
     contract = _edit(db_session, contract, vehicle_source="stock", stock_item_id=item.id, vehicle_label=item.vehicle_label)
@@ -91,14 +91,14 @@ def test_a_customer_born_contract_takes_a_stock_car_priced_from_the_frozen_snaps
     ]
 
 
-def test_a_customer_born_contract_with_a_manual_car_confirms(db_session, engine):
-    """Exit criterion 2 at service level: born from a customer, completed
+def test_a_contact_born_contract_with_a_manual_car_confirms(db_session, engine):
+    """Exit criterion 2 at service level: born from a contact, completed
     with a vehicle and a price, confirmed — and the confirmed event carries
     the price build-up the edit produced."""
 
     dealership = _dealership(db_session)
     group_id = uuid.uuid4()
-    contract = _customer_born_contract(db_session, dealership.id, group_id)
+    contract = _contact_born_contract(db_session, dealership.id, group_id)
 
     contract = _edit(
         db_session, contract, vehicle_source="manual", vehicle_label="Volkswagen Käfer",
@@ -123,11 +123,11 @@ def test_a_customer_born_contract_with_a_manual_car_confirms(db_session, engine)
     assert payload["manualConfiguration"] == {"vehicleLabel": "Volkswagen Käfer", "condition": "used"}
 
 
-def test_a_customer_born_contract_with_a_stock_car_confirms_and_reserves_it(db_session, engine):
+def test_a_contact_born_contract_with_a_stock_car_confirms_and_reserves_it(db_session, engine):
     dealership = _dealership(db_session)
     group_id = uuid.uuid4()
     item = _stock_item(db_session, dealership.id, with_option=False)
-    contract = _customer_born_contract(db_session, dealership.id, group_id)
+    contract = _contact_born_contract(db_session, dealership.id, group_id)
     contract = _edit(db_session, contract, vehicle_source="stock", stock_item_id=item.id, vehicle_label=item.vehicle_label)
 
     contract = confirm_contract(
@@ -143,7 +143,7 @@ def test_a_customer_born_contract_with_a_stock_car_confirms_and_reserves_it(db_s
 def test_a_configured_new_car_on_a_contract_prices_its_configuration_lines(db_session):
     dealership = _dealership(db_session)
     config = _build_configuration(db_session, dealership.id)
-    contract = _customer_born_contract(db_session, dealership.id, uuid.uuid4())
+    contract = _contact_born_contract(db_session, dealership.id, uuid.uuid4())
 
     contract = _edit(db_session, contract, configuration_id=config.id)
 
@@ -159,7 +159,7 @@ def test_a_configured_new_car_on_a_contract_prices_its_configuration_lines(db_se
 def test_a_contract_refuses_a_record_mode_configuration(db_session):
     dealership = _dealership(db_session)
     record = _record_configuration(db_session, dealership.id)
-    contract = _customer_born_contract(db_session, dealership.id, uuid.uuid4())
+    contract = _contact_born_contract(db_session, dealership.id, uuid.uuid4())
 
     with pytest.raises(UnprocessableEntityError) as refused:
         _edit(db_session, contract, configuration_id=record.id)
@@ -169,7 +169,7 @@ def test_a_contract_refuses_a_record_mode_configuration(db_session):
 def test_a_contract_takes_accessories_and_option_changes_through_its_own_line_items(db_session):
     dealership = _dealership(db_session)
     item = _stock_item(db_session, dealership.id)
-    contract = _customer_born_contract(db_session, dealership.id, uuid.uuid4())
+    contract = _contact_born_contract(db_session, dealership.id, uuid.uuid4())
     contract = _edit(db_session, contract, vehicle_source="stock", stock_item_id=item.id, vehicle_label=item.vehicle_label)
     led = list_line_items(db_session, deal=contract)[0]
 
@@ -203,14 +203,14 @@ def _manual_car(db_session, contract: SalesContract, price: str = "18000.00") ->
     )
 
 
-def test_a_trade_in_on_a_contract_reduces_what_the_customer_pays(db_session):
+def test_a_trade_in_on_a_contract_reduces_what_the_contact_pays(db_session):
     dealership = _dealership(db_session)
     group_id = uuid.uuid4()
-    contract = _manual_car(db_session, _customer_born_contract(db_session, dealership.id, group_id))
+    contract = _manual_car(db_session, _contact_born_contract(db_session, dealership.id, group_id))
 
     contract = set_trade_in(
         db_session, deal=contract, group_id=group_id, vin="WVWZZZ1KZAW000001", plate=None, canton=None,
-        vehicle_label="Opel Corsa", customer_id=None, actor_id=uuid.uuid4(),
+        vehicle_label="Opel Corsa", contact_id=None, actor_id=uuid.uuid4(),
     )
     assert (contract.trade_in_vin, contract.trade_in_label) == ("WVWZZZ1KZAW000001", "Opel Corsa")
     valuation = _valuation(db_session, dealership.id, group_id, "WVWZZZ1KZAW000001", Decimal("6000.00"))
@@ -233,7 +233,7 @@ def test_a_car_without_a_price_entered_is_signed_at_chf_0(db_session, engine):
 
     dealership = _dealership(db_session)
     group_id = uuid.uuid4()
-    contract = _customer_born_contract(db_session, dealership.id, group_id)
+    contract = _contact_born_contract(db_session, dealership.id, group_id)
     contract = _edit(db_session, contract, vehicle_source="manual", vehicle_label="Volkswagen Käfer",
                      manual_vehicle_condition="used")
     assert contract.gross_price == Decimal("0.00")
@@ -253,7 +253,7 @@ def test_a_car_without_a_price_entered_is_signed_at_chf_0(db_session, engine):
 def test_a_confirmed_contract_cannot_be_edited(db_session, engine):
     dealership = _dealership(db_session)
     group_id = uuid.uuid4()
-    contract = _customer_born_contract(db_session, dealership.id, group_id)
+    contract = _contact_born_contract(db_session, dealership.id, group_id)
     contract = _edit(
         db_session, contract, vehicle_source="manual", vehicle_label="Volkswagen Käfer",
         manual_vehicle_condition="used", manual_base_price=Decimal("18000.00"),
@@ -271,7 +271,7 @@ def test_a_confirmed_contract_cannot_be_edited(db_session, engine):
         ),
         lambda: set_trade_in(
             db_session, deal=contract, group_id=group_id, vin="WVWZZZ1KZAW000001", plate=None, canton=None,
-            vehicle_label="Opel Corsa", customer_id=None, actor_id=uuid.uuid4(),
+            vehicle_label="Opel Corsa", contact_id=None, actor_id=uuid.uuid4(),
         ),
         lambda: attach_trade_in_valuation(  # review finding: this route skipped the freeze
             db_session, deal=contract, valuation_id=valuation.id, actor_id=uuid.uuid4()
@@ -288,7 +288,7 @@ def test_a_confirmed_contract_cannot_be_edited(db_session, engine):
 
 def test_a_cancelled_contract_cannot_be_edited(db_session):
     dealership = _dealership(db_session)
-    contract = _customer_born_contract(db_session, dealership.id, uuid.uuid4())
+    contract = _contact_born_contract(db_session, dealership.id, uuid.uuid4())
     contract = cancel_contract(db_session, contract=contract, reason="Kunde verzichtet", actor_id=uuid.uuid4())
 
     with pytest.raises(ConflictError) as refused:
@@ -339,7 +339,7 @@ def test_editing_a_contract_from_an_offer_rebuilds_the_same_price_and_leaves_the
 
 def test_the_deal_grid_shows_the_edited_price(db_session):
     dealership = _dealership(db_session)
-    contract = _customer_born_contract(db_session, dealership.id, uuid.uuid4())
+    contract = _contact_born_contract(db_session, dealership.id, uuid.uuid4())
 
     contract = _edit(
         db_session, contract, vehicle_source="manual", vehicle_label="Volkswagen Käfer",
@@ -352,7 +352,7 @@ def test_the_deal_grid_shows_the_edited_price(db_session):
 
 def test_completing_a_contract_lets_its_document_be_generated(db_session):
     dealership = _dealership(db_session)
-    contract = _customer_born_contract(db_session, dealership.id, uuid.uuid4())
+    contract = _contact_born_contract(db_session, dealership.id, uuid.uuid4())
     contract = _edit(
         db_session, contract, vehicle_source="manual", vehicle_label="Volkswagen Käfer",
         manual_vehicle_condition="used", manual_base_price=Decimal("18000.00"),
@@ -369,7 +369,7 @@ def test_editing_publishes_no_event(db_session):
     frozen figures travel in sales.contract.confirmed."""
 
     dealership = _dealership(db_session)
-    contract = _customer_born_contract(db_session, dealership.id, uuid.uuid4())
+    contract = _contact_born_contract(db_session, dealership.id, uuid.uuid4())
     before = db_session.scalars(select(OutboxMessage.event_type).where(OutboxMessage.aggregate_id == contract.id)).all()
 
     _edit(db_session, contract, vehicle_source="manual", vehicle_label="Käfer", manual_base_price=Decimal("1.00"))
@@ -397,15 +397,15 @@ def app_sessions_on_the_test_engine(monkeypatch, engine):
 
 
 @pytest.mark.usefixtures("app_sessions_on_the_test_engine")
-def test_api_a_customer_born_contract_is_completed_and_confirmed(client, db_session):
+def test_api_a_contact_born_contract_is_completed_and_confirmed(client, db_session):
     """Exit criterion 2 through the HTTP contract the UI uses."""
 
     dealership = _dealership(db_session)
     group_id = uuid.uuid4()
     headers = _token(dealership.id, group_id)
     item = _stock_item(db_session, dealership.id, with_option=False)
-    customer = _customer(db_session, group_id)
-    created = client.post("/v1/sales/contracts", json={"customerId": str(customer.id)}, headers=headers).json()
+    contact = _contact(db_session, group_id)
+    created = client.post("/v1/sales/contracts", json={"contactId": str(contact.id)}, headers=headers).json()
     assert {c["id"]: c["status"] for c in created["containers"]} == {
         "customer": "complete", "vehicle": "not_started", "pricing": "not_started", "trade_in": "not_started",
     }
@@ -446,7 +446,7 @@ def test_api_derived_figures_are_never_taken_from_the_client(client, db_session)
     dealership = _dealership(db_session)
     group_id = uuid.uuid4()
     headers = _token(dealership.id, group_id)
-    contract = _customer_born_contract(db_session, dealership.id, group_id)
+    contract = _contact_born_contract(db_session, dealership.id, group_id)
 
     response = client.patch(
         f"/v1/sales/contracts/{contract.id}",
@@ -463,7 +463,7 @@ def test_api_patch_needs_if_match_and_refuses_a_stale_version(client, db_session
     dealership = _dealership(db_session)
     group_id = uuid.uuid4()
     headers = _token(dealership.id, group_id)
-    contract = _customer_born_contract(db_session, dealership.id, group_id)
+    contract = _contact_born_contract(db_session, dealership.id, group_id)
 
     missing = client.patch(f"/v1/sales/contracts/{contract.id}", json={"vehicleLabel": "x"}, headers=headers)
     stale = client.patch(
@@ -478,7 +478,7 @@ def test_api_patch_needs_if_match_and_refuses_a_stale_version(client, db_session
 
 def test_api_another_dealerships_contract_is_404_on_every_edit_route(client, db_session):
     dealership = _dealership(db_session)
-    contract = _customer_born_contract(db_session, dealership.id, uuid.uuid4())
+    contract = _contact_born_contract(db_session, dealership.id, uuid.uuid4())
     other = {**_token(uuid.uuid4(), uuid.uuid4()), "If-Match": str(contract.version)}
 
     responses = [
@@ -505,7 +505,7 @@ def test_api_contract_line_items_round_trip(client, db_session):
     group_id = uuid.uuid4()
     headers = _token(dealership.id, group_id)
     item = _stock_item(db_session, dealership.id)
-    contract = _customer_born_contract(db_session, dealership.id, group_id)
+    contract = _contact_born_contract(db_session, dealership.id, group_id)
     contract = _edit(db_session, contract, vehicle_source="stock", stock_item_id=item.id, vehicle_label=item.vehicle_label)
 
     replaced = client.put(
@@ -616,7 +616,7 @@ def test_a_contract_priced_without_inputs_is_not_editable_but_still_confirms(db_
     group_id = uuid.uuid4()
     item = _stock_item(db_session, dealership.id)
     offer = _offer_with_vehicle(db_session, dealership.id, item, group_id=group_id)
-    offer.customer_id = _customer(db_session, group_id).id
+    offer.contact_id = _contact(db_session, group_id).id
     db_session.commit()
     contract = create_contract(db_session, tenant_id=dealership.id, offer=offer, actor_id=uuid.uuid4())
     _as_before_the_migration(db_session, contract)
@@ -668,7 +668,7 @@ def test_an_edit_waits_for_a_confirmation_in_progress_and_is_then_refused(db_ses
 
     dealership = _dealership(db_session)
     group_id = uuid.uuid4()
-    contract = _manual_car(db_session, _customer_born_contract(db_session, dealership.id, group_id))
+    contract = _manual_car(db_session, _contact_born_contract(db_session, dealership.id, group_id))
 
     confirming = Session(bind=engine)  # the confirm request, holding the row
     editing = Session(bind=engine)  # a PATCH arriving meanwhile
@@ -737,19 +737,19 @@ _PRICE_FIGURES = (
 def _buyerless_contract_priced_without_inputs(db_session, dealership_id: uuid.UUID, group_id: uuid.UUID):
     """What KAN-315 found stuck: an offer with a stock car and no buyer was
     contracted before contracts kept their inputs (KAN-67) and the backfill
-    skipped it — figures, no snapshot, no lines, no customer."""
+    skipped it — figures, no snapshot, no lines, no contact."""
 
     item = _stock_item(db_session, dealership_id)
     offer = _offer_with_vehicle(db_session, dealership_id, item, group_id=group_id)
     offer = update_offer(
-        db_session, offer=offer, group_id=group_id, data=OfferUpdate(customer_id=None), actor_id=uuid.uuid4()
+        db_session, offer=offer, group_id=group_id, data=OfferUpdate(contact_id=None), actor_id=uuid.uuid4()
     )
-    assert offer.customer_id is None
+    assert offer.contact_id is None
     contract = create_contract(db_session, tenant_id=dealership_id, offer=offer, actor_id=uuid.uuid4())
     _as_before_the_migration(db_session, contract)
     db_session.expire_all()
     contract = db_session.get(SalesContract, contract.id)
-    assert contract.customer_id is None and contract.vehicle_snapshot is None and contract.gross_price is not None
+    assert contract.contact_id is None and contract.vehicle_snapshot is None and contract.gross_price is not None
     return contract, item
 
 
@@ -761,24 +761,24 @@ def test_api_a_buyerless_contract_priced_without_inputs_is_given_a_buyer_and_con
     group_id = uuid.uuid4()
     headers = _token(dealership.id, group_id)
     contract, item = _buyerless_contract_priced_without_inputs(db_session, dealership.id, group_id)
-    customer = _customer(db_session, group_id)
+    contact = _contact(db_session, group_id)
     before = client.get(f"/v1/sales/contracts/{contract.id}", headers=headers).json()
     assert before["grossPrice"] == "38800.00"
 
     refused = client.post(
         f"/v1/sales/contracts/{contract.id}/confirm", headers={**headers, "If-Match": str(before["version"])}
     )
-    assert refused.status_code == 409 and refused.json()["error"]["details"]["reason"] == "missing_customer"
+    assert refused.status_code == 409 and refused.json()["error"]["details"]["reason"] == "missing_contact"
 
     patched = client.patch(
         f"/v1/sales/contracts/{contract.id}",
-        json={"customerId": str(customer.id)},
+        json={"contactId": str(contact.id)},
         headers={**headers, "If-Match": str(before["version"])},
     )
 
     assert patched.status_code == 200, patched.text
     body = patched.json()
-    assert body["customerId"] == str(customer.id) and body["customerLabel"] == "Didier Perrin"
+    assert body["contactId"] == str(contact.id) and body["contactLabel"] == "Didier Perrin"
     assert body["version"] == before["version"] + 1
     assert {k: body[k] for k in _PRICE_FIGURES} == {k: before[k] for k in _PRICE_FIGURES}
     db_session.expire_all()
@@ -802,7 +802,7 @@ def test_api_a_buyer_with_any_other_field_is_still_refused_on_a_contract_priced_
     group_id = uuid.uuid4()
     headers = _token(dealership.id, group_id)
     contract, _item = _buyerless_contract_priced_without_inputs(db_session, dealership.id, group_id)
-    customer = _customer(db_session, group_id)
+    contact = _contact(db_session, group_id)
 
     for extra in (
         {"discountType": "amount", "discountValue": "100.00"},
@@ -812,7 +812,7 @@ def test_api_a_buyer_with_any_other_field_is_still_refused_on_a_contract_priced_
     ):
         response = client.patch(
             f"/v1/sales/contracts/{contract.id}",
-            json={"customerId": str(customer.id), **extra},
+            json={"contactId": str(contact.id), **extra},
             headers={**headers, "If-Match": str(contract.version)},
         )
         assert response.status_code == 409, (extra, response.text)
@@ -820,7 +820,7 @@ def test_api_a_buyer_with_any_other_field_is_still_refused_on_a_contract_priced_
 
     db_session.expire_all()
     stored = db_session.get(SalesContract, contract.id)
-    assert stored.customer_id is None and stored.version == contract.version
+    assert stored.contact_id is None and stored.version == contract.version
     assert stored.gross_price == Decimal("38800.00")
 
 
@@ -838,19 +838,19 @@ def test_a_contract_priced_without_inputs_still_refuses_an_empty_patch_and_a_cle
     assert empty.value.details["reason"] == "contract_priced_without_inputs"
     with pytest.raises(ConflictError) as cleared:
         update_contract(
-            db_session, contract=contract, group_id=group_id, data=ContractUpdate(customer_id=None),
+            db_session, contract=contract, group_id=group_id, data=ContractUpdate(contact_id=None),
             actor_id=uuid.uuid4(),
         )
     assert cleared.value.details["reason"] == "contract_priced_without_inputs"
 
-    first, second = _customer(db_session, group_id), _customer(db_session, group_id)
+    first, second = _contact(db_session, group_id), _contact(db_session, group_id)
     contract = update_contract(
-        db_session, contract=contract, group_id=group_id, data=ContractUpdate(customer_id=first.id),
+        db_session, contract=contract, group_id=group_id, data=ContractUpdate(contact_id=first.id),
         actor_id=uuid.uuid4(),
     )
     with pytest.raises(ConflictError) as replaced:
         update_contract(
-            db_session, contract=contract, group_id=group_id, data=ContractUpdate(customer_id=second.id),
+            db_session, contract=contract, group_id=group_id, data=ContractUpdate(contact_id=second.id),
             actor_id=uuid.uuid4(),
         )
     assert replaced.value.details["reason"] == "contract_priced_without_inputs"
@@ -866,7 +866,7 @@ def test_a_confirmed_contract_priced_without_inputs_takes_no_buyer(db_session):
     with pytest.raises(ConflictError) as refused:
         update_contract(
             db_session, contract=contract, group_id=group_id,
-            data=ContractUpdate(customer_id=_customer(db_session, group_id).id), actor_id=uuid.uuid4(),
+            data=ContractUpdate(contact_id=_contact(db_session, group_id).id), actor_id=uuid.uuid4(),
         )
     assert refused.value.details["reason"] == "contract_not_pending"
 
@@ -877,7 +877,7 @@ def test_a_confirmed_contract_priced_without_inputs_takes_no_buyer(db_session):
 def _held_by_a_confirmation(db_session, dealership_id: uuid.UUID, group_id: uuid.UUID, engine):
     """A pending manual-car contract; the session holding it confirms it."""
 
-    contract = _manual_car(db_session, _customer_born_contract(db_session, dealership_id, group_id))
+    contract = _manual_car(db_session, _contact_born_contract(db_session, dealership_id, group_id))
 
     def holder_action(session, held: SalesContract) -> None:
         confirm_contract(

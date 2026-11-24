@@ -16,9 +16,9 @@ from sqlalchemy import update
 from app.core.auth import AccessRole, create_access_token
 from app.core.reconciliation import ReconciliationAlarm
 from app.core.reconciliation_model import ReconciliationRun
-from app.customer import reconciliation as customer_reconciliation
-from app.customer.models.customer import Customer
-from app.customer.models.vehicle_party import VehicleParty, VehiclePartyRole
+from app.contact import reconciliation as contact_reconciliation
+from app.contact.models.contact import Contact
+from app.contact.models.vehicle_party import VehicleParty, VehiclePartyRole
 from app.integration import reconciliation as integration_reconciliation
 from app.integration.models.provider import IntegrationProvider
 from app.inventory import reconciliation as inventory_reconciliation
@@ -65,7 +65,7 @@ VALID_ADDRESS = {
 
 
 # This file specifically exercises cross-context FK integrity (P-10), so a
-# customer's group_id must point at a REAL dealer_group row — the
+# contact's group_id must point at a REAL dealer_group row — the
 # uuid5-derived shadow value other test files use for mere token-to-token
 # consistency would itself register as an orphan here. _create_dealer
 # populates this cache with the real dealerGroupId every dealer it creates
@@ -155,7 +155,7 @@ def _make_platform_actors_real(db_session, user_id: uuid.UUID) -> None:
     db_session.commit()
 
 
-def _create_customer(client, dealer_id: str, **overrides) -> dict:
+def _create_contact(client, dealer_id: str, **overrides) -> dict:
     token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id), user_id=_real_actor(client, dealer_id))
     payload = {
         "firstName": "Anna",
@@ -164,7 +164,7 @@ def _create_customer(client, dealer_id: str, **overrides) -> dict:
         "emails": [{"emailType": "personal", "emailAddress": f"anna-{uuid.uuid4().hex[:8]}@example.ch"}],
     }
     payload.update(overrides)
-    response = client.post("/v1/customers", json=payload, headers=_bearer(token))
+    response = client.post("/v1/contacts", json=payload, headers=_bearer(token))
     assert response.status_code == 201, response.text
     return response.json()
 
@@ -200,22 +200,22 @@ def _create_vehicle_mdm(db_session) -> uuid.UUID:
     return vehicle.id
 
 
-def test_customer_reconciliation_clean_data_finds_zero_orphans(client, db_session):
+def test_contact_reconciliation_clean_data_finds_zero_orphans(client, db_session):
     dealer_id = _create_dealer(client)
-    customer = _create_customer(client, dealer_id)
+    contact = _create_contact(client, dealer_id)
     vehicle_mdm_id = _create_vehicle_mdm(db_session)
     db_session.add(
         VehicleParty(
-            vehicle_id=vehicle_mdm_id, customer_id=uuid.UUID(customer["id"]), role=VehiclePartyRole.OWNER
+            vehicle_id=vehicle_mdm_id, contact_id=uuid.UUID(contact["id"]), role=VehiclePartyRole.OWNER
         )
     )
     db_session.commit()
     db_session.expire_all()
 
-    run = customer_reconciliation.run(db_session)
+    run = contact_reconciliation.run(db_session)
 
     assert run.orphans_found == 0
-    assert run.checks_run == len(customer_reconciliation.CHECKS)
+    assert run.checks_run == len(contact_reconciliation.CHECKS)
     assert run.finished_at is not None
 
 
@@ -233,14 +233,14 @@ def test_vehicle_reconciliation_clean_data_finds_zero_orphans(client, db_session
 def test_sales_reconciliation_clean_data_finds_zero_orphans(client, db_session):
     dealer_id = _create_dealer(client)
     user = _create_user(client, dealer_id)
-    customer = _create_customer(client, dealer_id)
+    contact = _create_contact(client, dealer_id)
     _create_vehicle(client, dealer_id)
     token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id), user_id=uuid.UUID(user["id"]))
     offer = client.post("/v1/sales/offers", headers=_bearer(token))
     assert offer.status_code == 201, offer.text
     patched = client.patch(
         f"/v1/sales/offers/{offer.json()['id']}",
-        json={"customerId": customer["id"]},
+        json={"contactId": contact["id"]},
         headers={**_bearer(token), "If-Match": str(offer.json()["version"])},
     )
     assert patched.status_code == 200, patched.text
@@ -255,18 +255,18 @@ def test_sales_reconciliation_clean_data_finds_zero_orphans(client, db_session):
 # --- seeded orphans: each job catches its own kind of dangling reference ----------
 
 
-def test_customer_reconciliation_detects_orphaned_vehicle_party(client, db_session):
+def test_contact_reconciliation_detects_orphaned_vehicle_party(client, db_session):
     dealer_id = _create_dealer(client)
-    customer = _create_customer(client, dealer_id)
+    contact = _create_contact(client, dealer_id)
     dangling_vehicle_id = uuid.uuid4()
     db_session.add(
-        VehicleParty(vehicle_id=dangling_vehicle_id, customer_id=uuid.UUID(customer["id"]), role=VehiclePartyRole.OWNER)
+        VehicleParty(vehicle_id=dangling_vehicle_id, contact_id=uuid.UUID(contact["id"]), role=VehiclePartyRole.OWNER)
     )
     db_session.commit()
     db_session.expire_all()
 
     with pytest.raises(ReconciliationAlarm) as exc_info:
-        customer_reconciliation.run(db_session)
+        contact_reconciliation.run(db_session)
 
     alarm = exc_info.value
     assert alarm.run.orphans_found == 1
@@ -280,21 +280,21 @@ def test_customer_reconciliation_detects_orphaned_vehicle_party(client, db_sessi
     assert persisted.orphans_found == 1
 
 
-def test_customer_reconciliation_detects_orphaned_group_id(client, db_session):
+def test_contact_reconciliation_detects_orphaned_group_id(client, db_session):
     dealer_id = _create_dealer(client)
-    customer = _create_customer(client, dealer_id)
+    contact = _create_contact(client, dealer_id)
     db_session.expire_all()
 
-    row = db_session.get(Customer, uuid.UUID(customer["id"]))
+    row = db_session.get(Contact, uuid.UUID(contact["id"]))
     row.group_id = uuid.uuid4()
     db_session.commit()
     db_session.expire_all()
 
     with pytest.raises(ReconciliationAlarm) as exc_info:
-        customer_reconciliation.run(db_session)
+        contact_reconciliation.run(db_session)
 
     assert exc_info.value.run.orphans_found == 1
-    assert exc_info.value.orphans[0].check_label == "customer.group_id -> dealer_group.id"
+    assert exc_info.value.orphans[0].check_label == "contact.group_id -> dealer_group.id"
 
 
 def test_vehicle_reconciliation_detects_orphaned_custody_event_partner(client, db_session):
@@ -574,7 +574,7 @@ def _document(db_session, dealer_id, **columns):
         (_offer, "tenant_id", "sales_offer.tenant_id -> dealership.id", {}),
         (_offer, "created_by", "sales_offer.created_by -> user.id", {}),
         (_offer, "updated_by", "sales_offer.updated_by -> user.id", {}),
-        (_offer, "customer_id", "sales_offer.customer_id -> customer.id", {}),
+        (_offer, "contact_id", "sales_offer.contact_id -> contact.id", {}),
         (_offer, "stock_item_id", "sales_offer.stock_item_id -> stock_item.id", {}),
         (_offer, "configuration_id", "sales_offer.configuration_id -> vehicle_configuration.id", {}),
         (_offer, "trade_in_vehicle_id", "sales_offer.trade_in_vehicle_id -> vehicle_mdm.id", {}),
@@ -585,7 +585,7 @@ def _document(db_session, dealer_id, **columns):
         (_contract, "tenant_id", "sales_contract.tenant_id -> dealership.id", {}),
         (_contract, "created_by", "sales_contract.created_by -> user.id", {}),
         (_contract, "updated_by", "sales_contract.updated_by -> user.id", {}),
-        (_contract, "customer_id", "sales_contract.customer_id -> customer.id", {}),
+        (_contract, "contact_id", "sales_contract.contact_id -> contact.id", {}),
         (_contract, "stock_item_id", "sales_contract.stock_item_id -> stock_item.id", {}),
         (_contract, "configuration_id", "sales_contract.configuration_id -> vehicle_configuration.id", {}),
         (_contract, "trade_in_vehicle_id", "sales_contract.trade_in_vehicle_id -> vehicle_mdm.id", {}),
@@ -600,7 +600,7 @@ def _document(db_session, dealer_id, **columns):
         ),
         # --- KAN-243: the other Sales tables ---
         (_deal, "tenant_id", "sales_deal.tenant_id -> dealership.id", {}),
-        (_deal, "customer_id", "sales_deal.customer_id -> customer.id", {}),
+        (_deal, "contact_id", "sales_deal.contact_id -> contact.id", {}),
         (_deal, "created_by", "sales_deal.created_by -> user.id", {}),
         (_deal, "updated_by", "sales_deal.updated_by -> user.id", {}),
         (_line_item, "tenant_id", "sales_line_item.tenant_id -> dealership.id", {}),
@@ -638,7 +638,7 @@ def test_sales_reconciliation_accepts_offers_and_contracts_whose_references_reso
 
     dealer_id = _create_dealer(client)
     user_id = uuid.UUID(_create_user(client, dealer_id)["id"])
-    customer_id = uuid.UUID(_create_customer(client, dealer_id)["id"])
+    contact_id = uuid.UUID(_create_contact(client, dealer_id)["id"])
     trade_in_vehicle_id = _create_vehicle_mdm(db_session)
     valuation = create_valuation(
         db_session, tenant_id=uuid.UUID(dealer_id), group_id=uuid.UUID(_REAL_GROUP_IDS[dealer_id]), actor_id=None,
@@ -648,7 +648,7 @@ def test_sales_reconciliation_accepts_offers_and_contracts_whose_references_reso
     held_item = _stock_item(db_session, dealer_id)
     released_item = _stock_item(db_session, dealer_id)
     references = {
-        "created_by": user_id, "updated_by": user_id, "customer_id": customer_id,
+        "created_by": user_id, "updated_by": user_id, "contact_id": contact_id,
         "trade_in_vehicle_id": trade_in_vehicle_id, "trade_in_valuation_id": valuation.id,
     }
 
@@ -676,7 +676,7 @@ def test_sales_reconciliation_accepts_offers_and_contracts_whose_references_reso
     )
     # KAN-243's tables, with every cross-context id real or absent.
     actors = {"created_by": user_id, "updated_by": user_id}
-    _deal(db_session, dealer_id, customer_id=customer_id, **actors)
+    _deal(db_session, dealer_id, contact_id=contact_id, **actors)
     _deal(db_session, dealer_id)
     _line_item(db_session, dealer_id, **actors)
     _document(db_session, dealer_id, rendered_by=user_id, **actors)
@@ -729,9 +729,9 @@ def test_sales_reconciliation_detects_a_purchase_replica_of_no_dealership(client
 # --- KAN-243: created_by / updated_by name a real user, in every context ----------
 
 
-def _customer_row(client, db_session, dealer_id):
-    customer = _create_customer(client, dealer_id)
-    return customer_reconciliation, Customer, uuid.UUID(customer["id"])
+def _contact_row(client, db_session, dealer_id):
+    contact = _create_contact(client, dealer_id)
+    return contact_reconciliation, Contact, uuid.UUID(contact["id"])
 
 
 def _stock_item_row(client, db_session, dealer_id):
@@ -778,7 +778,7 @@ def _dealership_row(client, db_session, dealer_id):
 
 
 _ACTOR_ROW_SEEDS = [
-    _customer_row, _stock_item_row, _valuation_row, _brand_row, _provider_row, _sales_deal_row, _dealership_row,
+    _contact_row, _stock_item_row, _valuation_row, _brand_row, _provider_row, _sales_deal_row, _dealership_row,
 ]
 
 
@@ -899,20 +899,20 @@ def test_sales_reconciliation_detects_a_reference_to_a_sister_dealerships_record
 
 
 @pytest.mark.parametrize(("seed", "table"), [(_offer, "sales_offer"), (_contract, "sales_contract")], ids=["offer", "contract"])
-def test_sales_reconciliation_detects_a_customer_of_another_group(client, db_session, seed, table):
-    """KAN-259 — customers are group-scoped (ADR-014): one of the deal's own
+def test_sales_reconciliation_detects_a_contact_of_another_group(client, db_session, seed, table):
+    """KAN-259 — contacts are group-scoped (ADR-014): one of the deal's own
     group is right whichever dealership created it, one of another group is
     not, though it resolves on id."""
 
     dealer_id = _create_dealer(client)
     other_group_dealer_id = _create_dealer(client)
-    foreign = seed(db_session, dealer_id, customer_id=uuid.UUID(_create_customer(client, other_group_dealer_id)["id"]))
+    foreign = seed(db_session, dealer_id, contact_id=uuid.UUID(_create_contact(client, other_group_dealer_id)["id"]))
 
     with pytest.raises(ReconciliationAlarm) as exc_info:
         sales_reconciliation.run(db_session)
 
     assert [(o.check_label, o.source_row_id, o.dangling_value) for o in exc_info.value.orphans] == [
-        (f"{table}.customer_id names a customer outside its dealership's group", foreign.id, foreign.id)
+        (f"{table}.contact_id names a contact outside its dealership's group", foreign.id, foreign.id)
     ]
 
 
@@ -942,14 +942,14 @@ def test_sales_reconciliation_detects_a_hold_on_a_sister_dealerships_stock_item(
 
 def test_sales_reconciliation_accepts_references_in_the_deals_own_dealership_and_group(client, db_session):
     """The clean side of KAN-259: every tenant-scoped reference in the deal's
-    own dealership, and a customer created by a sister dealership of the
+    own dealership, and a contact created by a sister dealership of the
     same group, on an offer and on a confirmed contract holding its car."""
 
     dealer_id = _create_dealer(client)
     sister_id = _sister_dealer(client, dealer_id)
     item = _stock_item(db_session, dealer_id)
     references = {
-        "customer_id": uuid.UUID(_create_customer(client, sister_id)["id"]),
+        "contact_id": uuid.UUID(_create_contact(client, sister_id)["id"]),
         "configuration_id": _configuration(db_session, dealer_id),
         "trade_in_configuration_id": _configuration(db_session, dealer_id),
         "trade_in_valuation_id": _valuation_of(db_session, dealer_id),
@@ -972,17 +972,17 @@ def test_sales_reconciliation_accepts_references_in_the_deals_own_dealership_and
 
 def test_run_all_runs_every_context_and_aggregates_alarms(client, db_session):
     dealer_id = _create_dealer(client)
-    customer = _create_customer(client, dealer_id)
+    contact = _create_contact(client, dealer_id)
     user = _create_user(client, dealer_id)
     _create_vehicle(client, dealer_id)
     db_session.expire_all()
 
-    # Orphan customer (via vehicle_party) and sales (an offer naming no
-    # customer), leave vehicle clean — proves run_all doesn't stop at the
+    # Orphan contact (via vehicle_party) and sales (an offer naming no
+    # contact), leave vehicle clean — proves run_all doesn't stop at the
     # first alarm.
-    db_session.add(VehicleParty(vehicle_id=uuid.uuid4(), customer_id=uuid.UUID(customer["id"]), role=VehiclePartyRole.OWNER))
+    db_session.add(VehicleParty(vehicle_id=uuid.uuid4(), contact_id=uuid.UUID(contact["id"]), role=VehiclePartyRole.OWNER))
     db_session.commit()
-    _offer(db_session, dealer_id, customer_id=uuid.uuid4())
+    _offer(db_session, dealer_id, contact_id=uuid.uuid4())
     # Platform runs too (KAN-318) and must stay clean, like vehicle.
     _make_platform_actors_real(db_session, uuid.UUID(user["id"]))
     db_session.expire_all()
@@ -998,7 +998,7 @@ def test_run_all_runs_every_context_and_aggregates_alarms(client, db_session):
 
 
 def test_no_hard_delete_endpoint_exists_for_fk_target_entities(client):
-    """Customer, Vehicle, Dealer, Transaction and User were the five tables
+    """Contact, Vehicle, Dealer, Transaction and User were the five tables
     the dropped FKs pointed at. The delete-path audit (PR-2) found no
     DELETE endpoint for any of them — status/lifecycle fields are the only
     way to retire one. If this ever changes, reconciliation and this
@@ -1013,7 +1013,7 @@ def test_no_hard_delete_endpoint_exists_for_fk_target_entities(client):
     for forbidden in (
         "/v1/dealerships/{dealer_id}",
         "/v1/dealerships/{dealer_id}/users/{user_id}",
-        "/v1/customers/{customer_id}",
+        "/v1/contacts/{contact_id}",
         "/v1/vehicles/{vehicle_id}",
     ):
         assert forbidden not in delete_paths, f"unexpected hard-delete endpoint: {forbidden}"
@@ -1087,11 +1087,11 @@ def test_no_hard_delete_endpoint_exists_for_fk_target_entities(client):
         "/v1/dealerships/{dealership_id}/publishing-profile/locations/{location_id}",
         "/v1/dealerships/{dealership_id}/publishing-profile/images/{image_id}",
         "/v1/dealerships/{dealership_id}/publishing-profile/agb",
-        "/v1/customers/{customer_id}/phones/{phone_id}",
-        "/v1/customers/{customer_id}/emails/{email_id}",
-        "/v1/customers/{customer_id}/addresses/{address_id}",
-        "/v1/customers/{customer_id}/external-ids/{external_id_row_id}",
-        "/v1/customers/{customer_id}/vehicles/{party_id}",
+        "/v1/contacts/{contact_id}/phones/{phone_id}",
+        "/v1/contacts/{contact_id}/emails/{email_id}",
+        "/v1/contacts/{contact_id}/addresses/{address_id}",
+        "/v1/contacts/{contact_id}/external-ids/{external_id_row_id}",
+        "/v1/contacts/{contact_id}/vehicles/{party_id}",
         "/v1/me/preferences/{scope}",
         # KAN-216: a browser's Web Push subscription (push off on one's own
         # device) — a real delete of the user's own child row, bound to a
@@ -1120,82 +1120,82 @@ def test_no_hard_delete_endpoint_exists_for_fk_target_entities(client):
     }
 
 
-# --- a customer merge Sales never followed (KAN-581) ------------------------
+# --- a contact merge Sales never followed (KAN-581) ------------------------
 
 
 def _merge(client, dealer_id: str, duplicate: dict, survivor: dict) -> None:
     token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id), user_id=_real_actor(client, dealer_id))
     response = client.post(
-        f"/v1/customers/{duplicate['id']}/merge",
-        json={"duplicateOfCustomerId": survivor["id"]},
+        f"/v1/contacts/{duplicate['id']}/merge",
+        json={"duplicateOfContactId": survivor["id"]},
         headers={**_bearer(token), "If-Match": str(duplicate["version"])},
     )
     assert response.status_code == 200, response.text
 
 
-def _sales_rows_naming(client, db_session, dealer_id: str, customer: dict) -> dict[str, uuid.UUID]:
-    customer_id = uuid.UUID(customer["id"])
+def _sales_rows_naming(client, db_session, dealer_id: str, contact: dict) -> dict[str, uuid.UUID]:
+    contact_id = uuid.UUID(contact["id"])
     return {
-        "sales_offer": _offer(db_session, dealer_id, customer_id=customer_id).id,
-        "sales_contract": _contract(db_session, dealer_id, customer_id=customer_id).id,
-        "sales_deal": _deal(db_session, dealer_id, customer_id=customer_id).id,
+        "sales_offer": _offer(db_session, dealer_id, contact_id=contact_id).id,
+        "sales_contract": _contract(db_session, dealer_id, contact_id=contact_id).id,
+        "sales_deal": _deal(db_session, dealer_id, contact_id=contact_id).id,
     }
 
 
-def _merged_customer_findings(db_session) -> list[tuple[str, uuid.UUID]]:
+def _merged_contact_findings(db_session) -> list[tuple[str, uuid.UUID]]:
     try:
         sales_reconciliation.run(db_session)
     except ReconciliationAlarm as alarm:
         return sorted(
-            (o.check_label, o.source_row_id) for o in alarm.orphans if o.check_label.endswith("names a merged customer")
+            (o.check_label, o.source_row_id) for o in alarm.orphans if o.check_label.endswith("names a merged contact")
         )
     return []
 
 
-def test_sales_reconciliation_reports_every_row_still_naming_a_merged_customer(client, db_session):
-    """KAN-581 — the merge reaches Sales only through `customer.merged`
+def test_sales_reconciliation_reports_every_row_still_naming_a_merged_contact(client, db_session):
+    """KAN-581 — the merge reaches Sales only through `contact.merged`
     (KAN-185). Here no worker delivers it (as on staging, or after a dead
     letter): within outbox lag the rows are left alone, after it each of the
     three tables' rows still naming the duplicate is reported."""
 
     dealer_id = _create_dealer(client)
-    survivor = _create_customer(client, dealer_id)
-    duplicate = _create_customer(client, dealer_id)
+    survivor = _create_contact(client, dealer_id)
+    duplicate = _create_contact(client, dealer_id)
     rows = _sales_rows_naming(client, db_session, dealer_id, duplicate)
     _merge(client, dealer_id, duplicate, survivor)
 
-    assert _merged_customer_findings(db_session) == [], "a merge still within outbox lag is no finding"
+    assert _merged_contact_findings(db_session) == [], "a merge still within outbox lag is no finding"
 
     db_session.execute(
-        update(Customer)
-        .where(Customer.id == uuid.UUID(duplicate["id"]))
+        update(Contact)
+        .where(Contact.id == uuid.UUID(duplicate["id"]))
         .values(updated_at=dt.datetime.now(dt.UTC) - dt.timedelta(hours=2))
     )
     db_session.commit()
 
-    assert _merged_customer_findings(db_session) == sorted(
-        (f"{table}.customer_id names a merged customer", row_id) for table, row_id in rows.items()
+    assert _merged_contact_findings(db_session) == sorted(
+        (f"{table}.contact_id names a merged contact", row_id) for table, row_id in rows.items()
     )
 
 
 def test_sales_reconciliation_finds_nothing_once_the_merge_reached_sales(client, db_session):
     """KAN-581 — after the consumer moved the rows to the survivor, the check
-    is quiet, and a live customer's rows never count."""
+    is quiet, and a live contact's rows never count."""
 
-    from app.sales.services.customer_merge import SurvivorLabel, repoint_merged_customer_records
+    from app.sales.services.contact_merge import SurvivorLabel, repoint_merged_contact_records
 
     dealer_id = _create_dealer(client)
-    survivor = _create_customer(client, dealer_id)
-    duplicate = _create_customer(client, dealer_id)
+    survivor = _create_contact(client, dealer_id)
+    duplicate = _create_contact(client, dealer_id)
     _sales_rows_naming(client, db_session, dealer_id, duplicate)
     _sales_rows_naming(client, db_session, dealer_id, survivor)
     _merge(client, dealer_id, duplicate, survivor)
     db_session.execute(
-        update(Customer)
-        .where(Customer.id == uuid.UUID(duplicate["id"]))
+        update(Contact)
+        .where(Contact.id == uuid.UUID(duplicate["id"]))
         .values(updated_at=dt.datetime.now(dt.UTC) - dt.timedelta(hours=2))
     )
-    repoint_merged_customer_records(
+    repoint_merged_contact_records(
         db_session,
         duplicate_id=uuid.UUID(duplicate["id"]),
         target_id=uuid.UUID(survivor["id"]),
@@ -1203,4 +1203,4 @@ def test_sales_reconciliation_finds_nothing_once_the_merge_reached_sales(client,
     )
     db_session.commit()
 
-    assert _merged_customer_findings(db_session) == []
+    assert _merged_contact_findings(db_session) == []

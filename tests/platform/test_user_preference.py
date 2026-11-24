@@ -85,10 +85,10 @@ def test_list_preferences_starts_empty(client):
 
 def test_get_unset_scope_returns_empty_not_404(client):
     headers = _setup(client)
-    response = client.get("/v1/me/preferences/grid:mdm.customers.list", headers=headers)
+    response = client.get("/v1/me/preferences/grid:mdm.contacts.list", headers=headers)
     assert response.status_code == 200, response.text
     body = response.json()
-    assert body["scope"] == "grid:mdm.customers.list"
+    assert body["scope"] == "grid:mdm.contacts.list"
     assert body["payload"] == {}
     assert body["updatedAt"] is None
 
@@ -132,13 +132,13 @@ def test_list_reflects_multiple_scopes(client):
     headers = _setup(client)
     client.put("/v1/me/preferences/ui", json={"density": "compact"}, headers=headers)
     client.put(
-        "/v1/me/preferences/grid:mdm.customers.list", json={"sort": [{"field": "lastName", "direction": "asc"}]},
+        "/v1/me/preferences/grid:mdm.contacts.list", json={"sort": [{"field": "lastName", "direction": "asc"}]},
         headers=headers,
     )
     response = client.get("/v1/me/preferences", headers=headers)
     assert response.status_code == 200, response.text
     scopes = {item["scope"] for item in response.json()["items"]}
-    assert scopes == {"ui", "grid:mdm.customers.list"}
+    assert scopes == {"ui", "grid:mdm.contacts.list"}
 
 
 def test_delete_resets_to_default_and_is_idempotent(client):
@@ -219,7 +219,7 @@ def test_a_new_users_screen_starts_in_the_betriebs_correspondence_language(clien
     assert body["payload"] == {"uiLanguage": "it"}
     assert body["updatedAt"] is None  # a starting value, never a stored choice
     # Only the `ui` scope starts that way; every other scope is still empty.
-    assert client.get("/v1/me/preferences/grid:mdm.customers.list", headers=headers).json()["payload"] == {}
+    assert client.get("/v1/me/preferences/grid:mdm.contacts.list", headers=headers).json()["payload"] == {}
 
 
 def test_the_users_own_choice_wins_over_the_betriebs_language(client, db_session):

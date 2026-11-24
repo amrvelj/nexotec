@@ -304,7 +304,7 @@ class TwilioSmsAdapter(_HttpMessagingAdapter):
         # 2026-11-21 — so a correctly configured dealer's test would fail.
         # The one-row page of the account's messages proves the key, its
         # secret and the account SID together and sends nothing; its body is
-        # not read (it would hold a customer's number and text).
+        # not read (it would hold a contact's number and text).
         url = f"{_TWILIO_BASE}/Accounts/{account_sid}/Messages.json"
         self._call("messages_list", lambda client: client.get(url, params={"PageSize": 1}, auth=auth))
 

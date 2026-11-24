@@ -110,7 +110,7 @@ def test_break_glass_returns_the_decrypted_payload_and_audit_logs_and_notifies(c
         _connection, payload = _make_connection_with_payload(db_session, provider, tenant_id=tenant_id)
 
         response = client.get(
-            f"/v1/integrations/call-payloads/{payload.id}", params={"reason": "customer support ticket #42"},
+            f"/v1/integrations/call-payloads/{payload.id}", params={"reason": "contact support ticket #42"},
             headers=_bearer(_platform_admin_token()),
         )
         assert response.status_code == 200, response.text
@@ -121,7 +121,7 @@ def test_break_glass_returns_the_decrypted_payload_and_audit_logs_and_notifies(c
         )
         assert len(events) == 1
         assert events[0].action == "break_glass_read"
-        assert events[0].reason == "customer support ticket #42"
+        assert events[0].reason == "contact support ticket #42"
 
         # No manager exists for this tenant in this test, so the send list
         # stays empty — but the notification ROW itself still gets written

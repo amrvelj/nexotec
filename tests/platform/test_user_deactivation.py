@@ -22,7 +22,7 @@ from app.core.reconciliation import ReconciliationAlarm
 from app.platform import daily_jobs
 from app.platform.daily_jobs import run_daily_user_expiry
 from app.platform.identity.models.user import User
-from tests.customer.test_customer_vehicle_party_close_rule import (
+from tests.contact.test_contact_vehicle_party_close_rule import (
     _postgres_only,
     _run,
     _wait_until_a_backend_waits_on_a_lock,
@@ -49,7 +49,7 @@ def _as(user: dict, *, role: AccessRole = AccessRole.SALES, manager: bool = Fals
     return {"Authorization": f"Bearer {token}"}
 
 
-def _customer_for(client, user: dict, **overrides) -> dict:
+def _contact_for(client, user: dict, **overrides) -> dict:
     payload = {
         "firstName": "Ada",
         "lastName": "Byron",
@@ -57,7 +57,7 @@ def _customer_for(client, user: dict, **overrides) -> dict:
         "emails": [{"emailType": "personal", "emailAddress": f"ada-{uuid.uuid4().hex[:6]}@example.ch"}],
         **overrides,
     }
-    response = client.post("/v1/customers", json=payload, headers=_as(user))
+    response = client.post("/v1/contacts", json=payload, headers=_as(user))
     assert response.status_code == 201, response.text
     return response.json()
 
@@ -68,8 +68,8 @@ def _offer_for(client, user: dict) -> dict:
     return response.json()
 
 
-def _contract_for(client, user: dict, customer: dict) -> dict:
-    response = client.post("/v1/sales/contracts", json={"customerId": customer["id"]}, headers=_as(user))
+def _contract_for(client, user: dict, contact: dict) -> dict:
+    response = client.post("/v1/sales/contracts", json={"contactId": contact["id"]}, headers=_as(user))
     assert response.status_code == 201, response.text
     return response.json()
 
@@ -108,27 +108,27 @@ def test_ownership_lists_open_records_by_module_and_names_every_module(client):
     leaver = create_user(client, dealership, isDealerManager=False)
     create_user(client, dealership)  # the manager who stays
 
-    customer = _customer_for(client, leaver)
-    _customer_for(client, leaver)
+    contact = _contact_for(client, leaver)
+    _contact_for(client, leaver)
     _offer_for(client, leaver)
-    _contract_for(client, leaver, customer)
+    _contract_for(client, leaver, contact)
 
     body = _ownership(client, dealership, leaver)
     assert body["modules"] == ["aftersales", "customer", "inventory", "parts", "sales"]
     assert body["groups"] == [
-        {"module": "customer", "group": "customers", "count": 2},
+        {"module": "customer", "group": "contacts", "count": 2},
         {"module": "sales", "group": "offers", "count": 1},
         {"module": "sales", "group": "contracts", "count": 1},
     ]
 
 
-def test_a_cancelled_offer_and_a_merged_customer_are_not_open(client, db_session):
+def test_a_cancelled_offer_and_a_merged_contact_are_not_open(client, db_session):
     dealership = create_dealership(client)
     leaver = create_user(client, dealership, isDealerManager=False)
     offer = _offer_for(client, leaver)
     cancelled = client.post(
         f"/v1/sales/offers/{offer['id']}/cancel",
-        json={"reason": "customer bought elsewhere"},
+        json={"reason": "contact bought elsewhere"},
         headers={**_as(leaver), "If-Match": str(offer["version"])},
     )
     assert cancelled.status_code == 200, cancelled.text
@@ -141,7 +141,7 @@ def test_a_cancelled_offer_and_a_merged_customer_are_not_open(client, db_session
 def test_deactivation_needs_a_decision_for_every_open_group(client):
     dealership = create_dealership(client)
     leaver = create_user(client, dealership, isDealerManager=False)
-    _customer_for(client, leaver)
+    _contact_for(client, leaver)
     _offer_for(client, leaver)
 
     response = deactivate(
@@ -152,13 +152,13 @@ def test_deactivation_needs_a_decision_for_every_open_group(client):
     assert details["problems"] == [
         {
             "module": "customer",
-            "group": "customers",
+            "group": "contacts",
             "reason": "undecided",
-            "message": "customer/customers: needs a decision: a colleague, or null to leave it unassigned",
+            "message": "contact/contacts: needs a decision: a colleague, or null to leave it unassigned",
         }
     ]
     assert {(g["module"], g["group"]) for g in details["openGroups"]} == {
-        ("customer", "customers"),
+        ("customer", "contacts"),
         ("sales", "offers"),
     }
     # Nothing changed: the user is still invited, the offer still theirs.
@@ -179,7 +179,7 @@ _REFUSAL_REASONS = {
 def test_a_transfer_to_the_wrong_person_or_group_is_refused(client, bad):
     dealership = create_dealership(client)
     leaver = create_user(client, dealership, isDealerManager=False)
-    _customer_for(client, leaver)
+    _contact_for(client, leaver)
     if bad == "self":
         to = leaver["id"]
     elif bad == "other_dealership":
@@ -191,11 +191,11 @@ def test_a_transfer_to_the_wrong_person_or_group_is_refused(client, bad):
         to = gone["id"]
     else:
         to = None
-    transfers = [{"module": "customer", "group": "customers", "toUserId": to}]
+    transfers = [{"module": "customer", "group": "contacts", "toUserId": to}]
     if bad == "unknown_group":
         transfers.append({"module": "sales", "group": "offers", "toUserId": None})
     if bad == "twice":
-        transfers.append({"module": "customer", "group": "customers", "toUserId": None})
+        transfers.append({"module": "customer", "group": "contacts", "toUserId": None})
     response = deactivate(client, dealership, leaver, transfers=transfers)
     assert response.status_code == 422, response.text
     # The SPA keys its texts on these codes: a renamed one would fall back to English.
@@ -208,9 +208,9 @@ def test_deactivation_hands_each_group_over_and_audits_every_step(client, db_ses
     leaver = create_user(client, dealership, isDealerManager=False, firstName="Lea", lastName="Ver")
     heir = create_user(client, dealership, isDealerManager=False, firstName="Hans", lastName="Erbe")
     manager = create_user(client, dealership)
-    customer = _customer_for(client, leaver)
+    contact = _contact_for(client, leaver)
     offer = _offer_for(client, leaver)
-    contract = _contract_for(client, leaver, customer)
+    contract = _contract_for(client, leaver, contact)
     login.accept_invitation(leaver)
     login.accept_invitation(heir)  # FR-A-37: records go to an ACTIVE colleague
     assert login.login(leaver).status_code == 200
@@ -223,7 +223,7 @@ def test_deactivation_hands_each_group_over_and_audits_every_step(client, db_ses
         if_match=2,
         reason="left on 30 September",
         transfers=[
-            {"module": "customer", "group": "customers", "toUserId": heir["id"]},
+            {"module": "customer", "group": "contacts", "toUserId": heir["id"]},
             {"module": "sales", "group": "offers", "toUserId": None},
             {"module": "sales", "group": "contracts", "toUserId": heir["id"]},
         ],
@@ -234,14 +234,14 @@ def test_deactivation_hands_each_group_over_and_audits_every_step(client, db_ses
     assert body["user"]["deactivationReason"] == "left on 30 September"
     assert body["user"]["deactivatedAt"] is not None
     assert body["transfers"] == [
-        {"module": "customer", "group": "customers", "toUserId": heir["id"], "count": 1},
+        {"module": "customer", "group": "contacts", "toUserId": heir["id"], "count": 1},
         {"module": "sales", "group": "offers", "toUserId": None, "count": 1},
         {"module": "sales", "group": "contracts", "toUserId": heir["id"], "count": 1},
     ]
 
     # The records moved — with the receiver's label, or to nobody.
-    moved_customer = client.get(f"/v1/customers/{customer['id']}", headers=_as(heir)).json()
-    assert moved_customer["advisorId"] == heir["id"] and moved_customer["advisorLabel"] == "Hans Erbe"
+    moved_contact = client.get(f"/v1/contacts/{contact['id']}", headers=_as(heir)).json()
+    assert moved_contact["advisorId"] == heir["id"] and moved_contact["advisorLabel"] == "Hans Erbe"
     released = client.get(f"/v1/sales/offers/{offer['id']}", headers=_as(heir)).json()
     assert released["ownerUserId"] is None and released["ownerLabel"] is None
     assert released["version"] == offer["version"] + 1
@@ -262,27 +262,27 @@ def test_deactivation_hands_each_group_over_and_audits_every_step(client, db_ses
     assert str(status_row.actor_id) == manager["id"]
     transfers = _audit(db_session, leaver["id"], "ownership_transferred")
     assert [(r.after["module"], r.after["group"], r.after["owner_user_id"], r.after["count"]) for r in transfers] == [
-        ("customer", "customers", heir["id"], 1),
+        ("customer", "contacts", heir["id"], 1),
         ("sales", "offers", None, 1),
         ("sales", "contracts", heir["id"], 1),
     ]
     assert all(str(r.actor_id) == manager["id"] and r.reason == "left on 30 September" for r in transfers)
-    # The customer's own history shows the hand-over too.
-    customer_rows = list(
+    # The contact's own history shows the hand-over too.
+    contact_rows = list(
         db_session.scalars(
-            select(AuditEvent).where(AuditEvent.entity_id == uuid.UUID(customer["id"]), AuditEvent.action == "update")
+            select(AuditEvent).where(AuditEvent.entity_id == uuid.UUID(contact["id"]), AuditEvent.action == "update")
         ).all()
     )
     # … carrying the manager's reason, as platform's rows do (never a code).
-    assert any(r.after == {"advisor_id": heir["id"]} and r.reason == "left on 30 September" for r in customer_rows)
+    assert any(r.after == {"advisor_id": heir["id"]} and r.reason == "left on 30 September" for r in contact_rows)
 
 
 def test_a_failed_module_leaves_its_records_for_the_retry_and_the_user_deactivated(
     client, db_session, monkeypatch, login
 ):
-    """ADR-047: no shared transaction across the seam. The customer module's
+    """ADR-047: no shared transaction across the seam. The contact module's
     hand-over commits; sales fails; the user is deactivated (access cut
-    first), the customer transfer is recorded, and the offers are still
+    first), the contact transfer is recorded, and the offers are still
     theirs for `POST …/ownership/transfers`."""
 
     dealership = create_dealership(client)
@@ -290,7 +290,7 @@ def test_a_failed_module_leaves_its_records_for_the_retry_and_the_user_deactivat
     heir = create_user(client, dealership, isDealerManager=False)
     login.accept_invitation(heir)
     create_user(client, dealership)
-    customer = _customer_for(client, leaver)
+    contact = _contact_for(client, leaver)
     _offer_for(client, leaver)
 
     sales = ownership_provider("sales")
@@ -305,7 +305,7 @@ def test_a_failed_module_leaves_its_records_for_the_retry_and_the_user_deactivat
         dealership,
         leaver,
         transfers=[
-            {"module": "customer", "group": "customers", "toUserId": heir["id"]},
+            {"module": "customer", "group": "contacts", "toUserId": heir["id"]},
             {"module": "sales", "group": "offers", "toUserId": heir["id"]},
         ],
     )
@@ -313,7 +313,7 @@ def test_a_failed_module_leaves_its_records_for_the_retry_and_the_user_deactivat
     # Answered, never a 500 after the status changed: what moved, what did not.
     assert response.status_code == 200, response.text
     assert response.json()["transfers"] == [
-        {"module": "customer", "group": "customers", "toUserId": heir["id"], "count": 1}
+        {"module": "customer", "group": "contacts", "toUserId": heir["id"], "count": 1}
     ]
     # … and never the exception's text (a statement and its parameters could be in it).
     assert response.json()["failed"] == [
@@ -328,7 +328,7 @@ def test_a_failed_module_leaves_its_records_for_the_retry_and_the_user_deactivat
 
     user = client.get(f"/v1/dealerships/{dealership}/users/{leaver['id']}", headers=platform_admin_headers()).json()
     assert user["status"] == "deactivated"
-    assert client.get(f"/v1/customers/{customer['id']}", headers=_as(heir)).json()["advisorId"] == heir["id"]
+    assert client.get(f"/v1/contacts/{contact['id']}", headers=_as(heir)).json()["advisorId"] == heir["id"]
     assert [r.after["module"] for r in _audit(db_session, leaver["id"], "ownership_transferred")] == ["customer"]
     assert _ownership(client, dealership, leaver)["groups"] == [{"module": "sales", "group": "offers", "count": 1}]
 
@@ -482,7 +482,7 @@ def test_the_expiry_job_deactivates_expired_users_and_releases_their_records(cli
     create_user(client, dealership)  # stays the manager
     expired = create_user(client, dealership, isDealerManager=False, validTo=yesterday)
     current = create_user(client, dealership, isDealerManager=False)
-    customer = _customer_for(client, expired)
+    contact = _contact_for(client, expired)
     offer = _offer_for(client, expired)
 
     with caplog.at_level(logging.INFO, logger=daily_jobs.__name__):
@@ -493,7 +493,7 @@ def test_the_expiry_job_deactivates_expired_users_and_releases_their_records(cli
     assert gone is not None and gone.status.value == "deactivated"
     assert gone.deactivation_reason == "valid_to_expired" and gone.deactivated_at is not None
     assert db_session.get(User, uuid.UUID(current["id"])).status.value == "invited"
-    assert client.get(f"/v1/customers/{customer['id']}", headers=_as(current)).json()["advisorId"] is None
+    assert client.get(f"/v1/contacts/{contact['id']}", headers=_as(current)).json()["advisorId"] is None
     assert client.get(f"/v1/sales/offers/{offer['id']}", headers=_as(current)).json()["ownerUserId"] is None
     rows = _audit(db_session, expired["id"], "ownership_transferred")
     assert {r.after["module"] for r in rows} == {"customer", "sales"} and all(r.actor_id is None for r in rows)
@@ -843,9 +843,9 @@ def test_the_session_user_keeps_its_pre_kan_200_shape(client, login):
     }
 
 
-def test_the_customer_list_filters_the_unassigned_queue_and_one_advisor(client, login):
+def test_the_contact_list_filters_the_unassigned_queue_and_one_advisor(client, login):
     """FR-A-37: "unassigned items appear in the module's own queue" — for
-    Customers, `GET /customers?unassigned=true`; `advisorUserId` is the
+    Contacts, `GET /contacts?unassigned=true`; `advisorUserId` is the
     colleague's view after a hand-over."""
 
     dealership = create_dealership(client)
@@ -853,22 +853,22 @@ def test_the_customer_list_filters_the_unassigned_queue_and_one_advisor(client, 
     heir = create_user(client, dealership, isDealerManager=False)
     login.accept_invitation(heir)
     create_user(client, dealership)
-    kept = _customer_for(client, leaver, lastName="Kept")
-    queued = _customer_for(client, leaver, lastName="Queued")
+    kept = _contact_for(client, leaver, lastName="Kept")
+    queued = _contact_for(client, leaver, lastName="Queued")
     handed = client.post(
         f"/v1/dealerships/{dealership}/users/{leaver['id']}/ownership/transfers",
-        json={"transfers": [{"module": "customer", "group": "customers", "toUserId": heir["id"]}]},
+        json={"transfers": [{"module": "customer", "group": "contacts", "toUserId": heir["id"]}]},
         headers={**platform_admin_headers(), "Idempotency-Key": str(uuid.uuid4())},
     )
     assert handed.status_code == 200, handed.text
     cleared = client.patch(
-        f"/v1/customers/{queued['id']}", json={"advisorId": None}, headers={**_as(heir), "If-Match": "2"}
+        f"/v1/contacts/{queued['id']}", json={"advisorId": None}, headers={**_as(heir), "If-Match": "2"}
     )
     assert cleared.status_code == 200, cleared.text
 
-    unassigned = client.get("/v1/customers?unassigned=true", headers=_as(heir)).json()
+    unassigned = client.get("/v1/contacts?unassigned=true", headers=_as(heir)).json()
     assert [c["id"] for c in unassigned["items"]] == [queued["id"]]
-    mine = client.get(f"/v1/customers?advisorUserId={heir['id']}", headers=_as(heir)).json()
+    mine = client.get(f"/v1/contacts?advisorUserId={heir['id']}", headers=_as(heir)).json()
     assert [c["id"] for c in mine["items"]] == [kept["id"]]
 
 
@@ -969,7 +969,7 @@ def test_a_sister_betrieb_members_deals_are_theirs_and_go_to_a_colleague_who_act
     assert grant(client, home, second, sister).status_code == 201
     # A pending contract: the deal grid lists contracts and open offers, never drafts.
     buyer = client.post(
-        "/v1/customers",
+        "/v1/contacts",
         json={
             "firstName": "Sis",
             "lastName": "Ter",
@@ -978,10 +978,10 @@ def test_a_sister_betrieb_members_deals_are_theirs_and_go_to_a_colleague_who_act
         },
         headers=_acting_in(second, sister),
     ).json()
-    # KAN-410 (Anto, 2026-10-23, option B): the member advises the customer
+    # KAN-410 (Anto, 2026-10-23, option B): the member advises the contact
     # they created there, as they own the contract — the step decides both.
     assert buyer["advisorId"] == second["id"]
-    theirs = client.post("/v1/sales/contracts", json={"customerId": buyer["id"]}, headers=_acting_in(second, sister))
+    theirs = client.post("/v1/sales/contracts", json={"contactId": buyer["id"]}, headers=_acting_in(second, sister))
     assert theirs.status_code == 201, theirs.text
     assert theirs.json()["ownerUserId"] == second["id"]
     version = client.get(f"/v1/dealerships/{home}/users/{second['id']}", headers=platform_admin_headers()).json()[
@@ -995,7 +995,7 @@ def test_a_sister_betrieb_members_deals_are_theirs_and_go_to_a_colleague_who_act
         if_match=version,
         transfers=[
             {"module": "sales", "group": "contracts", "toUserId": None},
-            {"module": "customer", "group": "customers", "toUserId": None},
+            {"module": "customer", "group": "contacts", "toUserId": None},
         ],
     )
     assert released.status_code == 200, released.text
@@ -1180,7 +1180,7 @@ def test_a_failed_module_does_not_change_the_reason_the_later_groups_are_audited
     heir = create_user(client, dealership, isDealerManager=False)
     login.accept_invitation(heir)
     create_user(client, dealership)
-    customer = _customer_for(client, leaver)
+    contact = _contact_for(client, leaver)
     _offer_for(client, leaver)
     sales = ownership_provider("sales")
     assert sales is not None
@@ -1196,7 +1196,7 @@ def test_a_failed_module_does_not_change_the_reason_the_later_groups_are_audited
         reason="left on 30 September",
         transfers=[
             {"module": "sales", "group": "offers", "toUserId": heir["id"]},  # fails first …
-            {"module": "customer", "group": "customers", "toUserId": heir["id"]},  # … this one still moves
+            {"module": "customer", "group": "contacts", "toUserId": heir["id"]},  # … this one still moves
         ],
     )
     monkeypatch.undo()
@@ -1204,12 +1204,12 @@ def test_a_failed_module_does_not_change_the_reason_the_later_groups_are_audited
     assert [f["module"] for f in response.json()["failed"]] == ["sales"]
     [platform_row] = _audit(db_session, leaver["id"], "ownership_transferred")
     assert platform_row.after["module"] == "customer" and platform_row.reason == "left on 30 September"
-    customer_rows = list(
+    contact_rows = list(
         db_session.scalars(
-            select(AuditEvent).where(AuditEvent.entity_id == uuid.UUID(customer["id"]), AuditEvent.action == "update")
+            select(AuditEvent).where(AuditEvent.entity_id == uuid.UUID(contact["id"]), AuditEvent.action == "update")
         ).all()
     )
-    assert any(r.after == {"advisor_id": heir["id"]} and r.reason == "left on 30 September" for r in customer_rows)
+    assert any(r.after == {"advisor_id": heir["id"]} and r.reason == "left on 30 September" for r in contact_rows)
 
 
 def test_an_offer_with_a_live_contract_is_not_open_and_its_contract_deal_is_never_rebuilt_from_it(client, login):
@@ -1223,11 +1223,11 @@ def test_an_offer_with_a_live_contract_is_not_open_and_its_contract_deal_is_neve
     heir = create_user(client, dealership, isDealerManager=False, firstName="Hans", lastName="Erbe")
     login.accept_invitation(heir)
     create_user(client, dealership)
-    buyer = _customer_for(client, leaver, firstName="Ursula", lastName="Vogt")
+    buyer = _contact_for(client, leaver, firstName="Ursula", lastName="Vogt")
     offer = _offer_for(client, leaver)
     with_buyer = client.patch(
         f"/v1/sales/offers/{offer['id']}",
-        json={"customerId": buyer["id"]},
+        json={"contactId": buyer["id"]},
         headers={**_as(leaver), "If-Match": str(offer["version"])},
     )
     assert with_buyer.status_code == 200, with_buyer.text
@@ -1235,9 +1235,9 @@ def test_an_offer_with_a_live_contract_is_not_open_and_its_contract_deal_is_neve
     assert contract.status_code == 201, contract.text
 
     # The offer is not open: of Sales, only the pending contract is the leaver's
-    # (the buyer they created is theirs to advise, Customers' group).
+    # (the buyer they created is theirs to advise, Contacts' group).
     assert _ownership(client, dealership, leaver)["groups"] == [
-        {"module": "customer", "group": "customers", "count": 1},
+        {"module": "customer", "group": "contacts", "count": 1},
         {"module": "sales", "group": "contracts", "count": 1},
     ]
 
@@ -1246,7 +1246,7 @@ def test_an_offer_with_a_live_contract_is_not_open_and_its_contract_deal_is_neve
         dealership,
         leaver,
         transfers=[
-            {"module": "customer", "group": "customers", "toUserId": heir["id"]},
+            {"module": "customer", "group": "contacts", "toUserId": heir["id"]},
             {"module": "sales", "group": "contracts", "toUserId": heir["id"]},
         ],
     )
@@ -1257,7 +1257,7 @@ def test_an_offer_with_a_live_contract_is_not_open_and_its_contract_deal_is_neve
         if d["contractId"] == contract.json()["id"]
     ]
     assert deal["entityType"] == "contract"
-    assert deal["customerLabel"] == contract.json()["customerLabel"] and deal["customerLabel"]
+    assert deal["contactLabel"] == contract.json()["contactLabel"] and deal["contactLabel"]
     assert deal["ownerUserId"] == heir["id"] and deal["ownerLabel"] == "Hans Erbe"
     # A plain hand-over of "offers" finds nothing to move — the contract's row stays as it is.
     nothing = client.post(
@@ -1276,7 +1276,7 @@ def test_the_sales_queue_lists_open_deals_only(client, login):
     dealership = create_dealership(client)
     seller = create_user(client, dealership)
     login.accept_invitation(seller)
-    buyer = _customer_for(client, seller)
+    buyer = _contact_for(client, seller)
     pending = _contract_for(client, seller, buyer)
     cancelled = _contract_for(client, seller, buyer)
     for row in (pending, cancelled):
@@ -1289,7 +1289,7 @@ def test_the_sales_queue_lists_open_deals_only(client, login):
         row["version"] = cleared.json()["version"]
     gone = client.post(
         f"/v1/sales/contracts/{cancelled['id']}/cancel",
-        json={"reason": "customer withdrew"},
+        json={"reason": "contact withdrew"},
         headers={**_as(seller), "If-Match": str(cancelled["version"])},
     )
     assert gone.status_code == 200, gone.text
@@ -1309,11 +1309,11 @@ def test_an_offer_side_write_after_its_contract_exists_never_changes_the_contrac
     heir = create_user(client, dealership, isDealerManager=False, firstName="Hans", lastName="Erbe")
     login.accept_invitation(heir)
     create_user(client, dealership)
-    buyer = _customer_for(client, leaver)
+    buyer = _contact_for(client, leaver)
     offer = _offer_for(client, leaver)
     offer = client.patch(
         f"/v1/sales/offers/{offer['id']}",
-        json={"customerId": buyer["id"]},
+        json={"contactId": buyer["id"]},
         headers={**_as(leaver), "If-Match": str(offer["version"])},
     ).json()
     contract = client.post("/v1/sales/contracts", json={"offerId": offer["id"]}, headers=_as(leaver)).json()
@@ -1342,7 +1342,7 @@ def test_an_offer_side_write_after_its_contract_exists_never_changes_the_contrac
         dealership,
         leaver,
         transfers=[
-            {"module": "customer", "group": "customers", "toUserId": heir["id"]},
+            {"module": "customer", "group": "contacts", "toUserId": heir["id"]},
             {"module": "sales", "group": "contracts", "toUserId": heir["id"]},
         ],
     )
@@ -1375,11 +1375,11 @@ def test_a_contract_made_from_a_revived_offer_never_belongs_to_a_deactivated_sel
     heir = create_user(client, dealership, isDealerManager=False, firstName="Hans", lastName="Erbe")
     login.accept_invitation(heir)
     create_user(client, dealership)
-    buyer = _customer_for(client, leaver)
+    buyer = _contact_for(client, leaver)
     offer = _offer_for(client, leaver)
     offer = client.patch(
         f"/v1/sales/offers/{offer['id']}",
-        json={"customerId": buyer["id"]},
+        json={"contactId": buyer["id"]},
         headers={**_as(leaver), "If-Match": str(offer["version"])},
     ).json()
     first = client.post("/v1/sales/contracts", json={"offerId": offer["id"]}, headers=_as(leaver)).json()
@@ -1388,7 +1388,7 @@ def test_a_contract_made_from_a_revived_offer_never_belongs_to_a_deactivated_sel
         dealership,
         leaver,
         transfers=[
-            {"module": "customer", "group": "customers", "toUserId": heir["id"]},
+            {"module": "customer", "group": "contacts", "toUserId": heir["id"]},
             {"module": "sales", "group": "contracts", "toUserId": heir["id"]},
         ],
     )

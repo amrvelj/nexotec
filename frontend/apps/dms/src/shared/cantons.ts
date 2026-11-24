@@ -1,5 +1,5 @@
-// Reference data, not a customer concern: locations, the business data screen,
-// onboarding, vehicle plates and customers all use it, so it lives in
+// Reference data, not a contact concern: locations, the business data screen,
+// onboarding, vehicle plates and contacts all use it, so it lives in
 // src/shared/ (ADR-161 amendment, KAN-636 step 2a).
 // The 26 Swiss cantons — matches `derive_canton`'s output alphabet
 // (app/core/postal_codes.py), not a general-purpose country/region list.

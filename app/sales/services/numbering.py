@@ -2,7 +2,7 @@
 one counter per (tenant_id, series) — the same idiom as
 app.inventory.services.stock_item.allocate_stock_number,
 app.vehicle.services.vehicle_mdm.allocate_vehicle_number, and
-app.customer.services.customer._allocate_customer_number. Scoped per
+app.contact.services.contact._allocate_contact_number. Scoped per
 TENANT (dealership), like stock numbers, since offers and contracts are
 this dealership's own paperwork, not a group or global fact.
 

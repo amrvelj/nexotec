@@ -10,7 +10,7 @@ describe('buildValuationRowMenu (ADR-061 anti-drift)', () => {
   it('never has a "Bearbeiten" action anywhere — a valuation is immutable once created', () => {
     const menu = buildValuationRowMenu(
       t,
-      { status: 'draft', hasSignedContract: true, customerId: null, vehicleId: null, vehicleVin: null },
+      { status: 'draft', hasSignedContract: true, contactId: null, vehicleId: null, vehicleVin: null },
       { onRevalue: vi.fn(), onMarkUsed: vi.fn() }
     )
     const allLabels = [
@@ -36,7 +36,7 @@ describe('buildValuationRowMenu (ADR-061 anti-drift)', () => {
     (status, hasSignedContract, expectedReason) => {
       const menu = buildValuationRowMenu(
         t,
-        { status, hasSignedContract, customerId: null, vehicleId: null, vehicleVin: null },
+        { status, hasSignedContract, contactId: null, vehicleId: null, vehicleVin: null },
         { onRevalue: vi.fn(), onMarkUsed: vi.fn() }
       )
       const markUsed = (menu.overflow.edit ?? [])[0]
@@ -50,7 +50,7 @@ describe('buildValuationRowMenu (ADR-061 anti-drift)', () => {
     // it twice with identical input (as the detail header and the list
     // grid's row menu each independently do) can never diverge, because
     // both surfaces read from the same, pure computation.
-    const input = { status: 'expired' as const, hasSignedContract: false, customerId: null, vehicleId: null, vehicleVin: null }
+    const input = { status: 'expired' as const, hasSignedContract: false, contactId: null, vehicleId: null, vehicleVin: null }
     const actions = { onRevalue: vi.fn(), onMarkUsed: vi.fn() }
     const forHeader = buildValuationRowMenu(t, input, actions)
     const forGridRow = buildValuationRowMenu(t, input, actions)
@@ -58,25 +58,25 @@ describe('buildValuationRowMenu (ADR-061 anti-drift)', () => {
     expect(forHeader.overflow.edit?.[0].disabledReason).toBe(forGridRow.overflow.edit?.[0].disabledReason)
   })
 
-  it('only includes an "open customer"/"open vehicle" navigate entry when the corresponding handler and id are both present', () => {
+  it('only includes an "open contact"/"open vehicle" navigate entry when the corresponding handler and id are both present', () => {
     const withNeither = buildValuationRowMenu(
       t,
-      { status: 'valid', hasSignedContract: false, customerId: null, vehicleId: null, vehicleVin: null },
+      { status: 'valid', hasSignedContract: false, contactId: null, vehicleId: null, vehicleVin: null },
       { onRevalue: vi.fn(), onMarkUsed: vi.fn() }
     )
     expect(withNeither.overflow.navigate ?? []).toHaveLength(0)
 
     const withBoth = buildValuationRowMenu(
       t,
-      { status: 'valid', hasSignedContract: false, customerId: 'c1', vehicleId: 'v1', vehicleVin: null },
-      { onRevalue: vi.fn(), onMarkUsed: vi.fn(), onOpenCustomer: vi.fn(), onOpenVehicle: vi.fn() }
+      { status: 'valid', hasSignedContract: false, contactId: 'c1', vehicleId: 'v1', vehicleVin: null },
+      { onRevalue: vi.fn(), onMarkUsed: vi.fn(), onOpenContact: vi.fn(), onOpenVehicle: vi.fn() }
     )
     expect(withBoth.overflow.navigate ?? []).toHaveLength(2)
   })
   it('KAN-253: «Verwendung aufheben» is absent unless the session may write it (onRevertUse passed)', () => {
     const menu = buildValuationRowMenu(
       t,
-      { status: 'used', hasSignedContract: false, customerId: null, vehicleId: null, vehicleVin: null },
+      { status: 'used', hasSignedContract: false, contactId: null, vehicleId: null, vehicleVin: null },
       { onRevalue: vi.fn(), onMarkUsed: vi.fn() }
     )
     expect((menu.overflow.edit ?? []).map((a) => a.label)).toEqual(['valuationDetail.actions.markUsed'])
@@ -95,7 +95,7 @@ describe('buildValuationRowMenu (ADR-061 anti-drift)', () => {
       const onRevertUse = vi.fn()
       const menu = buildValuationRowMenu(
         t,
-        { status, hasSignedContract, customerId: null, vehicleId: null, vehicleVin: null },
+        { status, hasSignedContract, contactId: null, vehicleId: null, vehicleVin: null },
         { onRevalue: vi.fn(), onMarkUsed: vi.fn(), onRevertUse }
       )
       const revertUse = (menu.overflow.edit ?? []).find((a) => a.label === 'valuationDetail.actions.revertUse')
@@ -113,7 +113,7 @@ describe('buildValuationRowMenu (ADR-061 anti-drift)', () => {
       const entry = (usedAt: string) =>
         (buildValuationRowMenu(
           t,
-          { status: 'used', hasSignedContract: false, customerId: null, vehicleId: null, vehicleVin: null, usedAt },
+          { status: 'used', hasSignedContract: false, contactId: null, vehicleId: null, vehicleVin: null, usedAt },
           { onRevalue: vi.fn(), onMarkUsed: vi.fn(), onRevertUse: vi.fn() }
         ).overflow.edit ?? []).find((a) => a.label === 'valuationDetail.actions.revertUse')!
       expect(entry('2026-11-01T11:30:00Z').disabledReason).toBe('valuationDetail.actions.revertUseTooRecent')
@@ -126,7 +126,7 @@ describe('buildValuationRowMenu (ADR-061 anti-drift)', () => {
   it('KAN-569: without the right to write offers there is no alternative and no «create offer» entry (KAN-430)', () => {
     const menu = buildValuationRowMenu(
       t,
-      { status: 'valid', hasSignedContract: false, customerId: null, vehicleId: null, vehicleVin: null },
+      { status: 'valid', hasSignedContract: false, contactId: null, vehicleId: null, vehicleVin: null },
       { onRevalue: vi.fn(), onMarkUsed: vi.fn() }
     )
     expect(menu.alternative).toBeUndefined()
@@ -146,7 +146,7 @@ describe('buildValuationRowMenu (ADR-061 anti-drift)', () => {
       const onClick = vi.fn()
       const menu = buildValuationRowMenu(
         t,
-        { status, hasSignedContract: false, customerId: null, vehicleId: null, vehicleVin: NAMED_VIN },
+        { status, hasSignedContract: false, contactId: null, vehicleId: null, vehicleVin: NAMED_VIN },
         { onRevalue: vi.fn(), onMarkUsed: vi.fn(), createOffer: { onClick, salesEntitled } }
       )
       expect(menu.alternative?.label).toBe('valuationDetail.actions.createOffer')
@@ -171,7 +171,7 @@ describe('buildValuationRowMenu (ADR-061 anti-drift)', () => {
     (_label, car, expectedReason) => {
       const entry = buildValuationRowMenu(
         t,
-        { status: 'valid', hasSignedContract: false, customerId: null, vehicleId: null, ...car },
+        { status: 'valid', hasSignedContract: false, contactId: null, vehicleId: null, ...car },
         { onRevalue: vi.fn(), onMarkUsed: vi.fn(), createOffer: { onClick: vi.fn(), salesEntitled: true } }
       ).alternative!
       expect(entry.disabled).toBe(expectedReason !== null)
@@ -184,7 +184,7 @@ describe('buildValuationRowMenu (ADR-061 anti-drift)', () => {
       for (const salesEntitled of [true, false]) {
         const entry = buildValuationRowMenu(
           t,
-          { status, hasSignedContract: false, customerId: null, vehicleId: null, vehicleVin: null },
+          { status, hasSignedContract: false, contactId: null, vehicleId: null, vehicleVin: null },
           { onRevalue: vi.fn(), onMarkUsed: vi.fn(), createOffer: { onClick: vi.fn(), salesEntitled } }
         ).alternative!
         expect(entry.disabled ? entry.disabledReason : 'enabled').toBeTruthy()

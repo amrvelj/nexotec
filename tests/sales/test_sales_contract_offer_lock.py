@@ -1,6 +1,6 @@
 """KAN-147: one live contract per offer, held by the offer's row lock in
 create_contract — and that lock taken in the same order (offer, then deal)
-as every other Sales writer: the customer merge's repointing flushes in that
+as every other Sales writer: the contact merge's repointing flushes in that
 order, and upsert_deal_projection flushes its caller's offer before the deal.
 
 Row-lock interleaving needs Postgres; SQLite has no row locks.
@@ -19,8 +19,8 @@ from sqlalchemy.orm import sessionmaker
 import app.sales.services.contract as contract_module
 import app.sales.services.line_items as line_items_module
 from app.core.errors import ConflictError
-from app.customer.schemas.customer import CustomerCreate, CustomerEmailCreate
-from app.customer.services.customer import create_customer
+from app.contact.schemas.contact import ContactCreate, ContactEmailCreate
+from app.contact.services.contact import create_contact
 from app.sales.models.contract import SalesContract
 from app.sales.models.deal import SalesDeal
 from app.sales.models.line_item import LineItemKind, SalesLineItem
@@ -28,7 +28,7 @@ from app.sales.models.offer import SalesOffer
 from app.sales.schemas.line_item import LineItemFactoryOptionPatch, LineItemsReplaceRequest
 from app.sales.schemas.offer import OfferUpdate
 from app.sales.services.contract import create_contract
-from app.sales.services.customer_merge import SurvivorLabel, repoint_merged_customer_records
+from app.sales.services.contact_merge import SurvivorLabel, repoint_merged_contact_records
 from app.sales.services.line_items import replace_line_items
 from app.sales.services.offer import create_offer, update_offer
 from tests.sales.test_sales_lifecycle_reservation import _dealership
@@ -39,22 +39,22 @@ pytestmark = pytest.mark.skipif(
 )
 
 
-def _offer_for_a_customer(db_session):
+def _offer_for_a_contact(db_session):
     tenant_id = uuid.uuid4()
     group_id = uuid.uuid4()
-    customer = create_customer(
+    contact = create_contact(
         db_session, group_id=group_id,
-        data=CustomerCreate(
-            customer_type="individual", language="de", first_name="Lea", last_name="Keller",
-            emails=[CustomerEmailCreate(email_type="personal", email_address="lea@example.ch", is_primary=True)],
+        data=ContactCreate(
+            contact_type="individual", language="de", first_name="Lea", last_name="Keller",
+            emails=[ContactEmailCreate(email_type="personal", email_address="lea@example.ch", is_primary=True)],
         ),
         actor_id=uuid.uuid4(), acting_dealership_id=None, dealership_id=tenant_id,
     )
     offer = create_offer(db_session, tenant_id=tenant_id, actor_id=uuid.uuid4())
     offer = update_offer(
-        db_session, offer=offer, group_id=group_id, data=OfferUpdate(customer_id=customer.id), actor_id=uuid.uuid4()
+        db_session, offer=offer, group_id=group_id, data=OfferUpdate(contact_id=contact.id), actor_id=uuid.uuid4()
     )
-    return tenant_id, customer.id, offer.id
+    return tenant_id, contact.id, offer.id
 
 
 def _wait_for_a_blocked_lock(engine, timeout: float = 10.0) -> bool:
@@ -97,7 +97,7 @@ def _join(other: threading.Thread) -> None:
 
 
 def test_two_concurrent_creations_from_one_offer_make_one_contract(db_session, engine):
-    tenant_id, _customer_id, offer_id = _offer_for_a_customer(db_session)
+    tenant_id, _contact_id, offer_id = _offer_for_a_contact(db_session)
     factory = sessionmaker(bind=engine, autoflush=False, autocommit=False, expire_on_commit=False)
     outcomes: list[object] = []
 
@@ -129,13 +129,13 @@ def test_two_concurrent_creations_from_one_offer_make_one_contract(db_session, e
     assert len(db_session.scalars(select(SalesContract).where(SalesContract.offer_id == offer_id)).all()) == 1
 
 
-def test_a_customer_merge_during_a_contract_creation_does_not_deadlock(db_session, engine):
-    """The merge's Sales side (since KAN-185 the customer.merged consumer) used
+def test_a_contact_merge_during_a_contract_creation_does_not_deadlock(db_session, engine):
+    """The merge's Sales side (since KAN-185 the contact.merged consumer) used
     to write sales_deal before sales_offer in one flush;
     with create_contract holding the offer and about to write the deal, the
     two waited on each other until Postgres aborted one (KAN-147 review)."""
 
-    tenant_id, customer_id, offer_id = _offer_for_a_customer(db_session)
+    tenant_id, contact_id, offer_id = _offer_for_a_contact(db_session)
     target_id = uuid.uuid4()
     factory = sessionmaker(bind=engine, autoflush=False, autocommit=False, expire_on_commit=False)
     errors: list[BaseException] = []
@@ -143,8 +143,8 @@ def test_a_customer_merge_during_a_contract_creation_does_not_deadlock(db_sessio
     def merge():
         session = factory()
         try:
-            # KAN-185: the `sales.customer_merged` consumer's work, committed as consume_once does.
-            repoint_merged_customer_records(session, duplicate_id=customer_id, target_id=target_id, survivor=SurvivorLabel(label="Survivor"))
+            # KAN-185: the `sales.contact_merged` consumer's work, committed as consume_once does.
+            repoint_merged_contact_records(session, duplicate_id=contact_id, target_id=target_id, survivor=SurvivorLabel(label="Survivor"))
             session.commit()
         except BaseException as exc:  # noqa: BLE001 — asserted below, never swallowed
             errors.append(exc)
@@ -167,26 +167,26 @@ def test_a_customer_merge_during_a_contract_creation_does_not_deadlock(db_sessio
     assert not other.is_alive()
     assert errors == []
     db_session.expire_all()
-    assert db_session.get(SalesOffer, offer_id).customer_id == target_id
-    assert db_session.get(SalesContract, contract.id).customer_id == target_id
-    assert {d.customer_id for d in db_session.scalars(select(SalesDeal).where(SalesDeal.offer_id == offer_id))} == {target_id}
+    assert db_session.get(SalesOffer, offer_id).contact_id == target_id
+    assert db_session.get(SalesContract, contract.id).contact_id == target_id
+    assert {d.contact_id for d in db_session.scalars(select(SalesDeal).where(SalesDeal.offer_id == offer_id))} == {target_id}
 
 
 def test_a_contract_copies_the_offer_as_committed_not_as_its_caller_loaded_it(db_session, engine):
     """KAN-147 review: create_contract re-reads the offer under its lock, so
-    a customer merge committed after the caller loaded the offer is what the
-    contract (and its deal) carry — not the duplicate customer."""
+    a contact merge committed after the caller loaded the offer is what the
+    contract (and its deal) carry — not the duplicate contact."""
 
-    tenant_id, customer_id, offer_id = _offer_for_a_customer(db_session)
+    tenant_id, contact_id, offer_id = _offer_for_a_contact(db_session)
     target_id = uuid.uuid4()
     factory = sessionmaker(bind=engine, autoflush=False, autocommit=False, expire_on_commit=False)
     session = factory()
     merge_session = factory()
     try:
         offer = session.get(SalesOffer, offer_id)
-        assert offer.customer_id == customer_id
+        assert offer.contact_id == contact_id
         session.commit()  # the caller's read is over; its object is now stale
-        repoint_merged_customer_records(merge_session, duplicate_id=customer_id, target_id=target_id, survivor=SurvivorLabel(label="Survivor"))
+        repoint_merged_contact_records(merge_session, duplicate_id=contact_id, target_id=target_id, survivor=SurvivorLabel(label="Survivor"))
         merge_session.commit()
 
         contract = create_contract(session, tenant_id=tenant_id, offer=offer, actor_id=uuid.uuid4())
@@ -194,9 +194,9 @@ def test_a_contract_copies_the_offer_as_committed_not_as_its_caller_loaded_it(db
         merge_session.close()
         session.close()
 
-    assert contract.customer_id == target_id
+    assert contract.contact_id == target_id
     db_session.expire_all()
-    assert {d.customer_id for d in db_session.scalars(select(SalesDeal).where(SalesDeal.offer_id == offer_id))} == {target_id}
+    assert {d.contact_id for d in db_session.scalars(select(SalesDeal).where(SalesDeal.offer_id == offer_id))} == {target_id}
 
 
 def test_an_offer_line_item_save_during_a_contract_creation_does_not_deadlock(db_session, engine):
@@ -204,7 +204,7 @@ def test_an_offer_line_item_save_during_a_contract_creation_does_not_deadlock(db
     flush in upsert_deal_projection to write it, which wrote sales_deal
     first — while create_contract held the offer and waited on the deal."""
 
-    tenant_id, _customer_id, offer_id = _offer_for_a_customer(db_session)
+    tenant_id, _contact_id, offer_id = _offer_for_a_contact(db_session)
     factory = sessionmaker(bind=engine, autoflush=False, autocommit=False, expire_on_commit=False)
     errors: list[BaseException] = []
 
@@ -243,7 +243,7 @@ def test_create_contract_keeps_its_callers_pending_change_to_the_offer(db_sessio
     so a change its caller made and has not committed is what the contract
     copies, not what the refresh would otherwise reload."""
 
-    tenant_id, _customer_id, offer_id = _offer_for_a_customer(db_session)
+    tenant_id, _contact_id, offer_id = _offer_for_a_contact(db_session)
     offer = db_session.get(SalesOffer, offer_id)
     offer.vehicle_label = "Cupra Born 58 kWh"  # pending, not flushed
 

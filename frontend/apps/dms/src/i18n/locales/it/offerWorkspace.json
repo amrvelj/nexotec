@@ -5,13 +5,13 @@
     "optional": "Facoltativo"
   },
   "containers": {
-    "customer": "Cliente",
+    "contact": "Cliente",
     "vehicle": "Veicolo",
     "pricing": "Struttura prezzo",
     "tradeIn": "Veicolo permuta",
     "leasing": "Leasing"
   },
-  "customer": {
+  "contact": {
     "emptyHint": "Nessun cliente preselezionato — un'offerta porta il nome che verrà firmato.",
     "emptyHintContract": "Ancora nessun acquirente — un contratto si conferma solo con il cliente che lo firma.",
     "search": "Cerca cliente",
@@ -69,8 +69,8 @@
     "valueWithConfigurator": "Identificare e valutare",
     "attachError": "Non è stato possibile riprendere la valutazione.",
     "saveError": "Non è stato possibile salvare il veicolo in permuta.",
-    "customerMerged": "Il cliente è stato unito a un altro cliente. Scegli il cliente a cui è stato unito, poi registra di nuovo il veicolo in permuta.",
-    "customerMergedInto": "Il cliente è stato unito a {{name}} ({{customerNumber}}). Scegli {{name}} come cliente, poi registra di nuovo il veicolo in permuta."
+    "contactMerged": "Il cliente è stato unito a un altro cliente. Scegli il cliente a cui è stato unito, poi registra di nuovo il veicolo in permuta.",
+    "contactMergedInto": "Il cliente è stato unito a {{name}} ({{customerNumber}}). Scegli {{name}} come cliente, poi registra di nuovo il veicolo in permuta."
   },
   "leasing": {
     "hint": "Nessun calcolatore di leasing nella v1 (S-D03). Campi liberi, così un futuro calcolatore potrà essere inserito senza modifiche allo schema.",

@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url'
 // KAN-343 (Anto, 2026-11-03, option A): the four languages are named in
 // themselves for every user, and that is the one ruled exception to "no
 // hardcoded user-visible string". The exception holds for exactly one list,
-// i18n/languageEndonyms.ts: ReferenceDataPage and customerOptions.ts each
+// i18n/languageEndonyms.ts: ReferenceDataPage and contactOptions.ts each
 // carried their own literals before, and a third copy would drift from both.
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')

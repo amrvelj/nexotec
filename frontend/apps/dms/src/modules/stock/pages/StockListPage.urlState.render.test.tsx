@@ -15,7 +15,7 @@ import { StockListPage } from './StockListPage'
 // group grid sorted nothing and filtered search in the browser.
 
 // jsdom has no layout, so the virtualizer would render no rows; render
-// every row (the same shim CustomersListPage.columns.render.test.tsx uses).
+// every row (the same shim ContactsListPage.columns.render.test.tsx uses).
 vi.mock('@tanstack/react-virtual', () => ({
   useVirtualizer: ({ count, estimateSize }: { count: number; estimateSize: () => number }) => {
     const size = estimateSize()

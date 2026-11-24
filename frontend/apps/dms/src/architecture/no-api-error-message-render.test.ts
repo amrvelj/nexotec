@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url'
 // A screen maps `details.reason` (and a stale If-Match 409) to a key in all
 // four bundles and anything else to a translated generic message — never
 // `err.message`, which is the API's English text, meant for logs and
-// developers (MergeCustomerModal and LinkVehicleModal, KAN-366/KAN-369, are
+// developers (MergeContactModal and LinkVehicleModal, KAN-366/KAN-369, are
 // the pattern). oxlint has no custom-rule mechanism, so this is a
 // build-failing scan, like the colour and number ones.
 //

@@ -13,8 +13,8 @@ from pydantic import ConfigDict, Field
 
 from app.core.schemas import CamelModel
 
-# Grid/scope keys are namespaced strings like "grid:mdm.customers.list" or
-# "views:mdm.customers.list" (UI/UX Core Principles § User-Level Preference
+# Grid/scope keys are namespaced strings like "grid:mdm.contacts.list" or
+# "views:mdm.contacts.list" (UI/UX Core Principles § User-Level Preference
 # Persistence) — restrict to the safe charset actually used by that scheme
 # rather than accepting arbitrary text. Used as a FastAPI Path(pattern=...)
 # constraint in app.api.v1.user_preferences.

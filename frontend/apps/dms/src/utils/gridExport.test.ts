@@ -3,7 +3,7 @@ import { buildCsv, type ExportColumn } from './gridExport'
 
 // D-25 — Export writes the SELECTED rows in the CURRENTLY VISIBLE columns.
 // buildCsv is the pure core; the component wiring (which rows, which
-// columns) is covered by CustomersListPage.columns.render.test.tsx.
+// columns) is covered by ContactsListPage.columns.render.test.tsx.
 
 interface Row {
   name: string

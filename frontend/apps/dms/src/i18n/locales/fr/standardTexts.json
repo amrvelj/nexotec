@@ -95,7 +95,7 @@
   "placeholder": {
     "dealership_name": "Nom de l'entreprise",
     "location_phone": "Téléphone",
-    "customer_salutation": "Formule d'appel",
+    "contact_salutation": "Formule d'appel",
     "vehicle_make_model": "Marque et modèle",
     "document_number": "Numéro du document",
     "document_date": "Date du document",

@@ -5,13 +5,13 @@ contract, and is designed to be reused everywhere a context needs "one of
 the four shipped languages" or "format this the Swiss way").
 
 `SwissLanguage` is deliberately NOT the same Python type as
-`app.customer.models.customer.Language` — the two enums are structurally
+`app.contact.models.contact.Language` — the two enums are structurally
 identical (DE/FR/IT/EN) but app.core may never import a bounded context, so
 this is a second, independent definition kept in sync by convention, the
 same way this codebase already keeps enum/reference-list pairs in sync
 elsewhere (e.g. PR-1 of WP-5's vehicle_kind vs the shipped table's
 vehicle_type). A context that already has its own language-shaped field
-(Customer.language) keeps using its own type; this one is for everyone
+(Contact.language) keeps using its own type; this one is for everyone
 else — chiefly app.platform's document-template layer, whose
 `correspondence_language` parameter is this type, never a bare string.
 
@@ -30,7 +30,7 @@ from datetime import date
 class SwissLanguage(str, enum.Enum):
     """DE/FR/IT/EN — the four languages the application ships translations
     for. See this module's own docstring for why this is a second
-    definition of the same four values as app.customer's Language, not a
+    definition of the same four values as app.contact's Language, not a
     shared import.
     """
 

@@ -359,7 +359,7 @@ def test_the_plate_read_guard_catches_every_shape_of_a_direct_read():
             "def read(db, vid):\n"
             "    return db.scalars(select(VehiclePlate).where(VehiclePlate.vehicle_id == vid))\n"
         ),
-        "app/customer/services/conflicts.py": (
+        "app/contact/services/conflicts.py": (
             "from app.vehicle.models.plate import VehiclePlateConflict\n"
             "def open_ones(db):\n"
             "    return db.scalars(select(VehiclePlateConflict))\n"
@@ -387,7 +387,7 @@ def test_the_plate_read_guard_catches_every_shape_of_a_direct_read():
         "app/vehicle/api/history.py",
         "app/vehicle/api/reader_alias.py",
         "app/vehicle/services/merge.py",
-        "app/customer/services/conflicts.py",
+        "app/contact/services/conflicts.py",
         "app/vehicle/services/raw_conflict.py",
     }, offenders
     merge_entries = [entry for entry in offenders if entry.startswith("app/vehicle/services/merge.py")]

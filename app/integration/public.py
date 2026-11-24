@@ -78,8 +78,8 @@ and published by nothing. Its refusals are the core error taxonomy (409
 integration error type. `AI_PROMPT_VEHICLE_LISTING` names the one v1 code.
 
 `deliver_message` (KAN-217 PR-5, ADR-204; A-RULE-9, A-RULE-10) is the one door
-a customer message leaves through, on e-mail, SMS and WhatsApp. It takes the
-consent verdict the caller read from `customer.public.message_recipient` and
+a contact message leaves through, on e-mail, SMS and WhatsApp. It takes the
+consent verdict the caller read from `contact.public.message_recipient` and
 refuses without it (409 `recipient_refused`); e-mail leaves from the author's
 own connected mailbox, else the Betrieb's shared one, else a 409 naming both
 connection screens (`resolve_sender`, KAN-215: `no_mailbox_connected`,
@@ -88,7 +88,7 @@ the Betrieb's own provider account (409 `messaging_not_connected`), WhatsApp
 as an approved template only (409 `whatsapp_template_not_approved`). Each send
 writes one delivery row on integration's own session (ADR-047) and answers a
 `DeliveryRecord` — plain values; it never raises after its refusals. The mail
-send alone (`send_customer_mail`) is no longer handed out: nothing above
+send alone (`send_contact_mail`) is no longer handed out: nothing above
 integration sends without the verdict. `register_mail_grant_revokers`
 is the worker's wiring for ending a revoked mailbox grant (ADR-118).
 """

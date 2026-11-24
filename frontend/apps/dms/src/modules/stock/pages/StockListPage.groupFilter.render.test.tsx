@@ -10,7 +10,7 @@ import { StockListPage } from './StockListPage'
 
 // KAN-565 — ADR-055 says group stock is «a scope switch with the dealership
 // as a filter», and the group grid had no filter at all: «which of the
-// sister Betrieb's cars matches this customer» could not be narrowed to one
+// sister Betrieb's cars matches this contact» could not be narrowed to one
 // Betrieb. It now offers «Betrieb ist / ist nicht», its options the group's
 // roster, its predicate in the URL beside ?scope=group.
 

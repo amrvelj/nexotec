@@ -6,17 +6,17 @@ import userEvent from '@testing-library/user-event'
 import i18n from '../../../i18n'
 import { renderWithProviders } from '../../../test/renderWithProviders'
 import { installFakeBackend, status } from '../../../test/fakeBackend'
-import { customer } from '../../../test/fixtures'
+import { contact } from '../../../test/fixtures'
 import type { SalesOfferRead } from '../../../api/types'
 import { OfferWorkspacePage } from './OfferWorkspacePage'
 
-// KAN-656 — a customer merged into another is refused as an offer's buyer
-// (409 `customer_merged`, naming the survivor). The workspace's banner says
-// why in the UI language, and the customer container offers the survivor.
+// KAN-656 — a contact merged into another is refused as an offer's buyer
+// (409 `contact_merged`, naming the survivor). The workspace's banner says
+// why in the UI language, and the contact container offers the survivor.
 
 const offer = (overrides: Partial<SalesOfferRead> = {}) =>
   ({
-    id: 'o1', offerNumber: 'ANG-2026-0001', status: 'draft', customerId: null, customerLabel: null,
+    id: 'o1', offerNumber: 'ANG-2026-0001', status: 'draft', contactId: null, contactLabel: null,
     vehicleSource: null, stockItemId: null, vehicleLabel: null, tradeInVehicleId: null, tradeInConfigurationId: null,
     tradeInLabel: null, tradeInVin: null, tradeInValuationId: null, tradeInValue: null, containers: [], version: 4,
     leasingDownPayment: null, leasingTermMonths: null, leasingKmPerYear: null,
@@ -29,16 +29,16 @@ function install() {
   const backend = installFakeBackend([
     {
       method: 'GET',
-      match: /^\/customers$/,
+      match: /^\/contacts$/,
       handler: () => ({
-        items: [customer({ id: 'cust-dup', customerNumber: 'K-000008', firstName: 'Ursi', lastName: 'Vogt' })],
+        items: [contact({ id: 'cust-dup', contactNumber: 'K-000008', firstName: 'Ursi', lastName: 'Vogt' })],
         nextCursor: null,
       }),
     },
     {
       method: 'GET',
-      match: /^\/customers\/cust-9$/,
-      handler: () => customer({ id: 'cust-9', customerNumber: 'K-000009', firstName: 'Ursula', lastName: 'Vogt' }),
+      match: /^\/contacts\/cust-9$/,
+      handler: () => contact({ id: 'cust-9', contactNumber: 'K-000009', firstName: 'Ursula', lastName: 'Vogt' }),
     },
     { method: 'GET', match: /^\/sales\/offers\/o1$/, handler: () => current },
     { method: 'GET', match: /^\/sales\/offers\/o1\/line-items$/, handler: () => ({ items: [] }) },
@@ -47,16 +47,16 @@ function install() {
       method: 'PATCH',
       match: /^\/sales\/offers\/o1$/,
       handler: (req) => {
-        if ((req.body as { customerId?: string }).customerId === 'cust-dup') {
+        if ((req.body as { contactId?: string }).contactId === 'cust-dup') {
           return status(409, {
             error: {
               code: 'conflict',
-              message: 'Customer K-000008 has been merged into another — cannot be attached to an offer.',
-              details: { reason: 'customer_merged', mergedIntoCustomerId: 'cust-9' },
+              message: 'Contact K-000008 has been merged into another — cannot be attached to an offer.',
+              details: { reason: 'contact_merged', mergedIntoContactId: 'cust-9' },
             },
           })
         }
-        current = { ...current, customerId: 'cust-9', customerLabel: 'Ursula Vogt', version: current.version + 1 }
+        current = { ...current, contactId: 'cust-9', contactLabel: 'Ursula Vogt', version: current.version + 1 }
         return current
       },
     },
@@ -69,7 +69,7 @@ afterEach(async () => {
   await i18n.changeLanguage('de')
 })
 
-describe('OfferWorkspace — a merged customer is refused as the buyer (KAN-656)', () => {
+describe('OfferWorkspace — a merged contact is refused as the buyer (KAN-656)', () => {
   it('says so in French and attaches the survivor in one click', async () => {
     await i18n.changeLanguage('fr')
     const user = userEvent.setup()
@@ -81,8 +81,8 @@ describe('OfferWorkspace — a merged customer is refused as the buyer (KAN-656)
       { route: '/sales/offers/o1' },
     )
 
-    await user.click(await screen.findByRole('button', { name: i18n.t('offerWorkspace.customer.search') }))
-    await user.type(await screen.findByPlaceholderText(i18n.t('offerWorkspace.customer.search')), 'Vogt')
+    await user.click(await screen.findByRole('button', { name: i18n.t('offerWorkspace.contact.search') }))
+    await user.type(await screen.findByPlaceholderText(i18n.t('offerWorkspace.contact.search')), 'Vogt')
     await user.click(await screen.findByText('Ursi Vogt'))
 
     // Hardcoded on purpose: a key missing from the French bundle must not pass.
@@ -92,8 +92,8 @@ describe('OfferWorkspace — a merged customer is refused as the buyer (KAN-656)
 
     await waitFor(() => expect(backend.callsTo(/^\/sales\/offers\/o1$/, 'PATCH')).toHaveLength(2))
     expect(backend.callsTo(/^\/sales\/offers\/o1$/, 'PATCH').map((c) => c.body)).toEqual([
-      { customerId: 'cust-dup' },
-      { customerId: 'cust-9' },
+      { contactId: 'cust-dup' },
+      { contactId: 'cust-9' },
     ])
     expect(await screen.findByText('Ursula Vogt')).toBeInTheDocument()
     expect(screen.queryByText('Le client choisi a été fusionné avec Ursula Vogt (K-000009).')).not.toBeInTheDocument()

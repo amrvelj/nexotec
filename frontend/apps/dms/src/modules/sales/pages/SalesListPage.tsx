@@ -96,7 +96,7 @@ export function SalesListPage() {
   // KAN-6 — this grid had no selection at all, yet the reference
   // prototype's own equivalent screen defined bulk actions on top of it
   // (unreachable, since nothing could ever be selected). Same minimal,
-  // honest "copy IDs" action as Customers'/Vehicles' own precedent —
+  // honest "copy IDs" action as Contacts'/Vehicles' own precedent —
   // proving the contract, not a real export feature this screen doesn't
   // own — now genuinely reachable because rows are actually selectable.
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
@@ -150,9 +150,9 @@ export function SalesListPage() {
         meta: { locked: true },
       },
       {
-        id: 'customerLabel',
-        header: t('salesList.columns.customer'),
-        cell: ({ row }) => row.original.customerLabel ?? '—',
+        id: 'contactLabel',
+        header: t('salesList.columns.contact'),
+        cell: ({ row }) => row.original.contactLabel ?? '—',
       },
       {
         id: 'vehicleLabel',
@@ -375,7 +375,7 @@ export function SalesListPage() {
             selectedIds,
             onSelectionChange: setSelectedIds,
             selectAllLabel: t('common.selectAllLabel'),
-            selectRowLabel: (row) => t('common.selectRowLabel', { label: [row.number, row.customerLabel].filter(Boolean).join(' · ') }),
+            selectRowLabel: (row) => t('common.selectRowLabel', { label: [row.number, row.contactLabel].filter(Boolean).join(' · ') }),
           }}
           loading={isLoading}
           refetching={isRefetching && !isLoading}

@@ -16,7 +16,7 @@ const STATUS_COLOR: Record<MailboxRead['status'], string> = { active: 'green', e
 /**
  * KAN-215 — Dealer Administration › Kundenmails (`/administration/mail`; D-A-28
  * as re-cut by Anto on 2026-11-14, A-RULE-0: the one place the Betrieb sets up
- * its customer mail). Customer mail leaves only through a mailbox of the
+ * its contact mail). Contact mail leaves only through a mailbox of the
  * Betrieb: a person's own (My account › Mein Postfach) or, failing that, the
  * Betrieb's shared mailbox connected here by a manager, who then signs in at
  * Microsoft or Google as an administrator of the organisation (Anto's Q2 B:

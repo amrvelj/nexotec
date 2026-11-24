@@ -3,10 +3,10 @@ paths:
   - "frontend/apps/dms/src/modules/sales/**"
   - "frontend/apps/dms/src/modules/stock/pages/StockDetailPage.*"
   - "frontend/apps/dms/src/modules/*/pages/*.createOffer.render.test.tsx"
-  - "frontend/apps/dms/src/modules/customer/pages/customerScreens.salesEntitlement*"
+  - "frontend/apps/dms/src/modules/contact/pages/contactScreens.salesEntitlement*"
   - "frontend/apps/dms/src/modules/valuation/components/CreateOfferFromValuationAlert.tsx"
-  - "frontend/apps/dms/src/modules/customer/components/customer-detail/OffersContractsTab.tsx"
-  - "frontend/apps/dms/src/modules/customer/components/customer-detail/offersContracts*"
+  - "frontend/apps/dms/src/modules/contact/components/contact-detail/OffersContractsTab.tsx"
+  - "frontend/apps/dms/src/modules/contact/components/contact-detail/offersContracts*"
   - "frontend/apps/dms/src/hooks/useDebouncedNumberField.ts"
   - "frontend/apps/dms/src/shared/useSaveQueue.ts"
   - "frontend/apps/dms/src/modules/valuation/hooks/useCreateOfferFromValuation.ts"
@@ -33,8 +33,8 @@ main@3b2bf69 (2026-11-18). The backend rules are sales.md. -->
 - **An offer with a live contract** (sales.md) renders read-only in the draft workspace — disabled
   fieldsets over every write control, «Offerte generieren» disabled with the reason — under a
   banner naming the contract with «Vertrag öffnen»; a save refused `offer_has_contract` is worded
-  in that banner's sentence. What only shows stays live: the customer, vehicle and pricing
-  containers take `readOnly` themselves (`LockedWhile.tsx` around their writes), so the customer's
+  in that banner's sentence. What only shows stays live: the contact, vehicle and pricing
+  containers take `readOnly` themselves (`LockedWhile.tsx` around their writes), so the contact's
   overlay, the stock number and «Lagerbestand öffnen» still open. On a sent offer the seller picker
   and «Übernehmen» are disabled before the click (`OfferRead.liveContractId`/`Number`), and
   «Dokument erzeugen» is disabled and says why.
@@ -46,7 +46,7 @@ main@3b2bf69 (2026-11-18). The backend rules are sales.md. -->
   in the offer workspace's and the pending contract's vehicle container and in the header of a sent
   offer and of a contract past editing, opening the stock detail as an overlay (ADR-059); on the
   Sales grid an optional «Lagernummer» column, hidden by default, sortable.
-- **The buyer is picked inside a pending contract** as on the offer (`DealCustomerContainer`,
+- **The buyer is picked inside a pending contract** as on the offer (`DealContactContainer`,
   shared). The stock detail's «Vertrag erstellen» creates a pending contract with the car;
   «Offerte erstellen» creates an offer and then sets the same car.
 - **«Rechnung anfordern»** is the contract page's primary action on a confirmed contract

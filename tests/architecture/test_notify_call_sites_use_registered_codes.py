@@ -138,7 +138,7 @@ _PROBE = (
     "from app.platform.public import NotificationEventCode, NotificationSubject, notify\n\n\n"
     "def probe(db, user_id):\n"
     "    notify(db, NotificationEventCode.ACCOUNT_LOCKED, user_id=user_id,\n"
-    "           subject=NotificationSubject(type='customer', link='/customers'))\n"
+    "           subject=NotificationSubject(type='customer', link='/contacts'))\n"
 )
 
 

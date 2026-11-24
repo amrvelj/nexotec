@@ -15,7 +15,7 @@ rows), and they are Sales' public facts: reading them is what the consumer
 would have done had it existed. A contract with a confirmation and no
 cancellation is still live — confirmed or invoiced — and its ordered car
 is reserved, also once it has left stock (an invoiced car is sold to that
-customer and must not be offered to another; Anto, 2026-10-07).
+contact and must not be offered to another; Anto, 2026-10-07).
 
 TWO PHASES, ADR-047. Phase 1 reads the event log and Stock's manual items
 in one read-only pass, then ends that transaction. Phase 2 writes one

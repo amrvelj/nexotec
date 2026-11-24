@@ -137,7 +137,7 @@ STOCK_ITEM_EXCLUDED_COLUMNS: dict[str, str] = {
     "configuration_label_refreshed_at": "label-refresh bookkeeping (the three-column pattern)",
     "reserved_by_contract_id": "Sales' contract id; `reservationState` shows the reservation",
     "active_reservation_id": "the reservation row's id; `reservationState` shows the reservation",
-    "trade_in_customer_id": "a customer id relayed from Sales with no label on the item",
+    "trade_in_contact_id": "a contact id relayed from Sales with no label on the item",
     "valuation_ref_id": "the valuation's id; its amount, source and date are columns",
     "left_stock_at": "always empty in this list: a car that left stock is not in it (FR-I-12)",
     "location_id": "the location's id; shown by `locationLabel` (KAN-739)",

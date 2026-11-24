@@ -19,7 +19,7 @@ class ProcessedEvent(Base):
     transaction as its side effect, never separately.
 
     No PrimaryKeyMixin: the PK here is the (event_id, consumer_name) pair
-    itself, not a synthetic id — same shape as CustomerNumberSequence.
+    itself, not a synthetic id — same shape as ContactNumberSequence.
     """
 
     __tablename__ = "processed_event"

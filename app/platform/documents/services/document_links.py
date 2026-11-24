@@ -60,7 +60,7 @@ _TOKEN = re.compile(r"^[A-Za-z0-9_-]{43}$")
 @dataclasses.dataclass(frozen=True)
 class RenderedDocument:
     """What a document source hands back: the PDF and the file name the
-    customer's browser shows."""
+    contact's browser shows."""
 
     pdf: bytes
     filename: str
@@ -112,11 +112,11 @@ _LANGUAGES = frozenset({"de", "fr", "it", "en"})
 
 
 def link_url(token: str, language: object = None) -> str:
-    """`{app}/d?lang=<customer's language>#<token>`: the page opens in the
+    """`{app}/d?lang=<contact's language>#<token>`: the page opens in the
     language the message was written in (not a secret, so it may be a query);
     the token only ever in the fragment."""
 
-    # A `str` enum (the customer's `Language`) formats as its name: take the value.
+    # A `str` enum (the contact's `Language`) formats as its name: take the value.
     code = getattr(language, "value", language)
     query = f"?lang={code}" if code in _LANGUAGES else ""
     return get_settings().app_base_url.rstrip("/") + LINK_PAGE + query + "#" + token
@@ -142,7 +142,7 @@ def issue_document_link(
 ) -> IssuedDocumentLink:
     """Writes a link to `document_id` of `tenant_id` and commits it on a
     session of platform's own (ADR-047; KAN-217 PR-5, ADR-204 — the caller's
-    session is neither written nor committed). `language` is the customer's
+    session is neither written nor committed). `language` is the contact's
     correspondence language, which the page opens in. The caller has already read the
     document in that Betrieb; serving re-reads it there in any case. A type
     without a registered source is a defect, not a user error: ValueError."""
@@ -182,7 +182,7 @@ def _within_rate(link: DocumentLink, now: dt.datetime) -> bool:
 
 def open_document_link(db: Session, raw_token: str, *, now: dt.datetime | None = None) -> RenderedDocument | None:
     """The document behind a link, or None (the route's uniform 404). Counts
-    the open on the row and commits it — the read is the customer's, there is
+    the open on the row and commits it — the read is the contact's, there is
     no other transaction to join."""
 
     if not _TOKEN.fullmatch(raw_token):

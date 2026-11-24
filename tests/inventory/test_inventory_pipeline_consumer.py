@@ -3,8 +3,8 @@
 sales.contract.confirmed doesn't exist anywhere in app.sales yet (see
 app/inventory/services/pipeline.py's own docstring) — every event here is
 a directly-constructed synthetic OutboxMessage, proving the mechanism
-exactly as tests/customer/test_customer_outbox_idempotency.py does for
-customer.created.
+exactly as tests/contact/test_contact_outbox_idempotency.py does for
+contact.created.
 """
 
 import uuid

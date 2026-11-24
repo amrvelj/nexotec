@@ -21,7 +21,7 @@ from app.core.audit_model import AuditEvent
 from app.core.auth import AccessRole, create_access_token
 from app.core.outbox_model import OutboxMessage
 from app.core.permissions import ModuleCode
-from app.customer.models.customer import Customer
+from app.contact.models.contact import Contact
 from app.platform import reconciliation as platform_reconciliation
 from app.platform.identity.models.auth_event import AuthEvent
 from app.platform.identity.models.auth_session import AuthSession
@@ -119,7 +119,7 @@ def test_the_demo_betrieb_is_left_trading_so_its_sessions_reach_the_modules(seed
     response = _login(client, PASSWORD)
     assert response.status_code == 200, response.text
     cookie = response.cookies.get("dms_session")
-    assert client.get("/v1/customers", headers={"Cookie": f"dms_session={cookie}"}).status_code == 200
+    assert client.get("/v1/contacts", headers={"Cookie": f"dms_session={cookie}"}).status_code == 200
 
 
 def _demo_user(db_session) -> User:
@@ -835,8 +835,8 @@ def test_a_shared_user_a_manager_deactivated_by_hand_is_left_to_that_manager(
 
 
 def test_the_shared_users_records_go_to_the_unassigned_queue(seed, deployed_seed, retire, db_session, client, mailbox):
-    """FR-A-37: nobody is there to choose, so the shared user's customers go
-    to the Customers queue, audited (`ownership_transferred`)."""
+    """FR-A-37: nobody is there to choose, so the shared user's contacts go
+    to the Contacts queue, audited (`ownership_transferred`)."""
 
     seed()
     shared = _demo_user(db_session)
@@ -848,7 +848,7 @@ def test_the_shared_users_records_go_to_the_unassigned_queue(seed, deployed_seed
         is_dealer_manager=True,
     )
     created = client.post(
-        "/v1/customers",
+        "/v1/contacts",
         json={
             "firstName": "Ada",
             "lastName": "Byron",
@@ -866,8 +866,8 @@ def test_the_shared_users_records_go_to_the_unassigned_queue(seed, deployed_seed
     assert retire(commit=True) == 0
 
     db_session.expire_all()
-    customer = db_session.get(Customer, uuid.UUID(created.json()["id"]))
-    assert customer.advisor_id is None
+    contact = db_session.get(Contact, uuid.UUID(created.json()["id"]))
+    assert contact.advisor_id is None
     handed = db_session.scalars(
         select(AuditEvent).where(AuditEvent.entity_id == shared.id, AuditEvent.action == "ownership_transferred")
     ).all()

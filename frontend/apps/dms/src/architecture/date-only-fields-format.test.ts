@@ -40,10 +40,10 @@ function collectFiles(dir: string, out: string[] = []): string[] {
 
 // `formatDate(row.original.purchaseDate, locale)` → the argument's last
 // identifier, `purchaseDate`; `date('birthDate', …, (row) => row.birthDate)`
-// in CustomersListPage passes its formatter as a fourth argument instead,
+// in ContactsListPage passes its formatter as a fourth argument instead,
 // which the second pattern checks.
 const TIMESTAMP_CALL = /\bformatDate(?:Time)?\(\s*([\w.?!]+)/g
-const CUSTOMER_DATE_COLUMN = /\bdate\('(\w+)',[^\n]*\)\s*,?\s*$/
+const CONTACT_DATE_COLUMN = /\bdate\('(\w+)',[^\n]*\)\s*,?\s*$/
 // KAN-358 — a date-only field rendered raw shows `2021-04-01`, not
 // `01.04.2021`; KAN-333 fixed six such fields by hand. Caught, and only in
 // these positions so that code rendering nothing is never flagged:
@@ -87,7 +87,7 @@ function offendingLines(source: string): string[] {
       const field = match[1].split(/[.?!]+/).filter(Boolean).pop() ?? ''
       if (isDateOnly(field)) out.push(`${index + 1}: ${line.trim()}`)
     }
-    const column = CUSTOMER_DATE_COLUMN.exec(line)
+    const column = CONTACT_DATE_COLUMN.exec(line)
     if (column && isDateOnly(column[1]) && !line.includes('formatDateOnly')) out.push(`${index + 1}: ${line.trim()}`)
   })
   return out
@@ -111,7 +111,7 @@ describe('date-only fields render through formatDateOnly (KAN-333)', () => {
     expect(offendingLines("{item.purchaseDate ? formatDate(item.purchaseDate, locale) : '—'}")).toHaveLength(1)
     expect(offendingLines('formatDate(row.original.expectedDelivery, locale)')).toHaveLength(1)
     expect(offendingLines('formatDate(valuation.vehicleFirstRegistration, locale)')).toHaveLength(1)
-    expect(offendingLines('formatDateTime(customer.nextFollowUp)')).toHaveLength(1)
+    expect(offendingLines('formatDateTime(contact.nextFollowUp)')).toHaveLength(1)
     expect(offendingLines("      date('birthDate', t('x'), (row) => row.birthDate),")).toHaveLength(1)
 
     expect(offendingLines('formatDateOnly(row.original.purchaseDate, locale)')).toEqual([])

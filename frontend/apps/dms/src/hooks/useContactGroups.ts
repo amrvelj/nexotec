@@ -12,7 +12,7 @@ export const contactGroupsKey = (dealershipId: string) => ['contact-groups', dea
  * KAN-466 — the platform's contact groups as the active Betrieb sees them
  * (`GET /v1/dealerships/{id}/contact-groups`): every group, its four labels,
  * whether Nexotec keeps it active and whether this Betrieb has it on.
- * `label(code)` names any code a customer carries — switched off, withdrawn
+ * `label(code)` names any code a contact carries — switched off, withdrawn
  * or a sister Betrieb's included; `offered` are the codes a picker offers.
  */
 export function useContactGroups() {

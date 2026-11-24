@@ -38,7 +38,7 @@ def test_offer_and_contract_carry_exactly_one_customer_facing_price():
     for fields, name in ((offer_fields, "OfferRead"), (contract_fields, "ContractRead")):
         price_like = {f for f in fields if "price" in f.lower()}
         # base_price/list_price/manual_base_price are BUILD-UP internals
-        # (PR-3) — gross_price is the only one that is ever the customer-
+        # (PR-3) — gross_price is the only one that is ever the contact-
         # facing figure.
         assert "gross_price" in price_like, f"{name} has no gross_price at all"
 

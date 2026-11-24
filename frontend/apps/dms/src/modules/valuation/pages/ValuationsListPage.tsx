@@ -141,9 +141,9 @@ export function ValuationsListPage() {
         cell: ({ row }) => vehicleLabel(row.original),
       },
       {
-        id: 'customerLabel',
-        header: t('valuationsList.columns.customer'),
-        cell: ({ row }) => row.original.customerLabel ?? t('valuationsList.noCustomer'),
+        id: 'contactLabel',
+        header: t('valuationsList.columns.contact'),
+        cell: ({ row }) => row.original.contactLabel ?? t('valuationsList.noContact'),
       },
       {
         id: 'mileage',

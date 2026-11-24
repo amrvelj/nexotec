@@ -5,13 +5,13 @@
     "optional": "Optional"
   },
   "containers": {
-    "customer": "Kunde",
+    "contact": "Kunde",
     "vehicle": "Fahrzeug",
     "pricing": "Preisaufbau",
     "tradeIn": "Eintauschfahrzeug",
     "leasing": "Leasing"
   },
-  "customer": {
+  "contact": {
     "emptyHint": "Kein Kunde ist vorausgewählt — eine Offerte trägt den Namen, der unterschrieben wird.",
     "emptyHintContract": "Noch kein Käufer — ein Vertrag wird erst mit dem Kunden bestätigt, der unterschreibt.",
     "search": "Kunde suchen",
@@ -69,8 +69,8 @@
     "valueWithConfigurator": "Identifizieren und bewerten",
     "attachError": "Die Bewertung konnte nicht übernommen werden.",
     "saveError": "Das Eintauschfahrzeug konnte nicht gespeichert werden.",
-    "customerMerged": "Der Kunde wurde in einen anderen Kunden zusammengeführt. Wählen Sie den Kunden, in den er zusammengeführt wurde, und erfassen Sie das Eintauschfahrzeug erneut.",
-    "customerMergedInto": "Der Kunde wurde in {{name}} ({{customerNumber}}) zusammengeführt. Wählen Sie {{name}} als Kunden und erfassen Sie das Eintauschfahrzeug erneut."
+    "contactMerged": "Der Kunde wurde in einen anderen Kunden zusammengeführt. Wählen Sie den Kunden, in den er zusammengeführt wurde, und erfassen Sie das Eintauschfahrzeug erneut.",
+    "contactMergedInto": "Der Kunde wurde in {{name}} ({{customerNumber}}) zusammengeführt. Wählen Sie {{name}} als Kunden und erfassen Sie das Eintauschfahrzeug erneut."
   },
   "leasing": {
     "hint": "Kein Leasingrechner in v1 (S-D03). Freie Eingaben, damit ein späterer Rechner ohne Umbau eingesetzt werden kann.",

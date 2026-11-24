@@ -7,7 +7,7 @@ import ns_aiPrompts from './en/aiPrompts.json'
 import ns_apiRefusal__accessWindow from './en/apiRefusal.accessWindow.json'
 import ns_apiRefusal from './en/apiRefusal.json'
 import ns_apiRefusal__reasons__common from './en/apiRefusal.reasons.common.json'
-import ns_apiRefusal__reasons__customer from './en/apiRefusal.reasons.customer.json'
+import ns_apiRefusal__reasons__contact from './en/apiRefusal.reasons.contact.json'
 import ns_apiRefusal__reasons__integration from './en/apiRefusal.reasons.integration.json'
 import ns_apiRefusal__reasons__inventory from './en/apiRefusal.reasons.inventory.json'
 import ns_apiRefusal__reasons__platform from './en/apiRefusal.reasons.platform.json'
@@ -22,14 +22,14 @@ import ns_businessProfile from './en/businessProfile.json'
 import ns_catalogueBrowse from './en/catalogueBrowse.json'
 import ns_common from './en/common.json'
 import ns_configurator from './en/configurator.json'
+import ns_contactCreate from './en/contactCreate.json'
+import ns_contactDetail from './en/contactDetail.json'
+import ns_contactEnums from './en/contactEnums.json'
 import ns_contactGroups from './en/contactGroups.json'
+import ns_contactRowMenu from './en/contactRowMenu.json'
+import ns_contactsList from './en/contactsList.json'
 import ns_contractDetail from './en/contractDetail.json'
 import ns_creditBlockDialog from './en/creditBlockDialog.json'
-import ns_customerCreate from './en/customerCreate.json'
-import ns_customerDetail from './en/customerDetail.json'
-import ns_customerEnums from './en/customerEnums.json'
-import ns_customerRowMenu from './en/customerRowMenu.json'
-import ns_customersList from './en/customersList.json'
 import ns_dashboard from './en/dashboard.json'
 import ns_dataExport from './en/dataExport.json'
 import ns_dealOwner from './en/dealOwner.json'
@@ -80,7 +80,7 @@ const bundle = {
   account: ns_account,
   addressSearch: ns_addressSearch,
   aiPrompts: ns_aiPrompts,
-  apiRefusal: { ...ns_apiRefusal, accessWindow: ns_apiRefusal__accessWindow, reasons: { ...ns_apiRefusal__reasons__common, ...ns_apiRefusal__reasons__customer, ...ns_apiRefusal__reasons__integration, ...ns_apiRefusal__reasons__inventory, ...ns_apiRefusal__reasons__platform, ...ns_apiRefusal__reasons__sales, ...ns_apiRefusal__reasons__valuation, ...ns_apiRefusal__reasons__vehicle } },
+  apiRefusal: { ...ns_apiRefusal, accessWindow: ns_apiRefusal__accessWindow, reasons: { ...ns_apiRefusal__reasons__common, ...ns_apiRefusal__reasons__contact, ...ns_apiRefusal__reasons__integration, ...ns_apiRefusal__reasons__inventory, ...ns_apiRefusal__reasons__platform, ...ns_apiRefusal__reasons__sales, ...ns_apiRefusal__reasons__valuation, ...ns_apiRefusal__reasons__vehicle } },
   auth: ns_auth,
   branding: ns_branding,
   brandsAdmin: ns_brandsAdmin,
@@ -89,14 +89,14 @@ const bundle = {
   catalogueBrowse: ns_catalogueBrowse,
   common: ns_common,
   configurator: ns_configurator,
+  contactCreate: ns_contactCreate,
+  contactDetail: ns_contactDetail,
+  contactEnums: ns_contactEnums,
   contactGroups: ns_contactGroups,
+  contactRowMenu: ns_contactRowMenu,
+  contactsList: ns_contactsList,
   contractDetail: ns_contractDetail,
   creditBlockDialog: ns_creditBlockDialog,
-  customerCreate: ns_customerCreate,
-  customerDetail: ns_customerDetail,
-  customerEnums: ns_customerEnums,
-  customerRowMenu: ns_customerRowMenu,
-  customersList: ns_customersList,
   dashboard: ns_dashboard,
   dataExport: ns_dataExport,
   dealOwner: ns_dealOwner,

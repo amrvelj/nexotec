@@ -10,7 +10,7 @@ the contract a remote service would offer (ADR-015), and a contract that hands
 out table mappings is the database, not an API.
 
 The exports went one exporting context per PR (KAN-123, exit criterion 3):
-integration, valuation, inventory, sales, customer, vehicle, and platform
+integration, valuation, inventory, sales, contact, vehicle, and platform
 last (`DealerGroup`, `Dealership`, `Location`, `User`), which emptied the
 shrink-only debt list this test kept until then. There is no list now: any
 mapped class a `public` module binds fails by name. Every name a module binds

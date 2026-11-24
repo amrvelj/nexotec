@@ -26,7 +26,7 @@ from app.inventory.models.stock_item import ReservationState, StockItem
 from app.sales.models.contract import ContractStatus, SalesContract
 from app.sales.services.contract import confirm_contract, get_contract_or_404
 from tests.sales.test_sales_contract_edit import (
-    _customer_born_contract,
+    _contact_born_contract,
     _edit,
     _token,
     app_sessions_on_the_test_engine,  # noqa: F401 — fixture, used by name below
@@ -64,7 +64,7 @@ def test_a_failed_confirmations_compensation_never_releases_what_a_concurrent_on
     group_id = uuid.uuid4()
     item = _stock_item(db_session, dealership.id, with_option=False)
     contract = _edit(
-        db_session, _customer_born_contract(db_session, dealership.id, group_id),
+        db_session, _contact_born_contract(db_session, dealership.id, group_id),
         vehicle_source="stock", stock_item_id=item.id, vehicle_label=item.vehicle_label,
     )
     contract_id, item_id = contract.id, item.id
@@ -139,7 +139,7 @@ def _stock_contract(db_session):
     group_id = uuid.uuid4()
     item = _stock_item(db_session, dealership.id, with_option=False)
     contract = _edit(
-        db_session, _customer_born_contract(db_session, dealership.id, group_id),
+        db_session, _contact_born_contract(db_session, dealership.id, group_id),
         vehicle_source="stock", stock_item_id=item.id, vehicle_label=item.vehicle_label,
     )
     return dealership.id, group_id, contract, item.id
@@ -280,7 +280,7 @@ def test_two_confirmations_of_a_car_held_elsewhere_are_both_refused_promptly(cli
 
     dealership_id, group_id, contract, item_id = _stock_contract(db_session)
     holder = _edit(
-        db_session, _customer_born_contract(db_session, dealership_id, group_id),
+        db_session, _contact_born_contract(db_session, dealership_id, group_id),
         vehicle_source="stock", stock_item_id=item_id, vehicle_label="VW Golf GTI",
     )
     confirm_contract(

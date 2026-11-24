@@ -44,7 +44,7 @@ from app.vehicle.models.configuration import VehicleConfiguration, VehicleConfig
 from app.vehicle.services.configuration_retention import purge_unattached_configurations
 from app.worker import CONFIGURATION_HOSTS, register_daily_jobs
 from tests.cross_context.test_configurator_hosts import _build_configuration, _dealership, _record_configuration
-from tests.sales.test_sales_contract_edit import _customer_born_contract
+from tests.sales.test_sales_contract_edit import _contact_born_contract
 from tests.vin_support import unique_vin
 
 # event type -> the consumer app.worker registers for it
@@ -168,7 +168,7 @@ def _taken_by_offer(db, dealership):
 
 def _taken_by_contract(db, dealership):
     config = _build_configuration(db, dealership.id)
-    contract = _customer_born_contract(db, dealership.id, uuid.uuid4())
+    contract = _contact_born_contract(db, dealership.id, uuid.uuid4())
     contract = update_contract(
         db, contract=contract, group_id=uuid.uuid4(), data=ContractUpdate(configuration_id=config.id), actor_id=None
     )
@@ -393,7 +393,7 @@ def _held_by_offer(db, dealership):
 def _held_by_contract_trade_in(db, dealership):
     traded = _record_configuration(db, dealership.id)
     valuation = _valuation(db, dealership.id, traded.id)
-    contract = _customer_born_contract(db, dealership.id, uuid.uuid4())
+    contract = _contact_born_contract(db, dealership.id, uuid.uuid4())
     attach_trade_in_valuation(db, deal=contract, valuation_id=valuation.id, actor_id=None)
     # Only the contract names it: the valuation's reference is the one rule 2
     # leaves to Valuation, cleared here to isolate Sales' answer.

@@ -62,7 +62,7 @@ SCENARIOS: dict[str, list[tuple[str, ...]]] = {
         ("frontend/apps/dms/src/api/types.ts",),
         ("frontend/apps/dms/src/i18n/locales/de/offerWorkspace.json", "frontend/apps/dms/src/i18n/locales/de.json"),
         # The offer workspace's neighbours: the trade-in, the stock car, the configurator, the number,
-        # the customer's tab - what a deal-workspace ticket opens on the way.
+        # the contact's tab - what a deal-workspace ticket opens on the way.
         ("app/sales/services/trade_in.py",),
         ("app/sales/services/numbering.py",),
         ("frontend/apps/dms/src/modules/sales/components/deal-workspace/InventoryNumberLink.tsx",
@@ -71,8 +71,8 @@ SCENARIOS: dict[str, list[tuple[str, ...]]] = {
         ("frontend/apps/dms/src/modules/sales/pages/OfferWorkspace.configuration.render.test.tsx",
          "frontend/apps/dms/src/pages/OfferWorkspace.configuration.render.test.tsx",
          "frontend/apps/dms/src/pages/OfferWorkspace.configurator.render.test.tsx"),
-        ("frontend/apps/dms/src/modules/customer/components/customer-detail/OffersContractsTab.tsx",
-         "frontend/apps/dms/src/components/customer-detail/OffersContractsTab.tsx"),
+        ("frontend/apps/dms/src/modules/contact/components/contact-detail/OffersContractsTab.tsx",
+         "frontend/apps/dms/src/components/contact-detail/OffersContractsTab.tsx"),
     ],
     "one-file frontend fix": [
         ("frontend/apps/dms/src/hooks/useDataGridLabels.ts",),

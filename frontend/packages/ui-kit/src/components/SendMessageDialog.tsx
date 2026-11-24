@@ -17,7 +17,7 @@ export interface SendMessageChannel {
    * attached, a secure link added) and from whom it leaves. */
   note?: string | null;
   /** The text the send carries today (the Betrieb's standard text in the
-   * customer's language); null when there is none. */
+   * contact's language); null when there is none. */
   text: string | null;
   /** False for a text the provider fixed (WhatsApp's approved template). */
   textEditable: boolean;
@@ -48,7 +48,7 @@ export interface SendMessageDialogProps {
   /** The recipient's name, shown above the channels. */
   recipientName: string;
   channels: SendMessageChannel[];
-  /** The channel the dialog opens on (the customer's preferred one, when it
+  /** The channel the dialog opens on (the contact's preferred one, when it
    * is offered); null opens with none chosen. */
   preselectedChannel: string | null;
   /** Sends on `channel`. `text` is the author's own wording and is passed

@@ -1,5 +1,5 @@
 """The secure document link (KAN-217 PR-4; FR-A-52, ADR-193): what the
-customer opens from an SMS or a WhatsApp message.
+contact opens from an SMS or a WhatsApp message.
 
 The message carries `{app}/d#<token>`: the token is in the URL's fragment,
 which a browser never sends — so no proxy, access log, trace or referrer ever

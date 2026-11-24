@@ -14,14 +14,14 @@ from sqlalchemy.orm import sessionmaker
 from app.core.base import utcnow
 from app.core.errors import ConflictError
 from app.core.outbox_model import OutboxMessage
-from app.customer.schemas.customer import (
-    CustomerAddressCreate,
-    CustomerCreate,
-    CustomerEmailCreate,
-    CustomerUpdate,
+from app.contact.schemas.contact import (
+    ContactAddressCreate,
+    ContactCreate,
+    ContactEmailCreate,
+    ContactUpdate,
 )
-from app.customer.services.addresses import create_customer_address, list_customer_addresses
-from app.customer.services.customer import create_customer, set_credit_block, update_customer
+from app.contact.services.addresses import create_contact_address, list_contact_addresses
+from app.contact.services.contact import create_contact, set_credit_block, update_contact
 from app.inventory.models.stock_item import ReservationState, StockItemCondition
 from app.inventory.schemas.stock_item import StockItemCreate
 from app.inventory.services.stock_item import create_stock_item, get_stock_item_or_404
@@ -63,15 +63,15 @@ def _dealership(db_session) -> Dealership:
     return dealership
 
 
-def _customer(db_session, group_id, *, with_address=True):
-    """A customer with a usable primary domicile address by default — a
+def _contact(db_session, group_id, *, with_address=True):
+    """A contact with a usable primary domicile address by default — a
     contract cannot be confirmed without one (D-20 / KAN-55), so every
     confirm-path test needs it. Pass with_address=False for the gate tests.
     """
 
     addresses = (
         [
-            CustomerAddressCreate(
+            ContactAddressCreate(
                 address_type="domicile", address_street="Bahnhofstrasse", address_house_number="1",
                 address_postal_code="8001", address_locality="Zürich", address_country="CH", is_primary=True,
             )
@@ -79,11 +79,11 @@ def _customer(db_session, group_id, *, with_address=True):
         if with_address
         else []
     )
-    return create_customer(
+    return create_contact(
         db_session, group_id=group_id,
-        data=CustomerCreate(
-            customer_type="individual", language="de", first_name="Didier", last_name="Perrin",
-            emails=[CustomerEmailCreate(email_type="personal", email_address="didier@example.ch", is_primary=True)],
+        data=ContactCreate(
+            contact_type="individual", language="de", first_name="Didier", last_name="Perrin",
+            emails=[ContactEmailCreate(email_type="personal", email_address="didier@example.ch", is_primary=True)],
             addresses=addresses,
         ),
         actor_id=uuid.uuid4(), acting_dealership_id=None,
@@ -97,7 +97,7 @@ def _with_buyer(db_session, offer, group_id):
 
     return update_offer(
         db_session, offer=offer, group_id=group_id,
-        data=OfferUpdate(customer_id=_customer(db_session, group_id).id), actor_id=uuid.uuid4(),
+        data=OfferUpdate(contact_id=_contact(db_session, group_id).id), actor_id=uuid.uuid4(),
     )
 
 
@@ -107,22 +107,22 @@ def _stock_contract(db_session, dealership_id, group_id, *, with_address=True):
         data=StockItemCreate(vehicle_label="Seat Leon 1.5 eTSI FR DSG", condition=StockItemCondition.USED, vin="1HGCM82633A004352"),
         actor_id=uuid.uuid4(),
     )
-    customer = _customer(db_session, group_id, with_address=with_address)
+    contact = _contact(db_session, group_id, with_address=with_address)
     offer = create_offer(db_session, tenant_id=dealership_id, actor_id=uuid.uuid4())
     offer = update_offer(
         db_session, offer=offer, group_id=group_id,
-        data=OfferUpdate(customer_id=customer.id, vehicle_source="stock", stock_item_id=item.id, vehicle_label=item.vehicle_label),
+        data=OfferUpdate(contact_id=contact.id, vehicle_source="stock", stock_item_id=item.id, vehicle_label=item.vehicle_label),
         actor_id=uuid.uuid4(),
     )
     contract = create_contract(db_session, tenant_id=dealership_id, offer=offer, actor_id=uuid.uuid4())
-    return contract, item, customer
+    return contract, item, contact
 
 
 def test_confirm_contract_reserves_the_stock_item(db_session, engine):
     dealership = _dealership(db_session)
     group_id = uuid.uuid4()
 
-    contract, item, _customer = _stock_contract(db_session, dealership.id, group_id)
+    contract, item, _contact = _stock_contract(db_session, dealership.id, group_id)
 
     confirmed = confirm_contract(db_session, contract=contract, group_id=group_id, actor_id=uuid.uuid4(), session_factory=_session_factory(engine))
     assert confirmed.status == ContractStatus.CONFIRMED
@@ -143,7 +143,7 @@ def test_confirm_contract_emits_the_exact_expected_payload(db_session, engine):
     dealership = _dealership(db_session)
     group_id = uuid.uuid4()
 
-    contract, _item, _customer = _stock_contract(db_session, dealership.id, group_id)
+    contract, _item, _contact = _stock_contract(db_session, dealership.id, group_id)
 
     confirm_contract(db_session, contract=contract, group_id=group_id, actor_id=uuid.uuid4(), session_factory=_session_factory(engine))
 
@@ -151,10 +151,10 @@ def test_confirm_contract_emits_the_exact_expected_payload(db_session, engine):
         aggregate_id=contract.id, event_type="sales.contract.confirmed"
     ).one()
     assert set(message.payload.keys()) == {
-        "contractId", "customerId", "signedAt", "vehicleSource", "manualConfiguration", "tradeIn", "pricingSnapshot"
+        "contractId", "contactId", "signedAt", "vehicleSource", "manualConfiguration", "tradeIn", "pricingSnapshot"
     }
     db_session.refresh(contract)
-    assert message.payload["customerId"] == str(contract.customer_id)
+    assert message.payload["contactId"] == str(contract.contact_id)
     assert message.payload["signedAt"] == contract.signed_at.isoformat()
     assert message.payload["vehicleSource"] == "existing"
     assert message.payload["manualConfiguration"] is None
@@ -263,7 +263,7 @@ def test_two_events_are_never_the_same_name(db_session, engine):
     dealership = _dealership(db_session)
     group_id = uuid.uuid4()
 
-    contract, item, _customer = _stock_contract(db_session, dealership.id, group_id)
+    contract, item, _contact = _stock_contract(db_session, dealership.id, group_id)
     confirm_contract(db_session, contract=contract, group_id=group_id, actor_id=uuid.uuid4(), session_factory=_session_factory(engine))
     # KAN-100: invoicing needs the purchase (Anto, 2026-10-04).
     record_stock_item_purchased(db_session, tenant_id=dealership.id, stock_item_id=item.id, event_id=uuid.uuid4(), stock_item_label=item.stock_number)
@@ -280,7 +280,7 @@ def test_request_invoice_refuses_before_confirmation(db_session):
     dealership = _dealership(db_session)
     group_id = uuid.uuid4()
 
-    contract, _item, _customer = _stock_contract(db_session, dealership.id, group_id)
+    contract, _item, _contact = _stock_contract(db_session, dealership.id, group_id)
     with pytest.raises(ConflictError):
         request_invoice(db_session, contract=contract, actor_id=uuid.uuid4(), group_id=uuid.uuid4())
 
@@ -295,7 +295,7 @@ def test_confirmation_transaction_scope_is_separate_from_reserve(db_session, eng
     dealership = _dealership(db_session)
     group_id = uuid.uuid4()
 
-    contract, item, _customer = _stock_contract(db_session, dealership.id, group_id)
+    contract, item, _contact = _stock_contract(db_session, dealership.id, group_id)
 
     from unittest.mock import patch
 
@@ -316,10 +316,10 @@ def test_confirmation_transaction_scope_is_separate_from_reserve(db_session, eng
 def test_credit_block_stops_the_contract(db_session, engine):
     dealership = _dealership(db_session)
     group_id = uuid.uuid4()
-    # customer has a usable address (via _stock_contract) so the refusal is
+    # contact has a usable address (via _stock_contract) so the refusal is
     # the credit block, not the D-20 address gate that follows it.
-    contract, _item, customer = _stock_contract(db_session, dealership.id, group_id)
-    set_credit_block(db_session, customer=customer, blocked=True, reason="Zahlungsverzug", actor_id=uuid.uuid4(), acting_dealership_id=None)
+    contract, _item, contact = _stock_contract(db_session, dealership.id, group_id)
+    set_credit_block(db_session, contact=contact, blocked=True, reason="Zahlungsverzug", actor_id=uuid.uuid4(), acting_dealership_id=None)
 
     with pytest.raises(ConflictError) as exc:
         confirm_contract(db_session, contract=contract, group_id=group_id, actor_id=uuid.uuid4(), session_factory=_session_factory(engine))
@@ -330,11 +330,11 @@ def test_credit_block_stops_the_contract(db_session, engine):
 def test_do_not_contact_also_stops_the_contract(db_session, engine):
     dealership = _dealership(db_session)
     group_id = uuid.uuid4()
-    contract, _item, customer = _stock_contract(db_session, dealership.id, group_id)
-    update_customer(
+    contract, _item, contact = _stock_contract(db_session, dealership.id, group_id)
+    update_contact(
         db_session,
-        customer=customer,
-        data=CustomerUpdate(lifecycle_status="do_not_contact"),
+        contact=contact,
+        data=ContactUpdate(lifecycle_status="do_not_contact"),
         actor_id=uuid.uuid4(), acting_dealership_id=None,
         dealership_id=uuid.uuid4(),
     )
@@ -344,20 +344,20 @@ def test_do_not_contact_also_stops_the_contract(db_session, engine):
     assert exc.value.details["reason"] == "do_not_contact"
 
 
-def test_do_not_contact_also_stops_attaching_the_customer_to_an_offer(db_session):
+def test_do_not_contact_also_stops_attaching_the_contact_to_an_offer(db_session):
     """WP-8 PR-8 closes the gap ADR-065/S-D19's "do-not-contact stops
     BOTH" left open in PR-6: only confirm_contract checked it, so a
-    do-not-contact customer could still be attached to a brand-new offer.
-    update_offer's own customer_id branch now refuses it directly.
+    do-not-contact contact could still be attached to a brand-new offer.
+    update_offer's own contact_id branch now refuses it directly.
     """
 
     dealership = _dealership(db_session)
     group_id = uuid.uuid4()
-    customer = _customer(db_session, group_id)
-    update_customer(
+    contact = _contact(db_session, group_id)
+    update_contact(
         db_session,
-        customer=customer,
-        data=CustomerUpdate(lifecycle_status="do_not_contact"),
+        contact=contact,
+        data=ContactUpdate(lifecycle_status="do_not_contact"),
         actor_id=uuid.uuid4(), acting_dealership_id=None,
         dealership_id=uuid.uuid4(),
     )
@@ -365,37 +365,37 @@ def test_do_not_contact_also_stops_attaching_the_customer_to_an_offer(db_session
     offer = create_offer(db_session, tenant_id=dealership.id, actor_id=uuid.uuid4())
     with pytest.raises(ConflictError) as exc:
         update_offer(
-            db_session, offer=offer, group_id=group_id, data=OfferUpdate(customer_id=customer.id), actor_id=uuid.uuid4()
+            db_session, offer=offer, group_id=group_id, data=OfferUpdate(contact_id=contact.id), actor_id=uuid.uuid4()
         )
-    assert exc.value.details == {"reason": "customer_do_not_contact", "customerNumber": customer.customer_number}
+    assert exc.value.details == {"reason": "contact_do_not_contact", "contactNumber": contact.contact_number}
 
 
 def test_credit_block_does_not_stop_offer_creation_or_editing(db_session):
-    """S-D19: "quoting a blocked customer is often how the block gets
+    """S-D19: "quoting a blocked contact is often how the block gets
     resolved" — only the CONTRACT is stopped."""
 
     dealership = _dealership(db_session)
     group_id = uuid.uuid4()
-    customer = _customer(db_session, group_id)
-    set_credit_block(db_session, customer=customer, blocked=True, reason="Test", actor_id=uuid.uuid4(), acting_dealership_id=None)
+    contact = _contact(db_session, group_id)
+    set_credit_block(db_session, contact=contact, blocked=True, reason="Test", actor_id=uuid.uuid4(), acting_dealership_id=None)
 
     offer = create_offer(db_session, tenant_id=dealership.id, actor_id=uuid.uuid4())
     updated = update_offer(
-        db_session, offer=offer, group_id=group_id, data=OfferUpdate(customer_id=customer.id), actor_id=uuid.uuid4()
+        db_session, offer=offer, group_id=group_id, data=OfferUpdate(contact_id=contact.id), actor_id=uuid.uuid4()
     )
     assert updated.status == OfferStatus.DRAFT
-    assert updated.customer_id == customer.id
+    assert updated.contact_id == contact.id
 
 
-# --- D-20 / KAN-55: a contract cannot be confirmed for a customer with no
+# --- D-20 / KAN-55: a contract cannot be confirmed for a contact with no
 # usable domicile address. Same refusal path as the credit block; an offer
 # is never blocked.
 
 
-def test_confirm_contract_refused_when_customer_has_no_address(db_session, engine):
+def test_confirm_contract_refused_when_contact_has_no_address(db_session, engine):
     dealership = _dealership(db_session)
     group_id = uuid.uuid4()
-    contract, _item, _customer = _stock_contract(db_session, dealership.id, group_id, with_address=False)
+    contract, _item, _contact = _stock_contract(db_session, dealership.id, group_id, with_address=False)
 
     with pytest.raises(ConflictError) as exc:
         confirm_contract(db_session, contract=contract, group_id=group_id, actor_id=uuid.uuid4(), session_factory=_session_factory(engine))
@@ -406,10 +406,10 @@ def test_confirm_contract_refused_when_customer_has_no_address(db_session, engin
 def test_confirm_contract_refused_when_only_domicile_row_is_closed(db_session, engine):
     dealership = _dealership(db_session)
     group_id = uuid.uuid4()
-    contract, _item, customer = _stock_contract(db_session, dealership.id, group_id)
-    # close the sole domicile row — a customer who moved and whose old
+    contract, _item, contact = _stock_contract(db_session, dealership.id, group_id)
+    # close the sole domicile row — a contact who moved and whose old
     # address was ended has no usable address (FR-03 definition).
-    address = list_customer_addresses(db_session, customer_id=customer.id)[0]
+    address = list_contact_addresses(db_session, contact_id=contact.id)[0]
     address.valid_to = utcnow() - dt.timedelta(days=1)
     db_session.flush()
 
@@ -421,8 +421,8 @@ def test_confirm_contract_refused_when_only_domicile_row_is_closed(db_session, e
 def test_confirm_contract_refused_when_only_domicile_row_is_do_not_use(db_session, engine):
     dealership = _dealership(db_session)
     group_id = uuid.uuid4()
-    contract, _item, customer = _stock_contract(db_session, dealership.id, group_id)
-    address = list_customer_addresses(db_session, customer_id=customer.id)[0]
+    contract, _item, contact = _stock_contract(db_session, dealership.id, group_id)
+    address = list_contact_addresses(db_session, contact_id=contact.id)[0]
     address.do_not_use = True
     db_session.flush()
 
@@ -440,10 +440,10 @@ def test_confirm_contract_refused_for_billing_address_but_no_domicile(db_session
 
     dealership = _dealership(db_session)
     group_id = uuid.uuid4()
-    contract, _item, customer = _stock_contract(db_session, dealership.id, group_id, with_address=False)
-    create_customer_address(
-        db_session, customer=customer,
-        data=CustomerAddressCreate(
+    contract, _item, contact = _stock_contract(db_session, dealership.id, group_id, with_address=False)
+    create_contact_address(
+        db_session, contact=contact,
+        data=ContactAddressCreate(
             address_type="billing", address_street="Rechnungsweg", address_house_number="2",
             address_postal_code="3011", address_locality="Bern", address_country="CH", is_primary=True,
         ),
@@ -458,30 +458,30 @@ def test_confirm_contract_refused_for_billing_address_but_no_domicile(db_session
 def test_a_prohibition_is_named_before_the_missing_address(db_session, engine):
     """Guard order is deliberate: a credit block (not self-serviceable)
     must be named before "add an address" (pointless to do first). A
-    blocked customer who ALSO has no address still refuses with the
+    blocked contact who ALSO has no address still refuses with the
     block reason, not the address reason."""
 
     dealership = _dealership(db_session)
     group_id = uuid.uuid4()
-    contract, _item, customer = _stock_contract(db_session, dealership.id, group_id, with_address=False)
-    set_credit_block(db_session, customer=customer, blocked=True, reason="Zahlungsverzug", actor_id=uuid.uuid4(), acting_dealership_id=None)
+    contract, _item, contact = _stock_contract(db_session, dealership.id, group_id, with_address=False)
+    set_credit_block(db_session, contact=contact, blocked=True, reason="Zahlungsverzug", actor_id=uuid.uuid4(), acting_dealership_id=None)
 
     with pytest.raises(ConflictError) as exc:
         confirm_contract(db_session, contract=contract, group_id=group_id, actor_id=uuid.uuid4(), session_factory=_session_factory(engine))
     assert exc.value.details["reason"] == "credit_block"
 
 
-def test_confirm_contract_with_no_customer_is_refused(db_session, engine):
+def test_confirm_contract_with_no_contact_is_refused(db_session, engine):
     """KAN-307 (Anto, 2026-10-12): a contract is never signed without a
-    buyer. Before, the customer gates lived inside `if contract.customer_id
-    is not None`, so a contract with none (from an offer without a customer,
+    buyer. Before, the contact gates lived inside `if contract.contact_id
+    is not None`, so a contract with none (from an offer without a contact,
     or started from a stock car) was confirmed as it stood — the gap KAN-276
-    left open. Now it is a 409 `missing_customer`, and nothing is reserved."""
+    left open. Now it is a 409 `missing_contact`, and nothing is reserved."""
 
     dealership = _dealership(db_session)
     group_id = uuid.uuid4()
-    contract, item, _customer = _stock_contract(db_session, dealership.id, group_id, with_address=False)
-    contract.customer_id = None
+    contract, item, _contact = _stock_contract(db_session, dealership.id, group_id, with_address=False)
+    contract.contact_id = None
     db_session.flush()
 
     with pytest.raises(ConflictError) as refused:
@@ -490,7 +490,7 @@ def test_confirm_contract_with_no_customer_is_refused(db_session, engine):
             session_factory=_session_factory(engine),
         )
 
-    assert refused.value.details == {"reason": "missing_customer"}
+    assert refused.value.details == {"reason": "missing_contact"}
     db_session.rollback()
     db_session.refresh(contract)
     db_session.refresh(item)
@@ -498,27 +498,27 @@ def test_confirm_contract_with_no_customer_is_refused(db_session, engine):
     assert item.reservation_state == ReservationState.NONE
 
 
-def test_offer_for_a_customer_with_no_usable_address_still_succeeds(db_session):
+def test_offer_for_a_contact_with_no_usable_address_still_succeeds(db_session):
     """Exit criterion 2 — an offer commits nobody and is often exactly
     when the address gets collected. Mirrors the credit-block precedent."""
 
     dealership = _dealership(db_session)
     group_id = uuid.uuid4()
-    customer = _customer(db_session, group_id, with_address=False)
+    contact = _contact(db_session, group_id, with_address=False)
 
     offer = create_offer(db_session, tenant_id=dealership.id, actor_id=uuid.uuid4())
     updated = update_offer(
-        db_session, offer=offer, group_id=group_id, data=OfferUpdate(customer_id=customer.id), actor_id=uuid.uuid4()
+        db_session, offer=offer, group_id=group_id, data=OfferUpdate(contact_id=contact.id), actor_id=uuid.uuid4()
     )
     assert updated.status == OfferStatus.DRAFT
-    assert updated.customer_id == customer.id
+    assert updated.contact_id == contact.id
 
 
 def test_stock_item_purchased_consumer_sets_is_invoiceable(db_session, engine):
     dealership = _dealership(db_session)
     group_id = uuid.uuid4()
 
-    contract, item, _customer = _stock_contract(db_session, dealership.id, group_id)
+    contract, item, _contact = _stock_contract(db_session, dealership.id, group_id)
     confirm_contract(db_session, contract=contract, group_id=group_id, actor_id=uuid.uuid4(), session_factory=_session_factory(engine))
     assert contract.is_invoiceable is False
 
@@ -537,7 +537,7 @@ def test_cancel_confirmed_contract_releases_the_reservation(db_session, engine):
     dealership = _dealership(db_session)
     group_id = uuid.uuid4()
 
-    contract, item, _customer = _stock_contract(db_session, dealership.id, group_id)
+    contract, item, _contact = _stock_contract(db_session, dealership.id, group_id)
     confirm_contract(db_session, contract=contract, group_id=group_id, actor_id=uuid.uuid4(), session_factory=_session_factory(engine))
 
     cancel_contract(db_session, contract=contract, reason="Kunde storniert.", actor_id=uuid.uuid4(), session_factory=_session_factory(engine))
@@ -548,22 +548,22 @@ def test_cancel_confirmed_contract_releases_the_reservation(db_session, engine):
 
 
 # --- KAN-66 / G-67: a contract created with no offer (the KAN-58
-# customer->contract entry point, or a fully bare shell) has no vehicle and
+# contact->contract entry point, or a fully bare shell) has no vehicle and
 # no price. Nothing used to stop it from being confirmed as-is. Mirrors the
 # offer side's own completeness rule (compute_containers: "pricing"
 # can never be complete without a vehicle first) rather than inventing a
 # new one.
 
 
-def test_confirm_contract_refused_when_born_from_a_customer_with_no_vehicle(db_session, engine):
-    """The exact KAN-58 reproduction: 'New contract' from a customer's own
+def test_confirm_contract_refused_when_born_from_a_contact_with_no_vehicle(db_session, engine):
+    """The exact KAN-58 reproduction: 'New contract' from a contact's own
     row menu, with no offer at all."""
 
     dealership = _dealership(db_session)
     group_id = uuid.uuid4()
-    customer = _customer(db_session, group_id)
+    contact = _contact(db_session, group_id)
     contract = create_contract(
-        db_session, tenant_id=dealership.id, offer=None, customer_id=customer.id, group_id=group_id, actor_id=uuid.uuid4()
+        db_session, tenant_id=dealership.id, offer=None, contact_id=contact.id, group_id=group_id, actor_id=uuid.uuid4()
     )
 
     with pytest.raises(ConflictError) as exc:
@@ -588,7 +588,7 @@ def test_confirm_contract_refused_when_it_has_a_vehicle_but_no_price(db_session,
 
     dealership = _dealership(db_session)
     group_id = uuid.uuid4()
-    contract, _item, _customer = _stock_contract(db_session, dealership.id, group_id)
+    contract, _item, _contact = _stock_contract(db_session, dealership.id, group_id)
     contract.gross_price = None
     db_session.flush()
 
@@ -600,20 +600,20 @@ def test_confirm_contract_refused_when_it_has_a_vehicle_but_no_price(db_session,
 
 def test_a_prohibition_is_named_before_missing_vehicle(db_session, engine):
     """Same ordering rationale as the missing-address guard: a do-not-contact
-    customer refuses regardless of what the contract is for, so that is
+    contact refuses regardless of what the contract is for, so that is
     named first when both are true. create_contract itself already refuses
-    a do-not-contact customer at creation (ADR-065/FR-21) — this customer
+    a do-not-contact contact at creation (ADR-065/FR-21) — this contact
     is flipped to do-not-contact AFTER the contract exists, the only way to
     reach confirm_contract with both conditions present at once."""
 
     dealership = _dealership(db_session)
     group_id = uuid.uuid4()
-    customer = _customer(db_session, group_id)
+    contact = _contact(db_session, group_id)
     contract = create_contract(
-        db_session, tenant_id=dealership.id, offer=None, customer_id=customer.id, group_id=group_id, actor_id=uuid.uuid4()
+        db_session, tenant_id=dealership.id, offer=None, contact_id=contact.id, group_id=group_id, actor_id=uuid.uuid4()
     )
-    update_customer(
-        db_session, customer=customer, data=CustomerUpdate(lifecycle_status="do_not_contact"),
+    update_contact(
+        db_session, contact=contact, data=ContactUpdate(lifecycle_status="do_not_contact"),
         actor_id=uuid.uuid4(), acting_dealership_id=None, dealership_id=uuid.uuid4(),
     )
 
@@ -630,14 +630,14 @@ def test_confirm_contract_with_no_offer_still_confirms_once_a_vehicle_and_price_
 
     dealership = _dealership(db_session)
     group_id = uuid.uuid4()
-    customer = _customer(db_session, group_id)
+    contact = _contact(db_session, group_id)
     item = create_stock_item(
         db_session, tenant_id=dealership.id,
         data=StockItemCreate(vehicle_label="Seat Leon 1.5 eTSI FR DSG", condition=StockItemCondition.USED, vin="1HGCM82633A004353"),
         actor_id=uuid.uuid4(),
     )
     contract = create_contract(
-        db_session, tenant_id=dealership.id, offer=None, customer_id=customer.id, group_id=group_id, actor_id=uuid.uuid4()
+        db_session, tenant_id=dealership.id, offer=None, contact_id=contact.id, group_id=group_id, actor_id=uuid.uuid4()
     )
     contract.vehicle_source = "stock"
     contract.stock_item_id = item.id
@@ -660,7 +660,7 @@ def test_a_retry_after_a_compensated_confirmation_reserves_the_car_again(db_sess
 
     dealership = _dealership(db_session)
     group_id = uuid.uuid4()
-    contract, item, _customer = _stock_contract(db_session, dealership.id, group_id)
+    contract, item, _contact = _stock_contract(db_session, dealership.id, group_id)
     factory = _session_factory(engine)
 
     with (
@@ -697,7 +697,7 @@ def test_two_compensated_failures_in_a_row_leave_the_car_free(db_session, engine
 
     dealership = _dealership(db_session)
     group_id = uuid.uuid4()
-    contract, item, _customer = _stock_contract(db_session, dealership.id, group_id)
+    contract, item, _contact = _stock_contract(db_session, dealership.id, group_id)
     factory = _session_factory(engine)
 
     for _attempt in range(2):
@@ -731,7 +731,7 @@ def test_cancel_succeeds_for_a_confirmed_contract_whose_reservation_is_already_r
 
     dealership = _dealership(db_session)
     group_id = uuid.uuid4()
-    contract, _item, _customer = _stock_contract(db_session, dealership.id, group_id)
+    contract, _item, _contact = _stock_contract(db_session, dealership.id, group_id)
     factory = _session_factory(engine)
     confirmed = confirm_contract(db_session, contract=contract, group_id=group_id, actor_id=uuid.uuid4(), session_factory=factory)
     side = factory()

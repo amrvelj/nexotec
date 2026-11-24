@@ -1,5 +1,5 @@
 """VehicleMdm endpoints (WP-5 PR-9): identity editing and the one search box.
-«Allocate to customer» is customer's write and lives at the composition
+«Allocate to contact» is contact's write and lives at the composition
 root (`app/api/v1/vehicle_parties.py`, KAN-634). No tenant scoping on reads —
 VehicleMdm is a global fact; writes require the "vehicle_mdm" capability.
 """
@@ -213,7 +213,7 @@ def merge_vehicle(
     merged into `survivorId` for good; there is no unmerge, and every Betrieb
     shares both records. Any user who may edit vehicles may do it (Anto, Q1 B).
     Answers the survivor. Refusals: `services/merge.py::merge_vehicle_records`.
-    Customers' party rows and Stock's items follow when the fact is consumed."""
+    Contacts' party rows and Stock's items follow when the fact is consumed."""
 
     survivor = merge_vehicle_records(
         db,

@@ -22,7 +22,7 @@ from app.inventory.models.stock_item import StockItem
 from app.inventory.public import oldest_configuration_label_age_seconds, refresh_configuration_labels
 from app.vehicle.public import get_configuration_labels
 from app.vehicle.services import configuration as configuration_service
-from tests.customer.test_customer_vehicle_party_close_rule import _postgres_only
+from tests.contact.test_contact_vehicle_party_close_rule import _postgres_only
 from tests.inventory.test_inventory_purchase_configuration_vin import _configuration, _pipeline_item, _tenant_of
 from tests.inventory.test_inventory_purchase_promotes import _token
 

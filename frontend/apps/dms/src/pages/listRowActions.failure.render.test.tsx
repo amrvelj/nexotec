@@ -5,9 +5,9 @@ import userEvent from '@testing-library/user-event'
 import i18n from '../i18n'
 import { renderWithProviders } from '../test/renderWithProviders'
 import { installFakeBackend, status } from '../test/fakeBackend'
-import { customer, customerPage } from '../test/fixtures'
+import { contact, contactPage } from '../test/fixtures'
 import type { ValuationRead } from '../api/types'
-import { CustomersListPage } from '../modules/customer/pages/CustomersListPage'
+import { ContactsListPage } from '../modules/contact/pages/ContactsListPage'
 import { ValuationsListPage } from '../modules/valuation/pages/ValuationsListPage'
 
 // KAN-273 — a write started from a list's row menu says so when it fails,
@@ -51,10 +51,10 @@ afterEach(async () => {
   await i18n.changeLanguage('de')
 })
 
-describe('CustomersListPage — a failed create from the row menu says so (KAN-273)', () => {
+describe('ContactsListPage — a failed create from the row menu says so (KAN-273)', () => {
   const install = (route: { offers?: () => unknown; contracts?: () => unknown }) =>
     installFakeBackend([
-      { method: 'GET', match: /^\/customers$/, handler: () => customerPage([customer({ id: 'c1', lastName: 'Aebi' })]) },
+      { method: 'GET', match: /^\/contacts$/, handler: () => contactPage([contact({ id: 'c1', lastName: 'Aebi' })]) },
       ...(route.offers ? [{ method: 'POST', match: /^\/sales\/offers$/, handler: route.offers }] : []),
       { method: 'PATCH', match: /^\/sales\/offers\/o9$/, handler: () => ({ id: 'o9', version: 2 }) },
       ...(route.contracts ? [{ method: 'POST', match: /^\/sales\/contracts$/, handler: route.contracts }] : []),
@@ -63,14 +63,14 @@ describe('CustomersListPage — a failed create from the row menu says so (KAN-2
   it('a refused new offer is said in the UI language, and the retry reuses the key', async () => {
     const user = userEvent.setup()
     const backend = install({ offers: failOnce(() => refused('Number range unavailable'), () => status(201, { id: 'o9', version: 1 })) })
-    renderWithProviders(<CustomersListPage />, { route: '/customers' })
+    renderWithProviders(<ContactsListPage />, { route: '/contacts' })
     const newOffer = async () => {
       await openRowMenu(user)
-      await user.click(await screen.findByRole('menuitem', { name: new RegExp(i18n.t('customerRowMenu.newOffer')) }))
+      await user.click(await screen.findByRole('menuitem', { name: new RegExp(i18n.t('contactRowMenu.newOffer')) }))
     }
 
     await newOffer()
-    expect((await screen.findByRole('alert')).textContent).toBe(i18n.t('customersList.createOfferError'))
+    expect((await screen.findByRole('alert')).textContent).toBe(i18n.t('contactsList.createOfferError'))
 
     await newOffer()
     await waitFor(() => expect(keys(backend, /^\/sales\/offers$/)).toHaveLength(2))
@@ -92,14 +92,14 @@ describe('CustomersListPage — a failed create from the row menu says so (KAN-2
         () => status(201, { id: 'k9', version: 1 }),
       ),
     })
-    renderWithProviders(<CustomersListPage />, { route: '/customers' })
+    renderWithProviders(<ContactsListPage />, { route: '/contacts' })
     const newContract = async () => {
       await openRowMenu(user)
-      await user.click(await screen.findByRole('menuitem', { name: new RegExp(i18n.t('customerRowMenu.newContract')) }))
+      await user.click(await screen.findByRole('menuitem', { name: new RegExp(i18n.t('contactRowMenu.newContract')) }))
     }
 
     await newContract()
-    expect((await screen.findByRole('alert')).textContent).toBe(i18n.t('customersList.createContractError'))
+    expect((await screen.findByRole('alert')).textContent).toBe(i18n.t('contactsList.createContractError'))
 
     await newContract()
     await waitFor(() => expect(keys(backend, /^\/sales\/contracts$/)).toHaveLength(2))
@@ -113,31 +113,31 @@ describe('CustomersListPage — a failed create from the row menu says so (KAN-2
 // KAN-308 — "Nicht kontaktieren" from the row menu: a refused PATCH is said
 // above the grid (the server's message, or the translated fallback when the
 // request never reached it), and a version conflict refetches the grid.
-describe('CustomersListPage — a failed do-not-contact toggle says so (KAN-308)', () => {
+describe('ContactsListPage — a failed do-not-contact toggle says so (KAN-308)', () => {
   const install = (patch: () => unknown) =>
     installFakeBackend([
-      { method: 'GET', match: /^\/customers$/, handler: () => customerPage([customer({ id: 'c1', lastName: 'Aebi' })]) },
-      { method: 'PATCH', match: /^\/customers\/c1$/, handler: patch },
+      { method: 'GET', match: /^\/contacts$/, handler: () => contactPage([contact({ id: 'c1', lastName: 'Aebi' })]) },
+      { method: 'PATCH', match: /^\/contacts\/c1$/, handler: patch },
     ])
 
   const toggle = async (user: ReturnType<typeof userEvent.setup>) => {
     await openRowMenu(user)
-    await user.click(await screen.findByRole('menuitem', { name: new RegExp(i18n.t('customerRowMenu.setDoNotContact')) }))
+    await user.click(await screen.findByRole('menuitem', { name: new RegExp(i18n.t('contactRowMenu.setDoNotContact')) }))
   }
 
   it('a version conflict is said in the UI language and refetches the grid', async () => {
     const user = userEvent.setup()
     const backend = install(() =>
-      status(409, { error: { code: 'conflict', message: 'Customer was changed by someone else.', details: { currentVersion: 2 } } }),
+      status(409, { error: { code: 'conflict', message: 'Contact was changed by someone else.', details: { currentVersion: 2 } } }),
     )
-    renderWithProviders(<CustomersListPage />, { route: '/customers' })
+    renderWithProviders(<ContactsListPage />, { route: '/contacts' })
     await screen.findAllByRole('button', { name: i18n.t('common.rowActionsLabel') })
-    const listCallsBefore = backend.callsTo(/^\/customers$/, 'GET').length
+    const listCallsBefore = backend.callsTo(/^\/contacts$/, 'GET').length
 
     await toggle(user)
 
     expect((await screen.findByRole('alert')).textContent).toBe(i18n.t('apiRefusal.staleVersion'))
-    await waitFor(() => expect(backend.callsTo(/^\/customers$/, 'GET').length).toBeGreaterThan(listCallsBefore))
+    await waitFor(() => expect(backend.callsTo(/^\/contacts$/, 'GET').length).toBeGreaterThan(listCallsBefore))
   })
 
   it('a request that never reached the server shows the translated fallback', async () => {
@@ -146,18 +146,18 @@ describe('CustomersListPage — a failed do-not-contact toggle says so (KAN-308)
     install(() => {
       throw new TypeError('Failed to fetch')
     })
-    renderWithProviders(<CustomersListPage />, { route: '/customers' })
+    renderWithProviders(<ContactsListPage />, { route: '/contacts' })
 
     await toggle(user)
 
-    expect((await screen.findByRole('alert')).textContent).toBe(i18n.t('customersList.doNotContactError'))
+    expect((await screen.findByRole('alert')).textContent).toBe(i18n.t('contactsList.doNotContactError'))
   })
 })
 
 describe('ValuationsListPage — a failed «Als verwendet markieren» says so (KAN-273)', () => {
   const VALUATION = {
     id: 'val-1', valuationNumber: 'B-000001', status: 'valid', source: 'manual', hasSignedContract: true,
-    customerId: null, customerLabel: null, vehicleId: null, vehicleMake: 'VW', vehicleModel: 'Golf', vehicleTrim: null,
+    contactId: null, contactLabel: null, vehicleId: null, vehicleMake: 'VW', vehicleModel: 'Golf', vehicleTrim: null,
     vehicleVin: null, finalOffer: '12000.00', deductions: [], version: 2, validFrom: '2026-10-01',
     validUntil: '2026-10-31', createdAt: '2026-10-01T00:00:00Z', updatedAt: '2026-10-01T00:00:00Z',
   } as unknown as ValuationRead

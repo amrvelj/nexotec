@@ -5,7 +5,7 @@ check it replaced found, on Postgres.
 
 The sources are `DemoWidget` (a test-only table with `tenant_id` and
 `created_by`, any GUID column will do for a reference check) and
-`Customer` (`group_id`, `advisor_id`, the columns Customers' own checks use).
+`Contact` (`group_id`, `advisor_id`, the columns Contacts' own checks use).
 """
 
 import dataclasses
@@ -17,7 +17,7 @@ from sqlalchemy import select
 
 from app.core.errors import BadRequestError, NotFoundError
 from app.core.reconciliation import StateCheck, find_orphans, find_rows_in_state
-from app.customer.models.customer import Customer, CustomerType, Language
+from app.contact.models.contact import Contact, ContactType, Language
 from app.platform import public
 from app.platform.identity.models.user import User, UserRole, UserStatus
 from app.platform.organisation.models.dealership import DealerGroup, Dealership, FranchiseType, Location
@@ -61,14 +61,14 @@ def _widget(db, tenant_id: uuid.UUID, created_by: uuid.UUID | None = None) -> De
     return widget
 
 
-def _customer(db, group_id: uuid.UUID, advisor_id: uuid.UUID | None = None) -> Customer:
-    customer = Customer(
-        group_id=group_id, customer_number=f"K-{uuid.uuid4().hex[:6]}", customer_type=CustomerType.INDIVIDUAL,
+def _contact(db, group_id: uuid.UUID, advisor_id: uuid.UUID | None = None) -> Contact:
+    contact = Contact(
+        group_id=group_id, contact_number=f"K-{uuid.uuid4().hex[:6]}", contact_type=ContactType.INDIVIDUAL,
         language=Language.EN, first_name="Ada", last_name="Lovelace", advisor_id=advisor_id,
     )
-    db.add(customer)
+    db.add(contact)
     db.flush()
-    return customer
+    return contact
 
 
 def _widget_ids(db, where) -> set[uuid.UUID]:
@@ -90,9 +90,9 @@ def test_the_reference_checks_find_an_orphan_and_pass_a_valid_reference(db_sessi
     user = _user(db_session, dealership, UserStatus.ACTIVE)
     valid = _widget(db_session, dealership.id, created_by=location.id)
     orphan = _widget(db_session, uuid.uuid4(), created_by=uuid.uuid4())
-    advised = _customer(db_session, group.id, advisor_id=user.id)
-    stray = _customer(db_session, uuid.uuid4(), advisor_id=uuid.uuid4())
-    unadvised = _customer(db_session, group.id)
+    advised = _contact(db_session, group.id, advisor_id=user.id)
+    stray = _contact(db_session, uuid.uuid4(), advisor_id=uuid.uuid4())
+    unadvised = _contact(db_session, group.id)
     db_session.flush()
 
     common = {"source_model": DemoWidget, "source_row_id_column": DemoWidget.id}
@@ -102,12 +102,12 @@ def test_the_reference_checks_find_an_orphan_and_pass_a_valid_reference(db_sessi
     location_check = public.location_reference_check(
         label="demo_widget.created_by -> location.id", source_fk_column=DemoWidget.created_by, nullable=True, **common
     )
-    customer = {"source_model": Customer, "source_row_id_column": Customer.id}
+    contact = {"source_model": Contact, "source_row_id_column": Contact.id}
     group_check = public.dealer_group_reference_check(
-        label="customer.group_id -> dealer_group.id", source_fk_column=Customer.group_id, **customer
+        label="contact.group_id -> dealer_group.id", source_fk_column=Contact.group_id, **contact
     )
     user_check = public.user_reference_check(
-        label="customer.advisor_id -> user.id", source_fk_column=Customer.advisor_id, nullable=True, **customer
+        label="contact.advisor_id -> user.id", source_fk_column=Contact.advisor_id, nullable=True, **contact
     )
 
     assert find_orphans(db_session, dealership_check) == [(orphan.id, orphan.tenant_id)]

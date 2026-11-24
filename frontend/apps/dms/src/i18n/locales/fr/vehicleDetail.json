@@ -44,9 +44,9 @@
       "keeper": "Détenteur",
       "driver": "Conducteur"
     },
-    "searchCustomer": "Rechercher un client…",
-    "noCustomers": "Aucun client trouvé",
-    "unnamedCustomer": "Client sans nom",
+    "searchContact": "Rechercher un client…",
+    "noContacts": "Aucun client trouvé",
+    "unnamedContact": "Client sans nom",
     "showFormer": "Afficher les anciennes parties",
     "hideFormer": "Masquer les anciennes parties",
     "allocateError": "Le client n'a pas pu être attribué.",

@@ -19,7 +19,7 @@ from app.core.errors import ConflictError, NotFoundError
 from app.core.outbox import OutboxEvent, publish
 from app.core.pagination import SortPageParams, count_capped, paginate_query_sorted
 from app.core.sorting import build_page_for_sort
-from app.customer.public import CustomerLifecycleStatus, get_customer_or_404, has_usable_domicile_address
+from app.contact.public import ContactLifecycleStatus, get_contact_or_404, has_usable_domicile_address
 from app.db import SessionLocal
 from app.inventory.public import release, reserve_for_contract
 from app.sales.models.contract import ContractStatus, FinancingKind, SalesContract
@@ -30,12 +30,12 @@ from app.sales.services import ownership
 from app.sales.services.configuration_reference import publish_held_configurations
 from app.sales.services.contract_compensation import ConfirmationIds, compensate_confirmation
 from app.sales.services.contract_completeness import is_priced_without_inputs, require_complete
-from app.sales.services.customer_attach_lock import lock_customer_for_attach
+from app.sales.services.contact_attach_lock import lock_contact_for_attach
 from app.sales.services.deal_editing import apply_vehicle_and_pricing_changes
 from app.sales.services.deal_projection import upsert_deal_projection
 from app.sales.services.invoice_handover import HandoverPlate, handover_payload, swiss_today
 from app.sales.services.numbering import allocate_contract_number
-from app.sales.services.offer import apply_customer_change, refuse_unattachable_customer, resolve_customer_label
+from app.sales.services.offer import apply_contact_change, refuse_unattachable_contact, resolve_contact_label
 from app.sales.services.priced_deal import has_trade_in, require_editable, require_pending
 from app.sales.services.valuation_carry import commit_carrying, record_signed_after_commit, release_after_cancel
 from app.valuation.public import consume_valuation_for_contract
@@ -73,28 +73,28 @@ def create_contract(
     tenant_id: uuid.UUID,
     offer: SalesOffer | None,
     actor_id: uuid.UUID | None,
-    customer_id: uuid.UUID | None = None,
+    contact_id: uuid.UUID | None = None,
     group_id: uuid.UUID | None = None,
     stock_item_id: uuid.UUID | None = None,
     vehicle_label: str | None = None,
     session_factory: Callable[[], Session] | None = None,
 ) -> SalesContract:
-    """`offer=None, customer_id=None` — a contract with neither — is refused
+    """`offer=None, contact_id=None` — a contract with neither — is refused
     at the API since KAN-276 (Anto, 2026-10-11: "no empty contracts";
     `ContractCreate`'s validator); tests still build one here to set up a
-    pending contract with no buyer, the state a contract from a customer-less
+    pending contract with no buyer, the state a contract from a contact-less
     offer is in. `offer` set is "Vertrag erzeugen" from an existing
     offer's row menu, which denormalizes the offer's number as lineage and
     copies its working fields across — the confirmed reference prototype's
     own "C-001195 ← O-003216" header.
 
-    `customer_id` set (KAN-58) is the customer→contract entry point — "New
-    contract" on the customer's own row menu / 360 overflow / offers-and-
+    `contact_id` set (KAN-58) is the contact→contract entry point — "New
+    contract" on the contact's own row menu / 360 overflow / offers-and-
     contracts tab: a direct contract with no offer and no vehicle, just a
-    known customer. Mutually exclusive with `offer` (`ContractCreate`'s own
+    known contact. Mutually exclusive with `offer` (`ContractCreate`'s own
     validator enforces this; not re-checked here) and requires `group_id`
-    to resolve the customer. Only a `do_not_contact` or a merged customer
-    refuses at this point (`refuse_unattachable_customer`: ADR-065/FR-21 and
+    to resolve the contact. Only a `do_not_contact` or a merged contact
+    refuses at this point (`refuse_unattachable_contact`: ADR-065/FR-21 and
     KAN-656 — the same attach-time guard `update_offer` uses for offers); a
     credit block and D-20's missing-address gate stay
     confirm-time-only refusals (KAN-55), because creating, like quoting,
@@ -105,18 +105,18 @@ def create_contract(
     same Path A edit as the contract's own PATCH (`deal_editing`), in this
     transaction, so a car that cannot be read (404) leaves no contract
     behind. The buyer is then picked inside the pending contract
-    (`ContractUpdate.customer_id`), as on an offer; confirmation refuses a
+    (`ContractUpdate.contact_id`), as on an offer; confirmation refuses a
     contract without one.
-    Mutually exclusive with `offer` and `customer_id` (`ContractCreate`).
+    Mutually exclusive with `offer` and `contact_id` (`ContractCreate`).
     """
 
-    customer = None
-    if customer_id is not None:
+    contact = None
+    if contact_id is not None:
         if group_id is None:
-            raise ValueError("create_contract(customer_id=...) requires group_id.")
-        lock_customer_for_attach(db, customer_id)  # KAN-657, before any row lock of this transaction
-        customer = get_customer_or_404(db, group_id, customer_id)
-        refuse_unattachable_customer(db, customer=customer, group_id=group_id, host="a contract")
+            raise ValueError("create_contract(contact_id=...) requires group_id.")
+        lock_contact_for_attach(db, contact_id)  # KAN-657, before any row lock of this transaction
+        contact = get_contact_or_404(db, group_id, contact_id)
+        refuse_unattachable_contact(db, contact=contact, group_id=group_id, host="a contract")
 
     if offer is not None:
         # KAN-147 — one live contract per offer: a second one would sell the
@@ -124,7 +124,7 @@ def create_contract(
         # hand a sale the old system invoiced to invoicing again. The offer's
         # row lock serialises two concurrent creations; a cancelled contract
         # frees the offer for a new one. Re-read under the lock, so the
-        # contract copies the offer as committed (a customer merge since the
+        # contract copies the offer as committed (a contact merge since the
         # caller loaded it included), not the caller's stale object. The flush
         # first keeps a caller's own pending change to the offer, which a
         # refresh would otherwise discard.
@@ -148,27 +148,27 @@ def create_contract(
         contract_number=allocate_contract_number(db, tenant_id),
         offer_id=offer.id if offer is not None else None,
         offer_number=offer.offer_number if offer is not None else None,
-        customer_id=offer.customer_id if offer is not None else (customer.id if customer is not None else None),
-        customer_label=(
-            offer.customer_label
+        contact_id=offer.contact_id if offer is not None else (contact.id if contact is not None else None),
+        contact_label=(
+            offer.contact_label
             if offer is not None
-            else resolve_customer_label(customer)
-            if customer is not None
+            else resolve_contact_label(contact)
+            if contact is not None
             else None
         ),
-        customer_locality=offer.customer_locality if offer is not None else None,
-        customer_denorm_refreshed_at=(
-            offer.customer_denorm_refreshed_at
+        contact_locality=offer.contact_locality if offer is not None else None,
+        contact_denorm_refreshed_at=(
+            offer.contact_denorm_refreshed_at
             if offer is not None
             else utcnow()
-            if customer is not None
+            if contact is not None
             else None
         ),
-        customer_language=(
-            offer.customer_language
+        contact_language=(
+            offer.contact_language
             if offer is not None
-            else customer.language.value
-            if customer is not None
+            else contact.language.value
+            if contact is not None
             else None
         ),
         vehicle_source=offer.vehicle_source if offer is not None else None,
@@ -254,7 +254,7 @@ def create_contract(
             payload={
                 "contractNumber": contract.contract_number,
                 "offerId": str(offer.id) if offer is not None else None,
-                "customerId": str(contract.customer_id) if contract.customer_id is not None else None,
+                "contactId": str(contract.contact_id) if contract.contact_id is not None else None,
             },
         ),
     )
@@ -328,7 +328,7 @@ def update_contract(
 
     KAN-315 (Anto, 2026-10-12): a contract priced without inputs (KAN-67)
     is not editable, yet since KAN-307 it cannot be signed without a buyer —
-    so one that has none may be given one. Customer only: that PATCH sets
+    so one that has none may be given one. Contact only: that PATCH sets
     the buyer, bumps the version and touches no price figure; a buyer sent
     with any other field, an empty PATCH, and clearing or replacing a buyer
     it already has are still refused (`contract_priced_without_inputs`).
@@ -353,8 +353,8 @@ def update_contract(
         return contract
     if _gives_a_buyer_only(contract, changes):
         require_pending(contract)
-        apply_customer_change(
-            db, deal=contract, group_id=group_id, customer_id=changes["customer_id"], host="a contract"
+        apply_contact_change(
+            db, deal=contract, group_id=group_id, contact_id=changes["contact_id"], host="a contract"
         )
         contract.updated_by = actor_id
         contract.version += 1
@@ -364,10 +364,10 @@ def update_contract(
         return contract
 
     require_editable(db, contract)
-    if "customer_id" in changes:
+    if "contact_id" in changes:
         # KAN-307 (ADR-083 amended): the buyer, as on the offer.
-        apply_customer_change(
-            db, deal=contract, group_id=group_id, customer_id=changes.pop("customer_id"), host="a contract"
+        apply_contact_change(
+            db, deal=contract, group_id=group_id, contact_id=changes.pop("contact_id"), host="a contract"
         )
     if "owner_user_id" in changes:
         # KAN-200: the responsible seller, as on the offer.
@@ -388,9 +388,9 @@ def _gives_a_buyer_only(contract: SalesContract, changes: dict) -> bool:
 
     return (
         is_priced_without_inputs(contract)
-        and contract.customer_id is None
-        and changes.keys() == {"customer_id"}
-        and changes["customer_id"] is not None
+        and contract.contact_id is None
+        and changes.keys() == {"contact_id"}
+        and changes["contact_id"] is not None
     )
 
 
@@ -468,12 +468,12 @@ def _confirmed_event_payload(contract: SalesContract) -> dict:
 
     return {
         "contractId": str(contract.id),
-        # KAN-632 (additive): the buyer — the customer who traded the car in,
+        # KAN-632 (additive): the buyer — the contact who traded the car in,
         # when there is a trade-in — named as `sales.contract.created` names
         # it, and the signature. Stock keeps both on a trade-in's pipeline item
-        # and carries them on its purchase and storno events, so the customer
+        # and carries them on its purchase and storno events, so the contact
         # context records the former owner without asking Sales (ADR-131).
-        "customerId": str(contract.customer_id) if contract.customer_id is not None else None,
+        "contactId": str(contract.contact_id) if contract.contact_id is not None else None,
         "signedAt": contract.signed_at.isoformat() if contract.signed_at is not None else None,
         "vehicleSource": "existing" if contract.vehicle_source == "stock" else "manual",
         "manualConfiguration": manual_configuration,
@@ -521,52 +521,52 @@ def confirm_contract(
             details={"reason": "bad_status", "status": contract.status.value},
         )
 
-    # One refusal path, ordered prohibitions-then-missing-field: a customer
+    # One refusal path, ordered prohibitions-then-missing-field: a contact
     # the dealership may not contact, then one it may not extend credit to,
     # then one whose address it does not have (D-20 / KAN-55). Each carries a
     # machine-readable `details.reason` so the UI can localise the refusal —
     # the messages themselves are English (there is no backend i18n layer).
-    if contract.customer_id is not None:
-        customer = get_customer_or_404(db, group_id, contract.customer_id)
-        if customer.lifecycle_status == CustomerLifecycleStatus.DO_NOT_CONTACT:
+    if contract.contact_id is not None:
+        contact = get_contact_or_404(db, group_id, contract.contact_id)
+        if contact.lifecycle_status == ContactLifecycleStatus.DO_NOT_CONTACT:
             raise ConflictError(
-                f"Customer is do-not-contact — contract {contract.contract_number} cannot be confirmed.",
+                f"Contact is do-not-contact — contract {contract.contract_number} cannot be confirmed.",
                 details={"reason": "do_not_contact"},
             )
-        if customer.credit_block:
+        if contact.credit_block:
             raise ConflictError(
-                f"Customer has a credit block ({customer.credit_block_reason}) — contract "
+                f"Contact has a credit block ({contact.credit_block_reason}) — contract "
                 f"{contract.contract_number} cannot be confirmed.",
-                details={"reason": "credit_block", "creditBlockReason": customer.credit_block_reason},
+                details={"reason": "credit_block", "creditBlockReason": contact.credit_block_reason},
             )
-        if not has_usable_domicile_address(db, customer_id=customer.id):
+        if not has_usable_domicile_address(db, contact_id=contact.id):
             # D-20 (ruled 2026-09-07): the address stays optional at
             # creation and is gated here instead — the one moment it is
             # genuinely needed. Same shape as the credit-block refusal
             # (Sales FR-S-24). An offer is never blocked. "Usable" is the
-            # FR-03 definition, single-sourced in customer.public.
+            # FR-03 definition, single-sourced in contact.public.
             raise ConflictError(
-                f"Customer has no usable address — contract {contract.contract_number} cannot be "
-                f"confirmed. Add a current domicile address to the customer record first.",
+                f"Contact has no usable address — contract {contract.contract_number} cannot be "
+                f"confirmed. Add a current domicile address to the contact record first.",
                 details={"reason": "missing_address"},
             )
     else:
         # KAN-307 (Anto, 2026-10-12): a contract is never signed without a
         # buyer. A contract started from a car, or from an offer that had
-        # no customer, gets one in its own PATCH first.
+        # no contact, gets one in its own PATCH first.
         raise ConflictError(
-            f"Contract {contract.contract_number} has no customer — cannot be confirmed. Choose the buyer first.",
-            details={"reason": "missing_customer"},
+            f"Contract {contract.contract_number} has no contact — cannot be confirmed. Choose the buyer first.",
+            details={"reason": "missing_contact"},
         )
 
-    # KAN-66 (G-67) — the customer->contract entry point (KAN-58) creates a
+    # KAN-66 (G-67) — the contact->contract entry point (KAN-58) creates a
     # contract with no offer and therefore no vehicle or price at all; until
     # now nothing stopped that shell from being signed as-is. Mirrors the
     # offer side's own completeness gate (compute_containers: pricing
     # can never be "complete" without a vehicle first) rather than inventing
-    # a new rule. Checked after the customer prohibitions/address above, for
+    # a new rule. Checked after the contact prohibitions/address above, for
     # the same "pointless to fix first" reason those are checked in that
-    # order: a blocked or address-less customer refuses regardless of what
+    # order: a blocked or address-less contact refuses regardless of what
     # the contract is for, so that is named first when both are true.
     # KAN-67: the one definition, shared with contract document generation.
     require_complete(contract, action="confirmed")
@@ -883,11 +883,11 @@ def cancel_contract(
 
 
 def list_contracts(
-    db: Session, *, tenant_id: uuid.UUID, customer_id: uuid.UUID | None = None, params: SortPageParams
+    db: Session, *, tenant_id: uuid.UUID, contact_id: uuid.UUID | None = None, params: SortPageParams
 ) -> tuple[list[SalesContract], str | None, int, bool]:
     stmt = select(SalesContract).where(SalesContract.tenant_id == tenant_id)
-    if customer_id is not None:
-        stmt = stmt.where(SalesContract.customer_id == customer_id)
+    if contact_id is not None:
+        stmt = stmt.where(SalesContract.contact_id == contact_id)
     total, total_is_estimate = count_capped(db, stmt, threshold=get_settings().count_exact_threshold)
     stmt = paginate_query_sorted(stmt, model=SalesContract, params=params)
     rows = list(db.scalars(stmt).all())

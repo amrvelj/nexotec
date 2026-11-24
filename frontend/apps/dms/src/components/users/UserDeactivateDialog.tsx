@@ -40,7 +40,7 @@ const UNASSIGNED = '__unassigned__'
  * KAN-200 — deactivation with the reassignment step (FR-A-37, D-A-35).
  * What the person still owns is listed by module; the manager hands each
  * group to a colleague or leaves it unassigned (the module's own queue:
- * Sales' "Nicht zugewiesen" chip, Customers' advisor filter). Every group
+ * Sales' "Nicht zugewiesen" chip, Contacts' advisor filter). Every group
  * needs a decision before the button works — nothing is left silently with
  * the leaver. The kit's form dialog in its destructive tone, as the UI spec
  * reserves for an irreversible action; there is no delete (A-RULE-5).

@@ -1,8 +1,8 @@
 """Calendar boundaries in the session time zone (Europe/Zurich), resolved on
 the server — the grids' relative date conditions («heute», «diese Woche», «in
 den letzten 30 Tagen», U-09, KAN-474) and the absolute ones («am», «vor»,
-«nach» a date, KAN-461). Moved here from `app/customer/services/customer_search.py`
-(KAN-461) so the shared list-query layer and Customers resolve a day the
+«nach» a date, KAN-461). Moved here from `app/contact/services/contact_search.py`
+(KAN-461) so the shared list-query layer and Contacts resolve a day the
 same way. Cross-cutting: imports no bounded context."""
 
 import datetime as dt

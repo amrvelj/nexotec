@@ -81,7 +81,7 @@ def _group_stock_case(db) -> tuple[str, dict[str, str]]:
 # fixed one-field order (notifications by delivery, dealer groups by name).
 _WHEN = ["dt", "2026-01-01T00:00:00+00:00"]
 ENDPOINTS = {
-    "customers": (lambda _db: ("/v1/customers", _manager_headers()), {"sort": "lastName:asc"}, ["str", "Muster"]),
+    "contacts": (lambda _db: ("/v1/contacts", _manager_headers()), {"sort": "lastName:asc"}, ["str", "Muster"]),
     "offers": (lambda _db: ("/v1/sales/offers", _manager_headers()), {"sort": "updatedAt:desc"}, _WHEN),
     "contracts": (lambda _db: ("/v1/sales/contracts", _manager_headers()), {"sort": "updatedAt:desc"}, _WHEN),
     "deals": (lambda _db: ("/v1/sales/deals", _manager_headers()), {"sort": "updatedAt:desc"}, _WHEN),
@@ -315,7 +315,7 @@ def test_every_fixed_sort_declares_its_columns_nullability_truly():
     # api name -> where the list excludes NULL
     excludes_null = {"deliveredAt": "app/platform/identity/services/notifications.py::_inbox (delivered_at IS NOT NULL)"}
 
-    from app.customer.api.customers import _DEFAULT_CUSTOMER_SORT
+    from app.contact.api.contacts import _DEFAULT_CONTACT_SORT
     from app.integration.api.connections import _DEFAULT_CONNECTION_SORT
     from app.inventory.api.group import _DEFAULT_GROUP_STOCK_SORT
     from app.inventory.api.stock_items import _DEFAULT_STOCK_ITEM_SORT
@@ -330,7 +330,7 @@ def test_every_fixed_sort_declares_its_columns_nullability_truly():
     from app.vehicle.api.vehicle_mdm import _DEFAULT_VEHICLE_MDM_SORT
 
     fixed = [
-        *_DEFAULT_CUSTOMER_SORT,
+        *_DEFAULT_CONTACT_SORT,
         *_DEFAULT_CONNECTION_SORT,
         *_DEFAULT_GROUP_STOCK_SORT,
         *_DEFAULT_STOCK_ITEM_SORT,
@@ -493,7 +493,7 @@ def test_discovery_finds_every_list_the_hand_list_named():
     allow_lists, registries = _discover_sort_allow_lists()
     found = {name.rsplit(".", 1)[1] for name in [*allow_lists, *registries]}
     assert {
-        "CUSTOMER_SORT_FIELDS",
+        "CONTACT_SORT_FIELDS",
         "CONNECTION_SORT_FIELDS",
         "GROUP_STOCK_SORT_FIELDS",
         "USER_SORT_FIELDS",

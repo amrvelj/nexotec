@@ -34,12 +34,12 @@ const HANDOVER = new Date(Date.now() + 19 * 86_400_000).toISOString()
 
 function party(over: Partial<VehiclePartyAllocationRead>): VehiclePartyAllocationRead {
   return {
-    id: 'p1', vehicleId: vehicle.id, customerId: 'c-clara', role: 'owner',
+    id: 'p1', vehicleId: vehicle.id, contactId: 'c-clara', role: 'owner',
     effectiveFrom: '2026-01-01T00:00:00Z', effectiveTo: HANDOVER, displayName: 'Clara Muster', ...over,
   }
 }
 
-const meier = party({ id: 'p2', customerId: 'c-meier', displayName: 'Anna Meier', effectiveFrom: HANDOVER, effectiveTo: null })
+const meier = party({ id: 'p2', contactId: 'c-meier', displayName: 'Anna Meier', effectiveFrom: HANDOVER, effectiveTo: null })
 
 function renderTab(props: { parties: VehiclePartyAllocationRead[]; formerParties?: VehiclePartyAllocationRead[]; onEndEntry?: (p: VehiclePartyAllocationRead) => Promise<void>; canEndEntry?: boolean }) {
   return renderWithProviders(
@@ -52,10 +52,10 @@ function renderTab(props: { parties: VehiclePartyAllocationRead[]; formerParties
       onAllocate={async () => {}}
       allocating={false}
       onAllocatingChange={() => {}}
-      customerCandidates={[]}
-      customerSearch=""
-      onCustomerSearchChange={() => {}}
-      onCustomerOverlayClose={() => {}}
+      contactCandidates={[]}
+      contactSearch=""
+      onContactSearchChange={() => {}}
+      onContactOverlayClose={() => {}}
       canEndEntry={props.canEndEntry ?? true}
       onEndEntry={props.onEndEntry ?? (async () => {})}
     />,
@@ -104,7 +104,7 @@ describe('IdentityTab — a planned handover (KAN-644, KAN-583)', () => {
   })
 
   it('a cancelled planned entry reads «planned, never started» among the former parties', async () => {
-    const cancelled = party({ id: 'p3', customerId: 'c-meier', displayName: 'Anna Meier', effectiveFrom: HANDOVER, effectiveTo: HANDOVER })
+    const cancelled = party({ id: 'p3', contactId: 'c-meier', displayName: 'Anna Meier', effectiveFrom: HANDOVER, effectiveTo: HANDOVER })
     renderTab({ parties: [party({ effectiveTo: null })], formerParties: [cancelled] })
     await userEvent.click(screen.getByRole('button', { name: i18n.t('vehicleDetail.parties.showFormer') }))
     let row: HTMLElement | null = screen.getByRole('button', { name: 'Anna Meier' })

@@ -3,7 +3,7 @@
   "newValuation": "Create valuation",
   "searchPlaceholder": "Valuation number, VIN, plate, customer …",
   "allView": "All valuations",
-  "noCustomer": "No customer",
+  "noContact": "No customer",
   "loadError": "Valuations could not be loaded.",
   "chips": {
     "all": "All",
@@ -16,7 +16,7 @@
   "columns": {
     "number": "Number",
     "vehicle": "Vehicle",
-    "customer": "Customer",
+    "contact": "Customer",
     "mileage": "Mileage",
     "finalOffer": "Trade-in offer",
     "source": "Source",

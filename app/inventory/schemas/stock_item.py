@@ -217,8 +217,8 @@ class StockItemRead(CamelModel):
     # Computed on read (PR-7), never stored — see
     # services/stock_item.py::compute_ageing_bucket. None until the model
     # is post-processed by the API layer; model_validate alone leaves it
-    # at this default, same pattern as customer's own computed
-    # projections (customer/api/customers.py::_customer_read).
+    # at this default, same pattern as contact's own computed
+    # projections (contact/api/contacts.py::_contact_read).
     ageing_bucket: AgeingBucket | None = None
     version: int
     created_at: dt.datetime

@@ -232,7 +232,7 @@
       "label": "Source du prix neuf",
       "catalogue": "Catalogue (année modèle)",
       "document": "Permis de circulation / document importateur",
-      "customer": "Indication du client"
+      "contact": "Indication du client"
     },
     "modelDescription": "Désignation du modèle (facultatif)",
     "ask": "Chercher la correspondance",

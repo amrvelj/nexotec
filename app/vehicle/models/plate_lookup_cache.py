@@ -3,7 +3,7 @@
 The identAPI's Vehicle Build answer to a plate lookup, reduced to plate →
 Typenschein + Stammnummer + first registration (plus the make, model and
 kind the picker shows). Every provider request is counted (licence §6) and
-advisors retype the same plate while they talk to a customer, so an answer
+advisors retype the same plate while they talk to a contact, so an answer
 is kept for `PLATE_LOOKUP_CACHE_TTL` (`app.vehicle.services.plate_lookup_cache`)
 and a repeat lookup inside that window makes no request. Filled by a plate
 lookup only, whole or not at all.

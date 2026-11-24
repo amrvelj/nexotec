@@ -3,7 +3,7 @@
 business record, this row is secret material — and the only table that may
 hold a password-shaped column (tests/architecture/test_no_password_credential_storage.py,
 inverted by D-A-07: the guard now asserts the column exists HERE and nowhere
-else). A customer credential (D-A-13, reserved) can only ever be a second
+else). A contact credential (D-A-13, reserved) can only ever be a second
 table, never new columns here.
 
 `password_hash` is an argon2id encoded string, parameters included, so the

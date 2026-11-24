@@ -77,8 +77,8 @@
       "cancel": "Annulla",
       "failed": "Non è stato possibile stornare l'acquisto.",
       "leftStock": "Non possibile: il veicolo ha lasciato lo stock.",
-      "returnedToCustomer": "Il veicolo torna al cliente",
-      "returnedToCustomerHint": "Il cliente che l'ha dato in permuta torna a essere proprietario e detentore. Senza spunta, la sua cronologia resta come l'ha registrata l'acquisto."
+      "returnedToContact": "Il veicolo torna al cliente",
+      "returnedToContactHint": "Il cliente che l'ha dato in permuta torna a essere proprietario e detentore. Senza spunta, la sua cronologia resta come l'ha registrata l'acquisto."
     }
   },
   "wagenbuch": {

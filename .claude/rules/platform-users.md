@@ -94,7 +94,7 @@ from platform.md by KAN-614, 2026-11-10. Last verified against main@3b2bf69 (202
   (`test_group_read_dealerships_callers.py`). Cross-tenant reads are 404, never 403.
 - **A membership may cross dealer groups** (ADR-106): `grant_membership` does not ask for the
   target's group, and switch-dealership mints the **target's** `group_id` — while switched the
-  person reads that group's customers, never the home group's
+  person reads that group's contacts, never the home group's
   (`tests/platform/test_membership_across_dealer_groups.py`).
 
 ## Managers and memberships (D-A-01)
@@ -118,18 +118,18 @@ Roles, capabilities, the permission matrix and what the SPA may offer: `platform
 
 ## Deactivation and hand-over (D-A-35, ADR-094)
 - `OwnershipProvider` (`app/core/ownership.py`), one per context, registered in
-  `app/ownership_registry.py` (customer: advised customers; sales: open offers and pending contracts
+  `app/ownership_registry.py` (contact: advised contacts; sales: open offers and pending contracts
   by `owner_user_id`; the rest: nothing). A user id names one person platform-wide, so a provider
   counts what they own **in every Betrieb**. The **home manager decides for every Betrieb** the leaver
   worked in.
 - `POST …/users/{id}/deactivate` needs a decision per group — an **active** colleague, or null =
-  the module's unassigned queue (`GET /sales/deals?unassigned=true`, `GET /customers?unassigned=true`;
+  the module's unassigned queue (`GET /sales/deals?unassigned=true`, `GET /contacts?unassigned=true`;
   an unassigned draft stays hidden like every draft). It cuts access first in platform's own commit,
   then each module hands over on a session of its own (ADR-047), with one `ownership_transferred`
-  audit row per group carrying the reason (Customers also write one per customer; Sales bumps each
+  audit row per group carrying the reason (Contacts also write one per contact; Sales bumps each
   record's version and writes none — platform's row is the record). `POST …/ownership/transfers` is the retry and the plain hand-over.
 - A hand-over to a colleague who cannot act in one of those Betriebe is refused **as a whole** (422
-  with a count, never which Betrieb). Customers judge it by the customer's group
+  with a count, never which Betrieb). Contacts judge it by the contact's group
   (`platform.public.list_user_dealer_group_ids`), Sales by `colleague_cannot_act_there`, under the
   rows' locks. A module that fails is answered, not raised: `failed[]` with a stable `reason` and a
   message that is never an exception's text; its records stay for the retry.

@@ -1,7 +1,7 @@
 """WP-5 PR-6: vehicle merge — one-way, re-points everything, no unmerge.
 
 KAN-634 (ADR-131): the merge publishes `vehicle.vehicle_mdm.merged` and
-customer re-points its party rows when it consumes the fact."""
+contact re-points its party rows when it consumes the fact."""
 
 import datetime as dt
 import uuid
@@ -13,15 +13,15 @@ from sqlalchemy.orm import sessionmaker
 from app.core.outbox_model import OutboxMessage
 from app.core.outbox_transport import InProcessTransport
 from app.core.reconciliation import find_rows_in_state
-from app.customer.models.vehicle_party import VehicleParty, VehiclePartyRole
-from app.customer.reconciliation import CHECKS as CUSTOMER_CHECKS
-from app.customer.services.vehicle_merge import handle_vehicle_merged_message
-from app.customer.services.vehicle_party import allocate_vehicle_party
+from app.contact.models.vehicle_party import VehicleParty, VehiclePartyRole
+from app.contact.reconciliation import CHECKS as CONTACT_CHECKS
+from app.contact.services.vehicle_merge import handle_vehicle_merged_message
+from app.contact.services.vehicle_party import allocate_vehicle_party
 from app.vehicle.services.merge import MERGED_EVENT, merge_vehicles, resolve_merged_id
 from app.vehicle.services.vehicle_history import add_accessory, record_odometer_reading
 from app.vehicle.services.vehicle_mdm import create_vehicle_mdm
 from tests.plate_support import seed_plate
-from tests.sales.test_sales_lifecycle_reservation import _customer
+from tests.sales.test_sales_lifecycle_reservation import _contact
 
 TENANT_ID = uuid.uuid4()
 
@@ -91,7 +91,7 @@ def _deliver_merged(engine, message: OutboxMessage) -> None:
     factory = sessionmaker(bind=engine, autoflush=False, autocommit=False, expire_on_commit=False)
     transport = InProcessTransport(factory)
     transport.register(
-        MERGED_EVENT, consumer_name="customer.vehicle_parties_on_vehicle_merged", handler=handle_vehicle_merged_message
+        MERGED_EVENT, consumer_name="contact.vehicle_parties_on_vehicle_merged", handler=handle_vehicle_merged_message
     )
     transport.deliver(message)
 
@@ -104,7 +104,7 @@ def _merged_message(db, duplicate_id: uuid.UUID) -> OutboxMessage:
 
 def _allocate(db, vehicle_id, group_id, role, **dates) -> VehicleParty:
     return allocate_vehicle_party(
-        db, vehicle_id=vehicle_id, customer_id=_customer(db, group_id).id, role=role, group_id=group_id,
+        db, vehicle_id=vehicle_id, contact_id=_contact(db, group_id).id, role=role, group_id=group_id,
         actor_id=uuid.uuid4(), acting_dealership_id=None, **dates,
     )
 
@@ -112,10 +112,10 @@ def _allocate(db, vehicle_id, group_id, role, **dates) -> VehicleParty:
 def test_the_worker_registers_the_vehicle_merged_consumer():
     from tests.cross_context.test_consumer_redelivery_idempotency import _registered
 
-    assert _registered()["customer.vehicle_parties_on_vehicle_merged"] == (MERGED_EVENT, handle_vehicle_merged_message)
+    assert _registered()["contact.vehicle_parties_on_vehicle_merged"] == (MERGED_EVENT, handle_vehicle_merged_message)
 
 
-def test_a_merge_publishes_its_fact_and_leaves_the_party_rows_to_customer(db_session):
+def test_a_merge_publishes_its_fact_and_leaves_the_party_rows_to_contact(db_session):
     survivor = create_vehicle_mdm(db_session, vin="ZAR94000007123456", catalogue_variant_id=None)
     duplicate = create_vehicle_mdm(db_session, vin="WVWZZZ1JZXW000001", catalogue_variant_id=None)
     group_id = uuid.uuid4()
@@ -207,9 +207,9 @@ def test_a_merge_of_a_vehicle_no_party_names_writes_nothing(db_session, engine):
 def test_reconciliation_reports_a_party_row_left_on_a_merged_vehicle(db_session, engine):
     """Rule 10: between the merge's commit and the consumer's — or for good,
     when the delivery dead-letters — a holder still names the merged record;
-    the nightly customer check names it until the fact is consumed."""
+    the nightly contact check names it until the fact is consumed."""
 
-    check = next(c for c in CUSTOMER_CHECKS if c.label == "vehicle_party.vehicle_id names a merged vehicle")
+    check = next(c for c in CONTACT_CHECKS if c.label == "vehicle_party.vehicle_id names a merged vehicle")
     survivor = create_vehicle_mdm(db_session, vin="ZAR94000007123456", catalogue_variant_id=None)
     duplicate = create_vehicle_mdm(db_session, vin="WVWZZZ1JZXW000001", catalogue_variant_id=None)
     party = _allocate(db_session, duplicate.id, uuid.uuid4(), VehiclePartyRole.OWNER)

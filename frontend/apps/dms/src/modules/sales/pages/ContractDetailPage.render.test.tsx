@@ -9,7 +9,7 @@ import { installFakeBackend, status } from '../../../test/fakeBackend'
 import type { SalesContractRead } from '../../../api/types'
 import { ContractDetailPage } from './ContractDetailPage'
 
-// KAN-55 (D-20): confirming a contract is refused when the customer has no
+// KAN-55 (D-20): confirming a contract is refused when the contact has no
 // usable address — through the same 409 path as the credit block. The
 // refusal used to be an unhandled promise rejection with zero feedback;
 // it now renders as a localised inline alert keyed off `details.reason`.
@@ -24,8 +24,8 @@ const CONTRACT = {
   offerNumber: 'O-000001',
   status: 'pending',
   version: 3,
-  customerId: 'cust-1',
-  customerLabel: 'Ursula Vogt',
+  contactId: 'cust-1',
+  contactLabel: 'Ursula Vogt',
   vehicleSource: 'stock',
   vehicleLabel: 'Seat Leon',
   grossPrice: '32000.00',
@@ -43,7 +43,7 @@ function refuseConfirm(reason: string, extra: Record<string, unknown> = {}) {
       method: 'POST',
       match: /^\/sales\/contracts\/k1\/confirm$/,
       handler: () =>
-        status(409, { error: { code: 'conflict', message: 'Customer has no usable address — contract C-000001 …', details: { reason, ...extra } } }),
+        status(409, { error: { code: 'conflict', message: 'Contact has no usable address — contract C-000001 …', details: { reason, ...extra } } }),
     },
   ])
 }
@@ -170,7 +170,7 @@ describe('ContractDetailPage — the confirm refusal is surfaced and localised (
   })
 })
 
-// KAN-66 (G-67) — a contract born from a customer with no offer (KAN-58)
+// KAN-66 (G-67) — a contract born from a contact with no offer (KAN-58)
 // has no vehicle/price at all. ADR-061: the primary action must not invite
 // a click that will only be refused — it disables itself, with a reason,
 // before the user ever gets to the 409.
@@ -256,16 +256,16 @@ describe('ContractDetailPage — the trade-in figure carries its source (KAN-101
 
 // KAN-307 (Anto, 2026-10-12, amending ADR-083) — a contract started from a
 // stock car has no buyer yet. The pending contract picks one in the offer
-// workspace's own customer container, and is never confirmed without one:
+// workspace's own contact container, and is never confirmed without one:
 // the action is disabled with that reason, and the server's
-// `missing_customer` refusal is localised like the others.
+// `missing_contact` refusal is localised like the others.
 describe('ContractDetailPage — the buyer is picked in the contract (KAN-307)', () => {
   const NO_BUYER = {
-    ...CONTRACT, offerNumber: null, customerId: null, customerLabel: null, vehicleSnapshotFrozenAt: '2026-10-12T08:00:00Z',
+    ...CONTRACT, offerNumber: null, contactId: null, contactLabel: null, vehicleSnapshotFrozenAt: '2026-10-12T08:00:00Z',
     containers: [{ id: 'customer', requirement: 'required', status: 'not_started' }],
   }
 
-  it('a pending contract without a buyer offers the customer search and keeps confirm disabled', async () => {
+  it('a pending contract without a buyer offers the contact search and keeps confirm disabled', async () => {
     installFakeBackend([
       { method: 'GET', match: /^\/sales\/contracts\/k1$/, handler: () => NO_BUYER },
       { match: /^\/sales\/contracts\/k1\/documents$/, handler: () => ({ items: [], nextCursor: null }) },
@@ -273,49 +273,49 @@ describe('ContractDetailPage — the buyer is picked in the contract (KAN-307)',
     renderPage()
 
     expect(await screen.findByRole('button', { name: i18n.t('contractDetail.actions.confirm') })).toBeDisabled()
-    expect(screen.getByRole('button', { name: i18n.t('offerWorkspace.customer.search') })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: i18n.t('offerWorkspace.customer.createNew') })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: i18n.t('offerWorkspace.contact.search') })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: i18n.t('offerWorkspace.contact.createNew') })).toBeInTheDocument()
     // The contract's own hint, never the offer's ("eine Offerte trägt den Namen …").
-    expect(screen.getByText(i18n.t('offerWorkspace.customer.emptyHintContract'))).toBeInTheDocument()
-    expect(screen.queryByText(i18n.t('offerWorkspace.customer.emptyHint'))).toBeNull()
+    expect(screen.getByText(i18n.t('offerWorkspace.contact.emptyHintContract'))).toBeInTheDocument()
+    expect(screen.queryByText(i18n.t('offerWorkspace.contact.emptyHint'))).toBeNull()
   })
 
-  it('picking a customer sets the contract\'s buyer with its If-Match', async () => {
+  it('picking a contact sets the contract\'s buyer with its If-Match', async () => {
     const user = userEvent.setup()
     const backend = installFakeBackend([
       { method: 'GET', match: /^\/sales\/contracts\/k1$/, handler: () => NO_BUYER },
       { match: /^\/sales\/contracts\/k1\/documents$/, handler: () => ({ items: [], nextCursor: null }) },
       {
         method: 'GET',
-        match: /^\/customers$/,
-        handler: () => ({ items: [{ id: 'cust-9', customerNumber: 'K-000009', firstName: 'Ursula', lastName: 'Vogt', companyName: null }], nextCursor: null }),
+        match: /^\/contacts$/,
+        handler: () => ({ items: [{ id: 'cust-9', contactNumber: 'K-000009', firstName: 'Ursula', lastName: 'Vogt', companyName: null }], nextCursor: null }),
       },
       {
         method: 'PATCH',
         match: /^\/sales\/contracts\/k1$/,
-        handler: () => ({ ...CONTRACT, customerId: 'cust-9', customerLabel: 'Ursula Vogt', version: 4 }),
+        handler: () => ({ ...CONTRACT, contactId: 'cust-9', contactLabel: 'Ursula Vogt', version: 4 }),
       },
     ])
     renderPage()
 
-    await user.click(await screen.findByRole('button', { name: i18n.t('offerWorkspace.customer.search') }))
-    await user.type(await screen.findByPlaceholderText(i18n.t('offerWorkspace.customer.search')), 'Vogt')
+    await user.click(await screen.findByRole('button', { name: i18n.t('offerWorkspace.contact.search') }))
+    await user.type(await screen.findByPlaceholderText(i18n.t('offerWorkspace.contact.search')), 'Vogt')
     await user.click(await screen.findByText('Ursula Vogt'))
 
     await waitFor(() => expect(backend.callsTo(/^\/sales\/contracts\/k1$/, 'PATCH')).toHaveLength(1))
     const [patch] = backend.callsTo(/^\/sales\/contracts\/k1$/, 'PATCH')
-    expect(patch.body).toEqual({ customerId: 'cust-9' })
+    expect(patch.body).toEqual({ contactId: 'cust-9' })
     expect(patch.headers.get('If-Match')).toBe('3')
     expect(await screen.findByRole('button', { name: i18n.t('contractDetail.actions.confirm') })).toBeEnabled()
   })
 
-  it('a missing-customer 409 renders the localised inline alert', async () => {
+  it('a missing-contact 409 renders the localised inline alert', async () => {
     const user = userEvent.setup()
-    refuseConfirm('missing_customer')
+    refuseConfirm('missing_contact')
     renderPage()
 
     await user.click(await screen.findByRole('button', { name: i18n.t('contractDetail.actions.confirm') }))
 
-    expect(await screen.findByText(i18n.t('contractDetail.errors.confirmRefused.missingCustomer'))).toBeInTheDocument()
+    expect(await screen.findByText(i18n.t('contractDetail.errors.confirmRefused.missingContact'))).toBeInTheDocument()
   })
 })

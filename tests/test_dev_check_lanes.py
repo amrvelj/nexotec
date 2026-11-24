@@ -34,8 +34,8 @@ def check():
     [
         "app/core/enum_type.py",  # env.py and every enum column
         "app/core/base.py",  # every model's base class
-        "app/core/types.py",  # EncryptedString on customer.tax_id
-        "app/customer/models/customer.py",
+        "app/core/types.py",  # EncryptedString on contact.tax_id
+        "app/contact/models/contact.py",
         "app/platform/reference_data_seed/__init__.py",  # imported by a migration only
         "app/platform/reference_data_seed/countries.csv",  # read by that migration
         "app/core/postal_codes.py",  # imported by a migration only

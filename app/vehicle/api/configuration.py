@@ -199,9 +199,9 @@ def get_vehicle_configuration(
     db: Session = Depends(get_db),
 ):
     """FR-C-15 — Vehicle 360's Specification tab: this tenant's newest
-    configuration linked to the vehicle, read-only. Customer 360 reaches it
-    through the vehicle (this route), never through a customer: a
-    configuration has no customer, and giving it one would compete with
+    configuration linked to the vehicle, read-only. Contact 360 reaches it
+    through the vehicle (this route), never through a contact: a
+    configuration has no contact, and giving it one would compete with
     `VehicleParty`. 404 when this tenant holds none."""
 
     config = configuration_host.find_configuration_for_vehicle(

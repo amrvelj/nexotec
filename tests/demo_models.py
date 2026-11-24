@@ -1,6 +1,6 @@
 """Test-only model exercising the shared mixins (PrimaryKeyMixin,
 TimestampMixin, VersionedMixin, TenantScopedMixin) the way a real entity
-from issue #2+ (Dealership, User, Customer, ...) will.
+from issue #2+ (Dealership, User, Contact, ...) will.
 
 KAN-332: it lives on a declarative base of its own, never on app.db.Base, so
 Base.metadata holds the production tables and nothing else — an in-process

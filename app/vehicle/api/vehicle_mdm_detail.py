@@ -1,6 +1,6 @@
 """Vehicle 360 detail-screen endpoints (WP-5 PR-9, FR-V-16): plates,
 odometer and accessories, each scoped by a known vehicle id — never a bare
-browse. The party roles (customer's holders) are served from the composition
+browse. The party roles (contact's holders) are served from the composition
 root, `app/api/v1/vehicle_parties.py` (KAN-634). Same "vehicle_mdm" write capability as the rest of
 this context's endpoints.
 """

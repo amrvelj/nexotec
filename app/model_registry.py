@@ -10,10 +10,10 @@ from app.core.idempotency_model import IdempotencyRecord
 from app.core.outbox_model import OutboxMessage
 from app.core.processed_event_model import ProcessedEvent
 from app.core.reconciliation_model import ReconciliationOrphan, ReconciliationRun
-from app.customer.models.customer import Customer, CustomerAddress, CustomerContactGroup, CustomerRole, CustomerTag
-from app.customer.models.legal_basis import LegalBasis
-from app.customer.models.stock_item_booking import StockItemBooking
-from app.customer.models.vehicle_party import VehicleParty
+from app.contact.models.contact import Contact, ContactAddress, ContactGroupAssignment, ContactRoleAssignment, ContactTag
+from app.contact.models.legal_basis import LegalBasis
+from app.contact.models.stock_item_booking import StockItemBooking
+from app.contact.models.vehicle_party import VehicleParty
 from app.integration.models.ai_prompt import IntegrationAiPrompt
 from app.integration.models.call_log import IntegrationCallLog
 from app.integration.models.call_payload import IntegrationCallPayload
@@ -129,11 +129,11 @@ __all__ = [
     "BrandingAsset",
     "ColourCache",
     "Credential",
-    "Customer",
-    "CustomerAddress",
-    "CustomerContactGroup",
-    "CustomerRole",
-    "CustomerTag",
+    "Contact",
+    "ContactAddress",
+    "ContactGroupAssignment",
+    "ContactRoleAssignment",
+    "ContactTag",
     "DailyJobRun",
     "DealerGroup",
     "DealerPlate",

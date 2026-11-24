@@ -36,7 +36,7 @@ export interface StockDetailContentProps {
   stockItemId: string
   /** § ADR-059 — true when rendered as `Overlay` content (e.g. from a
    * future Sales screen) rather than the real `/stock/:id` route. Same
-   * split as CustomerDetailContent/VehicleDetailPage's own overlay-
+   * split as ContactDetailContent/VehicleDetailPage's own overlay-
    * capable content components.
    */
   embedded?: boolean

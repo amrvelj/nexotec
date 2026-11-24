@@ -11,9 +11,9 @@ import { MailAdministrationPage } from '../MailAdministrationPage'
 import { MailLinkCallbackPage } from '../MailLinkCallbackPage'
 import { mailNavigation } from './mailLink'
 
-// KAN-215 — customer mail through the dealer's own mailbox: Administration ›
+// KAN-215 — contact mail through the dealer's own mailbox: Administration ›
 // Kundenmails (the Betrieb's shared mailbox), My account › Mein Postfach (the
-// user's own, and which address customers see right now — D1 A) and the
+// user's own, and which address contacts see right now — D1 A) and the
 // provider's callback page.
 
 const PROVIDERS = [
@@ -151,7 +151,7 @@ describe('My account › Mein Postfach (KAN-215)', () => {
     expect(screen.getByText(i18n.t('mail.status.error'))).toBeInTheDocument()
   })
 
-  it('names the address customers see and starts the own link', async () => {
+  it('names the address contacts see and starts the own link', async () => {
     const user = userEvent.setup()
     const toProvider = vi.spyOn(mailNavigation, 'toProvider').mockImplementation(() => {})
     installFakeBackend([

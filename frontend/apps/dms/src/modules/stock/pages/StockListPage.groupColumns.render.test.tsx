@@ -17,7 +17,7 @@ import { StockListPage } from './StockListPage'
 // VIN) are one click away (ADR-060).
 
 // jsdom has no layout, so the virtualizer would render no rows; render
-// every row (the same shim CustomersListPage.columns.render.test.tsx uses).
+// every row (the same shim ContactsListPage.columns.render.test.tsx uses).
 vi.mock('@tanstack/react-virtual', () => ({
   useVirtualizer: ({ count, estimateSize }: { count: number; estimateSize: () => number }) => {
     const size = estimateSize()

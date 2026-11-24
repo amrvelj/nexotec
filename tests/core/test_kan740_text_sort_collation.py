@@ -74,13 +74,13 @@ def test_only_a_word_column_is_collated():
 def test_a_code_or_identifier_keeps_byte_order():
     """ADR-190: a VIN, a Stammnummer or a number is no word; it keeps byte order and its indexes."""
 
-    from app.customer.models.customer import Customer
+    from app.contact.models.contact import Contact
     from app.inventory.models.stock_item import StockItem
     from app.vehicle.models.vehicle_mdm import VehicleMdm
 
-    for column in (VehicleMdm.vin, VehicleMdm.stammnummer, StockItem.stock_number, Customer.customer_number):
+    for column in (VehicleMdm.vin, VehicleMdm.stammnummer, StockItem.stock_number, Contact.contact_number):
         assert SortField("x", column, "asc", False).column is column, column
-    assert isinstance(SortField("x", Customer.last_name, "asc", False).column, CollatedSortColumn)
+    assert isinstance(SortField("x", Contact.last_name, "asc", False).column, CollatedSortColumn)
 
 
 def test_order_and_keyset_both_name_the_collation_on_postgres_and_neither_on_sqlite():

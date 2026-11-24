@@ -88,5 +88,5 @@ def test_the_guard_reports_a_caller_outside_reconciliation():
         "app/inventory/api/stock_items.py": "from app.sales.public import contract_carries_valuation\n",
         "app/sales/services/reconciliation_targets.py": "def contract_changed_since(): ...\n",
         "app/inventory/reconciliation.py": uses,
-        "app/customer/services/untouched.py": "x = 1\n",
+        "app/contact/services/untouched.py": "x = 1\n",
     }) == ["app/inventory/api/stock_items.py", "app/valuation/services/valuation.py"]

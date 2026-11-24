@@ -12,7 +12,7 @@ One exception (Anto, 2026-11-18, KAN-753 option 1): a list endpoint that moves
 onto the list-query layer (`filter=field:op:value`, KAN-461) gets no alias in
 between — its legacy names are retired there, after the one release the plan
 keeps them, and that change removes their entries. Today this covers the
-snake_case filters of `GET /v1/customers` and `GET /v1/inventory/stock-items`.
+snake_case filters of `GET /v1/contacts` and `GET /v1/inventory/stock-items`.
 
 Read from the app's own OpenAPI, so a parameter declared any way
 (`Query(alias=…)`, a plain argument, a dependency) is seen. An entry names
@@ -29,26 +29,26 @@ CAMEL_CASE = re.compile(r"^[a-z][a-zA-Z0-9]*$")
 # ruling. Legacy: never added to, only removed from.
 LEGACY_SNAKE_CASE = frozenset(
     {
-        ("canton_not", "GET /v1/customers"),
-        ("customer_type", "GET /v1/customers"),
-        ("customer_type_not", "GET /v1/customers"),
-        ("include_merged", "GET /v1/customers"),
-        ("language_not", "GET /v1/customers"),
-        ("lifecycle_status", "GET /v1/customers"),
-        ("lifecycle_status_not", "GET /v1/customers"),
-        ("updated_in_last_days", "GET /v1/customers"),
-        ("updated_more_than_days_ago", "GET /v1/customers"),
-        ("updated_since", "GET /v1/customers"),
-        ("updated_since_start_of", "GET /v1/customers"),
-        ("include_closed", "GET /v1/customers/{customer_id}/vehicles"),
+        ("canton_not", "GET /v1/contacts"),
+        ("contact_type", "GET /v1/contacts"),
+        ("contact_type_not", "GET /v1/contacts"),
+        ("include_merged", "GET /v1/contacts"),
+        ("language_not", "GET /v1/contacts"),
+        ("lifecycle_status", "GET /v1/contacts"),
+        ("lifecycle_status_not", "GET /v1/contacts"),
+        ("updated_in_last_days", "GET /v1/contacts"),
+        ("updated_more_than_days_ago", "GET /v1/contacts"),
+        ("updated_since", "GET /v1/contacts"),
+        ("updated_since_start_of", "GET /v1/contacts"),
+        ("include_closed", "GET /v1/contacts/{contact_id}/vehicles"),
         ("dealer_group_id", "GET /v1/dealerships"),
         ("condition_not", "GET /v1/inventory/stock-items"),
         ("lifecycle_status", "GET /v1/inventory/stock-items"),
         ("lifecycle_status_not", "GET /v1/inventory/stock-items"),
         ("provider_code", "GET /v1/integrations/connections"),
         ("tenant_id", "GET /v1/integrations/connections"),
-        ("customer_id", "GET /v1/sales/contracts"),
-        ("customer_id", "GET /v1/sales/offers"),
+        ("contact_id", "GET /v1/sales/contracts"),
+        ("contact_id", "GET /v1/sales/offers"),
         ("vehicle_number", "GET /v1/vehicle-mdm/lookup"),
         ("include_closed", "GET /v1/vehicle-mdm/{vehicle_id}/party-roles"),
     }

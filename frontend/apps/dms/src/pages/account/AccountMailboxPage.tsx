@@ -16,8 +16,8 @@ const STATUS_COLOR: Record<MailboxRead['status'], string> = { active: 'green', e
 /**
  * KAN-215 — My account › Mein Postfach (`/account/mailbox`): the user's own
  * Microsoft 365 or Google Workspace mailbox, connected by their own sign-in,
- * so customers get their mail from them (Anto's D1 A: the author's own
- * mailbox first). It says which address customer mail goes from right now —
+ * so contacts get their mail from them (Anto's D1 A: the author's own
+ * mailbox first). It says which address contact mail goes from right now —
  * the own mailbox, the Betrieb's shared one, or why nothing can be sent, with
  * the way to fix it (no silent fallback). Every user, for themselves only.
  */

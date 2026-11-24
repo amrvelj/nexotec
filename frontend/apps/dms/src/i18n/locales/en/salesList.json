@@ -7,7 +7,7 @@
   "columns": {
     "number": "Number",
     "type": "Type",
-    "customer": "Customer",
+    "contact": "Customer",
     "vehicle": "Vehicle",
     "grossPrice": "Sale price",
     "status": "Status",

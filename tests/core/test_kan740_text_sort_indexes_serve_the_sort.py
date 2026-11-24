@@ -18,8 +18,8 @@ from sqlalchemy import select, text
 
 from app.core.pagination import SortPageParams, paginate_query_sorted
 from app.core.sorting import decode_cursor_for_sort, parse_sort
-from app.customer.api.customers import CUSTOMER_SORT_FIELDS
-from app.customer.models.customer import Customer
+from app.contact.api.contacts import CONTACT_SORT_FIELDS
+from app.contact.models.contact import Contact
 from app.sales.api.deals import DEAL_SORT_FIELDS
 from app.sales.models.deal import SalesDeal
 from tests.postgres_only import POSTGRES_SQL
@@ -51,12 +51,12 @@ def _assert_served(plan: str, index: str) -> None:
 @POSTGRES_SQL
 @pytest.mark.parametrize(
     ("sort", "index"),
-    [("lastName:asc", "ix_customer_group_id_last_name"), ("companyName:asc", "ix_customer_company_name")],
+    [("lastName:asc", "ix_contact_group_id_last_name"), ("companyName:asc", "ix_contact_company_name")],
 )
-def test_the_customer_list_reads_its_name_indexes_in_order(db_session, sort, index):
+def test_the_contact_list_reads_its_name_indexes_in_order(db_session, sort, index):
     group_id = uuid.uuid4()
-    base = select(Customer).where(Customer.group_id == group_id)
-    stmt, _ = _statement(base, Customer, sort, CUSTOMER_SORT_FIELDS)
+    base = select(Contact).where(Contact.group_id == group_id)
+    stmt, _ = _statement(base, Contact, sort, CONTACT_SORT_FIELDS)
     _assert_served(_plan(db_session, stmt), index)
 
 

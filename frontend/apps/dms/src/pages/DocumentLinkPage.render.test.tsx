@@ -7,7 +7,7 @@ import { renderWithProviders } from '../test/renderWithProviders'
 import { installFakeBackend, status } from '../test/fakeBackend'
 import { DocumentLinkPage } from './DocumentLinkPage'
 
-// KAN-217 PR-4 (ADR-193): the customer's secure link `/d?lang=…#<token>`. The
+// KAN-217 PR-4 (ADR-193): the contact's secure link `/d?lang=…#<token>`. The
 // token is read from the fragment, taken out of the address bar, and sent in a
 // header — never in the URL the server sees.
 

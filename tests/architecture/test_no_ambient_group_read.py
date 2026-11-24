@@ -1,7 +1,7 @@
 """Architecture test (WP-3 PR-4, ADR-014/030): import-linter enforces
 cross-CONTEXT boundaries, but it's blind to what a query filters on — it
-cannot tell "Customer.group_id == principal.group_id" (this context's own
-rightful scope, established by PR-2) from "Customer.group_id ==
+cannot tell "Contact.group_id == principal.group_id" (this context's own
+rightful scope, established by PR-2) from "Contact.group_id ==
 <some other group>" (an ambient relaxation of the group boundary, which
 ADR-014/030 say must go through exactly one gated function). Same gap
 CLAUDE.md already documents for ADR-047's cross-context-write rule: it
@@ -45,30 +45,30 @@ _ALLOWED_FILES = {
     # predicate is supplied by the caller). Single-row shape:
     # model.id == entity_id AND model.group_id == group_id.
     _APP_ROOT / "core" / "tenancy.py",
-    # Customer's own native, unconditional group scope (PR-2): filtering
+    # Contact's own native, unconditional group scope (PR-2): filtering
     # by the CALLER's own group_id is not a boundary crossing, it's the
     # data's rightful scope.
-    _APP_ROOT / "customer" / "services" / "customer.py",
-    # KAN-617 split customer.py along its seams; the same reads, moved —
+    _APP_ROOT / "customer" / "services" / "contact.py",
+    # KAN-617 split contact.py along its seams; the same reads, moved —
     # not new ones (the KAN-121 precedent below). Each file is listed by
-    # name, so a new customer module with a group predicate still fails.
-    _APP_ROOT / "customer" / "services" / "customer_common.py",
-    _APP_ROOT / "customer" / "services" / "customer_merge.py",
-    _APP_ROOT / "customer" / "services" / "customer_search.py",
+    # name, so a new contact module with a group predicate still fails.
+    _APP_ROOT / "customer" / "services" / "contact_common.py",
+    _APP_ROOT / "customer" / "services" / "contact_merge.py",
+    _APP_ROOT / "customer" / "services" / "contact_search.py",
     _APP_ROOT / "customer" / "services" / "trade_in_holders.py",
     _APP_ROOT / "customer" / "services" / "vehicle_party.py",
     _APP_ROOT / "customer" / "services" / "vehicle_party_locks.py",
     _APP_ROOT / "customer" / "services" / "vehicle_party_reads.py",
     # KAN-524's vehicle merge, found by KAN-737's right-hand pattern: after the
     # merge moves the duplicate's party rows onto the survivor, each role is
-    # settled per customer group — `groups.get(party.customer_id) == group_id`
+    # settled per contact group — `groups.get(party.contact_id) == group_id`
     # partitions rows ALREADY loaded for the one merged vehicle, in Python, by
-    # each party's own customer's group. No query, no wider read.
+    # each party's own contact's group. No query, no wider read.
     _APP_ROOT / "customer" / "services" / "vehicle_merge.py",
     # The ADR-030 compliance layer built on top of tenancy.py's helper.
     _APP_ROOT / "customer" / "services" / "legal_basis.py",
     # KAN-218 (FR-A-44, ADR-014, ADR-166): the export of ONE Betrieb's
-    # customers — the group in the predicate is that Betrieb's own, handed in
+    # contacts — the group in the predicate is that Betrieb's own, handed in
     # by platform (`ExportScope.group_id`), never another's, narrowed further
     # to the Betrieb's relationship. Never a dealer-facing read: the worker's
     # export only.
@@ -97,14 +97,14 @@ _ALLOWED_FILES = {
     # up (a superuser role bypassing tenant scope entirely, not an
     # ambient relaxation of it for an ordinary dealer-facing read).
     _APP_ROOT / "platform" / "organisation" / "services" / "dealership.py",
-    # KAN-371, ADR-093: the History tab's names for a group-owned customer —
+    # KAN-371, ADR-093: the History tab's names for a group-owned contact —
     # a Betrieb's and a user's name, never more. The caller's own Betrieb
     # always; a sister Betrieb and its users only while the group's read is
     # enabled (ADR-030's joint-controller flag). A dealer-facing read, so it
     # sits in its own module rather than beside the staff-only listing above.
     _APP_ROOT / "platform" / "identity" / "services" / "group_labels.py",
     # KAN-722 (Anto, 2026-11-15): which Betrieb of the CALLER's group wrote a
-    # group customer's audit row — the group's Betriebe (the offboarded ones,
+    # group contact's audit row — the group's Betriebe (the offboarded ones,
     # or the one being exported) and the users whose only Betrieb in that
     # group is one of them. Ids only, never a row; the group is the
     # caller's own (the History tab: the token's group; the export: the
@@ -114,11 +114,11 @@ _ALLOWED_FILES = {
     _APP_ROOT / "platform" / "identity" / "services" / "audit_attribution.py",
     # KAN-722: the core exporter's half of that rule — a Betrieb's export (and
     # its last-write and snapshot checks) takes the audit rows of a group
-    # customer's History it wrote: `tenant_id` = the Betrieb's OWN group,
+    # contact's History it wrote: `tenant_id` = the Betrieb's OWN group,
     # handed in by platform (`ExportScope.group_id`), never another's, and
     # narrowed to the rows attributed to that Betrieb. The export job's read
-    # only, never a dealer-facing read — the customer exporter's precedent
-    # (customer/services/data_export.py above).
+    # only, never a dealer-facing read — the contact exporter's precedent
+    # (contact/services/data_export.py above).
     _APP_ROOT / "core" / "export_core.py",
     # KAN-218, found by KAN-737's right-hand pattern: platform's half of the
     # Betrieb export takes the ONE dealer_group row that is the Betrieb's own
@@ -128,7 +128,7 @@ _ALLOWED_FILES = {
     _APP_ROOT / "platform" / "administration" / "services" / "data_export_tables.py",
     # KAN-467, ADR-039 as amended (Anto, 2026-10-31: "it's on a group
     # level"): the Kontrollschild register is the dealer group's own, like
-    # the customer register above — every read and write filters by the
+    # the contact register above — every read and write filters by the
     # CALLER's group_id (from the token), never a wider one. Not a boundary crossing: the data's rightful scope.
     _APP_ROOT / "vehicle" / "services" / "plate.py",
 }
@@ -174,7 +174,7 @@ _PATTERNS: dict[str, re.Pattern[str]] = {
 # tenant_id=principal.group_id)` — scopes that helper's read to the whole group
 # without one `==` in sight. A call spans lines, so this is an AST check, not a
 # line pattern. The callees below are WRITES that file a group-owned record's
-# row under its group (ADR-014: a group customer's audit row and outbox event
+# row under its group (ADR-014: a group contact's audit row and outbox event
 # carry the group as tenant), never a read; any other callee — a new read helper
 # above all — is a finding unless its file is allow-listed above.
 _GROUP_TENANT_WRITERS = frozenset({"record_audit_event", "OutboxEvent"})
@@ -232,8 +232,8 @@ def test_no_ambient_group_filter_outside_the_sanctioned_files():
 
     assert not all_violations, (
         "Found a group-scoped filter predicate (group_id or dealer_group_id) outside "
-        "the sanctioned files (app/core/tenancy.py, app/customer/services/customer.py, "
-        "app/customer/services/legal_basis.py, app/platform/organisation/services/group_read_dealerships.py, "
+        "the sanctioned files (app/core/tenancy.py, app/contact/services/contact.py, "
+        "app/contact/services/legal_basis.py, app/platform/organisation/services/group_read_dealerships.py, "
         "app/platform/organisation/services/dealership.py, …; see _ALLOWED_FILES) — any other cross-group-boundary read "
         "must go through app.core.tenancy.get_group_read_or_404, never an ambient "
         "filter written inline elsewhere:\n" + "\n".join(all_violations)
@@ -261,22 +261,22 @@ def test_the_sanctioned_files_still_exist():
 
 _VIOLATIONS_BY_SPELLING = {
     "equality (==)": [
-        'stmt = stmt.where(Customer.group_id == other_group_id)',
+        'stmt = stmt.where(Contact.group_id == other_group_id)',
         'stmt = stmt.where(Dealership.dealer_group_id == requested_group_id)',
         # A join condition — the same == syntax, proving no separate
         # "join condition" pattern was needed.
         'query.join(Dealership, Dealership.dealer_group_id == DealerGroup.id)',
     ],
     "membership (.in_())": [
-        'stmt = stmt.where(Customer.group_id.in_(other_group_ids))',
+        'stmt = stmt.where(Contact.group_id.in_(other_group_ids))',
         'stmt = stmt.where(Dealership.dealer_group_id.in_(other_group_ids))',
     ],
     "filter_by(group_id=…)": [
-        'rows = db.query(Customer).filter_by(group_id=other_group_id).all()',
+        'rows = db.query(Contact).filter_by(group_id=other_group_id).all()',
         'rows = db.query(Dealership).filter_by(dealer_group_id=other_group_id).all()',
     ],
     "raw SQL (text(…))": [
-        'db.execute(text("SELECT * FROM customer WHERE group_id = :gid"), {"gid": other_group_id})',
+        'db.execute(text("SELECT * FROM contact WHERE group_id = :gid"), {"gid": other_group_id})',
     ],
     "group id on the right (== …group_id)": [
         # KAN-737's two real shapes: export_core's audit predicate and
@@ -288,9 +288,9 @@ _VIOLATIONS_BY_SPELLING = {
 }
 
 _SAFE_WRITES_BY_SPELLING = {
-    "equality (==)": ['customer = Customer(group_id=group_id, first_name="Anna")'],
-    "membership (.in_())": ['stmt = stmt.where(Customer.id.in_(ids))'],
-    "filter_by(group_id=…)": ['customer = Customer(group_id=group_id, first_name="Anna")'],
+    "equality (==)": ['contact = Contact(group_id=group_id, first_name="Anna")'],
+    "membership (.in_())": ['stmt = stmt.where(Contact.id.in_(ids))'],
+    "filter_by(group_id=…)": ['contact = Contact(group_id=group_id, first_name="Anna")'],
     "raw SQL (text(…))": ['db.execute(text("SELECT 1"))'],
     "group id on the right (== …group_id)": [
         "stmt = stmt.where(AuditEvent.tenant_id == principal.tenant_id)",
@@ -325,18 +325,18 @@ def test_plate_group_id_is_never_confused_with_group_id():
 
 
 def test_a_group_id_handed_to_a_read_as_its_tenant_is_caught():
-    """KAN-737: customers.py before KAN-722 called
+    """KAN-737: contacts.py before KAN-722 called
     `list_audit_events(…, tenant_id=principal.group_id)` — over several
     lines, no `==` anywhere. The AST check must see it; the group-owned
     WRITES (an audit row, an outbox event) must stay unflagged."""
 
-    read = "rows = list_audit_events(\n    db,\n    entity_id=customer.id,\n    tenant_id=principal.group_id,\n)\n"
+    read = "rows = list_audit_events(\n    db,\n    entity_id=contact.id,\n    tenant_id=principal.group_id,\n)\n"
     assert _group_tenant_kwargs(read) == [(4, "list_audit_events(tenant_id=principal.group_id)")]
     bare = "rows = audit.list_events(db, tenant_id=group_id)\n"
     assert _group_tenant_kwargs(bare) == [(1, "list_events(tenant_id=group_id)")]
     writes = (
-        "record_audit_event(db, tenant_id=customer.group_id, action='x')\n"
-        "db.add(OutboxEvent(tenant_id=group_id, event_type='customer.created'))\n"
+        "record_audit_event(db, tenant_id=contact.group_id, action='x')\n"
+        "db.add(OutboxEvent(tenant_id=group_id, event_type='contact.created'))\n"
         "list_audit_events(db, tenant_id=principal.tenant_id)\n"
     )
     assert _group_tenant_kwargs(writes) == []

@@ -36,8 +36,8 @@ from app.platform.identity.models.mfa import MfaTotp
 from app.platform.identity.models.user import User, UserStatus
 from app.platform.identity.models.user_preference import UserPreference
 from app.platform.identity.services import auth_tokens, identity, mfa
-from tests.customer.test_customer_vehicle import _create_dealer
-from tests.customer.test_customer_vehicle_party_close_rule import (
+from tests.contact.test_contact_vehicle import _create_dealer
+from tests.contact.test_contact_vehicle_party_close_rule import (
     _postgres_only,
     _run,
     _wait_until_a_backend_waits_on_a_lock,
@@ -157,14 +157,14 @@ def test_a_first_preference_save_racing_another_overwrites_it(engine, client, ma
     anna = create_user(client, dealership)
     cookie = PasswordLogin(client, mailbox).session_cookie(anna)
     held = _held(engine)
-    held.add(UserPreference(user_id=uuid.UUID(anna["id"]), scope="grid.customers", payload={"density": "compact"}))
+    held.add(UserPreference(user_id=uuid.UUID(anna["id"]), scope="grid.contacts", payload={"density": "compact"}))
     held.flush()
 
     response = _while_held(
         engine,
         held,
         lambda: client.put(
-            "/v1/me/preferences/grid.customers",
+            "/v1/me/preferences/grid.contacts",
             json={"schemaVersion": 1, "density": "comfortable"},
             headers=cookie_headers(cookie),
         ),

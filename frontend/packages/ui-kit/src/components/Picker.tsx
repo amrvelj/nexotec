@@ -4,7 +4,7 @@ import { purple, radius, slate, spacing } from "../tokens";
 
 export interface PickerRow {
   id: string;
-  /** Rendered first, in mono — a customer number, a plate, a VIN. An
+  /** Rendered first, in mono — a contact number, a plate, a VIN. An
    * exact match here ranks above a fuzzy name match, since someone
    * reading a number off a document is not guessing (§ Component
    * Contracts — The picker). */
@@ -45,7 +45,7 @@ interface PickerBaseProps {
 export type PickerProps = PickerBaseProps & PickerCreateProps;
 
 /**
- * § Component Contracts — The picker. "Which customer?", "which
+ * § Component Contracts — The picker. "Which contact?", "which
  * vehicle?" and "which trade-in?" are the same gesture: type a few
  * characters, read a short ranked list, recognise the row, pick it.
  * Nothing is preselected — a form that opens with a value already filled

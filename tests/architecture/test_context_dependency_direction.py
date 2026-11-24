@@ -4,8 +4,8 @@ are a debt list that may only shrink.
 
 import-linter (CLAUDE.md rule 3, `pyproject.toml`) makes `<context>.public`
 the only door into a context. It says nothing about *direction*: before this
-test the contexts called each other in circles (platform ↔ customer,
-inventory ↔ sales, valuation ↔ sales, vehicle ↔ customer, …). A context that
+test the contexts called each other in circles (platform ↔ contact,
+inventory ↔ sales, valuation ↔ sales, vehicle ↔ contact, …). A context that
 calls upward cannot be extracted or tested without the contexts above it,
 which is what ADR-015's «extraction is triggered, not scheduled» assumes.
 
@@ -13,11 +13,11 @@ which is what ADR-015's «extraction is triggered, not scheduled» assumes.
 `public` of a context with a LOWER rank, never one with the same or a higher
 rank:
 
-    core · platform · integration · vehicle · customer · valuation ·
+    core · platform · integration · vehicle · contact · valuation ·
     inventory (parts beside it) · sales (aftersales beside it) · finance ·
     reporting and compliance (on top, consuming events only)
 
-`customer` sits above `vehicle`: `VehicleParty` is customer-owned data about a
+`contact` sits above `vehicle`: `VehicleParty` is contact-owned data about a
 vehicle, and vehicle master data serves every context above it (ADR-131 gives
 the reasoning). Contexts that share a rank ("beside") are peers and import
 each other in neither direction. The composition roots directly under `app/`
@@ -89,7 +89,7 @@ _TOP_LEVEL: dict[str, int] = {
     # KAN-223: names every context's status-page contribution for
     # app.core.status's registry, as ownership_registry does for ownership.
     "status_registry": _COMPOSITION_ROOT_RANK,
-    # KAN-217: names every module's customer message types for platform's
+    # KAN-217: names every module's contact message types for platform's
     # send-dialog registry, as status_registry does for the status page.
     "message_type_registry": _COMPOSITION_ROOT_RANK,
 }
@@ -201,7 +201,7 @@ def test_no_upward_import_outside_the_debt_list() -> None:
     new = {key: where for key, where in found.items() if key not in _DEBT}
     assert not new, (
         "A context imports a context at its own rank or above it (ADR-131: calls go down the "
-        "layer order core · platform · integration · vehicle · customer · valuation · inventory/parts · "
+        "layer order core · platform · integration · vehicle · contact · valuation · inventory/parts · "
         "sales/aftersales · finance · reporting/compliance). Carry the fact in an event and keep a local "
         "projection, or have the higher context pass it in the call. Do not add to the debt list:\n"
         + "\n".join(f"  {w}  imports {key[2] or key[1]} from {key[1]}" for key, ws in new.items() for w in ws)

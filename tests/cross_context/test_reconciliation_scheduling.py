@@ -22,7 +22,7 @@ from app.core.daily_scheduler import _REGISTRY, registered_job_names, run_due_da
 from app.core.daily_scheduler_model import DailyJobRun
 from app.core.reconciliation import seconds_since_last_reconciliation
 from app.core.reconciliation_model import ReconciliationOrphan, ReconciliationRun
-from app.customer.models.vehicle_party import VehicleParty, VehiclePartyRole
+from app.contact.models.vehicle_party import VehicleParty, VehiclePartyRole
 from app.reconciliation_runner import run_all_daily
 
 _RECONCILIATION_JOB_NAME = "reconciliation.run_all"
@@ -40,11 +40,11 @@ def _clean_registry():
 
 def _orphan_vehicle_party(db_session) -> None:
     """One VehicleParty whose vehicle_id resolves to nothing — a dangling
-    customer -> vehicle reference, the exact drift the dropped FK used to
+    contact -> vehicle reference, the exact drift the dropped FK used to
     make impossible."""
 
     db_session.add(
-        VehicleParty(vehicle_id=uuid.uuid4(), customer_id=uuid.uuid4(), role=VehiclePartyRole.OWNER)
+        VehicleParty(vehicle_id=uuid.uuid4(), contact_id=uuid.uuid4(), role=VehiclePartyRole.OWNER)
     )
     db_session.commit()
 

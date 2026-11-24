@@ -82,7 +82,7 @@ def test_copy_offer_never_carries_over_cancellation_state(db_session):
     tenant_id = uuid.uuid4()
     source = create_offer(db_session, tenant_id=tenant_id, actor_id=uuid.uuid4())
     source.status = OfferStatus.CANCELLED
-    source.cancelled_reason = "Customer changed their mind"
+    source.cancelled_reason = "Contact changed their mind"
     db_session.commit()
 
     copy = copy_offer(db_session, source=source, actor_id=uuid.uuid4())

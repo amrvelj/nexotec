@@ -5,7 +5,7 @@ import { purple, radius, shimmer, slate, spacing, white } from "../tokens";
 
 export interface GlobalSearchResultItem {
   id: string;
-  /** Rendered first, in mono — a customer number, a VIN. Same "identifiers
+  /** Rendered first, in mono — a contact number, a VIN. Same "identifiers
    * rank first" rule as § Component Contracts — The picker. */
   identifier?: string;
   label: string;
@@ -15,7 +15,7 @@ export interface GlobalSearchResultItem {
 
 export interface GlobalSearchGroup {
   key: string;
-  /** Translated group heading, e.g. "Customers", "Vehicles". */
+  /** Translated group heading, e.g. "Contacts", "Vehicles". */
   label: string;
   items: GlobalSearchResultItem[];
 }

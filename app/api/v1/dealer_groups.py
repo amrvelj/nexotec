@@ -5,9 +5,9 @@ feature flag once a legal-basis record exists.
 
 Why this route lives in `app/api` and not in `app/platform/api`: the flip is
 platform's write, but its precondition — has a legal basis ever been
-recorded for the group? — is customer's fact, and customer sits above
-platform in the layer order (ADR-131). platform never imports customer, so
-the route, which may import every context, asks customer and passes the
+recorded for the group? — is contact's fact, and contact sits above
+platform in the layer order (ADR-131). platform never imports contact, so
+the route, which may import every context, asks contact and passes the
 answer into platform's service. Path, method, response and refusals are
 unchanged.
 """
@@ -19,7 +19,7 @@ from sqlalchemy.orm import Session
 
 from app.core.auth import Principal, require_access_role
 from app.core.idempotent_route import IdempotentRoute
-from app.customer.public import has_any_basis_for_group
+from app.contact.public import has_any_basis_for_group
 from app.db import get_db
 from app.platform import public as platform
 

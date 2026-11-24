@@ -49,7 +49,7 @@ describe('UserDeactivateDialog (KAN-200)', () => {
         match: /\/users\/u-1\/ownership$/,
         handler: () => ({
           groups: [
-            { module: 'customer', group: 'customers', count: 12 },
+            { module: 'customer', group: 'contacts', count: 12 },
             { module: 'sales', group: 'offers', count: 3 },
           ],
           modules: ['aftersales', 'customer', 'inventory', 'parts', 'sales'],
@@ -61,7 +61,7 @@ describe('UserDeactivateDialog (KAN-200)', () => {
         handler: () => ({
           user: { ...LEAVER, status: 'deactivated', version: 5 },
           transfers: [
-            { module: 'customer', group: 'customers', toUserId: 'u-2', count: 12 },
+            { module: 'customer', group: 'contacts', toUserId: 'u-2', count: 12 },
             { module: 'sales', group: 'offers', toUserId: null, count: 3 },
           ],
         }),
@@ -104,7 +104,7 @@ describe('UserDeactivateDialog (KAN-200)', () => {
       reason: 'ausgetreten per 30.9.',
       employmentStatus: 'terminated',
       transfers: [
-        { module: 'customer', group: 'customers', toUserId: 'u-2' },
+        { module: 'customer', group: 'contacts', toUserId: 'u-2' },
         { module: 'sales', group: 'offers', toUserId: null },
       ],
     })
@@ -195,7 +195,7 @@ describe('UserDeactivateDialog (KAN-200)', () => {
               details: {
                 problems: [
                   { module: 'sales', group: 'offers', reason: 'colleague_cannot_act_there', count: 1, message: 'sales/offers: 1 of these records belong to another business the colleague cannot act in — …' },
-                  { module: 'customer', group: 'customers', reason: 'undecided', message: 'customer/customers: needs a decision: a colleague, or null to leave it unassigned' },
+                  { module: 'customer', group: 'contacts', reason: 'undecided', message: 'contact/contacts: needs a decision: a colleague, or null to leave it unassigned' },
                 ],
                 openGroups: [],
               },

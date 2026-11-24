@@ -182,8 +182,8 @@ describe('DmsShell — a refused dealership switch is said (KAN-237)', () => {
 })
 
 function SessionProbePage() {
-  // Any screen's own request — here, the customer list the page would load.
-  const query = useQuery({ queryKey: ['probe'], queryFn: () => api.get('/customers') })
+  // Any screen's own request — here, the contact list the page would load.
+  const query = useQuery({ queryKey: ['probe'], queryFn: () => api.get('/contacts') })
   return <p>{query.isError ? 'request failed' : 'page'}</p>
 }
 
@@ -194,7 +194,7 @@ describe('DmsShell — a 401 from any API call ends the client session (KAN-237)
       [
         {
           method: 'GET',
-          match: /^\/customers$/,
+          match: /^\/contacts$/,
           handler: () => status(401, { error: { code: 'unauthorized', message: 'Not authenticated', details: null } }),
         },
       ],
@@ -206,7 +206,7 @@ describe('DmsShell — a 401 from any API call ends the client session (KAN-237)
             (pages/LoginPage.render.test.tsx); this stands in for its route. */}
         <Route path="/login" element={<p>login screen</p>} />
         <Route
-          path="/customers"
+          path="/contacts"
           element={
             <ProtectedRoute>
               <DmsShell>
@@ -216,7 +216,7 @@ describe('DmsShell — a 401 from any API call ends the client session (KAN-237)
           }
         />
       </Routes>,
-      { route: '/customers' },
+      { route: '/contacts' },
     )
 
     expect(await screen.findByText('login screen')).toBeInTheDocument()
