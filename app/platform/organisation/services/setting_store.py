@@ -21,7 +21,9 @@ nothing.
 **Restore** (Anto, 2026-11-24: kept for the settings store only; D-A-39 /
 KAN-219 stay dropped elsewhere): a restore is itself a change, written like
 an edit with `origin = restore` and the change it brought back; the old value
-is checked against today's declaration first.
+is checked against today's declaration first. Restoring the value the slot
+already holds changes nothing, so it writes nothing (as any edit that
+changes nothing).
 
 A location is never a scoping boundary (`platform-admin.md`): a location of
 another Betrieb is not found, and an inactive location's own value is not
@@ -212,7 +214,7 @@ def _still_fits(declaration: SettingDeclaration, row: SettingValue) -> bool:
         validate_value(declaration, _value_of(row))
     except SettingValueError as exc:
         logger.warning(
-            "Setting %s of Betrieb %s (location %s) no longer fits its declaration (%s): read as not set.",
+            "Setting %s of business %s (location %s) no longer fits its declaration (%s): read as not set.",
             row.key, row.dealership_id, row.location_id, exc,
         )
         return False

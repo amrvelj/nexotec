@@ -485,3 +485,16 @@ def test_the_betriebs_settings_rows_reach_its_export_and_no_other(client, db_ses
         scope = ExportScope(dealership_id=betrieb, group_id=uuid.uuid4())
         rows = db_session.execute(select(exported.table).where(exported.scope(scope))).all()
         assert [row.dealership_id for row in rows] == [betrieb], name
+
+
+def test_restoring_the_value_the_slot_already_holds_writes_nothing(db_session, betrieb, samples):
+    _change(db_session, betrieb, s.WAIT.key, Decimal(10))
+    _change(db_session, betrieb, s.WAIT.key, Decimal(20))
+    _change(db_session, betrieb, s.WAIT.key, Decimal(10))
+    first = store.setting_history(db_session, dealership_id=betrieb, location_id=None, key=s.WAIT.key)[-1]
+
+    slot = store.restore_change(db_session, dealership_id=betrieb, change_id=first.id, expected_version=3, actor_id=None)
+    db_session.commit()
+
+    assert (slot.value, slot.version) == (Decimal(10), 3)
+    assert len(store.setting_history(db_session, dealership_id=betrieb, location_id=None, key=s.WAIT.key)) == 3
