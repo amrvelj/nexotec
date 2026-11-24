@@ -53,6 +53,7 @@ from app.platform.organisation.models.location_schedule import LocationClosure
 from app.platform.organisation.models.module_entitlement import ModuleEntitlement
 from app.platform.organisation.models.number_range import NumberRange
 from app.platform.organisation.models.publishing_profile import LocationLeadRouting, PublishingProfile
+from app.platform.organisation.models.setting_value import SettingValue, SettingValueChange
 from app.platform.reference.models.reference_data import ReferenceList, ReferenceValue
 from app.platform.reference.models.ui_translation import UiTranslation
 
@@ -95,6 +96,8 @@ ACTOR_TABLES = (
     PlatformStatusIncident,  # created_by / updated_by: the staff user who opened or edited it (KAN-223)
     SupportSession,  # created_by / updated_by: the staff member or the user who ended it (KAN-221)
     DocumentLink,  # created_by / updated_by: the user whose send issued the link (KAN-217)
+    SettingValue,  # created_by / updated_by: the manager who wrote the slot (KAN-805)
+    SettingValueChange,  # created_by: who made the change (KAN-805)
 )
 
 # KAN-412 (FR-AU-24, rule 10): a revoked grant's provider end is recorded by

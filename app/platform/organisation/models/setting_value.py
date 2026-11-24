@@ -35,6 +35,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.base import PrimaryKeyMixin, TimestampMixin, VersionedMixin
 from app.core.enum_type import StoredEnum
+from app.core.text_collation import IDENTIFIER_TEXT
 from app.core.types import GUID, UTCDateTime
 from app.db import Base
 from app.platform.organisation.services.setting_declarations import SettingKind
@@ -70,7 +71,8 @@ def _value_matches_kind() -> str:
 
 
 class _ValueColumns:
-    key: Mapped[str] = mapped_column(String(64), nullable=False)
+    # A code (`<area>.<name>`), sorted byte-wise (ADR-190).
+    key: Mapped[str] = mapped_column(String(64), nullable=False, info=IDENTIFIER_TEXT)
     kind: Mapped[SettingKind] = mapped_column(StoredEnum(SettingKind, length=16), nullable=False)
     state: Mapped[SettingState] = mapped_column(StoredEnum(SettingState, length=16), nullable=False)
     value_switch: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
