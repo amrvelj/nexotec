@@ -19,7 +19,7 @@ from app.platform.documents.models.standard_text import StandardText
 from app.platform.organisation.models.module_entitlement import ModuleEntitlement
 from app.platform.organisation.models.number_range import NumberRange, NumberRangeDocumentType
 from tests.membership_support import bearer, create_dealership, create_user, grant, platform_admin, token
-from tests.postgres_only import ROW_LOCKS
+from tests.postgres_only import ROW_LOCKS, SAVEPOINT_ROLLBACK
 
 OFFER = NumberRangeDocumentType.OFFER
 
@@ -189,6 +189,7 @@ def test_platform_staff_hold_no_manager_flag_and_get_404(client, engine, standar
 # --- what is copied ----------------------------------------------------------------------------
 
 
+@SAVEPOINT_ROLLBACK
 def test_the_dry_run_lists_exactly_what_the_commit_then_does_and_writes_nothing(client, engine, standard_text_seeds):
     source, target, _, in_target, in_source = _pair(client, engine)
     _configure_source(client, source, in_source)
@@ -394,6 +395,7 @@ def test_a_text_the_target_cannot_take_is_skipped_and_the_rest_is_copied(client,
     assert _rows(engine, StandardText, dealership_id=uuid.UUID(target)) == []
 
 
+@SAVEPOINT_ROLLBACK
 def test_a_copied_default_that_replaces_the_targets_own_is_listed_in_the_preview(client, engine, standard_text_seeds):
     source, target, _, in_target, in_source = _pair(client, engine)
     in_target_own = _create_text(

@@ -1240,10 +1240,6 @@ def _script_files(root: Path) -> list[Path]:
     return sorted(path for path in root.rglob("*.py") if "__pycache__" not in path.parts)
 
 
-def _script_docstring(path: Path) -> str:
-    return ast.get_docstring(_parse(path)) or ""
-
-
 def _context_internal_imports(path: Path, contexts: frozenset[str]) -> frozenset[str]:
     """The `app.<context>.<models|services>.<module>` modules a file imports,
     at module level or inside a function, by any of the three spellings

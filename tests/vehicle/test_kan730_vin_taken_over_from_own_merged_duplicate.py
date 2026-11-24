@@ -29,6 +29,7 @@ from app.vehicle.services.merge import merge_vehicles
 from app.vehicle.services.vehicle_mdm import create_vehicle_mdm
 from tests.inventory.test_inventory_purchase_promotes import VIN
 from tests.inventory.test_inventory_vin_correction import REASON, _audit, _bought, _correct, _manager, _state
+from tests.postgres_only import UUID_IN_RAW_SQL
 
 RIGHT_VIN = "WVWZZZ1KZAW730101"
 OTHER_VIN = "WVWZZZ1KZAW730102"
@@ -218,6 +219,7 @@ def _correct_directly(db_session, car_id: uuid.UUID):
     )
 
 
+@UUID_IN_RAW_SQL
 def test_a_vin_written_to_the_duplicate_before_the_lock_is_not_overwritten(db_session, monkeypatch):
     """The duplicate is re-read under its lock and judged again: it no longer
     carries the VIN, so nothing is swapped and the other write stands."""
@@ -240,6 +242,7 @@ def test_a_vin_written_to_the_duplicate_before_the_lock_is_not_overwritten(db_se
     assert db_session.get(VehicleMdm, car_id).vin == VIN
 
 
+@UUID_IN_RAW_SQL
 def test_another_write_to_the_duplicate_before_the_lock_keeps_its_own_version(db_session, monkeypatch):
     car_id, duplicate = _car_and_duplicate(db_session)
     version_before = duplicate.version

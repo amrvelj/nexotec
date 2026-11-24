@@ -13,6 +13,7 @@ from app.core.base import utcnow
 from app.sales.models.contract import ContractStatus, SalesContract
 from app.valuation.models.contract_carry import ContractCarryState, ValuationContractCarry
 from scripts.backfill_valuation_contract_carry import PENDING_GRACE, backfill, render
+from tests.postgres_only import SAVEPOINT_ROLLBACK
 from tests.sales.test_sales_lifecycle_reservation import _dealership
 from tests.sales.test_sales_trade_in_valuation_use import _valuation
 
@@ -49,6 +50,7 @@ def _pending_row(db_session, tenant_id, valuation_id, contract_id, *, age: dt.ti
     db_session.commit()
 
 
+@SAVEPOINT_ROLLBACK
 def test_the_backfill_dry_runs_then_writes_each_contracts_carry_once(db_session):
     dealership = _dealership(db_session)
     group_id = uuid.uuid4()

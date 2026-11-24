@@ -17,6 +17,7 @@ import uuid
 from app.core.auth import AccessRole
 from app.core.permissions import writable_capabilities
 from tests.membership_support import bearer, create_dealership, token
+from tests.postgres_only import NEEDS_ITS_OWN_CONNECTION
 
 
 def _as(dealership: str, role: AccessRole | None = None, *, manager: bool = False) -> dict[str, str]:
@@ -193,6 +194,7 @@ def _merge(client, headers, duplicate, survivor):
     )
 
 
+@NEEDS_ITS_OWN_CONNECTION
 def test_inventory_merges_suppliers_but_not_a_customer(client):
     dealership = create_dealership(client)
     sales = _as(dealership, AccessRole.SALES)

@@ -55,6 +55,7 @@ from tests.cross_context.test_kan189_trade_in_without_register import (
     _contact_consumes,
     _parties,
 )
+from tests.postgres_only import POSTGRES_SQL
 from tests.pre_rename_names import pre_rename_names
 from tests.sales.test_sales_lifecycle_reservation import _contact, _dealership
 
@@ -305,6 +306,7 @@ def _seed_sql() -> str:
     return module._SEED
 
 
+@POSTGRES_SQL
 def test_the_migration_seeds_bookings_consumed_before_it_so_a_stale_storno_stays_stale(db_session, engine):
     """P1 consumed → S1 (returned) undelivered → P2 consumed — all before the
     deploy, when no booking record existed. The migration seeds it from the

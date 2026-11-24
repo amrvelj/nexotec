@@ -25,8 +25,8 @@ from app.core.base import utcnow
 from app.core.errors import BadRequestError, NotFoundError
 
 # --- VehicleParty: contact-to-vehicle relationships (Contact PRD D-12,
-# FR-10). Vehicle is tenant-agnostic (no tenant_id — a VIN is global, see
-# app/models/vehicle.py), so the tenant boundary here is enforced purely by
+# FR-10). A vehicle-mdm record is global (ADR-022: no tenant_id, a VIN is
+# global), so the tenant boundary here is enforced purely by
 # resolving `contact` through get_contact_or_404 before any of these run;
 # the vehicle_id itself is looked up with no tenant filter, same as every
 # other vehicle lookup in the codebase.

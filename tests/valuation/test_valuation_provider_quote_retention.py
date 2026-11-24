@@ -17,12 +17,13 @@ import uuid
 from decimal import Decimal
 
 import pytest
-from sqlalchemy import func, select, text, update
+from sqlalchemy import bindparam, func, select, text, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker
 
 from app.core.audit_model import AuditEvent
 from app.core.base import utcnow
+from app.core.types import GUID
 from app.valuation import daily_jobs
 from app.valuation.daily_jobs import run_daily_unused_provider_quote_purge
 from app.valuation.models.valuation import (
@@ -198,7 +199,9 @@ def test_the_database_refuses_to_delete_a_quote_a_valuation_references(db_sessio
     _valuation_on(db_session, used)
 
     with pytest.raises(IntegrityError):
-        db_session.execute(text("DELETE FROM valuation_provider_quote WHERE id = :id"), {"id": used})
+        # Typed bind: the GUID type renders the id for either database.
+        delete = text("DELETE FROM valuation_provider_quote WHERE id = :id").bindparams(bindparam("id", type_=GUID))
+        db_session.execute(delete, {"id": used})
         db_session.flush()
     db_session.rollback()
     assert _exists(db_session, used)

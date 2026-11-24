@@ -25,6 +25,7 @@ from app.vehicle.services.merge import merge_vehicle_records, merge_vehicles
 from app.vehicle.services.vehicle_mdm import create_vehicle_mdm
 from tests.inventory.test_inventory_vin_correction import REASON
 from tests.inventory.test_kan535_chassis_number_purchase import CHASSIS, PRE_1981
+from tests.postgres_only import ROW_LOCKS, UUID_IN_RAW_SQL
 from tests.vehicle.test_kan730_vin_taken_over_from_own_merged_duplicate import (
     RIGHT_VIN,
     SLIPPED_VIN,
@@ -62,6 +63,7 @@ def _move_vin(session: Session, record_id: uuid.UUID, vin: str) -> None:
 # --- 1. the refusal after a race ---------------------------------------------------
 
 
+@UUID_IN_RAW_SQL
 def test_nobody_carrying_the_vin_after_the_race_is_vehicle_vin_changed(db_session, monkeypatch):
     car_id, duplicate = _car_and_duplicate(db_session)
     _race(db_session, monkeypatch, lambda s: _move_vin(s, duplicate.id, SLIPPED_VIN))
@@ -74,6 +76,7 @@ def test_nobody_carrying_the_vin_after_the_race_is_vehicle_vin_changed(db_sessio
     assert db_session.get(VehicleMdm, car_id).vin == VIN
 
 
+@UUID_IN_RAW_SQL
 def test_a_live_record_taking_the_vin_in_the_race_is_named(db_session, monkeypatch):
     car_id, duplicate = _car_and_duplicate(db_session)
     taken: list[str] = []
@@ -153,6 +156,7 @@ def test_a_chassis_number_record_takes_the_number_over_from_its_own_merged_dupli
 # --- 3. no lock cycle with a re-merge of the pair ----------------------------------
 
 
+@ROW_LOCKS
 def test_a_re_merge_of_the_pair_is_refused_without_waiting_for_the_survivor(db_session):
     """A correction holds the survivor's row lock and goes for its duplicate's.
     The re-merge must not take the duplicate's lock and then wait for the
