@@ -27,7 +27,8 @@
     "fields": {
       "googleLocation": "Sede Google",
       "drift": "Confronto con Google",
-      "unmapped": "Non mostrato su Google"
+      "unmapped": "Non mostrato su Google",
+      "photos": "Foto"
     },
     "drift": {
       "never": "Non ancora verificato – il confronto avviene ogni notte.",
@@ -74,6 +75,17 @@
       "failedTitle": "Il collegamento con Google non è riuscito",
       "back": "Alle integrazioni",
       "expired": "Questo accesso è scaduto o è già stato usato. Ricominciate, per favore."
+    },
+    "photos": {
+      "uploaded_one": "{{count, number}} su Google",
+      "uploaded_other": "{{count, number}} su Google",
+      "refused_one": "{{count, number}} rifiutata",
+      "refused_other": "{{count, number}} rifiutate",
+      "waiting_one": "{{count, number}} in attesa di trasferimento",
+      "waiting_other": "{{count, number}} in attesa di trasferimento",
+      "none": "Ancora nessuna immagine – le caricate in Pubblicazione.",
+      "stopped": "Il trasferimento è interrotto. La pagina Stato ne indica il motivo; la prossima modifica della sede lo riavvia.",
+      "refusedHint": "Google non accetta un’immagine rifiutata per le sue dimensioni o il suo formato. Sostituitela in Pubblicazione."
     }
   }
 }

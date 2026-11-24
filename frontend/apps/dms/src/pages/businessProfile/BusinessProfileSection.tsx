@@ -178,6 +178,7 @@ function LocationCard({
           {t('businessProfile.card.drift.hint')}
         </Text>
       )}
+      {binding?.status === 'active' && binding.photos && <PhotosRows photos={binding.photos} />}
       {binding && (binding.unmappedDepartments ?? []).length > 0 && (
         <>
           <KeyValueRow label={t('businessProfile.card.fields.unmapped')}>
@@ -234,6 +235,29 @@ function LocationCard({
         </Stack>
       </Modal>
     </OverviewCard>
+  )
+}
+
+// KAN-821: what the photo upload did with the location's imagery, from Nexotec's own records.
+function PhotosRows({ photos }: { photos: NonNullable<BusinessProfileBindingRead['photos']> }) {
+  const { t } = useTranslation()
+  const parts = [
+    photos.uploaded > 0 && t('businessProfile.card.photos.uploaded', { count: photos.uploaded }),
+    photos.refused > 0 && t('businessProfile.card.photos.refused', { count: photos.refused }),
+    photos.waiting > 0 && t('businessProfile.card.photos.waiting', { count: photos.waiting }),
+  ].filter((part): part is string => Boolean(part))
+  return (
+    <>
+      <KeyValueRow label={t('businessProfile.card.fields.photos')}>
+        {parts.length > 0 ? parts.join(' · ') : t('businessProfile.card.photos.none')}
+      </KeyValueRow>
+      {photos.stopped && <Text size="sm">{t('businessProfile.card.photos.stopped')}</Text>}
+      {photos.refused > 0 && (
+        <Text size="xs" c={slate[5]}>
+          {t('businessProfile.card.photos.refusedHint')}
+        </Text>
+      )}
+    </>
   )
 }
 

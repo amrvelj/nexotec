@@ -215,7 +215,7 @@ def _google(db: Session) -> Iterator[GoogleBusinessProfileAdapter]:
         yield cast(GoogleBusinessProfileAdapter, raw)
 
 
-def _pending(
+def pending_uploads(
     db: Session, binding: GbpLocationBinding, images: tuple[ChannelImage, ...]
 ) -> list[tuple[ChannelImage, str]]:
     """The images still to upload, with their category. An image already at
@@ -403,7 +403,7 @@ def run_photo_job(
             _settle_done(db, claim)
             return PhotoPassResult(PhotoPassOutcome.DROPPED)
         _forget_refusals_of_removed_images(db, binding, imagery.images)
-        pending = _pending(db, binding, imagery.images)
+        pending = pending_uploads(db, binding, imagery.images)
         if not pending:
             _settle_done(db, claim)
             return PhotoPassResult(PhotoPassOutcome.DONE)

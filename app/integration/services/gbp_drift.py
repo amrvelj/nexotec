@@ -37,8 +37,9 @@ is compared on what Nexotec sends, normalised the way Google answers:
   change is at Google by now, and one that is not is drift. A day at Google
   with special opening hours (not closed) in the window is drift.
 
-**Not compared:** photos (Nexotec never deletes a photo at Google, ADR-199,
-and uploads none yet, KAN-784); a deactivated location — Nexotec pushes
+**Not compared:** photos (Nexotec never deletes a photo at Google, ADR-199;
+the card's «Fotos» line counts what the upload did from Nexotec's own records,
+`gbp_photo_summary`, KAN-821); a deactivated location — Nexotec pushes
 nothing for it and never marks it closed (ADR-199), so it is `skipped`, not
 drift; a binding that is not active (pending, in error, disconnected).
 

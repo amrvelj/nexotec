@@ -227,4 +227,53 @@ describe('Google’s callback (KAN-226 PR-4)', () => {
     expect(await screen.findByText(i18n.t('businessProfile.card.callback.expired'))).toBeInTheDocument()
     expect(backend.callsTo(/link-callback$/)).toHaveLength(0)
   })
+
+  // KAN-821: the card's «Fotos» line, from Nexotec's own upload records.
+  it('counts the photos at Google, the refused and the waiting ones', async () => {
+    installFakeBackend(routes([binding({ photos: { uploaded: 3, refused: 1, waiting: 2, stopped: false } })]))
+    renderWithProviders(<BusinessProfileSection />)
+
+    expect(await screen.findByText('3 bei Google · 1 abgelehnt · 2 warten auf die Übertragung')).toBeInTheDocument()
+    expect(screen.getByText(i18n.t('businessProfile.card.fields.photos'))).toBeInTheDocument()
+    expect(screen.getByText(i18n.t('businessProfile.card.photos.refusedHint'))).toBeInTheDocument()
+    expect(screen.queryByText(i18n.t('businessProfile.card.photos.stopped'))).not.toBeInTheDocument()
+  })
+
+  it('says when there are no images and when the upload stopped', async () => {
+    installFakeBackend(
+      routes([
+        binding({ photos: { uploaded: 0, refused: 0, waiting: 0, stopped: false } }),
+        binding({
+          id: 'b-2', locationId: 'loc-2', locationLabel: 'Winterthur', googleLocationTitle: 'Garage Winterthur',
+          photos: { uploaded: 1, refused: 0, waiting: 1, stopped: true },
+        }),
+      ])
+    )
+    renderWithProviders(<BusinessProfileSection />)
+
+    expect(await screen.findByText(i18n.t('businessProfile.card.photos.none'))).toBeInTheDocument()
+    expect(screen.getByText('1 bei Google · 1 wartet auf die Übertragung')).toBeInTheDocument()
+    expect(screen.getByText(i18n.t('businessProfile.card.photos.stopped'))).toBeInTheDocument()
+    expect(screen.queryByText(i18n.t('businessProfile.card.photos.refusedHint'))).not.toBeInTheDocument()
+  })
+
+  it('shows no photo line for a binding without a summary', async () => {
+    installFakeBackend(routes([binding({ status: 'pending', googleLocationTitle: null, photos: null })]))
+    renderWithProviders(<BusinessProfileSection />)
+
+    expect(await screen.findByText(i18n.t('businessProfile.card.pendingText'))).toBeInTheDocument()
+    expect(screen.queryByText(i18n.t('businessProfile.card.fields.photos'))).not.toBeInTheDocument()
+  })
+
+  it('counts in French with the plural', async () => {
+    await i18n.loadLanguages('fr')
+    await i18n.changeLanguage('fr')
+    try {
+      installFakeBackend(routes([binding({ photos: { uploaded: 1, refused: 2, waiting: 0, stopped: false } })]))
+      renderWithProviders(<BusinessProfileSection />)
+      expect(await screen.findByText('1 chez Google · 2 refusées')).toBeInTheDocument()
+    } finally {
+      await i18n.changeLanguage('de')
+    }
+  })
 })

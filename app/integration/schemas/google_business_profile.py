@@ -27,6 +27,16 @@ class BusinessProfileDriftRead(CamelModel):
     reason: str | None
 
 
+class BusinessProfilePhotosRead(CamelModel):
+    """KAN-821: what the photo upload did with the location's imagery, from
+    Nexotec's own records (`gbp_photo_summary`), never read from Google."""
+
+    uploaded: int
+    refused: int
+    waiting: int
+    stopped: bool
+
+
 class BusinessProfileBindingRead(CamelModel):
     id: uuid.UUID
     location_id: uuid.UUID
@@ -42,6 +52,8 @@ class BusinessProfileBindingRead(CamelModel):
     # the first) and the departments the last push could not show at Google.
     drift: BusinessProfileDriftRead | None = None
     unmapped_departments: list[str] = Field(default_factory=list)
+    # KAN-821, on the bindings list: the «Fotos» line; None for a binding that is not active.
+    photos: BusinessProfilePhotosRead | None = None
 
 
 class BusinessProfileBindingPage(CamelModel):

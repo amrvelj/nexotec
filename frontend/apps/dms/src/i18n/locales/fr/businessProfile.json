@@ -27,7 +27,8 @@
     "fields": {
       "googleLocation": "Site Google",
       "drift": "Comparaison avec Google",
-      "unmapped": "Non affiché chez Google"
+      "unmapped": "Non affiché chez Google",
+      "photos": "Photos"
     },
     "drift": {
       "never": "Pas encore vérifié – la comparaison a lieu chaque nuit.",
@@ -74,6 +75,17 @@
       "failedTitle": "La connexion à Google n'a pas abouti",
       "back": "Vers les intégrations",
       "expired": "Cette connexion a expiré ou a déjà été utilisée. Veuillez recommencer."
+    },
+    "photos": {
+      "uploaded_one": "{{count, number}} chez Google",
+      "uploaded_other": "{{count, number}} chez Google",
+      "refused_one": "{{count, number}} refusée",
+      "refused_other": "{{count, number}} refusées",
+      "waiting_one": "{{count, number}} en attente de transfert",
+      "waiting_other": "{{count, number}} en attente de transfert",
+      "none": "Pas encore d’images – vous les ajoutez sous Publication.",
+      "stopped": "Le transfert est interrompu. La page État en indique la raison ; la prochaine modification du site le relance.",
+      "refusedHint": "Google n’accepte pas une image refusée en raison de sa taille ou de son format. Remplacez-la sous Publication."
     }
   }
 }
