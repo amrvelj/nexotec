@@ -25,6 +25,7 @@ from tests.data_export_support import (
     get_export,
     request_export,
 )
+from tests.postgres_only import ROW_LOCKS
 
 
 class _RecordingTransport:
@@ -82,6 +83,7 @@ def test_the_web_runner_produces_a_complete_archive_from_the_webs_disk(client, e
     assert data_export_runner.run_once(sessionmaker(bind=engine, expire_on_commit=False), store=export_store) == 0
 
 
+@ROW_LOCKS
 def test_an_export_another_pass_holds_is_skipped_and_produced_once_it_is_let_go(client, export_store, engine):
     """A pass that stops mid-production (a restart) holds the row until its
     transaction ends; the claim rolls back with it, so the export is still
@@ -254,6 +256,7 @@ def test_a_failing_expiry_is_logged_and_never_raises(client, export_store, engin
     assert any("the expiry pass failed" in record.getMessage() for record in caplog.records)
 
 
+@ROW_LOCKS
 def test_the_nightly_reconciliation_reports_a_stuck_request_and_an_overdue_file(
     client, export_store, engine, db_session
 ):

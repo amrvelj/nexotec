@@ -30,6 +30,7 @@ from app.contact.reconciliation import CHECKS
 from app.core.audit_model import AuditEvent
 from app.core.reconciliation import StateCheck, find_rows_in_state
 from tests.membership_support import bearer, create_dealership, create_user, token
+from tests.postgres_only import POSTGRES_SQL
 from tests.pre_rename_names import pre_rename_names
 
 _MIGRATION = pathlib.Path(__file__).resolve().parents[2] / "alembic/versions/customer/a4c1e6b9d2f7_kan464_customer_role.py"
@@ -97,6 +98,7 @@ def _open_rows(engine, contact_id) -> list[ContactRoleAssignment]:
 # --- the migration ----------------------------------------------------------------------
 
 
+@POSTGRES_SQL
 def test_the_migration_gives_every_existing_customer_the_customer_role(db_session):
     """Exit criterion 2: existing customers migrate as `customer` — merged
     ones too, valid from their own creation; a second run writes nothing."""

@@ -54,6 +54,7 @@ from tests.cross_context.test_kan189_trade_in_without_register import (
     _with_buyer,
 )
 from tests.identapi_support import make_user
+from tests.postgres_only import POSTGRES_SQL, UUID_IN_RAW_SQL
 
 _VERSIONS = Path(__file__).resolve().parents[2] / "alembic" / "versions"
 
@@ -87,6 +88,7 @@ def online(monkeypatch):
 # --- processed_event (core chain) ---------------------------------------------------------------
 
 
+@UUID_IN_RAW_SQL
 def test_the_renamed_consumers_keep_the_events_they_processed_and_the_downgrade_gives_them_back(engine):
     old, new = _CONSUMERS._RENAMED[2]  # customer.trade_in_purchased -> contact.trade_in_purchased
     seen, both, after = uuid.uuid4(), uuid.uuid4(), uuid.uuid4()
@@ -128,6 +130,7 @@ def _revision(conn) -> int:
     return conn.execute(text("SELECT version FROM ui_translation_revision WHERE scope = 'ui'")).scalar_one()
 
 
+@POSTGRES_SQL
 def test_a_platform_edit_moves_with_its_key_and_the_revision_is_bumped(engine, online):
     moved = ("contactDetail", "overview.fields.contactNumber")
     assert ("customerDetail", "overview.fields.customerNumber", *moved) in _UI_STATE._KEYS
@@ -154,6 +157,7 @@ def test_a_platform_edit_moves_with_its_key_and_the_revision_is_bumped(engine, o
     assert rows[("customerDetail", "overview.fields.customerNumber")] == "Kundennr. (bearbeitet)"
 
 
+@POSTGRES_SQL
 def test_the_contact_lists_layout_and_saved_views_move_and_a_role_filter_value_is_kept(db_session, engine, online):
     user = make_user(db_session, tenant_id=_dealership(db_session).id)
     layout = {

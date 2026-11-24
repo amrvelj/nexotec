@@ -35,6 +35,7 @@ from app.vehicle.services.stock_holding import VIN_ASSIGNED
 from app.vehicle.services.vehicle_mdm import create_vehicle_mdm
 from tests.inventory.test_inventory_invoicing_gate import _make_dealership
 from tests.inventory.test_inventory_vin_correction import _bought as _bought_with_configuration
+from tests.postgres_only import STOCK_ITEM_VIN_SPLIT
 from tests.vehicle.test_vehicle_stock_holding import _bought, _deliver, _fed, _message, _token
 
 SURVIVOR_VIN = "WVWZZZ1KZAW524100"
@@ -191,6 +192,7 @@ def test_a_merge_is_refused_when_the_callers_betrieb_holds_both_records_in_stock
     assert _merge_events(db_session) == 0
 
 
+@STOCK_ITEM_VIN_SPLIT
 def test_another_betriebs_double_booking_never_refuses_and_is_reported_to_it(client, db_session, engine):
     other = _make_dealership(db_session)
     on_duplicate = _bought(db_session, other.id, vin=DUPLICATE_VIN)
@@ -275,6 +277,7 @@ def test_a_merge_delivered_after_a_later_one_lands_on_the_live_record(db_session
     assert (stored.vehicle_id, stored.vin) == (live.id, SURVIVOR_VIN)
 
 
+@STOCK_ITEM_VIN_SPLIT
 def test_reconciliation_reports_two_live_items_of_one_betrieb_on_one_record(db_session):
     dealership = _make_dealership(db_session)
     first = _bought(db_session, dealership.id, vin=DUPLICATE_VIN)

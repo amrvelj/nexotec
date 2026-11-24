@@ -239,8 +239,10 @@ worker gets a database of its own beside the one named above (`dms_test_root_gw0
 `_gw1` …), which `tests/conftest.py` creates and drops again (KAN-627);
 `scripts/dev/check` and the nightly job run the lane this way.
 
-**SQLite is a fast, optional, local-only convenience** (ADR-011) — not a
-CI lane at all as of WP-2 PR-4, only a `pre-commit` hook you can opt into:
+**SQLite is a fast, optional convenience** (ADR-011): it never gates a merge
+and never counts as verification. Since KAN-661 the nightly run's
+`sqlite-fast-lane` job runs it only to keep it green; locally it is
+`scripts/dev/check --fast`, or a `pre-commit` hook you can opt into:
 
 ```bash
 pip install pre-commit

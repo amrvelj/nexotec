@@ -24,6 +24,7 @@ from app.vehicle.services.matching import match_vehicle
 from app.vehicle.services.vehicle_mdm import chassis_make_key, get_vehicle_mdm_by_vin
 from tests.configuration_test_support import stock_configuration_id
 from tests.inventory.test_inventory_purchase_promotes import _auth, _events, _purchase, _token
+from tests.postgres_only import STOCK_ITEM_VIN_SPLIT
 from tests.token_support import dealer_group_of
 
 CHASSIS = "1130101234567"  # a W113 «Pagode» chassis number: 13 digits, no ISO VIN
@@ -131,6 +132,7 @@ def test_the_same_car_bought_by_another_betrieb_under_another_spelling_of_its_ma
     assert response.json()["vehicleId"] == str(record.id)
 
 
+@STOCK_ITEM_VIN_SPLIT
 def test_two_makes_sharing_a_chassis_number_are_two_cars_even_in_one_betriebs_stock(client, db_session):
     """Short chassis numbers repeat across makes — the reason the record is
     the number together with the make (option A), and why Stock counts such a
