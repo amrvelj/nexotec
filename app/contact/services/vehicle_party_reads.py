@@ -11,8 +11,6 @@ from typing import Any
 from sqlalchemy import ColumnElement, Exists, Select, and_, or_, select
 from sqlalchemy.orm import InstrumentedAttribute, Session, load_only
 
-from app.core.base import utcnow
-from app.core.errors import BadRequestError, NotFoundError
 from app.contact.models.contact import (
     Contact,
     ContactLifecycleStatus,
@@ -23,6 +21,8 @@ from app.contact.schemas.contact import (
 )
 from app.contact.services.contact_common import contact_display_name
 from app.contact.services.vehicle_party_labels import _fill_unlabelled_vehicle_parties_for_read, _write_vehicle_labels
+from app.core.base import utcnow
+from app.core.errors import BadRequestError, NotFoundError
 
 # --- VehicleParty: contact-to-vehicle relationships (Contact PRD D-12,
 # FR-10). Vehicle is tenant-agnostic (no tenant_id — a VIN is global, see

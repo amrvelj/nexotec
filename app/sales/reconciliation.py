@@ -56,10 +56,10 @@ from typing import Any
 from sqlalchemy import ColumnElement, func, or_, select
 from sqlalchemy.orm import InstrumentedAttribute, Session
 
+from app.contact.public import contact_exists, contact_in_group, contact_is_merged, contact_reference_check
 from app.core.base import utcnow
 from app.core.outbox_model import OutboxMessage
 from app.core.reconciliation import ReconciliationRun, ReferenceCheck, StateCheck, run_reconciliation
-from app.contact.public import contact_exists, contact_in_group, contact_is_merged, contact_reference_check
 from app.inventory.public import (
     purchased_stock_item_check,
     stock_item_exists,

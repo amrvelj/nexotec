@@ -15,9 +15,9 @@ from decimal import Decimal
 import pytest
 from sqlalchemy import select
 
+from app.contact.models.contact import Contact, ContactType, Language
 from app.core.errors import BadRequestError, NotFoundError
 from app.core.reconciliation import StateCheck, find_orphans, find_rows_in_state
-from app.contact.models.contact import Contact, ContactType, Language
 from app.platform import public
 from app.platform.identity.models.user import User, UserRole, UserStatus
 from app.platform.organisation.models.dealership import DealerGroup, Dealership, FranchiseType, Location

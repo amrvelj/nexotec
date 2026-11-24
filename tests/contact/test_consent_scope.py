@@ -6,9 +6,9 @@ import uuid
 
 import pytest
 
-from app.core.auth import AccessRole, create_access_token
 from app.contact.models.contact import ConsentScope
 from app.contact.public import channel_authorises_marketing
+from app.core.auth import AccessRole, create_access_token
 from tests.dealership_support import valid_uid
 from tests.token_support import dealer_group_of
 

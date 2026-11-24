@@ -26,34 +26,34 @@ import pytest
 from sqlalchemy import event, func, select, text
 from sqlalchemy.orm import sessionmaker
 
-from app.core.base import utcnow
-from app.core.consumer import consume_once
-from app.core.outbox import OutboxEvent, publish
-from app.core.outbox_model import OutboxMessage
-from app.core.outbox_transport import DeliveryError, InProcessTransport
-from app.core.processed_event_model import ProcessedEvent
 from app.contact.consumers import (
     TradeInEventWithoutSeller,
     handle_stock_item_booking_purchased_message,
 )
 from app.contact.models.stock_item_booking import StockItemBooking, StockItemBookingKind
 from app.contact.models.vehicle_party import VehiclePartyRole
+from app.core.base import utcnow
+from app.core.consumer import consume_once
+from app.core.outbox import OutboxEvent, publish
+from app.core.outbox_model import OutboxMessage
+from app.core.outbox_transport import DeliveryError, InProcessTransport
+from app.core.processed_event_model import ProcessedEvent
 from app.inventory.models.stock_item import StockItem
 from app.sales.models.contract import SalesContract
 from app.vehicle.public import resolve_vehicle_mdm_by_vin
 from app.worker import register_handlers
+from tests.contact.test_kan572_trade_in_storno_returned import (
+    _buy_again,
+    _contact_consumes_storno,
+    _messages,
+    _storno,
+)
 from tests.cross_context.test_consumer_redelivery_idempotency import _RecordingTransport, _registered
 from tests.cross_context.test_kan189_trade_in_without_register import (
     _SIGNED_AT,
     _bought_trade_in,
     _contact_consumes,
     _parties,
-)
-from tests.contact.test_kan572_trade_in_storno_returned import (
-    _buy_again,
-    _contact_consumes_storno,
-    _messages,
-    _storno,
 )
 from tests.sales.test_sales_lifecycle_reservation import _contact, _dealership
 
@@ -334,8 +334,8 @@ def _check(checks, label):
 
 
 def test_reconciliation_reports_a_booking_naming_no_stock_item(db_session):
-    from app.core.reconciliation import find_orphans
     from app.contact import reconciliation as contact_reconciliation
+    from app.core.reconciliation import find_orphans
 
     dealership, _seller, _vehicle, facts = _hand_made_trade_in(db_session)
     message = _purchased(db_session, dealership, uuid.uuid4(), facts, occurred_at=_BOOKED)
@@ -436,8 +436,8 @@ def test_a_purchase_whose_trade_in_step_raises_keeps_its_booking_so_a_late_storn
 
 
 def test_reconciliation_reports_a_booking_event_without_its_row_after_the_grace(db_session):
-    from app.core.reconciliation import find_rows_in_state
     from app.contact import reconciliation as contact_reconciliation
+    from app.core.reconciliation import find_rows_in_state
 
     dealership, _seller, _vehicle, facts = _hand_made_trade_in(db_session)
     stock_item_id = uuid.uuid4()

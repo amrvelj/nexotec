@@ -8,8 +8,6 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.core.audit import record_audit_event
-from app.core.errors import ConflictError, NotFoundError
 from app.contact.models.contact import (
     Contact,
     ContactExternalId,
@@ -19,6 +17,8 @@ from app.contact.schemas.contact import (
     ContactExternalIdUpdate,
 )
 from app.contact.services.contact_common import _group_scoped_or_404, _violated_constraint
+from app.core.audit import record_audit_event
+from app.core.errors import ConflictError, NotFoundError
 
 # --- ContactExternalId: per-dealer CRM/OEM linkage, platform_admin-write
 # only (authorization enforced at the API layer, same convention as every
@@ -73,7 +73,7 @@ def create_contact_external_id(
 
     record_audit_event(
         db,
-        entity_type="customer",
+        entity_type="contact",
         entity_id=contact.id,
         tenant_id=contact.group_id,
         action="external_id_add",
@@ -133,7 +133,7 @@ def update_contact_external_id(
 
     record_audit_event(
         db,
-        entity_type="customer",
+        entity_type="contact",
         entity_id=row.contact_id,
         tenant_id=row.group_id,
         action="external_id_update",
@@ -156,7 +156,7 @@ def delete_contact_external_id(
 ) -> None:
     record_audit_event(
         db,
-        entity_type="customer",
+        entity_type="contact",
         entity_id=row.contact_id,
         tenant_id=row.group_id,
         action="external_id_remove",

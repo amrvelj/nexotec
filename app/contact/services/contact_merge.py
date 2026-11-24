@@ -11,11 +11,6 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.core.audit import record_audit_event
-from app.core.base import utcnow
-from app.core.errors import BadRequestError, ConflictError
-from app.core.outbox import OutboxEvent
-from app.core.outbox import publish as publish_event
 from app.contact.models.contact import (
     Contact,
     ContactAddress,
@@ -37,6 +32,11 @@ from app.contact.services.contact_common import (
 )
 from app.contact.services.vehicle_party import _close_vehicle_party
 from app.contact.services.vehicle_party_locks import _lock_vehicle_role_in_group, _try_lock_vehicle_role_in_group
+from app.core.audit import record_audit_event
+from app.core.base import utcnow
+from app.core.errors import BadRequestError, ConflictError
+from app.core.outbox import OutboxEvent
+from app.core.outbox import publish as publish_event
 
 # KAN-392: the audit reason on a kept vehicle-link copy a later merge re-points.
 CONTACT_MERGED_REASON = "contact_merged"
@@ -276,7 +276,7 @@ def _repoint_earlier_merges(
         copy.merged_into_contact_id = target_id
         record_audit_event(
             db,
-            entity_type="customer",
+            entity_type="contact",
             entity_id=copy.contact_id,
             tenant_id=group_id,
             action="vehicle_party_update",
@@ -296,7 +296,7 @@ def _repoint_earlier_merges(
         merged.version += 1
         record_audit_event(
             db,
-            entity_type="customer",
+            entity_type="contact",
             entity_id=merged.id,
             tenant_id=group_id,
             action="merge_survivor_repointed",
@@ -494,7 +494,7 @@ def merge_contact(
 
     record_audit_event(
         db,
-        entity_type="customer",
+        entity_type="contact",
         entity_id=contact.id,
         tenant_id=contact.group_id,
         action="merge",
@@ -537,7 +537,7 @@ def merge_contact(
             event_type="contact.merged",
             tenant_id=contact.group_id,
             producer=_EVENT_PRODUCER,
-            aggregate_type="customer",
+            aggregate_type="contact",
             aggregate_id=contact.id,
             # Survivor's label fields, with contactId/duplicateOfContactId
             # overriding the payload helper's own contactId — a consumer

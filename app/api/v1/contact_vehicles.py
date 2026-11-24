@@ -25,10 +25,10 @@ import uuid
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
+from app.contact import public as contact
 from app.core.auth import Principal, get_current_principal
 from app.core.idempotent_route import IdempotentRoute
 from app.core.permissions import ModuleCode, holds_entitlement
-from app.contact import public as contact
 from app.db import get_db
 from app.inventory.public import get_stock_items_for_vehicles
 

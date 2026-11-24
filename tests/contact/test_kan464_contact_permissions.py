@@ -9,7 +9,7 @@
   nothing changes;
 - do-not-contact is every contact's: inventory sets it and lifts it;
 - a supplier-only contact takes its number from the same sequence as a
-  contact.
+  customer.
 """
 
 import uuid
@@ -68,14 +68,14 @@ def test_the_matrix_gives_inventory_contacts_and_keeps_the_customer_role_with_sa
     assert "contact_customer_role" in writable_capabilities(roles=frozenset(), is_dealer_manager=True)
 
 
-def test_inventory_creates_a_supplier_and_is_refused_a_contact(client):
+def test_inventory_creates_a_supplier_and_is_refused_a_customer(client):
     dealership = create_dealership(client)
     inventory = _as(dealership, AccessRole.INVENTORY)
 
     supplier = _created(client, inventory, roles=["supplier"])
     assert supplier["roles"] == ["supplier"]
 
-    # Left out, `roles` is a contact — which inventory may not give.
+    # Left out, `roles` is a customer — which inventory may not give.
     _refused(_create(client, inventory), "roles")
     _refused(_create(client, inventory, roles=["customer", "supplier"]), "roles")
 
@@ -98,7 +98,7 @@ def test_sales_and_aftersales_give_both_roles(client):
         assert response.json()["roles"] == ["customer"]
 
 
-def test_inventory_gives_the_supplier_role_to_a_contact_and_takes_it_away(client):
+def test_inventory_gives_the_supplier_role_to_a_customer_and_takes_it_away(client):
     dealership = create_dealership(client)
     contact = _created(client, _as(dealership, AccessRole.SALES))
     inventory = _as(dealership, AccessRole.INVENTORY)
@@ -126,7 +126,7 @@ def test_inventory_neither_gives_nor_takes_the_customer_role(client):
     assert unchanged["version"] == both["version"]
 
 
-def test_inventory_edits_a_contacts_contact_data_but_not_its_customer_fields(client):
+def test_inventory_edits_a_customers_contact_data_but_not_its_customer_fields(client):
     dealership = create_dealership(client)
     sales = _as(dealership, AccessRole.SALES)
     inventory = _as(dealership, AccessRole.INVENTORY)
@@ -142,7 +142,7 @@ def test_inventory_edits_a_contacts_contact_data_but_not_its_customer_fields(cli
     assert _get(client, sales, contact["id"])["lifecycleStatus"] == "prospect"
 
 
-def test_do_not_contact_is_set_by_every_writer_and_lifted_on_a_contact_by_sales(client):
+def test_do_not_contact_is_set_by_every_writer_and_lifted_on_a_customer_by_sales(client):
     dealership = create_dealership(client)
     sales = _as(dealership, AccessRole.SALES)
     inventory = _as(dealership, AccessRole.INVENTORY)
@@ -150,14 +150,14 @@ def test_do_not_contact_is_set_by_every_writer_and_lifted_on_a_contact_by_sales(
 
     response = _patch(client, inventory, contact, lifecycleStatus="do_not_contact")
     assert response.status_code == 200, response.text
-    # Lifting it chooses a contact value: else a prospect would become an
-    # active contact in two steps.
+    # Lifting it chooses a customer value: else a prospect would become an
+    # active customer in two steps.
     _refused(_patch(client, inventory, response.json(), lifecycleStatus="active"), "lifecycleStatus")
     _refused(_patch(client, inventory, response.json(), lifecycleStatus="prospect"), "lifecycleStatus")
     lifted = _patch(client, sales, response.json(), lifecycleStatus="prospect")
     assert lifted.status_code == 200, lifted.text
 
-    # A supplier-only contact has no contact value: every writer lifts it.
+    # A supplier-only contact has no customer value: every writer lifts it.
     supplier = _created(client, inventory, roles=["supplier"])
     response = _patch(client, inventory, supplier, lifecycleStatus="do_not_contact")
     assert response.status_code == 200, response.text
@@ -193,7 +193,7 @@ def _merge(client, headers, duplicate, survivor):
     )
 
 
-def test_inventory_merges_suppliers_but_not_a_contact(client):
+def test_inventory_merges_suppliers_but_not_a_customer(client):
     dealership = create_dealership(client)
     sales = _as(dealership, AccessRole.SALES)
     inventory = _as(dealership, AccessRole.INVENTORY)
@@ -232,7 +232,7 @@ def test_a_supplier_takes_its_number_from_the_contacts_sequence(client):
 
 def test_every_call_in_app_passes_the_customer_role_cell():
     """The services default `may_write_customer_role` to trusted (tests and
-    scripts); a call in `app/` that left it out would grant the contact
+    scripts); a call in `app/` that left it out would grant the customer
     role to anyone who writes contacts."""
 
     import ast

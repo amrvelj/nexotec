@@ -22,8 +22,8 @@ from typing import Any
 from sqlalchemy import ColumnElement, Exists, select
 from sqlalchemy.orm import DeclarativeBase, InstrumentedAttribute
 
-from app.core.reconciliation import ReferenceCheck
 from app.contact.models.contact import Contact
+from app.core.reconciliation import ReferenceCheck
 
 
 def contact_reference_check(

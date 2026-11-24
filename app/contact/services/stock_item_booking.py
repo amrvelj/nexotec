@@ -36,9 +36,9 @@ from sqlalchemy.dialects.postgresql import insert as postgresql_insert
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import Session
 
+from app.contact.models.stock_item_booking import StockItemBooking, StockItemBookingKind
 from app.core.base import utcnow
 from app.core.outbox_model import OutboxMessage
-from app.contact.models.stock_item_booking import StockItemBooking, StockItemBookingKind
 
 _LOCK_NAMESPACE = b"contact.stock_item_booking:"
 

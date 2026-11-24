@@ -5,10 +5,10 @@ import uuid
 
 import pytest
 
-from app.core.errors import ConflictError
 from app.contact.models.contact import ContactLifecycleStatus
 from app.contact.schemas.contact import ContactCreate, ContactEmailCreate
 from app.contact.services.contact import create_contact, set_credit_block
+from app.core.errors import ConflictError
 
 
 def _contact(db_session, group_id):

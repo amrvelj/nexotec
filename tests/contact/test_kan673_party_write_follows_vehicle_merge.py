@@ -18,13 +18,13 @@ from sqlalchemy import select, text
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import sessionmaker
 
-from app.core.errors import ConflictError
-from app.core.reconciliation import find_rows_in_state
 from app.contact.models.vehicle_party import VehicleParty, VehiclePartyRole
 from app.contact.reconciliation import CHECKS as CONTACT_CHECKS
 from app.contact.services import vehicle_party_locks
 from app.contact.services.vehicle_party import allocate_vehicle_party
 from app.contact.services.vehicle_party_locks import _lock_vehicle_role_in_group
+from app.core.errors import ConflictError
+from app.core.reconciliation import find_rows_in_state
 from app.vehicle.models.vehicle_mdm import VehicleMdm
 from app.vehicle.public import get_vehicle_mdm_or_404
 from app.vehicle.services.merge import merge_vehicles

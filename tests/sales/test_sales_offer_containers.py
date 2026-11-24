@@ -5,9 +5,9 @@ import uuid
 
 import pytest
 
-from app.core.errors import ConflictError
 from app.contact.schemas.contact import ContactCreate, ContactEmailCreate
 from app.contact.services.contact import create_contact
+from app.core.errors import ConflictError
 from app.sales.schemas.offer import OfferUpdate
 from app.sales.services.offer import cancel_offer, create_offer, update_offer
 from app.sales.services.priced_deal import compute_containers

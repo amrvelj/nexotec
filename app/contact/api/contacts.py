@@ -17,16 +17,7 @@ import uuid
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
-from app.core.audit_schemas import AuditEventRead
-from app.core.auth import Principal, get_current_principal, require_access_role
-from app.core.concurrency import check_version, require_if_match
-from app.core.config import get_settings
-from app.core.idempotent_route import IdempotentRoute
-from app.core.pagination import SortPageParams
-from app.core.permissions import may_write, require_read, require_write
-from app.core.sorting import SortField, decode_cursor_for_sort, parse_sort
-from app.core.validators import CantonCode
-from app.contact.models.contact import ContactRole, Contact, ContactLifecycleStatus, ContactType, Language
+from app.contact.models.contact import Contact, ContactLifecycleStatus, ContactRole, ContactType, Language
 from app.contact.schemas.contact import (
     CalendarPeriod,
     ContactAddressCreate,
@@ -62,8 +53,8 @@ from app.contact.schemas.contact import (
 )
 from app.contact.schemas.legal_basis import LegalBasisCreate, LegalBasisRead
 from app.contact.services import addresses as addresses_service
-from app.contact.services import contact_channels as contact_channels_service
 from app.contact.services import contact as contact_service
+from app.contact.services import contact_channels as contact_channels_service
 from app.contact.services import contact_common as contact_common_service
 from app.contact.services import contact_merge as contact_merge_service
 from app.contact.services import contact_search as contact_search_service
@@ -73,6 +64,15 @@ from app.contact.services import projections as projections_service
 from app.contact.services import roles as roles_service
 from app.contact.services import vehicle_party as vehicle_party_service
 from app.contact.services import vehicle_party_reads as vehicle_party_reads_service
+from app.core.audit_schemas import AuditEventRead
+from app.core.auth import Principal, get_current_principal, require_access_role
+from app.core.concurrency import check_version, require_if_match
+from app.core.config import get_settings
+from app.core.idempotent_route import IdempotentRoute
+from app.core.pagination import SortPageParams
+from app.core.permissions import may_write, require_read, require_write
+from app.core.sorting import SortField, decode_cursor_for_sort, parse_sort
+from app.core.validators import CantonCode
 from app.db import get_db
 from app.platform.public import get_dealership_or_404
 

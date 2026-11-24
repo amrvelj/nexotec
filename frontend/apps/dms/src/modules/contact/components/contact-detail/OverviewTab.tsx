@@ -523,7 +523,7 @@ export function OverviewTab({
   // The current advisor's stored label still renders when they are not in
   // this list (e.g. assigned in another Betrieb, or since deactivated).
   const { options: advisorOptions } = useAdvisorOptions()
-  const isContact = holdsCustomerRole(contact)
+  const isCustomer = holdsCustomerRole(contact)
   // KAN-464 Q3: the customer role's fields are shown read-only to a user who
   // may not write them (inventory); do-not-contact stays every writer's.
   const mayWriteCustomerRole = useCanWrite('contact_customer_role')
@@ -542,7 +542,7 @@ export function OverviewTab({
         <OverviewCard title={t('contactDetail.overview.cards.identity')}>
         {contact.contactType === 'individual' ? (
           <>
-            <SelectField label={f.salutation} value={customer.salutation} options={translatedSalutationOptions(t)} patchKey="salutation" clearable {...fieldProps} />
+            <SelectField label={f.salutation} value={contact.salutation} options={translatedSalutationOptions(t)} patchKey="salutation" clearable {...fieldProps} />
             <TextField label={f.firstName} value={contact.firstName} patchKey="firstName" {...fieldProps} />
             <TextField label={f.lastName} value={contact.lastName} patchKey="lastName" {...fieldProps} />
             {/* FR-17 — free text, rendered after the salutation in the letter opening. */}
@@ -578,7 +578,7 @@ export function OverviewTab({
         <ContactRolesField label={t('contactDetail.overview.fields.roles')} value={contact.roles ?? []} onSaveField={onSaveField} />
         {/* KAN-464 (Q1): the lifecycle status is the customer role's. A contact
             without it keeps only do-not-contact, which belongs to every contact. */}
-        {isContact ? (
+        {isCustomer ? (
           <SelectField label={f.lifecycleStatus} value={contact.lifecycleStatus} options={translatedLifecycleOptions(t)} patchKey="lifecycleStatus" readOnly={!mayWriteCustomerRole} {...fieldProps} />
         ) : (
           <KeyValueRow label={translatedLifecycleLabel(t, 'do_not_contact')}>
@@ -590,7 +590,7 @@ export function OverviewTab({
             />
           </KeyValueRow>
         )}
-        {!isContact && (
+        {!isCustomer && (
           <Text fz="xs" c="dimmed">
             {t('contactDetail.overview.customerRoleFieldsHint')}
           </Text>
@@ -644,7 +644,7 @@ export function OverviewTab({
           `website` is spec-region-3; grouped here pending the tab re-order. */}
       <OverviewCard title={t('contactDetail.overview.cards.relationship')}>
         {/* KAN-464 (Q1): the advisor is the customer role's. */}
-        {isContact && (
+        {isCustomer && (
           <SelectField
             label={f.advisor}
             value={contact.advisorId}

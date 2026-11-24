@@ -14,13 +14,13 @@ import uuid
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.core.consumer import consume_once
-from app.core.outbox_model import OutboxMessage
-from app.core.processed_event_model import ProcessedEvent
 from app.contact.schemas.contact import ContactCreate, ContactEmailCreate
 from app.contact.services import contact as contact_service
 from app.contact.services import contact_common as contact_common_service
 from app.contact.services import contact_merge as contact_merge_service
+from app.core.consumer import consume_once
+from app.core.outbox_model import OutboxMessage
+from app.core.processed_event_model import ProcessedEvent
 from app.sales.consumers import handle_contact_merged_message
 from app.sales.models.contract import SalesContract
 from app.sales.models.deal import SalesDeal

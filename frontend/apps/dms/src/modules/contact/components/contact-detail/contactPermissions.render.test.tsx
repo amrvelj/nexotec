@@ -15,7 +15,7 @@ import { buildContactRowMenu } from '../contactRowMenu'
 
 // KAN-464 PR-2 — Q3 (Anto, 2026-11-14, A): inventory writes contacts and
 // gives the supplier role; the customer role and its fields (status,
-// advisor, credit block, merging a contact) stay with sales and
+// advisor, credit block, merging a customer) stay with sales and
 // aftersales (`contact_customer_role`). The SPA never offers what the
 // server would refuse.
 
@@ -53,7 +53,7 @@ function routes(overrides: Partial<ContactRead> = {}): FakeRoute[] {
 const role = (code: string) => i18n.t(`contactEnums.role.${code}`)
 
 describe('an inventory user and the customer role (KAN-464 Q3)', () => {
-  it('sees a contact\'s status and advisor but cannot edit them, and cannot take the customer role away', async () => {
+  it('sees a customer\'s status and advisor but cannot edit them, and cannot take the customer role away', async () => {
     const user = userEvent.setup()
     const backend = installFakeBackend([
       ...routes({ roles: ['customer'], lifecycleStatus: 'prospect', advisorId: 'user-7', advisorLabel: 'Rey Ortiz' }),
@@ -123,7 +123,7 @@ describe('the row menu without the customer role\'s write (KAN-464 Q3)', () => {
     buildContactRowMenu(t, c, handlers, { mayWriteCustomerRole })
   const labels = (m: ReturnType<typeof menu>) => [...(m.overflow.edit ?? []), ...(m.overflow.createFrom ?? [])].map((a) => a.label)
 
-  it('offers no credit block and no merge of a contact; do-not-contact and merging suppliers stay', () => {
+  it('offers no credit block and no merge of a customer; do-not-contact and merging suppliers stay', () => {
     const contactMenu = labels(menu({ ...base, roles: ['customer'] }, false))
     expect(contactMenu).not.toContain('contactRowMenu.setCreditBlock')
     expect(contactMenu).not.toContain('contactRowMenu.mergeInto')
@@ -131,7 +131,7 @@ describe('the row menu without the customer role\'s write (KAN-464 Q3)', () => {
     expect(labels(menu({ ...base, creditBlock: true, roles: ['customer'] }, false))).not.toContain('contactRowMenu.removeCreditBlock')
     expect(labels(menu({ ...base, roles: ['supplier'] }, false))).toContain('contactRowMenu.mergeInto')
 
-    // Lifting do-not-contact on a contact chooses its status: disabled, with the reason.
+    // Lifting do-not-contact on a customer chooses its status: disabled, with the reason.
     const lift = (roles: ('customer' | 'supplier')[], may: boolean) =>
       (menu({ ...base, lifecycleStatus: 'do_not_contact', roles }, may).overflow.edit ?? []).find(
         (a) => a.label === 'contactRowMenu.removeDoNotContact',

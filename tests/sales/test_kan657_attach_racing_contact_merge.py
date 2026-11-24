@@ -18,9 +18,9 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.orm import sessionmaker
 
+from app.contact.models.contact import Contact
 from app.core.errors import ConflictError
 from app.core.outbox_model import OutboxMessage
-from app.contact.models.contact import Contact
 from app.sales import consumers as sales_consumers
 from app.sales.consumers import handle_contact_merged_message
 from app.sales.models.offer import SalesOffer

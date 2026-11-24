@@ -19,10 +19,10 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.orm import sessionmaker
 
+from app.contact.models.contact import Contact
 from app.core.audit_model import AuditEvent
 from app.core.auth import AccessRole
 from app.core.base import utcnow
-from app.contact.models.contact import Contact
 from app.platform.administration.models.export_job import ExportJob, ExportJobStatus
 from app.platform.administration.services import data_export
 from app.sales.models.document import DocumentOwnerType, SalesDocument

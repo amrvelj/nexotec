@@ -11,8 +11,8 @@ from decimal import Decimal
 
 from sqlalchemy import func, select
 
-from app.core.auth import AccessRole, create_access_token
 from app.contact.models.vehicle_party import VehicleParty, VehiclePartyRole
+from app.core.auth import AccessRole, create_access_token
 from app.platform.reference.models.reference_data import ReferenceList, ReferenceValue
 from app.vehicle.models.catalogue import Brand, ModelGroup, ModelVariant
 from app.vehicle.models.configuration import VehicleConfiguration

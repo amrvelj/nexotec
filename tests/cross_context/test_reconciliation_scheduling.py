@@ -18,11 +18,11 @@ import uuid
 import pytest
 
 from app import worker
+from app.contact.models.vehicle_party import VehicleParty, VehiclePartyRole
 from app.core.daily_scheduler import _REGISTRY, registered_job_names, run_due_daily_jobs
 from app.core.daily_scheduler_model import DailyJobRun
 from app.core.reconciliation import seconds_since_last_reconciliation
 from app.core.reconciliation_model import ReconciliationOrphan, ReconciliationRun
-from app.contact.models.vehicle_party import VehicleParty, VehiclePartyRole
 from app.reconciliation_runner import run_all_daily
 
 _RECONCILIATION_JOB_NAME = "reconciliation.run_all"

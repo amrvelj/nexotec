@@ -21,8 +21,8 @@ from collections.abc import Iterable
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.core.errors import UnprocessableEntityError
 from app.contact.models.contact import Contact, ContactGroupAssignment
+from app.core.errors import UnprocessableEntityError
 from app.platform.public import contact_group_codes
 
 AUDIT_FIELD = "contact_groups"

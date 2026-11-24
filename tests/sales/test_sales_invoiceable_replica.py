@@ -23,12 +23,12 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.orm import sessionmaker
 
+from app.contact.schemas.contact import ContactAddressCreate, ContactCreate, ContactEmailCreate
+from app.contact.services.contact import create_contact
 from app.core.consumer import consume_once
 from app.core.errors import ConflictError
 from app.core.outbox import OutboxEvent, publish
 from app.core.outbox_model import OutboxMessage
-from app.contact.schemas.contact import ContactAddressCreate, ContactCreate, ContactEmailCreate
-from app.contact.services.contact import create_contact
 from app.inventory.models.stock_item import StockItemCondition
 from app.inventory.schemas.purchase import RecordPurchaseRequest
 from app.inventory.schemas.stock_item import StockItemCreate

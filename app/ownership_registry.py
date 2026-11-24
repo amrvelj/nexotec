@@ -10,8 +10,8 @@ registry replaces by module.
 """
 
 from app.aftersales.ownership import AftersalesOwnershipProvider
-from app.core.ownership import register_ownership_provider
 from app.contact.public import ContactOwnershipProvider
+from app.core.ownership import register_ownership_provider
 from app.inventory.public import InventoryOwnershipProvider
 from app.parts.ownership import PartsOwnershipProvider
 from app.sales.public import SalesOwnershipProvider

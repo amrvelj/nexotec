@@ -26,12 +26,12 @@ import pytest
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, sessionmaker
 
+from app.contact.models.stock_item_booking import StockItemBooking
+from app.contact.models.vehicle_party import VehicleParty, VehiclePartyRole
 from app.core.consumer import Handler
 from app.core.outbox_model import OutboxMessage
 from app.core.outbox_transport import InProcessTransport
 from app.core.processed_event_model import ProcessedEvent
-from app.contact.models.stock_item_booking import StockItemBooking
-from app.contact.models.vehicle_party import VehicleParty, VehiclePartyRole
 from app.inventory.models.sales_contract import InventorySalesContract, ProjectedContractStatus
 from app.inventory.models.stock_item import StockItem, StockItemCondition
 from app.inventory.models.stock_item_publishing import MarketplaceChannel

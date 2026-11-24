@@ -41,17 +41,17 @@ import uuid
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
-from app.core.audit import record_audit_event
-from app.core.base import utcnow
-from app.core.outbox import OutboxEvent
-from app.core.outbox import publish as publish_event
-from app.core.outbox_model import OutboxMessage
 from app.contact.models.contact import Contact
 from app.contact.models.vehicle_party import VehicleParty, VehiclePartyRole
 from app.contact.services.contact_common import _EVENT_PRODUCER
 from app.contact.services.vehicle_party import _close_vehicle_party, _vehicle_party_payload
 from app.contact.services.vehicle_party_labels import relabel_vehicle_parties_for_vehicle
 from app.contact.services.vehicle_party_locks import _lock_vehicle_role_in_group, _try_lock_vehicle_role_in_group
+from app.core.audit import record_audit_event
+from app.core.base import utcnow
+from app.core.outbox import OutboxEvent
+from app.core.outbox import publish as publish_event
+from app.core.outbox_model import OutboxMessage
 from app.vehicle.public import resolve_merged_vehicle_id
 
 logger = logging.getLogger(__name__)
@@ -297,7 +297,7 @@ def _take_later_end(
     kept.closed_for_party_id = link
     record_audit_event(
         db,
-        entity_type="customer",
+        entity_type="contact",
         entity_id=kept.contact_id,
         tenant_id=group_id,
         action="vehicle_party_update",
@@ -366,7 +366,7 @@ def _keep_copy(
     }
     record_audit_event(
         db,
-        entity_type="customer",
+        entity_type="contact",
         entity_id=party.contact_id,
         tenant_id=group_id,
         action="vehicle_party_update",

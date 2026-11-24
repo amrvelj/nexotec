@@ -25,8 +25,8 @@ import logging
 
 from sqlalchemy.orm import Session
 
-from app.core.reconciliation import ReconciliationAlarm, ReconciliationRun
 from app.contact import reconciliation as contact_reconciliation
+from app.core.reconciliation import ReconciliationAlarm, ReconciliationRun
 from app.integration import reconciliation as integration_reconciliation
 from app.inventory import reconciliation as inventory_reconciliation
 from app.platform import reconciliation as platform_reconciliation

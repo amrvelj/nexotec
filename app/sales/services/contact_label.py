@@ -46,8 +46,8 @@ from typing import Any, TypeVar
 from sqlalchemy import and_, func, or_, select, update
 from sqlalchemy.orm import Session
 
-from app.core.base import utcnow
 from app.contact.public import get_contact_sales_labels
+from app.core.base import utcnow
 from app.sales.models.contract import ContractStatus, SalesContract
 from app.sales.models.deal import SalesDeal
 from app.sales.models.offer import OfferStatus, SalesOffer

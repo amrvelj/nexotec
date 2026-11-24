@@ -47,7 +47,8 @@ def _group_history_rows(scope: ExportScope) -> ColumnElement[bool]:
     the Betrieb's own, handed in by platform (`ExportScope.group_id`)."""
 
     return and_(
-        _audit.c.entity_type == "customer",
+        # "customer" on rows written before the rename to contacts (KAN-464 PR-3)
+        _audit.c.entity_type.in_(("contact", "customer")),
         _audit.c.tenant_id == scope.group_id,
         attributed(_audit.c, scope.audit_attribution),
     )
@@ -94,7 +95,7 @@ class CoreExporter(TableExporter):
         ids = db.scalars(
             select(_audit.c.entity_id).where(_group_history_rows(scope)).distinct()
         )
-        return {"customer": frozenset(ids)}
+        return {"contact": frozenset(ids)}
 
     def last_write_at(self, db: Session, scope: ExportScope) -> dt.datetime | None:
         """An audited write — a deletion leaves no stamp elsewhere, and the

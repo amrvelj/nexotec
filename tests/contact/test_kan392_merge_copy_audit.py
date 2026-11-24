@@ -10,10 +10,10 @@ from types import SimpleNamespace
 
 from sqlalchemy import select
 
-from app.core.audit_model import AuditEvent
-from app.core.base import utcnow
 from app.contact.models.vehicle_party import VehicleParty
 from app.contact.services import contact as contact_service
+from app.core.audit_model import AuditEvent
+from app.core.base import utcnow
 from tests.contact.test_contact_vehicle_party_close_rule import OWNER, _contact, _merge, _vehicle
 
 

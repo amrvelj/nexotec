@@ -147,7 +147,7 @@ export function ContactCreateFlow({ onSuccess, onCancel, initialContactType, onO
   const roleOptions = translatedRoleOptions(t).map((option) =>
     option.value === 'customer' && !mayWriteCustomerRole ? { ...option, disabled: true } : option,
   )
-  const holdsContact = roles.includes('customer')
+  const holdsCustomer = roles.includes('customer')
   // § ADR-067 — the same RepeatableRowGroup the detail screen uses, in
   // `create` mode: one primary per type-group, marking a new primary
   // unmarks the old in the same interaction, consent on the row. Held in
@@ -274,7 +274,7 @@ export function ContactCreateFlow({ onSuccess, onCancel, initialContactType, onO
             ]
           : [],
         roles,
-        ...(holdsContact ? { lifecycleStatus: values.lifecycleStatus } : {}),
+        ...(holdsCustomer ? { lifecycleStatus: values.lifecycleStatus } : {}),
         source: values.source || null,
         marketingConsent: values.marketingConsent,
         ...(contactType === 'individual'
@@ -401,7 +401,7 @@ export function ContactCreateFlow({ onSuccess, onCancel, initialContactType, onO
             onChange={(next) => setRoles(next as ContactRole[])}
             required
           />
-          {holdsContact && (
+          {holdsCustomer && (
             <Select label={t('contactCreate.fields.lifecycleStatus')} data={translatedLifecycleOptions(t)} {...form.getInputProps('lifecycleStatus')} />
           )}
           <Select label={t('contactCreate.fields.source')} data={translatedSourceOptions(t)} clearable {...form.getInputProps('source')} />

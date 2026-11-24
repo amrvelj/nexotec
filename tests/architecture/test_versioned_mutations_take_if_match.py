@@ -25,10 +25,10 @@ never an open question: `test_every_exemption_states_a_ruled_reason` refuses
 one that says a decision is pending.
 """
 
-from app.core.base import VersionedMixin
-from app.core.concurrency import require_if_match
 from app.contact.models.contact import ContactAddress, ContactEmail, ContactExternalId, ContactPhone
 from app.contact.models.vehicle_party import VehicleParty
+from app.core.base import VersionedMixin
+from app.core.concurrency import require_if_match
 from app.integration.models.secret_ref import IntegrationSecretRef
 from app.inventory.models.stock_item_publishing import StockItemMedia
 from app.main import app

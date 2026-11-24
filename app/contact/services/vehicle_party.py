@@ -12,12 +12,6 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.core.audit import record_audit_event
-from app.core.base import utcnow
-from app.core.errors import BadRequestError, ConflictError
-from app.core.outbox import OutboxEvent
-from app.core.outbox import publish as publish_event
-from app.core.uuid7 import uuid7
 from app.contact.models.contact import (
     Contact,
     ContactLifecycleStatus,
@@ -37,6 +31,12 @@ from app.contact.services.vehicle_party_locks import (
     _refuse_merged_contact,
 )
 from app.contact.services.vehicle_party_reads import _holds_now_or_later, _is_open, _validate_effective_range
+from app.core.audit import record_audit_event
+from app.core.base import utcnow
+from app.core.errors import BadRequestError, ConflictError
+from app.core.outbox import OutboxEvent
+from app.core.outbox import publish as publish_event
+from app.core.uuid7 import uuid7
 from app.vehicle.public import get_vehicle_mdm_or_404, get_vehicle_summaries
 
 
@@ -124,7 +124,7 @@ def create_contact_vehicle(
 
     record_audit_event(
         db,
-        entity_type="customer",
+        entity_type="contact",
         entity_id=contact.id,
         tenant_id=contact.group_id,
         action="vehicle_party_add",
@@ -323,7 +323,7 @@ def update_contact_vehicle(
         )
     record_audit_event(
         db,
-        entity_type="customer",
+        entity_type="contact",
         entity_id=party.contact_id,
         tenant_id=group_id,
         action="vehicle_party_update",
@@ -482,7 +482,7 @@ def _restore_holders_ended_by(
         row.closed_for_party_id = upcoming.id if upcoming is not None else None
         record_audit_event(
             db,
-            entity_type="customer",
+            entity_type="contact",
             entity_id=row.contact_id,
             tenant_id=group_id,
             action="vehicle_party_update",
@@ -524,7 +524,7 @@ def _follow_planned_start(
             row.effective_to = ends
             record_audit_event(
                 db,
-                entity_type="customer",
+                entity_type="contact",
                 entity_id=row.contact_id,
                 tenant_id=group_id,
                 action="vehicle_party_update",
@@ -591,7 +591,7 @@ def _close_vehicle_party(
 
     record_audit_event(
         db,
-        entity_type="customer",
+        entity_type="contact",
         entity_id=party.contact_id,
         tenant_id=group_id,
         action="vehicle_party_remove",
@@ -914,7 +914,7 @@ def _open_vehicle_party(
         after["effectiveTo"] = effective_to.isoformat()
     record_audit_event(
         db,
-        entity_type="customer",
+        entity_type="contact",
         entity_id=contact_id,
         tenant_id=group_id,
         action="vehicle_party_add",

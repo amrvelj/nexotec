@@ -14,10 +14,10 @@ from sqlalchemy import func as sa_func
 from sqlalchemy import select
 from sqlalchemy.orm import sessionmaker
 
+from app.contact.models.vehicle_party import VehicleParty, VehiclePartyRole
 from app.core.auth import AccessRole, create_access_token
 from app.core.consumer import consume_once
 from app.core.outbox_model import OutboxMessage
-from app.contact.models.vehicle_party import VehicleParty, VehiclePartyRole
 from app.sales.consumers import handle_contact_merged_message
 from tests.dealership_support import valid_uid
 from tests.token_support import dealer_group_of

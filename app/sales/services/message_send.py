@@ -35,9 +35,9 @@ import uuid
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.contact.public import MessageRecipient, message_recipient, preselected_message_channel
 from app.core.errors import ConflictError, NotFoundError, UnprocessableEntityError
 from app.core.i18n import SwissLanguage, format_date_ch
-from app.contact.public import MessageRecipient, message_recipient, preselected_message_channel
 from app.integration.public import (
     DeliveryRecord,
     MailAttachment,

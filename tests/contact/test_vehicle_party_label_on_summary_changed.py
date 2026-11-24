@@ -22,12 +22,12 @@ import pytest
 from sqlalchemy import func, select
 from sqlalchemy.orm import sessionmaker
 
-from app.core.outbox_model import OutboxMessage
-from app.core.outbox_transport import InProcessTransport
-from app.core.processed_event_model import ProcessedEvent
 from app.contact.consumers import handle_vehicle_summary_changed_message
 from app.contact.models.vehicle_party import VehicleParty
 from app.contact.services.vehicle_party_labels import oldest_vehicle_party_label_age_seconds
+from app.core.outbox_model import OutboxMessage
+from app.core.outbox_transport import InProcessTransport
+from app.core.processed_event_model import ProcessedEvent
 from app.vehicle.models.vehicle_mdm import VehicleMdm
 from app.vehicle.schemas.vehicle_mdm import VehicleMdmUpdate
 from app.vehicle.services import vehicle_mdm as vehicle_mdm_service

@@ -22,15 +22,15 @@ from sqlalchemy import event, select, text
 from sqlalchemy.orm import sessionmaker
 
 from app import worker
-from app.core.daily_scheduler import _REGISTRY, registered_job_names
 from app.contact.models.contact import Contact, ContactLifecycleStatus, Language
+from app.core.daily_scheduler import _REGISTRY, registered_job_names
 from app.sales.models.contract import ContractStatus, SalesContract
 from app.sales.models.deal import SalesDeal
 from app.sales.models.offer import SalesOffer
 from app.sales.public import oldest_contact_label_age_seconds, refresh_contact_labels
 from tests.contact.test_contact_vehicle_party_close_rule import _postgres_only
 from tests.identity_support import create_dealership, create_user
-from tests.platform.test_user_deactivation import _as, _contract_for, _contact_for, _offer_for
+from tests.platform.test_user_deactivation import _as, _contact_for, _contract_for, _offer_for
 
 
 def _offer_with(client, seller: dict, contact: dict) -> dict:

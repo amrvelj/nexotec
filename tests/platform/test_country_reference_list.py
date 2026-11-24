@@ -20,9 +20,9 @@ from app.platform.reference_data_seed import load_country_seed
 # --- shared fixtures reused from the contact suite --------------------------
 from tests.contact.test_contact import (
     _bearer,
+    _contact_payload,
     _create_contact,
     _create_dealer,
-    _contact_payload,
     _token,
 )
 

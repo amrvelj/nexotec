@@ -14,8 +14,8 @@ import uuid
 from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
-from app.core.base import utcnow
 from app.contact.models.contact import Contact
+from app.core.base import utcnow
 from app.platform.public import get_user_display_labels
 
 _BATCH = 500

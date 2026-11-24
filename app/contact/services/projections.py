@@ -20,8 +20,8 @@ from app.contact.models.contact import (
 from app.contact.schemas.contact import (
     ContactAddressRead,
 )
-from app.contact.services.contact_groups import contact_groups_by_contact
 from app.contact.services.contact_common import _is_usable_row
+from app.contact.services.contact_groups import contact_groups_by_contact
 from app.contact.services.roles import roles_by_contact
 
 _EMPTY_PROJECTIONS: dict[str, Any] = {

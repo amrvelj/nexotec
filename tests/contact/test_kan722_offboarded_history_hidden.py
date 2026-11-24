@@ -13,16 +13,16 @@ import ast
 import uuid
 from pathlib import Path
 
+from app.contact.services import contact as contact_service
+from app.contact.services.data_export import ContactExporter
 from app.core.audit import record_audit_event
 from app.core.audit_model import AuditEvent
 from app.core.export import read_rows
 from app.core.export_core import CoreExporter
-from app.contact.services import contact as contact_service
-from app.contact.services.data_export import ContactExporter
 from app.platform.administration.services import data_export
 from app.platform.identity.models.dealership_membership import DealershipMembership
-from tests.cross_context.test_kan218_offboarded_betrieb_leaves_group_reads import _group, _offboarded, _user
 from tests.contact.test_contact_vehicle_party_future_holder import _contact
+from tests.cross_context.test_kan218_offboarded_betrieb_leaves_group_reads import _group, _offboarded, _user
 from tests.membership_support import bearer, token
 
 _APP = Path(__file__).resolve().parents[2] / "app"

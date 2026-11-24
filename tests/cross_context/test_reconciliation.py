@@ -13,12 +13,12 @@ from decimal import Decimal
 import pytest
 from sqlalchemy import update
 
-from app.core.auth import AccessRole, create_access_token
-from app.core.reconciliation import ReconciliationAlarm
-from app.core.reconciliation_model import ReconciliationRun
 from app.contact import reconciliation as contact_reconciliation
 from app.contact.models.contact import Contact
 from app.contact.models.vehicle_party import VehicleParty, VehiclePartyRole
+from app.core.auth import AccessRole, create_access_token
+from app.core.reconciliation import ReconciliationAlarm
+from app.core.reconciliation_model import ReconciliationRun
 from app.integration import reconciliation as integration_reconciliation
 from app.integration.models.provider import IntegrationProvider
 from app.inventory import reconciliation as inventory_reconciliation

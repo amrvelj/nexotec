@@ -23,8 +23,6 @@ from sqlalchemy import select, text
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import sessionmaker
 
-from app.core.base import utcnow
-from app.core.errors import ConflictError
 from app.contact.models.vehicle_party import VehicleParty, VehiclePartyRole
 from app.contact.schemas.contact import ContactVehicleUpdate
 from app.contact.services import contact as contact_service
@@ -36,6 +34,8 @@ from app.contact.services.vehicle_party import (
     update_contact_vehicle,
 )
 from app.contact.services.vehicle_party_locks import _lock_vehicle_role_in_group
+from app.core.base import utcnow
+from app.core.errors import ConflictError
 from app.vehicle.services.merge import merge_vehicles
 from app.vehicle.services.vehicle_mdm import create_vehicle_mdm
 from tests.postgres_only import NEEDS_ITS_OWN_CONNECTION

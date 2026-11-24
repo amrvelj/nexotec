@@ -22,13 +22,13 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.orm import sessionmaker
 
+from app.contact.models.contact import ContactType, Language
+from app.contact.schemas.contact import ContactCreate, ContactEmailCreate
+from app.contact.services.contact import create_contact
 from app.core.outbox_model import OutboxMessage
 from app.core.outbox_transport import InProcessTransport
 from app.core.outbox_worker import poll_once
 from app.core.processed_event_model import ProcessedEvent
-from app.contact.models.contact import ContactType, Language
-from app.contact.schemas.contact import ContactCreate, ContactEmailCreate
-from app.contact.services.contact import create_contact
 from tests.demo_models import DemoWidget
 
 pytestmark = pytest.mark.skipif(

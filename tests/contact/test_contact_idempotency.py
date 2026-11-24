@@ -10,10 +10,10 @@ import uuid
 
 from sqlalchemy import func, select
 
-from app.core.auth import AccessRole, create_access_token
 from app.contact.models.contact import Contact, ContactAddress, ContactEmail, ContactExternalId, ContactPhone
 from app.contact.models.legal_basis import LegalBasis
 from app.contact.models.vehicle_party import VehicleParty, VehiclePartyRole
+from app.core.auth import AccessRole, create_access_token
 from tests.dealership_support import valid_uid
 from tests.token_support import dealer_group_of
 

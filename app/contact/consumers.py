@@ -37,8 +37,6 @@ from zoneinfo import ZoneInfo
 
 from sqlalchemy.orm import Session
 
-from app.core.config import get_settings
-from app.core.outbox_model import OutboxMessage
 from app.contact.models.stock_item_booking import StockItemBookingKind
 from app.contact.services.stock_item_booking import (
     lock_stock_item,
@@ -49,6 +47,8 @@ from app.contact.services.stock_item_booking import (
 from app.contact.services.trade_in_holders import record_former_holder_on_purchase, reopen_former_holder_after_storno
 from app.contact.services.vehicle_party import resolve_live_contact_id
 from app.contact.services.vehicle_party_labels import relabel_vehicle_parties_for_vehicle
+from app.core.config import get_settings
+from app.core.outbox_model import OutboxMessage
 from app.platform.public import get_dealership_or_404
 
 logger = logging.getLogger(__name__)

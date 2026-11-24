@@ -479,9 +479,9 @@ def test_merge_conflict_on_the_survivor_names_a_reason(client, db_session, monke
 
     from sqlalchemy.exc import IntegrityError
 
-    from app.core.errors import ConflictError
     from app.contact.models.contact import Contact
     from app.contact.services import contact_merge as contact_merge_service
+    from app.core.errors import ConflictError
 
     dealer_id = _create_dealer(client)
     survivor = _create_contact(client, dealer_id, email="survivor366b@example.ch")

@@ -16,8 +16,8 @@ import httpx
 import pytest
 from sqlalchemy import func, select
 
-from app.core.auth import AccessRole
 from app.contact.models.contact import Contact, ContactLifecycleStatus, ContactPhone
+from app.core.auth import AccessRole
 from app.integration.adapters import messaging_providers
 from app.integration.models.mail import DeliveryChannel, DeliveryStatus, MessageDelivery
 from app.integration.services import resilience, secrets_backend

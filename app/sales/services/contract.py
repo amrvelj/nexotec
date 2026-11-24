@@ -12,6 +12,7 @@ from collections.abc import Callable
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.contact.public import ContactLifecycleStatus, get_contact_or_404, has_usable_domicile_address
 from app.core.audit import record_audit_event
 from app.core.base import utcnow
 from app.core.config import get_settings
@@ -19,7 +20,6 @@ from app.core.errors import ConflictError, NotFoundError
 from app.core.outbox import OutboxEvent, publish
 from app.core.pagination import SortPageParams, count_capped, paginate_query_sorted
 from app.core.sorting import build_page_for_sort
-from app.contact.public import ContactLifecycleStatus, get_contact_or_404, has_usable_domicile_address
 from app.db import SessionLocal
 from app.inventory.public import release, reserve_for_contract
 from app.sales.models.contract import ContractStatus, FinancingKind, SalesContract
@@ -28,9 +28,9 @@ from app.sales.models.offer import SalesOffer
 from app.sales.schemas.contract import ContractUpdate
 from app.sales.services import ownership
 from app.sales.services.configuration_reference import publish_held_configurations
+from app.sales.services.contact_attach_lock import lock_contact_for_attach
 from app.sales.services.contract_compensation import ConfirmationIds, compensate_confirmation
 from app.sales.services.contract_completeness import is_priced_without_inputs, require_complete
-from app.sales.services.contact_attach_lock import lock_contact_for_attach
 from app.sales.services.deal_editing import apply_vehicle_and_pricing_changes
 from app.sales.services.deal_projection import upsert_deal_projection
 from app.sales.services.invoice_handover import HandoverPlate, handover_payload, swiss_today

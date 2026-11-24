@@ -19,26 +19,15 @@ from sqlalchemy import not_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.core.audit import record_audit_event
-from app.core.audit_attribution import attributed
-from app.core.audit_model import AuditEvent
-from app.core.base import utcnow
-from app.core.concurrency import check_version
-from app.core.errors import BadRequestError, ConflictError, UnprocessableEntityError
-from app.core.outbox import OutboxEvent
-from app.core.outbox import publish as publish_event
-from app.core.postal_codes import derive_canton
-from app.core.redact import REDACTED_PLACEHOLDER, is_secret_field
-from app.core.validators import normalise_phone
 from app.contact.models.contact import (
     AddressType,
-    ContactRole,
     Contact,
     ContactAddress,
     ContactEmail,
     ContactLifecycleStatus,
     ContactNumberSequence,
     ContactPhone,
+    ContactRole,
     ContactTag,
     ContactType,
 )
@@ -52,6 +41,7 @@ from app.contact.services import roles as roles_service
 from app.contact.services.contact_channels import _consent_create_kwargs
 from app.contact.services.contact_common import (
     _EVENT_PRODUCER,
+    CONTACT_AUDIT_ENTITY_TYPES,
     _contact_label_payload,
     _is_usable_row,
     _plain,
@@ -59,6 +49,17 @@ from app.contact.services.contact_common import (
     _violated_constraint,
     contact_display_name,
 )
+from app.core.audit import record_audit_event
+from app.core.audit_attribution import attributed
+from app.core.audit_model import AuditEvent
+from app.core.base import utcnow
+from app.core.concurrency import check_version
+from app.core.errors import BadRequestError, ConflictError, UnprocessableEntityError
+from app.core.outbox import OutboxEvent
+from app.core.outbox import publish as publish_event
+from app.core.postal_codes import derive_canton
+from app.core.redact import REDACTED_PLACEHOLDER, is_secret_field
+from app.core.validators import normalise_phone
 from app.platform.public import (
     get_active_user_acting_in,
     get_group_display_labels,
@@ -359,7 +360,7 @@ def create_contact(
     lifecycle_status = roles_service.check_create(
         data.roles, fields_set=data.model_fields_set, lifecycle_status=data.lifecycle_status, advisor_id=data.advisor_id
     )
-    holds_contact = ContactRole.CUSTOMER in data.roles
+    holds_customer = ContactRole.CUSTOMER in data.roles
     contact = Contact(
         group_id=group_id,
         contact_number=_allocate_contact_number(db, group_id),
@@ -400,8 +401,8 @@ def create_contact(
     # explicit id is rejected; a default that cannot be resolved (a
     # back-office / migration actor who is not a dealership user) leaves the
     # contact unassigned rather than failing the whole create.
-    # D-24 is a contact rule: a supplier-only contact gets no advisor.
-    advisor_id = data.advisor_id if data.advisor_id is not None else (actor_id if holds_contact else None)
+    # D-24 is a customer rule: a supplier-only contact gets no advisor.
+    advisor_id = data.advisor_id if data.advisor_id is not None else (actor_id if holds_customer else None)
     if advisor_id is not None:
         try:
             _apply_advisor(
@@ -440,7 +441,7 @@ def create_contact(
     after[roles_service.AUDIT_FIELD] = [role.value for role in data.roles]
     record_audit_event(
         db,
-        entity_type="customer",
+        entity_type="contact",
         entity_id=contact.id,
         tenant_id=group_id,
         action="create",
@@ -454,7 +455,7 @@ def create_contact(
             event_type="contact.created",
             tenant_id=group_id,
             producer=_EVENT_PRODUCER,
-            aggregate_type="customer",
+            aggregate_type="contact",
             aggregate_id=contact.id,
             payload=_contact_label_payload(contact),
         ),
@@ -517,14 +518,14 @@ def update_contact(
     roles_service.check_customer_role_write_on_update(
         contact,
         may_write_customer_role=may_write_customer_role,
-        held_contact_before=ContactRole.CUSTOMER.value in current_roles,
-        holds_contact_after=ContactRole.CUSTOMER.value in new_roles,
+        held_customer_before=ContactRole.CUSTOMER.value in current_roles,
+        holds_customer_after=ContactRole.CUSTOMER.value in new_roles,
         changes=changes,
     )
     roles_service.apply_role_rules_on_update(
         contact,
-        holds_contact_after=ContactRole.CUSTOMER.value in new_roles,
-        held_contact_before=ContactRole.CUSTOMER.value in current_roles,
+        holds_customer_after=ContactRole.CUSTOMER.value in new_roles,
+        held_customer_before=ContactRole.CUSTOMER.value in current_roles,
         changes=changes,
     )
     if new_roles != current_roles:
@@ -629,7 +630,7 @@ def update_contact(
     if before or after:
         record_audit_event(
             db,
-            entity_type="customer",
+            entity_type="contact",
             entity_id=contact.id,
             tenant_id=contact.group_id,
             action="update",
@@ -644,7 +645,7 @@ def update_contact(
                 event_type="contact.updated",
                 tenant_id=contact.group_id,
                 producer=_EVENT_PRODUCER,
-                aggregate_type="customer",
+                aggregate_type="contact",
                 aggregate_id=contact.id,
                 payload=_contact_label_payload(contact),
             ),
@@ -729,7 +730,7 @@ def set_credit_block(
 
     record_audit_event(
         db,
-        entity_type="customer",
+        entity_type="contact",
         entity_id=contact.id,
         tenant_id=contact.group_id,
         action="credit_block_changed",
@@ -750,7 +751,16 @@ def set_credit_block(
 _HISTORY_DEALERSHIP_KEYS = frozenset({"dealershipId"})
 _HISTORY_USER_KEYS = frozenset({"advisorId"})
 _HISTORY_CONTACT_KEYS = frozenset(
-    {"mergedIntoContactId", "duplicateOfContactId", "contactId", "earlierMergesRepointedIds"}
+    {
+        "mergedIntoContactId",
+        "duplicateOfContactId",
+        "contactId",
+        "earlierMergesRepointedIds",
+        # rows written before the rename to contacts (KAN-464 PR-3)
+        "mergedIntoCustomerId",
+        "duplicateOfCustomerId",
+        "customerId",
+    }
 )
 # KAN-680: a vehicle merge's kept copy names the record it was merged into.
 _HISTORY_VEHICLE_KEYS = frozenset({"vehicleId", "mergedIntoVehicleId"})
@@ -782,7 +792,7 @@ def list_contact_history(db: Session, *, group_id: uuid.UUID, contact_id: uuid.U
     stmt = (
         select(AuditEvent)
         .where(
-            AuditEvent.entity_type == "customer",
+            AuditEvent.entity_type.in_(CONTACT_AUDIT_ENTITY_TYPES),
             AuditEvent.entity_id == contact_id,
             AuditEvent.tenant_id == group_id,
             not_(attributed(AuditEvent, hidden)),
@@ -805,11 +815,11 @@ def history_labels(
     are named; an id that resolves to nothing is left out and the screen
     renders it as unknown. One query per kind, whatever the number of events."""
 
-    ids: dict[str, set[uuid.UUID]] = {kind: set() for kind in ("dealership", "user", "customer", "vehicle", "party")}
+    ids: dict[str, set[uuid.UUID]] = {kind: set() for kind in ("dealership", "user", "contact", "vehicle", "party")}
     kinds = (
         (_HISTORY_DEALERSHIP_KEYS, "dealership"),
         (_HISTORY_USER_KEYS, "user"),
-        (_HISTORY_CONTACT_KEYS, "customer"),
+        (_HISTORY_CONTACT_KEYS, "contact"),
         (_HISTORY_VEHICLE_KEYS, "vehicle"),
         (_HISTORY_PARTY_KEYS, "party"),
     )
@@ -832,9 +842,9 @@ def history_labels(
         db, group_id=group_id, dealership_id=dealership_id, dealership_ids=ids["dealership"], user_ids=ids["user"]
     )
     labels: dict[str, str] = {str(k): v for k, v in {**dealerships, **users}.items()}
-    if ids["customer"]:
+    if ids["contact"]:
         for contact in db.scalars(
-            select(Contact).where(Contact.id.in_(ids["customer"]), Contact.group_id == group_id)
+            select(Contact).where(Contact.id.in_(ids["contact"]), Contact.group_id == group_id)
         ):
             labels[str(contact.id)] = f"{contact_display_name(contact)} ({contact.contact_number})"
     party_columns = (

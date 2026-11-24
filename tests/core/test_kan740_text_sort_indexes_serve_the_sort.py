@@ -16,10 +16,10 @@ import uuid
 import pytest
 from sqlalchemy import select, text
 
-from app.core.pagination import SortPageParams, paginate_query_sorted
-from app.core.sorting import decode_cursor_for_sort, parse_sort
 from app.contact.api.contacts import CONTACT_SORT_FIELDS
 from app.contact.models.contact import Contact
+from app.core.pagination import SortPageParams, paginate_query_sorted
+from app.core.sorting import decode_cursor_for_sort, parse_sort
 from app.sales.api.deals import DEAL_SORT_FIELDS
 from app.sales.models.deal import SalesDeal
 from tests.postgres_only import POSTGRES_SQL

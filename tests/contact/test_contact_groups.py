@@ -14,10 +14,10 @@ import pytest
 from sqlalchemy import insert, select
 from sqlalchemy.orm import sessionmaker
 
+from app.contact.models.contact import ContactGroupAssignment
 from app.core.audit_model import AuditEvent
 from app.core.base import utcnow
 from app.core.uuid7 import uuid7
-from app.contact.models.contact import ContactGroupAssignment
 from app.platform.organisation.models.contact_group import DealershipContactGroup
 from app.platform.organisation.services.contact_group import SEEDED_CONTACT_GROUPS
 from app.platform.reference.models.reference_data import ReferenceList, ReferenceValue

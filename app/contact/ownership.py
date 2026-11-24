@@ -32,20 +32,20 @@ from collections.abc import Callable
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.contact.models.contact import Contact, ContactLifecycleStatus
+from app.contact.services.contact_common import _contact_label_payload
 from app.core.audit import record_audit_event
 from app.core.base import utcnow
 from app.core.errors import UnprocessableEntityError
 from app.core.outbox import OutboxEvent, publish
 from app.core.ownership import OwnedGroup, OwnershipRefusal, OwnershipTransfer
-from app.contact.models.contact import Contact, ContactLifecycleStatus
-from app.contact.services.contact_common import _contact_label_payload
 from app.platform.public import list_user_dealer_group_ids
 
 logger = logging.getLogger(__name__)
 
-MODULE = "customer"
+MODULE = "contact"
 GROUP_CONTACTS = "contacts"
-_EVENT_PRODUCER = "customer"
+_EVENT_PRODUCER = "contact"
 
 
 def _open_contacts(user_id: uuid.UUID):
@@ -170,7 +170,7 @@ def _transfer_contacts(
         contact.version += 1
         record_audit_event(
             db,
-            entity_type="customer",
+            entity_type="contact",
             entity_id=contact.id,
             tenant_id=contact.group_id,
             action="update",
@@ -186,7 +186,7 @@ def _transfer_contacts(
                 event_type="contact.updated",
                 tenant_id=contact.group_id,
                 producer=_EVENT_PRODUCER,
-                aggregate_type="customer",
+                aggregate_type="contact",
                 aggregate_id=contact.id,
                 payload=_contact_label_payload(contact),
             ),

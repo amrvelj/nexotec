@@ -9,9 +9,9 @@ import uuid
 import pytest
 from sqlalchemy import update
 
-from app.core.auth import create_access_token
 from app.contact.models.contact import Contact, ContactEmail, ContactLifecycleStatus, ContactPhone
 from app.contact.public import message_recipient, preselected_message_channel
+from app.core.auth import create_access_token
 from app.platform.public import MessageChannel, MessagePurpose
 from tests.dealership_support import valid_uid
 from tests.token_support import dealer_group_of

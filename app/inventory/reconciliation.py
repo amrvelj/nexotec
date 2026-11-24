@@ -16,9 +16,9 @@ import datetime as dt
 from sqlalchemy import and_, or_, select
 from sqlalchemy.orm import Session, aliased
 
+from app.contact.public import contact_reference_check
 from app.core.base import utcnow
 from app.core.reconciliation import ReconciliationRun, ReferenceCheck, StateCheck, run_reconciliation
-from app.contact.public import contact_reference_check
 from app.inventory.models.cancelled_contract import InventoryCancelledContract
 from app.inventory.models.sales_contract import InventorySalesContract
 from app.inventory.models.stock_item import StockItem

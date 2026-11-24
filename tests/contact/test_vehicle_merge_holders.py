@@ -16,11 +16,6 @@ from sqlalchemy import select, text
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import sessionmaker
 
-from app.core.audit_model import AuditEvent
-from app.core.errors import ConflictError
-from app.core.outbox_model import OutboxMessage
-from app.core.processed_event_model import ProcessedEvent
-from app.core.reconciliation import find_rows_in_state
 from app.contact.models.vehicle_party import VehicleParty, VehiclePartyRole
 from app.contact.reconciliation import CHECKS as CONTACT_CHECKS
 from app.contact.schemas.contact import ContactVehicleUpdate
@@ -31,6 +26,11 @@ from app.contact.services.vehicle_party import (
     update_contact_vehicle,
 )
 from app.contact.services.vehicle_party_locks import _lock_vehicle_role_in_group
+from app.core.audit_model import AuditEvent
+from app.core.errors import ConflictError
+from app.core.outbox_model import OutboxMessage
+from app.core.processed_event_model import ProcessedEvent
+from app.core.reconciliation import find_rows_in_state
 from app.vehicle.services.merge import merge_vehicles
 from app.vehicle.services.vehicle_mdm import create_vehicle_mdm
 from tests.postgres_only import NEEDS_ITS_OWN_CONNECTION

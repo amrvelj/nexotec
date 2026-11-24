@@ -8,10 +8,6 @@ import uuid
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
-from app.core.audit import record_audit_event
-from app.core.base import utcnow
-from app.core.outbox import OutboxEvent
-from app.core.outbox import publish as publish_event
 from app.contact.models.contact import (
     Contact,
 )
@@ -24,6 +20,10 @@ from app.contact.services.vehicle_party_locks import (
     _lock_rows_of_roles,
     _refuse_merged_contact,
 )
+from app.core.audit import record_audit_event
+from app.core.base import utcnow
+from app.core.outbox import OutboxEvent
+from app.core.outbox import publish as publish_event
 
 
 def record_former_holder_on_purchase(
@@ -263,7 +263,7 @@ def _write_history_row(
     db.flush()
     record_audit_event(
         db,
-        entity_type="customer",
+        entity_type="contact",
         entity_id=contact_id,
         tenant_id=group_id,
         action="vehicle_party_add",
@@ -321,7 +321,7 @@ def _extend_to_purchase(
     db.flush()
     record_audit_event(
         db,
-        entity_type="customer",
+        entity_type="contact",
         entity_id=party.contact_id,
         tenant_id=group_id,
         action="vehicle_party_update",
@@ -472,7 +472,7 @@ def reopen_former_holder_after_storno(
         db.flush()
         record_audit_event(
             db,
-            entity_type="customer",
+            entity_type="contact",
             entity_id=contact_id,
             tenant_id=group_id,
             action="vehicle_party_update",

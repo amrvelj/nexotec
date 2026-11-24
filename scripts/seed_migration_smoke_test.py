@@ -54,23 +54,23 @@ from migration_smoke_test_catalogue import seed_catalogue_type_approval
 from sqlalchemy import inspect
 from sqlalchemy.orm import Session
 
-from app.core.base import utcnow
-from app.core.types import GUID, EncryptedString
-from app.core.uuid7 import uuid7
 from app.contact.models.contact import (
-    ContactRole,
     Contact,
     ContactEmail,
     ContactExternalId,
     ContactLifecycleStatus,
     ContactNumberSequence,
     ContactPhone,
+    ContactRole,
     ContactRoleAssignment,
     ContactType,
     EmailType,
     Language,
     PhoneType,
 )
+from app.core.base import utcnow
+from app.core.types import GUID, EncryptedString
+from app.core.uuid7 import uuid7
 from app.db import SessionLocal
 from app.platform.organisation.models.dealership import DealerGroup, Dealership, DealershipStatus, FranchiseType
 

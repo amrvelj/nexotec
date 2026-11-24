@@ -10,13 +10,13 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.orm import sessionmaker
 
-from app.core.outbox_model import OutboxMessage
-from app.core.outbox_transport import InProcessTransport
-from app.core.reconciliation import find_rows_in_state
 from app.contact.models.vehicle_party import VehicleParty, VehiclePartyRole
 from app.contact.reconciliation import CHECKS as CONTACT_CHECKS
 from app.contact.services.vehicle_merge import handle_vehicle_merged_message
 from app.contact.services.vehicle_party import allocate_vehicle_party
+from app.core.outbox_model import OutboxMessage
+from app.core.outbox_transport import InProcessTransport
+from app.core.reconciliation import find_rows_in_state
 from app.vehicle.services.merge import MERGED_EVENT, merge_vehicles, resolve_merged_id
 from app.vehicle.services.vehicle_history import add_accessory, record_odometer_reading
 from app.vehicle.services.vehicle_mdm import create_vehicle_mdm

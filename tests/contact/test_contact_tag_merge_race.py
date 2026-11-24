@@ -16,12 +16,12 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.orm import sessionmaker
 
-from app.core.errors import ConflictError
 from app.contact.models.contact import Contact, ContactTag, ContactType, Language
 from app.contact.schemas.contact import ContactUpdate
 from app.contact.services import contact as contact_service
 from app.contact.services import contact_common as contact_common_service
 from app.contact.services import contact_merge as contact_merge_service
+from app.core.errors import ConflictError
 from tests.contact.test_contact_vehicle_party_close_rule import (
     _postgres_only,
     _run,

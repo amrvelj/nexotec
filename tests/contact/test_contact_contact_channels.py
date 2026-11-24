@@ -716,8 +716,8 @@ def test_has_usable_domicile_address_tracks_the_address_projection(client, db_se
 
     import datetime as dt
 
-    from app.core.base import utcnow
     from app.contact.public import has_usable_domicile_address
+    from app.core.base import utcnow
 
     dealer_id = _create_dealer(client)
     contact = _create_contact(client, dealer_id)

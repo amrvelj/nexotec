@@ -24,8 +24,8 @@ from tests.contact.test_contact_vehicle_party_close_rule import _postgres_only
 from tests.identity_support import create_dealership, create_user, platform_admin_headers
 from tests.platform.test_user_deactivation import (
     _as,
-    _contract_for,
     _contact_for,
+    _contract_for,
     _offer_for,
 )
 

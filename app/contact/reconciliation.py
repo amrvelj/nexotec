@@ -13,26 +13,27 @@ from collections.abc import Iterable
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.core.audit_model import AuditEvent
-from app.core.base import utcnow
-from app.core.outbox_model import OutboxMessage
-from app.core.reconciliation import ReconciliationRun, ReferenceCheck, StateCheck, run_reconciliation
 from app.contact.models.contact import (
-    ContactRole,
     Contact,
     ContactAddress,
-    ContactGroupAssignment,
     ContactEmail,
     ContactExternalId,
+    ContactGroupAssignment,
     ContactLifecycleStatus,
     ContactNumberSequence,
     ContactPhone,
+    ContactRole,
     ContactRoleAssignment,
     ContactTag,
 )
 from app.contact.models.legal_basis import LegalBasis
 from app.contact.models.stock_item_booking import StockItemBooking
 from app.contact.models.vehicle_party import VehicleParty
+from app.contact.services.contact_common import CONTACT_AUDIT_ENTITY_TYPES
+from app.core.audit_model import AuditEvent
+from app.core.base import utcnow
+from app.core.outbox_model import OutboxMessage
+from app.core.reconciliation import ReconciliationRun, ReferenceCheck, StateCheck, run_reconciliation
 from app.integration.public import message_delivery_recipient_reference_check
 from app.inventory.public import stock_item_reference_check
 from app.platform.public import (
@@ -45,7 +46,7 @@ from app.platform.public import (
 )
 from app.vehicle.public import vehicle_is_merged, vehicle_reference_check
 
-CONTEXT = "customer"
+CONTEXT = "contact"
 
 # How long a published event may wait for its consumer before a missing row
 # is a finding: the outbox's normal delay, as Stock's and Sales' checks allow.
@@ -358,7 +359,7 @@ def _classify_vehicle_party_stamps(
     raw: list[tuple[str, uuid.UUID, dt.datetime, uuid.UUID | None, uuid.UUID | None]] = []
     for row_id, contact_id, stamped, at in db.execute(
         select(AuditEvent.id, AuditEvent.entity_id, AuditEvent.tenant_id, AuditEvent.created_at)
-        .where(AuditEvent.entity_type == "customer", AuditEvent.action == audit_action)
+        .where(AuditEvent.entity_type.in_(CONTACT_AUDIT_ENTITY_TYPES), AuditEvent.action == audit_action)
         .order_by(AuditEvent.created_at, AuditEvent.id)
     ).all():
         raw.append(("audit_event", row_id, at, contact_id, stamped))

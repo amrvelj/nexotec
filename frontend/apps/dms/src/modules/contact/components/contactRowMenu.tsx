@@ -71,9 +71,9 @@ export function buildContactRowMenu(
   const isBlocked = contact.creditBlock
   // KAN-464 (Q1): a credit block is the customer role's — a contact without
   // it is offered none (a block already standing can always be lifted).
-  const holdsContact = contact.roles === undefined || contact.roles.includes('customer')
-  const canBeBlocked = mayWriteCustomerRole && (isBlocked || holdsContact)
-  const canBeMerged = mayWriteCustomerRole || !holdsContact
+  const holdsCustomer = contact.roles === undefined || contact.roles.includes('customer')
+  const canBeBlocked = mayWriteCustomerRole && (isBlocked || holdsCustomer)
+  const canBeMerged = mayWriteCustomerRole || !holdsCustomer
   const isMerged = contact.lifecycleStatus === 'merged'
 
   const newOfferDisabledReason = isDoNotContact ? t('contactRowMenu.newOfferDisabledDoNotContact') : undefined
@@ -125,7 +125,7 @@ export function buildContactRowMenu(
       onClick: handlers.onToggleDoNotContact,
       // KAN-464 Q3: lifting it on a contact chooses the contact's status,
       // which only who may write the customer role does; setting it is open.
-      ...(isDoNotContact && holdsContact && !mayWriteCustomerRole
+      ...(isDoNotContact && holdsCustomer && !mayWriteCustomerRole
         ? { disabled: true, disabledReason: t('contactRowMenu.removeDoNotContactCustomerRole') }
         : {}),
     },

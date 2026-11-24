@@ -49,4 +49,4 @@ class ValuationExporter(TableExporter):
                 Valuation.tenant_id == scope.dealership_id, Valuation.contact_id.is_not(None)
             )
         )
-        return {"customer": frozenset(contact_id for contact_id in ids if contact_id is not None)}
+        return {"contact": frozenset(contact_id for contact_id in ids if contact_id is not None)}

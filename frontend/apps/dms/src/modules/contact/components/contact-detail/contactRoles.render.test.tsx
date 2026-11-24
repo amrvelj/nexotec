@@ -44,7 +44,7 @@ const role = (code: string) => i18n.t(`contactEnums.role.${code}`)
 const lifecycle = (code: string) => i18n.t(`contactEnums.lifecycleStatus.${code}`)
 
 describe('the 360 shows the contact roles (KAN-464)', () => {
-  it('a contact shows its role badge, its status and its advisor', async () => {
+  it('a customer shows its role badge, its status and its advisor', async () => {
     installFakeBackend(routes({ roles: ['customer'], lifecycleStatus: 'active', advisorId: 'user-7', advisorLabel: 'Rey Ortiz' }))
     renderDetail()
     await screen.findAllByText(i18n.t('contactDetail.overview.cards.relationship'))
@@ -108,7 +108,7 @@ describe('the row menu offers a credit block only to the customer role (KAN-464)
     (buildContactRowMenu(t, c, handlers).overflow.edit ?? []).map((a) => a.label)
   const base = { lifecycleStatus: 'active' as const, creditBlock: false, creditBlockReason: null }
 
-  it('a supplier is offered none; a contact and a standing block are', () => {
+  it('a supplier is offered none; a customer and a standing block are', () => {
     expect(labels({ ...base, roles: ['supplier'] })).not.toContain('contactRowMenu.setCreditBlock')
     expect(labels({ ...base, roles: ['customer', 'supplier'] })).toContain('contactRowMenu.setCreditBlock')
     expect(labels({ ...base, creditBlock: true, roles: ['supplier'] })).toContain('contactRowMenu.removeCreditBlock')
@@ -133,7 +133,7 @@ describe('the list sends the role filter (KAN-464)', () => {
 })
 
 describe('creating a contact asks for its roles (KAN-464)', () => {
-  it('a new contact is a contact unless the user chooses otherwise, and a supplier-only one sends no status', async () => {
+  it('a new contact is a customer unless the user chooses otherwise, and a supplier-only one sends no status', async () => {
     const user = userEvent.setup()
     const backend = installFakeBackend([
       { match: /^\/contacts\/duplicate-check$/, handler: () => ({ items: [], nextCursor: null }) },

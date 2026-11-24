@@ -11,13 +11,13 @@ from decimal import Decimal
 
 import pytest
 
+from app.contact.models.contact import Contact, ContactTag, Gender
+from app.contact.schemas.contact import ContactCreate, ContactEmailCreate, ContactUpdate
+from app.contact.services.contact import create_contact, update_contact
 from app.core.audit_model import AuditEvent
 from app.core.auth import AccessRole, create_access_token
 from app.core.errors import UnprocessableEntityError
 from app.core.validators import iban_is_valid
-from app.contact.models.contact import Contact, ContactTag, Gender
-from app.contact.schemas.contact import ContactCreate, ContactEmailCreate, ContactUpdate
-from app.contact.services.contact import create_contact, update_contact
 from tests.dealership_support import valid_uid
 from tests.token_support import dealer_group_of
 

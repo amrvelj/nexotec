@@ -16,14 +16,14 @@ from decimal import Decimal
 
 from sqlalchemy import func, select
 
-from app.core.consumer import consume_once
-from app.core.outbox_model import OutboxMessage
 from app.contact.consumers import handle_stock_item_booking_purchased_message, purchase_moment
 from app.contact.consumers import handle_stock_item_purchased_message as handle_trade_in_purchased_message
 from app.contact.models.contact import Contact, ContactLifecycleStatus
 from app.contact.models.vehicle_party import VehicleParty, VehiclePartyRole
 from app.contact.services.vehicle_party import allocate_vehicle_party
 from app.contact.services.vehicle_party_reads import list_contact_vehicles
+from app.core.consumer import consume_once
+from app.core.outbox_model import OutboxMessage
 from app.inventory.models.stock_item import LifecycleStatus, StockItem, StockItemCondition
 from app.inventory.schemas.purchase import RecordPurchaseRequest
 from app.inventory.schemas.stock_item import StockItemCreate

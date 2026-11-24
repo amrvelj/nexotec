@@ -15,11 +15,11 @@ import uuid
 
 from sqlalchemy import select
 
-from app.core.audit_model import AuditEvent
-from app.core.base import utcnow
 from app.contact.models.vehicle_party import VehicleParty, VehiclePartyRole
 from app.contact.services.trade_in_holders import record_former_holder_on_purchase
 from app.contact.services.vehicle_party import allocate_vehicle_party
+from app.core.audit_model import AuditEvent
+from app.core.base import utcnow
 from tests.contact.test_contact_vehicle_party_future_holder import (  # noqa: F401 — _never_inverted is an autouse fixture
     _contact,
     _never_inverted,

@@ -2,13 +2,13 @@
 Q1 of 2026-11-14, A: the lifecycle status, the credit block and the advisor
 belong to the customer role; everything else to every contact).
 
-- every contact migrated as `contact`; a create without `roles` is a contact;
+- every contact migrated with the role `customer`; a create without `roles` is a customer;
 - a supplier-only contact carries no customer field: no defaulted advisor, no
   prospect / inactive, no credit block, never in the unassigned queue;
 - taking the customer role away closes those fields in the same audited write,
   and is refused while a credit block stands;
-- the list filters by role; the lifecycle filters on a contact value match
-  only contacts; a merge leaves the survivor holding every role.
+- the list filters by role; the lifecycle filters on a customer value match
+  only customers; a merge leaves the survivor holding every role.
 """
 
 import importlib.util
@@ -18,17 +18,17 @@ import uuid
 from sqlalchemy import select
 from sqlalchemy.orm import sessionmaker
 
-from app.core.audit_model import AuditEvent
-from app.core.reconciliation import StateCheck, find_rows_in_state
 from app.contact.models.contact import (
-    ContactRole,
     Contact,
     ContactLifecycleStatus,
+    ContactRole,
     ContactRoleAssignment,
     ContactType,
     Language,
 )
 from app.contact.reconciliation import CHECKS
+from app.core.audit_model import AuditEvent
+from app.core.reconciliation import StateCheck, find_rows_in_state
 from tests.membership_support import bearer, create_dealership, create_user, token
 
 _MIGRATION = pathlib.Path(__file__).resolve().parents[2] / "alembic/versions/customer/a4c1e6b9d2f7_kan464_customer_role.py"
@@ -96,8 +96,8 @@ def _open_rows(engine, contact_id) -> list[ContactRoleAssignment]:
 # --- the migration ----------------------------------------------------------------------
 
 
-def test_the_migration_gives_every_existing_contact_the_customer_role(db_session):
-    """Exit criterion 2: existing contacts migrate as `contact` — merged
+def test_the_migration_gives_every_existing_customer_the_customer_role(db_session):
+    """Exit criterion 2: existing customers migrate as `customer` — merged
     ones too, valid from their own creation; a second run writes nothing."""
 
     group = uuid.uuid4()
@@ -130,7 +130,7 @@ def test_the_migration_gives_every_existing_contact_the_customer_role(db_session
 # --- create ---------------------------------------------------------------------------------
 
 
-def test_a_create_without_roles_is_a_contact_as_before(client, engine):
+def test_a_create_without_roles_is_a_customer_as_before(client, engine):
     dealership = create_dealership(client)
     actor = str(uuid.uuid4())
     response = client.post(
@@ -161,7 +161,7 @@ def test_a_contact_holds_at_least_one_role(client):
 
 def test_a_supplier_only_contact_carries_no_customer_field(client):
     """Q1 A: no lifecycle status of its own (the neutral `active`), no
-    advisor defaulted from the acting user (D-24 is a contact rule)."""
+    advisor defaulted from the acting user (D-24 is a customer rule)."""
 
     dealership = create_dealership(client)
     # A real user of the Betrieb, so the D-24 default could resolve.
@@ -177,7 +177,7 @@ def test_a_supplier_only_contact_carries_no_customer_field(client):
     assert both["advisorId"] == actor
 
 
-def test_a_supplier_only_contact_is_refused_a_contact_field_on_create(client):
+def test_a_supplier_only_contact_is_refused_a_customer_field_on_create(client):
     dealership = create_dealership(client)
     for field, value, refused in (
         ("lifecycleStatus", "prospect", "lifecycleStatus"),
@@ -286,7 +286,7 @@ def test_a_do_not_contact_contact_stays_so_when_it_loses_the_customer_role(clien
     assert patched.json()["lifecycleStatus"] == "do_not_contact"
 
 
-def test_a_supplier_only_contact_is_refused_a_contact_field_on_update(client):
+def test_a_supplier_only_contact_is_refused_a_customer_field_on_update(client):
     dealership = create_dealership(client)
     supplier = _created(client, dealership, roles=["supplier"])
     for body, field in (
@@ -302,7 +302,7 @@ def test_a_supplier_only_contact_is_refused_a_contact_field_on_update(client):
     response = _patch(client, dealership, both, roles=["supplier"], lifecycleStatus="prospect")
     assert response.status_code == 422, response.text
     assert response.json()["error"]["details"]["reason"] == "customer_role_required"
-    # Giving the role and a contact value together is fine.
+    # Giving the role and a customer value together is fine.
     ok = _patch(client, dealership, supplier, roles=["customer", "supplier"], lifecycleStatus="prospect")
     assert ok.status_code == 200, ok.text
     assert ok.json()["lifecycleStatus"] == "prospect"
@@ -356,7 +356,7 @@ def test_the_role_filter_does_not_reach_another_group(client):
     assert _list_ids(client, mine, role="supplier") == set()
 
 
-def test_a_contact_lifecycle_filter_matches_contacts_only(client):
+def test_a_customer_lifecycle_filter_matches_customers_only(client):
     """A supplier stores the neutral `active` but has no lifecycle status:
     «Aktiv» does not list it; «ist nicht Aktiv» keeps it (ADR-102)."""
 
@@ -436,7 +436,7 @@ def test_reconciliation_reports_a_contact_without_a_role(client, engine):
 def test_reconciliation_reports_a_contact_without_the_customer_role_that_carries_a_customer_field(client, engine):
     """Q1's invariant, monitored (rule 10): a supplier-only contact with an
     advisor, a credit block or a prospect/inactive status is a finding; a
-    plain supplier and a contact are not."""
+    plain supplier and a customer are not."""
 
     dealership = create_dealership(client)
     clean = _created(client, dealership, roles=["supplier"])

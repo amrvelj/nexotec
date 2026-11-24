@@ -20,10 +20,7 @@ import uuid
 import pytest
 from sqlalchemy import select
 
-from app.core.auth import AccessRole, create_access_token
-from app.core.base import utcnow
-from app.core.errors import ConflictError
-from app.contact.models.contact import ContactRole, Contact, ContactRoleAssignment, ContactType, Language
+from app.contact.models.contact import Contact, ContactRole, ContactRoleAssignment, ContactType, Language
 from app.contact.models.vehicle_party import VehicleParty, VehiclePartyRole
 from app.contact.schemas.contact import ContactVehicleCreate, ContactVehicleUpdate
 from app.contact.services.vehicle_party import (
@@ -33,6 +30,9 @@ from app.contact.services.vehicle_party import (
     update_contact_vehicle,
 )
 from app.contact.services.vehicle_party_reads import get_contact_vehicle_or_404
+from app.core.auth import AccessRole, create_access_token
+from app.core.base import utcnow
+from app.core.errors import ConflictError
 from app.vehicle.services.vehicle_mdm import create_vehicle_mdm
 
 OWNER = VehiclePartyRole.OWNER

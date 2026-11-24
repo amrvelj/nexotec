@@ -58,10 +58,10 @@ def letter_salutation(contact: Contact, language: Language | None = None) -> str
         language = contact.language if isinstance(contact.language, Language) else Language(contact.language)
     last = (contact.last_name or "").strip()
     name = " ".join(part.strip() for part in (contact.first_name, contact.last_name) if part and part.strip())
-    if customer.salutation == Salutation.FIRMA or not name:
+    if contact.salutation == Salutation.FIRMA or not name:
         return _COMPANY[language]
-    if last and customer.salutation == Salutation.HERR:
+    if last and contact.salutation == Salutation.HERR:
         return _HERR[language].format(last=last)
-    if last and customer.salutation == Salutation.FRAU:
+    if last and contact.salutation == Salutation.FRAU:
         return _FRAU[language].format(last=last)
     return _NEUTRAL[language].format(name=name)

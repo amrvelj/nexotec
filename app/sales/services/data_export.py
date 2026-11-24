@@ -69,7 +69,7 @@ class SalesExporter(TableExporter):
                     )
                 )
             )
-        return {"customer": frozenset(ids)}
+        return {"contact": frozenset(ids)}
 
     def documents(self, db: Session, scope: ExportScope) -> Iterable[ExportDocument]:
         """Every issued offer and contract document, oldest first, streamed

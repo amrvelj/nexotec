@@ -24,21 +24,12 @@ from typing import Any
 from pydantic import EmailStr, Field, ValidationInfo, field_validator, model_validator
 from pydantic.alias_generators import to_camel
 
-from app.core.audit_schemas import AuditEventPage
-from app.core.schemas import CamelModel
-from app.core.validators import (
-    E164Phone,
-    HouseNumber,
-    Iban,
-    SwissUid,
-    validate_postal_code_for_country,
-)
 from app.contact.models.contact import (
     AddressType,
     ConsentScope,
     ConsentSource,
-    ContactRole,
     ContactLifecycleStatus,
+    ContactRole,
     ContactSource,
     ContactType,
     EmailType,
@@ -51,6 +42,15 @@ from app.contact.models.contact import (
     Salutation,
 )
 from app.contact.models.vehicle_party import VehiclePartyRole
+from app.core.audit_schemas import AuditEventPage
+from app.core.schemas import CamelModel
+from app.core.validators import (
+    E164Phone,
+    HouseNumber,
+    Iban,
+    SwissUid,
+    validate_postal_code_for_country,
+)
 
 
 def _require_scope_on_grant(granted: bool | None, scope: ConsentScope | None) -> None:

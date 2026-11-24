@@ -48,7 +48,7 @@ from sqlalchemy.orm import Session
 
 from app.core.audit_attribution import NOBODY, AuditAttribution
 
-FORMAT_VERSION = 1
+FORMAT_VERSION = 2
 
 
 @dataclasses.dataclass(frozen=True)
@@ -59,7 +59,7 @@ class ExportScope:
     - `dealership_id`: the Betrieb (the tenant);
     - `group_id`: its dealer group, for group-owned records (ADR-014);
     - `references`: ids of records another context's exported rows name
-      (`{"customer": {…}}`), so a group-owned contact is exported for the
+      (`{"contact": {…}}`), so a group-owned contact is exported for the
       Betrieb's own relationship only — the contacts it created or its
       history names;
     - `group_is_single`: the group holds this one Betrieb only, so every

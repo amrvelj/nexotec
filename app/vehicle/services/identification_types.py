@@ -65,7 +65,7 @@ class NewPriceSource(str, enum.Enum):
 
     CATALOGUE = "catalogue"
     DOCUMENT = "document"
-    CONTACT = "customer"
+    CUSTOMER = "customer"
 
 
 class IdentificationNote(str, enum.Enum):

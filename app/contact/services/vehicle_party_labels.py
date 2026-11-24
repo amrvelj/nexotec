@@ -9,8 +9,8 @@ import uuid
 from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
-from app.core.base import utcnow
 from app.contact.models.vehicle_party import VehicleParty, VehiclePartyVehicleLabel
+from app.core.base import utcnow
 from app.vehicle.public import VehicleSummary, get_vehicle_summaries
 
 # --- KAN-84: the vehicle label on VehicleParty (CLAUDE.md rule 2). The

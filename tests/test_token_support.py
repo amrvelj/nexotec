@@ -5,8 +5,8 @@ import uuid
 
 from sqlalchemy import select
 
-from app.core.auth import AccessRole, decode_token_claims
 from app.contact.models.contact import Contact
+from app.core.auth import AccessRole, decode_token_claims
 from tests.identity_support import create_dealership, platform_admin_headers
 from tests.membership_support import bearer, token
 from tests.token_support import dealer_group_of, synthetic_group_of

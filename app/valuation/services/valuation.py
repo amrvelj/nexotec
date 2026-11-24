@@ -19,6 +19,7 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.contact.public import get_contact_or_404
 from app.core.audit import record_audit_event
 from app.core.base import utcnow
 from app.core.config import get_settings
@@ -27,7 +28,6 @@ from app.core.outbox import OutboxEvent, publish
 from app.core.pagination import SortPageParams, count_capped, paginate_query_sorted
 from app.core.sorting import build_page_for_sort
 from app.core.validators import is_chassis_number, normalise_vin, require_vin_or_pre_1981_chassis_number
-from app.contact.public import get_contact_or_404
 from app.valuation.models.contract_carry import ContractCarryState
 from app.valuation.models.valuation import (
     Valuation,

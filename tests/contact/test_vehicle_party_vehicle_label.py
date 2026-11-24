@@ -23,12 +23,12 @@ import pytest
 from sqlalchemy import func, select
 
 from app import worker
-from app.core.auth import AccessRole
-from app.core.daily_scheduler import _REGISTRY, registered_job_names
-from app.core.outbox_model import OutboxMessage
 from app.contact.models.vehicle_party import VehicleParty, VehiclePartyRole
 from app.contact.services.vehicle_merge import repoint_vehicle_parties_on_vehicle_merge
 from app.contact.services.vehicle_party_labels import refresh_vehicle_party_labels
+from app.core.auth import AccessRole
+from app.core.daily_scheduler import _REGISTRY, registered_job_names
+from app.core.outbox_model import OutboxMessage
 from app.vehicle.models.catalogue import Brand, ModelGroup, ModelVariant
 from app.vehicle.models.vehicle_mdm import VehicleMdm
 from app.vehicle.schemas.catalogue import BrandUpdate

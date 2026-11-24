@@ -7,10 +7,10 @@ from decimal import Decimal
 
 import pytest
 
-from app.core.auth import AccessRole, create_access_token
-from app.core.errors import ConflictError, NotFoundError
 from app.contact.schemas.contact import ContactCreate, ContactEmailCreate
 from app.contact.services.contact import create_contact
+from app.core.auth import AccessRole, create_access_token
+from app.core.errors import ConflictError, NotFoundError
 from app.inventory.models.stock_item import StockItemCondition
 from app.inventory.schemas.pricing import OptionInput
 from app.inventory.schemas.purchase import RecordPurchaseRequest

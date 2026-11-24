@@ -18,17 +18,17 @@ from sqlalchemy.orm import sessionmaker
 
 import app.sales.services.contract as contract_module
 import app.sales.services.line_items as line_items_module
-from app.core.errors import ConflictError
 from app.contact.schemas.contact import ContactCreate, ContactEmailCreate
 from app.contact.services.contact import create_contact
+from app.core.errors import ConflictError
 from app.sales.models.contract import SalesContract
 from app.sales.models.deal import SalesDeal
 from app.sales.models.line_item import LineItemKind, SalesLineItem
 from app.sales.models.offer import SalesOffer
 from app.sales.schemas.line_item import LineItemFactoryOptionPatch, LineItemsReplaceRequest
 from app.sales.schemas.offer import OfferUpdate
-from app.sales.services.contract import create_contract
 from app.sales.services.contact_merge import SurvivorLabel, repoint_merged_contact_records
+from app.sales.services.contract import create_contract
 from app.sales.services.line_items import replace_line_items
 from app.sales.services.offer import create_offer, update_offer
 from tests.sales.test_sales_lifecycle_reservation import _dealership

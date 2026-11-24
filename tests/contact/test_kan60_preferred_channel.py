@@ -24,10 +24,10 @@ import uuid
 
 from sqlalchemy import text
 
-from app.core.pagination import SortPageParams
-from app.core.sorting import SortField
 from app.contact.models.contact import Contact, ContactType, Language
 from app.contact.services import contact_search as contact_search_service
+from app.core.pagination import SortPageParams
+from app.core.sorting import SortField
 from tests.enum_test_support import drop_enum_checks
 from tests.postgres_only import POSTGRES_SQL
 

@@ -9,11 +9,11 @@ import uuid
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.contact.models.contact import Contact
+from app.contact.models.legal_basis import LegalBasis
 from app.core.base import utcnow
 from app.core.errors import NotFoundError
 from app.core.tenancy import get_group_read_or_404
-from app.contact.models.contact import Contact
-from app.contact.models.legal_basis import LegalBasis
 
 
 def record_legal_basis(

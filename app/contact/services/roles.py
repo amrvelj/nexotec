@@ -8,16 +8,16 @@ role (ADR-014).
 **What belongs to the customer role** (Q1, Anto, 2026-11-14, A): the
 lifecycle status (prospect / active / inactive), the credit block and the
 advisor. Contact points, consent, do-not-contact, tags, contact groups and
-the legal basis belong to every contact. So a contact without the contact
+the legal basis belong to every contact. So a contact without the customer
 role (a supplier only):
 
 - has no lifecycle status of its own. Its stored value is the neutral
   `active` — or `do_not_contact` / `merged`, which belong to every contact.
   The list's lifecycle filters on prospect / active / inactive match only
-  contacts; «ist nicht» keeps a supplier, which has no such value
+  customers; «ist nicht» keeps a supplier, which has no such value
   (ADR-102). Setting prospect / active / inactive on it is 422
   `customer_role_required`;
-- has no advisor: none is defaulted on create (D-24 is a contact rule),
+- has no advisor: none is defaulted on create (D-24 is a customer rule),
   and setting one is 422 `customer_role_required`. It never enters the
   unassigned queue (FR-A-37);
 - cannot be credit-blocked (422 `customer_role_required`).
@@ -34,7 +34,7 @@ who may write the customer role's data — giving or taking the role, the
 lifecycle values that are the role's, the advisor, the credit block, and a
 merge of a contact that holds it (the merge moves the role and its
 fields). Anyone the `contacts` row lets write does the rest: contact
-points, consent, setting do-not-contact (lifting it on a contact is the
+points, consent, setting do-not-contact (lifting it on a customer is the
 customer role's), tags, contact groups, the supplier role.
 Outside it a write is 403 `customer_role_not_permitted` and changes
 nothing. The API passes the principal's cell as `may_write_customer_role`;
@@ -49,16 +49,16 @@ from typing import Any
 from sqlalchemy import ColumnElement, select
 from sqlalchemy.orm import Session
 
+from app.contact.models.contact import Contact, ContactLifecycleStatus, ContactRole, ContactRoleAssignment
 from app.core.base import utcnow
 from app.core.errors import ConflictError, ForbiddenError, UnprocessableEntityError
-from app.contact.models.contact import ContactRole, Contact, ContactLifecycleStatus, ContactRoleAssignment
 
 AUDIT_FIELD = "roles"
 OPEN_ROLE_CONSTRAINT = "uq_contact_role_contact_id_role_open"
 
 # The lifecycle values that are the customer role's (Q1); `do_not_contact`
 # and `merged` belong to every contact.
-CONTACT_LIFECYCLE_STATUSES = frozenset(
+CUSTOMER_LIFECYCLE_STATUSES = frozenset(
     {ContactLifecycleStatus.PROSPECT, ContactLifecycleStatus.ACTIVE, ContactLifecycleStatus.INACTIVE}
 )
 # The PATCH keys judged against the roles (and so taken under the row lock).
@@ -85,7 +85,7 @@ def customer_role_not_permitted(field: str) -> ForbiddenError:
 
 
 def check_customer_role_write_on_update(
-    contact: Contact, *, may_write_customer_role: bool, held_contact_before: bool, holds_contact_after: bool,
+    contact: Contact, *, may_write_customer_role: bool, held_customer_before: bool, holds_customer_after: bool,
     changes: dict[str, Any],
 ) -> None:
     """Q3: a PATCH by someone who may not write the customer role's data
@@ -96,17 +96,17 @@ def check_customer_role_write_on_update(
 
     if may_write_customer_role:
         return
-    if held_contact_before != holds_contact_after:
+    if held_customer_before != holds_customer_after:
         raise customer_role_not_permitted("roles")
-    if not held_contact_before:
+    if not held_customer_before:
         return
     # Do-not-contact is every contact's, so every writer sets it. Lifting it
-    # on a contact chooses a value of the customer role's (prospect /
+    # on a customer chooses a value of the customer role's (prospect /
     # active / inactive) — else setting and lifting it would turn a prospect
-    # into an active contact in two steps. On a supplier-only contact
+    # into an active customer in two steps. On a supplier-only contact
     # (returned above) every writer lifts it.
     status = changes.get("lifecycle_status")
-    if status in CONTACT_LIFECYCLE_STATUSES and status != contact.lifecycle_status:
+    if status in CUSTOMER_LIFECYCLE_STATUSES and status != contact.lifecycle_status:
         raise customer_role_not_permitted("lifecycleStatus")
     if "advisor_id" in changes and changes["advisor_id"] != contact.advisor_id:
         raise customer_role_not_permitted("advisorId")
@@ -158,39 +158,39 @@ def holds_role(role: ContactRole) -> ColumnElement[bool]:
 
 def check_create(roles: list[ContactRole], *, fields_set: set[str], lifecycle_status: ContactLifecycleStatus,
                  advisor_id: uuid.UUID | None) -> ContactLifecycleStatus:
-    """The lifecycle status a new contact is stored with; refuses a contact
+    """The lifecycle status a new contact is stored with; refuses a customer
     field on a contact created without the customer role."""
 
     if ContactRole.CUSTOMER in roles:
         return lifecycle_status
-    if "lifecycle_status" in fields_set and lifecycle_status in CONTACT_LIFECYCLE_STATUSES - {NEUTRAL_LIFECYCLE_STATUS}:
+    if "lifecycle_status" in fields_set and lifecycle_status in CUSTOMER_LIFECYCLE_STATUSES - {NEUTRAL_LIFECYCLE_STATUS}:
         raise customer_role_required("lifecycleStatus")
     if advisor_id is not None:
         raise customer_role_required("advisorId")
-    return lifecycle_status if lifecycle_status not in CONTACT_LIFECYCLE_STATUSES else NEUTRAL_LIFECYCLE_STATUS
+    return lifecycle_status if lifecycle_status not in CUSTOMER_LIFECYCLE_STATUSES else NEUTRAL_LIFECYCLE_STATUS
 
 
-def apply_role_rules_on_update(contact: Contact, *, holds_contact_after: bool, held_contact_before: bool,
+def apply_role_rules_on_update(contact: Contact, *, holds_customer_after: bool, held_customer_before: bool,
                                changes: dict[str, Any]) -> None:
     """Judges a PATCH against the roles it leaves the contact with, and puts
     the closing of the customer fields into `changes` when the PATCH takes
     the customer role away (module docstring). `changes` is the PATCH's
     `model_dump(exclude_unset=True)`, roles already popped."""
 
-    if holds_contact_after:
+    if holds_customer_after:
         return
-    if changes.get("lifecycle_status") in CONTACT_LIFECYCLE_STATUSES - {NEUTRAL_LIFECYCLE_STATUS}:
+    if changes.get("lifecycle_status") in CUSTOMER_LIFECYCLE_STATUSES - {NEUTRAL_LIFECYCLE_STATUS}:
         raise customer_role_required("lifecycleStatus")
     if changes.get("advisor_id") is not None:
         raise customer_role_required("advisorId")
-    if not held_contact_before:
+    if not held_customer_before:
         return
     if contact.credit_block:
         raise ConflictError(
             "The customer role cannot be taken away while the contact is credit-blocked — lift the block first.",
             details={"reason": "customer_role_credit_blocked"},
         )
-    if "lifecycle_status" not in changes and contact.lifecycle_status in CONTACT_LIFECYCLE_STATUSES:
+    if "lifecycle_status" not in changes and contact.lifecycle_status in CUSTOMER_LIFECYCLE_STATUSES:
         changes["lifecycle_status"] = NEUTRAL_LIFECYCLE_STATUS
     if "advisor_id" not in changes and contact.advisor_id is not None:
         changes["advisor_id"] = None

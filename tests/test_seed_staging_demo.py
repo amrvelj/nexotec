@@ -17,11 +17,11 @@ import pytest
 from sqlalchemy import func, select, update
 from sqlalchemy.orm import sessionmaker
 
+from app.contact.models.contact import Contact
 from app.core.audit_model import AuditEvent
 from app.core.auth import AccessRole, create_access_token
 from app.core.outbox_model import OutboxMessage
 from app.core.permissions import ModuleCode
-from app.contact.models.contact import Contact
 from app.platform import reconciliation as platform_reconciliation
 from app.platform.identity.models.auth_event import AuthEvent
 from app.platform.identity.models.auth_session import AuthSession

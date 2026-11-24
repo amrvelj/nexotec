@@ -32,6 +32,7 @@ from decimal import Decimal
 
 from sqlalchemy.orm import Session
 
+from app.contact.public import get_contact_or_404
 from app.core.base import utcnow
 from app.core.errors import ConflictError, UnprocessableEntityError
 from app.core.validators import (
@@ -41,7 +42,6 @@ from app.core.validators import (
     is_valid_vin,
     normalise_vin,
 )
-from app.contact.public import get_contact_or_404
 from app.sales.models.contract import SalesContract
 from app.sales.services.configuration_reference import SLOT_TRADE_IN, publish_configuration_attached
 from app.sales.services.priced_deal import DealT, PricedDeal, lock_editable, project, require_editable

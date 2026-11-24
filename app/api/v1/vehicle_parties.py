@@ -20,11 +20,11 @@ import uuid
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
+from app.contact import public as contact
 from app.core.auth import Principal, get_current_principal
 from app.core.idempotent_route import IdempotentRoute
 from app.core.permissions import require_write
 from app.core.schemas import CamelModel
-from app.contact import public as contact
 from app.db import get_db
 from app.vehicle import public as vehicle
 

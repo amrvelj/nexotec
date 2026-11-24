@@ -3,7 +3,7 @@
 Contacts are owned by the dealer group, so a Betrieb's export holds its own
 relationship only (FR-A-44): the contacts it created (`dealership_id`, the
 provenance column), the contacts its history names — the ids the other
-contexts' exported rows carry (`ExportScope.references["customer"]`: offers,
+contexts' exported rows carry (`ExportScope.references["contact"]`: offers,
 contracts, deals, valuations) — and, in
 a group of one, every contact of the group (one that predates provenance
 too). Their contact channels, tags, contact groups, external ids, vehicle
@@ -18,13 +18,12 @@ from collections.abc import Mapping, Sequence
 
 from sqlalchemy import or_, select
 
-from app.core.export import ExportedTable, ExportScope, TableExporter, table_of
 from app.contact.models.contact import (
     Contact,
     ContactAddress,
-    ContactGroupAssignment,
     ContactEmail,
     ContactExternalId,
+    ContactGroupAssignment,
     ContactNumberSequence,
     ContactPhone,
     ContactRoleAssignment,
@@ -33,6 +32,7 @@ from app.contact.models.contact import (
 from app.contact.models.legal_basis import LegalBasis
 from app.contact.models.stock_item_booking import StockItemBooking
 from app.contact.models.vehicle_party import VehicleParty
+from app.core.export import ExportedTable, ExportScope, TableExporter, table_of
 
 _contact = table_of(Contact)
 _booking = table_of(StockItemBooking)
@@ -48,7 +48,7 @@ def _related_contact_ids(scope: ExportScope):
         own_group,
         or_(
             _contact.c.dealership_id == scope.dealership_id,
-            _contact.c.id.in_(sorted(scope.referenced("customer"))),
+            _contact.c.id.in_(sorted(scope.referenced("contact"))),
         ),
     )
 
@@ -62,7 +62,7 @@ def _child(model) -> ExportedTable:
 
 
 class ContactExporter(TableExporter):
-    context = "customer"
+    context = "contact"
 
     def exported_tables(self) -> Sequence[ExportedTable]:
         sequence = table_of(ContactNumberSequence)

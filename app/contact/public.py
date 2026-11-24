@@ -19,8 +19,8 @@ from app.contact.models.vehicle_party import VehiclePartyRole
 from app.contact.ownership import ContactOwnershipProvider
 from app.contact.schemas.contact import ContactVehiclePage
 from app.contact.services.advisor_label import oldest_advisor_label_age_seconds, refresh_advisor_labels
-from app.contact.services.contact_channels import channel_authorises_marketing
 from app.contact.services.contact import has_usable_domicile_address
+from app.contact.services.contact_channels import channel_authorises_marketing
 from app.contact.services.contact_refs import (
     ContactRef,
     VehiclePartyRef,

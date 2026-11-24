@@ -51,8 +51,8 @@ start-up. Writes nothing.
 from app.sales.message_types import register_message_types
 from app.sales.models.contract import ContractStatus
 from app.sales.services.configuration_reference import referenced_configuration_ids
-from app.sales.services.contract_status import ContractFacts, list_contract_facts
 from app.sales.services.contact_label import oldest_contact_label_age_seconds, refresh_contact_labels
+from app.sales.services.contract_status import ContractFacts, list_contract_facts
 from app.sales.services.data_export import SalesExporter
 from app.sales.services.owner_label import oldest_owner_label_age_seconds, refresh_owner_labels
 from app.sales.services.ownership import SalesOwnershipProvider

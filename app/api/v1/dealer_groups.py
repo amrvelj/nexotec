@@ -17,9 +17,9 @@ import uuid
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
+from app.contact.public import has_any_basis_for_group
 from app.core.auth import Principal, require_access_role
 from app.core.idempotent_route import IdempotentRoute
-from app.contact.public import has_any_basis_for_group
 from app.db import get_db
 from app.platform import public as platform
 

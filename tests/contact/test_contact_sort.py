@@ -8,10 +8,10 @@ import uuid
 
 import pytest
 
+from app.contact.models.contact import Contact
 from app.core.auth import AccessRole, create_access_token
 from app.core.errors import UnprocessableEntityError
 from app.core.sorting import parse_sort
-from app.contact.models.contact import Contact
 from tests.dealership_support import valid_uid
 from tests.token_support import dealer_group_of
 

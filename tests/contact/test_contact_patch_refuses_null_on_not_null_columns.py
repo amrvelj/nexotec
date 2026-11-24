@@ -12,8 +12,8 @@ import uuid
 import pytest
 from sqlalchemy import select
 
-from app.core.audit_model import AuditEvent
 from app.contact.models.contact import Contact
+from app.core.audit_model import AuditEvent
 from tests.contact.test_contact_vehicle import _bearer, _create_contact, _create_dealer, _token
 
 # Every ContactUpdate field backed by a NOT NULL contact column, with a

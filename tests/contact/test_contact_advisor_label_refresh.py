@@ -25,10 +25,10 @@ from sqlalchemy import select, text
 from sqlalchemy.orm import sessionmaker
 
 from app import worker
-from app.core.daily_scheduler import _REGISTRY, registered_job_names
 from app.contact.models.contact import Contact
 from app.contact.services import contact_merge as contact_merge_service
 from app.contact.services.advisor_label import oldest_advisor_label_age_seconds, refresh_advisor_labels
+from app.core.daily_scheduler import _REGISTRY, registered_job_names
 from app.platform.identity.models.user import User, UserStatus
 from tests.contact.test_contact_fr17_fields import _bearer, _create_dealer, _create_user, _token
 from tests.contact.test_contact_vehicle_party_close_rule import _contact as _vp_contact

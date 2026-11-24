@@ -9,21 +9,15 @@ from typing import Any
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
-from app.core.config import get_settings
-from app.core.pagination import SortPageParams, count_capped, paginate_query_sorted
-from app.core.relative_dates import start_of_current_period, start_of_day_days_ago
-from app.core.sorting import build_page_for_sort
-from app.core.text_collation import sort_by_text
-from app.core.validators import normalise_phone
 from app.contact.models.contact import (
     AddressType,
-    ContactRole,
     Contact,
     ContactAddress,
-    ContactGroupAssignment,
     ContactEmail,
+    ContactGroupAssignment,
     ContactLifecycleStatus,
     ContactPhone,
+    ContactRole,
     ContactType,
     Language,
 )
@@ -31,7 +25,13 @@ from app.contact.schemas.contact import (
     CalendarPeriod,
 )
 from app.contact.services.contact_common import _DUPLICATE_CHECK_LIMIT, _MIN_PHONE_SEARCH_DIGITS, logger
-from app.contact.services.roles import CONTACT_LIFECYCLE_STATUSES, holds_role
+from app.contact.services.roles import CUSTOMER_LIFECYCLE_STATUSES, holds_role
+from app.core.config import get_settings
+from app.core.pagination import SortPageParams, count_capped, paginate_query_sorted
+from app.core.relative_dates import start_of_current_period, start_of_day_days_ago
+from app.core.sorting import build_page_for_sort
+from app.core.text_collation import sort_by_text
+from app.core.validators import normalise_phone
 
 
 def _search_predicate(group_id: uuid.UUID, q: str):
@@ -161,7 +161,7 @@ def list_contacts(
         stmt = stmt.where(_search_predicate(group_id, q))
     if lifecycle_status is not None:
         stmt = stmt.where(Contact.lifecycle_status == lifecycle_status)
-        if lifecycle_status in CONTACT_LIFECYCLE_STATUSES:
+        if lifecycle_status in CUSTOMER_LIFECYCLE_STATUSES:
             stmt = stmt.where(holds_role(ContactRole.CUSTOMER))
     elif not include_merged:
         # A merged record is a tombstone pointing at its survivor. Showing it
@@ -193,7 +193,7 @@ def list_contacts(
             )
         )
     if lifecycle_status_not is not None:
-        if lifecycle_status_not in CONTACT_LIFECYCLE_STATUSES:
+        if lifecycle_status_not in CUSTOMER_LIFECYCLE_STATUSES:
             stmt = stmt.where(
                 or_(Contact.lifecycle_status != lifecycle_status_not, ~holds_role(ContactRole.CUSTOMER))
             )

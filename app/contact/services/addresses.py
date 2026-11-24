@@ -8,10 +8,6 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.core.audit import record_audit_event
-from app.core.errors import NotFoundError, UnprocessableEntityError
-from app.core.postal_codes import derive_canton
-from app.core.validators import validate_postal_code_for_country
 from app.contact.models.contact import (
     Contact,
     ContactAddress,
@@ -29,6 +25,10 @@ from app.contact.services.contact_channels import (
     _unset_other_primaries,
 )
 from app.contact.services.contact_common import _fixup_single_primary, _group_scoped_or_404, _validate_country_codes
+from app.core.audit import record_audit_event
+from app.core.errors import NotFoundError, UnprocessableEntityError
+from app.core.postal_codes import derive_canton
+from app.core.validators import validate_postal_code_for_country
 
 # --- ContactAddress: multi-valued postal addresses (WP-3 PR-5, ADR-067).
 # No FR-03 "last contact point" invariant here — that rule is about
@@ -106,7 +106,7 @@ def create_contact_address(
 
     record_audit_event(
         db,
-        entity_type="customer",
+        entity_type="contact",
         entity_id=contact.id,
         tenant_id=contact.group_id,
         action="address_add",
@@ -174,7 +174,7 @@ def update_contact_address(
 
     record_audit_event(
         db,
-        entity_type="customer",
+        entity_type="contact",
         entity_id=address.contact_id,
         tenant_id=address.group_id,
         action="address_update",
@@ -197,7 +197,7 @@ def delete_contact_address(
 ) -> None:
     record_audit_event(
         db,
-        entity_type="customer",
+        entity_type="contact",
         entity_id=address.contact_id,
         tenant_id=address.group_id,
         action="address_remove",

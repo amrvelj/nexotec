@@ -20,6 +20,20 @@ import time
 
 from sqlalchemy.orm import Session
 
+from app.contact.consumers import (
+    handle_stock_item_booking_purchased_message,
+    handle_stock_item_booking_storno_message,
+    handle_vehicle_summary_changed_message,
+)
+from app.contact.consumers import handle_stock_item_purchased_message as handle_trade_in_purchased_message
+from app.contact.consumers import handle_stock_item_storno_message as handle_trade_in_storno_message
+from app.contact.public import (
+    oldest_advisor_label_age_seconds,
+    oldest_vehicle_party_label_age_seconds,
+    refresh_advisor_labels,
+    refresh_vehicle_party_labels,
+)
+from app.contact.services.vehicle_merge import handle_vehicle_merged_message
 from app.core.daily_scheduler import register_daily_job, run_due_daily_jobs
 from app.core.deployment_environment import require_valid_deployment_environment
 from app.core.idempotent_route import run_daily_idempotency_record_purge
@@ -37,20 +51,6 @@ from app.core.outbox import consumer_lag_seconds, dead_letter_count, oldest_pend
 from app.core.outbox_transport import InProcessTransport
 from app.core.outbox_worker import poll_once
 from app.core.reconciliation import seconds_since_last_reconciliation
-from app.contact.consumers import (
-    handle_stock_item_booking_purchased_message,
-    handle_stock_item_booking_storno_message,
-    handle_vehicle_summary_changed_message,
-)
-from app.contact.consumers import handle_stock_item_purchased_message as handle_trade_in_purchased_message
-from app.contact.consumers import handle_stock_item_storno_message as handle_trade_in_storno_message
-from app.contact.public import (
-    oldest_advisor_label_age_seconds,
-    oldest_vehicle_party_label_age_seconds,
-    refresh_advisor_labels,
-    refresh_vehicle_party_labels,
-)
-from app.contact.services.vehicle_merge import handle_vehicle_merged_message
 from app.db import SessionLocal
 from app.export_registry import register_exporters
 from app.integration.consumers import (

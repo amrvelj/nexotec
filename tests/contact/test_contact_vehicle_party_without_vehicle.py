@@ -9,10 +9,10 @@ contact reconciliation reports the row
 import datetime as dt
 import uuid
 
-from app.core.auth import AccessRole, create_access_token
-from app.core.base import utcnow
 from app.contact.models.contact import Contact, ContactType, Language
 from app.contact.models.vehicle_party import VehicleParty, VehiclePartyRole
+from app.core.auth import AccessRole, create_access_token
+from app.core.base import utcnow
 
 
 def _headers(group_id: uuid.UUID) -> dict[str, str]:

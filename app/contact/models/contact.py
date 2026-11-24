@@ -218,7 +218,7 @@ class ContactRole(str, enum.Enum):
     role; contact points, consent, do-not-contact, tags, contact groups and
     the legal basis belong to every contact."""
 
-    CONTACT = "customer"
+    CUSTOMER = "customer"
     SUPPLIER = "supplier"
 
 
@@ -258,7 +258,7 @@ class Contact(PrimaryKeyMixin, VersionedMixin, TimestampMixin, Base):
     genuinely shared across a group's dealerships, not owned by just one.
     """
 
-    __tablename__ = "customer"
+    __tablename__ = "contact"
     __table_args__ = (
         UniqueConstraint("group_id", "contact_number", name="uq_contact_group_id_contact_number"),
         # The contact-list sort keys within a group (d4a1f6c8e3b7, ADR-014); the surname one,

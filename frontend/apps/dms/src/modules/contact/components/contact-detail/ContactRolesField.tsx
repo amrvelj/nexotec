@@ -9,7 +9,7 @@ import { translatedRoleOptions } from '../../contactOptions'
 /**
  * KAN-464 — the roles the contact holds (Kunde, Lieferant), edited inline
  * (full replace). A contact holds at least one: clearing the last one is not
- * sent. Taking the customer role away closes the contact's status and
+ * sent. Taking the customer role away closes the customer's status and
  * advisor in the same save (the API's rule; a credit block refuses it,
  * `customer_role_credit_blocked`), so the user confirms it first.
  *

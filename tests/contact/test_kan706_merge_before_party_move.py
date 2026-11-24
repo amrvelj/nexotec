@@ -17,11 +17,11 @@ import uuid
 import pytest
 from sqlalchemy import select, update
 
-from app.core.base import utcnow
-from app.core.reconciliation import find_rows_in_state
 from app.contact.models.vehicle_party import VehicleParty, VehiclePartyRole
 from app.contact.services.trade_in_holders import record_former_holder_on_purchase, reopen_former_holder_after_storno
 from app.contact.services.vehicle_party import allocate_vehicle_party
+from app.core.base import utcnow
+from app.core.reconciliation import find_rows_in_state
 from app.inventory.reconciliation import CHECKS as INVENTORY_CHECKS
 from app.vehicle.models.vehicle_mdm import VehicleMdm
 from app.vehicle.public import merged_vehicle_chain

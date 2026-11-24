@@ -19,13 +19,13 @@ import pytest
 from sqlalchemy import select, text
 from sqlalchemy.orm import sessionmaker
 
-from app.core.errors import ConflictError
-from app.contact.models.contact import ContactRole, Contact, ContactRoleAssignment, ContactType, Language
+from app.contact.models.contact import Contact, ContactRole, ContactRoleAssignment, ContactType, Language
 from app.contact.schemas.contact import ContactUpdate
 from app.contact.services import contact as contact_service
 from app.contact.services import contact_common as contact_common_service
 from app.contact.services import contact_merge as contact_merge_service
 from app.contact.services import roles as roles_service
+from app.core.errors import ConflictError
 from tests.contact.test_contact_vehicle_party_close_rule import (
     _postgres_only,
     _run,
@@ -113,7 +113,7 @@ def test_a_patch_waiting_on_a_write_that_commits_in_between_is_refused(engine, d
 
 
 def test_a_role_patch_racing_a_merge_that_brings_the_same_role_sees_it(engine, db_session, monkeypatch):
-    """X (a supplier) is merged into T (a contact) and paused before
+    """X (a supplier) is merged into T (a customer) and paused before
     committing, holding T FOR SHARE. A PATCH giving T the supplier role waits
     on T's row, then reads the role the merge moved: nothing to insert, no
     500 and no 409 — T holds one open row per role."""

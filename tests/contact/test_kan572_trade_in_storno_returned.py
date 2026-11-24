@@ -16,16 +16,16 @@ from decimal import Decimal
 import pytest
 from sqlalchemy import select
 
-from app.core.audit_model import AuditEvent
-from app.core.consumer import consume_once
-from app.core.errors import UnprocessableEntityError
-from app.core.outbox_model import OutboxMessage
 from app.contact.consumers import handle_stock_item_booking_storno_message
 from app.contact.consumers import handle_stock_item_storno_message as handle_trade_in_storno_message
 from app.contact.models.vehicle_party import VehiclePartyRole
 from app.contact.schemas.contact import ContactVehicleCreate
 from app.contact.services.vehicle_party import allocate_vehicle_party, create_contact_vehicle, delete_contact_vehicle
 from app.contact.services.vehicle_party_reads import list_contact_vehicles
+from app.core.audit_model import AuditEvent
+from app.core.consumer import consume_once
+from app.core.errors import UnprocessableEntityError
+from app.core.outbox_model import OutboxMessage
 from app.inventory.models.stock_item import StockItemCondition
 from app.inventory.schemas.purchase import PurchaseStornoRequest, RecordPurchaseRequest
 from app.inventory.schemas.stock_item import StockItemCreate

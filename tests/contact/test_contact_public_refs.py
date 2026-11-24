@@ -9,10 +9,10 @@ import uuid
 
 import pytest
 
-from app.core.errors import NotFoundError
 from app.contact import public
 from app.contact.models.contact import Contact, ContactLifecycleStatus, ContactType, Language
 from app.contact.models.vehicle_party import VehicleParty, VehiclePartyRole
+from app.core.errors import NotFoundError
 from app.vehicle.services.vehicle_mdm import create_vehicle_mdm
 
 GROUP_ID = uuid.uuid4()

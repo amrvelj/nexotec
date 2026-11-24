@@ -17,9 +17,9 @@ import uuid
 
 from sqlalchemy.orm import Session
 
+from app.contact.public import get_contact_or_404, resolve_live_contact_id
 from app.core.errors import NotFoundError
 from app.core.outbox_model import OutboxMessage
-from app.contact.public import get_contact_or_404, resolve_live_contact_id
 from app.inventory.public import is_stock_item_purchased
 from app.sales.services.contact_attach_lock import lock_contact_for_attach
 from app.sales.services.contact_merge import SurvivorLabel, repoint_merged_contact_records

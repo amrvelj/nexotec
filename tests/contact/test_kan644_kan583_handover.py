@@ -18,13 +18,13 @@ import uuid
 import pytest
 from sqlalchemy import select
 
-from app.core.audit_model import AuditEvent
-from app.core.auth import AccessRole, create_access_token
-from app.core.base import utcnow
 from app.contact.models.vehicle_party import VehicleParty
 from app.contact.schemas.contact import ContactVehicleUpdate
 from app.contact.services.vehicle_party import delete_contact_vehicle, update_contact_vehicle
 from app.contact.services.vehicle_party_reads import get_contact_vehicle_or_404, list_vehicle_parties
+from app.core.audit_model import AuditEvent
+from app.core.auth import AccessRole, create_access_token
+from app.core.base import utcnow
 from tests.contact.test_contact_vehicle_party_future_holder import (  # noqa: F401 — _never_inverted is an autouse fixture
     _allocate,
     _contact,

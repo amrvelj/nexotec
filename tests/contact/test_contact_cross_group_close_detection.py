@@ -16,11 +16,11 @@ from sqlalchemy import func, select, text, update
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import sessionmaker
 
+from app.contact.models.contact import Contact, ContactType, Language
+from app.contact.reconciliation import StampCategory, find_cross_group_vehicle_party_closes
 from app.core.audit_model import AuditEvent
 from app.core.base import utcnow
 from app.core.outbox_model import OutboxMessage
-from app.contact.models.contact import Contact, ContactType, Language
-from app.contact.reconciliation import StampCategory, find_cross_group_vehicle_party_closes
 from app.platform.organisation.models.dealership import DealerGroup, Dealership, FranchiseType
 from tests.dealership_support import valid_uid
 

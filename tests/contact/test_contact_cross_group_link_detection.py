@@ -17,14 +17,14 @@ import uuid
 from sqlalchemy import text
 from sqlalchemy.orm import sessionmaker
 
-from app.core.audit_model import AuditEvent
-from app.core.base import utcnow
-from app.core.outbox_model import OutboxMessage
 from app.contact.reconciliation import (
     StampCategory,
     find_cross_group_vehicle_party_closes,
     find_cross_group_vehicle_party_links,
 )
+from app.core.audit_model import AuditEvent
+from app.core.base import utcnow
+from app.core.outbox_model import OutboxMessage
 from tests.contact.test_contact_cross_group_close_detection import (
     _POSTGRES_ONLY,
     _categories,

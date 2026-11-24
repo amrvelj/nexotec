@@ -101,7 +101,7 @@ IDEMPOTENCY_RECORD_TTL = dt.timedelta(hours=24)
 # docstring checks them against the packages under app/.
 RESERVED_KEY_CONTEXTS = (
     "platform",
-    "customer",
+    "contact",
     "vehicle",
     "sales",
     "inventory",

@@ -10,13 +10,13 @@ from collections.abc import Iterable
 from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
-from app.core.errors import ConflictError, NotFoundError
 from app.contact.models.contact import (
     Contact,
     ContactLifecycleStatus,
 )
 from app.contact.models.vehicle_party import VehicleParty, VehiclePartyRole
 from app.contact.services.vehicle_party_labels import _write_vehicle_labels
+from app.core.errors import ConflictError, NotFoundError
 from app.vehicle.public import merged_vehicle_chain, resolve_merged_vehicle_id
 
 

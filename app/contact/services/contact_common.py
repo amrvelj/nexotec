@@ -14,13 +14,13 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.core.errors import NotFoundError, UnprocessableEntityError
 from app.contact.models.contact import (
     Contact,
     ContactAddress,
     ContactEmail,
     ContactPhone,
 )
+from app.core.errors import NotFoundError, UnprocessableEntityError
 from app.platform.public import (
     get_active_reference_value_codes,
 )
@@ -34,7 +34,11 @@ logger = logging.getLogger("app.contact")
 _MIN_PHONE_SEARCH_DIGITS = 3
 _DUPLICATE_CHECK_LIMIT = 10
 # Outbox producer name for every event this service publishes (WP-1, ADR-006).
-_EVENT_PRODUCER = "customer"
+_EVENT_PRODUCER = "contact"
+# The audit log's entity type of a contact. Rows written before the rename
+# to contacts (KAN-464 PR-3) say "customer" and are never rewritten (the log
+# is append-only), so every reader takes both; new rows write "contact".
+CONTACT_AUDIT_ENTITY_TYPES = ("contact", "customer")
 # is_primary is scoped to (contact_id, type) since WP-3 PR-5 (ADR-067), not
 # to the whole contact — each contact-channel model's own type column, so
 # the shared primary-fixup/repoint logic below can stay generic over all

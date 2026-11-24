@@ -11,10 +11,6 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.core.audit import record_audit_event
-from app.core.base import utcnow
-from app.core.errors import BadRequestError, ConflictError, NotFoundError
-from app.core.validators import normalise_phone
 from app.contact.models.contact import (
     ConsentScope,
     Contact,
@@ -34,6 +30,10 @@ from app.contact.services.contact_common import (
     _is_usable_row,
     _plain,
 )
+from app.core.audit import record_audit_event
+from app.core.base import utcnow
+from app.core.errors import BadRequestError, ConflictError, NotFoundError
+from app.core.validators import normalise_phone
 
 # --- ContactPhone / ContactEmail: multi-valued contact details (Contact
 # PRD, 2026-08-07). is_primary is enforced here, not a DB constraint (CTO
@@ -149,7 +149,7 @@ def create_contact_phone(
 
     record_audit_event(
         db,
-        entity_type="customer",
+        entity_type="contact",
         entity_id=contact.id,
         tenant_id=contact.group_id,
         action="phone_add",
@@ -215,7 +215,7 @@ def update_contact_phone(
 
     record_audit_event(
         db,
-        entity_type="customer",
+        entity_type="contact",
         entity_id=phone.contact_id,
         tenant_id=phone.group_id,
         action="phone_update",
@@ -289,7 +289,7 @@ def delete_contact_phone(
     _assert_not_last_contact_point(db, phone, removing="phone number")
     record_audit_event(
         db,
-        entity_type="customer",
+        entity_type="contact",
         entity_id=phone.contact_id,
         tenant_id=phone.group_id,
         action="phone_remove",
@@ -364,7 +364,7 @@ def create_contact_email(
 
     record_audit_event(
         db,
-        entity_type="customer",
+        entity_type="contact",
         entity_id=contact.id,
         tenant_id=contact.group_id,
         action="email_add",
@@ -428,7 +428,7 @@ def update_contact_email(
 
     record_audit_event(
         db,
-        entity_type="customer",
+        entity_type="contact",
         entity_id=email.contact_id,
         tenant_id=email.group_id,
         action="email_update",
@@ -458,7 +458,7 @@ def delete_contact_email(
     _assert_not_last_contact_point(db, email, removing="email address")
     record_audit_event(
         db,
-        entity_type="customer",
+        entity_type="contact",
         entity_id=email.contact_id,
         tenant_id=email.group_id,
         action="email_remove",

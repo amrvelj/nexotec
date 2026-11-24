@@ -9,13 +9,13 @@ import uuid
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.contact.public import ContactLifecycleStatus, ContactRef, get_contact_or_404, resolve_live_contact_id
 from app.core.base import utcnow
 from app.core.config import get_settings
 from app.core.errors import ConflictError, NotFoundError
 from app.core.outbox import OutboxEvent, publish
 from app.core.pagination import SortPageParams, count_capped, paginate_query_sorted
 from app.core.sorting import build_page_for_sort
-from app.contact.public import ContactLifecycleStatus, ContactRef, get_contact_or_404, resolve_live_contact_id
 from app.sales.models.offer import OfferStatus, SalesOffer
 from app.sales.schemas.offer import OfferUpdate
 from app.sales.services import ownership

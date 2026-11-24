@@ -4,16 +4,22 @@ outside all ten context packages, like app.main and app.db — nothing but
 this composition role.
 """
 
+from app.contact.models.contact import (
+    Contact,
+    ContactAddress,
+    ContactGroupAssignment,
+    ContactRoleAssignment,
+    ContactTag,
+)
+from app.contact.models.legal_basis import LegalBasis
+from app.contact.models.stock_item_booking import StockItemBooking
+from app.contact.models.vehicle_party import VehicleParty
 from app.core.audit_model import AuditEvent
 from app.core.daily_scheduler_model import DailyJobRun
 from app.core.idempotency_model import IdempotencyRecord
 from app.core.outbox_model import OutboxMessage
 from app.core.processed_event_model import ProcessedEvent
 from app.core.reconciliation_model import ReconciliationOrphan, ReconciliationRun
-from app.contact.models.contact import Contact, ContactAddress, ContactGroupAssignment, ContactRoleAssignment, ContactTag
-from app.contact.models.legal_basis import LegalBasis
-from app.contact.models.stock_item_booking import StockItemBooking
-from app.contact.models.vehicle_party import VehicleParty
 from app.integration.models.ai_prompt import IntegrationAiPrompt
 from app.integration.models.call_log import IntegrationCallLog
 from app.integration.models.call_payload import IntegrationCallPayload
@@ -128,12 +134,12 @@ __all__ = [
     "Brand",
     "BrandingAsset",
     "ColourCache",
-    "Credential",
     "Contact",
     "ContactAddress",
     "ContactGroupAssignment",
     "ContactRoleAssignment",
     "ContactTag",
+    "Credential",
     "DailyJobRun",
     "DealerGroup",
     "DealerPlate",

@@ -11,16 +11,16 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.orm import sessionmaker
 
-from app.core.audit_model import AuditEvent
-from app.core.base import utcnow
-from app.core.errors import NotFoundError
-from app.core.outbox_model import OutboxMessage
 from app.contact.models.contact import Contact, ContactType, Language
 from app.contact.models.vehicle_party import VehicleParty, VehiclePartyRole
 from app.contact.schemas.contact import VehiclePartySummary
 from app.contact.services import vehicle_party as vehicle_party_service
 from app.contact.services.vehicle_party import allocate_vehicle_party, delete_contact_vehicle
 from app.contact.services.vehicle_party_reads import list_contact_vehicles, list_vehicle_parties
+from app.core.audit_model import AuditEvent
+from app.core.base import utcnow
+from app.core.errors import NotFoundError
+from app.core.outbox_model import OutboxMessage
 from app.vehicle.models.catalogue import Brand, ModelGroup, ModelVariant
 from app.vehicle.services.vehicle_mdm import create_vehicle_mdm
 

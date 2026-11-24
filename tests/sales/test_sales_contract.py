@@ -6,9 +6,9 @@ import uuid
 import pytest
 from pydantic import ValidationError
 
-from app.core.errors import ConflictError, NotFoundError
 from app.contact.schemas.contact import ContactCreate, ContactEmailCreate, ContactUpdate
 from app.contact.services.contact import create_contact, update_contact
+from app.core.errors import ConflictError, NotFoundError
 from app.sales.models.contract import ContractStatus
 from app.sales.schemas.contract import ContractCreate
 from app.sales.services.contract import cancel_contract, create_contract, get_contract_or_404

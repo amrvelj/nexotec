@@ -11,10 +11,10 @@ import datetime as dt
 from sqlalchemy import ColumnElement, Exists, func, or_, select
 from sqlalchemy.orm import Session
 
+from app.contact.public import contact_reference_check
 from app.core.audit_model import AuditEvent
 from app.core.base import utcnow
 from app.core.reconciliation import ReconciliationRun, ReferenceCheck, StateCheck, run_reconciliation
-from app.contact.public import contact_reference_check
 from app.platform.public import actor_reference_checks, dealership_reference_check
 from app.sales.public import (
     CarryState,

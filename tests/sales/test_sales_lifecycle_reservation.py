@@ -11,9 +11,6 @@ from decimal import Decimal
 import pytest
 from sqlalchemy.orm import sessionmaker
 
-from app.core.base import utcnow
-from app.core.errors import ConflictError
-from app.core.outbox_model import OutboxMessage
 from app.contact.schemas.contact import (
     ContactAddressCreate,
     ContactCreate,
@@ -22,6 +19,9 @@ from app.contact.schemas.contact import (
 )
 from app.contact.services.addresses import create_contact_address, list_contact_addresses
 from app.contact.services.contact import create_contact, set_credit_block, update_contact
+from app.core.base import utcnow
+from app.core.errors import ConflictError
+from app.core.outbox_model import OutboxMessage
 from app.inventory.models.stock_item import ReservationState, StockItemCondition
 from app.inventory.schemas.stock_item import StockItemCreate
 from app.inventory.services.stock_item import create_stock_item, get_stock_item_or_404
