@@ -116,9 +116,8 @@ def _old_event_literals() -> set[tuple[str, str]]:
     found: set[tuple[str, str]] = set()
     for path in APP_ROOT.rglob("*.py"):
         for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
-            if isinstance(node, ast.Constant) and isinstance(node.value, str):
-                if OLD_EVENT_NAME.fullmatch(node.value):
-                    found.add((path.relative_to(APP_ROOT).as_posix(), node.value))
+            if isinstance(node, ast.Constant) and isinstance(node.value, str) and OLD_EVENT_NAME.fullmatch(node.value):
+                found.add((path.relative_to(APP_ROOT).as_posix(), node.value))
     return found
 
 
@@ -161,8 +160,10 @@ def test_every_contact_event_is_in_the_old_name_map() -> None:
         value
         for path in (APP_ROOT / "contact").rglob("*.py")
         for node in ast.walk(ast.parse(path.read_text(encoding="utf-8")))
-        if isinstance(node, ast.keyword) and node.arg == "event_type"
-        and isinstance(node.value, ast.Constant) and isinstance(node.value.value, str)
+        if isinstance(node, ast.keyword)
+        and node.arg == "event_type"
+        and isinstance(node.value, ast.Constant)
+        and isinstance(node.value.value, str)
         for value in [node.value.value]
     }
     assert published, "the scan found no event the contact context publishes"
