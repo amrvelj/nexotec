@@ -407,7 +407,7 @@ def test_api_a_contact_born_contract_is_completed_and_confirmed(client, db_sessi
     contact = _contact(db_session, group_id)
     created = client.post("/v1/sales/contracts", json={"contactId": str(contact.id)}, headers=headers).json()
     assert {c["id"]: c["status"] for c in created["containers"]} == {
-        "customer": "complete", "vehicle": "not_started", "pricing": "not_started", "trade_in": "not_started",
+        "contact": "complete", "vehicle": "not_started", "pricing": "not_started", "trade_in": "not_started",
     }
 
     patched = client.patch(

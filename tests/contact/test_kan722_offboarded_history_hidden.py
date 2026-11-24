@@ -162,7 +162,7 @@ def test_every_contact_history_write_names_the_betrieb_it_was_made_in():
     each `record_audit_event` call on a contact passes `acting_dealership_id`
     by name — a Betrieb, or `None` for a write no Betrieb made."""
 
-    missing = []
+    missing, seen = [], 0
     for path in sorted(_APP.rglob("*.py")):
         tree = ast.parse(path.read_text(), filename=str(path))
         for node in ast.walk(tree):
@@ -171,6 +171,12 @@ def test_every_contact_history_write_names_the_betrieb_it_was_made_in():
                 continue
             keywords = {k.arg: k.value for k in node.keywords}
             entity = keywords.get("entity_type")
-            if isinstance(entity, ast.Constant) and entity.value == "customer" and "acting_dealership_id" not in keywords:
+            if not (isinstance(entity, ast.Constant) and entity.value == "contact"):
+                continue
+            seen += 1
+            if "acting_dealership_id" not in keywords:
                 missing.append(f"{path.relative_to(_APP.parent)}:{node.lineno}")
+    # KAN-464 PR-3: contacts write entity_type "contact" (it was "customer").
+    # Not vacuous: the contact services hold dozens of such calls.
+    assert seen >= 20, seen
     assert not missing, missing

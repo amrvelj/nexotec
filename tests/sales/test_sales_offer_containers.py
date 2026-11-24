@@ -36,8 +36,8 @@ def test_containers_start_not_started_except_leasing(db_session):
     containers = compute_containers(offer)
     by_id = {c.id: c for c in containers}
 
-    assert by_id["customer"].requirement == "required"
-    assert by_id["customer"].status == "not_started"
+    assert by_id["contact"].requirement == "required"
+    assert by_id["contact"].status == "not_started"
     assert by_id["vehicle"].requirement == "required"
     assert by_id["vehicle"].status == "not_started"
     assert by_id["pricing"].status == "not_started"

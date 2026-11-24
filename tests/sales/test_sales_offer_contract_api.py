@@ -385,7 +385,7 @@ def test_create_contract_for_a_stock_car(client, db_session):
     # Priced through the contract's own Path A edit, as its PATCH would.
     assert body["grossPrice"] is not None
     containers = {c["id"]: c["status"] for c in body["containers"]}
-    assert (containers["vehicle"], containers["customer"]) == ("complete", "not_started")
+    assert (containers["vehicle"], containers["contact"]) == ("complete", "not_started")
 
 
 @pytest.mark.usefixtures("app_sessions_on_the_test_engine")
@@ -419,7 +419,7 @@ def test_a_contract_started_from_a_car_gets_its_buyer_in_the_contract_and_is_the
     assert with_buyer.status_code == 200, with_buyer.text
     body = with_buyer.json()
     assert (body["contactId"], body["contactLabel"], body["version"]) == (buyer["id"], "Ursula Vogt", contract["version"] + 1)
-    assert {c["id"]: c["status"] for c in body["containers"]}["customer"] == "complete"
+    assert {c["id"]: c["status"] for c in body["containers"]}["contact"] == "complete"
 
     confirmed = client.post(
         f"/v1/sales/contracts/{contract['id']}/confirm", headers={**_bearer(token), "If-Match": str(body["version"])}
