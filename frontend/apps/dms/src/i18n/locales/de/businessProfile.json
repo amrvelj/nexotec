@@ -27,7 +27,8 @@
     "fields": {
       "googleLocation": "Google-Standort",
       "drift": "Abgleich mit Google",
-      "unmapped": "Bei Google nicht gezeigt"
+      "unmapped": "Bei Google nicht gezeigt",
+      "photos": "Fotos"
     },
     "drift": {
       "never": "Noch nicht geprüft – der Abgleich läuft jede Nacht.",
@@ -74,6 +75,17 @@
       "failedTitle": "Die Verbindung mit Google ist nicht zustande gekommen",
       "back": "Zu den Integrationen",
       "expired": "Diese Anmeldung ist abgelaufen oder wurde schon verwendet. Bitte beginnen Sie neu."
+    },
+    "photos": {
+      "uploaded_one": "{{count, number}} übertragen",
+      "uploaded_other": "{{count, number}} übertragen",
+      "refused_one": "{{count, number}} abgelehnt",
+      "refused_other": "{{count, number}} abgelehnt",
+      "waiting_one": "{{count, number}} wartet auf die Übertragung",
+      "waiting_other": "{{count, number}} warten auf die Übertragung",
+      "none": "Noch keine Bilder – Sie laden sie unter Veröffentlichung hoch.",
+      "stopped": "Die Übertragung ist angehalten. Die Seite Status nennt den Grund; die nächste Änderung am Standort startet sie neu.",
+      "refusedHint": "Google nimmt ein abgelehntes Bild wegen seiner Grösse oder seines Formats nicht an. Ersetzen Sie es unter Veröffentlichung."
     }
   }
 }

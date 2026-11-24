@@ -102,6 +102,16 @@ describe('DmsShell sidebar — every chrome string is translated (KAN-152)', () 
     expect(screen.getByText(tr('shell.signOut'))).toBeInTheDocument()
   })
 
+  // KAN-464 PR-4 (Anto, 2026-11-14, Q4 A): suppliers and dealers are Kontakte filtered by
+  // role, so the greyed «Partner — bald» entry is gone rather than promising a second register.
+  it('master data has no «Partner» entry: suppliers are contacts (KAN-464)', async () => {
+    renderShell('de')
+    const nav = await screen.findByRole('navigation', { name: i18n.getFixedT('de')('shell.sidebar.mainNavigation') })
+    expect(await within(nav).findByRole('link', { name: /^Kontakte/ })).toHaveAttribute('href', '/contacts')
+    expect(within(nav).queryByText('Partner')).not.toBeInTheDocument()
+    expect(nav.querySelector('a[href="/partners"]')).toBeNull()
+  })
+
   it.each(LANGUAGES)('collapsed: the account menu carries language and notifications in %s', async (lng) => {
     // KAN-438: fr/it load on demand; load the bundle the expected text is read from.
     await i18n.loadLanguages(lng)

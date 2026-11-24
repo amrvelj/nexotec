@@ -54,11 +54,10 @@ sales files belong to other rules. Last verified against main@3b2bf69 (2026-11-1
   evidence record exists (`LegalBasis`, ADR-030, append-only; `enable_group_read` refuses without
   one); whether a real group may share data is the open legal question — raise it, never decide it.
 
-## The rename from customers (KAN-464 PR-3, ADR-210)
-- Kept: the Alembic chain label and history; old audit rows' `entity_type` `customer` (read
-  too); `{{customer.salutation}}`. Until PR-5: `customer.merged` stays subscribed
-  (`sales.customer_merged`, `inventory.customer_merged`), readers take old payload keys,
-  reconciliation reports old-name events pending or dead; `/customers/*` redirects
+## The rename from customers (KAN-464, ADR-210)
+- Kept: the Alembic chain and history; old audit rows' `entity_type` `customer` (read);
+  `{{customer.salutation}}`. Until PR-5: `customer.merged` stays subscribed (`sales.`/`inventory.customer_merged`), old payload keys, old-name events reported, `/customers/*` redirect.
+- Guards: `test_kan464_no_customer_naming.py`, `no-customer-wording.test.ts`
 
 ## Contact channels (ADR-067) — child records, not columns
 - `contact_phone`, `contact_email`, `contact_address`: one row per value, with a type, a label,

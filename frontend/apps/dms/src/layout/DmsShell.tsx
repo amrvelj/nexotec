@@ -35,7 +35,6 @@ import {
   Siren,
   Sparkles,
   Mail,
-  Store,
   Tags,
   UserCog,
   Users,
@@ -85,7 +84,6 @@ function buildNavGroups(t: (key: string) => string, statusIndicator?: NavItemInd
         // C-B (KAN-40 / FR-C-01) — catalogue browse + the mapping-gap queue,
         // matching the prototype's own `#/catalogue` Master-data entry.
         { label: t('shell.nav.catalogue'), href: '/catalogue', icon: Database, status: 'active' },
-        { label: t('shell.nav.partners'), href: '/partners', icon: Store, status: 'soon' },
       ],
     },
     {
