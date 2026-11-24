@@ -81,7 +81,7 @@ Decided rulings live in the PRD; built only where a bullet says so — check the
   `dealership_settings`); copied from a sister by the `contact_groups` subset (switches on, never off).
   A group staff withdrew cannot be switched on. Guard: `test_contact_group_setting_is_administrations.py`.
 
-## Settings store (KAN-805, ADR-214, ADR-216) — store built, API, checklist, copy and screen to come
+## Settings store (KAN-805, ADR-214, ADR-216) — store and API built; checklist, copy and screen to come
 - An area **declares** each setting it reads (`SettingDeclaration`: key `<area>.<name>`, kind switch ·
   number · amount · choice · text, what «not set» does — `quiet`, `refuses`, `acts_as`, never for an
   amount or a text, D-A-06 —, checklist item) with `platform.public.register_setting`, called from the
@@ -94,6 +94,13 @@ Decided rulings live in the PRD; built only where a bullet says so — check the
   2026-11-24; D-A-39 / KAN-219 dropped elsewhere); the history is read by every role. Lists and rules
   (labour rates, the service catalogue) are their area's data, not settings. `dealership_settings`
   stays as it is.
+- **API** (`administration/api/area_settings.py`, matrix row `dealership_settings`: every role reads,
+  the manager writes): `GET …/setting-areas`, `…/setting-areas/{area}` (`showsLocations`: more than one
+  active location, or any location value — Anto), `PUT …/setting-values/{key}` and
+  `…/{key}/locations/{location_id}` (If-Match on the slot, 0 never written; `{"value": null}` clears),
+  `GET …/{key}/history` (newest first, cursor), `POST …/setting-changes/{id}/restore` (If-Match). A
+  setting of a module the Betrieb does not hold is 404; a value that does not fit is 422 with its
+  reason, a deactivated location's 409 `setting_location_inactive`.
 
 ## Business master data (D-A-22, D-A-25, D-A-27, FR-A-25) — built
 - `/administration/business` is the one screen for the Betrieb's own data: legal identity,

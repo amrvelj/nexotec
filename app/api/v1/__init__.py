@@ -24,6 +24,7 @@ from app.inventory.api.pricing import router as inventory_pricing_router
 from app.inventory.api.publishing import router as inventory_publishing_router
 from app.inventory.api.reservations import router as inventory_reservations_router
 from app.inventory.api.stock_items import router as stock_items_router
+from app.platform.administration.api.area_settings import router as area_settings_router
 from app.platform.administration.api.configuration_copy import router as configuration_copy_router
 from app.platform.administration.api.data_exports import router as data_exports_router
 from app.platform.administration.api.publishing_profile import router as publishing_profile_router
@@ -84,6 +85,8 @@ api_v1_router.include_router(public_stock_router)
 api_v1_router.include_router(document_template_router)
 api_v1_router.include_router(document_links_router)
 api_v1_router.include_router(configuration_copy_router)
+# KAN-805 PR-2: the settings store in Dealer Administration.
+api_v1_router.include_router(area_settings_router)
 api_v1_router.include_router(standard_texts_router)
 api_v1_router.include_router(number_ranges_router)
 api_v1_router.include_router(contact_groups_router)

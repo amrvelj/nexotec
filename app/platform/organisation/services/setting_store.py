@@ -46,6 +46,8 @@ from app.core.audit import record_audit_event
 from app.core.base import utcnow
 from app.core.concurrency import check_version
 from app.core.errors import NotFoundError
+from app.core.pagination import SortPageParams, paginate_query_sorted
+from app.core.sorting import build_page_for_sort, parse_sort
 from app.platform.organisation.models.dealership import Location
 from app.platform.organisation.models.setting_value import (
     SettingChangeOrigin,
@@ -419,6 +421,19 @@ def setting_history(
     return [_change_of(row) for row in rows]
 
 
+def get_change(db: Session, *, dealership_id: uuid.UUID, change_id: uuid.UUID) -> SettingChange:
+    """One change of the Betrieb's settings; another Betrieb's is not found."""
+
+    row = db.scalar(
+        select(SettingValueChange).where(
+            SettingValueChange.id == change_id, SettingValueChange.dealership_id == dealership_id
+        )
+    )
+    if row is None:
+        raise NotFoundError("Setting change not found.")
+    return _change_of(row)
+
+
 def restore_change(
     db: Session, *, dealership_id: uuid.UUID, change_id: uuid.UUID, expected_version: int, actor_id: uuid.UUID | None
 ) -> SettingSlot:
@@ -455,3 +470,30 @@ def restore_change(
         origin=SettingChangeOrigin.RESTORE,
         restored_from_id=change.id,
     )
+
+
+HISTORY_SORT = "createdAt:desc"
+
+
+def history_sort_fields() -> list:
+    """Newest first: the history page's one order."""
+
+    return parse_sort(HISTORY_SORT, allowed={"createdAt": SettingValueChange.created_at})
+
+
+def setting_history_page(
+    db: Session, *, dealership_id: uuid.UUID, location_id: uuid.UUID | None, key: str, params: SortPageParams
+) -> tuple[list[SettingChange], str | None]:
+    """One page of the slot's changes, newest first (cursor pagination). A
+    location of another Betrieb is not found; a slot never written has none."""
+
+    _declaration(key)
+    if location_id is not None:
+        _location(db, dealership_id=dealership_id, location_id=location_id)
+    slot = _slot_row(db, dealership_id=dealership_id, location_id=location_id, key=key)
+    if slot is None:
+        return [], None
+    stmt = select(SettingValueChange).where(SettingValueChange.setting_value_id == slot.id)
+    rows = list(db.scalars(paginate_query_sorted(stmt, model=SettingValueChange, params=params)).all())
+    page, next_cursor = build_page_for_sort(rows, params)
+    return [_change_of(row) for row in page], next_cursor
