@@ -1,5 +1,5 @@
 """The secure document link (KAN-217 PR-4; FR-A-52, ADR-193): what the
-customer opens from an SMS or a WhatsApp message.
+contact opens from an SMS or a WhatsApp message.
 
 The message carries `{app}/d#<token>`: the token is in the URL's fragment,
 which a browser never sends — so no proxy, access log, trace or referrer ever
@@ -23,7 +23,7 @@ from app.platform.documents.services import document_links
 
 router = APIRouter(tags=["document-links"])
 
-# Every answer here is the customer's alone: never cached, never indexed, never
+# Every answer here is the contact's alone: never cached, never indexed, never
 # a referrer.
 _PRIVATE = {
     "Cache-Control": "no-store, private",
@@ -33,7 +33,7 @@ _PRIVATE = {
 
 
 class DocumentLinkSenderRead(CamelModel):
-    """KAN-217 PR-7 (ADR-208): whose page the customer is on."""
+    """KAN-217 PR-7 (ADR-208): whose page the contact is on."""
 
     name: str
     has_logo: bool

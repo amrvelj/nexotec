@@ -11,20 +11,20 @@ import { ValuationDetailPage } from './ValuationDetailPage'
 
 // KAN-569 (ADR-061; Anto's answer A on KAN-528, then 1A and 2A): the valuation
 // detail's alternative «Offerte aus dieser Bewertung erstellen» creates a
-// draft offer, gives it the valuation's customer when there is one, takes the
+// draft offer, gives it the valuation's contact when there is one, takes the
 // valuation over as its trade-in and opens the workspace. Disabled with its
 // reason for an expired or used valuation; hidden for a session that may not
 // write offers (KAN-430).
 
 const VALUATION = {
   id: 'val-1', valuationNumber: 'B-000042', status: 'valid', source: 'manual', hasSignedContract: false,
-  customerId: 'cust-1', customerLabel: 'Anna Muster', vehicleId: null, vehicleMake: 'VW', vehicleModel: 'Golf',
+  contactId: 'cust-1', contactLabel: 'Anna Muster', vehicleId: null, vehicleMake: 'VW', vehicleModel: 'Golf',
   vehicleTrim: null, vehicleVin: 'WVWZZZ1KZAW569001', usedAt: null, finalOffer: '12000.00', deductions: [], version: 3,
   validFrom: '2026-10-01', validUntil: '2026-12-31', vehicleFirstRegistration: null,
   createdAt: '2026-10-01T00:00:00Z', updatedAt: '2026-10-01T00:00:00Z',
 } as unknown as ValuationRead
 
-const OFFER = { id: 'off-1', offerNumber: 'O-000017', version: 1, customerId: null, tradeInValuationId: null }
+const OFFER = { id: 'off-1', offerNumber: 'O-000017', version: 1, contactId: null, tradeInValuationId: null }
 
 function session(writableCapabilities: string[], entitlements: string[] = ALL_ENTITLEMENTS): FakeRoute {
   return {
@@ -49,11 +49,11 @@ function install(
     session(capabilities, entitlements),
     { method: 'GET', match: /^\/valuations\/val-1$/, handler: () => ({ ...VALUATION, ...valuation }) },
     { method: 'POST', match: /^\/sales\/offers$/, handler: () => OFFER },
-    { method: 'GET', match: /^\/sales\/offers\/off-1$/, handler: () => ({ ...OFFER, customerId: 'cust-1', version: 2 }) },
+    { method: 'GET', match: /^\/sales\/offers\/off-1$/, handler: () => ({ ...OFFER, contactId: 'cust-1', version: 2 }) },
     {
       method: 'PATCH',
       match: /^\/sales\/offers\/off-1$/,
-      handler: () => ({ ...OFFER, customerId: 'cust-1', version: 2 }),
+      handler: () => ({ ...OFFER, contactId: 'cust-1', version: 2 }),
     },
     {
       method: 'POST',
@@ -63,7 +63,7 @@ function install(
         if (refuseAttach && attachCalls === 1) {
           return status(409, { error: { code: 'conflict', message: 'Refused.', details: { reason: 'offer_has_contract', contractNumber: 'C-000003' } } })
         }
-        return { ...OFFER, customerId: 'cust-1', tradeInValuationId: 'val-1', version: 3 }
+        return { ...OFFER, contactId: 'cust-1', tradeInValuationId: 'val-1', version: 3 }
       },
     },
   ])
@@ -107,7 +107,7 @@ describe('ValuationDetailPage — «Offerte aus dieser Bewertung erstellen» (KA
     expect(await screen.findByRole('menuitem', { name: new RegExp(actionName()) })).toBeTruthy()
   })
 
-  it('creates the offer, gives it the valuation’s customer, takes the valuation over and opens the workspace', async () => {
+  it('creates the offer, gives it the valuation’s contact, takes the valuation over and opens the workspace', async () => {
     const user = userEvent.setup()
     const backend = install()
     renderPage()
@@ -118,7 +118,7 @@ describe('ValuationDetailPage — «Offerte aus dieser Bewertung erstellen» (KA
     const [create] = backend.callsTo(/^\/sales\/offers$/, 'POST')
     expect(create.headers.get('Idempotency-Key')).toBeTruthy()
     const [patch] = backend.callsTo(/^\/sales\/offers\/off-1$/, 'PATCH')
-    expect(patch.body).toEqual({ customerId: 'cust-1' })
+    expect(patch.body).toEqual({ contactId: 'cust-1' })
     expect(patch.headers.get('If-Match')).toBe('1')
     const [attach] = backend.callsTo(/\/trade-in\/valuation$/, 'POST')
     expect(attach.body).toEqual({ valuationId: 'val-1' })
@@ -137,9 +137,9 @@ describe('ValuationDetailPage — «Offerte aus dieser Bewertung erstellen» (KA
     expect(backend.callsTo(/^\/sales\/offers$/, 'POST')).toHaveLength(1)
   })
 
-  it('a valuation without a customer gives an offer without a buyer (1A): no PATCH', async () => {
+  it('a valuation without a contact gives an offer without a buyer (1A): no PATCH', async () => {
     const user = userEvent.setup()
-    const backend = install({ customerId: null, customerLabel: null } as Partial<ValuationRead>)
+    const backend = install({ contactId: null, contactLabel: null } as Partial<ValuationRead>)
     renderPage()
 
     await user.click(await headerAction())

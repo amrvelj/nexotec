@@ -12,7 +12,7 @@ dealer.id") so it's dropped here too rather than re-litigated.
 
 access_roles / is_dealer_manager (WP-2 PR-2, Roles & Permissions RP-1/RP-3):
 replaces the old scalar access_role. A JSON array, not a child table like
-CustomerPhone/CustomerEmail — Roles & Permissions is explicit that there is
+ContactPhone/ContactEmail — Roles & Permissions is explicit that there is
 "no per-dealership role editor in v1" and a dealership's whole user list is
 small (the "four-person-garage" case is the design target), so there is no
 need to query "every user holding role X" with an indexed join; the one
@@ -151,9 +151,9 @@ class User(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, TimestampMixin, B
 
     # --- KAN-201 (My account; Users → Personal settings) --------------------
     # The language of the documents this user authors, where a document has
-    # no customer language of its own; NULL = the Betrieb's
+    # no contact language of its own; NULL = the Betrieb's
     # `default_correspondence_language`. Not the UI language (a preference,
-    # scope `ui`), and never the customer's correspondence language.
+    # scope `ui`), and never the contact's correspondence language.
     correspondence_language: Mapped[SwissLanguage | None] = mapped_column(
         StoredEnum(SwissLanguage, length=8), nullable=True
     )

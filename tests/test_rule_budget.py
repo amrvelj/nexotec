@@ -53,10 +53,10 @@ def test_the_rule_files_in_this_tree_are_within_every_budget():
 
 
 def test_paths_globs_match_as_claude_code_reads_them():
-    rule = rule_budget.Rule("x.md", 1, ("app/platform/**", "frontend/apps/dms/src/**/*ustomer*", "tests/test_user*.py"))
+    rule = rule_budget.Rule("x.md", 1, ("app/platform/**", "frontend/apps/dms/src/**/*ontact*", "tests/test_user*.py"))
     assert rule.loads_for("app/platform/identity/services/user.py")
-    assert rule.loads_for("frontend/apps/dms/src/pages/CustomerDetailPage.tsx")
-    assert rule.loads_for("frontend/apps/dms/src/components/customer-detail")
+    assert rule.loads_for("frontend/apps/dms/src/pages/ContactDetailPage.tsx")
+    assert rule.loads_for("frontend/apps/dms/src/components/contact-detail")
     assert rule.loads_for("tests/test_user_deactivation.py")
     assert not rule.loads_for("app/platformx/services/user.py")
     assert not rule.loads_for("tests/sub/test_user.py")

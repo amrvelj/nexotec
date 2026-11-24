@@ -174,7 +174,7 @@ def test_a_sentry_event_carries_no_secret_from_a_frame_or_an_extra_field(monkeyp
 
 def test_a_web_500_sends_no_camel_case_secret_from_the_request_body(monkeypatch):
     """The web process's events carry the request body, camelCase on the wire
-    (SecretWriteRequest's `secretValue`, a customer's `taxId`)."""
+    (SecretWriteRequest's `secretValue`, a contact's `taxId`)."""
 
     from fastapi import FastAPI, Request
     from fastapi.testclient import TestClient

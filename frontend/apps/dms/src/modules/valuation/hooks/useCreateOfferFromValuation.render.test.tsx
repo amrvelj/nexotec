@@ -16,14 +16,14 @@ import { useCreateOfferFromValuation } from './useCreateOfferFromValuation'
 // navigation, which makes that window as wide as it can be: a click after a
 // successful run must start nothing.
 
-const OFFER = { id: 'off-1', offerNumber: 'O-000017', version: 1, customerId: null, tradeInValuationId: null }
+const OFFER = { id: 'off-1', offerNumber: 'O-000017', version: 1, contactId: null, tradeInValuationId: null }
 
 function Trigger() {
   const { run } = useCreateOfferFromValuation()
   const location = useLocation()
   return (
     <>
-      <button type="button" onClick={() => void run({ id: 'val-1', customerId: null })}>
+      <button type="button" onClick={() => void run({ id: 'val-1', contactId: null })}>
         go
       </button>
       <p>at {location.pathname}</p>

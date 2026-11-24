@@ -1,8 +1,8 @@
 """KAN-218 (Anto, 2026-11-14, Q2 A; FR-A-45 "accessible via export only"):
 an offboarded Betrieb drops out of every group read from its offboarding
 date. Its sisters no longer see its stock in the group stock listing, nor
-find a car of theirs in its stock (the customer 360's Vehicles tab), nor read
-its name or its users' names in a group customer's history; an active sister
+find a car of theirs in its stock (the contact 360's Vehicles tab), nor read
+its name or its users' names in a group contact's history; an active sister
 still is in each.
 """
 
@@ -109,7 +109,7 @@ def test_a_sister_no_longer_sees_the_offboarded_betriebs_stock(db_session):
     assert rows == []
 
 
-def test_the_customer_360_no_longer_finds_a_car_in_the_offboarded_betriebs_stock(db_session):
+def test_the_contact_360_no_longer_finds_a_car_in_the_offboarded_betriebs_stock(db_session):
     _, viewer, leaving, staying = _group(db_session)
     in_leaving = _car(db_session, leaving, "VW Golf", "WVWZZZ1KZAW218004")
     in_staying = _car(db_session, staying, "Škoda Octavia", "WVWZZZ1KZAW218005")

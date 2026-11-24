@@ -65,7 +65,7 @@ def _seller_in(db: Session, *, tenant_id: uuid.UUID, user_id: uuid.UUID | None) 
     await access: a suspended or deactivated user cannot be responsible for
     an open deal. None otherwise, a platform staff member creating an offer
     in a Betrieb they are not a member of included. Platform's one rule,
-    which the customer's advisor follows too (KAN-410)."""
+    which the contact's advisor follows too (KAN-410)."""
 
     if user_id is None:
         return None

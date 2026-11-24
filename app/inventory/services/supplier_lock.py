@@ -1,6 +1,6 @@
-"""KAN-465 — a purchase booking and the `inventory.customer_merged` consumer
+"""KAN-465 — a purchase booking and the `inventory.contact_merged` consumer
 serialise on the supplier contact, inside Stock (the pattern of Sales'
-KAN-657, `app/sales/services/customer_attach_lock.py`).
+KAN-657, `app/sales/services/contact_attach_lock.py`).
 
 The race this closes: a booking read its supplier as live, the contact merge
 committed, the consumer ran while the booking's UPDATE was still uncommitted
@@ -20,7 +20,7 @@ A booking that holds the lock first commits before the consumer reads, and
 the consumer moves its item; a consumer that holds it first ran after the
 merge committed, so the waiting booking then reads the contact merged and is
 refused (422 `supplier_contact_merged`). The lock comes before every row lock
-on both sides. A FOR SHARE read of the contact row through `customer.public`
+on both sides. A FOR SHARE read of the contact row through `contact.public`
 would be a shared transaction (ADR-047). Re-entrant within a transaction; a
 no-op on SQLite (the fast lane, ADR-011), which serialises writers itself.
 """

@@ -39,7 +39,7 @@ function signedChf(effect: number): string {
  * § FR-I-15a — the Wagenbuch (ADR-029, entity-private, never group-
  * readable). A plain hand-built list, not the full DataGrid: an embedded,
  * entity-scoped, unpaginated few-row history is the same shape as
- * CustomerDetail's own HistoryTab, which uses the identical pattern
+ * ContactDetail's own HistoryTab, which uses the identical pattern
  * rather than the top-level overview grid machinery.
  */
 export function WagenbuchTab({ entries, locale, onRecordCost, leftStockDate = null, canRecordCost = true }: WagenbuchTabProps) {

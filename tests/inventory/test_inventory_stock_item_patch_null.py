@@ -1,6 +1,6 @@
 """KAN-441 — `PATCH /v1/inventory/stock-items/{id}` with an explicit
 `null` for a NOT NULL column (`condition`, `vehicleLabel`) is a 422 naming
-the field, as KAN-394 made it for the customer; before, the null reached
+the field, as KAN-394 made it for the contact; before, the null reached
 the flush and the NotNullViolation was a 500. An absent key still leaves the
 value alone."""
 

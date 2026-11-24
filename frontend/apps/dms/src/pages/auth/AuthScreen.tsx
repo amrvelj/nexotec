@@ -19,7 +19,7 @@ export function AuthScreen({
   title: string
   hint?: string
   /** KAN-217 PR-7: what stands above the card in place of the product name
-   * — the customer's link page shows the dealer who sent it. */
+   * — the contact's link page shows the dealer who sent it. */
   brand?: ReactNode
   children: ReactNode
 }) {

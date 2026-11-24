@@ -33,7 +33,7 @@
       "rights": "Vos droits"
     },
     "places": {
-      "body": "Lors de la saisie d'une adresse dans le DMS, le texte d'adresse tapé – et uniquement celui-ci, jamais un nom ni d'autres données client – est transmis à Google Ireland Limited afin d'afficher des propositions. Google traite ces données en tant que responsable du traitement distinct, conformément aux Conditions d'utilisation de Google Maps Platform et aux Google Controller-Controller Data Protection Terms (y compris les clauses contractuelles types pour les transferts depuis la Suisse). Seule l'adresse choisie par l'utilisateur est enregistrée. Une entreprise peut désactiver la fonction à tout moment sous Administration › Entreprise › Saisie des adresses.",
+      "body": "Lors de la saisie d'une adresse dans le DMS, le texte d'adresse tapé – et uniquement celui-ci, jamais un nom ni d'autres données d'un contact – est transmis à Google Ireland Limited afin d'afficher des propositions. Google traite ces données en tant que responsable du traitement distinct, conformément aux Conditions d'utilisation de Google Maps Platform et aux Google Controller-Controller Data Protection Terms (y compris les clauses contractuelles types pour les transferts depuis la Suisse). Seule l'adresse choisie par l'utilisateur est enregistrée. Une entreprise peut désactiver la fonction à tout moment sous Administration › Entreprise › Saisie des adresses.",
       "google": "La manière dont Google traite ces données est décrite dans les <privacy>Règles de confidentialité de Google</privacy> ; les <terms>Conditions d'utilisation de Google</terms> s'appliquent en outre aux propositions d'adresses."
     }
   }

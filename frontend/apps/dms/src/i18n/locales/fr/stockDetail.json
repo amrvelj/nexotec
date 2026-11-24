@@ -62,7 +62,7 @@
       "search": "Rechercher un contact",
       "create": "Créer un nouveau contact",
       "change": "Modifier",
-      "useTradeInCustomer": "Reprendre le client de la reprise : {{name}}",
+      "useTradeInContact": "Reprendre le contact de la reprise : {{name}}",
       "roleWillBeAdded": "Ce contact reçoit le rôle «Fournisseur» lors de l'enregistrement.",
       "roleFailed": "Le rôle «Fournisseur» n'a pas pu être attribué au contact. Veuillez réessayer.",
       "vatUnknown": "Le statut TVA de ce contact n'est pas confirmé — veuillez vérifier.",
@@ -88,8 +88,8 @@
       "cancel": "Retour",
       "failed": "L'achat n'a pas pu être annulé.",
       "leftStock": "Impossible : le véhicule a quitté le stock.",
-      "returnedToCustomer": "Le véhicule retourne au client",
-      "returnedToCustomerHint": "Le client qui l'a donné en reprise redevient propriétaire et détenteur. Sans coche, son historique reste tel que l'achat l'a enregistré."
+      "returnedToContact": "Le véhicule retourne au contact",
+      "returnedToContactHint": "Le contact qui l'a donné en reprise redevient propriétaire et détenteur. Sans coche, son historique reste tel que l'achat l'a enregistré."
     }
   },
   "wagenbuch": {

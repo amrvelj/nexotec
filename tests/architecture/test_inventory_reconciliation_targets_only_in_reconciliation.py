@@ -66,7 +66,7 @@ def test_the_inventory_builders_are_used_only_by_reconciliation():
 def test_the_builders_are_still_used_by_the_three_reconciliation_modules():
     # Not vacuous: the callers this test exists for are still there.
     sales = (_APP / "sales" / "reconciliation.py").read_text()
-    customer = (_APP / "customer" / "reconciliation.py").read_text()
+    contact = (_APP / "contact" / "reconciliation.py").read_text()
     vehicle = (_APP / "vehicle" / "reconciliation.py").read_text()
     assert all(
         name in sales
@@ -78,7 +78,7 @@ def test_the_builders_are_still_used_by_the_three_reconciliation_modules():
             "purchased_stock_item_check",
         )
     )
-    assert "stock_item_reference_check" in customer
+    assert "stock_item_reference_check" in contact
     assert all(
         name in vehicle
         for name in ("stock_item_reference_check", "stock_item_differs_from_holding", "held_stock_item_check")
@@ -94,5 +94,5 @@ def test_the_guard_reports_a_caller_outside_reconciliation():
         "app/vehicle/api/vehicle_mdm.py": "from app.inventory.public import held_stock_item_check\n",
         "app/inventory/services/reconciliation_targets.py": "def stock_item_exists(): ...\n",
         "app/sales/reconciliation.py": uses,
-        "app/customer/services/untouched.py": "x = 1\n",
+        "app/contact/services/untouched.py": "x = 1\n",
     }) == ["app/sales/services/contract.py", "app/vehicle/api/vehicle_mdm.py"]

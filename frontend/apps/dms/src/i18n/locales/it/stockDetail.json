@@ -62,7 +62,7 @@
       "search": "Cerca contatto",
       "create": "Crea un nuovo contatto",
       "change": "Modifica",
-      "useTradeInCustomer": "Usa il cliente della permuta: {{name}}",
+      "useTradeInContact": "Usa il contatto della permuta: {{name}}",
       "roleWillBeAdded": "Questo contatto riceve il ruolo «Fornitore» alla registrazione.",
       "roleFailed": "Non è stato possibile assegnare il ruolo «Fornitore» al contatto. Riprovate.",
       "vatUnknown": "Lo stato IVA di questo contatto non è confermato — verificate.",
@@ -88,8 +88,8 @@
       "cancel": "Annulla",
       "failed": "Non è stato possibile stornare l'acquisto.",
       "leftStock": "Non possibile: il veicolo ha lasciato lo stock.",
-      "returnedToCustomer": "Il veicolo torna al cliente",
-      "returnedToCustomerHint": "Il cliente che l'ha dato in permuta torna a essere proprietario e detentore. Senza spunta, la sua cronologia resta come l'ha registrata l'acquisto."
+      "returnedToContact": "Il veicolo torna al contatto",
+      "returnedToContactHint": "Il contatto che l'ha dato in permuta torna a essere proprietario e detentore. Senza spunta, la sua cronologia resta come l'ha registrata l'acquisto."
     }
   },
   "wagenbuch": {

@@ -30,7 +30,7 @@ from app.sales.services.priced_deal import has_trade_in
 from app.sales.services.trade_in import attach_trade_in_valuation, set_trade_in
 from app.valuation.schemas.valuation import ValuationCreate
 from app.valuation.services.valuation import create_valuation, list_valid_valuations_for_vin
-from tests.sales.test_sales_lifecycle_reservation import _customer, _dealership
+from tests.sales.test_sales_lifecycle_reservation import _contact, _dealership
 from tests.sales.test_sales_trade_in_valuation_use import _confirm
 from tests.stock_support import create_in_stock_item
 
@@ -84,7 +84,7 @@ def test_a_deal_that_already_names_its_trade_in_car_keeps_it(db_session):
     offer = create_offer(db_session, tenant_id=dealership.id, actor_id=uuid.uuid4())
     offer = set_trade_in(
         db_session, deal=offer, group_id=group_id, vin="TMBJJ7NE0L0569002", plate=None, canton=None,
-        vehicle_label="Skoda Octavia Combi", customer_id=None, actor_id=uuid.uuid4(),
+        vehicle_label="Skoda Octavia Combi", contact_id=None, actor_id=uuid.uuid4(),
     )
     valuation = _valuation(db_session, dealership.id, group_id)
 
@@ -126,7 +126,7 @@ def test_an_older_valuation_without_a_vin_is_refused_even_where_the_deal_names_i
     offer = create_offer(db_session, tenant_id=dealership.id, actor_id=uuid.uuid4())
     offer = set_trade_in(
         db_session, deal=offer, group_id=group_id, vin="TMBJJ7NE0L0574001", plate=None, canton=None,
-        vehicle_label="Skoda Octavia Combi", customer_id=None, actor_id=uuid.uuid4(),
+        vehicle_label="Skoda Octavia Combi", contact_id=None, actor_id=uuid.uuid4(),
     )
     valuation = _valuation(db_session, dealership.id, group_id, vin=None)
 
@@ -173,7 +173,7 @@ def test_its_contract_takes_the_car_into_the_pipeline_on_confirmation(db_session
     offer = update_offer(
         db_session, offer=offer, group_id=group_id,
         data=OfferUpdate(
-            customer_id=_customer(db_session, group_id).id, vehicle_source="stock", stock_item_id=item.id,
+            contact_id=_contact(db_session, group_id).id, vehicle_source="stock", stock_item_id=item.id,
             vehicle_label=item.vehicle_label,
         ),
         actor_id=uuid.uuid4(),
@@ -207,7 +207,7 @@ def test_a_valuation_with_a_vin_but_no_make_or_model_is_named_by_its_vin(db_sess
     offer = update_offer(
         db_session, offer=offer, group_id=group_id,
         data=OfferUpdate(
-            customer_id=_customer(db_session, group_id).id, vehicle_source="stock", stock_item_id=item.id,
+            contact_id=_contact(db_session, group_id).id, vehicle_source="stock", stock_item_id=item.id,
             vehicle_label=item.vehicle_label,
         ),
         actor_id=uuid.uuid4(),
@@ -284,7 +284,7 @@ def test_the_contract_route_refuses_a_valuation_that_names_no_car(client, db_ses
     offer = update_offer(
         db_session, offer=offer, group_id=group_id,
         data=OfferUpdate(
-            customer_id=_customer(db_session, group_id).id, vehicle_source="stock", stock_item_id=item.id,
+            contact_id=_contact(db_session, group_id).id, vehicle_source="stock", stock_item_id=item.id,
             vehicle_label=item.vehicle_label,
         ),
         actor_id=uuid.uuid4(),
@@ -344,7 +344,7 @@ def test_auto_attach_falls_back_to_the_vin_when_the_record_has_only_valuations_w
     offer = create_offer(db_session, tenant_id=dealership.id, actor_id=uuid.uuid4())
     offer = set_trade_in(
         db_session, deal=offer, group_id=group_id, vin=VIN, plate=None, canton=None,
-        vehicle_label="VW Golf", customer_id=None, actor_id=uuid.uuid4(),
+        vehicle_label="VW Golf", contact_id=None, actor_id=uuid.uuid4(),
     )
 
     assert offer.trade_in_vehicle_id == record.id
@@ -373,7 +373,7 @@ def test_auto_attach_still_prefers_the_records_own_valuation_with_a_vin(db_sessi
     offer = create_offer(db_session, tenant_id=dealership.id, actor_id=uuid.uuid4())
     offer = set_trade_in(
         db_session, deal=offer, group_id=group_id, vin=VIN, plate=None, canton=None,
-        vehicle_label="VW Golf", customer_id=None, actor_id=uuid.uuid4(),
+        vehicle_label="VW Golf", contact_id=None, actor_id=uuid.uuid4(),
     )
 
     assert offer.trade_in_valuation_id == linked.id

@@ -1,4 +1,4 @@
-"""KAN-217 PR-7 (ADR-208; Anto, 2026-11-20, option 1): the customer's link
+"""KAN-217 PR-7 (ADR-208; Anto, 2026-11-20, option 1): the contact's link
 page is the dealer's page. The Betrieb's name and logo are read by link only:
 a link that cannot be read names nobody; a usable link whose document then
 fails still names its sender.

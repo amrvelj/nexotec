@@ -16,14 +16,14 @@ from decimal import Decimal
 
 from sqlalchemy import func, select
 
+from app.contact.consumers import handle_stock_item_booking_purchased_message, purchase_moment
+from app.contact.consumers import handle_stock_item_purchased_message as handle_trade_in_purchased_message
+from app.contact.models.contact import Contact, ContactLifecycleStatus
+from app.contact.models.vehicle_party import VehicleParty, VehiclePartyRole
+from app.contact.services.vehicle_party import allocate_vehicle_party
+from app.contact.services.vehicle_party_reads import list_contact_vehicles
 from app.core.consumer import consume_once
 from app.core.outbox_model import OutboxMessage
-from app.customer.consumers import handle_stock_item_booking_purchased_message, purchase_moment
-from app.customer.consumers import handle_stock_item_purchased_message as handle_trade_in_purchased_message
-from app.customer.models.customer import Customer, CustomerLifecycleStatus
-from app.customer.models.vehicle_party import VehicleParty, VehiclePartyRole
-from app.customer.services.vehicle_party import allocate_vehicle_party
-from app.customer.services.vehicle_party_reads import list_customer_vehicles
 from app.inventory.models.stock_item import LifecycleStatus, StockItem, StockItemCondition
 from app.inventory.schemas.purchase import RecordPurchaseRequest
 from app.inventory.schemas.stock_item import StockItemCreate
@@ -46,7 +46,7 @@ from tests.cross_context.test_configurator_hosts import (
     _stock_consumes_the_confirmation,
 )
 from tests.sales.test_sales_contract_edit import _edit
-from tests.sales.test_sales_lifecycle_reservation import _customer, _dealership, _with_buyer
+from tests.sales.test_sales_lifecycle_reservation import _contact, _dealership, _with_buyer
 from tests.stock_support import supplier_contact
 
 
@@ -110,7 +110,7 @@ def test_the_vin_only_valuation_is_auto_attached_and_the_container_reads_complet
 
     updated = set_trade_in(
         db_session, deal=offer, group_id=uuid.uuid4(), vin="WVWZZZ1KZAW189004", plate=None, canton=None,
-        vehicle_label="Seat Leon", customer_id=None, actor_id=uuid.uuid4(),
+        vehicle_label="Seat Leon", contact_id=None, actor_id=uuid.uuid4(),
     )
 
     assert updated.trade_in_vehicle_id is None
@@ -138,7 +138,7 @@ def test_a_vin_trade_in_that_finds_a_configured_valuation_holds_its_configuratio
 
     updated = set_trade_in(
         db_session, deal=offer, group_id=dealership.dealer_group_id, vin=vin, plate=None, canton=None,
-        vehicle_label="Subaru Justy", customer_id=None, actor_id=uuid.uuid4(),
+        vehicle_label="Subaru Justy", contact_id=None, actor_id=uuid.uuid4(),
     )
 
     assert updated.trade_in_vehicle_id is None
@@ -167,7 +167,7 @@ def test_confirmation_makes_a_vin_only_trade_in_a_pipeline_item_with_its_valuati
     )
     contract = set_trade_in(
         db_session, deal=contract, group_id=group_id, vin="WVWZZZ1KZAW189005", plate=None, canton=None,
-        vehicle_label="Seat Leon", customer_id=None, actor_id=uuid.uuid4(),
+        vehicle_label="Seat Leon", contact_id=None, actor_id=uuid.uuid4(),
     )
     assert (contract.trade_in_vehicle_id, contract.trade_in_valuation_id) == (None, valuation.id)
 
@@ -211,7 +211,7 @@ def _bought_trade_in(db_session, engine, *, purchase_date=dt.date(2026, 10, 20))
     )
     contract = set_trade_in(
         db_session, deal=contract, group_id=group_id, vin=_TRADE_IN_VIN, plate=None, canton=None,
-        vehicle_label="Seat Leon", customer_id=None, actor_id=uuid.uuid4(),
+        vehicle_label="Seat Leon", contact_id=None, actor_id=uuid.uuid4(),
     )
     contract = confirm_contract(
         db_session, contract=contract, group_id=group_id, actor_id=uuid.uuid4(),
@@ -248,17 +248,17 @@ def _parties(db_session) -> list[VehicleParty]:
     return list(db_session.scalars(select(VehicleParty).order_by(VehicleParty.role)).all())
 
 
-def _customer_consumes(db_session, message) -> bool:
-    """As the worker delivers the event to the customer context: its booking
+def _contact_consumes(db_session, message) -> bool:
+    """As the worker delivers the event to the contact context: its booking
     record first (KAN-632), then the trade-in step; returns whether the
     trade-in step ran."""
 
     consume_once(
-        db_session, message=message, consumer_name="customer.stock_item_bookings_on_purchased",
+        db_session, message=message, consumer_name="contact.stock_item_bookings_on_purchased",
         handler=handle_stock_item_booking_purchased_message,
     )
     return consume_once(
-        db_session, message=message, consumer_name="customer.trade_in_purchased",
+        db_session, message=message, consumer_name="contact.trade_in_purchased",
         handler=handle_trade_in_purchased_message,
     )
 
@@ -274,22 +274,22 @@ def test_the_purchased_event_names_the_vehicle_the_contract_and_the_date(db_sess
         "originContractId": str(contract.id),
         "originRole": "trade_in",
         # KAN-632: who traded the car in and when, as the confirmation named them.
-        "tradeInCustomerId": str(contract.customer_id),
+        "tradeInContactId": str(contract.contact_id),
         "tradeInSignedAt": _SIGNED_AT.isoformat(),
     }
 
 
-def test_buying_the_trade_in_records_its_customer_as_closed_former_owner_and_keeper(db_session, engine):
+def test_buying_the_trade_in_records_its_contact_as_closed_former_owner_and_keeper(db_session, engine):
     contract, item, message = _bought_trade_in(db_session, engine)
     vehicle = db_session.scalars(select(VehicleMdm)).one()
     assert vehicle.vin == _TRADE_IN_VIN and item.vehicle_id == vehicle.id  # the purchase created the record
 
-    assert _customer_consumes(db_session, message) is True
+    assert _contact_consumes(db_session, message) is True
 
     parties = _parties(db_session)
-    assert [(p.role, p.customer_id, p.vehicle_id) for p in parties] == [
-        (VehiclePartyRole.KEEPER, contract.customer_id, vehicle.id),
-        (VehiclePartyRole.OWNER, contract.customer_id, vehicle.id),
+    assert [(p.role, p.contact_id, p.vehicle_id) for p in parties] == [
+        (VehiclePartyRole.KEEPER, contract.contact_id, vehicle.id),
+        (VehiclePartyRole.OWNER, contract.contact_id, vehicle.id),
     ]
     # Closed at the start of the purchase date in Switzerland; held since the contract was signed.
     ended = dt.datetime(2026, 10, 19, 22, 0, tzinfo=dt.UTC)
@@ -297,11 +297,11 @@ def test_buying_the_trade_in_records_its_customer_as_closed_former_owner_and_kee
     assert {p.effective_from for p in parties} == {_SIGNED_AT}
     assert all(p.vehicle_vin == _TRADE_IN_VIN for p in parties)  # rule 2's label written with the row
 
-    # The customer's Vehicles tab (history included) now shows the car; the current view does not.
-    assert {p.vehicle_id for p in list_customer_vehicles(db_session, customer_id=contract.customer_id, include_closed=True)} == {vehicle.id}
-    assert list_customer_vehicles(db_session, customer_id=contract.customer_id) == []
+    # The contact's Vehicles tab (history included) now shows the car; the current view does not.
+    assert {p.vehicle_id for p in list_contact_vehicles(db_session, contact_id=contract.contact_id, include_closed=True)} == {vehicle.id}
+    assert list_contact_vehicles(db_session, contact_id=contract.contact_id) == []
     linked = db_session.scalars(
-        select(OutboxMessage).where(OutboxMessage.event_type == "customer.vehicle_party.linked")
+        select(OutboxMessage).where(OutboxMessage.event_type == "contact.vehicle_party.linked")
     ).all()
     assert len(linked) == 2
 
@@ -309,7 +309,7 @@ def test_buying_the_trade_in_records_its_customer_as_closed_former_owner_and_kee
 def test_a_purchase_dated_before_the_signature_closes_at_the_booking(db_session, engine):
     _contract, _item, message = _bought_trade_in(db_session, engine, purchase_date=dt.date(2020, 1, 1))
 
-    _customer_consumes(db_session, message)
+    _contact_consumes(db_session, message)
 
     parties = _parties(db_session)
     assert {p.effective_to for p in parties} == {message.occurred_at}
@@ -319,8 +319,8 @@ def test_a_purchase_dated_before_the_signature_closes_at_the_booking(db_session,
 def test_a_redelivered_purchase_links_once(db_session, engine):
     _contract, _item, message = _bought_trade_in(db_session, engine)
 
-    assert _customer_consumes(db_session, message) is True
-    assert _customer_consumes(db_session, message) is False
+    assert _contact_consumes(db_session, message) is True
+    assert _contact_consumes(db_session, message) is False
     # Even past the harness, the handler itself writes the history once.
     handle_trade_in_purchased_message(db_session, message)
     db_session.commit()
@@ -328,28 +328,28 @@ def test_a_redelivered_purchase_links_once(db_session, engine):
     assert len(_parties(db_session)) == 2
 
 
-def test_a_customer_merged_since_the_contract_gets_it_on_the_survivor(db_session, engine):
+def test_a_contact_merged_since_the_contract_gets_it_on_the_survivor(db_session, engine):
     contract, _item, message = _bought_trade_in(db_session, engine)
-    survivor = _customer(db_session, contract_group_id(db_session, contract))
-    duplicate = db_session.get(Customer, contract.customer_id)
-    duplicate.lifecycle_status = CustomerLifecycleStatus.MERGED
-    duplicate.duplicate_of_customer_id = survivor.id
+    survivor = _contact(db_session, contract_group_id(db_session, contract))
+    duplicate = db_session.get(Contact, contract.contact_id)
+    duplicate.lifecycle_status = ContactLifecycleStatus.MERGED
+    duplicate.duplicate_of_contact_id = survivor.id
     db_session.commit()
 
-    _customer_consumes(db_session, message)
+    _contact_consumes(db_session, message)
 
-    assert {p.customer_id for p in _parties(db_session)} == {survivor.id}
+    assert {p.contact_id for p in _parties(db_session)} == {survivor.id}
 
 
-def test_an_open_link_the_customer_already_had_is_closed_at_the_purchase(db_session, engine):
+def test_an_open_link_the_contact_already_had_is_closed_at_the_purchase(db_session, engine):
     contract, item, message = _bought_trade_in(db_session, engine)
     group_id = contract_group_id(db_session, contract)
     earlier = allocate_vehicle_party(
-        db_session, vehicle_id=item.vehicle_id, customer_id=contract.customer_id, role=VehiclePartyRole.OWNER,
+        db_session, vehicle_id=item.vehicle_id, contact_id=contract.contact_id, role=VehiclePartyRole.OWNER,
         group_id=group_id, actor_id=uuid.uuid4(), acting_dealership_id=None, effective_from=dt.datetime(2019, 5, 1, tzinfo=dt.UTC),
     )
 
-    _customer_consumes(db_session, message)
+    _contact_consumes(db_session, message)
 
     owners = [p for p in _parties(db_session) if p.role == VehiclePartyRole.OWNER]
     assert [p.id for p in owners] == [earlier.id]  # no second row beside it
@@ -357,23 +357,23 @@ def test_an_open_link_the_customer_already_had_is_closed_at_the_purchase(db_sess
 
 
 def test_another_holder_in_the_group_is_left_alone(db_session, engine):
-    """Anto's ruling 4 A (2026-11-03): another customer still linked to the car
+    """Anto's ruling 4 A (2026-11-03): another contact still linked to the car
     as owner, keeper or driver stays as is — the history row closes nobody
     (KAN-148, KAN-370). The rejected allocate_vehicle_party design would have
     closed this owner and keeper."""
 
     contract, item, message = _bought_trade_in(db_session, engine)
     group_id = contract_group_id(db_session, contract)
-    someone_else = _customer(db_session, group_id).id
+    someone_else = _contact(db_session, group_id).id
     others = [
         allocate_vehicle_party(
-            db_session, vehicle_id=item.vehicle_id, customer_id=someone_else, role=role,
+            db_session, vehicle_id=item.vehicle_id, contact_id=someone_else, role=role,
             group_id=group_id, actor_id=uuid.uuid4(), acting_dealership_id=None,
         )
         for role in (VehiclePartyRole.OWNER, VehiclePartyRole.KEEPER, VehiclePartyRole.DRIVER)
     ]
 
-    _customer_consumes(db_session, message)
+    _contact_consumes(db_session, message)
 
     for other in others:
         db_session.refresh(other)
@@ -397,7 +397,7 @@ def test_a_purchase_that_is_not_a_trade_in_links_nobody(db_session, engine):
     message = _message(db_session, "inventory.stock_item.purchased", item.id)
     assert "originRole" not in message.payload
 
-    assert _customer_consumes(db_session, message) is True
+    assert _contact_consumes(db_session, message) is True
     assert _parties(db_session) == []
 
 
@@ -420,33 +420,33 @@ def contract_group_id(db_session, contract) -> uuid.UUID:
 
 def test_a_purchase_dated_in_the_future_ends_at_the_booking_never_later(db_session, engine):
     """Review finding (2026-11-03): a future purchase date used to leave the
-    customer a CURRENT owner and keeper beside whoever holds the car — a
+    contact a CURRENT owner and keeper beside whoever holds the car — a
     KAN-148 bypass. The history ends at the booking at the latest."""
 
     future = dt.datetime.now(dt.UTC).date() + dt.timedelta(days=30)
     contract, _item, message = _bought_trade_in(db_session, engine, purchase_date=future)
 
-    _customer_consumes(db_session, message)
+    _contact_consumes(db_session, message)
 
     parties = _parties(db_session)
     assert {p.effective_to for p in parties} == {message.occurred_at}
-    assert list_customer_vehicles(db_session, customer_id=contract.customer_id) == []  # no current holder
+    assert list_contact_vehicles(db_session, contact_id=contract.contact_id) == []  # no current holder
 
 
 def test_an_earlier_row_with_the_same_start_does_not_fail_the_consumer(db_session, engine):
-    """uq_vehicle_party_scope spans (vehicle, customer, role, effective_from):
-    a row of this customer already starting at the signature, ended before
+    """uq_vehicle_party_scope spans (vehicle, contact, role, effective_from):
+    a row of this contact already starting at the signature, ended before
     the purchase, stands for the period instead of failing every delivery."""
 
     contract, item, message = _bought_trade_in(db_session, engine)
     for role in (VehiclePartyRole.OWNER, VehiclePartyRole.KEEPER):
         db_session.add(
             VehicleParty(
-                vehicle_id=item.vehicle_id, customer_id=contract.customer_id, role=role,
+                vehicle_id=item.vehicle_id, contact_id=contract.contact_id, role=role,
                 effective_from=_SIGNED_AT, effective_to=_SIGNED_AT + dt.timedelta(days=1),
             )
         )
     db_session.commit()
 
-    assert _customer_consumes(db_session, message) is True
+    assert _contact_consumes(db_session, message) is True
     assert len(_parties(db_session)) == 2  # the two earlier rows, nothing added beside them

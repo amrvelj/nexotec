@@ -40,7 +40,7 @@ KAN-615. Last verified against main@3b2bf69 (2026-11-18). -->
   pipeline item by it. A deal that already names its car keeps it.
 - **A VIN trade-in creates no vehicle-mdm record** (ADR-070, FR-S-08 amended): `set_trade_in` keeps
   `trade_in_vin`, only links the record vehicle-mdm holds, allocates no owner/keeper party (the car
-  shows on the customer's Vehicles tab once bought, `customer-vehicle-party.md`), and finds an existing valid
+  shows on the contact's Vehicles tab once bought, `contact-vehicle-party.md`), and finds an existing valid
   valuation by the linked record, else by VIN (compared normalised). It counts as a trade-in
   (`priced_deal.has_trade_in`), so it becomes a pipeline item whose purchase booking creates the
   record (ADR-103). The record-mode path (configurator → valuation → the deal's

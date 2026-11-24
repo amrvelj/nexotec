@@ -284,7 +284,7 @@ def test_an_offboarded_betriebs_principals_get_404_everywhere(client, export_sto
     dealership_id, _, headers = betrieb_with_manager(client)
     other_id, _, other_headers = betrieb_with_manager(client, "Garage Anders AG")
     exported_and_acknowledged(client, engine, dealership_id, headers)
-    assert client.get("/v1/customers", headers=headers).status_code == 200
+    assert client.get("/v1/contacts", headers=headers).status_code == 200
     assert _offboard(client, dealership_id).status_code == 200
 
     sales = bearer(token(AccessRole.SALES, tenant_id=dealership_id))
@@ -293,14 +293,14 @@ def test_an_offboarded_betriebs_principals_get_404_everywhere(client, export_sto
             ("GET", f"/v1/dealerships/{dealership_id}"),
             ("GET", f"/v1/dealerships/{dealership_id}/exports"),
             ("POST", f"/v1/dealerships/{dealership_id}/exports"),
-            ("GET", "/v1/customers"),
+            ("GET", "/v1/contacts"),
             ("GET", "/v1/auth/me"),
             ("PATCH", f"/v1/dealerships/{dealership_id}"),
         ):
             response = client.request(method, path, headers=idem(principal, **{"If-Match": "1"}), json={})
             assert response.status_code == 404, (method, path, response.status_code)
     # Another Betrieb and staff are untouched.
-    assert client.get("/v1/customers", headers=other_headers).status_code == 200
+    assert client.get("/v1/contacts", headers=other_headers).status_code == 200
     assert client.get(f"/v1/dealerships/{other_id}", headers=other_headers).status_code == 200
     assert client.get(f"/v1/dealerships/{dealership_id}", headers=staff()).json()["status"] == "offboarded"
 

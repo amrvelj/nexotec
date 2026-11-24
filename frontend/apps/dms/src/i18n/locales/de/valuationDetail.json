@@ -13,7 +13,7 @@
     "markUsed": "Als verwendet markieren",
     "markUsedAlreadyUsed": "Bereits als verwendet markiert.",
     "markUsedNoSignedContract": "Nur möglich, wenn ein unterschriebener Vertrag diese Bewertung als Eintausch enthält.",
-    "openCustomer": "Kunde öffnen",
+    "openContact": "Kontakt öffnen",
     "openVehicle": "Fahrzeug öffnen",
     "revertUse": "Verwendung aufheben",
     "revertUseNotUsed": "Nur für eine als verwendet markierte Bewertung.",
@@ -43,7 +43,7 @@
     "plate": "Kontrollschild",
     "mileage": "Kilometerstand",
     "firstRegistration": "Erstzulassung",
-    "customer": "Kunde"
+    "contact": "Kontakt"
   },
   "noteCard": {
     "title": "Notiz"

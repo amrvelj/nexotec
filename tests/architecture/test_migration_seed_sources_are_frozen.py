@@ -171,7 +171,7 @@ def test_the_guard_sees_every_import_form():
     assert _context_imports_in("import app.vehicle.public\n") == {"app.vehicle.public"}
     assert _context_imports_in("from app.sales.models import offer\n") == {"app.sales.models"}
     assert _context_imports_in("from app import vehicle, core\n") == {"app.vehicle"}
-    assert _context_imports_in("import importlib\nm = importlib.import_module('app.customer.public')\n") == {
-        "app.customer.public"
+    assert _context_imports_in("import importlib\nm = importlib.import_module('app.contact.public')\n") == {
+        "app.contact.public"
     }
     assert _context_imports_in("from app.core.uuid7 import uuid7\nimport app.core.types\n") == set()

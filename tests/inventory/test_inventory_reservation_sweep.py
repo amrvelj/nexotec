@@ -36,7 +36,7 @@ from app.inventory.services.stock_item import create_stock_item, get_stock_item_
 from app.sales.schemas.offer import OfferUpdate
 from app.sales.services.contract import confirm_contract, create_contract
 from app.sales.services.offer import create_offer, update_offer
-from tests.sales.test_sales_lifecycle_reservation import _customer
+from tests.sales.test_sales_lifecycle_reservation import _contact
 from tests.sales_contract_projection_support import (
     feed_projection,
     record_backfill_run,
@@ -66,7 +66,7 @@ def _contract_for(db_session, tenant_id, item, group_id=None):
         db_session, offer=offer, group_id=group_id,
         data=OfferUpdate(
             # KAN-307: a contract is never confirmed without a buyer.
-            customer_id=_customer(db_session, group_id).id,
+            contact_id=_contact(db_session, group_id).id,
             vehicle_source="stock", stock_item_id=item.id, vehicle_label=item.vehicle_label,
         ),
         actor_id=uuid.uuid4(),

@@ -28,7 +28,7 @@ export type ConnectedAccountListRead = Schemas['ConnectedAccountListRead']
 // The manager's narrower read: provider, scopes, status (D-A-15).
 export type ConnectedAccountManagerRead = Schemas['ConnectedAccountManagerRead']
 export type ConnectedAccountManagerListRead = Schemas['ConnectedAccountManagerListRead']
-// KAN-215: customer mail through the dealer's own mailbox.
+// KAN-215: contact mail through the dealer's own mailbox.
 export type MailProviderCode = Schemas['MailProviderCode']
 export type MailboxRead = Schemas['MailboxRead']
 export type BusinessMailboxRead = Schemas['BusinessMailboxRead']
@@ -200,8 +200,8 @@ export type StandardTextSeedGroup = Schemas['StandardTextSeedGroup']
 export type StandardTextSeedList = Schemas['StandardTextSeedList']
 export type StandardTextSeedUpdate = Schemas['StandardTextSeedUpdate']
 
-// Customer — core, contact channels, external IDs, vehicles
-export type CustomerType = Schemas['CustomerType']
+// Contact — core, contact channels, external IDs, vehicles
+export type ContactType = Schemas['ContactType']
 export type Language = Schemas['Language']
 export type Salutation = Schemas['Salutation']
 export type LegalForm = Schemas['LegalForm']
@@ -210,40 +210,40 @@ export type PhoneType = Schemas['PhoneType']
 export type EmailType = Schemas['EmailType']
 export type ConsentScope = Schemas['ConsentScope']
 export type ConsentSource = Schemas['ConsentSource']
-export type CustomerLifecycleStatus = Schemas['CustomerLifecycleStatus']
+export type ContactLifecycleStatus = Schemas['ContactLifecycleStatus']
 export type ContactRole = Schemas['ContactRole']
-export type CustomerSource = Schemas['CustomerSource']
+export type ContactSource = Schemas['ContactSource']
 export type AddressType = Schemas['AddressType']
 // FR-17 / FR-18 stored fields (KAN-50)
 export type Gender = Schemas['Gender']
 export type PaymentTerms = Schemas['PaymentTerms']
-export type CustomerAdvisorOption = Schemas['CustomerAdvisorOption']
-export type CustomerAdvisorOptionList = Schemas['CustomerAdvisorOptionList']
-export type CustomerAddressCreate = Schemas['CustomerAddressCreate']
-export type CustomerAddressUpdate = Schemas['CustomerAddressUpdate']
-export type CustomerAddressRead = Schemas['CustomerAddressRead']
-export type CustomerAddressPage = Schemas['CustomerAddressPage']
-export type CustomerRead = Schemas['CustomerRead']
-export type CustomerPage = Schemas['CustomerPage']
-export type CustomerPhoneCreate = Schemas['CustomerPhoneCreate']
-export type CustomerEmailCreate = Schemas['CustomerEmailCreate']
-export type CustomerPhoneRead = Schemas['CustomerPhoneRead']
-export type CustomerEmailRead = Schemas['CustomerEmailRead']
-export type CustomerPhonePage = Schemas['CustomerPhonePage']
-export type CustomerEmailPage = Schemas['CustomerEmailPage']
-export type CustomerPhoneUpdate = Schemas['CustomerPhoneUpdate']
-export type CustomerEmailUpdate = Schemas['CustomerEmailUpdate']
+export type ContactAdvisorOption = Schemas['ContactAdvisorOption']
+export type ContactAdvisorOptionList = Schemas['ContactAdvisorOptionList']
+export type ContactAddressCreate = Schemas['ContactAddressCreate']
+export type ContactAddressUpdate = Schemas['ContactAddressUpdate']
+export type ContactAddressRead = Schemas['ContactAddressRead']
+export type ContactAddressPage = Schemas['ContactAddressPage']
+export type ContactRead = Schemas['ContactRead']
+export type ContactPage = Schemas['ContactPage']
+export type ContactPhoneCreate = Schemas['ContactPhoneCreate']
+export type ContactEmailCreate = Schemas['ContactEmailCreate']
+export type ContactPhoneRead = Schemas['ContactPhoneRead']
+export type ContactEmailRead = Schemas['ContactEmailRead']
+export type ContactPhonePage = Schemas['ContactPhonePage']
+export type ContactEmailPage = Schemas['ContactEmailPage']
+export type ContactPhoneUpdate = Schemas['ContactPhoneUpdate']
+export type ContactEmailUpdate = Schemas['ContactEmailUpdate']
 export type AuditEventRead = Schemas['AuditEventRead']
 export type AuditEventPage = Schemas['AuditEventPage']
-export type CustomerHistoryPage = Schemas['CustomerHistoryPage']
+export type ContactHistoryPage = Schemas['ContactHistoryPage']
 export type VehiclePartyRole = Schemas['VehiclePartyRole']
 export type VehiclePartySummary = Schemas['VehiclePartySummary']
 export type OtherVehiclePartySummary = Schemas['OtherVehiclePartySummary']
 export type VehicleStockLinkSummary = Schemas['VehicleStockLinkSummary']
-export type CustomerVehicleRead = Schemas['CustomerVehicleRead']
-export type CustomerVehiclePage = Schemas['CustomerVehiclePage']
-export type CustomerExternalIdRead = Schemas['CustomerExternalIdRead']
-export type CustomerExternalIdPage = Schemas['CustomerExternalIdPage']
+export type ContactVehicleRead = Schemas['ContactVehicleRead']
+export type ContactVehiclePage = Schemas['ContactVehiclePage']
+export type ContactExternalIdRead = Schemas['ContactExternalIdRead']
+export type ContactExternalIdPage = Schemas['ContactExternalIdPage']
 
 // WP-5 PR-8/PR-9 — master-data admin, reference-data admin
 export type MappingGapRead = Schemas['MappingGapRead']
@@ -431,8 +431,8 @@ export type LocationLogoRead = Schemas['LocationLogoRead']
 // class name doesn't carry. Verified against the live schema, not guessed.
 // ============================================================================
 
-export type CustomerCreateInput = Schemas['CustomerCreate']
-export type CustomerUpdateInput = Schemas['CustomerUpdate']
+export type ContactCreateInput = Schemas['ContactCreate']
+export type ContactUpdateInput = Schemas['ContactUpdate']
 
 export type StockLifecycleStatus = Schemas['LifecycleStatus']
 export type StockReservationState = Schemas['ReservationState']
@@ -524,11 +524,11 @@ export type ValuationRead = Omit<Schemas['ValuationRead'], 'status'> & {
 export type ValuationPage = Omit<Schemas['ValuationPage'], 'items'> & { items: ValuationRead[] }
 
 export type DuplicateMatchKind = 'exact' | 'similar'
-export type CustomerDuplicateCandidate = Omit<Schemas['CustomerDuplicateCandidate'], 'match'> & {
+export type ContactDuplicateCandidate = Omit<Schemas['ContactDuplicateCandidate'], 'match'> & {
   match: DuplicateMatchKind
 }
-export type CustomerDuplicateCandidateList = Omit<Schemas['CustomerDuplicateCandidateList'], 'items'> & {
-  items: CustomerDuplicateCandidate[]
+export type ContactDuplicateCandidateList = Omit<Schemas['ContactDuplicateCandidateList'], 'items'> & {
+  items: ContactDuplicateCandidate[]
 }
 
 // ============================================================================

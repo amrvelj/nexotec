@@ -96,13 +96,13 @@ def _create_dealership(client) -> uuid.UUID:
     return uuid.UUID(response.json()["id"])
 
 
-def _create_customer(client, tenant_id: uuid.UUID, first_name: str) -> dict:
+def _create_contact(client, tenant_id: uuid.UUID, first_name: str) -> dict:
     payload = {
         "firstName": first_name, "lastName": "Muster", "language": "de",
         "emails": [{"emailType": "personal", "emailAddress": f"{first_name.lower()}-{uuid.uuid4().hex[:6]}@example.ch"}],
     }
     response = client.post(
-        "/v1/customers", json=payload, headers=_bearer(_token(tenant_id, is_dealer_manager=True))
+        "/v1/contacts", json=payload, headers=_bearer(_token(tenant_id, is_dealer_manager=True))
     )
     assert response.status_code == 201, response.text
     return response.json()
@@ -117,15 +117,15 @@ def _to_name_form(db_session, customer_id: str) -> None:
     drop_enum_checks(db_session.connection())
     db_session.execute(
         text(
-            "UPDATE customer SET customer_type = upper(customer_type), language = upper(language), "
+            "UPDATE contact SET contact_type = upper(contact_type), language = upper(language), "
             "lifecycle_status = upper(lifecycle_status), gender = upper(gender) WHERE id = :id"
         ),
         {"id": customer_id},
     )
     db_session.execute(
         text(
-            "UPDATE customer_email SET email_type = upper(email_type), consent_source = upper(consent_source), "
-            "consent_scope = upper(consent_scope) WHERE customer_id = :id"
+            "UPDATE contact_email SET email_type = upper(email_type), consent_source = upper(consent_source), "
+            "consent_scope = upper(consent_scope) WHERE contact_id = :id"
         ),
         {"id": customer_id},
     )

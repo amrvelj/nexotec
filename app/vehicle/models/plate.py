@@ -104,7 +104,7 @@ class DealerPlateAssignment(PrimaryKeyMixin, TimestampMixin, Base):
         GUID(),
         nullable=False,
         index=True,
-        comment="Denormalized from DealerPlate.tenant_id at insert time — same reasoning as CustomerPhone.group_id.",
+        comment="Denormalized from DealerPlate.tenant_id at insert time — same reasoning as ContactPhone.group_id.",
     )
     valid_from: Mapped[dt.datetime] = mapped_column(UTCDateTime(), default=utcnow, nullable=False)
     valid_to: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)

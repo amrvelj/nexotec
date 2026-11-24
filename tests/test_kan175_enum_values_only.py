@@ -36,7 +36,8 @@ from tests.enum_test_support import (
     scope_check_definition,
     widen_connection_scope_check,
 )
-from tests.test_kan86_value_migrations import _load, _raw, _run, _seed_one_row_each, _set_raw
+from tests.pre_rename_names import pre_rename_schema, renamed
+from tests.test_kan86_value_migrations import _CHAIN_OF_CONTEXT, _load, _raw, _run, _seed_one_row_each, _set_raw
 from tests.vehicle.test_vehicle_mdm_search_sort import _walk
 
 pytestmark = pytest.mark.skipif(not os.environ.get("DMS_TEST_DATABASE_URL"), reason="Postgres-only (ADR-011)")
@@ -52,6 +53,7 @@ def _model_columns() -> dict[str, dict[tuple[str, str], tuple[tuple[str, str], .
     by_context: dict[str, dict[tuple[str, str], tuple[tuple[str, str], ...]]] = defaultdict(dict)
     for mapper in Base.registry.mappers:
         context = mapper.class_.__module__.split(".")[1]
+        context = _CHAIN_OF_CONTEXT.get(context, context)  # KAN-464 PR-3: the chain kept its label
         for column in mapper.local_table.columns:
             if isinstance(column.type, StoredEnum):
                 by_context[context][(mapper.local_table.name, column.name)] = tuple(
@@ -96,7 +98,7 @@ def test_every_frozen_column_agrees_with_its_context_and_its_members():
     models = _model_columns()
     for context, module in _MIGRATIONS.items():
         for table, column, pairs in module._COLUMNS:
-            current = models[context].get((table, column))
+            current = models[context].get(renamed(table, column))  # frozen under the names of their day
             if current is None:
                 continue  # removed since; its own migration owns that
             retired = set(_RETIRED_MEMBERS.get((context, table, column), {}))
@@ -151,7 +153,7 @@ def seeded_in_name_form(engine):
 
     frozen = _frozen()
     tables = [
-        Base.metadata.tables[name]
+        Base.metadata.tables[renamed(name)[0]]  # KAN-464 PR-3: today's name of a frozen table
         for name in sorted({table for table, _ in frozen} - RETIRED_LEGACY_TABLES)  # KAN-79: created below, one row each
     ]
     with engine.begin() as conn:
@@ -161,7 +163,7 @@ def seeded_in_name_form(engine):
         _rebuild_outbox_index(conn, "status IN ('PENDING', 'pending')")
         _seed_one_row_each(conn, tables)
         for (table, column), pairs in frozen.items():
-            _set_raw(conn, table, column, pairs[-1][0])
+            _set_raw(conn, *(renamed(table, column) if table not in RETIRED_LEGACY_TABLES else (table, column)), pairs[-1][0])
     yield frozen
     with engine.begin() as conn:
         drop_retired_legacy_tables(conn)
@@ -180,7 +182,9 @@ def _index_definition(conn) -> str:
 
 def test_upgrade_sweeps_every_name_then_constrains_every_column_and_downgrade_drops_them(engine, seeded_in_name_form):
     frozen = seeded_in_name_form
-    with engine.begin() as conn:
+    # The frozen migrations predate KAN-464 PR-3: each step runs, and is
+    # asserted, on the schema under the names of its day.
+    with engine.begin() as conn, pre_rename_schema(conn):
         assert _enum_checks(conn) == set()
         for module in _MIGRATIONS.values():
             _run(conn, module.upgrade)
@@ -195,7 +199,7 @@ def test_upgrade_sweeps_every_name_then_constrains_every_column_and_downgrade_dr
             module._refuse_unknown(conn)
         assert {key: _raw(conn, *key) for key in frozen} == {key: pairs[-1][1] for key, pairs in frozen.items()}
 
-    with engine.begin() as conn:
+    with engine.begin() as conn, pre_rename_schema(conn):
         for module in reversed(list(_MIGRATIONS.values())):
             _run(conn, module.downgrade)
         assert _enum_checks(conn) == set()

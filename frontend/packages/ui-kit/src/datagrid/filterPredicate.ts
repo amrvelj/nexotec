@@ -186,7 +186,7 @@ export function hasCompleteValue(predicate: FilterPredicate): boolean {
 
 /** The day counts an N-days condition takes — the list endpoints' own
  * bounds (`ge=0`, `le=36500`, about a hundred years;
- * `app/customer/api/customers.py`). 0 is today's day boundary. */
+ * `app/contact/api/contacts.py`). 0 is today's day boundary. */
 export const MIN_FILTER_DAYS = 0;
 export const MAX_FILTER_DAYS = 36500;
 

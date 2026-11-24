@@ -9,7 +9,7 @@ import { testTheme } from "../test/testTheme";
 
 // KAN-167 — the add-row draft was the group's own state, so every keystroke
 // in the add row re-rendered every existing row's value editor (on the
-// customer screens a phone's Mantine Select each). The draft now lives in the
+// contact screens a phone's Mantine Select each). The draft now lives in the
 // add row: typing renders that row only.
 
 const rows = [

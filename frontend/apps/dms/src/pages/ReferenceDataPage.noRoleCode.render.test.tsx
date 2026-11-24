@@ -50,7 +50,7 @@ const DEALER: FakeRoute = {
     activeDealership: { id: 'dealership-1', legalName: 'Test Motors AG' },
     memberships: [{ id: 'dealership-1', legalName: 'Test Motors AG' }],
     entitlements: ALL_ENTITLEMENTS,
-    writableCapabilities: ['customers'],
+    writableCapabilities: ['contacts'],
   }),
 }
 

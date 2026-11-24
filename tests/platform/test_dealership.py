@@ -530,7 +530,7 @@ def test_migration_backfill_language_is_the_enum_member_name_not_its_value():
 
 
 def test_get_dealership_default_correspondence_language_returns_each_dealerships_own_value(db_session):
-    """WP-6b PR-4: the one half of the "customer, else dealership default"
+    """WP-6b PR-4: the one half of the "contact, else dealership default"
     rule app.platform actually owns — proven here to return each
     dealership's own configured value, not a hardcoded one.
     """

@@ -9,7 +9,7 @@ A-RULE-4, FR-A-07).
   `standard_text_placeholder_invalid`).
 - **Per target.** Which tokens a text may use depends on where it is used —
   its (category, applies_to): an offer document has no payment due date, an
-  e-mail to a customer has a salutation. `TARGETS` is that table, and the
+  e-mail to a contact has a salutation. `TARGETS` is that table, and the
   slots each target has; the editor offers only what it lists (FR-A-07).
 - **A-RULE-4 — a token that cannot be resolved fails the render.** Never
   blank, never the raw token: `render_body` raises 422
@@ -42,7 +42,7 @@ class Placeholder(str, enum.Enum):
 
     DEALERSHIP_NAME = "dealership.name"
     LOCATION_PHONE = "location.phone"
-    CUSTOMER_SALUTATION = "customer.salutation"
+    CONTACT_SALUTATION = "customer.salutation"
     VEHICLE_MAKE_MODEL = "vehicle.make_model"
     DOCUMENT_NUMBER = "document.number"
     DOCUMENT_DATE = "document.date"
@@ -73,8 +73,8 @@ _C = StandardTextCategory
 
 # What the offer and contract documents can supply today: the seller is the
 # responsible seller (owner), the vehicle its label, the number and date the
-# document's own. No salutation — Sales holds no letter opening (a customer's
-# salutation is Customers' to form) — and no payment due date.
+# document's own. No salutation — Sales holds no letter opening (a contact's
+# salutation is Contacts' to form) — and no payment due date.
 _SALES_DOCUMENT = frozenset(
     {_P.DEALERSHIP_NAME, _P.LOCATION_PHONE, _P.VEHICLE_MAKE_MODEL, _P.DOCUMENT_NUMBER, _P.DOCUMENT_DATE, _P.USER_FULL_NAME}
 )
@@ -83,7 +83,7 @@ _MESSAGE = frozenset(
     {
         _P.DEALERSHIP_NAME,
         _P.LOCATION_PHONE,
-        _P.CUSTOMER_SALUTATION,
+        _P.CONTACT_SALUTATION,
         _P.VEHICLE_MAKE_MODEL,
         _P.USER_FULL_NAME,
     }
@@ -93,7 +93,7 @@ _WORKSHOP = frozenset(
     {
         _P.DEALERSHIP_NAME,
         _P.LOCATION_PHONE,
-        _P.CUSTOMER_SALUTATION,
+        _P.CONTACT_SALUTATION,
         _P.VEHICLE_MAKE_MODEL,
         _P.DOCUMENT_NUMBER,
         _P.DOCUMENT_DATE,
@@ -215,7 +215,7 @@ def sample_values(language: SwissLanguage, *, today: dt.date) -> dict[str, str]:
     the two platform tokens from the Betrieb's own record, as a render does."""
 
     return {
-        Placeholder.CUSTOMER_SALUTATION.value: _SAMPLE_SALUTATION[language],
+        Placeholder.CONTACT_SALUTATION.value: _SAMPLE_SALUTATION[language],
         Placeholder.VEHICLE_MAKE_MODEL.value: "VW Golf 2.0 TDI",
         Placeholder.DOCUMENT_NUMBER.value: "O-000123",
         Placeholder.DOCUMENT_DATE.value: format_date_ch(today),

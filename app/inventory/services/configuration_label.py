@@ -9,7 +9,7 @@ variant there would otherwise leave the stock list and detail naming the car
 by its old label for as long as the item lives. This job re-reads the labels
 through `app.vehicle.public` (no join into the vehicle context's tables) and
 commits per batch in this context alone (ADR-047) — the same rules as the
-customer's vehicle-party labels (KAN-84) and Sales' owner labels (KAN-404).
+contact's vehicle-party labels (KAN-84) and Sales' owner labels (KAN-404).
 A refreshed copy is not a repair (.claude/rules/events.md).
 """
 

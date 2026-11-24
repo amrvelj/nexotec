@@ -22,17 +22,17 @@ describe('useIdempotencyKey (KAN-119)', () => {
     const { result } = renderHook(() => useIdempotencyKey())
     const key = (request: unknown) => result.current.headers(request)['Idempotency-Key']
 
-    const first = key(['/customers/c1/phones', { phoneE164: '+41791110000' }])
-    expect(key(['/customers/c1/phones', { phoneE164: '+41791110000' }])).toBe(first)
+    const first = key(['/contacts/c1/phones', { phoneE164: '+41791110000' }])
+    expect(key(['/contacts/c1/phones', { phoneE164: '+41791110000' }])).toBe(first)
 
-    const corrected = key(['/customers/c1/phones', { phoneE164: '+41791119999' }])
+    const corrected = key(['/contacts/c1/phones', { phoneE164: '+41791119999' }])
     expect(corrected).not.toBe(first)
 
-    const otherCustomer = key(['/customers/c2/phones', { phoneE164: '+41791119999' }])
-    expect(otherCustomer).not.toBe(corrected)
+    const otherContact = key(['/contacts/c2/phones', { phoneE164: '+41791119999' }])
+    expect(otherContact).not.toBe(corrected)
 
     act(() => result.current.renew())
-    expect(key(['/customers/c2/phones', { phoneE164: '+41791119999' }])).not.toBe(otherCustomer)
+    expect(key(['/contacts/c2/phones', { phoneE164: '+41791119999' }])).not.toBe(otherContact)
   })
 })
 

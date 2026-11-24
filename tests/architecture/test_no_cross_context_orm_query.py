@@ -3,7 +3,7 @@ no context runs SQL on another context's tables.
 
 import-linter (rule 3) lets a context import what another context's
 `public` module exports, and today those modules still export ORM classes
-(`app.platform.public.Dealership`, `app.customer.public.VehicleParty`, …;
+(`app.platform.public.Dealership`, `app.contact.public.VehicleParty`, …;
 KAN-123 is the ticket that stops it). Nothing stopped a context from
 putting such a class into its own query — `select(StockItem, Dealership)
 .join(Dealership, …)` — which is the cross-context join rule 2 forbids and
@@ -303,7 +303,7 @@ def test_every_context_has_its_reconciliation_module_where_expected():
     the moved code would fail (loud). This pins where they are today."""
 
     present = sorted(p.parent.name for p in _APP_ROOT.glob("*/reconciliation.py") if p.parent.name not in _NOT_A_CONTEXT)
-    assert present == ["customer", "integration", "inventory", "platform", "reporting", "sales", "valuation", "vehicle"]
+    assert present == ["contact", "integration", "inventory", "platform", "reporting", "sales", "valuation", "vehicle"]
 
 
 # --- anti-vacuous: the gate must be able to fail ----------------------------------

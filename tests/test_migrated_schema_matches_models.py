@@ -122,8 +122,8 @@ def test_a_drifted_database_is_reported(migrated_url):
     engine = create_engine(migrated_url)
     try:
         with engine.begin() as conn:
-            conn.execute(text("DROP INDEX ix_customer_group_id_updated_at"))
-            conn.execute(text("DROP INDEX ix_customer_company_name"))
+            conn.execute(text("DROP INDEX ix_contact_group_id_updated_at"))
+            conn.execute(text("DROP INDEX ix_contact_company_name"))
             conn.execute(text('ALTER TABLE "user" ADD CONSTRAINT uq_user_phone_drift UNIQUE (phone)'))
             conn.execute(text("COMMENT ON COLUMN stock_item.vehicle_id IS 'drifted'"))
         try:
@@ -140,8 +140,8 @@ def test_a_drifted_database_is_reported(migrated_url):
                     "'Owned by the vehicle context (VehicleMdm.id). No DB-level FK.'"
                 ))
                 conn.execute(text('ALTER TABLE "user" DROP CONSTRAINT uq_user_phone_drift'))
-                conn.execute(text("CREATE INDEX ix_customer_group_id_updated_at ON customer (group_id, updated_at)"))
-                conn.execute(text('CREATE INDEX ix_customer_company_name ON customer (company_name COLLATE "nexotec_text_sort")'))
+                conn.execute(text("CREATE INDEX ix_contact_group_id_updated_at ON contact (group_id, updated_at)"))
+                conn.execute(text('CREATE INDEX ix_contact_company_name ON contact (company_name COLLATE "nexotec_text_sort")'))
     finally:
         engine.dispose()
 
@@ -151,10 +151,10 @@ def test_a_drifted_database_is_reported(migrated_url):
     assert json.loads(restored.stdout.strip().splitlines()[-1]) == []
 
     assert found == [
-        "add_index: index ix_customer_group_id_updated_at on customer (customer.group_id, customer.updated_at)",
+        "add_index: index ix_contact_group_id_updated_at on contact (contact.group_id, contact.updated_at)",
         (
-            "model_only_index_by_name: customer.ix_customer_company_name: "
-            "'CREATE INDEX ix_customer_company_name ON customer USING btree (company_name COLLATE nexotec_text_sort)'"
+            "model_only_index_by_name: contact.ix_contact_company_name: "
+            "'CREATE INDEX ix_contact_company_name ON contact USING btree (company_name COLLATE nexotec_text_sort)'"
         ),
         (
             "modify_comment: stock_item.vehicle_id: migrated 'drifted', "

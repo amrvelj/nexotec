@@ -2,7 +2,7 @@
 (PLANS/DMS_MDM_V1_SPEC.md "Acceptance criteria for v1", 1-9) asserted
 end-to-end against the merged system, not each entity's own unit tests in
 isolation. Every per-field/per-role edge case already has dedicated
-coverage in tests/test_{dealer,user,customer,vehicle,login,reference_data}.py
+coverage in tests/test_{dealer,user,contact,vehicle,login,reference_data}.py
 and the Sales tests — this file proves the *connected* scenarios spec'd as
 acceptance criteria, and doesn't re-derive what's already covered there.
 
@@ -129,7 +129,7 @@ def _create_vehicle(client, dealer_id: str, headers: dict[str, str]) -> dict:
 
 
 
-def _create_customer(client, headers: dict[str, str], **overrides) -> dict:
+def _create_contact(client, headers: dict[str, str], **overrides) -> dict:
     payload = {
         "firstName": "Peter",
         "lastName": "Beispiel",
@@ -139,7 +139,7 @@ def _create_customer(client, headers: dict[str, str], **overrides) -> dict:
         ],
     }
     payload.update(overrides)
-    response = client.post("/v1/customers", json=payload, headers=headers)
+    response = client.post("/v1/contacts", json=payload, headers=headers)
     assert response.status_code == 201, response.text
     return response.json()
 
@@ -161,7 +161,7 @@ def test_ac2_to_4_full_shell_walkthrough_sale(client, mailbox):
     """Bootstraps a Dealer, logs in as its admin over a real session cookie
     (not a manually-minted bearer token — proves the login system actually
     integrates with the rest of the API's auth boundary), creates a
-    Customer with a contact method, and creates a Vehicle via manual VIN
+    Contact with a contact method, and creates a Vehicle via manual VIN
     entry — the single most important connected scenario in the shell.
 
     AC4's own "sale Transaction, draft -> completed, Vehicle status +
@@ -181,17 +181,17 @@ def test_ac2_to_4_full_shell_walkthrough_sale(client, mailbox):
     session_token = _login_and_get_session_cookie(client, mailbox, user)
     headers = {"Cookie": f"dms_session={session_token}"}
 
-    # AC2: Customer with at least one contact method. Post-Phase-B the
-    # contact lives in the customer_email child collection, not on the
-    # customer body, so assert it through the emails endpoint.
-    customer = _create_customer(
-        client, headers, emails=[{"emailType": "personal", "emailAddress": "customer@example.ch"}]
+    # AC2: Contact with at least one contact method. Post-Phase-B the
+    # contact lives in the contact_email child collection, not on the
+    # contact body, so assert it through the emails endpoint.
+    contact = _create_contact(
+        client, headers, emails=[{"emailType": "personal", "emailAddress": "contact@example.ch"}]
     )
-    contact_emails = client.get(f"/v1/customers/{customer['id']}/emails", headers=headers).json()["items"]
-    assert [e["emailAddress"] for e in contact_emails] == ["customer@example.ch"]
+    contact_emails = client.get(f"/v1/contacts/{contact['id']}/emails", headers=headers).json()["items"]
+    assert [e["emailAddress"] for e in contact_emails] == ["contact@example.ch"]
     assert contact_emails[0]["isPrimary"] is True
     # AC2 also now covers the business key being issued at creation (D-02).
-    assert customer["customerNumber"].startswith("K-")
+    assert contact["contactNumber"].startswith("K-")
 
     # AC3: a vehicle by VIN entry. The legacy shell's vehicle (custodian,
     # implicit custody event) went with KAN-79; vehicle-mdm's own creation
@@ -213,20 +213,20 @@ def test_ac7_cross_tenant_isolation_across_all_entities(client):
     token_a = _bearer(_token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_a), user_id=uuid.UUID(user_a["id"])))
     token_b = _bearer(_token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_b)))
 
-    customer_a = _create_customer(client, token_a)
+    contact_a = _create_contact(client, token_a)
     # The sales offer took the legacy transaction's place (ADR-050, KAN-555).
     offer_a = client.post("/v1/sales/offers", headers=token_a).json()
 
-    # Dealer B cannot read Dealer A's Customer or offer at all (404).
-    assert client.get(f"/v1/customers/{customer_a['id']}", headers=token_b).status_code == 404
+    # Dealer B cannot read Dealer A's Contact or offer at all (404).
+    assert client.get(f"/v1/contacts/{contact_a['id']}", headers=token_b).status_code == 404
     assert client.get(f"/v1/sales/offers/{offer_a['id']}", headers=token_b).status_code == 404
     # ...nor via list endpoints.
-    assert client.get("/v1/customers", headers=token_b).json()["items"] == []
+    assert client.get("/v1/contacts", headers=token_b).json()["items"] == []
     assert client.get("/v1/sales/offers", headers=token_b).json()["items"] == []
     # ...nor mutate them.
     assert (
         client.patch(
-            f"/v1/customers/{customer_a['id']}", json={"lastName": "Hijacked"}, headers={**token_b, "If-Match": "1"}
+            f"/v1/contacts/{contact_a['id']}", json={"lastName": "Hijacked"}, headers={**token_b, "If-Match": "1"}
         ).status_code
         == 404
     )
@@ -246,10 +246,10 @@ def test_ac5_audit_trail_covers_all_four_entities(client):
     recorded) is gone (ADR-050 retired its writes, KAN-555 dropped the
     table), and `app.sales` has not (yet) grown its own `GET .../audit-log`
     endpoint the way
-    dealership/customer/vehicle each have (no PR in this package added
+    dealership/contact/vehicle each have (no PR in this package added
     one). The legacy vehicle's audit trail went with its table (KAN-79;
     vehicle-mdm's identity PATCH audit is covered in its own tests). The
-    dealership and customer write-audit proof stays as-is below; a SalesOffer/SalesContract audit-log endpoint is a
+    dealership and contact write-audit proof stays as-is below; a SalesOffer/SalesContract audit-log endpoint is a
     gap worth flagging for a future PR, not something to invent here just
     to keep this test's original "four" framing.
     """
@@ -258,7 +258,7 @@ def test_ac5_audit_trail_covers_all_four_entities(client):
     dealer_id = _create_dealer(client)
     dealer_token = _bearer(_token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id)))
     _create_user(client, dealer_id)
-    customer = _create_customer(client, dealer_token)
+    contact = _create_contact(client, dealer_token)
 
     # Dealer: legal-identity change (KAN-197: legal name, UID, VAT are the audited
     # fields; KAN-203: saved only with the confirmation).
@@ -272,14 +272,14 @@ def test_ac5_audit_trail_covers_all_four_entities(client):
         e["action"] == "update" and e["after"].get("legal_name") == "Garage Umbenannt AG" for e in dealer_log
     )
 
-    # Customer: PII change.
+    # Contact: PII change.
     client.patch(
-        f"/v1/customers/{customer['id']}",
+        f"/v1/contacts/{contact['id']}",
         json={"lastName": "Neuname"},
         headers={**dealer_token, "If-Match": "1"},
     )
-    customer_log = client.get(f"/v1/customers/{customer['id']}/audit-log", headers=dealer_token).json()["items"]
-    assert any(e["action"] == "update" and e["after"].get("last_name") == "Neuname" for e in customer_log)
+    contact_log = client.get(f"/v1/contacts/{contact['id']}/audit-log", headers=dealer_token).json()["items"]
+    assert any(e["action"] == "update" and e["after"].get("last_name") == "Neuname" for e in contact_log)
 
 # --- AC concurrency + idempotency, asserted across representative entities -----
 
@@ -288,7 +288,7 @@ def test_ac5_audit_trail_covers_all_four_entities(client):
     "make_request",
     [
         lambda client, headers, ids: client.patch(
-            f"/v1/customers/{ids['customer']}", json={"lastName": "X"}, headers={**headers, "If-Match": "1"}
+            f"/v1/contacts/{ids['customer']}", json={"lastName": "X"}, headers={**headers, "If-Match": "1"}
         ),
         # The legacy Transaction's cancel used to prove this; SalesOffer's own
         # autosave PATCH, the entity that superseded it (ADR-050), does now.
@@ -303,9 +303,9 @@ def test_optimistic_concurrency_409_on_stale_if_match(client, make_request):
     dealer_id = _create_dealer(client)
     user = _create_user(client, dealer_id)
     headers = _bearer(_token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id), user_id=uuid.UUID(user["id"])))
-    customer = _create_customer(client, headers)
+    contact = _create_contact(client, headers)
     offer = client.post("/v1/sales/offers", headers=headers).json()
-    ids = {"customer": customer["id"], "offer": offer["id"]}
+    ids = {"customer": contact["id"], "offer": offer["id"]}
 
     first = make_request(client, headers, ids)
     assert first.status_code == 200, first.text
@@ -326,15 +326,15 @@ def test_idempotency_key_replay_returns_original_result_not_a_duplicate(client):
         "language": "de",
         "emails": [{"emailType": "personal", "emailAddress": "idempotent@example.ch"}],
     }
-    first = client.post("/v1/customers", json=payload, headers=headers)
+    first = client.post("/v1/contacts", json=payload, headers=headers)
     assert first.status_code == 201, first.text
 
-    replay = client.post("/v1/customers", json=payload, headers=headers)
+    replay = client.post("/v1/contacts", json=payload, headers=headers)
     assert replay.status_code == 201
     assert replay.json()["id"] == first.json()["id"]  # same record, not a new one
 
-    all_customers = client.get("/v1/customers", headers=token).json()["items"]
-    assert len(all_customers) == 1  # no duplicate was created
+    all_contacts = client.get("/v1/contacts", headers=token).json()["items"]
+    assert len(all_contacts) == 1  # no duplicate was created
 
 
 # --- AC6: schema review — no payment/SSN/DL data anywhere -----------------------

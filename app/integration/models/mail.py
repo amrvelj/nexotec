@@ -1,4 +1,4 @@
-"""Customer mail through the dealer's own mailbox (KAN-215; D-A-28 as re-cut by
+"""Contact mail through the dealer's own mailbox (KAN-215; D-A-28 as re-cut by
 Anto on 2026-11-14): customer-facing mail leaves only through a Microsoft 365
 or Google Workspace mailbox the Betrieb or the user connected. No Nexotec
 sender, no paid mail provider.
@@ -155,7 +155,7 @@ class SendingIdentity(PrimaryKeyMixin, VersionedMixin, TimestampMixin, TenantSco
 
 
 class MessageDelivery(PrimaryKeyMixin, TimestampMixin, TenantScopedMixin, Base):
-    """One row per send to a customer, on any channel (KAN-215 e-mail; KAN-217
+    """One row per send to a contact, on any channel (KAN-215 e-mail; KAN-217
     PR-5 SMS and WhatsApp, ADR-204), written on integration's own session.
 
     An e-mail names the mailbox it left from (`sending_identity_id`,
@@ -205,11 +205,11 @@ class MessageDelivery(PrimaryKeyMixin, TimestampMixin, TenantScopedMixin, Base):
     # The recipient, three-column (rule 2). The label is the name the message
     # was addressed to, set at the send: a delivery is a fact in the past, so
     # nothing refreshes it (ADR-204).
-    customer_id: Mapped[uuid.UUID | None] = mapped_column(
-        GUID(), nullable=True, index=True, comment="Owned by the customer context (Customer.id). No DB-level FK."
+    contact_id: Mapped[uuid.UUID | None] = mapped_column(
+        GUID(), nullable=True, index=True, comment="Owned by the contact context (Contact.id). No DB-level FK."
     )
-    customer_label: Mapped[str | None] = mapped_column(String(200), nullable=True)
-    customer_label_refreshed_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)
+    contact_label: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    contact_label_refreshed_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)
     author_user_id: Mapped[uuid.UUID] = mapped_column(
         GUID(), nullable=False, comment="Owned by the platform context (User.id). No DB-level FK."
     )

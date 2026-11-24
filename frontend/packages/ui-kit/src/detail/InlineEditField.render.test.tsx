@@ -14,7 +14,7 @@ import { testTheme } from "../test/testTheme";
 class RefusalWithEnglishMessage extends Error {
   readonly status: number;
   constructor(status: number) {
-    super("This phone number is already on this customer.");
+    super("This phone number is already on this contact.");
     this.status = status;
   }
 }
@@ -61,7 +61,7 @@ describe("InlineEditField says a refused save in the caller's words (KAN-473)", 
 
     expect(await screen.findByText("Ce numéro figure déjà chez ce client.")).toBeInTheDocument();
     expect(describeError).toHaveBeenCalledWith(err);
-    expect(screen.queryByText(/already on this customer/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/already on this contact/)).not.toBeInTheDocument();
     // Still editing, so what was typed is not thrown away.
     expect(screen.getByRole("textbox")).toHaveValue("079 123 45 678");
   });

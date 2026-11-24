@@ -2,7 +2,7 @@
   "nav": {
     "dashboard": "Dashboard",
     "masterData": "Dati anagrafici",
-    "customers": "Clienti",
+    "contacts": "Contatti",
     "vehicles": "Veicoli",
     "mappingGaps": "Lacune di mappatura",
     "partners": "Partner",
@@ -39,7 +39,7 @@
     "status": "Stato",
     "platformStatus": "Stato di Nexotec",
     "aiTexts": "Testi IA",
-    "customerMail": "E-mail ai clienti",
+    "contactMail": "E-mail ai contatti",
     "supportSessions": "Sessioni di supporto",
     "platformUsers": "Utenti della piattaforma"
   },

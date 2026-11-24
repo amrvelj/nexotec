@@ -49,10 +49,10 @@ describe('UserDeactivateDialog (KAN-200)', () => {
         match: /\/users\/u-1\/ownership$/,
         handler: () => ({
           groups: [
-            { module: 'customer', group: 'customers', count: 12 },
+            { module: 'contact', group: 'contacts', count: 12 },
             { module: 'sales', group: 'offers', count: 3 },
           ],
-          modules: ['aftersales', 'customer', 'inventory', 'parts', 'sales'],
+          modules: ['aftersales', 'contact', 'inventory', 'parts', 'sales'],
         }),
       },
       {
@@ -61,7 +61,7 @@ describe('UserDeactivateDialog (KAN-200)', () => {
         handler: () => ({
           user: { ...LEAVER, status: 'deactivated', version: 5 },
           transfers: [
-            { module: 'customer', group: 'customers', toUserId: 'u-2', count: 12 },
+            { module: 'contact', group: 'contacts', toUserId: 'u-2', count: 12 },
             { module: 'sales', group: 'offers', toUserId: null, count: 3 },
           ],
         }),
@@ -80,7 +80,7 @@ describe('UserDeactivateDialog (KAN-200)', () => {
       />,
     )
     const dialog = within(await screen.findByRole('dialog'))
-    expect(await dialog.findByText('Betreute Kunden')).toBeInTheDocument()
+    expect(await dialog.findByText('Betreute Kontakte')).toBeInTheDocument()
     expect(dialog.getByText('Offene Offerten')).toBeInTheDocument()
     expect(dialog.getByText('12')).toBeInTheDocument()
     const confirm = dialog.getByRole('button', { name: 'Deaktivieren' })
@@ -89,7 +89,7 @@ describe('UserDeactivateDialog (KAN-200)', () => {
     await user.type(dialog.getByLabelText(/^Grund/), 'ausgetreten per 30.9.')
     expect(confirm).toBeDisabled() // the groups are still undecided
 
-    await user.click(dialog.getByRole('textbox', { name: 'Übergeben: Betreute Kunden' }))
+    await user.click(dialog.getByRole('textbox', { name: 'Übergeben: Betreute Kontakte' }))
     await user.click(await screen.findByRole('option', { name: 'Hans Erbe' }))
     await user.click(dialog.getByRole('textbox', { name: 'Übergeben: Offene Offerten' }))
     await user.click(await screen.findByRole('option', { name: 'Nicht zuweisen (Warteschlange des Moduls)' }))
@@ -104,7 +104,7 @@ describe('UserDeactivateDialog (KAN-200)', () => {
       reason: 'ausgetreten per 30.9.',
       employmentStatus: 'terminated',
       transfers: [
-        { module: 'customer', group: 'customers', toUserId: 'u-2' },
+        { module: 'contact', group: 'contacts', toUserId: 'u-2' },
         { module: 'sales', group: 'offers', toUserId: null },
       ],
     })
@@ -117,7 +117,7 @@ describe('UserDeactivateDialog (KAN-200)', () => {
       {
         method: 'GET',
         match: /\/users\/u-1\/ownership$/,
-        handler: () => ({ groups: [{ module: 'sales', group: 'offers', count: 3 }], modules: ['customer', 'sales'] }),
+        handler: () => ({ groups: [{ module: 'sales', group: 'offers', count: 3 }], modules: ['contact', 'sales'] }),
       },
       {
         method: 'POST',
@@ -195,7 +195,7 @@ describe('UserDeactivateDialog (KAN-200)', () => {
               details: {
                 problems: [
                   { module: 'sales', group: 'offers', reason: 'colleague_cannot_act_there', count: 1, message: 'sales/offers: 1 of these records belong to another business the colleague cannot act in — …' },
-                  { module: 'customer', group: 'customers', reason: 'undecided', message: 'customer/customers: needs a decision: a colleague, or null to leave it unassigned' },
+                  { module: 'contact', group: 'contacts', reason: 'undecided', message: 'contact/contacts: needs a decision: a colleague, or null to leave it unassigned' },
                 ],
                 openGroups: [],
               },
@@ -213,7 +213,7 @@ describe('UserDeactivateDialog (KAN-200)', () => {
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveTextContent('Die Übergabe ist noch nicht vollständig:')
     expect(alert).toHaveTextContent('Offene Offerten: 1 davon gehören zu einem anderen Betrieb')
-    expect(alert).toHaveTextContent('Betreute Kunden: braucht eine Entscheidung')
+    expect(alert).toHaveTextContent('Betreute Kontakte: braucht eine Entscheidung')
     expect(alert).not.toHaveTextContent('belong to another business')
     expect(screen.getByRole('dialog')).toBeInTheDocument()
   })
@@ -221,7 +221,7 @@ describe('UserDeactivateDialog (KAN-200)', () => {
   it('says a last-manager refusal and keeps the dialog open', async () => {
     const user = userEvent.setup()
     installFakeBackend([
-      { method: 'GET', match: /\/users\/u-1\/ownership$/, handler: () => ({ groups: [], modules: ['customer', 'sales'] }) },
+      { method: 'GET', match: /\/users\/u-1\/ownership$/, handler: () => ({ groups: [], modules: ['contact', 'sales'] }) },
       {
         method: 'POST',
         match: /\/users\/u-1\/deactivate$/,
@@ -247,7 +247,7 @@ describe('UserDeactivateDialog (KAN-200)', () => {
       const user = userEvent.setup()
       let posts = 0
       installFakeBackend([
-        { method: 'GET', match: /\/users\/u-1\/ownership$/, handler: () => ({ groups: [], modules: ['customer', 'sales'] }) },
+        { method: 'GET', match: /\/users\/u-1\/ownership$/, handler: () => ({ groups: [], modules: ['contact', 'sales'] }) },
         {
           method: 'POST',
           match: /\/users\/u-1\/deactivate$/,

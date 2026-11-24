@@ -42,7 +42,7 @@ main@3b2bf69 (2026-11-18). -->
   per condition, never field + condition + value glued in the kit. `kitLabels*.render.test.tsx`
   renders each with French labels and refuses any former English default.
 - **The one exception: the four language endonyms** (Anto, KAN-343, KAN-750): where a language
-  names itself for every user (the reference-data screen's language fields, a customer's
+  names itself for every user (the reference-data screen's language fields, a contact's
   correspondence language, a legal document's or a status incident's language) it reads
   «Deutsch», «Français», «Italiano», «English» from the one list `i18n/languageEndonyms.ts`
   (`architecture/language-endonyms-one-list.test.ts`). The UI-language picker and the other

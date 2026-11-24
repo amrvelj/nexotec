@@ -80,7 +80,7 @@ afterEach(cleanup)
 describe('ReferenceDataPage — the kit grid (KAN-516)', () => {
   it('sorts the values in the browser and reads a pasted sort from the URL', async () => {
     const user = userEvent.setup()
-    const backend = install(['customers'])
+    const backend = install(['contacts'])
     renderWithProviders(<ReferenceDataPage />, { route: '/settings/reference?sort=code:desc' })
 
     const table = await screen.findByRole('table', { name: 'Werte der Referenzliste' })
@@ -96,7 +96,7 @@ describe('ReferenceDataPage — the kit grid (KAN-516)', () => {
   })
 
   it('tints a value missing a language as a whole row', async () => {
-    install(['customers'])
+    install(['contacts'])
     renderWithProviders(<ReferenceDataPage />, { route: '/settings/reference' })
 
     const table = await screen.findByRole('table', { name: 'Werte der Referenzliste' })
@@ -107,7 +107,7 @@ describe('ReferenceDataPage — the kit grid (KAN-516)', () => {
 
   it('offers its stored fields as columns in the Columns panel, the bookkeeping ones hidden by default (ADR-060)', async () => {
     const user = userEvent.setup()
-    install(['customers'])
+    install(['contacts'])
     renderWithProviders(<ReferenceDataPage />, { route: '/settings/reference' })
 
     const table = await screen.findByRole('table', { name: 'Werte der Referenzliste' })
@@ -206,7 +206,7 @@ describe('ReferenceDataPage — the kit grid (KAN-516)', () => {
   })
 
   it('offers a reader no row menu: there is nothing a reader can do to a value', async () => {
-    install(['customers'])
+    install(['contacts'])
     renderWithProviders(<ReferenceDataPage />, { route: '/settings/reference' })
 
     const table = await screen.findByRole('table', { name: 'Werte der Referenzliste' })

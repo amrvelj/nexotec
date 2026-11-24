@@ -7,18 +7,18 @@ import { ChfInput, OverviewCard, StickyActionFooter, useOverlay, useSetBreadcrum
 import { api, ApiError } from '../../../api/client'
 import { OfferGenerateReviewModal } from '../components/OfferGenerateReviewModal'
 import {
-  DealCustomerContainer,
+  DealContactContainer,
   DealPricingContainer,
   DealTradeInContainer,
   DealVehicleContainer,
   RequirementBadge,
-  useDealCustomer,
+  useDealContact,
 } from '../components/deal-workspace/DealWorkspaceContainers'
 import { DealOwnerSelect } from '../components/deal-workspace/DealOwnerSelect'
 import { LockedWhile } from '../components/deal-workspace/LockedWhile'
 import { numberFieldError, useDebouncedNumberField } from '../../../hooks/useDebouncedNumberField'
 import { useDealSaveQueue } from '../../../shared/useSaveQueue'
-import { CustomerDetailContent } from '../../customer'
+import { ContactDetailContent } from '../../contact'
 import { StockDetailContent } from '../../stock'
 import type { SalesOfferRead } from '../../../api/types'
 import { apiRefusalText } from '../../../utils/apiRefusal'
@@ -52,14 +52,14 @@ export function OfferWorkspaceContent({ offerId: id }: { offerId: string }) {
   })
 
   const overlay = useOverlay()
-  const customerId = offerQuery.data?.customerId ?? null
-  const selectedCustomer = useDealCustomer(customerId).data ?? null
-  // § ADR-059 — opening the selected customer's own record from inside
+  const contactId = offerQuery.data?.contactId ?? null
+  const selectedContact = useDealContact(contactId).data ?? null
+  // § ADR-059 — opening the selected contact's own record from inside
   // the offer-generation process is an overlay, never a navigation (the
   // half-built offer must survive it intact).
-  const openCustomerOverlay = () => {
-    if (!customerId) return
-    overlay.push({ key: `customer-overlay-${customerId}`, content: <CustomerDetailContent customerId={customerId} embedded /> })
+  const openContactOverlay = () => {
+    if (!contactId) return
+    overlay.push({ key: `contact-overlay-${contactId}`, content: <ContactDetailContent contactId={contactId} embedded /> })
   }
   // Same ADR-059 posture — KAN-64: the pricing section needs a way out to
   // the stock record when it turns out there is no price to build from.
@@ -105,10 +105,10 @@ export function OfferWorkspaceContent({ offerId: id }: { offerId: string }) {
     if (err instanceof ApiError && err.status === 409 && err.details?.reason === 'offer_has_contract') {
       return t('offerWorkspace.errors.saveRefused.offerHasContract', { contractNumber: err.details.contractNumber })
     }
-    // KAN-656: the buyer chosen was merged into another; the customer
+    // KAN-656: the buyer chosen was merged into another; the contact
     // container offers the survivor.
-    if (err instanceof ApiError && err.status === 409 && err.details?.reason === 'customer_merged') {
-      return t('offerWorkspace.customer.mergedRefused')
+    if (err instanceof ApiError && err.status === 409 && err.details?.reason === 'contact_merged') {
+      return t('offerWorkspace.contact.mergedRefused')
     }
     return t('offerWorkspace.errors.saveRefused.generic')
   }
@@ -194,11 +194,11 @@ export function OfferWorkspaceContent({ offerId: id }: { offerId: string }) {
   // only checked for "not_started".
   const missing = (offer.containers ?? []).filter((c) => c.requirement === 'required' && c.status !== 'complete')
   // KAN-368 (ADR-061): Continue says why it is disabled when the footer's
-  // missing-sections label does not — a do-not-contact customer, or an edit
+  // missing-sections label does not — a do-not-contact contact, or an edit
   // not saved yet (a price or leasing value in its debounce, a queued save).
   const continueDisabledReason = readOnly
     ? liveContractText
-    : selectedCustomer?.lifecycleStatus === 'do_not_contact'
+    : selectedContact?.lifecycleStatus === 'do_not_contact'
       ? t('offerWorkspace.continueDisabled.doNotContact')
       : pricingUnsaved || leasingUnsaved || saves.pending > 0
         ? t('offerWorkspace.continueDisabled.saving')
@@ -253,8 +253,8 @@ export function OfferWorkspaceContent({ offerId: id }: { offerId: string }) {
           button of the containers below read-only while a live contract exists; the
           number inputs are also disabled by their own prop and show no
           steppers (those act on pointer-down, which a fieldset does not stop).
-          KAN-501: the customer, vehicle and pricing containers sit outside it and
-          take `readOnly` themselves, so what only shows — the customer overlay,
+          KAN-501: the contact, vehicle and pricing containers sit outside it and
+          take `readOnly` themselves, so what only shows — the contact overlay,
           the stock number (KAN-570), «Lagerbestand öffnen» — still opens. */}
       <Stack gap="lg">
         <LockedWhile readOnly={readOnly}>
@@ -262,7 +262,7 @@ export function OfferWorkspaceContent({ offerId: id }: { offerId: string }) {
           <DealOwnerSelect deal={offer} disabled={readOnly} onChange={(ownerUserId) => patchOffer({ ownerUserId })} />
         </LockedWhile>
 
-        <DealCustomerContainer ownerType="offer" deal={offer} patch={patchOffer} onOpenCustomer={openCustomerOverlay} readOnly={readOnly} />
+        <DealContactContainer ownerType="offer" deal={offer} patch={patchOffer} onOpenContact={openContactOverlay} readOnly={readOnly} />
         <DealVehicleContainer {...containerProps} onOpenStockItem={openStockItemOverlay} readOnly={readOnly} />
         <DealPricingContainer {...containerProps} onOpenStockItem={openStockItemOverlay} onUnsavedChange={setPricingUnsaved} readOnly={readOnly} />
         <LockedWhile readOnly={readOnly}>
@@ -320,7 +320,7 @@ export function OfferWorkspaceContent({ offerId: id }: { offerId: string }) {
             disabled={
               readOnly ||
               missing.length > 0 ||
-              selectedCustomer?.lifecycleStatus === 'do_not_contact' ||
+              selectedContact?.lifecycleStatus === 'do_not_contact' ||
               pricingUnsaved ||
               leasingUnsaved ||
               saves.pending > 0

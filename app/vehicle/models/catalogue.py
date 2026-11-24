@@ -53,7 +53,7 @@ class Brand(PrimaryKeyMixin, VersionedMixin, TimestampMixin, Base):
 
 class ModelGroup(PrimaryKeyMixin, TimestampMixin, Base):
     """One model line within a brand — e.g. "Giulietta". Groups the
-    variants a customer would recognise as "the same car" across trim
+    variants a contact would recognise as "the same car" across trim
     levels and model years.
     """
 

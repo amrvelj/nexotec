@@ -1,0 +1,19 @@
+{
+  "contact_tag_exists": "Une étiquette de cette modification figure déjà chez le contact — il a été modifié entre-temps. Rechargez-le et réessayez.",
+  "email_already_on_contact": "Cette adresse e-mail figure déjà chez ce contact.",
+  "external_id_taken": "Ce système a déjà un identifiant externe chez ce contact, ou cet identifiant externe est déjà attribué à un autre contact dans le même système.",
+  "last_usable_contact_point": "Un contact conserve au moins un numéro de téléphone ou une adresse e-mail valable. Ajoutez-en d’abord un autre.",
+  "merged_party_row": "Cette ligne est la copie conservée par une fusion de contacts ; elle ne peut pas reprendre son rôle.",
+  "vehicle_merged_party_row": "Cette entrée appartient à un véhicule fusionné et reste dans l’historique. Modifiez l’entrée sur le véhicule {{vin}}.",
+  "phone_already_on_contact": "Ce numéro de téléphone figure déjà chez ce contact.",
+  "primary_unset_directly": "Le marquage « Principal » ne peut pas être retiré directement. Marquez une autre entrée comme principale.",
+  "vehicle_merge_in_progress": "Ce véhicule est en cours de fusion avec une autre fiche. Veuillez réessayer dans un instant.",
+  "contact_group_unknown": "Ce groupe de contacts n’existe pas.",
+  "contact_group_not_enabled": "Ce groupe de contacts n’est pas activé dans votre entreprise. La direction l’active sous Administration › Groupes de contacts.",
+  "contact_group_read_only": "Ce groupe de contacts n’est pas activé dans votre entreprise et ne peut pas être retiré ici.",
+  "contact_group_assignment_exists": "Un groupe de contacts de cette modification figure déjà chez le contact — il a été modifié entre-temps. Rechargez-le et réessayez.",
+  "customer_role_required": "Ce champ relève du rôle client, que ce contact n’a pas. Donnez-lui d’abord le rôle client.",
+  "customer_role_not_permitted": "Le rôle client et ses champs (statut, conseiller, blocage de crédit) sont modifiés par la vente et l’après-vente. Votre rôle donne aux contacts le rôle fournisseur.",
+  "customer_role_credit_blocked": "Le rôle client ne peut pas être retiré tant qu’un blocage de crédit est en place. Levez d’abord le blocage.",
+  "contact_role_exists": "Le contact a déjà un rôle de cette modification — il a été modifié entre-temps. Rechargez-le et réessayez."
+}

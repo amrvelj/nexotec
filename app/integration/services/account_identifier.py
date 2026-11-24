@@ -13,7 +13,7 @@ the value lives in the secrets manager).
 - `auto_i_dat_mock` — the demo account's `benutzerNr` and `benutzerInfo`,
   the shape the SOAP account had, which its required configuration still
   carries.
-- `autoscout24` — the AutoScout24 customer number (`kundennummer`).
+- `autoscout24` — the AutoScout24 contact number (`kundennummer`).
 - `openai`, `mistral`, `anthropic` (KAN-227) — the model the dealer chose:
   the account itself is named only by its API key, which is a secret; the
   model is what tells two AI connections apart. `azure_openai` — the

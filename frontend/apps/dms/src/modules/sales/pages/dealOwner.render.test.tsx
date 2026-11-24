@@ -31,7 +31,7 @@ vi.mock('@tanstack/react-virtual', () => ({
 }))
 
 const SELLERS: FakeRoute = {
-  match: /^\/customers\/advisor-options$/,
+  match: /^\/contacts\/advisor-options$/,
   handler: () => ({ items: [{ id: 'user-1', label: 'Test Advisor' }, { id: 'u-2', label: 'Kim Koller' }] }),
 }
 
@@ -44,9 +44,9 @@ const deal = (overrides: Record<string, unknown>) => ({
   offerNumber: 'O-2026-0009',
   contractId: null,
   contractNumber: null,
-  customerId: null,
-  customerLabel: 'Ursula Vogt',
-  customerLocality: null,
+  contactId: null,
+  contactLabel: 'Ursula Vogt',
+  contactLocality: null,
   vehicleLabel: 'VW Golf',
   ownerUserId: null,
   ownerLabel: null,
@@ -66,8 +66,8 @@ const CONTRACT = {
   offerNumber: null,
   status: 'pending',
   version: 3,
-  customerId: null,
-  customerLabel: null,
+  contactId: null,
+  contactLabel: null,
   vehicleSource: null,
   vehicleLabel: null,
   grossPrice: null,
@@ -142,7 +142,7 @@ describe('Sales list — «Übernehmen» in the row menu (KAN-405)', () => {
         handler: () =>
           page([
             deal({ ownerUserId: 'u-2', ownerLabel: 'Kim Koller' }),
-            deal({ id: 'd-2', number: 'O-2026-0010', offerId: 'o-10', status: 'cancelled', customerLabel: 'Beat Huber' }),
+            deal({ id: 'd-2', number: 'O-2026-0010', offerId: 'o-10', status: 'cancelled', contactLabel: 'Beat Huber' }),
           ]),
       },
     ])
@@ -324,7 +324,7 @@ describe('The draft offer workspace — the seller picker (KAN-405)', () => {
   it('sends the chosen seller through the save queue, in French labels too', async () => {
     await i18n.changeLanguage('fr')
     const user = userEvent.setup()
-    const draft = { ...OPEN_OFFER, status: 'draft', containers: [], ownerUserId: null, ownerLabel: null, customerId: null }
+    const draft = { ...OPEN_OFFER, status: 'draft', containers: [], ownerUserId: null, ownerLabel: null, contactId: null }
     const backend = installFakeBackend([
       SELLERS,
       { method: 'GET', match: /^\/sales\/offers\/o-9$/, handler: () => draft },

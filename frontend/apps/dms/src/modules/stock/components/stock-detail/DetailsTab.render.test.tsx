@@ -190,7 +190,7 @@ describe('DetailsTab — the supplier on the purchase card (KAN-465)', () => {
     renderBooked({ supplierContactId: 'c-amag', supplierLabel: 'AMAG Import AG' })
     await user.click(screen.getByRole('button', { name: i18n.t('stockDetail.purchase.title') }))
 
-    expect(screen.getByRole('link', { name: 'AMAG Import AG' })).toHaveAttribute('href', '/customers/c-amag')
+    expect(screen.getByRole('link', { name: 'AMAG Import AG' })).toHaveAttribute('href', '/contacts/c-amag')
   })
 
   it('shows a typed name from before as text', async () => {

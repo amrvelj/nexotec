@@ -170,5 +170,5 @@ Every login outcome, lock, token, factor and session change, read by the manager
   24 h, **whatever its provider**; the daily `platform.connected_account.repair` (KAN-559) retries it.
 
 ## Realms (D-A-13, D-A-14)
-staff (this) · terminal (ADR-028, ADR-110) · customer (reserved, `aud=portal`, never a `user`
+staff (this) · terminal (ADR-028, ADR-110) · contact (reserved, `aud=portal`, never a `user`
 row) · machine (not in v1). Never share a credential store.

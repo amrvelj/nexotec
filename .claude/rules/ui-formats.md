@@ -27,7 +27,7 @@ main@3b2bf69 (2026-11-18). -->
   `formatDateTime` are for timestamps, rendered in the browser's zone.
   `src/architecture/date-only-fields-format.test.ts` judges a field by its name (`…Date`, `…Since`,
   `…FollowUp`, `expectedDelivery`, `vehicleFirstRegistration`) inside `formatDate`/`formatDateTime`,
-  in CustomersListPage's `date('…', …)` helper, as a raw JSX child and as a grid cell returning the
+  in ContactsListPage's `date('…', …)` helper, as a raw JSX child and as a grid cell returning the
   bare field. **It is a source scan with known misses** (listed in its comment) and cannot judge
   `validFrom`/`validTo` at all (a date on a plate, an accessory, a user's access window, a
   location's validity (KAN-204), a valuation; a timestamp on a contact channel and on a

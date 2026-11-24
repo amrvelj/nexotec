@@ -61,7 +61,7 @@ def _sample_content() -> ContentDefinition:
         metadata=[KeyValueRow(label="Date", value="08.08.2026")],
         addressee=Addressee(lines=["Maria Muster", "Seestrasse 4", "8002 Zürich"]),
         blocks=[
-            ParagraphBlock(text="Dear customer, please find your document below."),
+            ParagraphBlock(text="Dear contact, please find your document below."),
             KeyValueBlock(
                 heading="Vehicle",
                 boxed=True,

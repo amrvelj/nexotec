@@ -25,20 +25,20 @@ const REASON_KEYS: Record<string, string> = {
   // KAN-779 — the same sentence as a location's refusal, in every language. It was
   // shared while the reasons bundle sat at its 25 KB cap; since KAN-786 split it
   // into shards an own sentence fits — whether to give it one is a wording call.
-  customer_address_postal_code_invalid: 'apiRefusal.reasons.location_postal_code_invalid',
-  customer_already_merged: 'customerDetail.mergeRefused.alreadyMerged',
-  customer_merged: 'customerDetail.linkVehicleRefused.customerMerged',
+  contact_address_postal_code_invalid: 'apiRefusal.reasons.location_postal_code_invalid',
+  contact_already_merged: 'contactDetail.mergeRefused.alreadyMerged',
+  contact_merged: 'contactDetail.linkVehicleRefused.contactMerged',
   default_conflict: 'business.errors.defaultConflict',
   do_not_contact: 'contractDetail.errors.confirmRefused.doNotContact',
   invalid_vin: 'common.invalidVin',
   last_manager: 'usersAdmin.errors.lastManager',
   last_manager_elsewhere: 'usersAdmin.errors.lastManagerElsewhere',
-  merge_conflict_on_survivor: 'customerDetail.mergeRefused.survivorConflict',
-  merge_into_self: 'customerDetail.mergeRefused.intoSelf',
-  merge_target_merged: 'customerDetail.mergeRefused.targetMerged',
-  merge_vehicle_party_busy: 'customerDetail.mergeRefused.vehiclePartyBusy',
+  merge_conflict_on_survivor: 'contactDetail.mergeRefused.survivorConflict',
+  merge_into_self: 'contactDetail.mergeRefused.intoSelf',
+  merge_target_merged: 'contactDetail.mergeRefused.targetMerged',
+  merge_vehicle_party_busy: 'contactDetail.mergeRefused.vehiclePartyBusy',
   missing_address: 'contractDetail.errors.confirmRefused.missingAddress',
-  missing_customer: 'contractDetail.errors.confirmRefused.missingCustomer',
+  missing_contact: 'contractDetail.errors.confirmRefused.missingContact',
   no_best_match: 'configurator.bestMatch.error',
   offer_has_contract: 'offerWorkspace.errors.saveRefused.offerHasContract',
   plate_read_limit_reached: 'vehicleDetail.plates.limitReached',
@@ -50,8 +50,8 @@ const REASON_KEYS: Record<string, string> = {
   uid_already_onboarded: 'onboarding.errors.uidAlreadyOnboarded',
   unknown_reference_code: 'business.errors.unknownReferenceCode',
   vehicle_not_changed: 'apiRefusal.reasons.vehicle_not_changed',
-  vehicle_party_exists: 'customerDetail.linkVehicleRefused.roleAlreadyHeld',
-  vehicle_party_future_holder: 'customerDetail.linkVehicleRefused.futureHolder',
+  vehicle_party_exists: 'contactDetail.linkVehicleRefused.roleAlreadyHeld',
+  vehicle_party_future_holder: 'contactDetail.linkVehicleRefused.futureHolder',
   vin_differs_from_configuration: 'valuationCreate.vinDiffersFromConfiguration',
   // KAN-217 PR-3 — SMS and WhatsApp are the Betrieb's own accounts, and a send
   // needs one connected for its channel (in their screen's bundle: the reasons file is at its size limit).
@@ -97,7 +97,7 @@ const REASON_KEYS: Record<string, string> = {
       'ai_provider_unavailable',
     ].map((reason) => [reason, `aiPrompts.refusals.${reason}`]),
   ),
-  // KAN-215 — customer mail through the dealer's own mailbox (`provider_unavailable`
+  // KAN-215 — contact mail through the dealer's own mailbox (`provider_unavailable`
   // is said by KAN-552's entry below).
   ...Object.fromEntries(
     [
@@ -223,9 +223,9 @@ const REASON_KEYS: Record<string, string> = {
       'operator_not_allowed',
       'sort_malformed',
       'unknown_field',
-      'customer_contact_group_exists',
+      'contact_group_assignment_exists',
       'customer_role_credit_blocked',
-      'customer_role_exists',
+      'contact_role_exists',
       'customer_role_required',
       'customer_role_not_permitted',
       'support_session_already_open',
@@ -238,11 +238,11 @@ const REASON_KEYS: Record<string, string> = {
       'platform_group_holds_no_dealer',
       'platform_tenant_holds_no_entitlements',
       'support_target_self',
-      'customer_do_not_contact',
-      'customer_tag_exists',
+      'contact_do_not_contact',
+      'contact_tag_exists',
       'discount_suppressed_on_used_vehicle',
       'duplicate_connection',
-      'email_already_on_customer',
+      'email_already_on_contact',
       'external_id_taken',
       'invalid_new_price',
       'invalid_type_approval_number',
@@ -273,7 +273,7 @@ const REASON_KEYS: Record<string, string> = {
       'passkey_key_not_accepted',
       'passkey_not_verified',
       'pending_contract_carries_it',
-      'phone_already_on_customer',
+      'phone_already_on_contact',
       'photo_not_an_image',
       'photo_too_large',
       'primary_unset_directly',
@@ -372,7 +372,7 @@ const REASON_KEYS: Record<string, string> = {
       // KAN-747 — a published car is unpublished before its purchase is stornoed.
       'purchase_storno_published',
       'source_ref_reserved',
-      // KAN-572 — only a trade-in's car can go back to its customer.
+      // KAN-572 — only a trade-in's car can go back to its contact.
       'storno_return_not_trade_in',
       // KAN-536 — a trade-in is bought under the VIN its contract holds.
       'trade_in_vin_differs',
@@ -429,7 +429,7 @@ const REASON_KEYS: Record<string, string> = {
       'whatsapp_template_not_approved',
       'message_invalid',
       // … and Sales' send of a document.
-      'document_has_no_customer',
+      'document_has_no_contact',
       'whatsapp_text_fixed',
       'message_text_missing',
     ].map((reason) => [reason, `apiRefusal.reasons.${reason}`]),
@@ -451,7 +451,7 @@ const REASON_PARAMS: Record<string, (details: Details, t: TFunction) => Record<s
         ? formatDate(d.invoiceRequestedAt, toSwissLocale(i18n.language as SupportedLanguage))
         : '—',
   }),
-  customer_do_not_contact: (d) => ({ customerNumber: String(d.customerNumber ?? '—') }),
+  contact_do_not_contact: (d) => ({ contactNumber: String(d.contactNumber ?? '—') }),
   // KAN-680: the surviving record's VIN, where the entry is edited instead.
   vehicle_merged_party_row: (d) => ({ vin: String(d.mergedIntoVehicleVin ?? '—') }),
   // KAN-552: the provider's own reason, as delivered (ADR-044).
@@ -512,8 +512,8 @@ const REASON_PARAMS: Record<string, (details: Details, t: TFunction) => Record<s
   // KAN-583: the future holder in the way — who, in which role, from when
   // (a timestamp, as a day in the user's locale).
   vehicle_party_future_holder: (d, t) => ({
-    customer: typeof d.customerName === 'string' && d.customerName ? d.customerName : '—',
-    role: typeof d.role === 'string' ? t(`customerEnums.vehiclePartyRole.${d.role}`) : '—',
+    contact: typeof d.contactName === 'string' && d.contactName ? d.contactName : '—',
+    role: typeof d.role === 'string' ? t(`contactEnums.vehiclePartyRole.${d.role}`) : '—',
     date:
       typeof d.effectiveFrom === 'string' && !Number.isNaN(Date.parse(d.effectiveFrom))
         ? formatDate(d.effectiveFrom, toSwissLocale(i18n.language as SupportedLanguage))
@@ -593,7 +593,7 @@ export function apiRefusalText(t: TFunction, err: unknown, fallbackKey: string):
 
 /** A stale If-Match refusal: a 409 that names the record's current version
  * (`app/core/concurrency.py`). Only this one offers a reload — a 409 for a
- * business rule (a phone already on the customer) is not fixed by one. */
+ * business rule (a phone already on the contact) is not fixed by one. */
 export function isStaleVersion(err: unknown): boolean {
   return err instanceof ApiError && err.status === 409 && err.details?.currentVersion != null
 }

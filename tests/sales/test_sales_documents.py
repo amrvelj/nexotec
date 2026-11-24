@@ -38,7 +38,7 @@ def _bare_offer(**overrides) -> SalesOffer:
         "tenant_id": uuid.uuid4(),
         "offer_number": "O-000001",
         "status": OfferStatus.OPEN,
-        "customer_label": "Peter Beispiel",
+        "contact_label": "Peter Beispiel",
         "vehicle_label": "VW Golf GTI",
         "base_price": Decimal("38000.00"),
         "list_price": Decimal("38000.00"),
@@ -57,7 +57,7 @@ def _bare_contract(**overrides) -> SalesContract:
         "tenant_id": uuid.uuid4(),
         "contract_number": "C-000001",
         "status": ContractStatus.PENDING,
-        "customer_label": "Peter Beispiel",
+        "contact_label": "Peter Beispiel",
         "vehicle_source": "manual",
         "vehicle_label": "VW Golf GTI",
         "base_price": Decimal("38000.00"),
@@ -116,7 +116,7 @@ def test_offer_document_does_carry_the_customer_facing_price_build_up():
     dumped = _dump_text(build_offer_content(offer, language=SwissLanguage.DE, vat_rate=Decimal("8.10")))
     assert str(offer.gross_price) in dumped
     assert offer.vehicle_label in dumped
-    assert offer.customer_label in dumped
+    assert offer.contact_label in dumped
 
 
 # --- KAN-23: correspondence language and the single VAT line -----------------
@@ -243,7 +243,7 @@ def test_vat_line_is_computed_on_the_full_gross_price_when_a_trade_in_reduces_pa
     """KAN-68, Anto's ruling 2026-10-24 (option A, ADR-098): the sale and the
     trade-in are two separate supplies (MWSTG Art. 24 Abs. 3), so the one
     VAT line is the VAT contained in the full gross price. The trade-in is
-    how the customer pays part of that price, not a reduction of it; its own
+    how the contact pays part of that price, not a reduction of it; its own
     VAT is the purchase side's fiktiver Vorsteuerabzug, owned by Stock.
     payable != gross_price here, so the two possible bases are told apart.
     """
@@ -435,15 +435,15 @@ def test_contract_document_refuses_a_contract_with_no_vehicle_or_no_price(db_ses
     ) == 0
 
 
-def test_document_without_a_customer_language_prints_in_the_betriebs_default_never_german(db_session):
+def test_document_without_a_contact_language_prints_in_the_betriebs_default_never_german(db_session):
     """KAN-104 item 5 (Anto, 2026-11-03, decision 3 A): an offer or contract
-    whose customer has no correspondence language prints in the Betrieb's own
-    default for customers (Customers FR-13), not in a silent German."""
+    whose contact has no correspondence language prints in the Betrieb's own
+    default for contacts (Contacts FR-13), not in a silent German."""
 
     dealership = _make_dealership(db_session)
     dealership.default_correspondence_language = SwissLanguage.IT
     db_session.commit()
-    offer = _bare_offer(tenant_id=dealership.id, customer_language=None)
+    offer = _bare_offer(tenant_id=dealership.id, contact_language=None)
     db_session.add(offer)
     db_session.commit()
     db_session.refresh(offer)
@@ -451,7 +451,7 @@ def test_document_without_a_customer_language_prints_in_the_betriebs_default_nev
     assert generate_offer_document(db_session, offer=offer, actor_id=None).correspondence_language == "it"
 
     contract = _bare_contract(
-        tenant_id=offer.tenant_id, offer_id=offer.id, offer_number=offer.offer_number, customer_language=None
+        tenant_id=offer.tenant_id, offer_id=offer.id, offer_number=offer.offer_number, contact_language=None
     )
     db_session.add(contract)
     db_session.commit()
@@ -460,9 +460,9 @@ def test_document_without_a_customer_language_prints_in_the_betriebs_default_nev
     assert generate_contract_document(db_session, contract=contract, actor_id=None).correspondence_language == "it"
 
 
-def test_document_correspondence_language_follows_the_customer_never_the_actor(db_session):
+def test_document_correspondence_language_follows_the_contact_never_the_actor(db_session):
     dealership = _make_dealership(db_session)
-    offer = _bare_offer(tenant_id=dealership.id, customer_language="fr")
+    offer = _bare_offer(tenant_id=dealership.id, contact_language="fr")
     db_session.add(offer)
     db_session.commit()
     db_session.refresh(offer)
@@ -525,21 +525,21 @@ def test_generate_and_list_offer_documents_via_api(client):
     assert len(listed.json()["items"]) == 1
 
 
-def test_generating_a_document_for_a_contract_created_for_a_customer_is_409(client):
-    """KAN-67 exit 3, through the API: the customer-born contract (KAN-58)
+def test_generating_a_document_for_a_contract_created_for_a_contact_is_409(client):
+    """KAN-67 exit 3, through the API: the contact-born contract (KAN-58)
     has no vehicle yet, so the generate route refuses it by reason."""
 
     dealer_id = _create_dealer(client)
     token = _token(role=AccessRole.SALES, tenant_id=uuid.UUID(dealer_id))
-    customer = client.post(
-        "/v1/customers",
+    contact = client.post(
+        "/v1/contacts",
         json={
             "firstName": "Ursula", "lastName": "Vogt", "language": "fr",
             "emails": [{"emailType": "personal", "emailAddress": "ursula.vogt@example.ch"}],
         },
         headers=_bearer(token),
     ).json()
-    contract = client.post("/v1/sales/contracts", json={"customerId": customer["id"]}, headers=_bearer(token))
+    contract = client.post("/v1/sales/contracts", json={"contactId": contact["id"]}, headers=_bearer(token))
     assert contract.status_code == 201, contract.text
 
     response = client.post(f"/v1/sales/contracts/{contract.json()['id']}/documents", headers=_bearer(token))

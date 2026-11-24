@@ -22,7 +22,7 @@ type Step = 'build' | 'review'
 
 /**
  * WP-8 PR-8 (ADR-063) — "generating an offer is two steps: build, then
- * review the rendered document in the customer's correspondence language
+ * review the rendered document in the contact's correspondence language
  * with the seller-only margin panel BESIDE it, never on it." Step 1 calls
  * the plain document-generation endpoint built in PR-7
  * (POST .../documents — no status change); step 2 shows the result via

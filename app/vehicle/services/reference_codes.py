@@ -26,7 +26,7 @@ def validate_reference_codes(
     """A submitted value that is not an *active* value of its reference list
     is a semantic error in the request: 422, naming every offending field,
     the value sent and the list it was checked against (KAN-57 — the rule
-    KAN-32 set for customer nationality). A list that does not exist at all
+    KAN-32 set for contact nationality). A list that does not exist at all
     is a deployment fault — the seed migration has not run — so it is a
     `RuntimeError` (500), never a 404 or 422 that reads like the client sent
     something wrong. A deactivated value is rejected on new writes; rows that

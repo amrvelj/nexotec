@@ -25,8 +25,8 @@ import logging
 
 from sqlalchemy.orm import Session
 
+from app.contact import reconciliation as contact_reconciliation
 from app.core.reconciliation import ReconciliationAlarm, ReconciliationRun
-from app.customer import reconciliation as customer_reconciliation
 from app.integration import reconciliation as integration_reconciliation
 from app.inventory import reconciliation as inventory_reconciliation
 from app.platform import reconciliation as platform_reconciliation
@@ -39,7 +39,7 @@ logger = logging.getLogger("app.reconciliation_runner")
 
 _JOBS = [
     platform_reconciliation,
-    customer_reconciliation,
+    contact_reconciliation,
     inventory_reconciliation,
     sales_reconciliation,
     valuation_reconciliation,
@@ -64,7 +64,7 @@ class MultiContextReconciliationAlarm(Exception):
 
 def run_all(db: Session) -> list[ReconciliationRun]:
     """Runs every context's reconciliation job, even if an earlier one finds
-    orphans — a bad night for customer shouldn't hide a bad night for sales.
+    orphans — a bad night for contact shouldn't hide a bad night for sales.
     Each job persists its own findings and raises ReconciliationAlarm before
     this function sees it; alarms are collected here and re-raised together
     as MultiContextReconciliationAlarm once every job has had its turn.

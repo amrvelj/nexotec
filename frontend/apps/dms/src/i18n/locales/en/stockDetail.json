@@ -62,7 +62,7 @@
       "search": "Search contacts",
       "create": "Create a new contact",
       "change": "Change",
-      "useTradeInCustomer": "Use the trade-in customer: {{name}}",
+      "useTradeInContact": "Use the trade-in contact: {{name}}",
       "roleWillBeAdded": "This contact is given the «Supplier» role when the purchase is recorded.",
       "roleFailed": "The «Supplier» role could not be given to the contact. Please try again.",
       "vatUnknown": "This contact's VAT status is not confirmed — please check.",
@@ -88,8 +88,8 @@
       "cancel": "Back",
       "failed": "The purchase could not be cancelled.",
       "leftStock": "Not possible: the vehicle has left stock.",
-      "returnedToCustomer": "The car goes back to the customer",
-      "returnedToCustomerHint": "The customer who traded it in becomes its owner and keeper again. Unticked, their vehicle history stays as the purchase recorded it."
+      "returnedToContact": "The car goes back to the contact",
+      "returnedToContactHint": "The contact who traded it in becomes its owner and keeper again. Unticked, their vehicle history stays as the purchase recorded it."
     }
   },
   "wagenbuch": {

@@ -3,7 +3,7 @@
 configurator, `build` mode only) and a manually described vehicle, the
 seller's base price and discount — then the snapshot freeze and the price
 build-up, re-run on every touch. `update_offer` and `update_contract` each
-check their own host's rules (editable state, customer) and hand the rest
+check their own host's rules (editable state, contact) and hand the rest
 to this one function, so the two can never price the same input
 differently.
 """

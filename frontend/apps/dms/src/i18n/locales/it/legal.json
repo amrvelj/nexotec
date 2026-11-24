@@ -33,7 +33,7 @@
       "rights": "I suoi diritti"
     },
     "places": {
-      "body": "Durante l'inserimento di un indirizzo nel DMS, il testo dell'indirizzo digitato – e soltanto questo, mai un nome o altri dati dei clienti – viene trasmesso a Google Ireland Limited per mostrare suggerimenti. Google tratta tali dati in qualità di titolare del trattamento autonomo ai sensi dei Termini di servizio di Google Maps Platform e dei Google Controller-Controller Data Protection Terms (incluse le clausole contrattuali tipo per i trasferimenti dalla Svizzera). Viene memorizzato soltanto l'indirizzo scelto dall'utente. Un'azienda può disattivare la funzione in qualsiasi momento in Amministrazione › Azienda › Inserimento indirizzi.",
+      "body": "Durante l'inserimento di un indirizzo nel DMS, il testo dell'indirizzo digitato – e soltanto questo, mai un nome o altri dati dei contatti – viene trasmesso a Google Ireland Limited per mostrare suggerimenti. Google tratta tali dati in qualità di titolare del trattamento autonomo ai sensi dei Termini di servizio di Google Maps Platform e dei Google Controller-Controller Data Protection Terms (incluse le clausole contrattuali tipo per i trasferimenti dalla Svizzera). Viene memorizzato soltanto l'indirizzo scelto dall'utente. Un'azienda può disattivare la funzione in qualsiasi momento in Amministrazione › Azienda › Inserimento indirizzi.",
       "google": "Il modo in cui Google tratta questi dati è descritto nelle <privacy>Norme sulla privacy di Google</privacy>; ai suggerimenti di indirizzi si applicano inoltre i <terms>Termini di servizio di Google</terms>."
     }
   }

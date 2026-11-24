@@ -9,7 +9,7 @@ own StockItem rows by those ids and never joins or filters on a platform
 table. The two checks below — the caller's own group, the group's read
 enabled, 404 never 403 — are unchanged.
 
-Stock's tenant scope is the DEALERSHIP, not the group (unlike Customer,
+Stock's tenant scope is the DEALERSHIP, not the group (unlike Contact,
 which is natively group-scoped per ADR-014) — so this is a genuine
 cross-tenant read, gated the same way app.core.tenancy.
 get_group_read_or_404 gates a single-row one: caller's own group only,
@@ -18,7 +18,7 @@ failing. There is no single "row" to fetch here (this is a roster, not
 one entity), so this hand-rolls the same two checks rather than calling
 that function directly — see tests/architecture/test_no_ambient_group_read.py,
 which polices a literal filter-predicate pattern specifically scoped to
-Customer's own native group field; this module's own filter is on
+Contact's own native group field; this module's own filter is on
 Dealership.dealer_group_id, a structurally different column for a
 context that was never group-scoped to begin with.
 """
@@ -138,7 +138,7 @@ def get_stock_items_for_vehicles(
 ) -> dict[uuid.UUID, dict]:
     """KAN-49 / FR-19 amendment — "is this vehicle sitting in the group's
     own stock, and what's its stock item" for a batch of vehicles at once
-    (the customer 360's Vehicles tab, one lookup for the whole page).
+    (the contact 360's Vehicles tab, one lookup for the whole page).
     Same cross-tenant shape as list_group_stock_items above (Stock is
     dealership-scoped, not group-scoped — this module exists specifically
     for that group-wide read, see the module docstring; since KAN-121 the

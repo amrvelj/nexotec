@@ -1,5 +1,5 @@
 """Reusable field validators shared across entity schemas (Dealership today;
-Customer/Vehicle reuse the same Swiss address/phone shape per the addendum).
+Contact/Vehicle reuse the same Swiss address/phone shape per the addendum).
 """
 
 import datetime as dt
@@ -13,9 +13,9 @@ from app.core.errors import UnprocessableEntityError
 
 _E164_RE = re.compile(r"^\+[1-9]\d{6,14}$")
 _POSTAL_CODE_RE = re.compile(r"^\d{4}$")
-# Swiss addresses routinely carry a letter suffix ("12a", "4B"). The Customer
+# Swiss addresses routinely carry a letter suffix ("12a", "4B"). The Contact
 # PRD source sheet said "only numbers allowed", which rejects real addresses
-# — Customer PRD decision D-10 relaxes it to digits + optional short suffix.
+# — Contact PRD decision D-10 relaxes it to digits + optional short suffix.
 # The separator is one plain space, never `\s` (KAN-778): `\s` also matched a
 # newline or a tab, so «12\n» was stored and printed with a line break. The
 # value is refused rather than stripped — a house number is never silently
@@ -33,7 +33,7 @@ _FOREIGN_POSTAL_CODE_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9 \-]{1,11}$")
 _VIN_RE = re.compile(r"^[A-HJ-NPR-Z0-9]{17}$")
 
 # Swiss UID (Unternehmens-Identifikationsnummer), format CHE-123.456.789.
-# The 9th digit is a mod-11 check digit over the first 8 (Customer PRD D-16):
+# The 9th digit is a mod-11 check digit over the first 8 (Contact PRD D-16):
 # weighted sum, remainder from 11; a computed check digit of 10 is never
 # issued, and 11 maps to 0.
 # [0-9], not \d: \d also matches other scripts' digits (full-width "１"), which
@@ -43,7 +43,7 @@ _UID_WEIGHTS = (5, 4, 3, 2, 7, 6, 5, 4)
 
 # IBAN (ISO 13616): 2-letter country code, 2 check digits, up to 30 more
 # alphanumerics — 15..34 characters once whitespace is stripped. Validity
-# is the ISO 7064 mod-97 test (Customer PRD, Commercial Standing): move the
+# is the ISO 7064 mod-97 test (Contact PRD, Commercial Standing): move the
 # first four characters to the end, map A..Z -> 10..35, the integer value
 # mod 97 must equal 1. This is a *format* check only — an IBAN here is a
 # payout destination for a refund or a trade-in, never a payment instrument
@@ -70,7 +70,7 @@ def uid_check_digit(first_eight: str) -> int | None:
 def normalise_phone(value: str | None) -> str:
     """Reduce a phone number to comparable digits so that '079 123 45 67',
     '+41791234567' and '0041791234567' all resolve to the same string
-    (Customer PRD FR-01). Used for search and duplicate matching only —
+    (Contact PRD FR-01). Used for search and duplicate matching only —
     the stored value stays exactly as the caller supplied it in E.164.
     """
 
@@ -104,7 +104,7 @@ def _validate_postal_code(value: str) -> str:
 
 def validate_postal_code_for_country(value: str, country: str) -> str:
     """Postal-code rules depend on the country (D-11). Enforcing the Swiss
-    4-digit rule unconditionally blocked cross-border customers (DE/FR/IT/
+    4-digit rule unconditionally blocked cross-border contacts (DE/FR/IT/
     AT/LI), who are routine for Swiss dealerships near a border.
     """
 
@@ -208,7 +208,7 @@ def _validate_swiss_uid(value: str) -> str:
 def validate_swiss_uid(value: str) -> str:
     """The pure UID rule (format CHE-123.456.789, mod-11 check digit): the
     normalised value, or ValueError. Public for KAN-197: the dealership's UID
-    is validated with the same function as a customer's, and the migration
+    is validated with the same function as a contact's, and the migration
     tooling's frozen copy is checked against it."""
 
     return _validate_swiss_uid(value)

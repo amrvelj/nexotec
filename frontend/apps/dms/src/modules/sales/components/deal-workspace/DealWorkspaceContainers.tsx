@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
 import { OverviewCard, Picker, SalesStatusBadge, useOverlay, type PickerRow } from '@nexotec/ui-kit'
 import { api, ApiError } from '../../../../api/client'
-import { CustomerCreateDialog } from '../../../customer'
+import { ContactCreateDialog } from '../../../contact'
 import { OfferAccessoriesAndOptions } from '../OfferAccessoriesAndOptions'
 import { PriceBuildUp } from '../PriceBuildUp'
 import { ValuationCreateDialog, ValuationSourceMarker } from '../../../valuation'
@@ -15,14 +15,14 @@ import { useIdempotencyKey } from '../../../../hooks/useIdempotencyKey'
 import { LockedWhile } from './LockedWhile'
 import { InventoryNumberLink } from './InventoryNumberLink'
 import type { DealSaveQueue } from '../../../../shared/useSaveQueue'
-import { customerName } from '../../../../shared/displayNames'
+import { contactName } from '../../../../shared/displayNames'
 import { formatCurrencyChf } from '../../../../utils/format'
 import { apiRefusalText } from '../../../../utils/apiRefusal'
 import { isVinRefusal } from '../../../../utils/vin'
 import type {
   ConfigurationRead,
-  CustomerPage,
-  CustomerRead,
+  ContactPage,
+  ContactRead,
   SalesDealOwnerType,
   SalesPricedDealRead,
   StockItemPage,
@@ -85,58 +85,58 @@ function requirementOf(deal: SalesPricedDealRead, id: string, fallback: string) 
   return (deal.containers ?? []).find((c) => c.id === id)?.requirement ?? fallback
 }
 
-/** The buyer a deal's customer container shows: the customer record, for its
+/** The buyer a deal's contact container shows: the contact record, for its
  * credit-block and do-not-contact warnings. One query key with the hosts,
  * which read the same record to gate their primary action. */
-export function useDealCustomer(customerId: string | null | undefined) {
+export function useDealContact(contactId: string | null | undefined) {
   return useQuery({
-    queryKey: ['customer', customerId],
-    queryFn: () => api.get<CustomerRead>(`/customers/${customerId}`),
-    enabled: customerId != null,
+    queryKey: ['contact', contactId],
+    queryFn: () => api.get<ContactRead>(`/contacts/${contactId}`),
+    enabled: contactId != null,
   })
 }
 
-/** Kunde — the buyer, picked from the customers or created on the spot.
+/** Kunde — the buyer, picked from the contacts or created on the spot.
  * The offer workspace's own container, shared since KAN-307 (Anto,
  * 2026-10-12, amending ADR-083): a pending contract picks its buyer the
- * same way, and cannot be signed without one. `onOpenCustomer` opens the
+ * same way, and cannot be signed without one. `onOpenContact` opens the
  * record over the deal (ADR-059), never instead of it. `readOnly` (an offer
  * with a live contract, KAN-426) disables picking a buyer but keeps the
- * selected customer's overlay a click away: it only shows (KAN-501). */
-export function DealCustomerContainer<D extends SalesPricedDealRead>({
+ * selected contact's overlay a click away: it only shows (KAN-501). */
+export function DealContactContainer<D extends SalesPricedDealRead>({
   ownerType,
   deal,
   patch,
-  onOpenCustomer,
+  onOpenContact,
   readOnly = false,
-}: Pick<DealContainerProps<D>, 'ownerType' | 'deal' | 'patch'> & { onOpenCustomer: () => void; readOnly?: boolean }) {
+}: Pick<DealContainerProps<D>, 'ownerType' | 'deal' | 'patch'> & { onOpenContact: () => void; readOnly?: boolean }) {
   const { t } = useTranslation()
-  const selectedCustomer = useDealCustomer(deal.customerId).data ?? null
+  const selectedContact = useDealContact(deal.contactId).data ?? null
   const [pickerOpen, setPickerOpen] = useState(false)
   const [createOpen, setCreateOpen] = useState(false)
   const [query, setQuery] = useState('')
   const [debouncedQuery] = useDebouncedValue(query, 250)
   const search = useQuery({
-    queryKey: ['customer-search', debouncedQuery],
-    queryFn: () => api.get<CustomerPage>(`/customers?q=${encodeURIComponent(debouncedQuery)}&limit=10`),
+    queryKey: ['contact-search', debouncedQuery],
+    queryFn: () => api.get<ContactPage>(`/contacts?q=${encodeURIComponent(debouncedQuery)}&limit=10`),
     enabled: pickerOpen && debouncedQuery.length > 0,
   })
-  // KAN-656 — a customer merged into another is refused as the buyer (409
-  // `customer_merged`, from a stale search result or a list opened before the
+  // KAN-656 — a contact merged into another is refused as the buyer (409
+  // `contact_merged`, from a stale search result or a list opened before the
   // merge). The host's banner says why; here the survivor the API names is
   // offered in its place. `undefined` = no refusal; `null` = refused, the
   // survivor unknown or unreadable.
-  const [mergedSurvivor, setMergedSurvivor] = useState<CustomerRead | null | undefined>(undefined)
-  useEffect(() => setMergedSurvivor(undefined), [deal.customerId])
-  const choose = (customerId: string) => {
+  const [mergedSurvivor, setMergedSurvivor] = useState<ContactRead | null | undefined>(undefined)
+  useEffect(() => setMergedSurvivor(undefined), [deal.contactId])
+  const choose = (contactId: string) => {
     setMergedSurvivor(undefined)
-    patch({ customerId }).catch(async (err: unknown) => {
-      if (!(err instanceof ApiError) || err.details?.reason !== 'customer_merged') return reportedByHost()
-      const survivorId = err.details.mergedIntoCustomerId
-      let survivor: CustomerRead | null = null
+    patch({ contactId }).catch(async (err: unknown) => {
+      if (!(err instanceof ApiError) || err.details?.reason !== 'contact_merged') return reportedByHost()
+      const survivorId = err.details.mergedIntoContactId
+      let survivor: ContactRead | null = null
       if (typeof survivorId === 'string') {
         try {
-          survivor = await api.get<CustomerRead>(`/customers/${survivorId}`)
+          survivor = await api.get<ContactRead>(`/contacts/${survivorId}`)
         } catch {
           // Unreadable survivor: the notice below still says what to do.
         }
@@ -144,19 +144,19 @@ export function DealCustomerContainer<D extends SalesPricedDealRead>({
       setMergedSurvivor(survivor)
     })
   }
-  const survivorName = mergedSurvivor ? customerName(mergedSurvivor) || mergedSurvivor.customerNumber : ''
+  const survivorName = mergedSurvivor ? contactName(mergedSurvivor) || mergedSurvivor.contactNumber : ''
   const mergedNotice = mergedSurvivor !== undefined && (
-    <Alert color="orange" title={t('offerWorkspace.customer.mergedTitle')} py="xs">
+    <Alert color="orange" title={t('offerWorkspace.contact.mergedTitle')} py="xs">
       <Stack gap="xs">
         <Text size="sm">
           {mergedSurvivor
-            ? t('offerWorkspace.customer.mergedInto', { name: survivorName, customerNumber: mergedSurvivor.customerNumber })
-            : t('offerWorkspace.customer.mergedIntoUnknown')}
+            ? t('offerWorkspace.contact.mergedInto', { name: survivorName, contactNumber: mergedSurvivor.contactNumber })
+            : t('offerWorkspace.contact.mergedIntoUnknown')}
         </Text>
         {mergedSurvivor && (
           <Group>
             <Button size="xs" variant="light" disabled={readOnly} onClick={() => choose(mergedSurvivor.id)}>
-              {t('offerWorkspace.customer.useSurvivor', { name: survivorName })}
+              {t('offerWorkspace.contact.useSurvivor', { name: survivorName })}
             </Button>
           </Group>
         )}
@@ -165,20 +165,20 @@ export function DealCustomerContainer<D extends SalesPricedDealRead>({
   )
 
   return (
-    <OverviewCard title={t('offerWorkspace.containers.customer')} badge={<RequirementBadge requirement={requirementOf(deal, 'customer', 'required')} />}>
-      {deal.customerId ? (
+    <OverviewCard title={t('offerWorkspace.containers.contact')} badge={<RequirementBadge requirement={requirementOf(deal, 'contact', 'required')} />}>
+      {deal.contactId ? (
         <Stack gap={4}>
-          <UnstyledButton onClick={onOpenCustomer}>
-            <Text fw={600} c="purple">{deal.customerLabel}</Text>
+          <UnstyledButton onClick={onOpenContact}>
+            <Text fw={600} c="purple">{deal.contactLabel}</Text>
           </UnstyledButton>
-          {selectedCustomer?.creditBlock && (
-            <Alert color="orange" title={t('offerWorkspace.customer.creditBlockTitle')} py="xs">
-              {t('offerWorkspace.customer.creditBlockBody', { reason: selectedCustomer.creditBlockReason ?? '—' })}
+          {selectedContact?.creditBlock && (
+            <Alert color="orange" title={t('offerWorkspace.contact.creditBlockTitle')} py="xs">
+              {t('offerWorkspace.contact.creditBlockBody', { reason: selectedContact.creditBlockReason ?? '—' })}
             </Alert>
           )}
-          {selectedCustomer?.lifecycleStatus === 'do_not_contact' && (
-            <Alert color="red" title={t('offerWorkspace.customer.doNotContactTitle')} py="xs">
-              {t('offerWorkspace.customer.doNotContactBody')}
+          {selectedContact?.lifecycleStatus === 'do_not_contact' && (
+            <Alert color="red" title={t('offerWorkspace.contact.doNotContactTitle')} py="xs">
+              {t('offerWorkspace.contact.doNotContactBody')}
             </Alert>
           )}
           {mergedNotice}
@@ -186,26 +186,26 @@ export function DealCustomerContainer<D extends SalesPricedDealRead>({
       ) : (
         <Stack gap="xs">
           <Text size="sm" c="dimmed">
-            {ownerType === 'contract' ? t('offerWorkspace.customer.emptyHintContract') : t('offerWorkspace.customer.emptyHint')}
+            {ownerType === 'contract' ? t('offerWorkspace.contact.emptyHintContract') : t('offerWorkspace.contact.emptyHint')}
           </Text>
           <Group gap="xs">
             <Button variant="default" size="xs" disabled={readOnly} onClick={() => setPickerOpen(true)}>
-              {t('offerWorkspace.customer.search')}
+              {t('offerWorkspace.contact.search')}
             </Button>
             <Button variant="subtle" size="xs" disabled={readOnly} onClick={() => setCreateOpen(true)}>
-              {t('offerWorkspace.customer.createNew')}
+              {t('offerWorkspace.contact.createNew')}
             </Button>
           </Group>
           {mergedNotice}
         </Stack>
       )}
 
-      <Modal opened={pickerOpen} onClose={() => setPickerOpen(false)} title={t('offerWorkspace.customer.search')}>
+      <Modal opened={pickerOpen} onClose={() => setPickerOpen(false)} title={t('offerWorkspace.contact.search')}>
         <Picker
           rows={(search.data?.items ?? []).map(
-            (c: CustomerRead): PickerRow => ({
+            (c: ContactRead): PickerRow => ({
               id: c.id,
-              identifier: c.customerNumber,
+              identifier: c.contactNumber,
               label: c.companyName ?? [c.firstName, c.lastName].filter(Boolean).join(' '),
             })
           )}
@@ -216,16 +216,16 @@ export function DealCustomerContainer<D extends SalesPricedDealRead>({
             setPickerOpen(false)
           }}
           loading={search.isFetching}
-          placeholder={t('offerWorkspace.customer.search')}
+          placeholder={t('offerWorkspace.contact.search')}
           emptyLabel={t('common.noMatches')}
         />
       </Modal>
 
-      <CustomerCreateDialog
+      <ContactCreateDialog
         opened={createOpen}
         onClose={() => setCreateOpen(false)}
-        onCreated={(customer) => {
-          choose(customer.id)
+        onCreated={(contact) => {
+          choose(contact.id)
           setCreateOpen(false)
         }}
       />
@@ -390,7 +390,7 @@ export function DealPricingContainer<D extends SalesPricedDealRead>({
 
 /** Eintauschfahrzeug — a VIN-identified trade-in, or the valuation path:
  * the configurator in `record` mode, then a valuation the deal references
- * (FR-C-12's carve-out; Path A could never find the customer's own car). */
+ * (FR-C-12's carve-out; Path A could never find the contact's own car). */
 export function DealTradeInContainer<D extends SalesPricedDealRead>({
   ownerType,
   deal,
@@ -482,8 +482,8 @@ export function DealTradeInContainer<D extends SalesPricedDealRead>({
     err.status === 422 &&
     err.details?.reason === 'trade_in_chassis_number_requires_configuration'
 
-  // KAN-382 — a trade-in on a deal that still pointed at a merged customer
-  // was refused 409 `customer_merged` (KAN-365). Since KAN-189 the trade-in
+  // KAN-382 — a trade-in on a deal that still pointed at a merged contact
+  // was refused 409 `contact_merged` (KAN-365). Since KAN-189 the trade-in
   // allocates no party, so this server never sends it; the branch stays for
   // an instance still on the older code during a rolling deploy, and reads
   // the survivor when the API names one. Any other failure keeps the generic
@@ -491,25 +491,25 @@ export function DealTradeInContainer<D extends SalesPricedDealRead>({
   const tradeInRefusalMessage = async (err: unknown): Promise<string> => {
     const live = liveContractRefusal(t, err)
     if (live) return live
-    if (!(err instanceof ApiError) || err.details?.reason !== 'customer_merged') {
+    if (!(err instanceof ApiError) || err.details?.reason !== 'contact_merged') {
       // KAN-746 — a refusal with a reason (a chassis number without its
       // configuration, say) is said in the UI language; the generic
       // sentence only as the fallback (KAN-398).
       return apiRefusalText(t, err, 'offerWorkspace.tradeIn.saveError')
     }
-    const survivorId = err.details.mergedIntoCustomerId
+    const survivorId = err.details.mergedIntoContactId
     if (typeof survivorId === 'string') {
       try {
-        const survivor = await api.get<CustomerRead>(`/customers/${survivorId}`)
-        const name = customerName(survivor)
+        const survivor = await api.get<ContactRead>(`/contacts/${survivorId}`)
+        const name = contactName(survivor)
         if (name) {
-          return t('offerWorkspace.tradeIn.customerMergedInto', { name, customerNumber: survivor.customerNumber })
+          return t('offerWorkspace.tradeIn.contactMergedInto', { name, contactNumber: survivor.contactNumber })
         }
       } catch {
         // Unreadable survivor: the message below still says what to do.
       }
     }
-    return t('offerWorkspace.tradeIn.customerMerged')
+    return t('offerWorkspace.tradeIn.contactMerged')
   }
 
   return (
@@ -578,7 +578,7 @@ export function DealTradeInContainer<D extends SalesPricedDealRead>({
       ) : (
         <Stack gap="xs">
           <Text size="sm" c="dimmed">
-            {deal.customerId ? t('offerWorkspace.tradeIn.readyHint') : t('offerWorkspace.tradeIn.emptyHint')}
+            {deal.contactId ? t('offerWorkspace.tradeIn.readyHint') : t('offerWorkspace.tradeIn.emptyHint')}
           </Text>
           {tradeInError && <Alert color="red" py="xs">{tradeInError}</Alert>}
           <Group gap="xs">

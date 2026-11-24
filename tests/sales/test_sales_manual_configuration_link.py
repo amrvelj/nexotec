@@ -31,7 +31,7 @@ from app.sales.schemas.offer import OfferUpdate
 from app.sales.services.contract import confirm_contract, create_contract, request_invoice
 from app.sales.services.offer import create_offer, update_offer
 from tests.dealership_support import valid_uid
-from tests.sales.test_sales_lifecycle_reservation import _customer
+from tests.sales.test_sales_lifecycle_reservation import _contact
 from tests.stock_support import supplier_contact
 
 
@@ -67,7 +67,7 @@ def _confirmed_manual_contract(db_session, engine, dealership):
     offer = update_offer(
         db_session, offer=offer, group_id=group_id,
         data=OfferUpdate(
-            customer_id=_customer(db_session, group_id).id,  # KAN-307: never confirmed without a buyer
+            contact_id=_contact(db_session, group_id).id,  # KAN-307: never confirmed without a buyer
             vehicle_source="manual", vehicle_label="Volkswagen ID.4 Pro", manual_vehicle_condition="new",
             manual_base_price=Decimal("52000.00"),
         ),

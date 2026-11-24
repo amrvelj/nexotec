@@ -9,7 +9,7 @@ becomes a pipeline item at contract confirmation (S-D11/ADR-045), and its
 purchase booking creates the record (ADR-103). Until then the deal keeps the
 VIN (`trade_in_vin`) and only *links* the record vehicle-mdm already holds
 for it (`vehicle.public.match_vehicle`, a read). No owner or keeper party is
-allocated (Anto confirmed: the car shows on the customer's Vehicles tab once
+allocated (Anto confirmed: the car shows on the contact's Vehicles tab once
 it is bought). FR-S-08's "an existing valid valuation is offered before a new
 one is made" finds the valuation by the linked record, else by the VIN
 (`valuation.public.list_valid_valuations_for_vin`).
@@ -32,6 +32,7 @@ from decimal import Decimal
 
 from sqlalchemy.orm import Session
 
+from app.contact.public import get_contact_or_404
 from app.core.base import utcnow
 from app.core.errors import ConflictError, UnprocessableEntityError
 from app.core.validators import (
@@ -41,7 +42,6 @@ from app.core.validators import (
     is_valid_vin,
     normalise_vin,
 )
-from app.customer.public import get_customer_or_404
 from app.sales.models.contract import SalesContract
 from app.sales.services.configuration_reference import SLOT_TRADE_IN, publish_configuration_attached
 from app.sales.services.priced_deal import DealT, PricedDeal, lock_editable, project, require_editable
@@ -95,7 +95,7 @@ def set_trade_in(
     plate: str | None,
     canton: str | None,
     vehicle_label: str,
-    customer_id: uuid.UUID | None,
+    contact_id: uuid.UUID | None,
     actor_id: uuid.UUID,
     session_factory: SessionFactory | None = None,
 ) -> DealT:
@@ -103,11 +103,11 @@ def set_trade_in(
     version_seen = deal.version
     previous_valuation_id = deal.trade_in_valuation_id
 
-    # KAN-99: the body's customer, if any, is resolved in the caller's group
-    # (a customerId from another group is a 404). Since KAN-189 no party is
+    # KAN-99: the body's contact, if any, is resolved in the caller's group
+    # (a contactId from another group is a 404). Since KAN-189 no party is
     # allocated for the trade-in car, so nothing else reads it.
-    if customer_id is not None:
-        get_customer_or_404(db, group_id, customer_id)
+    if contact_id is not None:
+        get_contact_or_404(db, group_id, contact_id)
 
     car = _resolve_trade_in_car(db, vin=vin, plate=plate, canton=canton, group_id=group_id)
 

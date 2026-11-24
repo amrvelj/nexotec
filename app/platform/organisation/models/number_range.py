@@ -28,8 +28,8 @@ from app.db import Base
 
 
 class NumberRangeDocumentType(str, enum.Enum):
-    """The eleven document types the PRD's table names. Customer numbers stay
-    per group (`customer_number_sequence`) and are not here."""
+    """The eleven document types the PRD's table names. Contact numbers stay
+    per group (`contact_number_sequence`) and are not here."""
 
     OFFER = "offer"
     ORDER_CONFIRMATION = "order_confirmation"

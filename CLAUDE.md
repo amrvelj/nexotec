@@ -34,7 +34,7 @@ same PR (the reviewer checks); otherwise file a Kanban ticket with the replaceme
   Gap Analysis https://app.notion.com/p/3b73e79334dd81cbb181f85d58471d52 ·
   Risk Register https://app.notion.com/p/3b73e79334dd8164a502cd06520b7993
 - Kanban board — every change has a ticket https://app.notion.com/p/3cf3e79334dd80f69bb8c2e6a19481ef
-- PRDs: `Customers` https://app.notion.com/p/3b53e79334dd80c4a7e2e92fc3a85986 · `Vehicles` https://app.notion.com/p/3b73e79334dd81028e76f3bdd24beeff
+- PRDs: `Contacts` https://app.notion.com/p/3b53e79334dd80c4a7e2e92fc3a85986 · `Vehicles` https://app.notion.com/p/3b73e79334dd81028e76f3bdd24beeff
   · `Stock` https://app.notion.com/p/3bb3e79334dd8073be48d91997001fae · `Sales v2` https://app.notion.com/p/3bb3e79334dd80cd89eee23899f031e6
   · `Configurator` https://app.notion.com/p/3cf3e79334dd80c4af05ddb042da7d9d · `Dealer Administration` https://app.notion.com/p/3e13e79334dd815c8c87ea2467c0e6bc
   · `Authentication & Identity` https://app.notion.com/p/3e13e79334dd81e5ab31fe5d8b2ba8bd
@@ -104,7 +104,7 @@ Lowest layer first (ADR-131); peers: parts and inventory, aftersales and sales, 
 | `platform` | tenants/dealers, users, auth, roles, module entitlements, feature flags, reference data, locations, document templates, standard texts, branding, UI translations, staff notifications |
 | `integration` | the integration registry (connections, write-only secret refs, entitlements, call log, retention) + provider-gateway adapters; AI (ADR-181) |
 | `vehicle` | physical vehicles, catalogue, plates, odometer, custody, provenance, the configurator |
-| `customer` | customers (**group-scoped**, ADR-014), contact channels (ADR-067), external IDs, duplicates/merges, `VehicleParty` |
+| `contact` | contacts (**group-scoped**, ADR-014), contact channels (ADR-067), external IDs, duplicates/merges, `VehicleParty` |
 | `valuation` | the standalone valuation application (ADR-066), tenant-private (ADR-029) |
 | `inventory` | stock items, pipeline vehicles, reservation, Wagenbuch, marketplace publishing |
 | `parts` | *(stub)* part master, stock, suppliers, purchase orders |
@@ -148,7 +148,7 @@ Stubs keep every context in the contract: never delete one or put its concerns e
 12. **A write spanning two contexts is a call with a compensating action, never a shared
     transaction** (ADR-047) — each side commits its own work. It would work today because everything
     shares one database; that is why it is forbidden. The import-linter cannot catch it; `test_adr_047_no_shared_transaction.py`
-    does (its ruled exceptions: `tests-architecture.md`). A customer merge reaches Sales only through `customer.merged`.
+    does (its ruled exceptions: `tests-architecture.md`). A contact merge reaches Sales only through `contact.merged` (and `customer.merged` until KAN-464 PR-5).
 
 ## Preserve verbatim — already correct, do not "improve"
 
@@ -163,7 +163,7 @@ Edits to these `app/core/` files ask Anto first, whichever tool makes them.
   camelCase JSON over snake_case Python (`schemas.py`) · the append-only audit log (`audit.py`; one rewrite: ADR-121)
 - The outbox and consumer harness (`outbox*.py`, `consumer.py`, `processed_event_model.py`)
 - `EncryptedString` (`types.py`) + config that refuses to start without the key (`config.py`). Used by
-  `customer.tax_id`, the integration call payload, `mfa_totp.secret` (ADR-099) and `push_subscription.p256dh`/`auth` (KAN-216; storage open with Anto)
+  `contact.tax_id`, the integration call payload, `mfa_totp.secret` (ADR-099) and `push_subscription.p256dh`/`auth` (KAN-216; storage open with Anto)
 
 ## API conventions
 
@@ -176,11 +176,11 @@ gain a camelCase alias when their endpoint is next touched, or retire on KAN-461
 
 Each line ends in the `.claude/rules/` file that holds the detail.
 
-- **Tenant** (ADR-014): group → dealership → location; the **dealership** is the tenant, **Betrieb** in the UI, `dealership` in table and code (D-A-10); customers are group-scoped (`group_id`), stock and customer history dealership-owned but readable group-wide; cost, margin, commission, discount, trade-in purchase price and valuations stay private to the legal entity; all writes require switching the active dealership — `platform-users.md`.
+- **Tenant** (ADR-014): group → dealership → location; the **dealership** is the tenant, **Betrieb** in the UI, `dealership` in table and code (D-A-10); contacts are group-scoped (`group_id`), stock and contact history dealership-owned but readable group-wide; cost, margin, commission, discount, trade-in purchase price and valuations stay private to the legal entity; all writes require switching the active dealership — `platform-users.md`.
 - **One administration surface (A-RULE-0):** every setting a dealership owns is configured in Dealer Administration; no module ships its own settings screen — `platform-admin.md`.
 - **Vehicle identity:** a licence plate is never an identifier — `vehicle-mdm.md`.
 - **VAT** (ADR-057): one price, gross CHF incl. MwSt; no net line or VAT breakdown on screen; **there is no `vatTreatment`** — no field, enum, column, badge or switch, anywhere (`test_no_vat_treatment_field.py`) — `sales-pricing.md`.
-- **i18n:** DE, FR, IT, EN are all first class, reference data included; no user-visible string is hardcoded; the customer's correspondence language is not the user's UI language — `ui-i18n.md`.
+- **i18n:** DE, FR, IT, EN are all first class, reference data included; no user-visible string is hardcoded; the contact's correspondence language is not the user's UI language — `ui-i18n.md`.
 
 ## Reference material outside the repository
 

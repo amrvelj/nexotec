@@ -125,11 +125,11 @@ def download_document_pdf(
 @router.get("/sales/documents/{document_id}/send-options", response_model=SendOptionsRead)
 def get_send_options(
     document_id: uuid.UUID,
-    principal: Principal = Depends(require_read("customer_send_dialog")),
+    principal: Principal = Depends(require_read("contact_send_dialog")),
     db: Session = Depends(get_db),
 ):
     """KAN-217 PR-6 (FR-A-52/53): what the send dialog shows before a send —
-    per channel the recipient, Customers' verdict, whether the channel is
+    per channel the recipient, Contacts' verdict, whether the channel is
     connected, the text the send would carry and the first refusal the send
     would give. A read: no link, no delivery row, no provider call."""
 
@@ -142,7 +142,7 @@ def get_send_options(
     )
     return SendOptionsRead(
         document_id=options.document_id,
-        customer_label=options.customer_label,
+        contact_label=options.contact_label,
         preselected_channel=options.preselected_channel,
         channels=[
             SendChannelOptionRead(
@@ -168,11 +168,11 @@ def get_send_options(
 def send_document(
     document_id: uuid.UUID,
     body: DocumentSendRequest,
-    principal: Principal = Depends(require_write("customer_send_dialog")),
+    principal: Principal = Depends(require_write("contact_send_dialog")),
     db: Session = Depends(get_db),
 ):
-    """KAN-217 PR-5 (D-A-41, FR-A-51–54): sends the document to its customer
-    on one channel — consent from Customers, the text from the Betrieb's
+    """KAN-217 PR-5 (D-A-41, FR-A-51–54): sends the document to its contact
+    on one channel — consent from Contacts, the text from the Betrieb's
     library, the sender or provider and the delivery record from integration
     (`services/message_send.py`). 201 with the delivery record, `failed`
     included: the record says what the provider answered."""

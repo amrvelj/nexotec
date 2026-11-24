@@ -1,19 +1,19 @@
 """Give trade-in stock items created before KAN-632 their seller (KAN-674, step 1).
 
 Since KAN-632 a trade-in's pipeline item keeps who traded the car in and when
-the contract was signed (`trade_in_customer_id`, `trade_in_signed_at`,
+the contract was signed (`trade_in_contact_id`, `trade_in_signed_at`,
 inventory migration `21c14ae9dd31`), and its purchase and storno events carry
-them to the customer context. An item created before KAN-632 keeps neither,
+them to the contact context. An item created before KAN-632 keeps neither,
 so its purchase or storno event would carry no seller — and since KAN-674
-step 2 the customer consumers dead-letter such an event (the worker's fallback
+step 2 the contact consumers dead-letter such an event (the worker's fallback
 that asked Sales is retired).
 
 This script fills both columns of every trade-in item (`pipeline_ref`
 `contract:<id>:trade_in`) that lacks either, from that same read — the
-contract's customer, and its signature (else its creation), what the retired
+contract's contact, and its signature (else its creation), what the retired
 fallback answered — so the events those items publish from now on carry the
 seller. A contract this item's business does not have, or one that names no
-customer, is reported, never guessed. Nothing is published and no version is
+contact, is reported, never guessed. Nothing is published and no version is
 bumped: the columns are Stock's copy of Sales' fact, read by no screen. Only
 inventory rows are written (CLAUDE.md rule 12: the Sales side is a read).
 
@@ -59,7 +59,7 @@ _TRADE_IN_REF = "contract:%:trade_in"
 
 @dataclass
 class Report:
-    # (stock item, contract, customer)
+    # (stock item, contract, contact)
     filled: list[tuple[uuid.UUID, uuid.UUID, uuid.UUID]] = field(default_factory=list)
     # (stock item, contract or None, why)
     unresolved: list[tuple[uuid.UUID, uuid.UUID | None, str]] = field(default_factory=list)
@@ -69,7 +69,7 @@ class Report:
 def _missing_seller():
     return (
         StockItem.pipeline_ref.like(_TRADE_IN_REF),
-        or_(StockItem.trade_in_customer_id.is_(None), StockItem.trade_in_signed_at.is_(None)),
+        or_(StockItem.trade_in_contact_id.is_(None), StockItem.trade_in_signed_at.is_(None)),
     )
 
 
@@ -110,11 +110,11 @@ def _backfill(db: Session, *, commit: bool) -> Report:
         contract_id = uuid.UUID(origin["originContractId"])
         seller = get_trade_in_seller(db, tenant_id=item.tenant_id, contract_id=contract_id)
         if seller is None:
-            report.unresolved.append((item.id, contract_id, "no contract of this business naming a customer"))
+            report.unresolved.append((item.id, contract_id, "no contract of this business naming a contact"))
             continue
-        item.trade_in_customer_id = seller.customer_id
+        item.trade_in_contact_id = seller.contact_id
         item.trade_in_signed_at = seller.known_since
-        report.filled.append((item.id, contract_id, seller.customer_id))
+        report.filled.append((item.id, contract_id, seller.contact_id))
     db.flush()
     if commit:
         db.commit()
@@ -126,7 +126,7 @@ def _backfill(db: Session, *, commit: bool) -> Report:
 def render(report: Report, *, committed: bool) -> str:
     mode = "COMMITTED" if committed else "DRY RUN — nothing written"
     lines = [f"KAN-674 trade-in sellers on stock items ({mode})", "", f"filled: {len(report.filled)}"]
-    lines += [f"  stock item {item}: contract {contract} -> customer {customer}" for item, contract, customer in report.filled]
+    lines += [f"  stock item {item}: contract {contract} -> contact {contact}" for item, contract, contact in report.filled]
     lines += ["", f"UNRESOLVED: {len(report.unresolved)}"]
     lines += [f"  stock item {item}: contract {contract}: {why}" for item, contract, why in report.unresolved]
     lines += ["", f"SKIPPED (held by another writer — run again): {report.skipped}"]

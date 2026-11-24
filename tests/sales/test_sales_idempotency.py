@@ -31,7 +31,7 @@ from app.valuation.models.valuation import ValuationSource
 from app.valuation.schemas.valuation import ValuationCreate
 from app.valuation.services.valuation import create_valuation
 from app.vehicle.models.vehicle_mdm import VehicleMdm
-from tests.sales.test_sales_lifecycle_reservation import _customer, _dealership, _session_factory
+from tests.sales.test_sales_lifecycle_reservation import _contact, _dealership, _session_factory
 from tests.sales.test_sales_offer_refinements import _offer_with_vehicle, _stock_item
 from tests.token_support import dealer_group_of
 
@@ -83,7 +83,7 @@ def _offer(client, token: str) -> dict:
 
 
 def _contract(client, token: str) -> dict:
-    # KAN-276: a contract comes from an offer or is created for a customer, never from nothing.
+    # KAN-276: a contract comes from an offer or is created for a contact, never from nothing.
     offer = _offer(client, token)
     response = client.post("/v1/sales/contracts", json={"offerId": offer["id"]}, headers=_headers(token))
     assert response.status_code == 201, response.text
@@ -95,7 +95,7 @@ def _if_match(record: dict) -> str:
 
 
 def _confirmable_contract(db_session, dealership_id: uuid.UUID, group_id: uuid.UUID) -> SalesContract:
-    """A pending contract with a priced stock car and a customer with an
+    """A pending contract with a priced stock car and a contact with an
     address: everything confirmation asks for."""
 
     item = _stock_item(db_session, dealership_id, with_option=False)
@@ -113,7 +113,7 @@ def app_sessions_on_the_test_engine(monkeypatch, engine):
 
 
 def _with_address(db_session, contract: SalesContract, group_id: uuid.UUID) -> SalesContract:
-    contract.customer_id = _customer(db_session, group_id).id
+    contract.contact_id = _contact(db_session, group_id).id
     db_session.commit()
     return contract
 

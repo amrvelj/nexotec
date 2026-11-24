@@ -40,7 +40,7 @@ from app.platform.organisation.models.dealership import Dealership, DealershipSt
 from app.platform.organisation.models.number_range import NumberRangeDocumentType
 from app.platform.organisation.services import number_range as number_range_service
 from tests import setup_checklist_support as s
-from tests.customer.test_customer_vehicle_party_close_rule import (
+from tests.contact.test_contact_vehicle_party_close_rule import (
     _postgres_only,
     _run,
     _wait_until_a_backend_waits_on_a_lock,

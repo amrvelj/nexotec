@@ -71,7 +71,7 @@ def require_editable(db: Session, deal: PricedDeal) -> None:
         require_pending(deal)
         if is_priced_without_inputs(deal):
             # Rebuilding its price would start from nothing (no snapshot, no
-            # lines) and rewrite a figure the customer may already have
+            # lines) and rewrite a figure the contact may already have
             # seen; it can still be confirmed or cancelled as it stands.
             raise ConflictError(
                 f"Contract {deal.contract_number} was priced before contracts kept their pricing inputs and "
@@ -181,9 +181,9 @@ def compute_containers(deal: PricedDeal) -> list[OfferContainerState]:
     priced = has_base_price(deal) or (isinstance(deal, SalesContract) and is_priced_without_inputs(deal))
     containers = [
         OfferContainerState(
-            id="customer",
+            id="contact",
             requirement="required",
-            status="complete" if deal.customer_id is not None else "not_started",
+            status="complete" if deal.contact_id is not None else "not_started",
         ),
         OfferContainerState(id="vehicle", requirement="required", status="complete" if vehicle else "not_started"),
         OfferContainerState(

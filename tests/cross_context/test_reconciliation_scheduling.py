@@ -18,11 +18,11 @@ import uuid
 import pytest
 
 from app import worker
+from app.contact.models.vehicle_party import VehicleParty, VehiclePartyRole
 from app.core.daily_scheduler import _REGISTRY, registered_job_names, run_due_daily_jobs
 from app.core.daily_scheduler_model import DailyJobRun
 from app.core.reconciliation import seconds_since_last_reconciliation
 from app.core.reconciliation_model import ReconciliationOrphan, ReconciliationRun
-from app.customer.models.vehicle_party import VehicleParty, VehiclePartyRole
 from app.reconciliation_runner import run_all_daily
 
 _RECONCILIATION_JOB_NAME = "reconciliation.run_all"
@@ -40,11 +40,11 @@ def _clean_registry():
 
 def _orphan_vehicle_party(db_session) -> None:
     """One VehicleParty whose vehicle_id resolves to nothing — a dangling
-    customer -> vehicle reference, the exact drift the dropped FK used to
+    contact -> vehicle reference, the exact drift the dropped FK used to
     make impossible."""
 
     db_session.add(
-        VehicleParty(vehicle_id=uuid.uuid4(), customer_id=uuid.uuid4(), role=VehiclePartyRole.OWNER)
+        VehicleParty(vehicle_id=uuid.uuid4(), contact_id=uuid.uuid4(), role=VehiclePartyRole.OWNER)
     )
     db_session.commit()
 
@@ -82,7 +82,7 @@ def test_an_orphan_alarms_and_the_worker_survives(db_session):
 
     # The finding is durable: run_all persisted it before the alarm was
     # ever raised.
-    orphans = db_session.query(ReconciliationOrphan).filter_by(context="customer").all()
+    orphans = db_session.query(ReconciliationOrphan).filter_by(context="contact").all()
     assert len(orphans) == 1
     assert orphans[0].check_label == "vehicle_party.vehicle_id -> vehicle_mdm.id"
 
@@ -114,7 +114,7 @@ def test_a_clean_run_is_recorded_distinguishably_from_no_run(db_session):
     runs = db_session.query(ReconciliationRun).all()
     assert {r.context for r in runs} == {
         "platform",
-        "customer",
+        "contact",
         "inventory",
         "sales",
         "valuation",

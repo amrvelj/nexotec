@@ -1,7 +1,7 @@
 """Reference-data endpoints (issue #3): admin-managed business taxonomy.
 
 GET is open to any authenticated principal — sales/inventory need these
-lists to populate dropdowns when creating Vehicle/Customer records, and the
+lists to populate dropdowns when creating Vehicle/Contact records, and the
 data itself isn't tenant-scoped or sensitive.
 
 POST/PATCH are platform_admin-only, not dealer_admin — overriding the spec

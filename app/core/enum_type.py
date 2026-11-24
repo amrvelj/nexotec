@@ -3,7 +3,7 @@
 Why it exists. `sqlalchemy.Enum(..., native_enum=False)` without a
 `values_callable` stores the enum member NAME (`EMAIL`), never `.value`
 (`email`). Migrations kept being written against `.value` — KAN-60 (a
-rename that matched zero rows, then a 500 on `GET /v1/customers`) and
+rename that matched zero rows, then a 500 on `GET /v1/contacts`) and
 KAN-91 (a migration that lowercased `consent_source` into values the ORM
 could not decode). KAN-86 moved every enum column to storing `.value`, in
 three steps, because a deploy runs old and new code side by side for a

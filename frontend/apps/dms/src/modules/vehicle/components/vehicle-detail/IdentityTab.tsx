@@ -9,7 +9,7 @@ import { isStaleVersion } from '../../../../utils/apiRefusal'
 import { formatDate, formatDateOnly } from '../../../../utils/format'
 import { vehiclePartyRefusalMessage } from '../../../../shared/partyAllocationRefusal'
 import { isPlannedNeverStarted, isUpcoming } from '../../../../shared/partyPeriod'
-import { CustomerDetailContent } from '../../../customer'
+import { ContactDetailContent } from '../../../contact'
 import type {
   VehicleMdmRead,
   VehiclePartyAllocationRead,
@@ -23,16 +23,16 @@ interface IdentityTabProps {
   formerParties: VehiclePartyAllocationRead[]
   onSaveField: (patch: Record<string, unknown>) => Promise<void>
   onReload: () => void
-  onAllocate: (customerId: string, role: VehiclePartyRole) => Promise<void>
-  /** The customer picker's open state, owned by the page: the header's
-   * «Allocate to customer» opens it too (KAN-468). */
+  onAllocate: (contactId: string, role: VehiclePartyRole) => Promise<void>
+  /** The contact picker's open state, owned by the page: the header's
+   * «Allocate to contact» opens it too (KAN-468). */
   allocating: boolean
   onAllocatingChange: (open: boolean) => void
-  customerCandidates: { id: string; label: string; sublabel?: string }[]
-  customerSearch: string
-  onCustomerSearchChange: (q: string) => void
-  /** U-11: fired when a customer overlay opened from a party row closes. */
-  onCustomerOverlayClose: () => void
+  contactCandidates: { id: string; label: string; sublabel?: string }[]
+  contactSearch: string
+  onContactSearchChange: (q: string) => void
+  /** U-11: fired when a contact overlay opened from a party row closes. */
+  onContactOverlayClose: () => void
   /** KAN-583 (ruling 2A): «Eintrag beenden» in each party row's menu — ends a
    * current entry now, cancels a planned one. Offered only when the session
    * may write vehicle links (KAN-430). */
@@ -54,10 +54,10 @@ const PARTY_LINK_STYLE = { color: purple[6], background: 'none', border: 'none',
 /**
  * FR-V-15: identity fields are editable ONLY here — inline, per the
  * "editing one value on a record already on screen is inline" rule.
- * FR-V-05/ADR-064: the "Allocate to customer" affordance is the vehicle-
- * side half of the one shared dialog (the customer-side half lives on
- * Customer 360's own Vehicles tab) — both call the same
- * app.customer.public.allocate_vehicle_party under the hood.
+ * FR-V-05/ADR-064: the "Allocate to contact" affordance is the vehicle-
+ * side half of the one shared dialog (the contact-side half lives on
+ * Contact 360's own Vehicles tab) — both call the same
+ * app.contact.public.allocate_vehicle_party under the hood.
  */
 export function IdentityTab({
   vehicle,
@@ -68,10 +68,10 @@ export function IdentityTab({
   onAllocate,
   allocating,
   onAllocatingChange: setAllocating,
-  customerCandidates,
-  customerSearch,
-  onCustomerSearchChange,
-  onCustomerOverlayClose,
+  contactCandidates,
+  contactSearch,
+  onContactSearchChange,
+  onContactOverlayClose,
   canEndEntry = false,
   onEndEntry,
   stockItem = null,
@@ -124,16 +124,16 @@ export function IdentityTab({
 
   // KAN-269 (ADR-035): a failed allocation leaves the picker open with the
   // chosen role and search, says why, and stops showing it as busy — the
-  // retry (same customer, same role) reuses its Idempotency-Key.
-  const allocate = async (customerId: string) => {
+  // retry (same contact, same role) reuses its Idempotency-Key.
+  const allocate = async (contactId: string) => {
     if (allocationSaving) return
     setAllocationSaving(true)
     setAllocationError(null)
     try {
-      await onAllocate(customerId, role)
+      await onAllocate(contactId, role)
       setAllocating(false)
     } catch (err) {
-      // KAN-389: said in the user's language, as the customer's Link vehicle
+      // KAN-389: said in the user's language, as the contact's Link vehicle
       // dialog says it (KAN-369) — never the API's English message.
       setAllocationError(vehiclePartyRefusalMessage(t, err, 'vehicleDetail.parties.allocateError'))
     } finally {
@@ -146,24 +146,24 @@ export function IdentityTab({
     setAllocationError(null)
   }
 
-  // KAN-140: the holder's name, never the raw customer id (an internal id
+  // KAN-140: the holder's name, never the raw contact id (an internal id
   // is never user-visible text). displayName is optional on the contract,
   // so a row without one falls back to a translated label, not the UUID.
-  const partyLabel = (p: VehiclePartyAllocationRead) => p.displayName || t('vehicleDetail.parties.unnamedCustomer')
+  const partyLabel = (p: VehiclePartyAllocationRead) => p.displayName || t('vehicleDetail.parties.unnamedContact')
 
   // § ADR-059 — "opening a record from inside a process renders it as an
   // overlay on top, not a navigation." Working on a vehicle's party
-  // allocation and needing to check the customer behind a raw id is
+  // allocation and needing to check the contact behind a raw id is
   // exactly that process — this used to just print the id as plain text.
   // U-11 (KAN-140): the party rows show the holder's name, and the
-  // overlaid Customer 360 can edit it inline — so closing the overlay hands
+  // overlaid Contact 360 can edit it inline — so closing the overlay hands
   // back to the page to refetch the party roles, or the card keeps the old
   // name until something unrelated refetches it.
-  const openCustomerOverlay = (customerId: string) => {
+  const openContactOverlay = (contactId: string) => {
     overlay.push({
-      key: `customer-overlay-${customerId}`,
-      content: <CustomerDetailContent customerId={customerId} embedded />,
-      onClose: onCustomerOverlayClose,
+      key: `contact-overlay-${contactId}`,
+      content: <ContactDetailContent contactId={contactId} embedded />,
+      onClose: onContactOverlayClose,
     })
   }
 
@@ -264,7 +264,7 @@ export function IdentityTab({
               <Group gap={4} wrap="nowrap">
                 <button
                   type="button"
-                  onClick={() => openCustomerOverlay(p.customerId)}
+                  onClick={() => openContactOverlay(p.contactId)}
                   style={PARTY_LINK_STYLE}
                 >
                   {partyLabel(p)}
@@ -294,13 +294,13 @@ export function IdentityTab({
                 onChange={(v) => setRole((v as VehiclePartyRole) ?? 'owner')}
               />
               <Picker
-                rows={customerCandidates}
-                query={customerSearch}
-                onQueryChange={onCustomerSearchChange}
+                rows={contactCandidates}
+                query={contactSearch}
+                onQueryChange={onContactSearchChange}
                 onSelect={(row) => void allocate(row.id)}
                 loading={allocationSaving}
-                placeholder={t('vehicleDetail.parties.searchCustomer')}
-                emptyLabel={t('vehicleDetail.parties.noCustomers')}
+                placeholder={t('vehicleDetail.parties.searchContact')}
+                emptyLabel={t('vehicleDetail.parties.noContacts')}
               />
               {allocationError && (
                 <Alert color="red" role="alert">
@@ -327,7 +327,7 @@ export function IdentityTab({
                     </Group>
                     <button
                       type="button"
-                      onClick={() => openCustomerOverlay(p.customerId)}
+                      onClick={() => openContactOverlay(p.contactId)}
                       style={PARTY_LINK_STYLE}
                     >
                       {partyLabel(p)}

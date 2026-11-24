@@ -12,7 +12,7 @@ import type { SalesContractRead } from '../../../api/types'
 import { ContractDetailPage } from './ContractDetailPage'
 import { nameValuationCar } from '../../valuation/test/nameValuationCar'
 
-// KAN-67 (ADR-083) — a contract born from a customer (KAN-58) used to be a
+// KAN-67 (ADR-083) — a contract born from a contact (KAN-58) used to be a
 // dead end: no vehicle, no price, nothing to add them with. While pending it
 // now carries the offer workspace's own vehicle, price and trade-in
 // containers, saving through PATCH /sales/contracts/{id}; confirmed, it is
@@ -38,9 +38,9 @@ const EMPTY: SalesContractRead = {
   offerId: null,
   offerNumber: null,
   status: 'pending',
-  customerId: 'cust-1',
-  customerLabel: 'Ursula Vogt',
-  customerLocality: null,
+  contactId: 'cust-1',
+  contactLabel: 'Ursula Vogt',
+  contactLocality: null,
   vehicleSource: null,
   stockItemId: null,
   vehicleLabel: null,
@@ -78,7 +78,7 @@ const EMPTY: SalesContractRead = {
   invoiceRef: null,
   cancelledReason: null,
   containers: [
-    { id: 'customer', requirement: 'required', status: 'complete' },
+    { id: 'contact', requirement: 'required', status: 'complete' },
     { id: 'vehicle', requirement: 'required', status: 'not_started' },
     { id: 'pricing', requirement: 'required', status: 'not_started' },
     { id: 'trade_in', requirement: 'optional', status: 'not_started' },
@@ -107,7 +107,7 @@ const PRICED: SalesContractRead = {
   payable: '18000.00',
   vehicleCondition: 'used',
   containers: [
-    { id: 'customer', requirement: 'required', status: 'complete' },
+    { id: 'contact', requirement: 'required', status: 'complete' },
     { id: 'vehicle', requirement: 'required', status: 'complete' },
     { id: 'pricing', requirement: 'required', status: 'complete' },
     { id: 'trade_in', requirement: 'optional', status: 'not_started' },
@@ -239,15 +239,15 @@ describe('ContractDetailPage — a pending contract can be completed (KAN-67)', 
 
   // KAN-315 (Anto, 2026-10-12) — such a contract without a buyer could be
   // neither given one (the edit section was hidden) nor confirmed
-  // (KAN-307). It now offers the customer container alone: the buyer, never
+  // (KAN-307). It now offers the contact container alone: the buyer, never
   // the vehicle, price or trade-in.
   const PRICED_WITHOUT_INPUTS_NO_BUYER: SalesContractRead = {
     ...PRICED,
     vehicleSnapshotFrozenAt: null,
     manualBasePrice: null,
-    customerId: null,
-    customerLabel: null,
-    containers: PRICED.containers?.map((c) => (c.id === 'customer' ? { ...c, status: 'not_started' } : c)),
+    contactId: null,
+    contactLabel: null,
+    containers: PRICED.containers?.map((c) => (c.id === 'contact' ? { ...c, status: 'not_started' } : c)),
   }
 
   it('a contract priced before it kept its inputs and without a buyer offers the buyer picker, and nothing else', async () => {
@@ -256,9 +256,9 @@ describe('ContractDetailPage — a pending contract can be completed (KAN-67)', 
 
     const section = await screen.findByTestId('contract-priced-without-inputs')
     expect(within(section).getByText(i18n.t('contractDetail.edit.pricedWithoutInputsNoBuyer'))).toBeInTheDocument()
-    expect(within(section).getByText(i18n.t('offerWorkspace.containers.customer'))).toBeInTheDocument()
-    expect(within(section).getByRole('button', { name: i18n.t('offerWorkspace.customer.search') })).toBeInTheDocument()
-    expect(within(section).getByText(i18n.t('offerWorkspace.customer.emptyHintContract'))).toBeInTheDocument()
+    expect(within(section).getByText(i18n.t('offerWorkspace.containers.contact'))).toBeInTheDocument()
+    expect(within(section).getByRole('button', { name: i18n.t('offerWorkspace.contact.search') })).toBeInTheDocument()
+    expect(within(section).getByText(i18n.t('offerWorkspace.contact.emptyHintContract'))).toBeInTheDocument()
     expect(screen.queryByTestId('contract-edit')).not.toBeInTheDocument()
     // No vehicle, price or trade-in editor anywhere (the hero stat row says
     // "Eintauschfahrzeug" too, so the editors are asserted, not the titles).
@@ -270,24 +270,24 @@ describe('ContractDetailPage — a pending contract can be completed (KAN-67)', 
     expect(screen.getByRole('button', { name: i18n.t('contractDetail.actions.confirm') })).toBeDisabled()
   })
 
-  it('picking the buyer of such a contract sends the customer only, and Confirm turns on', async () => {
+  it('picking the buyer of such a contract sends the contact only, and Confirm turns on', async () => {
     const user = userEvent.setup()
     let current = PRICED_WITHOUT_INPUTS_NO_BUYER
     const backend = installFakeBackend([
       {
         method: 'GET',
-        match: /^\/customers$/,
+        match: /^\/contacts$/,
         handler: () => ({
-          items: [{ id: 'cust-9', customerNumber: 'K-000009', firstName: 'Ursula', lastName: 'Vogt', companyName: null }],
+          items: [{ id: 'cust-9', contactNumber: 'K-000009', firstName: 'Ursula', lastName: 'Vogt', companyName: null }],
           nextCursor: null,
         }),
       },
-      { method: 'GET', match: /^\/customers\/cust-9$/, handler: () => ({ id: 'cust-9', lifecycleStatus: 'active' }) },
+      { method: 'GET', match: /^\/contacts\/cust-9$/, handler: () => ({ id: 'cust-9', lifecycleStatus: 'active' }) },
       {
         method: 'PATCH',
         match: /^\/sales\/contracts\/k1$/,
         handler: () => {
-          current = { ...current, customerId: 'cust-9', customerLabel: 'Ursula Vogt', version: current.version + 1 }
+          current = { ...current, contactId: 'cust-9', contactLabel: 'Ursula Vogt', version: current.version + 1 }
           return current
         },
       },
@@ -295,52 +295,52 @@ describe('ContractDetailPage — a pending contract can be completed (KAN-67)', 
     ])
     renderPage()
 
-    await user.click(await screen.findByRole('button', { name: i18n.t('offerWorkspace.customer.search') }))
-    await user.type(await screen.findByPlaceholderText(i18n.t('offerWorkspace.customer.search')), 'Vogt')
+    await user.click(await screen.findByRole('button', { name: i18n.t('offerWorkspace.contact.search') }))
+    await user.type(await screen.findByPlaceholderText(i18n.t('offerWorkspace.contact.search')), 'Vogt')
     await user.click(await screen.findByText('Ursula Vogt'))
 
     await waitFor(() => expect(backend.callsTo(/^\/sales\/contracts\/k1$/, 'PATCH')).toHaveLength(1))
     const [patch] = backend.callsTo(/^\/sales\/contracts\/k1$/, 'PATCH')
-    expect(patch.body).toEqual({ customerId: 'cust-9' })
+    expect(patch.body).toEqual({ contactId: 'cust-9' })
     expect(patch.headers.get('If-Match')).toBe(String(PRICED_WITHOUT_INPUTS_NO_BUYER.version))
     expect(await screen.findByRole('button', { name: i18n.t('contractDetail.actions.confirm') })).toBeEnabled()
     const section = screen.getByTestId('contract-priced-without-inputs')
     expect(within(section).getByText('Ursula Vogt')).toBeInTheDocument()
     expect(within(section).getByText(i18n.t('contractDetail.edit.pricedWithoutInputs'))).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: i18n.t('offerWorkspace.customer.search') })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: i18n.t('offerWorkspace.contact.search') })).not.toBeInTheDocument()
   })
 
-  it('a merged customer is refused as the buyer: the refusal says so and offers the survivor (KAN-656)', async () => {
+  it('a merged contact is refused as the buyer: the refusal says so and offers the survivor (KAN-656)', async () => {
     const user = userEvent.setup()
     let current = PRICED_WITHOUT_INPUTS_NO_BUYER
     const backend = installFakeBackend([
       {
         method: 'GET',
-        match: /^\/customers$/,
+        match: /^\/contacts$/,
         handler: () => ({
-          items: [{ id: 'cust-dup', customerNumber: 'K-000008', firstName: 'Ursi', lastName: 'Vogt', companyName: null }],
+          items: [{ id: 'cust-dup', contactNumber: 'K-000008', firstName: 'Ursi', lastName: 'Vogt', companyName: null }],
           nextCursor: null,
         }),
       },
       {
         method: 'GET',
-        match: /^\/customers\/cust-9$/,
-        handler: () => ({ id: 'cust-9', customerNumber: 'K-000009', firstName: 'Ursula', lastName: 'Vogt', companyName: null, lifecycleStatus: 'active' }),
+        match: /^\/contacts\/cust-9$/,
+        handler: () => ({ id: 'cust-9', contactNumber: 'K-000009', firstName: 'Ursula', lastName: 'Vogt', companyName: null, lifecycleStatus: 'active' }),
       },
       {
         method: 'PATCH',
         match: /^\/sales\/contracts\/k1$/,
         handler: (req) => {
-          if ((req.body as { customerId?: string }).customerId === 'cust-dup') {
+          if ((req.body as { contactId?: string }).contactId === 'cust-dup') {
             return status(409, {
               error: {
                 code: 'conflict',
-                message: 'Customer K-000008 has been merged into another — cannot be attached to a contract.',
-                details: { reason: 'customer_merged', mergedIntoCustomerId: 'cust-9' },
+                message: 'Contact K-000008 has been merged into another — cannot be attached to a contract.',
+                details: { reason: 'contact_merged', mergedIntoContactId: 'cust-9' },
               },
             })
           }
-          current = { ...current, customerId: 'cust-9', customerLabel: 'Ursula Vogt', version: current.version + 1 }
+          current = { ...current, contactId: 'cust-9', contactLabel: 'Ursula Vogt', version: current.version + 1 }
           return current
         },
       },
@@ -348,23 +348,23 @@ describe('ContractDetailPage — a pending contract can be completed (KAN-67)', 
     ])
     renderPage()
 
-    await user.click(await screen.findByRole('button', { name: i18n.t('offerWorkspace.customer.search') }))
-    await user.type(await screen.findByPlaceholderText(i18n.t('offerWorkspace.customer.search')), 'Vogt')
+    await user.click(await screen.findByRole('button', { name: i18n.t('offerWorkspace.contact.search') }))
+    await user.type(await screen.findByPlaceholderText(i18n.t('offerWorkspace.contact.search')), 'Vogt')
     await user.click(await screen.findByText('Ursi Vogt'))
 
     // Hardcoded German on purpose: a key missing on both sides must not pass.
-    expect(await screen.findByText('Dieser Kunde wurde mit einem anderen zusammengeführt und kann nicht mehr als Käufer gewählt werden.')).toBeInTheDocument()
-    expect(await screen.findByText('Der gewählte Kunde wurde mit Ursula Vogt (K-000009) zusammengeführt.')).toBeInTheDocument()
+    expect(await screen.findByText('Dieser Kontakt wurde mit einem anderen zusammengeführt und kann nicht mehr als Käufer gewählt werden.')).toBeInTheDocument()
+    expect(await screen.findByText('Der gewählte Kontakt wurde mit Ursula Vogt (K-000009) zusammengeführt.')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Ursula Vogt wählen' }))
 
     await waitFor(() => expect(backend.callsTo(/^\/sales\/contracts\/k1$/, 'PATCH')).toHaveLength(2))
     expect(backend.callsTo(/^\/sales\/contracts\/k1$/, 'PATCH').map((c) => c.body)).toEqual([
-      { customerId: 'cust-dup' },
-      { customerId: 'cust-9' },
+      { contactId: 'cust-dup' },
+      { contactId: 'cust-9' },
     ])
     const section = screen.getByTestId('contract-priced-without-inputs')
     expect(await within(section).findByText('Ursula Vogt')).toBeInTheDocument()
-    expect(screen.queryByText('Der gewählte Kunde wurde mit Ursula Vogt (K-000009) zusammengeführt.')).not.toBeInTheDocument()
+    expect(screen.queryByText('Der gewählte Kontakt wurde mit Ursula Vogt (K-000009) zusammengeführt.')).not.toBeInTheDocument()
   })
 
   it('a discount typed just before Confirm is saved first, then signed with its version (review finding)', async () => {

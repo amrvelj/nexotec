@@ -74,10 +74,10 @@ def test_rows_a_test_leaves_are_gone_and_the_schema_is_not_rebuilt(engine, db_se
 
 
 def test_ddl_a_test_runs_is_undone_before_the_next(engine, _postgres_schema):
-    oid = _oid(engine, "customer")
+    oid = _oid(engine, "contact")
     with engine.begin() as conn:
         conn.execute(text("CREATE RULE swallow_inserts AS ON INSERT TO reference_value DO INSTEAD NOTHING"))
-        conn.execute(text("ALTER TABLE customer DROP COLUMN last_name"))
+        conn.execute(text("ALTER TABLE contact DROP COLUMN last_name"))
         conn.execute(text("DROP INDEX ix_vehicle_mdm_vin"))
 
     _postgres_schema.reset()
@@ -87,11 +87,11 @@ def test_ddl_a_test_runs_is_undone_before_the_next(engine, _postgres_schema):
         assert conn.execute(
             text(
                 "SELECT count(*) FROM information_schema.columns "
-                "WHERE table_name = 'customer' AND column_name = 'last_name'"
+                "WHERE table_name = 'contact' AND column_name = 'last_name'"
             )
         ).scalar() == 1
         assert conn.execute(text("SELECT to_regclass('ix_vehicle_mdm_vin')")).scalar() is not None
-    assert _oid(engine, "customer") != oid  # rebuilt
+    assert _oid(engine, "contact") != oid  # rebuilt
     assert set(_row_counts(engine).values()) == {0}
 
 
@@ -114,7 +114,7 @@ def test_ddl_run_under_a_non_superuser_role_works_and_is_counted(engine, _postgr
     """The counting trigger runs as whoever ran the DDL; a test that SET ROLEs
     to a plain role must still be able to run DDL, as with create_all per test."""
     role = f"nexotec_tests_plain_{os.getpid()}"  # roles belong to the whole server: removed below
-    oid = _oid(engine, "customer")
+    oid = _oid(engine, "contact")
     with engine.begin() as conn:
         conn.execute(text(f'CREATE ROLE "{role}" NOLOGIN'))
         conn.execute(text(f'GRANT CREATE ON SCHEMA public TO "{role}"'))
@@ -125,7 +125,7 @@ def test_ddl_run_under_a_non_superuser_role_works_and_is_counted(engine, _postgr
 
         _postgres_schema.reset()
 
-        assert _oid(engine, "customer") != oid  # counted, so rebuilt
+        assert _oid(engine, "contact") != oid  # counted, so rebuilt
     finally:
         with engine.begin() as conn:
             conn.execute(text("DROP TABLE IF EXISTS made_by_a_plain_role"))

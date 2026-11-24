@@ -4,7 +4,7 @@ import { apiRefusalText } from '../utils/apiRefusal'
 
 /**
  * KAN-369, KAN-389 — a refused vehicle-party allocation, said in the user's
- * language. The customer's Link vehicle dialog and the vehicle's Identity tab
+ * language. The contact's Link vehicle dialog and the vehicle's Identity tab
  * send the same allocation and get the same refusals, so both map them here:
  * by the 409's `details.reason`, or by the status where the API gives none.
  * The API's English message is never shown; anything unknown is the
@@ -13,12 +13,12 @@ import { apiRefusalText } from '../utils/apiRefusal'
 export function vehiclePartyRefusalMessage(t: TFunction, err: unknown, fallbackKey: string): string {
   if (!(err instanceof ApiError)) return t(fallbackKey)
   if (err.code === 'unknown_error') return t('common.requestFailed')
-  if (err.status === 404) return t('customerDetail.linkVehicleRefused.notFound')
+  if (err.status === 404) return t('contactDetail.linkVehicleRefused.notFound')
   switch (err.details?.reason) {
-    case 'customer_merged':
-      return t('customerDetail.linkVehicleRefused.customerMerged')
+    case 'contact_merged':
+      return t('contactDetail.linkVehicleRefused.contactMerged')
     case 'vehicle_party_exists':
-      return t('customerDetail.linkVehicleRefused.roleAlreadyHeld')
+      return t('contactDetail.linkVehicleRefused.roleAlreadyHeld')
     case 'vehicle_party_future_holder':
       // KAN-583: names the future holder and its start (apiRefusal's params).
       return apiRefusalText(t, err, fallbackKey)

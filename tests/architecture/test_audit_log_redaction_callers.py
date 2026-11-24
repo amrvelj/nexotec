@@ -204,4 +204,4 @@ def test_the_guard_sees_an_aliased_import_and_a_payload_write():
     assert "redact_audit_values" in _called_names(tree)
     assert _payload_writes(tree) == [2, 3, 4, 5]
     assert len(_orm_writes(tree)) == 1
-    assert _orm_writes(ast.parse("db.query(Customer).filter(x).delete()")) == []
+    assert _orm_writes(ast.parse("db.query(Contact).filter(x).delete()")) == []

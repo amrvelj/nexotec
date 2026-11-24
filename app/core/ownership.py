@@ -38,8 +38,8 @@ from sqlalchemy.orm import Session
 @dataclasses.dataclass(frozen=True)
 class OwnedGroup:
     """One group of open records a user owns, as the deactivation dialog
-    lists it: the module (`sales`, `customer`, …), the group inside it
-    (`offers`, `contracts`, `customers`, …) and how many. Labels are the
+    lists it: the module (`sales`, `contact`, …), the group inside it
+    (`offers`, `contracts`, `contacts`, …) and how many. Labels are the
     SPA's (i18n by `module` + `group`), never English here."""
 
     module: str
@@ -106,7 +106,7 @@ class OwnershipProvider(Protocol):
         commits (ADR-047). Returns how many records moved. An unknown group
         for this module is a `ValueError`. A colleague who cannot act where
         some of the records belong — a Betrieb for Sales' deals, a Betrieb of
-        the dealer group for Customers' customers (KAN-423) — is refused as a
+        the dealer group for Contacts' contacts (KAN-423) — is refused as a
         whole: a 422 saying how many records are elsewhere, never where,
         nothing moved — so the manager chooses the queue for that group instead. `reason` is the manager's text (or the job's code)
         for the module's own audit rows."""

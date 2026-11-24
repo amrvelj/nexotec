@@ -16,7 +16,7 @@ interface DocumentPreviewBaseProps {
   src: string | null;
   title: string;
   /** The document's own correspondence language (§ The document renderer:
-   * "renders in the CUSTOMER's correspondence language passed explicitly,
+   * "renders in the CONTACT's correspondence language passed explicitly,
    * never UI locale") — shown as a small badge so it's never confused
    * with the operator's own UI language. */
   correspondenceLanguage?: string;

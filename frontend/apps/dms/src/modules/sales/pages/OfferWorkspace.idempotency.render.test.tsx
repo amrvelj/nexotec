@@ -15,7 +15,7 @@ import { OfferWorkspacePage } from './OfferWorkspacePage'
 // OfferWorkspace.configuration.render.test.tsx, the one test that drives it.
 
 const OFFER = {
-  id: 'o1', offerNumber: 'ANG-2026-0001', status: 'draft', customerId: null, customerLabel: null,
+  id: 'o1', offerNumber: 'ANG-2026-0001', status: 'draft', contactId: null, contactLabel: null,
   vehicleSource: null, stockItemId: null, vehicleLabel: null, tradeInVehicleId: null, tradeInConfigurationId: null,
   tradeInLabel: null, tradeInVin: null, tradeInValuationId: null, tradeInValue: null, containers: [], version: 4,
 } as unknown as SalesOfferRead

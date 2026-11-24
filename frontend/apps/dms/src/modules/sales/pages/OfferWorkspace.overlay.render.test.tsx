@@ -6,17 +6,17 @@ import userEvent from '@testing-library/user-event'
 import i18n from '../../../i18n'
 import { renderWithProviders } from '../../../test/renderWithProviders'
 import { installFakeBackend } from '../../../test/fakeBackend'
-import { customer } from '../../../test/fixtures'
+import { contact } from '../../../test/fixtures'
 import type { SalesOfferRead } from '../../../api/types'
 import { OfferWorkspacePage } from './OfferWorkspacePage'
-import { CustomerDetailPage } from '../../customer/pages/CustomerDetailPage'
+import { ContactDetailPage } from '../../contact/pages/ContactDetailPage'
 
-// WP-6c exit criterion / ADR-059: "a customer opens as an overlay above
+// WP-6c exit criterion / ADR-059: "a contact opens as an overlay above
 // another screen without the underlying screen losing state." The one the
 // ADR is written for — "a seller thirty minutes into a negotiation who
-// opens the customer … presses back and finds an empty draft has learned
+// opens the contact … presses back and finds an empty draft has learned
 // never to click that again." Here: a half-typed trade-in VIN on the
-// offer workspace must still be there after the customer overlay opens,
+// offer workspace must still be there after the contact overlay opens,
 // is used, and closes. (C-F, KAN-10: this used the manual vehicle-label
 // field, which FR-C-12 replaced with the configurator overlay; the
 // configurator's own round trip is OfferWorkspace.configuration.render.test.)
@@ -25,9 +25,9 @@ const draftOffer = (): SalesOfferRead => ({
   id: 'o1',
   offerNumber: 'ANG-2026-0001',
   status: 'draft',
-  customerId: 'cust-1',
-  customerLabel: 'Hans Muster',
-  customerLocality: null,
+  contactId: 'cust-1',
+  contactLabel: 'Hans Muster',
+  contactLocality: null,
   vehicleSource: null,
   stockItemId: null,
   vehicleLabel: null,
@@ -58,7 +58,7 @@ const draftOffer = (): SalesOfferRead => ({
   cancelledReason: null,
   copiedFromOfferId: null,
   containers: [
-    { id: 'customer', requirement: 'required', status: 'complete' },
+    { id: 'contact', requirement: 'required', status: 'complete' },
     { id: 'vehicle', requirement: 'required', status: 'not_started' },
     { id: 'pricing', requirement: 'required', status: 'not_started' },
     { id: 'trade_in', requirement: 'optional', status: 'not_started' },
@@ -79,10 +79,10 @@ function installOfferBackend() {
     { match: /^\/sales\/offers\/o1$/, handler: () => draftOffer() },
     { match: /^\/integrations\/capabilities\/packages$/, handler: () => ({ capabilityCode: 'packages', granted: false }) },
     { match: /^\/sales\/offers\/o1\/line-items$/, handler: () => ({ items: [] }) },
-    { match: /^\/customers\/cust-1$/, handler: () => customer({ id: 'cust-1', firstName: 'Hans', lastName: 'Muster' }) },
-    { match: /^\/customers\/cust-1\/(phones|emails)$/, handler: () => ({ items: [] }) },
-    { match: /^\/customers\/cust-1\/(vehicles|external-ids)$/, handler: () => ({ items: [], nextCursor: null }) },
-    { match: /^\/customers\/cust-1\/audit-log$/, handler: () => ({ items: [], nextCursor: null }) },
+    { match: /^\/contacts\/cust-1$/, handler: () => contact({ id: 'cust-1', firstName: 'Hans', lastName: 'Muster' }) },
+    { match: /^\/contacts\/cust-1\/(phones|emails)$/, handler: () => ({ items: [] }) },
+    { match: /^\/contacts\/cust-1\/(vehicles|external-ids)$/, handler: () => ({ items: [], nextCursor: null }) },
+    { match: /^\/contacts\/cust-1\/audit-log$/, handler: () => ({ items: [], nextCursor: null }) },
   ])
 }
 
@@ -92,7 +92,7 @@ function renderWorkspace() {
       <LocationProbe />
       <Routes>
         <Route path="/sales/offers/:id" element={<OfferWorkspacePage />} />
-        <Route path="/customers/:id" element={<CustomerDetailPage />} />
+        <Route path="/contacts/:id" element={<ContactDetailPage />} />
       </Routes>
     </>,
     { route: '/sales/offers/o1' },
@@ -108,7 +108,7 @@ async function typeHalfBuiltVehicle(user: ReturnType<typeof userEvent.setup>) {
   return field
 }
 
-describe('OfferWorkspace — a customer overlay never disturbs the offer underneath (ADR-059)', () => {
+describe('OfferWorkspace — a contact overlay never disturbs the offer underneath (ADR-059)', () => {
   it('keeps the half-typed trade-in VIN through opening, using and closing the overlay', async () => {
     const user = userEvent.setup()
     installOfferBackend()
@@ -117,14 +117,14 @@ describe('OfferWorkspace — a customer overlay never disturbs the offer underne
     await typeHalfBuiltVehicle(user)
     expect(screen.getByLabelText(tradeInVinLabel())).toHaveValue('ZFFSG17A0H0071234')
 
-    // Open the customer as an overlay.
+    // Open the contact as an overlay.
     await user.click(screen.getByRole('button', { name: 'Hans Muster' }))
     const dialog = await screen.findByRole('dialog')
     // The address bar is untouched — the overlay is not a navigation.
     expect(screen.getByTestId('path')).toHaveTextContent('/sales/offers/o1')
 
     // Work inside the overlay: switch a tab (repaints the top layer only).
-    const vehiclesTab = within(dialog).getByRole('tab', { name: new RegExp(i18n.t('customerDetail.tabs.vehicles'), 'i') })
+    const vehiclesTab = within(dialog).getByRole('tab', { name: new RegExp(i18n.t('contactDetail.tabs.vehicles'), 'i') })
     await user.click(vehiclesTab)
     await waitFor(() => expect(vehiclesTab).toHaveAttribute('aria-selected', 'true'))
 

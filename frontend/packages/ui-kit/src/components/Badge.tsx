@@ -34,7 +34,7 @@ export interface BadgeProps {
  * matching tinted surface. A status badge may carry a 5px leading dot; a
  * type badge carries a 14px icon." (§ Badges and Status)
  *
- * This is the low-level primitive — see CustomerTypeBadge,
+ * This is the low-level primitive — see ContactTypeBadge,
  * LifecycleStatusBadge, LanguageBadge for the ready-to-use, spec-mapped
  * wrappers most screens should reach for instead of this directly.
  */

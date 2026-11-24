@@ -131,7 +131,7 @@ export function GroupStockGrid({
     [columns]
   )
   // A user with no saved layout sees the documented default subset, the
-  // rest one click away (ADR-060) — as on Customers. DataGrid without a
+  // rest one click away (ADR-060) — as on Contacts. DataGrid without a
   // layout would render every column, defaultVisible ignored.
   const columnLayout = useMemo(
     () => gridPrefs.columnLayout ?? defaultColumnLayout(columnRegistry),

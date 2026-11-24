@@ -232,7 +232,7 @@
       "label": "Quelle des Neupreises",
       "catalogue": "Katalog (Modelljahr)",
       "document": "Fahrzeugausweis / Importeurdokument",
-      "customer": "Angabe des Kunden"
+      "customer": "Angabe des Kontakts"
     },
     "modelDescription": "Modellbezeichnung (optional)",
     "ask": "Übereinstimmung suchen",

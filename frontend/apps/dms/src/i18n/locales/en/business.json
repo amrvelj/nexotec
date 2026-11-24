@@ -64,7 +64,7 @@
   "addressEntry": {
     "title": "Address entry",
     "enabled": "Address suggestions from Google Places",
-    "enabledHint": "While an address is entered, the typed address text is sent to Google – never the name or any other customer data. Only the chosen address is stored; every field stays editable.",
+    "enabledHint": "While an address is entered, the typed address text is sent to Google – never the name or any other contact data. Only the chosen address is stored; every field stays editable.",
     "unavailable": "No Google key is configured on this installation. Suggestions appear once Nexotec has configured it."
   },
   "banking": {

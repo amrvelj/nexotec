@@ -1,7 +1,7 @@
 {
-  "title": "Customer mail",
-  "subtitle": "Offers, contracts and other mail to customers leave only from a mailbox of your business – Microsoft 365 or Google Workspace. When a person has connected their own mailbox, their mail goes from there; otherwise from the business's mailbox. With none connected, the app cannot send customer mail.",
-  "loadError": "The customer mail settings could not be loaded.",
+  "title": "Mail to contacts",
+  "subtitle": "Offers, contracts and other mail to contacts leave only from a mailbox of your business – Microsoft 365 or Google Workspace. When a person has connected their own mailbox, their mail goes from there; otherwise from the business's mailbox. With none connected, the app cannot send mail to contacts.",
+  "loadError": "The settings for mail to contacts could not be loaded.",
   "providers": {
     "microsoft_365_mail": "Microsoft 365",
     "google_workspace_mail": "Google Workspace"
@@ -39,12 +39,12 @@
   },
   "own": {
     "heading": "My mailbox",
-    "intro": "Connect your own mailbox so customers get your mail from you and replies reach you. Sent mail appears in your «Sent» folder.",
+    "intro": "Connect your own mailbox so contacts get your mail from you and replies reach you. Sent mail appears in your «Sent» folder.",
     "none": "You have not connected your own mailbox yet.",
     "connect": "Connect with {{provider}}",
     "disconnect": "Disconnect",
     "confirmDisconnect": "Yes, disconnect",
-    "senderTitle": "Your customer mail goes from",
+    "senderTitle": "Your mail to contacts goes from",
     "sender": {
       "user_mailbox": "your own mailbox: {{address}}",
       "business_mailbox": "the business mailbox: {{address}}"
@@ -53,7 +53,7 @@
   },
   "links": {
     "ownScreen": "My mailbox",
-    "businessScreen": "Administration › Customer mail"
+    "businessScreen": "Administration › Mail to contacts"
   },
   "callback": {
     "working": "Connecting your mailbox …",
@@ -75,7 +75,7 @@
     "business_mailbox_in_error": "The business mailbox cannot send right now. A manager reconnects it.",
     "no_recipient": "The mail has no recipient.",
     "already_disconnected": "This mailbox is already disconnected.",
-    "mail_provider_platform_only": "Nexotec sets up this provider. Connect your mailbox under Administration › Customer mail.",
+    "mail_provider_platform_only": "Nexotec sets up this provider. Connect your mailbox under Administration › Mail to contacts.",
     "id_token_invalid": "The sign-in at the provider could not be confirmed. Please start again.",
     "not_a_business_account": "Please sign in with your company's account, not a private one.",
     "not_an_administrator": "Only an administrator of your organisation can connect the business mailbox.",

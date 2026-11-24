@@ -45,8 +45,8 @@ class ValuationExporter(TableExporter):
 
     def references(self, db: Session, scope: ExportScope) -> Mapping[str, frozenset[uuid.UUID]]:
         ids = db.scalars(
-            select(Valuation.customer_id).where(
-                Valuation.tenant_id == scope.dealership_id, Valuation.customer_id.is_not(None)
+            select(Valuation.contact_id).where(
+                Valuation.tenant_id == scope.dealership_id, Valuation.contact_id.is_not(None)
             )
         )
-        return {"customer": frozenset(customer_id for customer_id in ids if customer_id is not None)}
+        return {"contact": frozenset(contact_id for contact_id in ids if contact_id is not None)}

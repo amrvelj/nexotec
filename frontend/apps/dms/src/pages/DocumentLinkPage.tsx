@@ -26,13 +26,13 @@ function readToken(): string {
   }
 }
 
-/** KAN-217 PR-4 (ADR-193): the page a customer opens from an SMS or a
+/** KAN-217 PR-4 (ADR-193): the page a contact opens from an SMS or a
  * WhatsApp message — `/d?lang=<language>#<token>`. No sign-in. The token is in
  * the URL's fragment, which a browser never sends to a server; the page takes
  * it out of the address bar at once and hands it to the API in a header. An
  * unknown, expired or used-up link is one message, as the server's one 404.
  *
- * `?lang=` is the customer's correspondence language (not a secret): the page
+ * `?lang=` is the contact's correspondence language (not a secret): the page
  * opens in it. The token is kept for this tab only (sessionStorage), so a
  * reload of the cleaned address still opens the document.
  *

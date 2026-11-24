@@ -2,7 +2,7 @@
   "nav": {
     "dashboard": "Dashboard",
     "masterData": "Master Data",
-    "customers": "Customers",
+    "contacts": "Contacts",
     "vehicles": "Vehicles",
     "mappingGaps": "Mapping gaps",
     "partners": "Partners",
@@ -39,7 +39,7 @@
     "status": "Status",
     "platformStatus": "Nexotec status",
     "aiTexts": "AI texts",
-    "customerMail": "Customer mail",
+    "contactMail": "Mail to contacts",
     "supportSessions": "Support sessions",
     "platformUsers": "Platform users"
   },

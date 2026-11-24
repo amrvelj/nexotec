@@ -154,8 +154,8 @@ _CHANGED_MESSAGES = [
     ("app/core/export_core.py", "Consumer bookkeeping, no business's data."),
     ("app/core/export_core.py", "Nexotec's job scheduler, no business's data."),
     ("app/core/export_core.py", "Nexotec's nightly integrity check, no business's data."),
-    ("app/customer/services/contact_groups.py", "Contact group not switched on for this business: "),
-    ("app/customer/services/contact_groups.py", "Contact group cannot be removed from this business: "),
+    ("app/contact/services/contact_groups.py", "Contact group not switched on for this business: "),
+    ("app/contact/services/contact_groups.py", "Contact group cannot be removed from this business: "),
     (
         "app/integration/adapters/auto_i_dat_ident.py",
         (

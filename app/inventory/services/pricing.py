@@ -107,7 +107,7 @@ def get_stock_item_pricing(db: Session, *, tenant_id: uuid.UUID, stock_item_id: 
     mutate an inventory object).
 
     `purchasePrice` (Einstandspreis) is the one field here Sales must
-    never surface to a customer — it feeds only the seller-only margin
+    never surface to a contact — it feeds only the seller-only margin
     calculation (ADR-049/029), never the printed price build-up.
 
     KAN-25: `landedCost` and the `notionalInputTax*` fields (Art. 28a

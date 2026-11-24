@@ -3,7 +3,7 @@
 here so the mapped `VehicleMdm` and `VehicleConfiguration` classes never
 leave the vehicle context (KAN-123 step 6, ADR-162).
 
-Customers (vehicle parties), Sales (offers, contracts, deals), Valuation and
+Contacts (vehicle parties), Sales (offers, contracts, deals), Valuation and
 Stock hold vehicle-mdm and configuration ids (the three-column pattern).
 Their `reconciliation.py` asks:
 

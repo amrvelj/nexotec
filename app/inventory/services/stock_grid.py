@@ -139,7 +139,7 @@ STOCK_ITEM_EXCLUDED_COLUMNS: dict[str, str] = {
     "configuration_label_refreshed_at": "label-refresh bookkeeping (the three-column pattern)",
     "reserved_by_contract_id": "Sales' contract id; `reservationState` shows the reservation",
     "active_reservation_id": "the reservation row's id; `reservationState` shows the reservation",
-    "trade_in_customer_id": "a customer id relayed from Sales with no label on the item",
+    "trade_in_contact_id": "a contact id relayed from Sales with no label on the item",
     "supplier_contact_id": "the supplier contact's id; shown by `supplierLabel`, which links to it (KAN-465)",
     "supplier_label_refreshed_at": "label-refresh bookkeeping (the three-column pattern)",
     "valuation_ref_id": "the valuation's id; its amount, source and date are columns",

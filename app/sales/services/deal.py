@@ -42,7 +42,7 @@ def list_deals(
     queue FR-A-37 names — OPEN deals (an open offer, a pending contract) with
     no responsible seller, e.g. a leaver's handed to nobody (KAN-200). Drafts
     stay hidden here as everywhere on this grid (Anto, 2026-10-20): an
-    unassigned draft is reached from its customer's tab. Both together is an
+    unassigned draft is reached from its contact's tab. Both together is an
     empty page, not an error. `vehicle_changed` (KAN-553): true keeps the
     deals flagged «Fahrzeug im Lager geändert», false the others."""
 
@@ -55,7 +55,7 @@ def list_deals(
         stmt = stmt.where(
             or_(
                 SalesDeal.number.ilike(like),
-                SalesDeal.customer_label.ilike(like),
+                SalesDeal.contact_label.ilike(like),
                 SalesDeal.vehicle_label.ilike(like),
             )
         )

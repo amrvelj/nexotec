@@ -25,10 +25,10 @@ never an open question: `test_every_exemption_states_a_ruled_reason` refuses
 one that says a decision is pending.
 """
 
+from app.contact.models.contact import ContactAddress, ContactEmail, ContactExternalId, ContactPhone
+from app.contact.models.vehicle_party import VehicleParty
 from app.core.base import VersionedMixin
 from app.core.concurrency import require_if_match
-from app.customer.models.customer import CustomerAddress, CustomerEmail, CustomerExternalId, CustomerPhone
-from app.customer.models.vehicle_party import VehicleParty
 from app.integration.models.secret_ref import IntegrationSecretRef
 from app.inventory.models.stock_item_publishing import StockItemMedia
 from app.main import app
@@ -70,7 +70,7 @@ POST_WITHOUT_IF_MATCH = {
     "/v1/dealerships/{dealership_id}/legal-acceptances": _NEW_ROW,
     "/v1/platform/dealerships/{dealership_id}/exports": _NEW_ROW,
     "/v1/dealerships/{dealership_id}/users/{user_id}/ownership/transfers": "the hand-over (D-A-35) bumps every "
-    "moved offer's, contract's and customer's version, judged again under each row's lock — no single version "
+    "moved offer's, contract's and contact's version, judged again under each row's lock — no single version "
     "to match",
     "/v1/dealerships/{dealership_id}/users/{user_id}/memberships": "a membership row; the user row is locked first "
     "and a second first grant is a 409 (KAN-380)",
@@ -113,12 +113,12 @@ POST_WITHOUT_IF_MATCH = {
     "/v1/platform/support-sessions/{session_id}/end": "a support session (KAN-221) has no version: it is "
     "written once at the start and once at the end, the end under the row's FOR UPDATE lock, and a second end "
     "is 409 support_session_ended — nothing a stale reader could overwrite",
-    "/v1/customers/{customer_id}/phones": _CHILD_ROW,
-    "/v1/customers/{customer_id}/emails": _CHILD_ROW,
-    "/v1/customers/{customer_id}/addresses": _CHILD_ROW,
-    "/v1/customers/{customer_id}/external-ids": _CHILD_ROW,
-    "/v1/customers/{customer_id}/vehicles": _CHILD_ROW,
-    "/v1/customers/{customer_id}/legal-basis": _CHILD_ROW,
+    "/v1/contacts/{contact_id}/phones": _CHILD_ROW,
+    "/v1/contacts/{contact_id}/emails": _CHILD_ROW,
+    "/v1/contacts/{contact_id}/addresses": _CHILD_ROW,
+    "/v1/contacts/{contact_id}/external-ids": _CHILD_ROW,
+    "/v1/contacts/{contact_id}/vehicles": _CHILD_ROW,
+    "/v1/contacts/{contact_id}/legal-basis": _CHILD_ROW,
     "/v1/inventory/stock-items/{stock_item_id}/reservations": _KAN_428 + "a car already held refuses a second "
     "hold (409); platform staff only (KAN-376) — Sales reserves through its own internal call",
     "/v1/inventory/reservations/{reservation_id}/release": _KAN_428 + "names the reservation it ends, so it "
@@ -154,16 +154,16 @@ UNVERSIONED = {
         ),
     ),
     ("DELETE", "/v1/vehicle-mdm/{vehicle_id}/accessories/{accessory_id}"): (VehicleAccessory, "an accessory row"),
-    ("PATCH", "/v1/customers/{customer_id}/phones/{phone_id}"): (CustomerPhone, "a contact channel row (ADR-067)"),
-    ("DELETE", "/v1/customers/{customer_id}/phones/{phone_id}"): (CustomerPhone, "a contact channel row (ADR-067)"),
-    ("PATCH", "/v1/customers/{customer_id}/emails/{email_id}"): (CustomerEmail, "a contact channel row (ADR-067)"),
-    ("DELETE", "/v1/customers/{customer_id}/emails/{email_id}"): (CustomerEmail, "a contact channel row (ADR-067)"),
-    ("PATCH", "/v1/customers/{customer_id}/addresses/{address_id}"): (CustomerAddress, "an address row"),
-    ("DELETE", "/v1/customers/{customer_id}/addresses/{address_id}"): (CustomerAddress, "an address row"),
-    ("PATCH", "/v1/customers/{customer_id}/external-ids/{external_id_row_id}"): (CustomerExternalId, "an external id"),
-    ("DELETE", "/v1/customers/{customer_id}/external-ids/{external_id_row_id}"): (CustomerExternalId, "an external id"),
-    ("PATCH", "/v1/customers/{customer_id}/vehicles/{party_id}"): (VehicleParty, "a vehicle party row"),
-    ("DELETE", "/v1/customers/{customer_id}/vehicles/{party_id}"): (VehicleParty, "a vehicle party row"),
+    ("PATCH", "/v1/contacts/{contact_id}/phones/{phone_id}"): (ContactPhone, "a contact channel row (ADR-067)"),
+    ("DELETE", "/v1/contacts/{contact_id}/phones/{phone_id}"): (ContactPhone, "a contact channel row (ADR-067)"),
+    ("PATCH", "/v1/contacts/{contact_id}/emails/{email_id}"): (ContactEmail, "a contact channel row (ADR-067)"),
+    ("DELETE", "/v1/contacts/{contact_id}/emails/{email_id}"): (ContactEmail, "a contact channel row (ADR-067)"),
+    ("PATCH", "/v1/contacts/{contact_id}/addresses/{address_id}"): (ContactAddress, "an address row"),
+    ("DELETE", "/v1/contacts/{contact_id}/addresses/{address_id}"): (ContactAddress, "an address row"),
+    ("PATCH", "/v1/contacts/{contact_id}/external-ids/{external_id_row_id}"): (ContactExternalId, "an external id"),
+    ("DELETE", "/v1/contacts/{contact_id}/external-ids/{external_id_row_id}"): (ContactExternalId, "an external id"),
+    ("PATCH", "/v1/contacts/{contact_id}/vehicles/{party_id}"): (VehicleParty, "a vehicle party row"),
+    ("DELETE", "/v1/contacts/{contact_id}/vehicles/{party_id}"): (VehicleParty, "a vehicle party row"),
     ("DELETE", "/v1/inventory/stock-items/{stock_item_id}/media/{media_id}"): (StockItemMedia, "a photo row"),
     ("PUT", "/v1/integrations/connections/{connection_id}/secrets/{slot}"): (IntegrationSecretRef, "a secret slot"),
     ("DELETE", "/v1/integrations/connections/{connection_id}/secrets/{slot}"): (IntegrationSecretRef, "a secret slot"),

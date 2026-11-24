@@ -17,12 +17,12 @@ from sqlalchemy import text
 from app.core.auth import AccessRole
 from app.platform.reference_data_seed import load_country_seed
 
-# --- shared fixtures reused from the customer suite --------------------------
-from tests.customer.test_customer import (
+# --- shared fixtures reused from the contact suite --------------------------
+from tests.contact.test_contact import (
     _bearer,
-    _create_customer,
+    _contact_payload,
+    _create_contact,
     _create_dealer,
-    _customer_payload,
     _token,
 )
 
@@ -122,8 +122,8 @@ def test_every_country_row_has_all_four_labels(client):
 def test_nationality_full_country_name_is_rejected_with_a_helpful_message(client):
     dealer_id = _create_dealer(client)
     response = client.post(
-        "/v1/customers",
-        json=_customer_payload(nationality="Croatia"),
+        "/v1/contacts",
+        json=_contact_payload(nationality="Croatia"),
         headers=_manager(dealer_id),
     )
     assert response.status_code == 422, response.text
@@ -139,8 +139,8 @@ def test_nationality_non_membership_codes_are_rejected(client, bad):
 
     dealer_id = _create_dealer(client)
     response = client.post(
-        "/v1/customers",
-        json=_customer_payload(nationality=bad),
+        "/v1/contacts",
+        json=_contact_payload(nationality=bad),
         headers=_manager(dealer_id),
     )
     assert response.status_code == 422, response.text
@@ -151,16 +151,16 @@ def test_valid_nationality_round_trips_through_create_and_edit(client):
     dealer_id = _create_dealer(client)
 
     created = client.post(
-        "/v1/customers",
-        json=_customer_payload(nationality="HR"),
+        "/v1/contacts",
+        json=_contact_payload(nationality="HR"),
         headers=_manager(dealer_id),
     )
     assert created.status_code == 201, created.text
     assert created.json()["nationality"] == "HR"
 
-    customer_id = created.json()["id"]
+    contact_id = created.json()["id"]
     patched = client.patch(
-        f"/v1/customers/{customer_id}",
+        f"/v1/contacts/{contact_id}",
         json={"nationality": "CH"},
         headers={**_manager(dealer_id), "If-Match": "1"},
     )
@@ -168,7 +168,7 @@ def test_valid_nationality_round_trips_through_create_and_edit(client):
     assert patched.json()["nationality"] == "CH"
 
     cleared = client.patch(
-        f"/v1/customers/{customer_id}",
+        f"/v1/contacts/{contact_id}",
         json={"nationality": None},
         headers={**_manager(dealer_id), "If-Match": "2"},
     )
@@ -178,9 +178,9 @@ def test_valid_nationality_round_trips_through_create_and_edit(client):
 
 def test_patch_to_a_bad_nationality_is_rejected(client):
     dealer_id = _create_dealer(client)
-    customer = _create_customer(client, dealer_id)
+    contact = _create_contact(client, dealer_id)
     response = client.patch(
-        f"/v1/customers/{customer['id']}",
+        f"/v1/contacts/{contact['id']}",
         json={"nationality": "Croatia"},
         headers={**_manager(dealer_id), "If-Match": "1"},
     )
@@ -190,9 +190,9 @@ def test_patch_to_a_bad_nationality_is_rejected(client):
 # --- address country ------------------------------------------------------
 
 
-def test_nested_address_country_is_validated_on_customer_create(client):
+def test_nested_address_country_is_validated_on_contact_create(client):
     dealer_id = _create_dealer(client)
-    payload = _customer_payload(
+    payload = _contact_payload(
         addresses=[
             {
                 "addressType": "domicile",
@@ -204,18 +204,18 @@ def test_nested_address_country_is_validated_on_customer_create(client):
             }
         ]
     )
-    response = client.post("/v1/customers", json=payload, headers=_manager(dealer_id))
+    response = client.post("/v1/contacts", json=payload, headers=_manager(dealer_id))
     assert response.status_code == 422, response.text
     assert "addresses[0].addressCountry" in response.json()["error"]["details"]["invalid"]
 
 
 def test_address_child_endpoint_validates_country(client):
     dealer_id = _create_dealer(client)
-    customer = _create_customer(client, dealer_id)
+    contact = _create_contact(client, dealer_id)
     headers = _manager(dealer_id)
 
     bad = client.post(
-        f"/v1/customers/{customer['id']}/addresses",
+        f"/v1/contacts/{contact['id']}/addresses",
         json={
             "addressType": "domicile", "addressStreet": "Marktgasse", "addressHouseNumber": "10",
             "addressPostalCode": "3011", "addressLocality": "Bern", "addressCountry": "XX",
@@ -225,7 +225,7 @@ def test_address_child_endpoint_validates_country(client):
     assert bad.status_code == 422, bad.text
 
     good = client.post(
-        f"/v1/customers/{customer['id']}/addresses",
+        f"/v1/contacts/{contact['id']}/addresses",
         json={
             "addressType": "domicile", "addressStreet": "Marktgasse", "addressHouseNumber": "10",
             "addressPostalCode": "3011", "addressLocality": "Bern", "addressCountry": "DE",
@@ -235,7 +235,7 @@ def test_address_child_endpoint_validates_country(client):
     assert good.status_code == 201, good.text
 
     patched = client.patch(
-        f"/v1/customers/{customer['id']}/addresses/{good.json()['id']}",
+        f"/v1/contacts/{contact['id']}/addresses/{good.json()['id']}",
         json={"addressCountry": "Germany"},
         headers=headers,
     )
@@ -257,17 +257,17 @@ def test_deactivated_country_code_is_rejected_on_new_writes(client):
     assert deactivate.status_code == 200, deactivate.text
 
     response = client.post(
-        "/v1/customers",
-        json=_customer_payload(nationality="HR"),
+        "/v1/contacts",
+        json=_contact_payload(nationality="HR"),
         headers=_manager(dealer_id),
     )
     assert response.status_code == 422, response.text
 
 
-def test_customer_holding_a_since_deactivated_code_can_still_be_edited(client):
+def test_contact_holding_a_since_deactivated_code_can_still_be_edited(client):
     dealer_id = _create_dealer(client)
     admin = _bearer(_token(AccessRole.PLATFORM_ADMIN, tenant_id=uuid.UUID(dealer_id)))
-    customer = _create_customer(client, dealer_id, nationality="HR")
+    contact = _create_contact(client, dealer_id, nationality="HR")
 
     client.patch(
         "/v1/reference-data/country/HR",
@@ -277,7 +277,7 @@ def test_customer_holding_a_since_deactivated_code_can_still_be_edited(client):
 
     # A PATCH that doesn't touch nationality must not re-validate it.
     patched = client.patch(
-        f"/v1/customers/{customer['id']}",
+        f"/v1/contacts/{contact['id']}",
         json={"lastName": "Neu"},
         headers={**_manager(dealer_id), "If-Match": "1"},
     )
@@ -288,7 +288,7 @@ def test_customer_holding_a_since_deactivated_code_can_still_be_edited(client):
 
 
 def test_country_list_absent_is_a_deployment_fault_not_a_404(client, engine):
-    """If the platform-branch seed migration hasn't run, a customer create
+    """If the platform-branch seed migration hasn't run, a contact create
     must fail loudly as a server error — never a 404/422 that reads like the
     client sent something wrong."""
 
@@ -304,7 +304,7 @@ def test_country_list_absent_is_a_deployment_fault_not_a_404(client, engine):
     dealer_id = _create_dealer(client)
     with pytest.raises(RuntimeError, match="country.*reference list is not seeded"):
         client.post(
-            "/v1/customers",
-            json=_customer_payload(nationality="CH"),
+            "/v1/contacts",
+            json=_contact_payload(nationality="CH"),
             headers=_manager(dealer_id),
         )

@@ -25,7 +25,7 @@ vi.mock("@tanstack/react-virtual", () => ({
 
 // KAN-710 — a DataGrid cell is a fixed-height box that clips (overflow
 // hidden, one line). An InlineEditField in a cell (Reference data's language
-// columns, the customer's External IDs) put its refused save and «reload»
+// columns, the contact's External IDs) put its refused save and «reload»
 // below the editor, inside the cell: cut off, so a refused save looked like
 // one that silently did nothing. Inside a grid cell the refusal now opens in
 // a popover in a portal — outside the clipping cell — and «reload» stays

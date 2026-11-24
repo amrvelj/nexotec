@@ -1,13 +1,13 @@
 {
   "title": "Offerten & Verträge",
   "newOffer": "Neue Offerte",
-  "searchPlaceholder": "Kontrollschild, VIN, Kunde, Offerte …",
+  "searchPlaceholder": "Kontrollschild, VIN, Kontakt, Offerte …",
   "loadError": "Offerten und Verträge konnten nicht geladen werden.",
   "allDealsView": "Alle Offerten und Verträge",
   "columns": {
     "number": "Nummer",
     "type": "Art",
-    "customer": "Kunde",
+    "contact": "Kontakt",
     "vehicle": "Fahrzeug",
     "grossPrice": "Verkaufspreis",
     "status": "Status",

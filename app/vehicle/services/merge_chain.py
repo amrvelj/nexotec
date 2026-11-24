@@ -16,7 +16,7 @@ def merged_vehicle_chain(db: Session, vehicle_id: uuid.UUID) -> tuple[uuid.UUID,
     chain order (A merged into B, B into C gives (A, B, C)); an id never
     merged, or naming no record, gives itself alone. Read-only, from the
     column (as `resolve_merged_id`). A writer of rows that follow a merge
-    asynchronously — customer's party rows, moved by its consumer of
+    asynchronously — contact's party rows, moved by its consumer of
     `vehicle.vehicle_mdm.merged` — reads its rows on every id here, so a fact
     consumed before that move still finds them."""
 

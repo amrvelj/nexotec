@@ -2,7 +2,7 @@
 contact never leaves the stock item on the merged contact.
 
 Without a lock: the booking reads the contact as live, the merge commits, the
-`inventory.customer_merged` consumer runs while the booking is uncommitted and
+`inventory.contact_merged` consumer runs while the booking is uncommitted and
 misses the item, and the booking commits on the merged contact — nothing
 moves it afterwards. Both sides now take Stock's advisory lock on the contact
 (`services/supplier_lock.py`), the booking before its row lock, the consumer
@@ -22,14 +22,14 @@ from sqlalchemy.orm import sessionmaker
 from app.core.errors import UnprocessableEntityError
 from app.core.outbox_model import OutboxMessage
 from app.inventory import consumers as inventory_consumers
-from app.inventory.consumers import handle_customer_merged_message
+from app.inventory.consumers import handle_contact_merged_message
 from app.inventory.models.stock_item import StockItem, StockItemCondition
 from app.inventory.schemas.purchase import RecordPurchaseRequest
 from app.inventory.schemas.stock_item import StockItemCreate
 from app.inventory.services import purchase as purchase_service
 from app.inventory.services.stock_item import create_stock_item, get_stock_item_for_update_or_404
 from app.inventory.services.supplier_lock import lock_supplier_contact
-from tests.customer.test_customer_vehicle_party_close_rule import _merge, _run, _wait_until_a_backend_waits_on_a_lock
+from tests.contact.test_contact_vehicle_party_close_rule import _merge, _run, _wait_until_a_backend_waits_on_a_lock
 from tests.inventory.test_inventory_purchase import _make_dealership
 from tests.stock_support import supplier_contact
 
@@ -72,9 +72,9 @@ def _book(session, tenant_id, item_id, contact_id) -> None:
 
 def _consume(session, duplicate_id) -> None:
     message = session.scalars(
-        select(OutboxMessage).where(OutboxMessage.event_type == "customer.merged", OutboxMessage.aggregate_id == duplicate_id)
+        select(OutboxMessage).where(OutboxMessage.event_type == "contact.merged", OutboxMessage.aggregate_id == duplicate_id)
     ).one()
-    handle_customer_merged_message(session, message)
+    handle_contact_merged_message(session, message)
     session.commit()
 
 
@@ -133,7 +133,7 @@ def test_a_booking_while_the_consumer_moves_the_duplicates_items_waits_and_is_re
     dealership, duplicate, survivor, item_id = _setup(db_session)
     with sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)() as merging:
         _merge(merging, duplicate, survivor, dealership.dealer_group_id)
-    reached, release = _pause(monkeypatch, inventory_consumers, "resolve_live_customer_id", "consumer")
+    reached, release = _pause(monkeypatch, inventory_consumers, "resolve_live_contact_id", "consumer")
     factory = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
     errors: list[Exception] = []
 

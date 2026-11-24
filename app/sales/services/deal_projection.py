@@ -12,7 +12,7 @@ KAN-409; Anto, 2026-10-21, option A both times). So an offer-side write
 after a contract exists re-projects the contract, never the offer's buyer,
 car or documents onto the contract's row; and a cancelled contract hands
 the row back to its offer, which is open work again — the cancelled
-contract stays on the offer's and the customer's history. A contract
+contract stays on the offer's and the contact's history. A contract
 started without an offer is its own deal and keeps its row, cancelled or
 not.
 """
@@ -124,10 +124,10 @@ def _project_contract(db: Session, contract: SalesContract) -> SalesDeal:
     deal.offer_number = contract.offer_number
     deal.contract_id = contract.id
     deal.contract_number = contract.contract_number
-    deal.customer_id = contract.customer_id
-    deal.customer_label = contract.customer_label
-    deal.customer_locality = contract.customer_locality
-    deal.customer_denorm_refreshed_at = contract.customer_denorm_refreshed_at
+    deal.contact_id = contract.contact_id
+    deal.contact_label = contract.contact_label
+    deal.contact_locality = contract.contact_locality
+    deal.contact_denorm_refreshed_at = contract.contact_denorm_refreshed_at
     deal.vehicle_label = contract.vehicle_label
     # KAN-570: the stock number the contract carries (KAN-157).
     deal.stock_item_label = contract.stock_item_label
@@ -167,10 +167,10 @@ def _project_offer(db: Session, offer: SalesOffer) -> SalesDeal:
     # row is the offer's again, as before the contract was made.
     deal.contract_id = None
     deal.contract_number = None
-    deal.customer_id = offer.customer_id
-    deal.customer_label = offer.customer_label
-    deal.customer_locality = offer.customer_locality
-    deal.customer_denorm_refreshed_at = offer.customer_denorm_refreshed_at
+    deal.contact_id = offer.contact_id
+    deal.contact_label = offer.contact_label
+    deal.contact_locality = offer.contact_locality
+    deal.contact_denorm_refreshed_at = offer.contact_denorm_refreshed_at
     deal.vehicle_label = offer.vehicle_label
     # KAN-570: the stock number the offer carries (KAN-157).
     deal.stock_item_label = offer.stock_item_label

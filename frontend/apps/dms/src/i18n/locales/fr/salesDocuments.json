@@ -40,13 +40,13 @@
       "message_text_missing_fixed": "Il n’y a pas de texte standard pour ce canal. Créez-le dans l’administration, sous Textes standard, et faites-le approuver comme modèle par le fournisseur."
     },
     "refusal": {
-      "customer_merged": "Ce client a été fusionné avec un autre.",
-      "customer_do_not_contact": "Le client est marqué « Ne pas contacter ».",
-      "no_usable_contact": "Le client n’a pas de coordonnée utilisable sur ce canal.",
-      "marketing_consent_missing": "Le consentement du client à la publicité fait défaut.",
+      "contact_merged": "Ce contact a été fusionné avec un autre.",
+      "contact_do_not_contact": "Le contact est marqué « Ne pas contacter ».",
+      "no_usable_contact": "Le contact n’a pas de coordonnée utilisable sur ce canal.",
+      "marketing_consent_missing": "Le consentement du contact à la publicité fait défaut.",
       "channel_consent_missing": "Le consentement à la publicité fait défaut pour cette coordonnée.",
-      "newsletter_not_subscribed": "Le client n’est pas abonné à la newsletter.",
-      "generic": "Ce client ne peut pas recevoir ce message sur ce canal."
+      "newsletter_not_subscribed": "Le contact n’est pas abonné à la newsletter.",
+      "generic": "Ce contact ne peut pas recevoir ce message sur ce canal."
     },
     "status": {
       "sent": "Envoyé",

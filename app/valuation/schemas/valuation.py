@@ -51,7 +51,7 @@ class ValuationCreate(CamelModel):
     # amending FR-V-17); without it, the pre-C-F behaviour is unchanged.
     configuration_id: uuid.UUID | None = None
 
-    customer_id: uuid.UUID | None = None
+    contact_id: uuid.UUID | None = None
 
     # KAN-552: the provider figure comes from a stored quote, never typed.
     # `source` is derived: `auto_i_dat` when `providerQuoteId` is sent and
@@ -153,8 +153,8 @@ class ValuationRead(CamelModel):
     mileage: int | None
     configuration_id: uuid.UUID | None = None
     configuration_label: str | None = None
-    customer_id: uuid.UUID | None
-    customer_label: str | None
+    contact_id: uuid.UUID | None
+    contact_label: str | None
     source: ValuationSource
     provider_value: Decimal | None
     # KAN-552: the quote the provider figure came from — with `manual`, the

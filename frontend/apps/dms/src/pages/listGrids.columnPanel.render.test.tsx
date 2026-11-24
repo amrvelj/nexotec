@@ -53,12 +53,12 @@ const STOCK_ITEM: StockItemRead = {
 }
 const DEAL = {
   id: 'd1', entityType: 'offer', number: 'O-000361', status: 'draft', offerId: 'o1', offerNumber: 'O-000361',
-  contractId: null, contractNumber: null, customerId: null, customerLabel: 'Muster AG', customerLocality: 'Bern',
+  contractId: null, contractNumber: null, contactId: null, contactLabel: 'Muster AG', contactLocality: 'Bern',
   vehicleLabel: 'VW Golf GTI', grossPrice: '42500.00', margin: null, documentsCount: 0, createdAt: NOW, updatedAt: NOW,
 } as unknown as SalesDealRead
 const VALUATION = {
   id: 'val-1', valuationNumber: 'B-000361', status: 'valid', source: 'manual', hasSignedContract: false,
-  customerId: null, customerLabel: null, vehicleId: null, vehicleMake: 'VW', vehicleModel: 'Golf', vehicleTrim: null,
+  contactId: null, contactLabel: null, vehicleId: null, vehicleMake: 'VW', vehicleModel: 'Golf', vehicleTrim: null,
   vehicleVin: null, finalOffer: '12000.00', deductions: [], version: 1, validFrom: '2026-10-01',
   validUntil: '2026-10-31', createdAt: NOW, updatedAt: NOW,
 } as unknown as ValuationRead

@@ -11,7 +11,7 @@
   "usage_period_too_long": "A period covers one year at most.",
   "provider_has_no_sandbox": "This provider offers no test access. Connect it as production.",
   "provider_sandbox_connections_exist": "{{count, number}} test-access connections to this provider still exist. Delete them first.",
-  "recipient_refused": "This customer cannot receive this message on this channel. Check their contact details and consents.",
+  "recipient_refused": "This contact cannot receive this message on this channel. Check their contact details and consents.",
   "channel_not_offered": "This message is not sent on this channel. Choose another channel.",
   "whatsapp_template_not_approved": "WhatsApp sends only texts the provider approved as a template, and this one is not approved. Check it under Standard texts in Administration.",
   "message_invalid": "The message cannot be sent like this: it does not meet the channel's rules (phone number, length of the text or WhatsApp template)."

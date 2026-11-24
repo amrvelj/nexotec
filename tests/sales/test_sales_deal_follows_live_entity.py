@@ -9,7 +9,7 @@ documents, whatever reaches the projection from the offer's side.
 KAN-409 — a cancelled contract frees its offer (KAN-147), and the row turns
 back into the offer: its own number, status and seller, so the Sales grid,
 the seller filter and the unassigned queue find it. The cancelled contract
-stays on the offer's and the customer's history.
+stays on the offer's and the contact's history.
 """
 
 import uuid
@@ -23,7 +23,7 @@ from app.sales.services.deal_projection import upsert_deal_projection
 from tests.identity_support import PasswordLogin, create_dealership, create_user
 from tests.platform.test_user_deactivation import (
     _as,
-    _customer_for,
+    _contact_for,
     _offer_for,
     deactivate,
 )
@@ -74,13 +74,13 @@ def _deal(client, user: dict, deal_id: str) -> dict:
 def _offer_with_buyer_and_contract(client):
     dealership = create_dealership(client)
     seller = create_user(client, dealership, firstName="Sara", lastName="Seller")
-    anna = _customer_for(client, seller, firstName="Anna")
+    anna = _contact_for(client, seller, firstName="Anna")
     patched = _patch_offer(
         client,
         seller,
         _offer_for(client, seller)["id"],
         {
-            "customerId": anna["id"],
+            "contactId": anna["id"],
             "vehicleSource": "manual",
             "vehicleLabel": "Škoda Octavia",
             "manualBasePrice": "30000.00",
@@ -101,16 +101,16 @@ def _offer_with_buyer_and_contract(client):
 
 def test_an_offer_with_a_live_contract_refuses_every_edit_and_its_deal_row_stays_the_contracts(client):
     _dealership, seller, offer, contract = _offer_with_buyer_and_contract(client)
-    beat = _customer_for(client, seller, firstName="Beat")
-    carla = _customer_for(client, seller, firstName="Carla")
+    beat = _contact_for(client, seller, firstName="Beat")
+    carla = _contact_for(client, seller, firstName="Carla")
     # The contract is edited itself while pending (ADR-083): its own buyer and car.
-    edited = _patch_contract(client, seller, contract["id"], {"customerId": beat["id"], "vehicleLabel": "Cupra Born"})
+    edited = _patch_contract(client, seller, contract["id"], {"contactId": beat["id"], "vehicleLabel": "Cupra Born"})
     assert edited.status_code == 200, edited.text
     printed = client.post(f"/v1/sales/contracts/{contract['id']}/documents", headers=_as(seller))
     assert printed.status_code == 201, printed.text
     assert _deal(client, seller, offer["id"])["documentsCount"] == 2  # generating a document re-projects
 
-    _refused_as_contracted(_patch_offer(client, seller, offer["id"], {"customerId": carla["id"]}), contract)
+    _refused_as_contracted(_patch_offer(client, seller, offer["id"], {"contactId": carla["id"]}), contract)
     current = client.get(f"/v1/sales/offers/{offer['id']}", headers=_as(seller)).json()
     line_items = client.put(
         f"/v1/sales/offers/{offer['id']}/line-items",
@@ -131,15 +131,15 @@ def test_an_offer_with_a_live_contract_refuses_every_edit_and_its_deal_row_stays
 
     deal = _deal(client, seller, offer["id"])
     assert deal["entityType"] == "contract" and deal["contractId"] == contract["id"]
-    assert deal["customerId"] == beat["id"]
+    assert deal["contactId"] == beat["id"]
     assert deal["vehicleLabel"] == "Cupra Born"
     assert deal["documentsCount"] == 2  # the offer's and the contract's
     offer_now = client.get(f"/v1/sales/offers/{offer['id']}", headers=_as(seller)).json()
-    assert offer_now["customerId"] != carla["id"] and offer_now["version"] == current["version"]
+    assert offer_now["contactId"] != carla["id"] and offer_now["version"] == current["version"]
 
 
 def test_the_offer_side_of_the_projection_reprojects_the_live_contract(client, db_session):
-    """A write on the offer's side that is not a user's edit (a customer
+    """A write on the offer's side that is not a user's edit (a contact
     merge repointing it) still reaches the projection with the offer: the
     contract's row is projected from the contract, never from the offer's
     labels. Since KAN-495 (Anto, 2026-10-29) the offer prints no new
@@ -147,8 +147,8 @@ def test_the_offer_side_of_the_projection_reprojects_the_live_contract(client, d
     the contract's row."""
 
     _dealership, seller, offer, contract = _offer_with_buyer_and_contract(client)
-    beat = _customer_for(client, seller, firstName="Beat")
-    assert _patch_contract(client, seller, contract["id"], {"customerId": beat["id"]}).status_code == 200
+    beat = _contact_for(client, seller, firstName="Beat")
+    assert _patch_contract(client, seller, contract["id"], {"contactId": beat["id"]}).status_code == 200
     refused = client.post(f"/v1/sales/offers/{offer['id']}/documents", headers=_as(seller))
     _refused_as_contracted(refused, contract)
     printed = client.post(f"/v1/sales/contracts/{contract['id']}/documents", headers=_as(seller))
@@ -156,15 +156,15 @@ def test_the_offer_side_of_the_projection_reprojects_the_live_contract(client, d
     assert _deal(client, seller, offer["id"])["documentsCount"] == 2  # the offer's first and the contract's
 
     row = db_session.get(SalesOffer, uuid.UUID(offer["id"]))
-    row.customer_label = "Somebody Else"
+    row.contact_label = "Somebody Else"
     row.vehicle_label = "Another Car"
     upsert_deal_projection(db_session, offer=row)
     db_session.commit()
 
     deal = db_session.get(SalesDeal, uuid.UUID(offer["id"]))
     assert deal.entity_type == "contract" and deal.contract_id == uuid.UUID(contract["id"])
-    assert deal.customer_id == uuid.UUID(beat["id"])
-    assert deal.customer_label != "Somebody Else"
+    assert deal.contact_id == uuid.UUID(beat["id"])
+    assert deal.contact_label != "Somebody Else"
     assert deal.vehicle_label == "Škoda Octavia"
     assert deal.documents_count == 2
 
@@ -194,8 +194,8 @@ def _open(db_session, offer_id: str) -> None:
 def test_a_cancelled_contract_hands_the_row_back_to_its_offer(client, db_session):
     _dealership, seller, offer, contract = _offer_with_buyer_and_contract(client)
     _open(db_session, offer["id"])
-    beat = _customer_for(client, seller, firstName="Beat")
-    assert _patch_contract(client, seller, contract["id"], {"customerId": beat["id"]}).status_code == 200
+    beat = _contact_for(client, seller, firstName="Beat")
+    assert _patch_contract(client, seller, contract["id"], {"contactId": beat["id"]}).status_code == 200
 
     _cancel(client, seller, contract["id"])
 
@@ -204,18 +204,18 @@ def test_a_cancelled_contract_hands_the_row_back_to_its_offer(client, db_session
     assert deal["number"] == offer["offerNumber"]
     assert deal["status"] == "open"
     assert deal["contractId"] is None and deal["contractNumber"] is None
-    assert deal["customerId"] == offer["customerId"] != beat["id"]
+    assert deal["contactId"] == offer["contactId"] != beat["id"]
     assert deal["vehicleLabel"] == "Škoda Octavia"
     assert deal["margin"] is None
     assert deal["ownerUserId"] == seller["id"]
-    # The cancelled contract stays on the customer's and the offer's history.
-    history = client.get(f"/v1/sales/contracts?customer_id={beat['id']}", headers=_as(seller)).json()["items"]
+    # The cancelled contract stays on the contact's and the offer's history.
+    history = client.get(f"/v1/sales/contracts?contactId={beat['id']}", headers=_as(seller)).json()["items"]
     assert [(c["id"], c["status"]) for c in history] == [(contract["id"], "cancelled")]
 
 
 def _freed_offer(client, db_session, leaver: dict, buyer: dict) -> dict:
     offer = _offer_for(client, leaver)
-    assert _patch_offer(client, leaver, offer["id"], {"customerId": buyer["id"]}).status_code == 200
+    assert _patch_offer(client, leaver, offer["id"], {"contactId": buyer["id"]}).status_code == 200
     _open(db_session, offer["id"])
     contract = client.post("/v1/sales/contracts", json={"offerId": offer["id"]}, headers=_as(leaver))
     assert contract.status_code == 201, contract.text
@@ -234,8 +234,8 @@ def test_a_freed_offer_is_found_in_the_queue_and_under_its_heir_after_a_hand_ove
     heir = create_user(client, dealership, isDealerManager=False, firstName="Hans", lastName="Erbe")
     login.accept_invitation(heir)
     create_user(client, dealership)
-    queued = _freed_offer(client, db_session, to_queue, _customer_for(client, to_queue))
-    handed = _freed_offer(client, db_session, to_heir, _customer_for(client, to_heir))
+    queued = _freed_offer(client, db_session, to_queue, _contact_for(client, to_queue))
+    handed = _freed_offer(client, db_session, to_heir, _contact_for(client, to_heir))
 
     for leaver, to_user in ((to_queue, None), (to_heir, heir["id"])):
         response = deactivate(
@@ -243,7 +243,7 @@ def test_a_freed_offer_is_found_in_the_queue_and_under_its_heir_after_a_hand_ove
             dealership,
             leaver,
             transfers=[
-                {"module": "customer", "group": "customers", "toUserId": heir["id"]},
+                {"module": "contact", "group": "contacts", "toUserId": heir["id"]},
                 {"module": "sales", "group": "offers", "toUserId": to_user},
             ],
         )
@@ -283,7 +283,7 @@ def test_the_nightly_check_finds_no_deal_row_on_projected_data(client, db_sessio
 def test_the_nightly_check_reports_a_deal_row_that_differs_from_its_live_entity(client, db_session):
     _dealership, seller, offer, _contract = _offer_with_buyer_and_contract(client)
     wrong_label = db_session.get(SalesDeal, uuid.UUID(offer["id"]))
-    wrong_label.customer_label = "Somebody Else"  # as the pre-KAN-408 offer branch wrote it
+    wrong_label.contact_label = "Somebody Else"  # as the pre-KAN-408 offer branch wrote it
     db_session.commit()
 
     # Only the count wrong: an offer-side save after the contract existed wrote

@@ -18,7 +18,7 @@ import { useIdempotencyKey } from '../../../hooks/useIdempotencyKey'
 import { toSwissLocale, type SupportedLanguage } from '../../../i18n'
 import { formatCurrencyChf, formatDate, formatDateOnly, formatNumber } from '../../../utils/format'
 import { translatedValuationStatusLabel } from '../valuationOptions'
-import { CustomerDetailContent } from '../../customer'
+import { ContactDetailContent } from '../../contact'
 import { HostConfigurationCard } from '../../vehicle'
 import type { ValuationRead } from '../../../api/types'
 import { apiRefusalText } from '../../../utils/apiRefusal'
@@ -91,13 +91,13 @@ export function ValuationDetailContent({ valuationId: id, embedded = false }: Va
     }
   }
 
-  // § ADR-059 — the customer behind this valuation opens as an overlay,
+  // § ADR-059 — the contact behind this valuation opens as an overlay,
   // never a navigation away from the valuation itself. The vehicle side
   // is a plain navigation instead: VehicleDetailPage has no embeddable
-  // *Content component yet (unlike Customer/Offer/Contract) — a WP-5-
+  // *Content component yet (unlike Contact/Offer/Contract) — a WP-5-
   // side gap this PR doesn't fix, flagged rather than worked around.
-  const openCustomerOverlay = (customerId: string) => {
-    overlay.push({ key: `customer-overlay-${customerId}`, content: <CustomerDetailContent customerId={customerId} embedded /> })
+  const openContactOverlay = (contactId: string) => {
+    overlay.push({ key: `contact-overlay-${contactId}`, content: <ContactDetailContent contactId={contactId} embedded /> })
   }
 
   if (valuationQuery.isLoading) return <Loader />
@@ -116,7 +116,7 @@ export function ValuationDetailContent({ valuationId: id, embedded = false }: Va
     onRevalue: () => navigate(`/valuations/new?supersedes=${id}`),
     onMarkUsed: () => void markUsed(),
     onRevertUse: canRevertUse ? () => setRevertUseOpen(true) : undefined,
-    onOpenCustomer: valuation.customerId ? () => openCustomerOverlay(valuation.customerId!) : undefined,
+    onOpenContact: valuation.contactId ? () => openContactOverlay(valuation.contactId!) : undefined,
     onOpenVehicle: valuation.vehicleId ? () => navigate(`/vehicles/${valuation.vehicleId}`) : undefined,
     createOffer: canWriteOffers
       ? { onClick: () => void createOffer.run(valuation), salesEntitled }
@@ -217,7 +217,7 @@ export function ValuationDetailContent({ valuationId: id, embedded = false }: Va
             { label: t('valuationDetail.vehicleCard.plate'), value: valuation.vehiclePlate ?? '—' },
             { label: t('valuationDetail.vehicleCard.mileage'), value: valuation.mileage != null ? `${formatNumber(valuation.mileage)} km` : '—' },
             { label: t('valuationDetail.vehicleCard.firstRegistration'), value: valuation.vehicleFirstRegistration ? formatDateOnly(valuation.vehicleFirstRegistration, locale) : '—' },
-            { label: t('valuationDetail.vehicleCard.customer'), value: valuation.customerLabel ?? t('valuationsList.noCustomer') },
+            { label: t('valuationDetail.vehicleCard.contact'), value: valuation.contactLabel ?? t('valuationsList.noContact') },
           ]}
         />
       </OverviewCard>

@@ -55,7 +55,7 @@ describe('DmsShell navigation follows the module entitlements (KAN-198)', () => 
   it('a workshop without the sales entitlement sees no sales, stock or valuations entry', async () => {
     renderShell(['aftersales'])
     const nav = await screen.findByRole('navigation', { name: t('shell.sidebar.mainNavigation') })
-    expect(await within(nav).findByText(t('shell.nav.customers'))).toBeInTheDocument()
+    expect(await within(nav).findByText(t('shell.nav.contacts'))).toBeInTheDocument()
     expect(within(nav).getByText(t('shell.nav.aftersales'))).toBeInTheDocument()
     for (const hidden of ['shell.nav.sales', 'shell.nav.inventory', 'shell.nav.valuations']) {
       expect(within(nav).queryByText(t(hidden))).not.toBeInTheDocument()

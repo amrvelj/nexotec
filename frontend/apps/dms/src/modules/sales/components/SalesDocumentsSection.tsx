@@ -44,7 +44,7 @@ export function SalesDocumentsSection({ ownerType, ownerId, liveContractNumber =
   // generate that succeeds renews it: the next click is a new version.
   const generateKey = useIdempotencyKey()
   // KAN-217 PR-6 — the one send dialog, for the version shown.
-  const canSend = useCanWrite('customer_send_dialog')
+  const canSend = useCanWrite('contact_send_dialog')
   const [sendOpen, setSendOpen] = useState(false)
   const [sendNotice, setSendNotice] = useState<{ tone: 'success' | 'failed'; text: string } | null>(null)
 

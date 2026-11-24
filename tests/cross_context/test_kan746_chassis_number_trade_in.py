@@ -79,7 +79,7 @@ def _valuation(db_session, tenant_id, group_id, *, configuration_id=None, vin: s
 def _set(db_session, deal, group_id, vin: str):
     return set_trade_in(
         db_session, deal=deal, group_id=group_id, vin=vin, plate=None, canton=None,
-        vehicle_label="Mercedes-Benz 280 SL", customer_id=None, actor_id=uuid.uuid4(),
+        vehicle_label="Mercedes-Benz 280 SL", contact_id=None, actor_id=uuid.uuid4(),
     )
 
 

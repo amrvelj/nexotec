@@ -203,7 +203,7 @@ describe('RecordPurchaseDialog — the supplier is a contact picked by search (K
     expect(submitButton()).toBeDisabled()
 
     await pickSupplier()
-    const search = backend.calls.find((call) => call.pathname === '/customers' && call.method === 'GET')
+    const search = backend.calls.find((call) => call.pathname === '/contacts' && call.method === 'GET')
     expect(search?.params.get('q')).toBe('Muster')
     expect(screen.getByTestId('purchase-supplier').textContent).toContain('Hans Muster')
     fireEvent.click(submitButton())
@@ -214,7 +214,7 @@ describe('RecordPurchaseDialog — the supplier is a contact picked by search (K
   })
 
   it('prefills «MWST-pflichtig» from a contact whose VAT status is confirmed, and says an override', async () => {
-    const amag = { ...SUPPLIER, id: 'c-amag', customerNumber: 'K-0466', customerType: 'business' as const, companyName: 'AMAG', firstName: null, lastName: null, vatRegistered: true, vatStatusConfirmed: true }
+    const amag = { ...SUPPLIER, id: 'c-amag', contactNumber: 'K-0466', contactType: 'business' as const, companyName: 'AMAG', firstName: null, lastName: null, vatRegistered: true, vatStatusConfirmed: true }
     installFakeBackend([supplierSearchRoute([amag])])
     renderWithProviders(<RecordPurchaseDialog opened onClose={() => {}} onSubmit={async () => {}} />)
 
@@ -232,7 +232,7 @@ describe('RecordPurchaseDialog — the supplier is a contact picked by search (K
     const customerOnly = { ...SUPPLIER, roles: ['customer' as const], version: 3 }
     const backend = installFakeBackend([
       supplierSearchRoute([customerOnly]),
-      { method: 'PATCH', match: /^\/customers\/[^/]+$/, handler: () => ({ ...customerOnly, roles: ['customer', 'supplier'], version: 4 }) },
+      { method: 'PATCH', match: /^\/contacts\/[^/]+$/, handler: () => ({ ...customerOnly, roles: ['customer', 'supplier'], version: 4 }) },
     ])
     const onSubmit = vi.fn().mockResolvedValue(undefined)
     renderWithProviders(<RecordPurchaseDialog opened onClose={() => {}} onSubmit={onSubmit} />)
@@ -244,7 +244,7 @@ describe('RecordPurchaseDialog — the supplier is a contact picked by search (K
 
     await vi.waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1))
     const [patch] = backend.calls.filter((call) => call.method === 'PATCH')
-    expect(patch.pathname).toBe(`/customers/${SUPPLIER.id}`)
+    expect(patch.pathname).toBe(`/contacts/${SUPPLIER.id}`)
     expect(patch.body).toEqual({ roles: ['customer', 'supplier'] })
     expect(patch.headers.get('If-Match')).toBe('3')
   })
@@ -254,10 +254,10 @@ describe('RecordPurchaseDialog — the supplier is a contact picked by search (K
     let patches = 0
     const backend = installFakeBackend([
       supplierSearchRoute([customerOnly]),
-      { method: 'GET', match: /^\/customers\/[^/]+$/, handler: () => ({ ...customerOnly, version: 5 }) },
+      { method: 'GET', match: /^\/contacts\/[^/]+$/, handler: () => ({ ...customerOnly, version: 5 }) },
       {
         method: 'PATCH',
-        match: /^\/customers\/[^/]+$/,
+        match: /^\/contacts\/[^/]+$/,
         handler: () => {
           patches += 1
           if (patches === 1) return status(409, { error: { code: 'conflict', message: 'stale', details: { currentVersion: 5 } } })
@@ -281,8 +281,8 @@ describe('RecordPurchaseDialog — the supplier is a contact picked by search (K
   })
 
   it('starts an unconfirmed business unticked, whatever the contact picked before said', async () => {
-    const confirmed = { ...SUPPLIER, id: 'c-1', customerNumber: 'K-0001', lastName: 'Eins', vatRegistered: true, vatStatusConfirmed: true }
-    const unknown = { ...SUPPLIER, id: 'c-2', customerNumber: 'K-0002', customerType: 'business' as const, companyName: 'Zwei AG', firstName: null, lastName: 'Zwei' }
+    const confirmed = { ...SUPPLIER, id: 'c-1', contactNumber: 'K-0001', lastName: 'Eins', vatRegistered: true, vatStatusConfirmed: true }
+    const unknown = { ...SUPPLIER, id: 'c-2', contactNumber: 'K-0002', contactType: 'business' as const, companyName: 'Zwei AG', firstName: null, lastName: 'Zwei' }
     installFakeBackend([supplierSearchRoute([confirmed, unknown])])
     renderWithProviders(<RecordPurchaseDialog opened onClose={() => {}} onSubmit={async () => {}} />)
 
@@ -294,11 +294,11 @@ describe('RecordPurchaseDialog — the supplier is a contact picked by search (K
     expect(screen.getByText(i18n.t('stockDetail.purchase.supplier.vatUnknown'))).toBeInTheDocument()
   })
 
-  it("offers the trade-in's customer with one click, never preselected", async () => {
-    installFakeBackend([{ method: 'GET', match: /^\/customers\/c-trade$/, handler: () => ({ ...SUPPLIER, id: 'c-trade', firstName: 'Anna', lastName: 'Keller' }) }])
-    renderWithProviders(<RecordPurchaseDialog opened tradeInCustomerId="c-trade" onClose={() => {}} onSubmit={async () => {}} />)
+  it("offers the trade-in's contact with one click, never preselected", async () => {
+    installFakeBackend([{ method: 'GET', match: /^\/contacts\/c-trade$/, handler: () => ({ ...SUPPLIER, id: 'c-trade', firstName: 'Anna', lastName: 'Keller' }) }])
+    renderWithProviders(<RecordPurchaseDialog opened tradeInContactId="c-trade" onClose={() => {}} onSubmit={async () => {}} />)
 
-    const offer = await screen.findByRole('button', { name: i18n.t('stockDetail.purchase.supplier.useTradeInCustomer', { name: 'Anna Keller' }) })
+    const offer = await screen.findByRole('button', { name: i18n.t('stockDetail.purchase.supplier.useTradeInContact', { name: 'Anna Keller' }) })
     expect(screen.queryByTestId('purchase-supplier')).toBeNull()
     fireEvent.click(offer)
     expect(screen.getByTestId('purchase-supplier').textContent).toContain('Anna Keller')

@@ -13,41 +13,41 @@ from app.sales.schemas.offer import OfferContainerState
 
 
 class ContractCreate(CamelModel):
-    # Exactly one of offer_id, customer_id and stock_item_id (KAN-276, Anto
+    # Exactly one of offer_id, contact_id and stock_item_id (KAN-276, Anto
     # 2026-10-11: "no empty contracts"; KAN-307, Anto 2026-10-12: a contract
     # can start from a car like an offer does). A contract with none had no
     # buyer, no vehicle and no price, and could still be completed and
     # signed (KAN-67).
     offer_id: uuid.UUID | None = None
-    # KAN-58 — the customer→contract entry point (FR-22 "New contract" on
-    # the customer row menu / 360 overflow / offers-and-contracts tab). An
-    # offer already carries its own customer, so this and offer_id are
+    # KAN-58 — the contact→contract entry point (FR-22 "New contract" on
+    # the contact row menu / 360 overflow / offers-and-contracts tab). An
+    # offer already carries its own contact, so this and offer_id are
     # mutually exclusive — see the validator below.
-    customer_id: uuid.UUID | None = None
+    contact_id: uuid.UUID | None = None
     # KAN-307 — "Vertrag erstellen" on a stock car: the contract starts with
     # that car (FR-S-05 Path A, priced as the contract's own PATCH prices
     # it) and the buyer is picked inside the contract, as on an offer.
     # `vehicle_label` is the display label the offer workspace sends with
     # the same Path A choice; allowed only with stock_item_id. The buyer is
-    # set afterwards through ContractUpdate.customer_id.
+    # set afterwards through ContractUpdate.contact_id.
     stock_item_id: uuid.UUID | None = None
     vehicle_label: str | None = Field(default=None, max_length=200)
 
     @model_validator(mode="after")
     def _exactly_one_source(self) -> "ContractCreate":
-        sources = [s for s in (self.offer_id, self.customer_id, self.stock_item_id) if s is not None]
-        if self.offer_id is not None and self.customer_id is not None:
+        sources = [s for s in (self.offer_id, self.contact_id, self.stock_item_id) if s is not None]
+        if self.offer_id is not None and self.contact_id is not None:
             raise ValueError(
-                "offerId and customerId cannot both be set — a contract born from an offer already has that "
-                "offer's customer."
+                "offerId and contactId cannot both be set — a contract born from an offer already has that "
+                "offer's contact."
             )
         if len(sources) > 1:
             raise ValueError(
-                "stockItemId cannot be combined with offerId or customerId — a contract starts from one of the three."
+                "stockItemId cannot be combined with offerId or contactId — a contract starts from one of the three."
             )
         if not sources:
             raise ValueError(
-                "A contract needs offerId, customerId or stockItemId — it is created from an offer, for a customer "
+                "A contract needs offerId, contactId or stockItemId — it is created from an offer, for a contact "
                 "or for a car, never from nothing."
             )
         if self.vehicle_label is not None and self.stock_item_id is None:
@@ -64,14 +64,14 @@ class ContractUpdate(CamelModel):
     recomputed server-side, never taken from the client. The trade-in and
     the line items have their own routes, as on the offer.
 
-    `customer_id` (KAN-307, Anto 2026-10-12, amending ADR-083): the buyer is
+    `contact_id` (KAN-307, Anto 2026-10-12, amending ADR-083): the buyer is
     set, changed or cleared while the contract is pending, exactly as the
     offer workspace does it — a contract started from a stock car gets its
     buyer here. Confirmation refuses a contract without one
-    (`missing_customer`).
+    (`missing_contact`).
     """
 
-    customer_id: uuid.UUID | None = None
+    contact_id: uuid.UUID | None = None
     vehicle_source: Literal["stock", "manual"] | None = None
     stock_item_id: uuid.UUID | None = None
     vehicle_label: str | None = Field(default=None, max_length=200)
@@ -92,9 +92,9 @@ class ContractRead(CamelModel):
     offer_id: uuid.UUID | None
     offer_number: str | None
     status: ContractStatus
-    customer_id: uuid.UUID | None
-    customer_label: str | None
-    customer_locality: str | None
+    contact_id: uuid.UUID | None
+    contact_label: str | None
+    contact_locality: str | None
     owner_user_id: uuid.UUID | None = None
     owner_label: str | None = None
     vehicle_source: str | None

@@ -77,7 +77,7 @@ def test_a_render_substitutes_every_token():
 @pytest.mark.parametrize(
     ("body", "values", "problem"),
     [
-        ("Hallo {{customer.nickname}}", {}, "unknown"),
+        ("Hallo {{contact.nickname}}", {}, "unknown"),
         # Known, but an offer document cannot supply it.
         ("Zahlbar bis {{payment.due_date}}", {"payment.due_date": "30.11.2026"}, "not_valid_here"),
         ("Offerte {{document.number}", {"document.number": "O-1"}, "malformed"),
@@ -274,7 +274,7 @@ def test_the_right_language_beats_the_narrower_scope(db_session, standard_text_s
     dealership = _dealership(db_session)
     seed_de = _seed(db_session, "offer.intro.standard", _DE)
     _dealer_row(db_session, dealership, code=seed_de.code, language=_DE, body="Unser Deutsch", seed=seed_de)
-    # A French customer gets the French seed, not the Betrieb's German wording.
+    # A French contact gets the French seed, not the Betrieb's German wording.
     assert _intro(db_session, dealership, _FR).body == _seed(db_session, seed_de.code, _FR).body
 
 

@@ -74,8 +74,8 @@ inventory-screens.md. Last verified against main@3b2bf69 (2026-11-18). -->
 - **ADR-052 — `is_invoiceable` is Stock's fact**, replicated to Sales through
   `inventory.stock_item.purchased` (once per booking — twice for a car bought, stornoed and bought
   again); Sales never asks on the invoicing path (`sales.md`). Reservation does not need the purchase
-  (K-12); invoicing does. For a trade-in the event (and the storno) carries the contract's customer
-  and signature, which the customer context uses (`customer-vehicle-party.md`).
+  (K-12); invoicing does. For a trade-in the event (and the storno) carries the contract's contact
+  and signature, which the contact context uses (`contact-vehicle-party.md`).
 - **A configured car is named by its configuration** (ADR-117 (2)): on an item with one,
   `vehicle_label` **is** the configuration's label — at create, at «Konfiguration zuordnen» (audited)
   and by the nightly `inventory.configuration_labels`, which counts a row current only when both

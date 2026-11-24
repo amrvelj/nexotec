@@ -151,7 +151,7 @@ export function ConfigurationSummaryCard({ configuration, onOpenConfigurator, op
                   },
                   // KAN-597 (Anto, 2026-11-11, option A): each gearbox's label
                   // as the provider's PDF, beside the class — for the seller;
-                  // no customer document prints it.
+                  // no contact document prints it.
                   ...energyLabelLinks.map((label) => ({
                     label: t('configurator.spec.energyLabelPdf'),
                     value: (

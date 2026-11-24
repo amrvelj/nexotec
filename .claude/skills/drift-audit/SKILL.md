@@ -39,7 +39,7 @@ For `CLAUDE.md` and every file in `.claude/rules/`:
   superseded? Any ADR added or amended since the verified date that concerns an area with a rule
   file is a finding ("`sales.md` should state ADR-0xx").
 - Check the pages whose rulings the rule files carry for edits since the verified date
-  (Dealer Administration, Authentication & Identity, PRD-Customers, PRD-Configurator, the UI/UX
+  (Dealer Administration, Authentication & Identity, PRD-Contacts, PRD-Configurator, the UI/UX
   Specification): read what changed.
 
 ## 3. The board against git

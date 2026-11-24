@@ -17,7 +17,7 @@
  *     `vehicle_class` became the size class there)
  *   - contact groups         (alembic platform/d72281c678c0) — 1 list (KAN-466)
  * PRD-Vehicles §"Canonical lists to administer (v1)" and
- * PRD-Configurator §"The canonical code map" name them too; PRD-Customers
+ * PRD-Configurator §"The canonical code map" name them too; PRD-Contacts
  * §"Reference lists" now names `country` (nationality + address country).
  *
  * A follow-up ticket adds the read endpoint so this stops being a

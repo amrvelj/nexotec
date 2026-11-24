@@ -24,7 +24,7 @@
     "uiLanguage": "Langue de l'application",
     "uiLanguageHint": "Prend effet immédiatement, sur tous vos appareils.",
     "correspondenceLanguage": "Langue de mes documents",
-    "correspondenceLanguageHint": "Pour les documents que vous créez et qui n'ont pas de langue client.",
+    "correspondenceLanguageHint": "Pour les documents que vous créez et qui n'ont pas de langue du contact.",
     "betriebDefault": "Comme l'entreprise ({{language}})",
     "saved": "Enregistré.",
     "conflict": "Votre compte a été modifié ailleurs entre-temps. « Annuler » affiche la nouvelle version ; vos saisies sont alors perdues.",

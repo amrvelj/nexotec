@@ -1,9 +1,9 @@
 """KAN-722: which Betrieb wrote an audit row of a group-owned record.
 
-A group-owned customer's audit rows carry the group as `tenant_id` (ADR-014),
+A group-owned contact's audit rows carry the group as `tenant_id` (ADR-014),
 so the row's tenant does not say which Betrieb of the group wrote it. The
 one rule, used by both readers that need it — the History tab of a group
-customer (hides an offboarded Betrieb's rows from its sisters) and the core
+contact (hides an offboarded Betrieb's rows from its sisters) and the core
 exporter (puts exactly those rows in that Betrieb's archive) — so the hidden
 set and the exported set cannot drift apart (Anto, 2026-11-15):
 

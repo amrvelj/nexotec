@@ -1,13 +1,13 @@
 {
   "title": "Offerte e contratti",
   "newOffer": "Nuova offerta",
-  "searchPlaceholder": "Targa, VIN, cliente, offerta …",
+  "searchPlaceholder": "Targa, VIN, contatto, offerta …",
   "loadError": "Impossibile caricare offerte e contratti.",
   "allDealsView": "Tutte le offerte e i contratti",
   "columns": {
     "number": "Numero",
     "type": "Tipo",
-    "customer": "Cliente",
+    "contact": "Contatto",
     "vehicle": "Veicolo",
     "grossPrice": "Prezzo di vendita",
     "status": "Stato",

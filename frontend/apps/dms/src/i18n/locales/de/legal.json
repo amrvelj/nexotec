@@ -33,7 +33,7 @@
       "rights": "Ihre Rechte"
     },
     "places": {
-      "body": "Beim Erfassen einer Adresse im DMS wird der eingetippte Adresstext – und nur dieser, nie ein Name oder andere Kundendaten – an Google Ireland Limited übermittelt, um Vorschläge anzuzeigen. Google verarbeitet diese Angaben als eigenständige Verantwortliche nach den Google Maps Platform Nutzungsbedingungen und den Google Controller-Controller Data Protection Terms (einschliesslich der Standardvertragsklauseln für Übermittlungen aus der Schweiz). Gespeichert wird nur die vom Mitarbeiter ausgewählte Adresse. Der Betrieb kann die Funktion unter Verwaltung › Betrieb › Adresseingabe jederzeit abschalten.",
+      "body": "Beim Erfassen einer Adresse im DMS wird der eingetippte Adresstext – und nur dieser, nie ein Name oder andere Kontaktdaten – an Google Ireland Limited übermittelt, um Vorschläge anzuzeigen. Google verarbeitet diese Angaben als eigenständige Verantwortliche nach den Google Maps Platform Nutzungsbedingungen und den Google Controller-Controller Data Protection Terms (einschliesslich der Standardvertragsklauseln für Übermittlungen aus der Schweiz). Gespeichert wird nur die vom Mitarbeiter ausgewählte Adresse. Der Betrieb kann die Funktion unter Verwaltung › Betrieb › Adresseingabe jederzeit abschalten.",
       "google": "Wie Google diese Angaben bearbeitet, beschreibt die <privacy>Datenschutzerklärung von Google</privacy>; für die Adressvorschläge gelten zudem die <terms>Nutzungsbedingungen von Google</terms>."
     }
   }

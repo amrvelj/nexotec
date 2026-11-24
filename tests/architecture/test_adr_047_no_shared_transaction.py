@@ -50,9 +50,9 @@ What it proves:
 
 The one debt this test tracked — decided by Anto on 2026-10-07 (KAN-90,
 exit criterion 1) — is paid (KAN-185; Anto, 2026-10-31, option A):
-`app.sales.public.repoint_customer_transactions`, called inside the
-customer merge's own transaction, is gone. The merge publishes
-`customer.merged` and Sales' consumer `sales.customer_merged` moves the
+`app.sales.public.repoint_contact_transactions`, called inside the
+contact merge's own transaction, is gone. The merge publishes
+`contact.merged` and Sales' consumer `sales.contact_merged` moves the
 duplicate's offers, contracts and deals in its own transaction. `_SHARED_TRANSACTION_EXCEPTIONS` is empty, and
 `test_no_shared_transaction_debt_remains` keeps it so: a new entry is a new
 debt, Anto's call by name.
@@ -107,7 +107,7 @@ _APP_ROOT = _REPO_ROOT / "app"
 _CONTEXTS = frozenset(
     {
         "platform",
-        "customer",
+        "contact",
         "vehicle",
         "sales",
         "inventory",
@@ -156,7 +156,7 @@ _IN_PROCESS_STATE = {
 _OWN_COMMIT_WRITES = {
     # KAN-217 PR-5 (ADR-204): the send. Platform commits the secure link on
     # its own session; integration the delivery row on its own (an SMS or a
-    # WhatsApp message here, an e-mail in mail_sending.send_customer_mail).
+    # WhatsApp message here, an e-mail in mail_sending.send_contact_mail).
     "app.platform.public.issue_document_link": (
         "app.platform.documents.services.document_links.issue_document_link",
         "sales: send_document",
@@ -179,8 +179,8 @@ _OWN_COMMIT_WRITES = {
         "sales: cancel_contract, confirm_contract's compensation",
     ),
     # KAN-634: a vehicle merge re-points VehicleParty rows through
-    # customer's consumer of `vehicle.vehicle_mdm.merged`, and the vehicle
-    # 360's «Allocate to customer» (FR-V-05) is served from the composition
+    # contact's consumer of `vehicle.vehicle_mdm.merged`, and the vehicle
+    # 360's «Allocate to contact» (FR-V-05) is served from the composition
     # root (app/api/v1/vehicle_parties.py) — no context calls either write.
     # A confirmation consumes its trade-in valuation, and reverts it as
     # the compensating action (KAN-101, ADR-074).
@@ -298,9 +298,9 @@ _OWN_COMMIT_WRITES = {
 }
 
 # ADR-047's forbidden shape, known and tracked as debt. The one entry Anto
-# recorded on 2026-10-07 (KAN-90) was paid by KAN-185 (the customer merge's
-# legacy-transaction re-point became the `customer.merged` consumer
-# `sales.customer_merged`). Empty; a new entry is a new debt, by name.
+# recorded on 2026-10-07 (KAN-90) was paid by KAN-185 (the contact merge's
+# legacy-transaction re-point became the `contact.merged` consumer
+# `sales.contact_merged`). Empty; a new entry is a new debt, by name.
 _SHARED_TRANSACTION_EXCEPTIONS: dict[str, str] = {}
 
 # ADR-047's forbidden shape, RULED a permanent exception by ADR — not debt.
@@ -318,21 +318,21 @@ _RULED_SHARED_TRANSACTIONS = {
 # Reviewed: read only, no commit reachable.
 _READS = {
     # KAN-259: builds the EXISTS Sales' nightly reconciliation runs; reads nothing itself.
-    "app.customer.public.customer_in_group",
-    "app.customer.public.customer_is_merged",  # KAN-581: the same, for a row naming a merged customer
-    # KAN-123 step 5: what reconciliation checks against `customer`, built by its owner.
-    "app.customer.public.customer_exists",
-    "app.customer.public.customer_reference_check",
-    "app.customer.public.get_customer_or_404",
-    "app.customer.public.get_customer_sales_labels",  # KAN-590: label read for sales.customer_labels
-    "app.customer.public.customer_display_name",  # KAN-465: formats a read CustomerRef, no session
-    "app.customer.public.supplier_contact",  # KAN-465: the purchase booking's SELECT-only read of its supplier
-    "app.customer.public.has_usable_domicile_address",
-    # KAN-185: Sales' customer.merged consumer follows the survivor's merge chain; a SELECT only.
-    "app.customer.public.resolve_live_customer_id",
+    "app.contact.public.contact_in_group",
+    "app.contact.public.contact_is_merged",  # KAN-581: the same, for a row naming a merged contact
+    # KAN-123 step 5: what reconciliation checks against `contact`, built by its owner.
+    "app.contact.public.contact_exists",
+    "app.contact.public.contact_reference_check",
+    "app.contact.public.get_contact_or_404",
+    "app.contact.public.get_contact_sales_labels",  # KAN-590: label read for sales.contact_labels
+    "app.contact.public.contact_display_name",  # KAN-465: formats a read ContactRef, no session
+    "app.contact.public.supplier_contact",  # KAN-465: the purchase booking's SELECT-only read of its supplier
+    "app.contact.public.has_usable_domicile_address",
+    # KAN-185: Sales' contact.merged consumer follows the survivor's merge chain; a SELECT only.
+    "app.contact.public.resolve_live_contact_id",
     "app.integration.public.get_enabled_connection",
     "app.integration.public.get_entitlement",
-    # KAN-795 (ADR-206): what Customers' reconciliation checks against integration's
+    # KAN-795 (ADR-206): what Contacts' reconciliation checks against integration's
     # delivery record, built by integration; reads nothing itself.
     "app.integration.public.message_delivery_recipient_reference_check",
     "app.integration.public.resolve_adapter",
@@ -352,7 +352,7 @@ _READS = {
     # KAN-200/KAN-410: who may own an open record in a Betrieb (a seller, an
     # advisor) — the user row and their memberships, a SELECT only.
     "app.platform.public.get_active_user_acting_in",
-    # KAN-104 item 5: a document without a customer language prints in the Betrieb's default; a SELECT only.
+    # KAN-104 item 5: a document without a contact language prints in the Betrieb's default; a SELECT only.
     "app.platform.public.get_dealership_default_correspondence_language",
     "app.platform.public.get_dealership_or_404",
     # KAN-221 (review, 2026-11-18): whether a Betrieb is the platform tenant, so
@@ -361,7 +361,7 @@ _READS = {
     # KAN-371: the History tab's Betrieb and user names, group-scoped; a SELECT only.
     "app.platform.public.get_group_display_labels",
     # KAN-722: the offboarded Betriebe of a group and their sole authors, which the
-    # History tab of a group customer hides; a SELECT only.
+    # History tab of a group contact hides; a SELECT only.
     "app.platform.public.get_offboarded_audit_attribution",
     # KAN-717: the responsible seller's primary site in the printing Betrieb, for a sales
     # document's letterhead; a SELECT only.
@@ -386,24 +386,24 @@ _READS = {
     "app.platform.public.list_dealer_manager_emails",
     # KAN-121: a group's Betriebe while its read is on, for Stock's group listing; a SELECT only.
     "app.platform.public.list_group_read_dealerships",
-    # KAN-423: the dealer groups a colleague works in, for Customers' hand-over refusal; a SELECT only.
+    # KAN-423: the dealer groups a colleague works in, for Contacts' hand-over refusal; a SELECT only.
     "app.platform.public.list_user_dealer_group_ids",
     "app.platform.public.list_user_dealership_ids",
     # Builds a PDF from content Sales supplies; persists nothing.
     "app.platform.public.render_document",
     "app.platform.public.render_standard_text",  # KAN-208: resolves and renders a text, writes nothing
-    # KAN-217 PR-5: the send's reads — the registry (in-process), Customers'
+    # KAN-217 PR-5: the send's reads — the registry (in-process), Contacts'
     # recipient and verdict, integration's refusals before anything is written.
     "app.platform.public.get_message_type",
     "app.platform.public.delivery_of",
     "app.platform.public.text_category_of",
-    "app.customer.public.message_recipient",
+    "app.contact.public.message_recipient",
     "app.integration.public.check_deliverable",
     "app.integration.public.refuse_unless_allowed",
     "app.platform.public.sample_document_link_url",
     # KAN-217 PR-6: the send dialog's reads — the pre-selected channel, each
     # channel's readiness (a SELECT, no provider call) and the delivery chip.
-    "app.customer.public.preselected_message_channel",
+    "app.contact.public.preselected_message_channel",
     "app.integration.public.channel_readiness",
     "app.integration.public.latest_deliveries",
     # KAN-214 (FR-A-26): derives the setup checklist and raises when an item the
@@ -415,7 +415,7 @@ _READS = {
     # KAN-146: Sales' storno consumer re-reads whether Stock holds the car as
     # bought now (delivery is unordered); a SELECT only.
     "app.inventory.public.is_stock_item_purchased",
-    # KAN-123 step 3: what Sales', Customers' and Vehicle's nightly reconciliation
+    # KAN-123 step 3: what Sales', Contacts' and Vehicle's nightly reconciliation
     # checks against Stock's table, built by inventory so its mapped class never
     # leaves it — builds a ReferenceCheck, a StateCheck or an EXISTS; reads nothing itself.
     "app.inventory.public.held_stock_item_check",
@@ -466,12 +466,12 @@ _READS = {
     "app.vehicle.public.get_provider_valuation_input",
     "app.vehicle.public.get_vehicle_equipment",
     "app.vehicle.public.get_vehicle_mdm_or_404",
-    # KAN-84: vehicle labels for customer's VehicleParty, batched.
+    # KAN-84: vehicle labels for contact's VehicleParty, batched.
     "app.vehicle.public.get_vehicle_summaries",
-    # KAN-706: the trade-in consumers read the customer's rows on every record of a
+    # KAN-706: the trade-in consumers read the contact's rows on every record of a
     # merge chain whose party move may not have run; a SELECT per link, no commit.
     "app.vehicle.public.merged_vehicle_chain",
-    # KAN-634: customer's vehicle-merged consumer follows the merge chain; a SELECT only.
+    # KAN-634: contact's vehicle-merged consumer follows the merge chain; a SELECT only.
     "app.vehicle.public.resolve_merged_vehicle_id",
     "app.vehicle.public.has_current_energy_rating",
     "app.vehicle.public.match_vehicle",
@@ -489,7 +489,7 @@ _READS = {
     # `dealership`, `location` and `user`, built by platform so its mapped
     # classes never leave it — a ReferenceCheck, an EXISTS or a scalar
     # subquery, each reading nothing itself; and two plain SELECTs by id for
-    # Customers' vehicle-party stamp classification, no commit.
+    # Contacts' vehicle-party stamp classification, no commit.
     "app.platform.public.dealer_group_reference_check",
     "app.platform.public.dealership_exists",
     "app.platform.public.dealership_group_of",
@@ -506,7 +506,7 @@ _READS = {
     # registry, no database).
     "app.platform.public.connected_account_states",
     "app.platform.public.register_grant_revoker",
-    # KAN-217: Sales' customer message types into the send dialog's
+    # KAN-217: Sales' contact message types into the send dialog's
     # in-process registry, at start-up (no database).
     "app.platform.public.register_message_type",
     # KAN-217 PR-4: Sales' document sources for secure links into the same
@@ -1202,13 +1202,13 @@ _SCRIPTS_REACHING_SEVERAL_CONTEXTS: dict[str, _ScriptReach] = {
     "seed_migration_smoke_test.py": _ScriptReach(
         frozenset(
             {
-                "app.customer.models.customer",
+                "app.contact.models.contact",
                 "app.platform.organisation.models.dealership",
             }
         ),
         commits=True,
         reason=(
-            "CI only: inserts one consistent row per table into customer, platform and vehicle in one "
+            "CI only: inserts one consistent row per table into contact, platform and vehicle in one "
             "commit, through the ORM and not the services on purpose (its docstring), so the migration round "
             "trip runs over data. A test fixture, never run against a real database. Excepted by ADR-140 "
             "(KAN-342): named and bounded, a CI fixture only. Its vehicle catalogue chain lives in "
@@ -1219,7 +1219,7 @@ _SCRIPTS_REACHING_SEVERAL_CONTEXTS: dict[str, _ScriptReach] = {
     "verify_migration_smoke_test_seed.py": _ScriptReach(
         frozenset(
             {
-                "app.customer.models.customer",
+                "app.contact.models.contact",
                 "app.platform.organisation.models.dealership",
                 "app.platform.identity.models.user",
                 "app.vehicle.models.catalogue",

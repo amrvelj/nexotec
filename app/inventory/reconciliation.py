@@ -16,9 +16,9 @@ import datetime as dt
 from sqlalchemy import and_, or_, select
 from sqlalchemy.orm import Session, aliased
 
+from app.contact.public import contact_reference_check
 from app.core.base import utcnow
 from app.core.reconciliation import ReconciliationRun, ReferenceCheck, StateCheck, run_reconciliation
-from app.customer.public import customer_reference_check
 from app.inventory.models.cancelled_contract import InventoryCancelledContract
 from app.inventory.models.sales_contract import InventorySalesContract
 from app.inventory.models.stock_item import StockItem
@@ -305,16 +305,16 @@ CHECKS: list[ReferenceCheck | StateCheck] = [
     ),
     # KAN-632 — who traded the car in, kept from Sales' confirmation for the
     # item's purchase and storno events.
-    customer_reference_check(
-        label="stock_item.trade_in_customer_id -> customer.id",
+    contact_reference_check(
+        label="stock_item.trade_in_contact_id -> contact.id",
         source_model=StockItem,
         source_row_id_column=StockItem.id,
-        source_fk_column=StockItem.trade_in_customer_id,
+        source_fk_column=StockItem.trade_in_contact_id,
         nullable=True,  # set only on a trade-in's pipeline item created since KAN-632
     ),
     # KAN-465 — the supplier contact a purchase booking named.
-    customer_reference_check(
-        label="stock_item.supplier_contact_id -> customer.id",
+    contact_reference_check(
+        label="stock_item.supplier_contact_id -> contact.id",
         source_model=StockItem,
         source_row_id_column=StockItem.id,
         source_fk_column=StockItem.supplier_contact_id,

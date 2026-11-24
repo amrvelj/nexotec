@@ -1,7 +1,7 @@
 """KAN-617 — no source file grows past 1,000 lines.
 
-`app/customer/services/customer.py` reached 4,208 lines (about 41,000 tokens)
-before anything noticed: every customer ticket read it whole. A file that
+`app/contact/services/contact.py` reached 4,208 lines (about 41,000 tokens)
+before anything noticed: every contact ticket read it whole. A file that
 size is a cost paid by every session that touches the area, and nothing
 stopped it growing.
 

@@ -23,7 +23,7 @@ from app.platform.identity.services import membership as membership_service
 from app.platform.identity.services import text_delegation as text_delegation_service
 from app.platform.organisation.models.module_entitlement import ModuleEntitlement
 from app.platform.organisation.services import entitlement as entitlement_service
-from tests.customer.test_customer_vehicle_party_close_rule import (
+from tests.contact.test_contact_vehicle_party_close_rule import (
     _postgres_only,
     _run,
     _wait_until_a_backend_waits_on_a_lock,

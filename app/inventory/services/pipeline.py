@@ -10,7 +10,7 @@ reads its `sales.contract.confirmed` payload against an OPAQUE
         "contractId": "<uuid>",
         "vehicleSource": "manual" | "existing",
         "manualConfiguration": {"vehicleLabel": str, "condition": str} | null,
-        "customerId": "<uuid>" | null,
+        "contactId": "<uuid>" | null,
         "signedAt": "<iso datetime>",
         "tradeIn": {"vehicleLabel": str, "condition": str, "valuationId"?: "<uuid>", "vin"?: str} | null,
         "pricingSnapshot": {"currency": "CHF", "basePrice": str|null, ...},
@@ -25,9 +25,9 @@ trade-in, when it holds one. The trade-in's pipeline item keeps it
 (`trade_in_vin`) to prefill and check its purchase booking; a confirmation
 published before KAN-536 has none, and the item is then bought as before.
 
-`customerId` and `signedAt` (KAN-632) are kept on a trade-in's pipeline
-item (`trade_in_customer_id`, `trade_in_signed_at`) and carried on by its
-purchase and storno events, so the customer context names the former owner
+`contactId` and `signedAt` (KAN-632) are kept on a trade-in's pipeline
+item (`trade_in_contact_id`, `trade_in_signed_at`) and carried on by its
+purchase and storno events, so the contact context names the former owner
 without asking Sales; a confirmation published before KAN-632 has neither.
 
 `pricingSnapshot` (WP-8, ADR-046) is the frozen price build-up, added for
@@ -35,7 +35,7 @@ the WP-9 invoice leg; this consumer ignores it. It never carries margin,
 trade-in purchase price or cost basis (ADR-029).
 
 The manual configuration's item is created reserved for the contract
-(KAN-158, PRD-Stock K-12): the customer has ordered that car. The
+(KAN-158, PRD-Stock K-12): the contact has ordered that car. The
 trade-in's is not — the dealership is buying it, nobody has ordered it.
 
 `vehicleSource == "manual"` and a non-empty `tradeIn` are independent —
@@ -279,7 +279,12 @@ def _handle_sales_contract_confirmed(
             # signed, kept for the item's purchase and storno events
             # (`trade_in_origin`). A confirmation published before KAN-632
             # carries neither; the item then keeps none.
-            apply_trade_in_seller(item, customer_id=payload.get("customerId"), signed_at=payload.get("signedAt"))
+            apply_trade_in_seller(
+                item,
+                # KAN-464 PR-3: a contract confirmed before the rename names the customer (PR-5 drops it)
+                contact_id=payload.get("contactId", payload.get("customerId")),
+                signed_at=payload.get("signedAt"),
+            )
             # KAN-536 — the VIN the contract holds for the car, kept as the
             # item's known future VIN (`trade_in_vin`, never `vin`: no
             # vehicle-mdm record and no stock VIN before the purchase,

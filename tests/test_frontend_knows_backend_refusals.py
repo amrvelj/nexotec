@@ -141,7 +141,7 @@ def test_a_reason_raised_through_a_named_constant_is_read(tmp_path):
 
 def test_the_send_routes_constant_named_reasons_are_read():
     raised = raised_reasons()
-    for reason in ("recipient_refused", "whatsapp_template_not_approved", "document_has_no_customer"):
+    for reason in ("recipient_refused", "whatsapp_template_not_approved", "document_has_no_contact"):
         assert reason in raised
 
 

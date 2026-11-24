@@ -1,7 +1,7 @@
 """KAN-379, ADR-106: a dealership membership may cross dealer groups.
 
 Recorded 2026-10-31 from Anto's pick on KAN-423 (2026-10-23): option A,
-refusing a hand-over of customers to a colleague who works in no Betrieb of
+refusing a hand-over of contacts to a colleague who works in no Betrieb of
 their group — not option B, "memberships never cross groups", nor both. So a
 person who genuinely works for two dealer groups holds a membership in a
 Betrieb of the other group; switching there mints that Betrieb's own group (ADR-014's

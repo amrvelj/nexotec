@@ -39,7 +39,7 @@ class DocumentPage(CamelModel):
 
 
 class DocumentSendRequest(CamelModel):
-    """KAN-217 PR-5: send one document to its customer. `text` replaces the
+    """KAN-217 PR-5: send one document to its contact. `text` replaces the
     standard text on e-mail and SMS; WhatsApp sends its approved template."""
 
     channel: MessageChannel
@@ -81,6 +81,6 @@ class SendChannelOptionRead(CamelModel):
 
 class SendOptionsRead(CamelModel):
     document_id: uuid.UUID
-    customer_label: str
+    contact_label: str
     preselected_channel: MessageChannel | None
     channels: list[SendChannelOptionRead]

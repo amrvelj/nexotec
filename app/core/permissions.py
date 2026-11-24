@@ -102,10 +102,10 @@ CAPABILITY_MATRIX: dict[str, Capability] = {
     # contacts too and gives the supplier role; the customer role and its
     # data (lifecycle, advisor, credit block, a merge of a customer) stay
     # with sales and aftersales — the next row.
-    "customers": Capability(read_roles=_ANY, write_roles=frozenset({_S, _AS, _I})),
+    "contacts": Capability(read_roles=_ANY, write_roles=frozenset({_S, _AS, _I})),
     "contact_customer_role": Capability(read_roles=_ANY, write_roles=frozenset({_S, _AS})),
     "vehicle_mdm": Capability(read_roles=_ANY, write_roles=frozenset({_S, _AS, _I})),
-    "customer_vehicle_links": Capability(read_roles=_ANY, write_roles=frozenset({_S, _AS})),
+    "contact_vehicle_links": Capability(read_roles=_ANY, write_roles=frozenset({_S, _AS})),
     # "Stock and pipeline vehicles": inventory AND sales write (Anto,
     # 2026-10-17, following the matrix; WP-7 PR-1 had inventory only). The
     # key guards only the stock item's own record (create, patch, options);
@@ -170,7 +170,7 @@ CAPABILITY_MATRIX: dict[str, Capability] = {
     ),
     # Send dialog: "any role with write on the document" — the document's
     # own capability gates the send; this row is the dialog itself.
-    "customer_send_dialog": Capability(read_roles=_ANY, write_roles=frozenset({_S, _AS, _I, _P, _F})),
+    "contact_send_dialog": Capability(read_roles=_ANY, write_roles=frozenset({_S, _AS, _I, _P, _F})),
     "sending_identities": Capability(read_roles=frozenset({_F}), write_roles=_MANAGER_ONLY),
     "ai_prompts": Capability(read_roles=frozenset({_I, _S}), write_roles=_MANAGER_ONLY),
     "legal_acceptance": Capability(read_roles=_MANAGER_ONLY, write_roles=_MANAGER_ONLY),
@@ -211,7 +211,7 @@ for _name, _capability in CAPABILITY_MATRIX.items():
 
 
 def require_read(capability: str):
-    """Dependency factory: `Depends(require_read("customers"))`."""
+    """Dependency factory: `Depends(require_read("contacts"))`."""
 
     cap = CAPABILITY_MATRIX[capability]
 
@@ -250,7 +250,7 @@ def writable_capabilities(*, roles: frozenset[AccessRole], is_dealer_manager: bo
 
 
 def require_write(capability: str):
-    """Dependency factory: `Depends(require_write("customers"))`."""
+    """Dependency factory: `Depends(require_write("contacts"))`."""
 
     CAPABILITY_MATRIX[capability]  # an unknown row fails at import, as before
 

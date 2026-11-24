@@ -69,7 +69,7 @@ describe('ReferenceDataPage — who is offered the writes (KAN-471)', () => {
     const user = userEvent.setup()
     // A manager writes every row of their Betrieb but the platform-only ones,
     // so the server's list never holds reference_lists for them.
-    const backend = install(session(['sales'], true, ['configurations', 'customers', 'stock_items']))
+    const backend = install(session(['sales'], true, ['configurations', 'contacts', 'stock_items']))
 
     renderWithProviders(<ReferenceDataPage />, { route: '/settings/reference' })
 
@@ -87,7 +87,7 @@ describe('ReferenceDataPage — who is offered the writes (KAN-471)', () => {
 
   it('tells a reader a language is missing without speaking of saving', async () => {
     installFakeBackend([
-      session(['sales'], true, ['customers']),
+      session(['sales'], true, ['contacts']),
       {
         method: 'GET',
         match: /\/reference-data\/fuel_type$/,
@@ -104,7 +104,7 @@ describe('ReferenceDataPage — who is offered the writes (KAN-471)', () => {
 
   it('keeps «Neuer Wert» and the inline edits for platform staff', async () => {
     const user = userEvent.setup()
-    install(session(['platform_admin'], false, ['reference_lists', 'configurations', 'customers']))
+    install(session(['platform_admin'], false, ['reference_lists', 'configurations', 'contacts']))
 
     renderWithProviders(<ReferenceDataPage />, { route: '/settings/reference' })
 

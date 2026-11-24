@@ -14,7 +14,7 @@ import { callbackBody, mailNavigation } from './mail/mailLink'
  * posted as it came; the server decides everything from the state it issued
  * (the provider tenant is never taken from here). Then: on to the consent
  * screen, or back to the screen the link started from — My account › Mein
- * Postfach for one's own mailbox, Administration › Kundenmails for the
+ * Postfach for one's own mailbox, Administration › Mails an Kontakte for the
  * Betrieb's. A refusal is said in the UI language with the way back.
  */
 export function MailLinkCallbackPage() {

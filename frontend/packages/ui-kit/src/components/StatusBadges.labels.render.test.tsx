@@ -4,7 +4,7 @@ import { render, screen } from "@testing-library/react";
 import { ConnectionStatusBadge } from "./ConnectionStatusBadge";
 import { LifecycleStatusBadge } from "./LifecycleStatusBadge";
 import { ValuationSourceBadge } from "./ValuationSourceBadge";
-import { CustomerTypeBadge } from "./CustomerTypeBadge";
+import { ContactTypeBadge } from "./ContactTypeBadge";
 import { StockLifecycleBadge } from "./StockLifecycleBadge";
 import { StockConditionBadge } from "./StockConditionBadge";
 import { StockReservationBadge } from "./StockReservationBadge";
@@ -44,7 +44,7 @@ describe("status badges render only the label they are given", () => {
 
   // KAN-334 — the seven badges that still carried a default label.
   it.each([
-    ["CustomerTypeBadge", () => <CustomerTypeBadge type="business" label="Entreprise" />, "Entreprise", "Business"],
+    ["ContactTypeBadge", () => <ContactTypeBadge type="business" label="Entreprise" />, "Entreprise", "Business"],
     ["StockLifecycleBadge", () => <StockLifecycleBadge status="in_stock" label="En stock" />, "En stock", "In stock"],
     ["StockConditionBadge", () => <StockConditionBadge condition="demo" label="Démonstration" />, "Démonstration", "Vorführwagen"],
     ["StockReservationBadge", () => <StockReservationBadge state="reserved" label="Réservé" />, "Réservé", "Reserved"],

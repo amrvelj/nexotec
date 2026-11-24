@@ -11,7 +11,7 @@ offer document prints.
 **These are templates, not legal advice** (FR-A-08): Swiss-standard wording
 (Swiss German spelling, «ss» never «ß»; OR / DSG references), labelled
 «Vorlage — bitte prüfen» in the UI until A-7 (legal review before the first
-customer) is answered. Person nouns follow the generic masculine (A-RULE-8 /
+contact) is answered. Person nouns follow the generic masculine (A-RULE-8 /
 KAN-171).
 
 One source for the rows: the KAN-208 migration inserts them and the test

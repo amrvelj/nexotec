@@ -60,12 +60,12 @@ def auth_client() -> TestClient:
     ):
         return {"ok": True}
 
-    @app.get("/customers/read")
-    def customers_read(principal: Principal = Depends(require_read("customers"))):
+    @app.get("/contacts/read")
+    def contacts_read(principal: Principal = Depends(require_read("contacts"))):
         return {"ok": True}
 
-    @app.get("/customers/write")
-    def customers_write(principal: Principal = Depends(require_write("customers"))):
+    @app.get("/contacts/write")
+    def contacts_write(principal: Principal = Depends(require_write("contacts"))):
         return {"ok": True}
 
     @app.get("/dealershipship-users/read")
@@ -259,17 +259,17 @@ def test_capability_matrix_never_grants_auditor_write():
 
 def test_require_read_any_role_capability_admits_every_authenticated_role(auth_client):
     for role in AccessRole:
-        response = auth_client.get("/customers/read", headers=_bearer(_token(role)))
+        response = auth_client.get("/contacts/read", headers=_bearer(_token(role)))
         assert response.status_code == 200, role
 
 
 def test_require_write_functional_role_is_admitted(auth_client):
-    response = auth_client.get("/customers/write", headers=_bearer(_token(AccessRole.SALES)))
+    response = auth_client.get("/contacts/write", headers=_bearer(_token(AccessRole.SALES)))
     assert response.status_code == 200
 
 
 def test_require_write_rejects_a_role_not_in_the_capability(auth_client):
-    response = auth_client.get("/customers/write", headers=_bearer(_token(AccessRole.PARTS)))
+    response = auth_client.get("/contacts/write", headers=_bearer(_token(AccessRole.PARTS)))
     assert response.status_code == 403
 
 
@@ -277,12 +277,12 @@ def test_require_write_is_dealer_manager_alone_is_sufficient(auth_client):
     """RP-1/ADR-026: the manager flag grants write within the dealership
     with no functional role required at all.
     """
-    response = auth_client.get("/customers/write", headers=_bearer(_token(is_dealer_manager=True)))
+    response = auth_client.get("/contacts/write", headers=_bearer(_token(is_dealer_manager=True)))
     assert response.status_code == 200
 
 
 def test_require_write_platform_admin_always_passes(auth_client):
-    response = auth_client.get("/customers/write", headers=_bearer(_token(AccessRole.PLATFORM_ADMIN)))
+    response = auth_client.get("/contacts/write", headers=_bearer(_token(AccessRole.PLATFORM_ADMIN)))
     assert response.status_code == 200
 
 

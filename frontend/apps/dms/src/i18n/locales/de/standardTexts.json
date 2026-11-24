@@ -25,7 +25,7 @@
     "appointment_reminder": "Terminerinnerung",
     "vehicle_ready": "Fahrzeug abholbereit",
     "workshop_order": "Werkstattauftrag",
-    "customer_note": "Kundennotiz"
+    "customer_note": "Notiz an den Kontakt"
   },
   "slot": {
     "header": "Kopf",
@@ -69,7 +69,7 @@
   },
   "whatsapp": {
     "approved": "Genehmigt",
-    "notApproved": "Nicht genehmigt — nur innerhalb von 24 Stunden nach einer Kundennachricht"
+    "notApproved": "Nicht genehmigt — nur innerhalb von 24 Stunden nach einer Nachricht des Kontakts"
   },
   "editor": {
     "title": "Standardtext bearbeiten",

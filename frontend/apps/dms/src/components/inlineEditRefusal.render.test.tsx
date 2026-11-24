@@ -7,10 +7,10 @@ import i18n from '../i18n'
 import fr from '../i18n/locales/fr'
 import { renderWithProviders } from '../test/renderWithProviders'
 import { installFakeBackend, status } from '../test/fakeBackend'
-import { customer } from '../test/fixtures'
+import { contact } from '../test/fixtures'
 import { isStaleVersion } from '../utils/apiRefusal'
-import { OverviewTab } from '../modules/customer/components/customer-detail/OverviewTab'
-import { ExternalIdsTab } from '../modules/customer/components/customer-detail/ExternalIdsTab'
+import { OverviewTab } from '../modules/contact/components/contact-detail/OverviewTab'
+import { ExternalIdsTab } from '../modules/contact/components/contact-detail/ExternalIdsTab'
 import { IdentityTab } from '../modules/vehicle/components/vehicle-detail/IdentityTab'
 import { DetailsTab } from '../modules/stock/components/stock-detail/DetailsTab'
 import { ReferenceDataPage } from '../pages/ReferenceDataPage'
@@ -56,13 +56,13 @@ async function editAndSave(currentValue: string, typed = 'X') {
 }
 
 describe('an inline-edit refusal is said in the UI language, never the API English (KAN-473)', () => {
-  it('customers: a stale save says so and offers the reload under its French label', async () => {
-    installFakeBackend([{ match: /^\/customers\/advisor-options$/, handler: () => ({ items: [] }) }])
+  it('contacts: a stale save says so and offers the reload under its French label', async () => {
+    installFakeBackend([{ match: /^\/contacts\/advisor-options$/, handler: () => ({ items: [] }) }])
     const save = vi.fn().mockResolvedValue(undefined)
     const onReload = vi.fn()
     renderWithProviders(
       <OverviewTab
-        customer={customer({ firstName: 'Hansruedi' })}
+        contact={contact({ firstName: 'Hansruedi' })}
         phones={[]}
         emails={[]}
         onSaveField={vi.fn().mockRejectedValue(refusal(409, { currentVersion: 4, ifMatchVersion: 3 }))}
@@ -88,14 +88,14 @@ describe('an inline-edit refusal is said in the UI language, never the API Engli
     expect(onReload).toHaveBeenCalledTimes(1)
   })
 
-  it('customers: an external ID refused with a reason says the reason', async () => {
+  it('contacts: an external ID refused with a reason says the reason', async () => {
     installFakeBackend([])
     renderWithProviders(
       <ExternalIdsTab
         externalIds={[
           {
             id: 'x1',
-            customerId: 'cust-1',
+            contactId: 'cust-1',
             systemName: 'CRM',
             externalId: 'A-17',
             createdAt: '2026-01-01T00:00:00Z',
@@ -145,10 +145,10 @@ describe('an inline-edit refusal is said in the UI language, never the API Engli
         onAllocate={async () => {}}
         allocating={false}
         onAllocatingChange={() => {}}
-        customerCandidates={[]}
-        customerSearch=""
-        onCustomerSearchChange={() => {}}
-        onCustomerOverlayClose={() => {}}
+        contactCandidates={[]}
+        contactSearch=""
+        onContactSearchChange={() => {}}
+        onContactOverlayClose={() => {}}
       />,
     )
 

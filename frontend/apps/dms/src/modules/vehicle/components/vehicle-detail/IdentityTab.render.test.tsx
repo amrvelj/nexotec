@@ -11,13 +11,13 @@ import { IdentityTab } from './IdentityTab'
 import type { VehicleMdmRead, VehiclePartyAllocationRead } from '../../../../api/types'
 
 /** The picker's open state lives on the page since KAN-468 (the header's
- * «Allocate to customer» opens it too); this stands in for the page. */
+ * «Allocate to contact» opens it too); this stands in for the page. */
 function StatefulIdentityTab(props: Omit<ComponentProps<typeof IdentityTab>, 'allocating' | 'onAllocatingChange'>) {
   const [allocating, setAllocating] = useState(false)
   return <IdentityTab {...props} allocating={allocating} onAllocatingChange={setAllocating} />
 }
 
-// KAN-140 — the "Beteiligte" card used to print each holder's raw customer
+// KAN-140 — the "Beteiligte" card used to print each holder's raw contact
 // UUID as the link text. A seller must see who owns, keeps or drives the
 // car, current and former, without opening the overlay.
 
@@ -43,7 +43,7 @@ function party(over: Partial<VehiclePartyAllocationRead>): VehiclePartyAllocatio
   return {
     id: 'p1',
     vehicleId: vehicle.id,
-    customerId: '01a105b3-f856-7cdc-938f-a2ddac5ca8f8',
+    contactId: '01a105b3-f856-7cdc-938f-a2ddac5ca8f8',
     role: 'keeper',
     effectiveFrom: '2026-01-01T00:00:00Z',
     effectiveTo: null,
@@ -55,7 +55,7 @@ function party(over: Partial<VehiclePartyAllocationRead>): VehiclePartyAllocatio
 function renderTab(
   parties: VehiclePartyAllocationRead[],
   formerParties: VehiclePartyAllocationRead[] = [],
-  onCustomerOverlayClose: () => void = () => {},
+  onContactOverlayClose: () => void = () => {},
 ) {
   return renderWithProviders(
     <IdentityTab
@@ -67,15 +67,15 @@ function renderTab(
       onAllocate={async () => {}}
       allocating={false}
       onAllocatingChange={() => {}}
-      customerCandidates={[]}
-      customerSearch=""
-      onCustomerSearchChange={() => {}}
-      onCustomerOverlayClose={onCustomerOverlayClose}
+      contactCandidates={[]}
+      contactSearch=""
+      onContactSearchChange={() => {}}
+      onContactOverlayClose={onContactOverlayClose}
     />,
   )
 }
 
-describe('IdentityTab party rows show the holder, never the customer id (KAN-140)', () => {
+describe('IdentityTab party rows show the holder, never the contact id (KAN-140)', () => {
   // KAN-172 — renderWithProviders' AuthProvider and preference scope fetch on
   // mount; every test gets the fake backend, not the network.
   beforeEach(() => {
@@ -86,7 +86,7 @@ describe('IdentityTab party rows show the holder, never the customer id (KAN-140
     void i18n.changeLanguage('de')
     const { container } = renderTab(
       [party({})],
-      [party({ id: 'p0', customerId: '01a105b3-0000-7cdc-938f-a2ddac5ca8f8', displayName: 'Frieda Former', effectiveTo: '2026-02-01T00:00:00Z' })],
+      [party({ id: 'p0', contactId: '01a105b3-0000-7cdc-938f-a2ddac5ca8f8', displayName: 'Frieda Former', effectiveTo: '2026-02-01T00:00:00Z' })],
     )
 
     expect(screen.getByRole('button', { name: 'Leasing AG' })).toBeTruthy()
@@ -101,12 +101,12 @@ describe('IdentityTab party rows show the holder, never the customer id (KAN-140
     void i18n.changeLanguage('de')
     const { container } = renderTab([party({ displayName: null })])
 
-    expect(screen.getByRole('button', { name: i18n.t('vehicleDetail.parties.unnamedCustomer') })).toBeTruthy()
+    expect(screen.getByRole('button', { name: i18n.t('vehicleDetail.parties.unnamedContact') })).toBeTruthy()
     expect(container.textContent).not.toMatch(UUID_LIKE)
   })
 
-  it('asks the page to refetch the party roles when the customer overlay closes (U-11)', () => {
-    // The overlaid Customer 360 can rename the holder inline; the card must
+  it('asks the page to refetch the party roles when the contact overlay closes (U-11)', () => {
+    // The overlaid Contact 360 can rename the holder inline; the card must
     // not keep showing the old name once the overlay is closed.
     const onClose = vi.fn()
     renderTab([party({})], [], onClose)
@@ -144,10 +144,10 @@ describe('IdentityTab first registration date (KAN-333)', () => {
         onAllocate={async () => {}}
         allocating={false}
         onAllocatingChange={() => {}}
-        customerCandidates={[]}
-        customerSearch=""
-        onCustomerSearchChange={() => {}}
-        onCustomerOverlayClose={() => {}}
+        contactCandidates={[]}
+        contactSearch=""
+        onContactSearchChange={() => {}}
+        onContactOverlayClose={() => {}}
       />,
     )
     expect(screen.getByText('01.04.2021')).toBeInTheDocument()
@@ -160,31 +160,31 @@ describe('IdentityTab first registration date (KAN-333)', () => {
 })
 
 // KAN-389 — a refused allocation is said in the user's language, with the
-// keys the customer's Link vehicle dialog uses (KAN-369); never the API's
+// keys the contact's Link vehicle dialog uses (KAN-369); never the API's
 // English message.
 describe('IdentityTab — a refused allocation is translated (KAN-389)', () => {
   const MARKER = /MISSING I18N KEY/
   const cases = [
     {
-      name: 'customer_merged',
-      error: new ApiError(409, 'conflict', 'This customer has been merged into another; give the vehicle role to the customer it was merged into.', {
-        reason: 'customer_merged',
-        mergedIntoCustomerId: 'cust-2',
+      name: 'contact_merged',
+      error: new ApiError(409, 'conflict', 'This contact has been merged into another; give the vehicle role to the contact it was merged into.', {
+        reason: 'contact_merged',
+        mergedIntoContactId: 'cust-2',
       }),
-      key: 'customerDetail.linkVehicleRefused.customerMerged',
+      key: 'contactDetail.linkVehicleRefused.contactMerged',
     },
     {
       name: 'vehicle_party_exists',
-      error: new ApiError(409, 'conflict', 'This customer already has this role on this vehicle as of this date.', {
+      error: new ApiError(409, 'conflict', 'This contact already has this role on this vehicle as of this date.', {
         reason: 'vehicle_party_exists',
         role: 'owner',
       }),
-      key: 'customerDetail.linkVehicleRefused.roleAlreadyHeld',
+      key: 'contactDetail.linkVehicleRefused.roleAlreadyHeld',
     },
     {
-      name: 'a customer that no longer exists',
-      error: new ApiError(404, 'not_found', 'Customer cust-1 was not found.', null),
-      key: 'customerDetail.linkVehicleRefused.notFound',
+      name: 'a contact that no longer exists',
+      error: new ApiError(404, 'not_found', 'Contact cust-1 was not found.', null),
+      key: 'contactDetail.linkVehicleRefused.notFound',
     },
     {
       name: 'an unknown refusal',
@@ -211,10 +211,10 @@ describe('IdentityTab — a refused allocation is translated (KAN-389)', () => {
           onAllocate={async () => {
             throw c.error
           }}
-          customerCandidates={[{ id: 'cust-1', label: 'Anna Muster' }]}
-          customerSearch="Muster"
-          onCustomerSearchChange={() => {}}
-          onCustomerOverlayClose={() => {}}
+          contactCandidates={[{ id: 'cust-1', label: 'Anna Muster' }]}
+          contactSearch="Muster"
+          onContactSearchChange={() => {}}
+          onContactOverlayClose={() => {}}
         />,
       )
 

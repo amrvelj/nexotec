@@ -195,7 +195,7 @@ export function OfferAccessoriesAndOptions<D extends SalesPricedDealRead>({
             <Group key={option.id} justify="space-between">
               <Checkbox
                 // KAN-595: a configured car's option in the UI language as the
-                // provider delivered it; the printed offer uses the customer's.
+                // provider delivered it; the printed offer uses the contact's.
                 label={providerText(
                   { de: option.labelDe, fr: option.labelFr, it: option.labelIt, en: option.labelEn },
                   i18n.language,

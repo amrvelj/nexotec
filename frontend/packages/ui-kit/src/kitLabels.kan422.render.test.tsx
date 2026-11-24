@@ -179,7 +179,7 @@ describe("kit components show none of their former English defaults (KAN-422)", 
         <GlobalSearch
           onSearch={async () => []}
           onSelect={() => {}}
-          recents={[{ id: "r1", label: "Müller Hans", href: "/customers/r1" }]}
+          recents={[{ id: "r1", label: "Müller Hans", href: "/contacts/r1" }]}
           {...FR_GLOBAL_SEARCH_LABELS}
         />
       </MantineProvider>,

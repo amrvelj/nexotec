@@ -24,7 +24,7 @@ from app.vehicle.schemas.vehicle_mdm import VehicleMdmUpdate
 from app.vehicle.services.stock_holding import VIN_CHANGE_NEEDS_VIN_CORRECTION, held_stock_item
 
 # KAN-186 — the fact another context's copy of a vehicle's label follows
-# (customer's VehicleParty, KAN-84). Published in the same transaction as
+# (contact's VehicleParty, KAN-84). Published in the same transaction as
 # every write that changes a field `app.vehicle.public.VehicleSummary`
 # carries, and only then.
 SUMMARY_CHANGED_EVENT = "vehicle.vehicle_mdm.summary_changed"
@@ -34,7 +34,7 @@ _ENTITY_TYPE = "vehicle_mdm"
 
 def allocate_vehicle_number(db: Session) -> str:
     """Allocate the next `F-000001`-style number. Global — unlike the
-    per-group CustomerNumberSequence (app.customer.models.customer), a
+    per-group ContactNumberSequence (app.contact.models.contact), a
     vehicle is a global fact (ADR-022), so there is exactly one counter,
     not one per group. Same row-lock-then-increment idiom: a failed
     transaction rolls back its increment, so its number is re-issued to
@@ -440,7 +440,7 @@ def publish_summary_changed_if_changed(db: Session, *, vehicle: VehicleMdm, befo
     the write, `changedFields` (the camelCase names that differ) and the
     whole `summary` as it now stands. `tenant_id` is None: vehicle-mdm is a
     global fact no Betrieb owns (ADR-022); a consumer applies its own scope
-    (customer relabels every dealer group's party rows for the vehicle).
+    (contact relabels every dealer group's party rows for the vehicle).
     """
 
     after = summary_fields(vehicle)

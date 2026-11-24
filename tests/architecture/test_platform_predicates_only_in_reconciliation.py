@@ -42,7 +42,7 @@ _BUILDERS = (
 _NAMED = re.compile(r"\b(" + "|".join(_BUILDERS) + r")\b")
 
 # Where each builder's caller is — the test below proves it is still there.
-_CALLERS = ("customer", "sales", "valuation", "integration", "inventory", "vehicle", "reporting")
+_CALLERS = ("contact", "sales", "valuation", "integration", "inventory", "vehicle", "reporting")
 
 
 def _may_use_them(relative: str) -> bool:
@@ -77,7 +77,7 @@ def test_the_guard_reports_a_user_outside_reconciliation():
     assert _users_outside_reconciliation({
         "app/sales/services/offer.py": "from app.platform.public import dealership_exists\n",
         "app/inventory/api/stock.py": "from app.platform.public import user_is_deactivated\n",
-        "app/customer/services/ownership.py": "known = find_dealer_group_ids(db, ids)\n",
+        "app/contact/services/ownership.py": "known = find_dealer_group_ids(db, ids)\n",
         "app/vehicle/services/plate.py": "q = select(X).where(dealership_outside_group(a, b))\n",
         "app/integration/services/connection.py": "location_reference_check(label='x')\n",
         "app/platform/organisation/services/reconciliation_targets.py": "def dealership_exists(): ...\n",
@@ -86,9 +86,9 @@ def test_the_guard_reports_a_user_outside_reconciliation():
         "app/sales/services/untouched.py": "x = 1\n",
         # A longer name, or a local variable that merely contains one, is not a use.
         "app/sales/services/deal_list.py": "dealership_exists_for_tenant = True\n",
-        "app/customer/services/customer.py": "def find_dealer_group_ids_cached(): ...\n",
+        "app/contact/services/contact.py": "def find_dealer_group_ids_cached(): ...\n",
     }) == [
-        "app/customer/services/ownership.py",
+        "app/contact/services/ownership.py",
         "app/integration/services/connection.py",
         "app/inventory/api/stock.py",
         "app/sales/services/offer.py",

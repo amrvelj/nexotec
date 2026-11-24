@@ -16,7 +16,7 @@ Last verified against main@3b2bf69 (2026-11-18). Reconciliation reports; it neve
 
 - **Every cross-context id on every Sales table is reconciled:** an id naming nothing is an
   orphan (ReferenceCheck); a stock item, configuration or valuation of another dealership, or a
-  customer outside the dealership's group, is a mismatch (StateCheck). A contract's
+  contact outside the dealership's group, is a mismatch (StateCheck). A contract's
   `reservation_id` is checked only while it is confirmed (a released hold is cleared on the stock
   item). `created_by`/`updated_by` name a `user.id` or are null in every reconciled context
   (`platform.public.actor_reference_checks`; `test_actor_columns_reconciled.py`).
@@ -28,8 +28,8 @@ Last verified against main@3b2bf69 (2026-11-18). Reconciliation reports; it neve
   does not hold as purchased in its dealership (the storno / «Rechnung anfordern» race).
   **Unhandled:** a purchase whose first delivery failed, arriving after its storno, recreates the
   replica row — this check reports it once the storno is an hour old.
-- **A merged customer:** a Sales row naming one, last written over an hour ago, is a missed
-  `customer.merged` → `sales.customer_merged` (an attach waits on it).
+- **A merged contact:** a Sales row naming one, last written over an hour ago, is a missed
+  `contact.merged` → `sales.contact_merged` (an attach waits on it).
 - **The deal row:** a row whose number, status, buyer, locality, car, stock number, seller,
   vehicle-changed flag or document count differs from its live entity, or whose shape is wrong.
 - **The configuration:** a row naming a configuration vehicle has not stamped as taken, an hour

@@ -1,22 +1,22 @@
 {
   "title": "Bewertungen",
   "newValuation": "Bewertung erstellen",
-  "searchPlaceholder": "Bewertungsnummer, VIN, Kontrollschild, Kunde …",
+  "searchPlaceholder": "Bewertungsnummer, VIN, Kontrollschild, Kontakt …",
   "allView": "Alle Bewertungen",
-  "noCustomer": "Ohne Kunde",
+  "noContact": "Ohne Kontakt",
   "loadError": "Bewertungen konnten nicht geladen werden.",
   "chips": {
     "all": "Alle",
     "valid": "Gültig",
     "expiring_soon": "Läuft ab",
     "expired": "Abgelaufen",
-    "unattached": "Ohne Kunde",
+    "unattached": "Ohne Kontakt",
     "mine": "Meine"
   },
   "columns": {
     "number": "Nummer",
     "vehicle": "Fahrzeug",
-    "customer": "Kunde",
+    "contact": "Kontakt",
     "mileage": "Kilometerstand",
     "finalOffer": "Eintauschangebot",
     "source": "Quelle",
@@ -26,7 +26,7 @@
   },
   "emptyState": {
     "title": "Noch keine Bewertungen",
-    "description": "Erstellen Sie eine Bewertung — mit oder ohne Kunde, Offerte oder Fahrzeug im Bestand."
+    "description": "Erstellen Sie eine Bewertung — mit oder ohne Kontakt, Offerte oder Fahrzeug im Bestand."
   },
   "emptyFilteredState": {
     "title": "Keine Treffer",

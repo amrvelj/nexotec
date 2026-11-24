@@ -64,7 +64,7 @@
   "addressEntry": {
     "title": "Inserimento indirizzi",
     "enabled": "Suggerimenti di indirizzi da Google Places",
-    "enabledHint": "Durante l'inserimento di un indirizzo, il testo digitato viene inviato a Google – mai il nome o altri dati del cliente. Viene salvato solo l'indirizzo scelto; ogni campo resta modificabile.",
+    "enabledHint": "Durante l'inserimento di un indirizzo, il testo digitato viene inviato a Google – mai il nome o altri dati del contatto. Viene salvato solo l'indirizzo scelto; ogni campo resta modificabile.",
     "unavailable": "Su questa installazione non è configurata alcuna chiave Google. I suggerimenti compariranno appena Nexotec l'avrà configurata."
   },
   "banking": {

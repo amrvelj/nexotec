@@ -36,7 +36,7 @@ from app.db import Base
 from tests.configuration_test_support import stock_configuration_id
 from tests.enum_test_support import (
     _bearer,
-    _create_customer,
+    _create_contact,
     _create_dealership,
     _to_name_form,
     _token,
@@ -46,11 +46,15 @@ from tests.enum_test_support import (
     scope_check_definition,
     widen_connection_scope_check,
 )
+from tests.pre_rename_names import pre_rename_schema, renamed
 
 pytestmark = pytest.mark.skipif(not os.environ.get("DMS_TEST_DATABASE_URL"), reason="Postgres-only (ADR-011)")
 
 _VERSIONS = pathlib.Path(__file__).resolve().parents[1] / "alembic" / "versions"
 _CONTEXTS = ("core", "platform", "customer", "vehicle", "sales", "inventory", "valuation", "integration")
+# KAN-464 PR-3: the contact context's chain kept its label `customer`, and its
+# frozen lists the table and column names of their day (`renamed` maps them).
+_CHAIN_OF_CONTEXT = {"contact": "customer"}
 
 
 def _load(path: pathlib.Path):
@@ -69,6 +73,7 @@ def _enum_columns_by_context() -> dict[str, dict[tuple[str, str], type[enum.Enum
     by_context: dict[str, dict[tuple[str, str], type[enum.Enum]]] = defaultdict(dict)
     for mapper in Base.registry.mappers:
         context = mapper.class_.__module__.split(".")[1]
+        context = _CHAIN_OF_CONTEXT.get(context, context)
         for column in mapper.local_table.columns:
             if isinstance(column.type, StoredEnum):
                 by_context[context][(mapper.local_table.name, column.name)] = column.type.enum_class
@@ -85,12 +90,13 @@ def _frozen_columns_still_mapped() -> dict[tuple[str, str], list[enum.Enum]]:
     columns: dict[tuple[str, str], list[enum.Enum]] = {}
     for context, module in _MIGRATIONS.items():
         for table, column, pairs in module._COLUMNS:
-            enum_class = models.get(context, {}).get((table, column))
+            key = renamed(table, column)
+            enum_class = models.get(context, {}).get(key)
             if enum_class is None:
                 continue
             members = [enum_class[name] for name, _ in pairs if name in enum_class.__members__]
             if members:
-                columns[(table, column)] = members
+                columns[key] = members
     return columns
 
 
@@ -114,6 +120,7 @@ def test_every_frozen_column_and_member_agrees_with_the_models():
     owner = {table: context for context, columns in models.items() for table, _ in columns}
     for context, module in _MIGRATIONS.items():
         for table, column, pairs in module._COLUMNS:
+            table, column = renamed(table, column)
             assert owner.get(table, context) == context, f"{table} is filed under {context}, owned by {owner[table]}"
             enum_class = models[context].get((table, column))
             if enum_class is None:
@@ -221,8 +228,9 @@ def _set_raw(conn, table: str, column: str, stored: str) -> None:
 
 
 def _rewrite_all(conn, *, up: bool) -> None:
-    for module in _MIGRATIONS.values():
-        module._rewrite(conn, up=up)
+    with pre_rename_schema(conn):  # the frozen migrations predate KAN-464 PR-3
+        for module in _MIGRATIONS.values():
+            module._rewrite(conn, up=up)
 
 
 @pytest.fixture()
@@ -301,20 +309,20 @@ def test_a_string_that_is_neither_form_is_left_alone(engine, seeded, capsys):
     — covered by the member-cycling test above.)"""
 
     with engine.begin() as conn:
-        _set_raw(conn, "customer", "preferred_channel", "SMS_LEGACY")
-        _set_raw(conn, "customer", "language", "DE")
+        _set_raw(conn, "contact", "preferred_channel", "SMS_LEGACY")
+        _set_raw(conn, "contact", "language", "DE")
         _rewrite_all(conn, up=True)
-        assert _raw(conn, "customer", "preferred_channel") == "SMS_LEGACY"
-        assert _raw(conn, "customer", "language") == "de"
+        assert _raw(conn, "contact", "preferred_channel") == "SMS_LEGACY"
+        assert _raw(conn, "contact", "language") == "de"
 
     assert "customer.preferred_channel holds 'SMS_LEGACY' in 1 row(s)" in capsys.readouterr().out
 
 
 def test_a_row_already_in_value_form_is_not_touched(engine, seeded, capsys):
     with engine.begin() as conn:
-        _set_raw(conn, "customer_email", "consent_source", "form")  # KAN-91's shape
+        _set_raw(conn, "contact_email", "consent_source", "form")  # KAN-91's shape
         _rewrite_all(conn, up=True)
-        assert _raw(conn, "customer_email", "consent_source") == "form"
+        assert _raw(conn, "contact_email", "consent_source") == "form"
 
     out = capsys.readouterr().out
     assert "customer_email.consent_source NAME -> value: 0 row(s)" in out
@@ -348,8 +356,9 @@ def test_upgrade_widens_the_check_then_rewrites_and_downgrade_undoes_both(engine
             _set_raw(conn, table, column, member.name)
         _with_mains_check(conn)
 
-        for module in _MIGRATIONS.values():
-            _run(conn, module.upgrade)
+        with pre_rename_schema(conn):
+            for module in _MIGRATIONS.values():
+                _run(conn, module.upgrade)
 
         assert {key: _raw(conn, *key) for key in seeded} == {key: m.value for key, m in members.items()}
         assert "'platform'" in scope_check_definition(conn) and "'PLATFORM'" in scope_check_definition(conn)
@@ -360,8 +369,9 @@ def test_upgrade_widens_the_check_then_rewrites_and_downgrade_undoes_both(engine
         assert _raw(conn, "integration_connection", "scope") == "TENANT"
 
     with engine.begin() as conn:
-        for module in reversed(list(_MIGRATIONS.values())):
-            _run(conn, module.downgrade)
+        with pre_rename_schema(conn):
+            for module in reversed(list(_MIGRATIONS.values())):
+                _run(conn, module.downgrade)
         after = {key: _raw(conn, *key) for key in seeded}
         assert "'platform'" not in scope_check_definition(conn)
 
@@ -381,7 +391,7 @@ def test_rewriting_before_widening_the_check_would_fail(engine, seeded):
         pytest.raises(sa.exc.IntegrityError, match="ck_integration_connection_scope_tenant_id"),
         engine.begin() as conn,
     ):
-        _MIGRATIONS["integration"]._rewrite(conn, up=True)
+        _MIGRATIONS["integration"]._rewrite(conn, up=True)  # names no contact table
 
 
 # --- after the migration, through the endpoints ------------------------------
@@ -393,7 +403,7 @@ def test_name_form_rows_serve_from_the_endpoints_after_the_upgrade(client, db_se
     are values after the real upgrade() and are listed and filtered."""
 
     tenant_id = _create_dealership(client)
-    customer = _create_customer(client, tenant_id, "Named")
+    customer = _create_contact(client, tenant_id, "Named")
     _to_name_form(db_session, customer["id"])
     inventory = _bearer(_token(tenant_id, AccessRole.INVENTORY))
     body = {"vehicleLabel": "VW Golf", "condition": "new", "configurationId": stock_configuration_id(db_session, inventory)}
@@ -406,29 +416,29 @@ def test_name_form_rows_serve_from_the_endpoints_after_the_upgrade(client, db_se
     )
     db_session.commit()
     before = db_session.execute(
-        text("SELECT c.customer_type, c.language, e.email_type FROM customer c JOIN customer_email e ON e.customer_id = c.id")
+        text("SELECT c.contact_type, c.language, e.email_type FROM contact c JOIN contact_email e ON e.contact_id = c.id")
     ).one()
     assert tuple(before) == ("INDIVIDUAL", "DE", "PERSONAL")
     db_session.close()
 
-    with engine.begin() as conn:
+    with engine.begin() as conn, pre_rename_schema(conn):
         for module in _MIGRATIONS.values():
             _run(conn, module.upgrade)
 
     with engine.connect() as conn:
         after = conn.execute(
-            text("SELECT c.customer_type, c.language, e.email_type FROM customer c JOIN customer_email e ON e.customer_id = c.id")
+            text("SELECT c.contact_type, c.language, e.email_type FROM contact c JOIN contact_email e ON e.contact_id = c.id")
         ).one()
         stock = conn.execute(text("SELECT condition FROM stock_item WHERE id = :id"), {"id": stock_id}).scalar_one()
     assert tuple(after) == ("individual", "de", "personal")
     assert stock == "new"
 
     sales = _bearer(_token(tenant_id, AccessRole.SALES))
-    listed = client.get("/v1/customers", headers=sales)
-    filtered = client.get("/v1/customers", params={"customerType": "individual"}, headers=sales)
+    listed = client.get("/v1/contacts", headers=sales)
+    filtered = client.get("/v1/contacts", params={"contactType": "individual"}, headers=sales)
     stock_list = client.get("/v1/inventory/stock-items", params={"condition": "new"}, headers=inventory)
     assert listed.status_code == 200, listed.text
-    assert [(i["id"], i["customerType"], i["email"]) for i in listed.json()["items"]] == [
+    assert [(i["id"], i["contactType"], i["email"]) for i in listed.json()["items"]] == [
         (customer["id"], "individual", customer["email"])
     ]
     assert filtered.status_code == 200 and [i["id"] for i in filtered.json()["items"]] == [customer["id"]]

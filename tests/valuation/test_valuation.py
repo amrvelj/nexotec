@@ -47,7 +47,7 @@ def test_default_validity_is_30_days():
     assert DEFAULT_VALIDITY_DAYS == 30
 
 
-def test_creatable_with_no_customer_no_vehicle(db_session):
+def test_creatable_with_no_contact_no_vehicle(db_session):
     tenant_id = uuid.uuid4()
     valuation = create_valuation(
         db_session,
@@ -58,7 +58,7 @@ def test_creatable_with_no_customer_no_vehicle(db_session):
     )
 
     assert valuation.vehicle_id is None
-    assert valuation.customer_id is None
+    assert valuation.contact_id is None
     assert valuation.valuation_number.startswith("B-")
     assert derive_status(valuation) == "valid"
 
@@ -302,7 +302,7 @@ def test_unattached_chip_matches_ohne_kunde(db_session):
         db_session, tenant_id=tenant_id, chip="unattached", q=None, created_by=None, params=params
     )
     assert total == 1
-    assert rows[0].customer_id is None
+    assert rows[0].contact_id is None
 
 
 def test_status_is_not_in_the_sort_allow_list():

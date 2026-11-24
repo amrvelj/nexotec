@@ -7,7 +7,7 @@ WP-4 wrote the first version of this guard the other way round — "no
 password hash remains anywhere in the database" — when Zitadel owned the
 front door. Nexotec owns authentication again (D-A-07), so the same guard
 now points the other way: the one credential table must exist, its
-password column must exist, and nothing else may grow one. A customer
+password column must exist, and nothing else may grow one. A contact
 credential (D-A-13, reserved) can only ever be a second table named here,
 never new columns on `credential`. Verified with a query against the live
 mapped schema, across every mapped table.

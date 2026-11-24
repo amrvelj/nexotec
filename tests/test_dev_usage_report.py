@@ -307,7 +307,7 @@ def test_no_word_of_a_command_becomes_a_label(tmp_path, monkeypatch, request):
 
     # a `cd` on its own line, then a `;` inside a commit message, an inline script or a heredoc
     assert label('cd /r\ngit commit -m "Fix it; Mueller asked"') == ("shell", "Bash (git)")
-    assert label("cd /r\npython3 - <<'EOF'\nx = 1; customer_name = 2\nEOF") == ("shell", "Bash (python3)")
+    assert label("cd /r\npython3 - <<'EOF'\nx = 1; contact_name = 2\nEOF") == ("shell", "Bash (python3)")
     assert label("cd /r\ncat <<'EOF' > notes.txt\nhello; cat Mueller.AG\nEOF") == ("read", "Bash view ?")
     # a program not on the known list is "other", whatever its first word
     assert label("Mueller --verbose") == ("shell", "Bash (other)")

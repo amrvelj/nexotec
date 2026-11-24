@@ -24,10 +24,10 @@ router = APIRouter(tags=["sales"], dependencies=[Depends(require_entitlement(Mod
 settings = get_settings()
 
 # U-03: only indexed columns are sortable — see the sales_offer_contract_deal
-# migration for number/customer_label/vehicle_label/gross_price/updated_at.
+# migration for number/contact_label/vehicle_label/gross_price/updated_at.
 DEAL_SORT_FIELDS: dict[str, object] = {
     "number": SalesDeal.number,
-    "customerLabel": SalesDeal.customer_label,
+    "contactLabel": SalesDeal.contact_label,
     "vehicleLabel": SalesDeal.vehicle_label,
     "stockItemLabel": SalesDeal.stock_item_label,  # KAN-570; ix_sales_deal_stock_item_label
     "ownerLabel": SalesDeal.owner_label,  # KAN-200; ix_sales_deal_owner_label

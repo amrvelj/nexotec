@@ -19,7 +19,7 @@ describe("StickyActionFooter — stacks above the content scrolling under it (KA
     render(
       <MantineProvider theme={testTheme}>
         <NumberInput label="Leergewicht" defaultValue={1500} />
-        <StickyActionFooter missingLabel="Es fehlt noch: Kunde" primaryAction={<button type="button">Speichern</button>} />
+        <StickyActionFooter missingLabel="Es fehlt noch: Kontakt" primaryAction={<button type="button">Speichern</button>} />
       </MantineProvider>,
     );
 

@@ -195,8 +195,8 @@ def _group_with_a_basis(client) -> tuple[dict, dict[str, str]]:
         user_id=uuid.uuid4(), tenant_id=tenant_id, group_id=group_id, roles=frozenset(), is_dealer_manager=True
     )
     manager = {"Authorization": f"Bearer {manager_token}"}
-    customer = client.post(
-        "/v1/customers",
+    contact = client.post(
+        "/v1/contacts",
         json={
             "firstName": "Anna",
             "lastName": "Muster",
@@ -205,10 +205,10 @@ def _group_with_a_basis(client) -> tuple[dict, dict[str, str]]:
         },
         headers=manager,
     )
-    assert customer.status_code == 201, customer.text
+    assert contact.status_code == 201, contact.text
     admin = _headers(tenant_id=tenant_id, group_id=group_id)
     basis = client.post(
-        f"/v1/customers/{customer.json()['id']}/legal-basis",
+        f"/v1/contacts/{contact.json()['id']}/legal-basis",
         json={"basis": "joint_controller_agreement", "scope": "x", "sourceDocument": "y"},
         headers=admin,
     )

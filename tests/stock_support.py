@@ -50,8 +50,8 @@ def supplier_contact(
     the dealership's group. A contact for a test whose subject is not the
     supplier: by default a private individual (VAT prefill: not registered)."""
 
-    from app.customer.schemas.customer import CustomerCreate, CustomerEmailCreate
-    from app.customer.services import customer as customer_service
+    from app.contact.schemas.contact import ContactCreate, ContactEmailCreate
+    from app.contact.services import contact as contact_service
     from app.platform.public import get_dealership_or_404
 
     group_id = get_dealership_or_404(db, tenant_id).dealer_group_id
@@ -60,17 +60,17 @@ def supplier_contact(
         if business
         else {"first_name": name.split(" ", 1)[0], "last_name": (name.split(" ", 1)[1:] or ["Muster"])[0]}
     )
-    customer = customer_service.create_customer(
+    contact = contact_service.create_contact(
         db,
         group_id=group_id,
-        data=CustomerCreate(
-            customer_type="business" if business else "individual",
+        data=ContactCreate(
+            contact_type="business" if business else "individual",
             language="de",
             roles=list(roles),
             vat_registered=vat_registered,
             vat_status_confirmed=vat_status_confirmed,
             emails=[
-                CustomerEmailCreate(
+                ContactEmailCreate(
                     email_type="work" if business else "personal",
                     email_address=f"supplier-{uuid.uuid4().hex[:8]}@example.ch",
                     is_primary=True,
@@ -82,7 +82,7 @@ def supplier_contact(
         acting_dealership_id=tenant_id,
         dealership_id=tenant_id,
     )
-    return customer.id
+    return contact.id
 
 
 def supplier_for_item(db: Session, item_id: uuid.UUID | str, **kwargs) -> str:
@@ -96,15 +96,15 @@ def supplier_for_item(db: Session, item_id: uuid.UUID | str, **kwargs) -> str:
 
 def supplier_over_api(client, headers: dict[str, str], *, name: str = "Hans Muster") -> str:
     """KAN-465: a supplier contact created as the purchasing user creates one
-    (POST /v1/customers with the supplier role; inventory may give it), in
+    (POST /v1/contacts with the supplier role; inventory may give it), in
     the token's group — for a test that books over HTTP."""
 
     first, _, last = name.partition(" ")
     last = last or "Muster"
     response = client.post(
-        "/v1/customers",
+        "/v1/contacts",
         json={
-            "customerType": "individual", "language": "de", "firstName": first, "lastName": last,
+            "contactType": "individual", "language": "de", "firstName": first, "lastName": last,
             "roles": ["supplier"],
             "emails": [{"emailType": "personal", "emailAddress": f"supplier-{uuid.uuid4().hex[:8]}@example.ch", "isPrimary": True}],
         },

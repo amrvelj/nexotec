@@ -1,7 +1,7 @@
-# DMS Customer UI (issue #8)
+# DMS Contact UI (issue #8)
 
 Minimal internal frontend to click through the shell as a real user: login
-+ Customer list/create/edit only. No nav shell, no other modules, no visual
++ Contact list/create/edit only. No nav shell, no other modules, no visual
 polish — React + TypeScript + Vite + Mantine, calling the backend REST API
 directly. Not wired into CI yet (backend-only for now); this is a fast-follow
 once there's something real here to lint/build-check.
@@ -39,7 +39,7 @@ response body's `user` object only lives in memory.
 src/api/        typed fetch client + response types (mirrors app/schemas/*.py)
 src/auth/       AuthContext (session state, login/logout)
 src/components/ ProtectedRoute (redirects to /login when logged out)
-src/pages/      LoginPage, CustomersListPage, CustomerFormPage (create+edit)
+src/pages/      LoginPage, ContactsListPage, ContactFormPage (create+edit)
 ```
 
 ## Known dependency note

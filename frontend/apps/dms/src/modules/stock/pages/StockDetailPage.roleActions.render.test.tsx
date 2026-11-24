@@ -160,7 +160,7 @@ describe('StockDetailPage — what the role may never use is hidden (KAN-430)', 
   })
 
   it('does not offer «Konfiguration zuordnen» to a role that may not write the stock item', async () => {
-    install(['customers'])
+    install(['contacts'])
     render()
 
     expect(await screen.findByText(i18n.t('stockDetail.configuration.missing'))).toBeInTheDocument()

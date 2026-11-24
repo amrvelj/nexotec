@@ -4,7 +4,7 @@ fact" (PRD-Vehicles' own module-decomposition table) — tenant-private even
 within a group (ADR-029), unlike vehicle identity, which is global. This
 is why it is not filed under `app.vehicle`.
 
-Creatable with no customer, no offer and no vehicle in the register
+Creatable with no contact, no offer and no vehicle in the register
 (confirmed live, verbatim, on the reference prototype's own create
 dialog: "Ohne Kunde, ohne Offerte, ohne Fahrzeug im Bestand"). `vehicle_id`
 is therefore nullable, and — when null — the vehicle's own facts
@@ -162,10 +162,10 @@ class Valuation(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, TimestampMix
 
     # Null = "Ohne Kunde" (confirmed live filter chip — the standalone
     # application's own unattached case, FR-V-17).
-    customer_id: Mapped[uuid.UUID | None] = mapped_column(
-        GUID(), nullable=True, index=True, comment="Owned by the customer context. No DB-level FK."
+    contact_id: Mapped[uuid.UUID | None] = mapped_column(
+        GUID(), nullable=True, index=True, comment="Owned by the contact context. No DB-level FK."
     )
-    customer_label: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    contact_label: Mapped[str | None] = mapped_column(String(200), nullable=True)
 
     source: Mapped[ValuationSource] = mapped_column(
         StoredEnum(ValuationSource, length=16), nullable=False

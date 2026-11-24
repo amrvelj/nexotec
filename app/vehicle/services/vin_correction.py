@@ -14,7 +14,7 @@ rolled back, as `vin_resolution.py`):
   `vin_correction_reverted` for the compensation) with the reason, and
   published as `vehicle.vehicle_mdm.vin_corrected` plus the ADR-119
   `vehicle.vehicle_mdm.summary_changed` (the VIN is a summary field, so
-  customer's `VehicleParty` labels follow by vehicle id);
+  contact's `VehicleParty` labels follow by vehicle id);
 - when the caller names one, the stock car's configuration: its VIN follows
   the record's, and its link is re-derived from it. Both tables are
   Vehicle's, so this is one context's write; ADR-070 is untouched — a

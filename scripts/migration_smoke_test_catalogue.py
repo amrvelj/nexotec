@@ -30,7 +30,7 @@ def seed_catalogue_type_approval(db: Session) -> None:
     type-approval-m2m migration (rev eb660a3213bd) exercises its backfill
     against a populated `vehicle_type_approval` table.
 
-    Runs against three schema states, same reasoning as the dealer/customer
+    Runs against three schema states, same reasoning as the dealer/contact
     chains above (this PR's ORM classes only know the newest shape):
       1. pre-m2m (`vehicle_type_approval.model_variant_id` present, UNIQUE
          `type_approval_number`) — raw inserts, one-to-one type approval;

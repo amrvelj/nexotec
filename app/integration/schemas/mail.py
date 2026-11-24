@@ -1,4 +1,4 @@
-"""Customer mail's connection screens over the API (KAN-215). Never a token,
+"""Contact mail's connection screens over the API (KAN-215). Never a token,
 a secret reference or a provider tenant id; a colleague's own mailbox is
 never listed to anyone but its owner (D-A-15)."""
 
@@ -42,7 +42,7 @@ class SenderRead(CamelModel):
 
 class OwnMailboxRead(CamelModel):
     mailbox: MailboxRead | None
-    # Exactly one of the two: the address customers see, or why nothing can be sent.
+    # Exactly one of the two: the address contacts see, or why nothing can be sent.
     sender: SenderRead | None
     sender_refusal: str | None
     providers: list[MailProviderRead]

@@ -45,7 +45,7 @@ function install({ sentStatus = 'sent', channels = [EMAIL, SMS, WHATSAPP] }: { s
     {
       method: 'GET',
       match: /^\/sales\/documents\/d1\/send-options$/,
-      handler: () => ({ documentId: 'd1', customerLabel: 'Anna Muster', preselectedChannel: 'email', channels }),
+      handler: () => ({ documentId: 'd1', contactLabel: 'Anna Muster', preselectedChannel: 'email', channels }),
     },
     {
       method: 'POST',
@@ -82,7 +82,7 @@ describe('DocumentSendDialog — the one send dialog on an offer (KAN-217 PR-6)'
     expect(within(dialog).getByText(i18n.t('salesDocuments.send.note.attachment', { sender: 'lea@garage-muster.ch' }))).toBeInTheDocument()
   })
 
-  it("says Customers' refusal by its reason and does not send", async () => {
+  it("says Contacts' refusal by its reason and does not send", async () => {
     const backend = install()
     const { user, dialog } = await openDialog()
     await user.click(within(dialog).getByText(i18n.t('salesDocuments.send.channel.sms')))

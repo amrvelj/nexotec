@@ -7,7 +7,7 @@ import type { Density } from "./types";
 export interface ActionBarProps {
   searchValue: string;
   onSearchChange: (value: string) => void;
-  /** The screen's own search hint, translated — "Search customers…". */
+  /** The screen's own search hint, translated — "Search contacts…". */
   searchPlaceholder: string;
   density: Density;
   onDensityChange: (density: Density) => void;

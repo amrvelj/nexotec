@@ -1,8 +1,8 @@
 import type {
-  CustomerAddressRead,
-  CustomerEmailRead,
-  CustomerPhoneRead,
-  CustomerRead,
+  ContactAddressRead,
+  ContactEmailRead,
+  ContactPhoneRead,
+  ContactRead,
   EmailType,
   LocationRead,
   PhoneType,
@@ -12,12 +12,12 @@ import type {
 // actually read is populated; the rest gets a sane default so a test only
 // has to spell out what it is asserting on.
 
-export function customer(overrides: Partial<CustomerRead> = {}): CustomerRead {
+export function contact(overrides: Partial<ContactRead> = {}): ContactRead {
   return {
     id: 'cust-1',
     groupId: 'group-1',
-    customerNumber: 'K-1001',
-    customerType: 'individual',
+    contactNumber: 'K-1001',
+    contactType: 'individual',
     language: 'de',
     salutation: 'herr',
     firstName: 'Hans',
@@ -31,7 +31,7 @@ export function customer(overrides: Partial<CustomerRead> = {}): CustomerRead {
     lifecycleStatus: 'active',
     source: null,
     sourceRef: null,
-    duplicateOfCustomerId: null,
+    duplicateOfContactId: null,
     marketingConsent: false,
     creditBlock: false,
     creditBlockReason: null,
@@ -49,7 +49,7 @@ export function customer(overrides: Partial<CustomerRead> = {}): CustomerRead {
     advisorId: null,
     advisorLabel: null,
     advisorLabelRefreshedAt: null,
-    customerSince: null,
+    contactSince: null,
     nextFollowUp: null,
     notes: null,
     tags: [],
@@ -65,12 +65,12 @@ export function customer(overrides: Partial<CustomerRead> = {}): CustomerRead {
 }
 
 let phoneSeq = 0
-export function phone(overrides: Partial<CustomerPhoneRead> & { type?: PhoneType; value?: string } = {}): CustomerPhoneRead {
+export function phone(overrides: Partial<ContactPhoneRead> & { type?: PhoneType; value?: string } = {}): ContactPhoneRead {
   phoneSeq += 1
   const { type, value, ...rest } = overrides
   return {
     id: `phone-${phoneSeq}`,
-    customerId: 'cust-1',
+    contactId: 'cust-1',
     phoneType: type ?? 'mobile',
     label: null,
     phoneE164: value ?? '+41 79 000 00 00',
@@ -90,12 +90,12 @@ export function phone(overrides: Partial<CustomerPhoneRead> & { type?: PhoneType
 }
 
 let emailSeq = 0
-export function email(overrides: Partial<CustomerEmailRead> & { type?: EmailType; value?: string } = {}): CustomerEmailRead {
+export function email(overrides: Partial<ContactEmailRead> & { type?: EmailType; value?: string } = {}): ContactEmailRead {
   emailSeq += 1
   const { type, value, ...rest } = overrides
   return {
     id: `email-${emailSeq}`,
-    customerId: 'cust-1',
+    contactId: 'cust-1',
     emailType: type ?? 'personal',
     label: null,
     emailAddress: value ?? 'hans.muster@example.ch',
@@ -114,10 +114,10 @@ export function email(overrides: Partial<CustomerEmailRead> & { type?: EmailType
   }
 }
 
-export function customerAddress(overrides: Partial<CustomerAddressRead> = {}): CustomerAddressRead {
+export function contactAddress(overrides: Partial<ContactAddressRead> = {}): ContactAddressRead {
   return {
     id: 'address-1',
-    customerId: 'cust-1',
+    contactId: 'cust-1',
     addressType: 'domicile',
     label: null,
     addressStreet: 'Bahnhofstrasse',
@@ -142,8 +142,8 @@ export function customerAddress(overrides: Partial<CustomerAddressRead> = {}): C
   }
 }
 
-export function customerPage(items: CustomerRead[]): {
-  items: CustomerRead[]
+export function contactPage(items: ContactRead[]): {
+  items: ContactRead[]
   nextCursor: string | null
   total: number
   totalIsEstimate: boolean

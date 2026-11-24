@@ -2,7 +2,7 @@
 their line items, and every issued document as a PDF with its number and
 date — re-rendered from the frozen content each generation stored, through
 the one renderer (`render_document_pdf`), never a second one. Sales tells
-the export which customers its rows name, so the group-owned customers come
+the export which contacts its rows name, so the group-owned contacts come
 for the Betrieb's own relationship (ADR-014).
 """
 
@@ -64,12 +64,12 @@ class SalesExporter(TableExporter):
         for model in (SalesOffer, SalesContract, SalesDeal):
             ids.update(
                 db.scalars(
-                    select(model.customer_id).where(
-                        model.tenant_id == scope.dealership_id, model.customer_id.is_not(None)
+                    select(model.contact_id).where(
+                        model.tenant_id == scope.dealership_id, model.contact_id.is_not(None)
                     )
                 )
             )
-        return {"customer": frozenset(ids)}
+        return {"contact": frozenset(ids)}
 
     def documents(self, db: Session, scope: ExportScope) -> Iterable[ExportDocument]:
         """Every issued offer and contract document, oldest first, streamed

@@ -436,7 +436,7 @@ def test_a_manager_under_the_legal_hold_ends_the_session_on_them_and_no_other(cl
     on_boss = _start(client, staff, str(dealership_id), boss["id"])
     on_clerk = _start(client, other_staff, str(dealership_id), clerk["id"])
 
-    refused = client.get("/v1/customers", headers=held)
+    refused = client.get("/v1/contacts", headers=held)
     assert refused.status_code == 403
     assert refused.json()["error"]["details"] == {"legalAcceptanceRequired": True}
 
@@ -452,4 +452,4 @@ def test_a_manager_under_the_legal_hold_ends_the_session_on_them_and_no_other(cl
     )
     assert ended.status_code == 200, ended.text
     assert ended.json()["endedBy"] == "user"
-    assert client.get("/v1/customers", headers=held).status_code == 403  # still held everywhere else
+    assert client.get("/v1/contacts", headers=held).status_code == 403  # still held everywhere else

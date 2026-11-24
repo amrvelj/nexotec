@@ -34,7 +34,7 @@ own transaction, as ``app/inventory/services/reservation.py`` does.
 Records of HTTP requests are kept for at least ``IDEMPOTENCY_RECORD_TTL`` and
 then purged by a daily job (``purge_expired_idempotency_records``, registered in
 ``app/worker.py``): a retry comes within seconds or minutes, and a stored
-response can carry personal data (a created customer's name and contact
+response can carry personal data (a created contact's name and contact
 details). The purge leaves alone the records a context writes under a path of
 its own (inventory's ``inventory.reserve:<item>`` and the like, through
 ``app/core/idempotency.py`` directly): how long those guard against a late
@@ -101,7 +101,7 @@ IDEMPOTENCY_RECORD_TTL = dt.timedelta(hours=24)
 # docstring checks them against the packages under app/.
 RESERVED_KEY_CONTEXTS = (
     "platform",
-    "customer",
+    "contact",
     "vehicle",
     "sales",
     "inventory",

@@ -2,7 +2,7 @@
 left stock (invoiced, FR-I-12) may come back as a new stock item.
 
 Anto, 2026-09-29: the same VIN may be in pipeline twice, never twice in
-stock. Anto, 2026-10-07: a car leaves stock when its customer invoice is
+stock. Anto, 2026-10-07: a car leaves stock when its contact invoice is
 issued; a returning car gets a new stock entry and the sold one stays as
 history; a cancelled purchase (storno) still blocks the VIN.
 """
@@ -79,7 +79,7 @@ def _pipeline(db_session, tenant_id: uuid.UUID) -> StockItem:
 
 
 def _sold(db_session, dealership: Dealership) -> StockItem:
-    """A car taken into stock, bought and invoiced to a customer — the
+    """A car taken into stock, bought and invoiced to a contact — the
     real path (record_purchase, then the invoicing gate), not a column
     poked by hand, so "left stock" here means what FR-I-12 means."""
 
