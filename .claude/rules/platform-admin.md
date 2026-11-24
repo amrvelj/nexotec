@@ -81,6 +81,20 @@ Decided rulings live in the PRD; built only where a bullet says so — check the
   `dealership_settings`); copied from a sister by the `contact_groups` subset (switches on, never off).
   A group staff withdrew cannot be switched on. Guard: `test_contact_group_setting_is_administrations.py`.
 
+## Settings store (KAN-805, ADR-214, ADR-216) — store built, API, checklist, copy and screen to come
+- An area **declares** each setting it reads (`SettingDeclaration`: key `<area>.<name>`, kind switch ·
+  number · amount · choice · text, what «not set» does — `quiet`, `refuses`, `acts_as`, never for an
+  amount or a text, D-A-06 —, checklist item) with `platform.public.register_setting`, called from the
+  composition root `app/setting_registry.py`; it **reads** with `platform.public.read_setting(db,
+  dealership_id=, location_id=, key="<literal>")`: the location's value, else the Betrieb's, else «not
+  set». `test_setting_keys_declared_and_read.py` fails on a key read and not declared, declared and
+  not read, or read without a literal: a declaration ships with its reader.
+- `setting_value` (one slot per Betrieb and per location; «not set» a state) and the append-only
+  `setting_value_change`; every change audited. **Restore is kept for the store only** (Anto,
+  2026-11-24; D-A-39 / KAN-219 dropped elsewhere); the history is read by every role. Lists and rules
+  (labour rates, the service catalogue) are their area's data, not settings. `dealership_settings`
+  stays as it is.
+
 ## Business master data (D-A-22, D-A-25, D-A-27, FR-A-25) — built
 - `/administration/business` is the one screen for the Betrieb's own data: legal identity,
   addresses (with the Betrieb's `email` and `website`, KAN-206, for the documents' footer), address

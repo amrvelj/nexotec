@@ -98,6 +98,9 @@ _TOP_LEVEL: dict[str, int] = {
     # KAN-217: names every module's contact message types for platform's
     # send-dialog registry, as status_registry does for the status page.
     "message_type_registry": _COMPOSITION_ROOT_RANK,
+    # KAN-805: names every area's setting declarations for platform's settings
+    # store, as message_type_registry does for the send dialog.
+    "setting_registry": _COMPOSITION_ROOT_RANK,
 }
 
 # The upward imports that exist today, each with the ticket that removes it
