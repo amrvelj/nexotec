@@ -245,7 +245,7 @@ class TableExporter:
 
 
 class StubExporter(TableExporter):
-    """A stub context (aftersales, parts, finance, reporting, compliance)
+    """A stub context (planning, aftersales, parts, finance, compliance)
     owns no table yet and exports nothing — but it registers, so the registry
     is the complete inventory of contexts and a first table there fails the
     completeness test until its exporter declares it."""

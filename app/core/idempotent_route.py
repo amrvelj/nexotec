@@ -46,7 +46,7 @@ one is refused with the standard 422 validation body (KAN-264, Anto
 2026-10-12): sent as ``Idempotency-Key: sales.contract.confirm:<id>`` on any
 POST, it would otherwise take the key Sales confirms that contract under and
 block the confirmation with a 409. The shape is ``RESERVED_KEY_PATTERN``:
-one of the twelve context names, a dot, an action (dotted segments of
+one of the thirteen context names, a dot, an action (dotted segments of
 lowercase letters, digits, ``_`` and ``-``), a colon. A key that merely
 contains a dot or a colon (``abc:def``, ``my.key``) is the client's. Every
 internal key in ``app/`` must match the pattern
@@ -96,11 +96,12 @@ logger = logging.getLogger("app.core.idempotent_route")
 IDEMPOTENCY_KEY_HEADER = "Idempotency-Key"
 IDEMPOTENCY_RECORD_TTL = dt.timedelta(hours=24)
 
-# The twelve bounded contexts (CLAUDE.md). Written out because app/core
+# The thirteen bounded contexts (CLAUDE.md). Written out because app/core
 # imports no context (rule 8); the architecture test named in the module
 # docstring checks them against the packages under app/.
 RESERVED_KEY_CONTEXTS = (
     "platform",
+    "planning",
     "contact",
     "vehicle",
     "sales",
