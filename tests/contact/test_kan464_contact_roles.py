@@ -30,6 +30,7 @@ from app.contact.reconciliation import CHECKS
 from app.core.audit_model import AuditEvent
 from app.core.reconciliation import StateCheck, find_rows_in_state
 from tests.membership_support import bearer, create_dealership, create_user, token
+from tests.pre_rename_names import pre_rename_names
 
 _MIGRATION = pathlib.Path(__file__).resolve().parents[2] / "alembic/versions/customer/a4c1e6b9d2f7_kan464_customer_role.py"
 _spec = importlib.util.spec_from_file_location("kan464_migration", _MIGRATION)
@@ -116,7 +117,9 @@ def test_the_migration_gives_every_existing_customer_the_customer_role(db_sessio
         contacts.append(contact)
     db_session.flush()
 
-    assert _migration.backfill_customer_role(db_session.connection()) == 2
+    with pre_rename_names(db_session.connection()):  # the migration predates KAN-464 PR-3
+
+        assert _migration.backfill_customer_role(db_session.connection()) == 2
     rows = db_session.scalars(select(ContactRoleAssignment).where(ContactRoleAssignment.group_id == group)).all()
     assert sorted((row.contact_id, row.role, row.valid_to) for row in rows) == sorted(
         (contact.id, ContactRole.CUSTOMER, None) for contact in contacts
@@ -124,7 +127,8 @@ def test_the_migration_gives_every_existing_customer_the_customer_role(db_sessio
     by_contact = {row.contact_id: row for row in rows}
     for contact in contacts:
         assert by_contact[contact.id].valid_from == contact.created_at
-    assert _migration.backfill_customer_role(db_session.connection()) == 0
+    with pre_rename_names(db_session.connection()):  # the migration predates KAN-464 PR-3
+        assert _migration.backfill_customer_role(db_session.connection()) == 0
 
 
 # --- create ---------------------------------------------------------------------------------

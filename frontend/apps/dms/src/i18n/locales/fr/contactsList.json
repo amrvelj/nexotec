@@ -1,8 +1,8 @@
 {
-  "title": "Clients",
-  "newContact": "Nouveau client",
+  "title": "Contacts",
+  "newContact": "Nouveau contact",
   "searchPlaceholder": "Rechercher par nom, e-mail, téléphone…",
-  "loadError": "Impossible de charger les clients.",
+  "loadError": "Impossible de charger les contacts.",
   "columns": {
     "contactNumber": "N° contact",
     "name": "Nom",
@@ -50,7 +50,7 @@
     "vatStatusConfirmed": "Statut TVA confirmé",
     "creditBlockReason": "Motif du blocage de crédit",
     "creditBlockedAt": "Bloqué depuis",
-    "contactSince": "Client depuis",
+    "contactSince": "Contact depuis",
     "nextFollowUp": "Prochaine relance",
     "notes": "Notes",
     "contactGroups": "Groupes de contacts",
@@ -61,8 +61,8 @@
     "copyContactNumber": "Copier le numéro de contact"
   },
   "emptyState": {
-    "title": "Aucun client pour l'instant",
-    "description": "Créez votre premier client pour commencer."
+    "title": "Aucun contact pour l'instant",
+    "description": "Créez votre premier contact pour commencer."
   },
   "emptyFilteredState": {
     "title": "Aucun résultat",
@@ -70,14 +70,14 @@
     "action": "Effacer la recherche et les filtres"
   },
   "filters": {
-    "contactType": "Type de client",
+    "contactType": "Type de contact",
     "lifecycleStatus": "Statut du cycle de vie",
     "language": "Langue",
     "canton": "Canton",
     "changedSince": "Modifié depuis",
     "changedSinceChip": "Modifié depuis {{date}}"
   },
-  "allContactsView": "Tous les clients",
+  "allContactsView": "Tous les contacts",
   "selection": {
     "count": "{{count, number}} sélectionné(s)",
     "clear": "Effacer la sélection",

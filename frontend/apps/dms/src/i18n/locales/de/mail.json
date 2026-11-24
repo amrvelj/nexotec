@@ -1,7 +1,7 @@
 {
-  "title": "Kundenmails",
-  "subtitle": "Offerten, Verträge und andere Mails an Kunden gehen nur aus einem Postfach Ihres Betriebs hinaus – Microsoft 365 oder Google Workspace. Hat eine Person ihr eigenes Postfach verbunden, gehen ihre Mails von dort; sonst vom Postfach des Betriebs. Ist keines verbunden, kann die App keine Kundenmail senden.",
-  "loadError": "Die Einstellungen für Kundenmails konnten nicht geladen werden.",
+  "title": "Mails an Kontakte",
+  "subtitle": "Offerten, Verträge und andere Mails an Kontakte gehen nur aus einem Postfach Ihres Betriebs hinaus – Microsoft 365 oder Google Workspace. Hat eine Person ihr eigenes Postfach verbunden, gehen ihre Mails von dort; sonst vom Postfach des Betriebs. Ist keines verbunden, kann die App keine Mail an Kontakte senden.",
+  "loadError": "Die Einstellungen für Mails an Kontakte konnten nicht geladen werden.",
   "providers": {
     "microsoft_365_mail": "Microsoft 365",
     "google_workspace_mail": "Google Workspace"
@@ -39,12 +39,12 @@
   },
   "own": {
     "heading": "Mein Postfach",
-    "intro": "Verbinden Sie Ihr eigenes Postfach, damit Ihre Kunden Mails von Ihnen erhalten und Antworten bei Ihnen ankommen. Gesendete Mails erscheinen in Ihrem Ordner «Gesendet».",
+    "intro": "Verbinden Sie Ihr eigenes Postfach, damit Ihre Kontakte Mails von Ihnen erhalten und Antworten bei Ihnen ankommen. Gesendete Mails erscheinen in Ihrem Ordner «Gesendet».",
     "none": "Sie haben noch kein eigenes Postfach verbunden.",
     "connect": "Mit {{provider}} verbinden",
     "disconnect": "Trennen",
     "confirmDisconnect": "Ja, trennen",
-    "senderTitle": "Ihre Kundenmails gehen von",
+    "senderTitle": "Ihre Mails an Kontakte gehen von",
     "sender": {
       "user_mailbox": "Ihrem eigenen Postfach: {{address}}",
       "business_mailbox": "dem Postfach des Betriebs: {{address}}"
@@ -53,7 +53,7 @@
   },
   "links": {
     "ownScreen": "Mein Postfach",
-    "businessScreen": "Administration › Kundenmails"
+    "businessScreen": "Administration › Mails an Kontakte"
   },
   "callback": {
     "working": "Ihr Postfach wird verbunden …",
@@ -75,7 +75,7 @@
     "business_mailbox_in_error": "Das Postfach des Betriebs kann im Moment nicht senden. Ein Manager verbindet es neu.",
     "no_recipient": "Die Mail hat keinen Empfänger.",
     "already_disconnected": "Dieses Postfach ist bereits getrennt.",
-    "mail_provider_platform_only": "Diesen Anbieter richtet Nexotec ein. Ihr Postfach verbinden Sie unter Administration › Kundenmails.",
+    "mail_provider_platform_only": "Diesen Anbieter richtet Nexotec ein. Ihr Postfach verbinden Sie unter Administration › Mails an Kontakte.",
     "id_token_invalid": "Die Anmeldung beim Anbieter konnte nicht bestätigt werden. Bitte beginnen Sie neu.",
     "not_a_business_account": "Bitte melden Sie sich mit dem Konto Ihrer Firma an, nicht mit einem privaten Konto.",
     "not_an_administrator": "Das Postfach des Betriebs kann nur ein Administrator Ihrer Organisation verbinden.",

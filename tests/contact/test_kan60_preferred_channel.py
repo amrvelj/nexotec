@@ -30,6 +30,7 @@ from app.core.pagination import SortPageParams
 from app.core.sorting import SortField
 from tests.enum_test_support import drop_enum_checks
 from tests.postgres_only import POSTGRES_SQL
+from tests.pre_rename_names import pre_rename_names
 
 _MIG_PATH = (
     pathlib.Path(__file__).resolve().parents[2] / "alembic/versions/customer/a3f8d2c91b64_fix_d21_case_mismatch.py"
@@ -97,7 +98,9 @@ def test_upgrade_converts_the_real_uppercase_legacy_values(db_session):
     _insert_raw_contact(db_session, contact_number="K-LETTER", preferred_channel="LETTER")
     _insert_raw_contact(db_session, contact_number="K-MESSAGE", preferred_channel="MESSAGE")
 
-    _mig._rename(db_session.connection(), _mig._RENAMES_UP)
+    with pre_rename_names(db_session.connection()):  # the table as it was named before KAN-464 PR-3
+
+        _mig._rename(db_session.connection(), _mig._RENAMES_UP)
     db_session.commit()
 
     rows = dict(
@@ -115,7 +118,9 @@ def test_upgrade_converts_the_real_uppercase_legacy_values(db_session):
 def test_downgrade_reverses_it(db_session):
     _insert_raw_contact(db_session, contact_number="K-EMAIL", preferred_channel="EMAIL")
 
-    _mig._rename(db_session.connection(), _mig._RENAMES_DOWN)
+    with pre_rename_names(db_session.connection()):  # the table as it was named before KAN-464 PR-3
+
+        _mig._rename(db_session.connection(), _mig._RENAMES_DOWN)
     db_session.commit()
 
     value = db_session.execute(
@@ -128,9 +133,12 @@ def test_downgrade_reverses_it(db_session):
 def test_rename_is_idempotent_a_second_run_changes_nothing_further(db_session):
     _insert_raw_contact(db_session, contact_number="K-MAIL", preferred_channel="MAIL")
 
-    _mig._rename(db_session.connection(), _mig._RENAMES_UP)
+    with pre_rename_names(db_session.connection()):  # the table as it was named before KAN-464 PR-3
+
+        _mig._rename(db_session.connection(), _mig._RENAMES_UP)
     db_session.commit()
-    _mig._rename(db_session.connection(), _mig._RENAMES_UP)  # a re-run must not touch EMAIL rows
+    with pre_rename_names(db_session.connection()):  # the table as it was named before KAN-464 PR-3
+        _mig._rename(db_session.connection(), _mig._RENAMES_UP)  # a re-run must not touch EMAIL rows
     db_session.commit()
 
     value = db_session.execute(

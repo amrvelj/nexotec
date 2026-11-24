@@ -40,13 +40,13 @@
       "message_text_missing_fixed": "Für diesen Kanal gibt es keinen Standardtext. Legen Sie ihn in der Verwaltung unter Standardtexte an und lassen Sie ihn beim Anbieter als Vorlage freigeben."
     },
     "refusal": {
-      "contact_merged": "Dieser Kunde wurde mit einem anderen zusammengeführt.",
-      "contact_do_not_contact": "Der Kunde ist als «Nicht kontaktieren» markiert.",
-      "no_usable_contact": "Der Kunde hat auf diesem Kanal keine verwendbare Kontaktangabe.",
-      "marketing_consent_missing": "Es fehlt die Einwilligung des Kunden in Werbung.",
+      "contact_merged": "Dieser Kontakt wurde mit einem anderen zusammengeführt.",
+      "contact_do_not_contact": "Der Kontakt ist als «Nicht kontaktieren» markiert.",
+      "no_usable_contact": "Der Kontakt hat auf diesem Kanal keine verwendbare Kontaktangabe.",
+      "marketing_consent_missing": "Es fehlt die Einwilligung des Kontakts in Werbung.",
       "channel_consent_missing": "Für diese Kontaktangabe fehlt die Einwilligung in Werbung.",
-      "newsletter_not_subscribed": "Der Kunde hat den Newsletter nicht abonniert.",
-      "generic": "Dieser Kunde kann diese Nachricht auf diesem Kanal nicht erhalten."
+      "newsletter_not_subscribed": "Der Kontakt hat den Newsletter nicht abonniert.",
+      "generic": "Dieser Kontakt kann diese Nachricht auf diesem Kanal nicht erhalten."
     },
     "status": {
       "sent": "Gesendet",

@@ -7,8 +7,8 @@
     "externalIds": "ID esterni"
   },
   "header": {
-    "failedToLoad": "Impossibile caricare il cliente",
-    "contactFallback": "Cliente"
+    "failedToLoad": "Impossibile caricare il contatto",
+    "contactFallback": "Contatto"
   },
   "errors": {
     "somethingWentWrong": "Si è verificato un errore.",
@@ -58,7 +58,7 @@
       "vatRegistered": "Soggetto a IVA",
       "vatStatusConfirmed": "Stato IVA confermato",
       "advisor": "Consulente",
-      "contactSince": "Cliente dal",
+      "contactSince": "Contatto dal",
       "nextFollowUp": "Prossimo contatto",
       "website": "Sito web",
       "newsletter": "Newsletter",
@@ -113,7 +113,7 @@
     "typeColumn": "Tipo",
     "labelColumn": "Denominazione",
     "labelHint": "Indica di quale numero o indirizzo si tratta – p. es. Ufficio, Contabilità, Officina Winterthur. Facoltativo, al massimo 60 caratteri.",
-    "consentHint": "Registra se il cliente ha acconsentito a essere contattato proprio a questo numero o indirizzo. Vale solo per questo canale.",
+    "consentHint": "Registra se il contatto ha acconsentito a essere contattato proprio a questo numero o indirizzo. Vale solo per questo canale.",
     "phoneValueColumn": "Numero",
     "emailValueColumn": "Indirizzo",
     "preferredChannelHeading": "Canale preferito",
@@ -146,7 +146,7 @@
     "maintainedBy": "Questi collegamenti con i sistemi OEM e CRM sono gestiti da Nexotec e dai sistemi collegati; puoi consultarli qui.",
     "emptyState": {
       "title": "Nessun ID esterno",
-      "description": "Nessun sistema OEM o CRM è ancora collegato a questo cliente. Questi collegamenti vengono creati da Nexotec o da un sistema collegato."
+      "description": "Nessun sistema OEM o CRM è ancora collegato a questo contatto. Questi collegamenti vengono creati da Nexotec o da un sistema collegato."
     },
     "add": "Aggiungi ID esterno",
     "remove": "Rimuovi",
@@ -166,14 +166,14 @@
     },
     "emptyState": {
       "title": "Nessun veicolo",
-      "description": "Nessuna relazione con veicoli registrata per questo cliente."
+      "description": "Nessuna relazione con veicoli registrata per questo contatto."
     },
     "addAction": "Collega veicolo",
     "inStockTitle": "Nel magazzino del gruppo — {{stockNumber}}",
     "specification": "Specifica",
     "unknownVehicle": "Veicolo non presente nel registro",
     "mergedInto": "Unito",
-    "mergedIntoTitle": "Conservato qui in un'unione di clienti — apri il cliente di destinazione",
+    "mergedIntoTitle": "Conservato qui in un'unione di contatti — apri il contatto di destinazione",
     "mergedIntoVehicle": "Unito al veicolo {{vin}}",
     "mergedIntoVehicleTitle": "Conservato come cronologia da un’unione di veicoli — apri il veicolo",
     "upcoming": "dal {{date}}",
@@ -184,23 +184,23 @@
   "offersContracts": {
     "emptyState": {
       "title": "Nessuna offerta o contratto",
-      "description": "Questo cliente non ha ancora offerte o contratti presso questa azienda."
+      "description": "Questo contatto non ha ancora offerte o contratti presso questa azienda."
     }
   },
   "history": {
     "emptyState": {
       "title": "Nessuna cronologia ancora",
-      "description": "Le modifiche a questo cliente appariranno qui."
+      "description": "Le modifiche a questo contatto appariranno qui."
     },
     "you": "Tu",
     "system": "Sistema",
     "unknownReference": "record sconosciuto",
     "unknownUser": "Utente sconosciuto",
     "actions": {
-      "create": "Cliente creato",
-      "update": "Cliente modificato",
-      "merge": "Cliente unito",
-      "merge_survivor_repointed": "Cliente di destinazione dell’unione aggiornato",
+      "create": "Contatto creato",
+      "update": "Contatto modificato",
+      "merge": "Contatto unito",
+      "merge_survivor_repointed": "Contatto di destinazione dell’unione aggiornato",
       "phone_add": "Telefono aggiunto",
       "phone_update": "Telefono modificato",
       "phone_remove": "Telefono rimosso",
@@ -230,9 +230,9 @@
       "consentScope": "Ambito del consenso",
       "consentSource": "Fonte del consenso",
       "consentTimestamp": "Consenso dato il",
-      "mergedIntoContactId": "Unito nel cliente",
+      "mergedIntoContactId": "Unito nel contatto",
       "mergedIntoVehicleId": "Unito al veicolo",
-      "duplicateOfContactId": "Duplicato del cliente",
+      "duplicateOfContactId": "Duplicato del contatto",
       "creditBlock": "Blocco creditizio",
       "creditBlockReason": "Motivo del blocco creditizio",
       "vehiclePartiesRepointed": "Collegamenti veicolo trasferiti",
@@ -266,35 +266,35 @@
     "error": "Non è stato possibile collegare il veicolo."
   },
   "linkVehicleRefused": {
-    "contactMerged": "Questo cliente è stato unito a un altro. Collega il veicolo al cliente in cui è stato unito.",
-    "roleAlreadyHeld": "Questo cliente ha già questo ruolo su questo veicolo a partire da questa data.",
-    "futureHolder": "{{customer}} è già registrato come {{role}} di questo veicolo dal {{date}} — usare prima «Termina voce» su questa voce.",
-    "notFound": "Il veicolo o il cliente non esiste più. Ricarica la pagina e cerca di nuovo."
+    "contactMerged": "Questo contatto è stato unito a un altro. Collega il veicolo al contatto in cui è stato unito.",
+    "roleAlreadyHeld": "Questo contatto ha già questo ruolo su questo veicolo a partire da questa data.",
+    "futureHolder": "{{contact}} è già registrato come {{role}} di questo veicolo dal {{date}} — usare prima «Termina voce» su questa voce.",
+    "notFound": "Il veicolo o il contatto non esiste più. Ricarica la pagina e cerca di nuovo."
   },
   "merge": {
-    "title": "Unisci cliente duplicato",
-    "intro": "Cerca il cliente a cui unire <name/>. Quel record resta; questo viene contrassegnato come unito.",
+    "title": "Unisci contatto duplicato",
+    "intro": "Cerca il contatto a cui unire <name/>. Quel record resta; questo viene contrassegnato come unito.",
     "searchPlaceholder": "Cerca per nome, e-mail, telefono, numero contatto…",
     "noMatches": "Nessun risultato.",
     "searchFailed": "La ricerca non è riuscita. Riprovare.",
-    "chooseDifferent": "← Scegli un altro cliente da mantenere",
-    "duplicateColumn": "Questo cliente — verrà unito",
-    "survivorColumn": "Cliente mantenuto — resterà",
-    "survivorContactsFailed": "Non è stato possibile caricare telefono ed e-mail del cliente che rimane. Sceglierlo di nuovo o sceglierne un altro.",
+    "chooseDifferent": "← Scegli un altro contatto da mantenere",
+    "duplicateColumn": "Questo contatto — verrà unito",
+    "survivorColumn": "Contatto mantenuto — resterà",
+    "survivorContactsFailed": "Non è stato possibile caricare telefono ed e-mail del contatto che rimane. Sceglierlo di nuovo o sceglierne un altro.",
     "irreversibleTitle": "Questa operazione non può essere annullata",
-    "irreversibleBody": "Veicoli, offerte, contratti, numeri di telefono, e-mail e ID esterni passano al cliente mantenuto. Questo cliente diventa di sola lettura e non compare più nella ricerca.",
+    "irreversibleBody": "Veicoli, offerte, contratti, numeri di telefono, e-mail e ID esterni passano al contatto mantenuto. Questo contatto diventa di sola lettura e non compare più nella ricerca.",
     "confirm": "Ho capito che l'operazione è definitiva",
     "submitting": "Unione in corso…",
-    "submit": "Unisci clienti",
-    "error": "Impossibile unire i clienti."
+    "submit": "Unisci contatti",
+    "error": "Impossibile unire i contatti."
   },
   "mergeRefused": {
-    "intoSelf": "Un cliente non può essere unito a sé stesso.",
-    "targetMerged": "Il cliente scelto è già stato unito a un altro. Scegli il cliente in cui è stato unito.",
-    "alreadyMerged": "Questo cliente è già stato unito.",
-    "survivorConflict": "L'unione è in conflitto con un record del cliente che resta. Ricarica entrambi i clienti e riprova.",
-    "vehiclePartyBusy": "Un veicolo di questo cliente è in fase di modifica. Invia di nuovo l'unione.",
-    "staleVersion": "Questo cliente è stato modificato nel frattempo. Ricarica la pagina e riprova.",
+    "intoSelf": "Un contatto non può essere unito a sé stesso.",
+    "targetMerged": "Il contatto scelto è già stato unito a un altro. Scegli il contatto in cui è stato unito.",
+    "alreadyMerged": "Questo contatto è già stato unito.",
+    "survivorConflict": "L'unione è in conflitto con un record del contatto che resta. Ricarica entrambi i contatti e riprova.",
+    "vehiclePartyBusy": "Un veicolo di questo contatto è in fase di modifica. Invia di nuovo l'unione.",
+    "staleVersion": "Questo contatto è stato modificato nel frattempo. Ricarica la pagina e riprova.",
     "customerRoleNotPermitted": "Un contatto con il ruolo cliente viene unito dalla vendita o dall’assistenza. Il vostro ruolo unisce solo contatti senza questo ruolo."
   }
 }

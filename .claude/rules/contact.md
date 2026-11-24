@@ -54,6 +54,12 @@ sales files belong to other rules. Last verified against main@3b2bf69 (2026-11-1
   evidence record exists (`LegalBasis`, ADR-030, append-only; `enable_group_read` refuses without
   one); whether a real group may share data is the open legal question — raise it, never decide it.
 
+## The rename from customers (KAN-464 PR-3, ADR-209)
+- Kept: the Alembic chain label and history; old audit rows' `entity_type` `customer` (readers take
+  both); `{{customer.salutation}}`. Until PR-5: `customer.merged` stays subscribed
+  (`sales.customer_merged`), payload readers fall back to old keys, reconciliation reports old-name
+  events pending or dead, the SPA redirects `/customers/*`.
+
 ## Contact channels (ADR-067) — child records, not columns
 - `contact_phone`, `contact_email`, `contact_address`: one row per value, with a type, a label,
   `isPrimary` with **exactly one primary per type-group** (kept transactionally on every create,
@@ -116,12 +122,13 @@ sales files belong to other rules. Last verified against main@3b2bf69 (2026-11-1
   `contactGroup` / `contactGroupNot`.
 
 ## Roles (KAN-464; Anto, 2026-10-26 one register, roles; Q1 2026-11-14 A)
-- `contact_role`: `contact` / `supplier`, one open row per role (`valid_to` closes it, never deleted);
-  every contact migrated as `contact`; a create without `roles` is a contact. `services/roles.py`.
+- `contact_role`: `customer` / `supplier`, one open row per role (`valid_to` closes it, never deleted);
+  every contact that existed before was migrated with `customer`; a create without `roles` is a customer.
+  `services/roles.py`.
 - Lifecycle (prospect/active/inactive), credit block and advisor are the **customer role's**: without it,
   stored `active` is neutral, no D-24 advisor, setting one is 422 `customer_role_required`; taking the
   role away resets them (audited), refused while credit-blocked (409 `customer_role_credit_blocked`).
-  Lifecycle filters on those values and the unassigned queue match contacts only. A merge unites roles.
+  Lifecycle filters on those values and the unassigned queue match customers only. A merge unites roles.
 - **Who gives which role** (Q3, 2026-11-14 A): `contacts` write is sales, aftersales and inventory; the
   matrix row `contact_customer_role` (sales, aftersales) writes the customer role's data — giving or
   taking the role, a changed prospect/active/inactive on a contact (lifting do-not-contact included;

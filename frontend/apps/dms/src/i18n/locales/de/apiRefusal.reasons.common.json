@@ -1,6 +1,6 @@
 {
   "colleague_cannot_act_there": "Der gewählte Kollege arbeitet nicht in dem Betrieb, zu dem dieser Datensatz gehört.",
-  "contact_do_not_contact": "Der Kunde {{customerNumber}} ist als «nicht kontaktieren» markiert und kann keiner Offerte und keinem Vertrag zugeordnet werden.",
+  "contact_do_not_contact": "Der Kontakt {{contactNumber}} ist als «nicht kontaktieren» markiert und kann keiner Offerte und keinem Vertrag zugeordnet werden.",
   "no_provider_connection": "Es ist kein Fahrzeugdaten-Anbieter verbunden.",
   "nul_character": "Die Eingabe enthält ein unzulässiges Zeichen. Entfernen Sie es und versuchen Sie es erneut.",
   "too_many_images": "Ein Bestandsfahrzeug hat höchstens {{max, number}} Bilder. Bitte zuerst ein Bild entfernen.",

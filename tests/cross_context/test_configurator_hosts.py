@@ -611,7 +611,7 @@ def _contact_keyed_configuration_routes(routes) -> tuple[int, list[str]]:
     """(configuration routes inspected, those reached through a contact)."""
 
     configuration_paths = [path for path, _route in api_routes(routes) if "configuration" in path]
-    return len(configuration_paths), [path for path in configuration_paths if "customer" in path]
+    return len(configuration_paths), [path for path in configuration_paths if "contact" in path]
 
 
 def test_the_contact_configuration_guard_catches_a_contact_keyed_route():

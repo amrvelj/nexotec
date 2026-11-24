@@ -11,7 +11,7 @@
   "trade_in_valuation_names_no_car": "Cette évaluation ne nomme aucun véhicule avec un VIN qui puisse être repris.",
   "trade_in_chassis_number_requires_configuration": "Un véhicule doté d’un numéro de châssis au lieu d’un VIN est repris avec sa configuration : évaluez-le via «Identifier et évaluer», qui enregistre le numéro de châssis, la marque et la première mise en circulation.",
   "vehicle_not_changed": "Le véhicule en stock n'a pas été modifié depuis le calcul du prix.",
-  "document_has_no_contact": "Ce document ne mentionne aucun client à qui l'envoyer.",
+  "document_has_no_contact": "Ce document ne mentionne aucun contact à qui l'envoyer.",
   "whatsapp_text_fixed": "Sur WhatsApp, le modèle approuvé est envoyé tel quel ; son texte ne peut pas être modifié ici.",
   "message_text_missing": "Il n'y a aucun texte à envoyer sur ce canal. Rédigez-en un ou créez un texte standard."
 }

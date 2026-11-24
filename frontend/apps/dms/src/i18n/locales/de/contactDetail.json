@@ -7,8 +7,8 @@
     "externalIds": "Externe IDs"
   },
   "header": {
-    "failedToLoad": "Kunde konnte nicht geladen werden",
-    "contactFallback": "Kunde"
+    "failedToLoad": "Kontakt konnte nicht geladen werden",
+    "contactFallback": "Kontakt"
   },
   "errors": {
     "somethingWentWrong": "Etwas ist schiefgelaufen.",
@@ -58,8 +58,8 @@
       "vatRegistered": "MwSt-pflichtig",
       "vatStatusConfirmed": "MwSt-Status bestätigt",
       "advisor": "Betreuer",
-      "contactSince": "Kunde seit",
-      "nextFollowUp": "Nächster Kontakt",
+      "contactSince": "Kontakt seit",
+      "nextFollowUp": "Nächste Kontaktaufnahme",
       "website": "Website",
       "newsletter": "Newsletter",
       "tags": "Tags",
@@ -113,7 +113,7 @@
     "typeColumn": "Typ",
     "labelColumn": "Bezeichnung",
     "labelHint": "Sagt, welche Nummer oder Adresse das ist – z. B. Geschäft, Buchhaltung, Werkstatt Winterthur. Freiwillig, höchstens 60 Zeichen.",
-    "consentHint": "Hält fest, ob der Kunde eingewilligt hat, über genau diese Nummer oder Adresse kontaktiert zu werden. Gilt nur für diesen Kanal.",
+    "consentHint": "Hält fest, ob der Kontakt eingewilligt hat, über genau diese Nummer oder Adresse kontaktiert zu werden. Gilt nur für diesen Kanal.",
     "phoneValueColumn": "Nummer",
     "emailValueColumn": "Adresse",
     "preferredChannelHeading": "Bevorzugter Kanal",
@@ -146,7 +146,7 @@
     "maintainedBy": "Diese Verknüpfungen mit OEM- und CRM-Systemen pflegen Nexotec und die angebundenen Systeme; Sie können sie hier einsehen.",
     "emptyState": {
       "title": "Keine externen IDs",
-      "description": "Mit diesem Kunden ist noch kein OEM- oder CRM-System verknüpft. Diese Verknüpfungen legen Nexotec oder ein angebundenes System an."
+      "description": "Mit diesem Kontakt ist noch kein OEM- oder CRM-System verknüpft. Diese Verknüpfungen legen Nexotec oder ein angebundenes System an."
     },
     "add": "Externe ID hinzufügen",
     "remove": "Entfernen",
@@ -166,14 +166,14 @@
     },
     "emptyState": {
       "title": "Keine Fahrzeuge",
-      "description": "Für diesen Kunden sind keine Fahrzeugbeziehungen erfasst."
+      "description": "Für diesen Kontakt sind keine Fahrzeugbeziehungen erfasst."
     },
     "addAction": "Fahrzeug verknüpfen",
     "inStockTitle": "Im eigenen Lager der Gruppe — {{stockNumber}}",
     "specification": "Spezifikation",
     "unknownVehicle": "Fahrzeug nicht im Register",
     "mergedInto": "Zusammengeführt",
-    "mergedIntoTitle": "Bei einer Kundenzusammenführung hier behalten — Zielkunden öffnen",
+    "mergedIntoTitle": "Bei einer Kontaktzusammenführung hier behalten — Zielkontakt öffnen",
     "mergedIntoVehicle": "Zusammengeführt mit Fahrzeug {{vin}}",
     "mergedIntoVehicleTitle": "Bei einer Fahrzeugzusammenführung als Verlauf behalten — Fahrzeug öffnen",
     "upcoming": "ab {{date}}",
@@ -184,23 +184,23 @@
   "offersContracts": {
     "emptyState": {
       "title": "Noch keine Offerten oder Verträge",
-      "description": "Für diesen Kunden gibt es bei diesem Betrieb noch keine Offerten oder Verträge."
+      "description": "Für diesen Kontakt gibt es bei diesem Betrieb noch keine Offerten oder Verträge."
     }
   },
   "history": {
     "emptyState": {
       "title": "Noch kein Verlauf",
-      "description": "Änderungen an diesem Kunden werden hier angezeigt."
+      "description": "Änderungen an diesem Kontakt werden hier angezeigt."
     },
     "you": "Sie",
     "system": "System",
     "unknownReference": "unbekannter Eintrag",
     "unknownUser": "Unbekannter Benutzer",
     "actions": {
-      "create": "Kunde angelegt",
-      "update": "Kunde geändert",
-      "merge": "Kunde zusammengeführt",
-      "merge_survivor_repointed": "Zielkunde der Zusammenführung aktualisiert",
+      "create": "Kontakt angelegt",
+      "update": "Kontakt geändert",
+      "merge": "Kontakt zusammengeführt",
+      "merge_survivor_repointed": "Zielkontakt der Zusammenführung aktualisiert",
       "phone_add": "Telefonnummer hinzugefügt",
       "phone_update": "Telefonnummer geändert",
       "phone_remove": "Telefonnummer entfernt",
@@ -230,9 +230,9 @@
       "consentScope": "Einwilligungsumfang",
       "consentSource": "Einwilligungsquelle",
       "consentTimestamp": "Einwilligung erteilt am",
-      "mergedIntoContactId": "Zusammengeführt in Kunde",
+      "mergedIntoContactId": "Zusammengeführt in Kontakt",
       "mergedIntoVehicleId": "Zusammengeführt mit Fahrzeug",
-      "duplicateOfContactId": "Duplikat von Kunde",
+      "duplicateOfContactId": "Duplikat von Kontakt",
       "creditBlock": "Kreditsperre",
       "creditBlockReason": "Grund der Kreditsperre",
       "vehiclePartiesRepointed": "Fahrzeugverknüpfungen übertragen",
@@ -266,35 +266,35 @@
     "error": "Das Fahrzeug konnte nicht verknüpft werden."
   },
   "linkVehicleRefused": {
-    "contactMerged": "Dieser Kunde wurde mit einem anderen zusammengeführt. Verknüpfen Sie das Fahrzeug mit dem Kunden, in den er zusammengeführt wurde.",
-    "roleAlreadyHeld": "Dieser Kunde hat diese Rolle für dieses Fahrzeug ab diesem Datum bereits.",
-    "futureHolder": "Für dieses Fahrzeug ist ab {{date}} bereits {{customer}} als {{role}} erfasst — zuerst diesen Eintrag mit «Eintrag beenden» beenden.",
-    "notFound": "Das Fahrzeug oder der Kunde existiert nicht mehr. Laden Sie die Seite neu und suchen Sie erneut."
+    "contactMerged": "Dieser Kontakt wurde mit einem anderen zusammengeführt. Verknüpfen Sie das Fahrzeug mit dem Kontakt, in den er zusammengeführt wurde.",
+    "roleAlreadyHeld": "Dieser Kontakt hat diese Rolle für dieses Fahrzeug ab diesem Datum bereits.",
+    "futureHolder": "Für dieses Fahrzeug ist ab {{date}} bereits {{contact}} als {{role}} erfasst — zuerst diesen Eintrag mit «Eintrag beenden» beenden.",
+    "notFound": "Das Fahrzeug oder der Kontakt existiert nicht mehr. Laden Sie die Seite neu und suchen Sie erneut."
   },
   "merge": {
-    "title": "Doppelten Kunden zusammenführen",
-    "intro": "Suchen Sie den Kunden, mit dem <name/> zusammengeführt werden soll. Jener Datensatz bleibt bestehen, dieser wird als zusammengeführt markiert.",
+    "title": "Doppelten Kontakt zusammenführen",
+    "intro": "Suchen Sie den Kontakt, mit dem <name/> zusammengeführt werden soll. Jener Datensatz bleibt bestehen, dieser wird als zusammengeführt markiert.",
     "searchPlaceholder": "Nach Name, E-Mail, Telefon, Kontaktnummer suchen…",
     "noMatches": "Keine Treffer.",
     "searchFailed": "Die Suche ist fehlgeschlagen. Bitte erneut versuchen.",
-    "chooseDifferent": "← Anderen verbleibenden Kunden wählen",
-    "duplicateColumn": "Dieser Kunde — wird zusammengeführt",
-    "survivorColumn": "Verbleibender Kunde — bleibt bestehen",
-    "survivorContactsFailed": "Telefon und E-Mail des verbleibenden Kunden konnten nicht geladen werden. Bitte einen anderen wählen oder erneut versuchen.",
+    "chooseDifferent": "← Anderen verbleibenden Kontakt wählen",
+    "duplicateColumn": "Dieser Kontakt — wird zusammengeführt",
+    "survivorColumn": "Verbleibender Kontakt — bleibt bestehen",
+    "survivorContactsFailed": "Telefon und E-Mail des verbleibenden Kontakts konnten nicht geladen werden. Bitte einen anderen wählen oder erneut versuchen.",
     "irreversibleTitle": "Dies kann nicht rückgängig gemacht werden",
-    "irreversibleBody": "Fahrzeuge, Offerten, Verträge, Telefonnummern, E-Mail-Adressen und externe IDs gehen auf den verbleibenden Kunden über. Dieser Kunde wird schreibgeschützt und in der Suche ausgeblendet.",
+    "irreversibleBody": "Fahrzeuge, Offerten, Verträge, Telefonnummern, E-Mail-Adressen und externe IDs gehen auf den verbleibenden Kontakt über. Dieser Kontakt wird schreibgeschützt und in der Suche ausgeblendet.",
     "confirm": "Ich verstehe, dass dies endgültig ist",
     "submitting": "Wird zusammengeführt…",
-    "submit": "Kunden zusammenführen",
-    "error": "Die Kunden konnten nicht zusammengeführt werden."
+    "submit": "Kontakte zusammenführen",
+    "error": "Die Kontakte konnten nicht zusammengeführt werden."
   },
   "mergeRefused": {
-    "intoSelf": "Ein Kunde kann nicht mit sich selbst zusammengeführt werden.",
-    "targetMerged": "Der gewählte Kunde wurde selbst bereits zusammengeführt. Wählen Sie den Kunden, in den er zusammengeführt wurde.",
-    "alreadyMerged": "Dieser Kunde wurde bereits zusammengeführt.",
-    "survivorConflict": "Die Zusammenführung kollidiert mit einem Datensatz beim verbleibenden Kunden. Laden Sie beide Kunden neu und versuchen Sie es erneut.",
-    "vehiclePartyBusy": "Ein Fahrzeug dieses Kunden wird gerade geändert. Senden Sie die Zusammenführung erneut.",
-    "staleVersion": "Dieser Kunde wurde inzwischen geändert. Laden Sie die Seite neu und versuchen Sie es erneut.",
+    "intoSelf": "Ein Kontakt kann nicht mit sich selbst zusammengeführt werden.",
+    "targetMerged": "Der gewählte Kontakt wurde selbst bereits zusammengeführt. Wählen Sie den Kontakt, in den er zusammengeführt wurde.",
+    "alreadyMerged": "Dieser Kontakt wurde bereits zusammengeführt.",
+    "survivorConflict": "Die Zusammenführung kollidiert mit einem Datensatz beim verbleibenden Kontakt. Laden Sie beide Kontakte neu und versuchen Sie es erneut.",
+    "vehiclePartyBusy": "Ein Fahrzeug dieses Kontakts wird gerade geändert. Senden Sie die Zusammenführung erneut.",
+    "staleVersion": "Dieser Kontakt wurde inzwischen geändert. Laden Sie die Seite neu und versuchen Sie es erneut.",
     "customerRoleNotPermitted": "Einen Kontakt mit der Rolle Kunde führen Verkauf und Kundendienst zusammen. Ihre Rolle führt nur Kontakte ohne diese Rolle zusammen."
   }
 }

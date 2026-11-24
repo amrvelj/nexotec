@@ -100,8 +100,8 @@ def _insert(engine, *, transaction_type: str, status: str) -> None:
     with engine.begin() as conn:
         conn.execute(
             sa.text(
-                'INSERT INTO "transaction" (id, tenant_id, transaction_type, status, contact_id, vehicle_id, '
-                "primary_user_id, created_at, updated_at) VALUES (:id, :tenant, :type, :status, :contact, "
+                'INSERT INTO "transaction" (id, tenant_id, transaction_type, status, customer_id, vehicle_id, '
+                "primary_user_id, created_at, updated_at) VALUES (:id, :tenant, :type, :status, :customer, "
                 ":vehicle, :user, now(), now())"
             ),
             {
@@ -124,7 +124,7 @@ def test_the_downgrade_recreates_the_table_in_its_old_shape(engine):
             ("tenant_id", "uuid", None, None, None, "NO"),
             ("transaction_type", "character varying", 16, None, None, "NO"),
             ("status", "character varying", 16, None, None, "NO"),
-            ("contact_id", "uuid", None, None, None, "NO"),
+            ("customer_id", "uuid", None, None, None, "NO"),
             ("vehicle_id", "uuid", None, None, None, "NO"),
             ("primary_user_id", "uuid", None, None, None, "NO"),
             ("amount", "numeric", None, 12, 2, "YES"),
@@ -152,14 +152,14 @@ def test_the_downgrade_recreates_the_table_in_its_old_shape(engine):
         for value in ("'sale'", "'trade_in'"):
             assert value in checks["ck_transaction_transaction_type_enum"]
         assert [i[0] for i in shape["indexes"]] == [
-            "ix_transaction_contact_id",
+            "ix_transaction_customer_id",
             "ix_transaction_primary_user_id",
             "ix_transaction_tenant_id",
             "ix_transaction_vehicle_id",
             "transaction_pkey",
         ]
         assert shape["comments"] == {
-            "contact_id": "Owned by the contact context. No DB-level FK (PR-2, ADR-015).",
+            "customer_id": "Owned by the customer context. No DB-level FK (PR-2, ADR-015).",
             "primary_user_id": "Owned by the platform context (User). No DB-level FK.",
             "tenant_id": "Owned by the platform context (Dealership). No DB-level FK.",
             "vehicle_id": "Owned by the vehicle context. No DB-level FK (PR-2, ADR-015).",

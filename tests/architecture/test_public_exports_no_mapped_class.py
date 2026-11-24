@@ -34,7 +34,7 @@ _APP_ROOT = Path(__file__).resolve().parents[2] / "app"
 # fails when app/ gains a package that is neither one of these nor wiring.
 _CONTEXTS = (
     "platform",
-    "customer",
+    "contact",
     "vehicle",
     "sales",
     "inventory",

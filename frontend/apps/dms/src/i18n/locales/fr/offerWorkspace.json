@@ -5,25 +5,25 @@
     "optional": "Facultatif"
   },
   "containers": {
-    "contact": "Client",
+    "contact": "Contact",
     "vehicle": "Véhicule",
     "pricing": "Structure de prix",
     "tradeIn": "Véhicule de reprise",
     "leasing": "Leasing"
   },
   "contact": {
-    "emptyHint": "Aucun client présélectionné — une offre porte le nom qui sera signé.",
-    "emptyHintContract": "Pas encore d’acheteur — un contrat n’est confirmé qu’avec le client qui le signe.",
-    "search": "Rechercher un client",
+    "emptyHint": "Aucun contact présélectionné — une offre porte le nom qui sera signé.",
+    "emptyHintContract": "Pas encore d’acheteur — un contrat n’est confirmé qu’avec le contact qui le signe.",
+    "search": "Rechercher un contact",
     "createNew": "Créer un nouveau",
     "creditBlockTitle": "Blocage de crédit",
-    "creditBlockBody": "Ce client a un blocage de crédit ({{reason}}) — une offre est possible, un contrat ne peut pas être confirmé.",
+    "creditBlockBody": "Ce contact a un blocage de crédit ({{reason}}) — une offre est possible, un contrat ne peut pas être confirmé.",
     "doNotContactTitle": "Ne pas contacter",
-    "doNotContactBody": "Ce client est marqué \"ne pas contacter\" — ni l’offre ni un contrat ne peuvent avancer.",
-    "mergedRefused": "Ce client a été fusionné avec un autre et ne peut plus être choisi comme acheteur.",
-    "mergedTitle": "Client fusionné",
-    "mergedInto": "Le client choisi a été fusionné avec {{name}} ({{customerNumber}}).",
-    "mergedIntoUnknown": "Le client choisi a été fusionné avec un autre. Recherchez le client dans lequel il a été fusionné.",
+    "doNotContactBody": "Ce contact est marqué \"ne pas contacter\" — ni l’offre ni un contrat ne peuvent avancer.",
+    "mergedRefused": "Ce contact a été fusionné avec un autre et ne peut plus être choisi comme acheteur.",
+    "mergedTitle": "Contact fusionné",
+    "mergedInto": "Le contact choisi a été fusionné avec {{name}} ({{contactNumber}}).",
+    "mergedIntoUnknown": "Le contact choisi a été fusionné avec un autre. Recherchez le contact dans lequel il a été fusionné.",
     "useSurvivor": "Choisir {{name}}"
   },
   "vehicle": {
@@ -57,7 +57,7 @@
     "margin": "Marge"
   },
   "tradeIn": {
-    "emptyHint": "Choisissez d'abord le client — ses véhicules seront suggérés ici.",
+    "emptyHint": "Choisissez d'abord le contact — ses véhicules seront suggérés ici.",
     "readyHint": "La reprise suit (prochaine étape).",
     "value": "Offre de reprise",
     "fromExistingValuation": "Reprise d'une évaluation existante",
@@ -69,8 +69,8 @@
     "valueWithConfigurator": "Identifier et évaluer",
     "attachError": "L'évaluation n'a pas pu être reprise.",
     "saveError": "Le véhicule de reprise n'a pas pu être enregistré.",
-    "contactMerged": "Le client a été fusionné avec un autre client. Choisissez le client avec lequel il a été fusionné, puis saisissez à nouveau le véhicule de reprise.",
-    "contactMergedInto": "Le client a été fusionné avec {{name}} ({{customerNumber}}). Choisissez {{name}} comme client, puis saisissez à nouveau le véhicule de reprise."
+    "contactMerged": "Le contact a été fusionné avec un autre contact. Choisissez le contact avec lequel il a été fusionné, puis saisissez à nouveau le véhicule de reprise.",
+    "contactMergedInto": "Le contact a été fusionné avec {{name}} ({{contactNumber}}). Choisissez {{name}} comme contact, puis saisissez à nouveau le véhicule de reprise."
   },
   "leasing": {
     "hint": "Pas de calculateur de leasing en v1 (S-D03). Saisies libres, pour qu'un futur calculateur puisse être intégré sans changement de schéma.",
@@ -84,12 +84,12 @@
     "openContract": "Ouvrir le contrat"
   },
   "continueDisabled": {
-    "doNotContact": "Ce client est marqué « ne pas contacter » : aucune offre ne peut être générée.",
+    "doNotContact": "Ce contact est marqué « ne pas contacter » : aucune offre ne peut être générée.",
     "saving": "Vos dernières modifications sont en cours d’enregistrement. « Générer l’offre » sera disponible dès qu’elles seront enregistrées."
   },
   "generate": {
     "title": "Générer l’offre",
-    "buildHint": "Génère un aperçu du document dans la langue de correspondance du client.",
+    "buildHint": "Génère un aperçu du document dans la langue de correspondance du contact.",
     "build": "Générer le document",
     "buildError": "Le document n’a pas pu être généré.",
     "previewTitle": "Offre {{number}}",

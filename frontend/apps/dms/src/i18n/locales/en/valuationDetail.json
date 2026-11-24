@@ -13,7 +13,7 @@
     "markUsed": "Mark as used",
     "markUsedAlreadyUsed": "Already marked as used.",
     "markUsedNoSignedContract": "Only possible when a signed contract carries this valuation as its trade-in.",
-    "openContact": "Open customer",
+    "openContact": "Open contact",
     "openVehicle": "Open vehicle",
     "revertUse": "Clear use",
     "revertUseNotUsed": "Only for a valuation marked as used.",
@@ -43,7 +43,7 @@
     "plate": "Plate",
     "mileage": "Mileage",
     "firstRegistration": "First registration",
-    "contact": "Customer"
+    "contact": "Contact"
   },
   "noteCard": {
     "title": "Note"

@@ -24,7 +24,7 @@
     "message": "Messaggio (obsoleto)"
   },
   "source": {
-    "walk_in": "Cliente di passaggio",
+    "walk_in": "Visita spontanea",
     "phone": "Telefono",
     "web_lead": "Lead web",
     "marketplace": "Marketplace",
@@ -81,7 +81,7 @@
     "weitere": "Altra"
   },
   "role": {
-    "contact": "Cliente",
+    "customer": "Cliente",
     "supplier": "Fornitore"
   }
 }

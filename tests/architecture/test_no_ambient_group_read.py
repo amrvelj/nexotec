@@ -48,31 +48,31 @@ _ALLOWED_FILES = {
     # Contact's own native, unconditional group scope (PR-2): filtering
     # by the CALLER's own group_id is not a boundary crossing, it's the
     # data's rightful scope.
-    _APP_ROOT / "customer" / "services" / "contact.py",
+    _APP_ROOT / "contact" / "services" / "contact.py",
     # KAN-617 split contact.py along its seams; the same reads, moved —
     # not new ones (the KAN-121 precedent below). Each file is listed by
     # name, so a new contact module with a group predicate still fails.
-    _APP_ROOT / "customer" / "services" / "contact_common.py",
-    _APP_ROOT / "customer" / "services" / "contact_merge.py",
-    _APP_ROOT / "customer" / "services" / "contact_search.py",
-    _APP_ROOT / "customer" / "services" / "trade_in_holders.py",
-    _APP_ROOT / "customer" / "services" / "vehicle_party.py",
-    _APP_ROOT / "customer" / "services" / "vehicle_party_locks.py",
-    _APP_ROOT / "customer" / "services" / "vehicle_party_reads.py",
+    _APP_ROOT / "contact" / "services" / "contact_common.py",
+    _APP_ROOT / "contact" / "services" / "contact_merge.py",
+    _APP_ROOT / "contact" / "services" / "contact_search.py",
+    _APP_ROOT / "contact" / "services" / "trade_in_holders.py",
+    _APP_ROOT / "contact" / "services" / "vehicle_party.py",
+    _APP_ROOT / "contact" / "services" / "vehicle_party_locks.py",
+    _APP_ROOT / "contact" / "services" / "vehicle_party_reads.py",
     # KAN-524's vehicle merge, found by KAN-737's right-hand pattern: after the
     # merge moves the duplicate's party rows onto the survivor, each role is
     # settled per contact group — `groups.get(party.contact_id) == group_id`
     # partitions rows ALREADY loaded for the one merged vehicle, in Python, by
     # each party's own contact's group. No query, no wider read.
-    _APP_ROOT / "customer" / "services" / "vehicle_merge.py",
+    _APP_ROOT / "contact" / "services" / "vehicle_merge.py",
     # The ADR-030 compliance layer built on top of tenancy.py's helper.
-    _APP_ROOT / "customer" / "services" / "legal_basis.py",
+    _APP_ROOT / "contact" / "services" / "legal_basis.py",
     # KAN-218 (FR-A-44, ADR-014, ADR-166): the export of ONE Betrieb's
     # contacts — the group in the predicate is that Betrieb's own, handed in
     # by platform (`ExportScope.group_id`), never another's, narrowed further
     # to the Betrieb's relationship. Never a dealer-facing read: the worker's
     # export only.
-    _APP_ROOT / "customer" / "services" / "data_export.py",
+    _APP_ROOT / "contact" / "services" / "data_export.py",
     # KAN-28 — ADR-055's group-readable stock roster. Since KAN-121 (rule
     # 2) its group predicate is platform's: the Betriebe of the caller's
     # own group while the group's read is enabled, as plain data

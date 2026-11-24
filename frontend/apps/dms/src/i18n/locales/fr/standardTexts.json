@@ -25,7 +25,7 @@
     "appointment_reminder": "Rappel de rendez-vous",
     "vehicle_ready": "Véhicule prêt",
     "workshop_order": "Ordre d'atelier",
-    "customer_note": "Note client"
+    "customer_note": "Note au contact"
   },
   "slot": {
     "header": "En-tête",
@@ -69,7 +69,7 @@
   },
   "whatsapp": {
     "approved": "Approuvé",
-    "notApproved": "Non approuvé — uniquement dans les 24 heures suivant un message du client"
+    "notApproved": "Non approuvé — uniquement dans les 24 heures suivant un message du contact"
   },
   "editor": {
     "title": "Modifier le texte standard",

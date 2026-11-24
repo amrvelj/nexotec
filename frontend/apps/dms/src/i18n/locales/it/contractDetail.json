@@ -5,12 +5,12 @@
     "somethingWentWrong": "Qualcosa è andato storto.",
     "confirmRefused": {
       "title": "Contratto non confermato",
-      "missingAddress": "Per questo cliente non è registrato alcun indirizzo. Aggiungi un indirizzo di domicilio attuale alla scheda cliente prima di poter confermare il contratto.",
-      "missingContact": "Il contratto non ha ancora un cliente. Scegliere prima l’acquirente.",
+      "missingAddress": "Per questo contatto non è registrato alcun indirizzo. Aggiungi un indirizzo di domicilio attuale alla scheda contatto prima di poter confermare il contratto.",
+      "missingContact": "Il contratto non ha ancora un contatto. Scegliere prima l’acquirente.",
       "missingVehicle": "Questo contratto non ha ancora un veicolo. Aggiungine uno prima di poter confermare il contratto.",
       "missingPrice": "Questo contratto non ha ancora un prezzo. Aggiungine uno prima di poter confermare il contratto.",
-      "creditBlock": "Questo cliente ha un blocco creditizio ({{reason}}). Un'offerta è comunque possibile; il contratto richiede lo sblocco del conto da parte della contabilità.",
-      "doNotContact": "Questo cliente è contrassegnato come «da non contattare». Il contratto non può essere confermato.",
+      "creditBlock": "Questo contatto ha un blocco creditizio ({{reason}}). Un'offerta è comunque possibile; il contratto richiede lo sblocco del conto da parte della contabilità.",
+      "doNotContact": "Questo contatto è contrassegnato come «da non contattare». Il contratto non può essere confermato.",
       "staleVersion": "Questo contratto è cambiato dal caricamento della pagina. È stato ricaricato — verificalo e riprova.",
       "badStatus": "Questo contratto non può più essere confermato dal suo stato attuale.",
       "generic": "Impossibile confermare il contratto.",
@@ -35,7 +35,7 @@
     "cancelDisabledReason": "Già annullato o fatturato.",
     "cancelDisabledReasonLegacy": "Vendita ripresa dal sistema precedente — già fatturata lì, non può essere annullata.",
     "confirmDisabledReasonEmpty": "Mancano ancora veicolo e prezzo.",
-    "confirmDisabledReasonNoBuyer": "Scegliere prima l’acquirente: un contratto non viene mai confermato senza cliente.",
+    "confirmDisabledReasonNoBuyer": "Scegliere prima l’acquirente: un contratto non viene mai confermato senza contatto.",
     "confirmDisabledReasonSaving": "Le modifiche sono ancora in fase di salvataggio.",
     "requestInvoice": "Richiedi fattura",
     "requestInvoiceDisabledNotConfirmed": "Possibile solo dopo la conferma del contratto.",
@@ -65,7 +65,7 @@
   "cancelReasonPrompt": "Motivo dell'annullamento:",
   "edit": {
     "title": "Completare il contratto",
-    "hint": "Finché il contratto non è confermato, il cliente, il veicolo, la composizione del prezzo e la permuta possono essere completati o modificati qui. La conferma lo congela.",
+    "hint": "Finché il contratto non è confermato, il contatto, il veicolo, la composizione del prezzo e la permuta possono essere completati o modificati qui. La conferma lo congela.",
     "pricedWithoutInputs": "Questo contratto è stato prezzato prima che i contratti conservassero le basi di prezzo. Può essere confermato o annullato così com'è, ma non più modificato.",
     "pricedWithoutInputsNoBuyer": "Questo contratto è stato prezzato prima che i contratti conservassero le basi di prezzo. Il suo prezzo non può più essere modificato. Scegli l'acquirente qui sotto, poi potrà essere confermato così com'è — oppure annullalo."
   }

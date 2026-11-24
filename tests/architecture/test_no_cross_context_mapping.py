@@ -163,7 +163,7 @@ def test_the_gate_sees_every_mapped_model():
         )
         assert not defines_a_model or module.__name__ in walked_modules, module.__name__
     contexts = {_context_of(m.class_) for m in _app_mappers()}
-    assert {"core", "platform", "customer", "vehicle", "sales", "inventory", "valuation", "integration"} <= contexts
+    assert {"core", "platform", "contact", "vehicle", "sales", "inventory", "valuation", "integration"} <= contexts
 
 
 def test_allowlist_entries_point_at_real_files():

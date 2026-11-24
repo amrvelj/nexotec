@@ -62,7 +62,7 @@ def test_the_vehicle_builders_are_used_only_by_reconciliation():
 def test_every_builder_is_still_used_by_a_reconciliation_module():
     # Not vacuous: each builder this test exists for has its caller.
     text = "".join(
-        (_APP / context / "reconciliation.py").read_text() for context in ("customer", "sales", "valuation", "inventory")
+        (_APP / context / "reconciliation.py").read_text() for context in ("contact", "sales", "valuation", "inventory")
     )
     assert [name for name in _BUILDERS if f"{name}(" not in text] == []
 

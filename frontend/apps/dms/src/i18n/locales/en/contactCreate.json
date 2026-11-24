@@ -1,5 +1,5 @@
 {
-  "title": "New customer",
+  "title": "New contact",
   "steps": {
     "type": "Type",
     "details": "Details"
@@ -8,7 +8,7 @@
     "next": "Next",
     "back": "Back",
     "cancel": "Cancel",
-    "submit": "Create customer"
+    "submit": "Create contact"
   },
   "type": {
     "individual": {
@@ -44,24 +44,24 @@
     "roles": "Roles"
   },
   "descriptions": {
-    "correspondenceLanguage": "The language this customer's documents and letters are written in."
+    "correspondenceLanguage": "The language this contact's documents and letters are written in."
   },
   "placeholders": {
     "uid": "CHE-123.456.789"
   },
   "duplicates": {
-    "heading_one": "Possible existing customer",
-    "heading_other": "{{count, number}} possible existing customers",
+    "heading_one": "Possible existing contact",
+    "heading_other": "{{count, number}} possible existing contacts",
     "exactMatch": "Exact match",
     "openInstead": "Open instead"
   },
   "validation": {
-    "individualNameRequired": "Enter a first name and a last name for an individual customer.",
-    "companyNameRequired": "Enter a company name for a business customer.",
+    "individualNameRequired": "Enter a first name and a last name for an individual contact.",
+    "companyNameRequired": "Enter a company name for a business contact.",
     "contactPointRequired": "Add at least one phone number or email address.",
     "roleRequired": "Choose at least one role."
   },
   "errors": {
-    "createFailed": "The customer could not be created. Check the form and try again."
+    "createFailed": "The contact could not be created. Check the form and try again."
   }
 }

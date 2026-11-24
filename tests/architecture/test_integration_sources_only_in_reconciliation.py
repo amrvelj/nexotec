@@ -21,7 +21,7 @@ _REPO_ROOT = Path(__file__).resolve().parents[2]
 _APP = _REPO_ROOT / "app"
 
 # Each builder and the context whose reconciliation module calls it.
-_BUILDERS = {"message_delivery_recipient_reference_check": "customer"}
+_BUILDERS = {"message_delivery_recipient_reference_check": "contact"}
 
 _NAMED = re.compile(r"\b(" + "|".join(_BUILDERS) + r")\b")
 

@@ -90,7 +90,7 @@ def test_every_context_is_in_the_registry():
         "platform",
         "integration",
         "vehicle",
-        "customer",
+        "contact",
         "valuation",
         "inventory",
         "sales",
@@ -233,13 +233,13 @@ def test_a_seeded_betriebs_export_holds_exactly_its_rows(client, export_store, e
             if exported:
                 filled[exporter.context] += 1
     # The seed reached every built context's export.
-    assert {"core", "platform", "customer", "inventory", "sales", "valuation", "vehicle", "integration"} <= set(filled)
+    assert {"core", "platform", "contact", "inventory", "sales", "valuation", "vehicle", "integration"} <= set(filled)
     # What the seed made for this Betrieb, counted by hand — not through the
     # export's own scope functions, which `expected` above relies on.
     by_hand = {
-        ("customer", "customer"): 1,
-        ("customer", "contact_phone"): 1,
-        ("customer", "contact_email"): 1,
+        ("contact", "contact"): 1,
+        ("contact", "contact_phone"): 1,
+        ("contact", "contact_email"): 1,
         ("inventory", "stock_item"): 1,
         ("vehicle", "vehicle_configuration"): 1,
         ("integration", "integration_connection"): 1,

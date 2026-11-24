@@ -42,7 +42,7 @@ _BUILDERS = (
 _NAMED = re.compile(r"\b(" + "|".join(_BUILDERS) + r")\b")
 
 # Where each builder's caller is — the test below proves it is still there.
-_CALLERS = ("customer", "sales", "valuation", "integration", "inventory", "vehicle", "reporting")
+_CALLERS = ("contact", "sales", "valuation", "integration", "inventory", "vehicle", "reporting")
 
 
 def _may_use_them(relative: str) -> bool:

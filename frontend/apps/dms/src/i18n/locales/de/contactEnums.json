@@ -24,7 +24,7 @@
     "message": "Nachricht (veraltet)"
   },
   "source": {
-    "walk_in": "Laufkundschaft",
+    "walk_in": "Spontanbesuch",
     "phone": "Telefon",
     "web_lead": "Web-Lead",
     "marketplace": "Marktplatz",
@@ -81,7 +81,7 @@
     "weitere": "Weitere"
   },
   "role": {
-    "contact": "Kunde",
+    "customer": "Kunde",
     "supplier": "Lieferant"
   }
 }

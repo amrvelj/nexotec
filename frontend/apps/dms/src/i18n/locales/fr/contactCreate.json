@@ -1,5 +1,5 @@
 {
-  "title": "Nouveau client",
+  "title": "Nouveau contact",
   "steps": {
     "type": "Type",
     "details": "Détails"
@@ -8,7 +8,7 @@
     "next": "Suivant",
     "back": "Précédent",
     "cancel": "Annuler",
-    "submit": "Créer le client"
+    "submit": "Créer le contact"
   },
   "type": {
     "individual": {
@@ -44,24 +44,24 @@
     "roles": "Rôles"
   },
   "descriptions": {
-    "correspondenceLanguage": "La langue dans laquelle les documents et courriers de ce client sont rédigés."
+    "correspondenceLanguage": "La langue dans laquelle les documents et courriers de ce contact sont rédigés."
   },
   "placeholders": {
     "uid": "CHE-123.456.789"
   },
   "duplicates": {
-    "heading_one": "Client potentiellement existant",
-    "heading_other": "{{count, number}} clients potentiellement existants",
+    "heading_one": "Contact potentiellement existant",
+    "heading_other": "{{count, number}} contacts potentiellement existants",
     "exactMatch": "Correspondance exacte",
     "openInstead": "Ouvrir à la place"
   },
   "validation": {
-    "individualNameRequired": "Saisissez un prénom et un nom pour un client particulier.",
-    "companyNameRequired": "Saisissez une raison sociale pour un client entreprise.",
+    "individualNameRequired": "Saisissez un prénom et un nom pour un contact particulier.",
+    "companyNameRequired": "Saisissez une raison sociale pour un contact entreprise.",
     "contactPointRequired": "Ajoutez au moins un numéro de téléphone ou une adresse e-mail.",
     "roleRequired": "Choisissez au moins un rôle."
   },
   "errors": {
-    "createFailed": "Le client n'a pas pu être créé. Vérifiez le formulaire et réessayez."
+    "createFailed": "Le contact n'a pas pu être créé. Vérifiez le formulaire et réessayez."
   }
 }

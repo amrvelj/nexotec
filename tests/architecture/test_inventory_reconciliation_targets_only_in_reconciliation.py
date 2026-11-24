@@ -66,7 +66,7 @@ def test_the_inventory_builders_are_used_only_by_reconciliation():
 def test_the_builders_are_still_used_by_the_three_reconciliation_modules():
     # Not vacuous: the callers this test exists for are still there.
     sales = (_APP / "sales" / "reconciliation.py").read_text()
-    contact = (_APP / "customer" / "reconciliation.py").read_text()
+    contact = (_APP / "contact" / "reconciliation.py").read_text()
     vehicle = (_APP / "vehicle" / "reconciliation.py").read_text()
     assert all(
         name in sales

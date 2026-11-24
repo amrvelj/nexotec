@@ -7,8 +7,8 @@
     "externalIds": "External IDs"
   },
   "header": {
-    "failedToLoad": "Failed to load customer",
-    "contactFallback": "Customer"
+    "failedToLoad": "Failed to load contact",
+    "contactFallback": "Contact"
   },
   "errors": {
     "somethingWentWrong": "Something went wrong.",
@@ -58,7 +58,7 @@
       "vatRegistered": "VAT-registered",
       "vatStatusConfirmed": "VAT status confirmed",
       "advisor": "Advisor",
-      "contactSince": "Customer since",
+      "contactSince": "Contact since",
       "nextFollowUp": "Next follow-up",
       "website": "Website",
       "newsletter": "Newsletter",
@@ -113,7 +113,7 @@
     "typeColumn": "Type",
     "labelColumn": "Name",
     "labelHint": "Says which number or address this is – e.g. Office, Accounting, Winterthur workshop. Optional, at most 60 characters.",
-    "consentHint": "Records whether the customer agreed to be contacted on this very number or address. Applies to this channel only.",
+    "consentHint": "Records whether the contact agreed to be contacted on this very number or address. Applies to this channel only.",
     "phoneValueColumn": "Number",
     "emailValueColumn": "Address",
     "preferredChannelHeading": "Preferred channel",
@@ -146,7 +146,7 @@
     "maintainedBy": "These links to OEM and CRM systems are maintained by Nexotec and the connected systems; you can read them here.",
     "emptyState": {
       "title": "No external IDs",
-      "description": "No OEM or CRM system has been linked to this customer yet. Nexotec or a connected system adds these links."
+      "description": "No OEM or CRM system has been linked to this contact yet. Nexotec or a connected system adds these links."
     },
     "add": "Add external ID",
     "remove": "Remove",
@@ -166,14 +166,14 @@
     },
     "emptyState": {
       "title": "No vehicles",
-      "description": "This customer has no vehicle relationships on file."
+      "description": "This contact has no vehicle relationships on file."
     },
     "addAction": "Link vehicle",
     "inStockTitle": "In the group's own stock — {{stockNumber}}",
     "specification": "Specification",
     "unknownVehicle": "Vehicle not in the register",
     "mergedInto": "Merged",
-    "mergedIntoTitle": "Kept here by a customer merge — open the surviving customer",
+    "mergedIntoTitle": "Kept here by a contact merge — open the surviving contact",
     "mergedIntoVehicle": "Merged into vehicle {{vin}}",
     "mergedIntoVehicleTitle": "Kept as history by a vehicle merge — open the vehicle",
     "upcoming": "from {{date}}",
@@ -184,22 +184,22 @@
   "offersContracts": {
     "emptyState": {
       "title": "No offers or contracts yet",
-      "description": "This customer has no offers or contracts at this business yet."
+      "description": "This contact has no offers or contracts at this business yet."
     }
   },
   "history": {
     "emptyState": {
       "title": "No history yet",
-      "description": "Changes to this customer will appear here."
+      "description": "Changes to this contact will appear here."
     },
     "you": "You",
     "system": "System",
     "unknownReference": "unknown record",
     "unknownUser": "Unknown user",
     "actions": {
-      "create": "Customer created",
-      "update": "Customer updated",
-      "merge": "Customer merged",
+      "create": "Contact created",
+      "update": "Contact updated",
+      "merge": "Contact merged",
       "merge_survivor_repointed": "Merge target updated",
       "phone_add": "Phone number added",
       "phone_update": "Phone number updated",
@@ -230,9 +230,9 @@
       "consentScope": "Consent scope",
       "consentSource": "Consent source",
       "consentTimestamp": "Consent given on",
-      "mergedIntoContactId": "Merged into customer",
+      "mergedIntoContactId": "Merged into contact",
       "mergedIntoVehicleId": "Merged into vehicle",
-      "duplicateOfContactId": "Duplicate of customer",
+      "duplicateOfContactId": "Duplicate of contact",
       "creditBlock": "Credit block",
       "creditBlockReason": "Credit block reason",
       "vehiclePartiesRepointed": "Vehicle links moved",
@@ -266,35 +266,35 @@
     "error": "The vehicle could not be linked."
   },
   "linkVehicleRefused": {
-    "contactMerged": "This customer has been merged into another. Link the vehicle to the customer it was merged into.",
-    "roleAlreadyHeld": "This customer already holds this role on this vehicle from this date.",
-    "futureHolder": "{{customer}} is already recorded as {{role}} of this vehicle from {{date}} — use «End entry» on that entry first.",
-    "notFound": "The vehicle or the customer no longer exists. Reload the page and search again."
+    "contactMerged": "This contact has been merged into another. Link the vehicle to the contact it was merged into.",
+    "roleAlreadyHeld": "This contact already holds this role on this vehicle from this date.",
+    "futureHolder": "{{contact}} is already recorded as {{role}} of this vehicle from {{date}} — use «End entry» on that entry first.",
+    "notFound": "The vehicle or the contact no longer exists. Reload the page and search again."
   },
   "merge": {
-    "title": "Merge duplicate customer",
-    "intro": "Search for the customer that <name/> should be merged into. That record survives; this one is marked merged.",
+    "title": "Merge duplicate contact",
+    "intro": "Search for the contact that <name/> should be merged into. That record survives; this one is marked merged.",
     "searchPlaceholder": "Search by name, email, phone, contact number…",
     "noMatches": "No matches.",
     "searchFailed": "The search failed. Please try again.",
     "chooseDifferent": "← Choose a different survivor",
-    "duplicateColumn": "This customer — will be merged",
+    "duplicateColumn": "This contact — will be merged",
     "survivorColumn": "Survivor — will remain",
-    "survivorContactsFailed": "The surviving customer's phone and email could not be loaded. Choose again or try another survivor.",
+    "survivorContactsFailed": "The surviving contact's phone and email could not be loaded. Choose again or try another survivor.",
     "irreversibleTitle": "This cannot be undone",
-    "irreversibleBody": "Vehicles, offers, contracts, phones, emails and external IDs move to the survivor. This customer becomes read-only and is hidden from search.",
+    "irreversibleBody": "Vehicles, offers, contracts, phones, emails and external IDs move to the survivor. This contact becomes read-only and is hidden from search.",
     "confirm": "I understand this is permanent",
     "submitting": "Merging…",
-    "submit": "Merge customers",
-    "error": "The customers could not be merged."
+    "submit": "Merge contacts",
+    "error": "The contacts could not be merged."
   },
   "mergeRefused": {
-    "intoSelf": "A customer cannot be merged into itself.",
-    "targetMerged": "The chosen survivor has itself been merged. Choose the customer it was merged into.",
-    "alreadyMerged": "This customer has already been merged.",
-    "survivorConflict": "The merge conflicts with a record on the survivor. Reload both customers and try again.",
-    "vehiclePartyBusy": "A vehicle of this customer is being changed right now. Send the merge again.",
-    "staleVersion": "This customer was changed in the meantime. Reload the page and try again.",
+    "intoSelf": "A contact cannot be merged into itself.",
+    "targetMerged": "The chosen survivor has itself been merged. Choose the contact it was merged into.",
+    "alreadyMerged": "This contact has already been merged.",
+    "survivorConflict": "The merge conflicts with a record on the survivor. Reload both contacts and try again.",
+    "vehiclePartyBusy": "A vehicle of this contact is being changed right now. Send the merge again.",
+    "staleVersion": "This contact was changed in the meantime. Reload the page and try again.",
     "customerRoleNotPermitted": "A contact with the customer role is merged by sales or aftersales. Your role merges only contacts without that role."
   }
 }

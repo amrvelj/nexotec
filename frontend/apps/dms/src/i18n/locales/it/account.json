@@ -24,7 +24,7 @@
     "uiLanguage": "Lingua dell'applicazione",
     "uiLanguageHint": "Vale subito, su tutti i suoi dispositivi.",
     "correspondenceLanguage": "Lingua dei miei documenti",
-    "correspondenceLanguageHint": "Per i documenti che crea e che non hanno una lingua del cliente.",
+    "correspondenceLanguageHint": "Per i documenti che crea e che non hanno la lingua di corrispondenza di un contatto.",
     "betriebDefault": "Come l'azienda ({{language}})",
     "saved": "Salvato.",
     "conflict": "Il suo account è stato modificato altrove nel frattempo. Con «Annulla» vede la nuova versione; i dati inseriti vanno persi.",

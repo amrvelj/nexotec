@@ -83,13 +83,13 @@ def test_a_hand_over_of_contacts_from_another_dealer_group_is_refused_and_the_qu
         home,
         leaver,
         if_match=version,
-        transfers=[{"module": "customer", "group": "contacts", "toUserId": colleague["id"]}],
+        transfers=[{"module": "contact", "group": "contacts", "toUserId": colleague["id"]}],
     )
 
     assert refused.status_code == 422, refused.text
     [problem] = refused.json()["error"]["details"]["problems"]
     assert (problem["module"], problem["group"], problem["reason"], problem["count"]) == (
-        "customer",
+        "contact",
         "contacts",
         "colleague_cannot_act_there",
         1,
@@ -107,7 +107,7 @@ def test_a_hand_over_of_contacts_from_another_dealer_group_is_refused_and_the_qu
         home,
         leaver,
         if_match=version,
-        transfers=[{"module": "customer", "group": "contacts", "toUserId": None}],
+        transfers=[{"module": "contact", "group": "contacts", "toUserId": None}],
     )
 
     assert released.status_code == 200, released.text
@@ -131,7 +131,7 @@ def test_a_hand_over_inside_the_contacts_dealer_group_still_goes_to_the_colleagu
         home,
         leaver,
         if_match=_version(client, home, leaver),
-        transfers=[{"module": "customer", "group": "contacts", "toUserId": colleague["id"]}],
+        transfers=[{"module": "contact", "group": "contacts", "toUserId": colleague["id"]}],
     )
 
     assert handed.status_code == 200, handed.text
@@ -153,7 +153,7 @@ def test_a_colleague_who_is_a_member_in_the_other_group_may_take_them(client, lo
         home,
         leaver,
         if_match=_version(client, home, leaver),
-        transfers=[{"module": "customer", "group": "contacts", "toUserId": colleague["id"]}],
+        transfers=[{"module": "contact", "group": "contacts", "toUserId": colleague["id"]}],
     )
 
     assert handed.status_code == 200, handed.text
@@ -174,7 +174,7 @@ def test_the_hand_over_judges_the_colleague_again_under_the_rows_locks(client, l
     other_group = create_dealership(client)
     leaver, colleague = _member_of(client, login, home, other_group)
     contact = _contact_created_by(client, leaver, other_group)
-    contacts = ownership_provider("customer")
+    contacts = ownership_provider("contact")
     assert contacts is not None
     monkeypatch.setattr(contacts, "refuses", lambda *args, **kwargs: None)
 
@@ -183,13 +183,13 @@ def test_the_hand_over_judges_the_colleague_again_under_the_rows_locks(client, l
         home,
         leaver,
         if_match=_version(client, home, leaver),
-        transfers=[{"module": "customer", "group": "contacts", "toUserId": colleague["id"]}],
+        transfers=[{"module": "contact", "group": "contacts", "toUserId": colleague["id"]}],
     )
 
     assert response.status_code == 200, response.text
     [failed] = response.json()["failed"]
-    assert (failed["module"], failed["group"], failed["reason"]) == ("customer", "contacts", "colleague_cannot_act_there")
+    assert (failed["module"], failed["group"], failed["reason"]) == ("contact", "contacts", "colleague_cannot_act_there")
     still = client.get(f"/v1/contacts/{contact['id']}", headers=_acting_in(client, leaver, other_group))
     assert still.json()["advisorId"] == leaver["id"]
     owned = client.get(f"/v1/dealerships/{home}/users/{leaver['id']}/ownership", headers=platform_admin_headers())
-    assert {"module": "customer", "group": "contacts", "count": 1} in owned.json()["groups"]
+    assert {"module": "contact", "group": "contacts", "count": 1} in owned.json()["groups"]

@@ -106,7 +106,7 @@ affected module PRD carries the same status line.
 Staging has **no shared login**. With the identAPI sandbox connection
 configured there (ADR-113), whoever signs in reaches licensed auto-i-dat
 data, and the test agreement (§3, §8) excludes third parties and
-prospective contacts. So every account on staging is a named person, and
+prospective customers. So every account on staging is a named person, and
 the demo Betrieb (`Demo Garage AG`) enforces a second factor for everyone.
 Locally (`make up`, the desktop preview, cloud sessions) the password demo
 account stays — `DMS_SEED_DEMO_PASSWORD`, `scripts/seed_staging_demo.py`'s
@@ -122,7 +122,7 @@ local path.
   a second deploy. A delivery failure is a `mail_delivery_failed` auth event
   (`GET /v1/dealerships/{id}/auth-events`) and an ERROR line in the Render
   log.
-- **A demo viewer** (a colleague, a reviewer — never a prospective contact
+- **A demo viewer** (a colleague, a reviewer — never a prospective customer
   or another third party while the identAPI test access is connected) is
   invited by a manager from Dealer Administration › Users › «Benutzer
   einladen», with the roles they need and no manager flag. They set their

@@ -148,7 +148,7 @@ def test_the_leavers_archive_holds_exactly_the_entries_its_sisters_no_longer_see
     assert hidden == exported == {entries[name] for name in _LEAVERS}
     # Readable on its own: the contact the entries are about is in the archive
     # too, though a sister opened it.
-    contact_spec = next(spec for spec in ContactExporter().exported_tables() if spec.name == "customer")
+    contact_spec = next(spec for spec in ContactExporter().exported_tables() if spec.name == "contact")
     _, contacts = read_rows(db_session, contact_spec, scope)
     assert str(contact.id) in {str(row["id"]) for row in contacts}
     # A sister's archive holds none of them.

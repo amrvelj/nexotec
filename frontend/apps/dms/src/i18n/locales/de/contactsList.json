@@ -1,8 +1,8 @@
 {
-  "title": "Kunden",
-  "newContact": "Neuer Kunde",
+  "title": "Kontakte",
+  "newContact": "Neuer Kontakt",
   "searchPlaceholder": "Suche nach Name, E-Mail, Telefon…",
-  "loadError": "Kunden konnten nicht geladen werden.",
+  "loadError": "Kontakte konnten nicht geladen werden.",
   "columns": {
     "contactNumber": "Kontaktnr.",
     "name": "Name",
@@ -50,7 +50,7 @@
     "vatStatusConfirmed": "MWST-Status bestätigt",
     "creditBlockReason": "Grund der Kreditsperre",
     "creditBlockedAt": "Kreditsperre seit",
-    "contactSince": "Kunde seit",
+    "contactSince": "Kontakt seit",
     "nextFollowUp": "Nächste Nachfassung",
     "notes": "Notizen",
     "contactGroups": "Kontaktgruppen",
@@ -61,8 +61,8 @@
     "copyContactNumber": "Kontaktnummer kopieren"
   },
   "emptyState": {
-    "title": "Noch keine Kunden",
-    "description": "Erstellen Sie Ihren ersten Kunden, um zu beginnen."
+    "title": "Noch keine Kontakte",
+    "description": "Erstellen Sie Ihren ersten Kontakt, um zu beginnen."
   },
   "emptyFilteredState": {
     "title": "Keine Treffer",
@@ -70,14 +70,14 @@
     "action": "Suche und Filter zurücksetzen"
   },
   "filters": {
-    "contactType": "Kundentyp",
+    "contactType": "Kontakttyp",
     "lifecycleStatus": "Lebenszyklusstatus",
     "language": "Sprache",
     "canton": "Kanton",
     "changedSince": "Geändert seit",
     "changedSinceChip": "Geändert seit {{date}}"
   },
-  "allContactsView": "Alle Kunden",
+  "allContactsView": "Alle Kontakte",
   "selection": {
     "count": "{{count, number}} ausgewählt",
     "clear": "Auswahl aufheben",

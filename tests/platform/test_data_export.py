@@ -376,10 +376,10 @@ def test_contacts_come_for_the_requesting_betriebs_relationship_only(client, exp
     produce(engine, job["id"])
     archive = download(client, home_id, job["id"], home)
 
-    exported = {row["id"] for row in rows_in(archive, "customer", "customer")}
+    exported = {row["id"] for row in rows_in(archive, "contact", "contact")}
     assert exported == {own["id"], sold_by_us["id"]}
     assert sisters["id"] not in exported
-    emails = {row["contact_id"] for row in rows_in(archive, "customer", "contact_email")}
+    emails = {row["contact_id"] for row in rows_in(archive, "contact", "contact_email")}
     assert emails == exported
 
 
@@ -395,4 +395,4 @@ def test_a_group_of_one_exports_every_contact_of_its_group(client, export_store,
     produce(engine, job["id"])
     archive = download(client, dealership_id, job["id"], headers)
 
-    assert {row["id"] for row in rows_in(archive, "customer", "customer")} == {created["id"], str(legacy.id)}
+    assert {row["id"] for row in rows_in(archive, "contact", "contact")} == {created["id"], str(legacy.id)}

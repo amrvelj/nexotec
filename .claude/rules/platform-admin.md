@@ -72,7 +72,7 @@ Decided rulings live in the PRD; built only where a bullet says so — check the
   brings its own SMS/WhatsApp provider; consent lives on the contact.
 - **Not in v1, by ruling:** policy limits (D-A-18), external users (D-A-20), custom fields and tags
   (D-A-29; one exception, the contact's free per-group tags `contact_tag`, built under KAN-50 —
-  Anto, 2026-10-26; the contact groups below are Nexotec's reference list, not tags), Saldosteuersatz (D-A-27), contact logins (D-A-13), API clients (D-A-14), Zefix
+  Anto, 2026-10-26; the contact groups below are Nexotec's reference list, not tags), Saldosteuersatz (D-A-27), customer logins (D-A-13), API clients (D-A-14), Zefix
   auto-fill, AI translations, training mode.
 
 ## Contact groups (KAN-466) — built

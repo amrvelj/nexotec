@@ -751,20 +751,24 @@ def set_credit_block(
 _HISTORY_DEALERSHIP_KEYS = frozenset({"dealershipId"})
 _HISTORY_USER_KEYS = frozenset({"advisorId"})
 _HISTORY_CONTACT_KEYS = frozenset(
-    {
-        "mergedIntoContactId",
-        "duplicateOfContactId",
-        "contactId",
-        "earlierMergesRepointedIds",
-        # rows written before the rename to contacts (KAN-464 PR-3)
-        "mergedIntoCustomerId",
-        "duplicateOfCustomerId",
-        "customerId",
-    }
+    {"mergedIntoContactId", "duplicateOfContactId", "contactId", "earlierMergesRepointedIds"}
 )
 # KAN-680: a vehicle merge's kept copy names the record it was merged into.
 _HISTORY_VEHICLE_KEYS = frozenset({"vehicleId", "mergedIntoVehicleId"})
 _HISTORY_PARTY_KEYS = frozenset({"vehiclePartiesKeptClosedIds", "vehiclePartyCopiesRepointedIds"})
+
+
+def _history_key(raw_key: str) -> str:
+    """A snapshot key as its camelCase name. A row written before customers
+    became contacts (KAN-464 PR-3; the log is append-only) names the
+    customer — `merged_into_customer_id`, `customerId` — and reads as
+    today's key, as the History tab reads it (`HistoryTab.tsx::camelKey`)."""
+
+    head, *rest = raw_key.split("_")
+    key = head + "".join(part.title() for part in rest)
+    if key.startswith("customer"):
+        key = "contact" + key[len("customer"):]
+    return key.replace("Customer", "Contact")
 
 
 def _uuid_or_none(value: Any) -> uuid.UUID | None:
@@ -828,8 +832,7 @@ def history_labels(
             ids["user"].add(event.actor_id)
         for snapshot in (event.before, event.after):
             for raw_key, value in (snapshot or {}).items():
-                head, *rest = raw_key.split("_")
-                key = head + "".join(part.title() for part in rest)
+                key = _history_key(raw_key)
                 kind = next((name for keys, name in kinds if key in keys), None)
                 if kind is None:
                     continue

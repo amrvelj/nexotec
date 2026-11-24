@@ -5,25 +5,25 @@
     "optional": "Optional"
   },
   "containers": {
-    "contact": "Customer",
+    "contact": "Contact",
     "vehicle": "Vehicle",
     "pricing": "Pricing",
     "tradeIn": "Trade-in vehicle",
     "leasing": "Leasing"
   },
   "contact": {
-    "emptyHint": "No customer preselected — an offer carries the name that gets signed.",
-    "emptyHintContract": "No buyer yet — a contract is confirmed only with the customer who signs it.",
-    "search": "Search customer",
+    "emptyHint": "No contact preselected — an offer carries the name that gets signed.",
+    "emptyHintContract": "No buyer yet — a contract is confirmed only with the contact who signs it.",
+    "search": "Search contact",
     "createNew": "Create new",
     "creditBlockTitle": "Credit block",
-    "creditBlockBody": "This customer has a credit block ({{reason}}) — an offer is possible, a contract cannot be confirmed.",
+    "creditBlockBody": "This contact has a credit block ({{reason}}) — an offer is possible, a contract cannot be confirmed.",
     "doNotContactTitle": "Do not contact",
-    "doNotContactBody": "This customer is marked do-not-contact — neither the offer nor a contract can proceed.",
-    "mergedRefused": "This customer has been merged into another and can no longer be chosen as the buyer.",
-    "mergedTitle": "Customer merged",
-    "mergedInto": "The chosen customer has been merged into {{name}} ({{customerNumber}}).",
-    "mergedIntoUnknown": "The chosen customer has been merged into another. Search for the customer it was merged into.",
+    "doNotContactBody": "This contact is marked do-not-contact — neither the offer nor a contract can proceed.",
+    "mergedRefused": "This contact has been merged into another and can no longer be chosen as the buyer.",
+    "mergedTitle": "Contact merged",
+    "mergedInto": "The chosen contact has been merged into {{name}} ({{contactNumber}}).",
+    "mergedIntoUnknown": "The chosen contact has been merged into another. Search for the contact it was merged into.",
     "useSurvivor": "Choose {{name}}"
   },
   "vehicle": {
@@ -57,7 +57,7 @@
     "margin": "Margin"
   },
   "tradeIn": {
-    "emptyHint": "Choose the customer first — their vehicles will be suggested here.",
+    "emptyHint": "Choose the contact first — their vehicles will be suggested here.",
     "readyHint": "Trade-in follows (next step).",
     "value": "Trade-in offer",
     "fromExistingValuation": "Taken from an existing valuation",
@@ -69,8 +69,8 @@
     "valueWithConfigurator": "Identify and value",
     "attachError": "The valuation could not be attached.",
     "saveError": "The trade-in could not be saved.",
-    "contactMerged": "The customer has been merged into another customer. Choose the customer it was merged into, then add the trade-in again.",
-    "contactMergedInto": "The customer has been merged into {{name}} ({{customerNumber}}). Choose {{name}} as the customer, then add the trade-in again."
+    "contactMerged": "The contact has been merged into another contact. Choose the contact it was merged into, then add the trade-in again.",
+    "contactMergedInto": "The contact has been merged into {{name}} ({{contactNumber}}). Choose {{name}} as the contact, then add the trade-in again."
   },
   "leasing": {
     "hint": "No leasing calculator in v1 (S-D03). Free-text inputs, so a later calculator can be dropped in without a schema change.",
@@ -84,12 +84,12 @@
     "openContract": "Open contract"
   },
   "continueDisabled": {
-    "doNotContact": "This customer is marked do-not-contact: no offer can be generated.",
+    "doNotContact": "This contact is marked do-not-contact: no offer can be generated.",
     "saving": "Your last changes are still being saved. “Generate offer” becomes available once they are saved."
   },
   "generate": {
     "title": "Generate offer",
-    "buildHint": "Generates a preview of the document in the customer's correspondence language.",
+    "buildHint": "Generates a preview of the document in the contact's correspondence language.",
     "build": "Generate document",
     "buildError": "The document could not be generated.",
     "previewTitle": "Offer {{number}}",

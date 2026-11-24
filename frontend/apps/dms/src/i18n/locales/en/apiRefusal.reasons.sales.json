@@ -11,7 +11,7 @@
   "trade_in_valuation_names_no_car": "This valuation names no car with a VIN that can be taken in trade.",
   "trade_in_chassis_number_requires_configuration": "A car with a chassis number instead of a VIN is taken in trade with its configuration: value it through «Identify and value», which records the chassis number, the make and the first registration.",
   "vehicle_not_changed": "The stock vehicle has not changed since the price was built.",
-  "document_has_no_contact": "This document names no customer it could be sent to.",
+  "document_has_no_contact": "This document names no contact it could be sent to.",
   "whatsapp_text_fixed": "On WhatsApp the approved template is sent as it is; its text cannot be changed here.",
   "message_text_missing": "There is no text to send on this channel. Write one, or add a standard text."
 }

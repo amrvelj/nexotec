@@ -154,7 +154,7 @@ def test_ending_a_planned_entry_cancels_it_and_gives_the_current_owner_the_role_
     assert _current_and_upcoming(db_session, vehicle.id, group_id) == ({clara.id}, set())
     listed = client.get(f"/v1/contacts/{meier.id}/vehicles", headers=_sales_headers(group_id)).json()["items"]
     assert listed == []
-    reasons = set(db_session.scalars(select(AuditEvent.reason).where(AuditEvent.entity_type == "customer")).all())
+    reasons = set(db_session.scalars(select(AuditEvent.reason).where(AuditEvent.entity_type == "contact")).all())
     assert {"planned_never_started", "planned_handover_cancelled"} <= reasons
 
 

@@ -138,7 +138,7 @@ _PROBE = (
     "from app.platform.public import NotificationEventCode, NotificationSubject, notify\n\n\n"
     "def probe(db, user_id):\n"
     "    notify(db, NotificationEventCode.ACCOUNT_LOCKED, user_id=user_id,\n"
-    "           subject=NotificationSubject(type='customer', link='/contacts'))\n"
+    "           subject=NotificationSubject(type='contact', link='/contacts'))\n"
 )
 
 
@@ -154,7 +154,7 @@ def test_a_cross_context_notify_is_refused_by_the_adr_047_test(tmp_path):
     # The real tree, plus one module of another context that raises a notification.
     app = tmp_path / "app"
     shutil.copytree(_APP, app, ignore=shutil.ignore_patterns("__pycache__"))
-    (app / "customer" / "services" / "kan216_probe.py").write_text(_PROBE)
+    (app / "contact" / "services" / "kan216_probe.py").write_text(_PROBE)
 
     unclassified = adr047._classification_problems(app, own, shared, reads)
     assert any(symbol in p and "not classified" in p for p in unclassified), unclassified

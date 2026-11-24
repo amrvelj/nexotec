@@ -1,7 +1,7 @@
 {
   "title": "Stock",
   "newStockItem": "Add vehicle",
-  "searchPlaceholder": "Plate, VIN, customer, offer…",
+  "searchPlaceholder": "Plate, VIN, contact, offer…",
   "loadError": "Failed to load stock.",
   "groupLoadError": "Failed to load group stock.",
   "allStockView": "All stock",

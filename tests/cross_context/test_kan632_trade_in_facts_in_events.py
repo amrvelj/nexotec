@@ -55,6 +55,7 @@ from tests.cross_context.test_kan189_trade_in_without_register import (
     _contact_consumes,
     _parties,
 )
+from tests.pre_rename_names import pre_rename_names
 from tests.sales.test_sales_lifecycle_reservation import _contact, _dealership
 
 _REPO = Path(__file__).resolve().parents[2]
@@ -314,7 +315,8 @@ def test_the_migration_seeds_bookings_consumed_before_it_so_a_stale_storno_stays
     stale = _storno(db_session, item, returned=True)
     _contact_consumes(db_session, _buy_again(db_session, item, dt.date(2026, 11, 2)))
     db_session.query(StockItemBooking).delete()  # the deploy found no record …
-    db_session.execute(text(_seed_sql()))  # … and seeded it from the event log
+    with pre_rename_names(db_session.connection()):  # the migration predates KAN-464 PR-3
+        db_session.execute(text(_seed_sql()))  # … and seeded it from the event log
     db_session.commit()
     assert db_session.scalar(select(func.count()).select_from(StockItemBooking)) == 3
     labels = set(db_session.scalars(select(StockItemBooking.stock_item_label)).all())

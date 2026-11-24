@@ -13,7 +13,7 @@
     "markUsed": "Marquer comme utilisée",
     "markUsedAlreadyUsed": "Déjà marquée comme utilisée.",
     "markUsedNoSignedContract": "Possible uniquement si un contrat signé contient cette évaluation comme reprise.",
-    "openContact": "Ouvrir le client",
+    "openContact": "Ouvrir le contact",
     "openVehicle": "Ouvrir le véhicule",
     "revertUse": "Annuler l'utilisation",
     "revertUseNotUsed": "Uniquement pour une évaluation marquée comme utilisée.",
@@ -43,7 +43,7 @@
     "plate": "Plaque",
     "mileage": "Kilométrage",
     "firstRegistration": "Première immatriculation",
-    "contact": "Client"
+    "contact": "Contact"
   },
   "noteCard": {
     "title": "Note"

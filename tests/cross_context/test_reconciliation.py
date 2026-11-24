@@ -991,7 +991,7 @@ def test_run_all_runs_every_context_and_aggregates_alarms(client, db_session):
         run_all(db_session)
 
     contexts_with_alarms = {alarm.run.context for alarm in exc_info.value.alarms}
-    assert contexts_with_alarms == {"customer", "sales"}
+    assert contexts_with_alarms == {"contact", "sales"}
 
 
 # --- delete-path regression: the audit's findings must stay true -----------------

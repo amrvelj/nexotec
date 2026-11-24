@@ -1,22 +1,22 @@
 {
   "title": "Évaluations",
   "newValuation": "Créer une évaluation",
-  "searchPlaceholder": "Numéro d’évaluation, VIN, plaque, client …",
+  "searchPlaceholder": "Numéro d’évaluation, VIN, plaque, contact …",
   "allView": "Toutes les évaluations",
-  "noContact": "Sans client",
+  "noContact": "Sans contact",
   "loadError": "Impossible de charger les évaluations.",
   "chips": {
     "all": "Toutes",
     "valid": "Valides",
     "expiring_soon": "Expirent bientôt",
     "expired": "Expirées",
-    "unattached": "Sans client",
+    "unattached": "Sans contact",
     "mine": "Les miennes"
   },
   "columns": {
     "number": "Numéro",
     "vehicle": "Véhicule",
-    "contact": "Client",
+    "contact": "Contact",
     "mileage": "Kilométrage",
     "finalOffer": "Offre de reprise",
     "source": "Source",
@@ -26,7 +26,7 @@
   },
   "emptyState": {
     "title": "Aucune évaluation",
-    "description": "Créez une évaluation — avec ou sans client, offre, ou véhicule enregistré."
+    "description": "Créez une évaluation — avec ou sans contact, offre, ou véhicule enregistré."
   },
   "emptyFilteredState": {
     "title": "Aucun résultat",

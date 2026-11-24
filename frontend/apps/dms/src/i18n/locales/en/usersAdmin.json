@@ -44,7 +44,7 @@
   },
   "ownedGroup": {
     "contact": {
-      "contacts": "Customers they advise"
+      "contacts": "Contacts they advise"
     },
     "sales": {
       "offers": "Open offers",
@@ -168,7 +168,7 @@
   },
   "deactivate": {
     "title": "Deactivate {{name}}",
-    "intro": "Access ends now. Everything this person still looks after is handed over below — to a colleague or to the module's queue (drafts without a seller are found on the customer). Nothing is deleted; history keeps the original author.",
+    "intro": "Access ends now. Everything this person still looks after is handed over below — to a colleague or to the module's queue (drafts without a seller are found on the contact). Nothing is deleted; history keeps the original author.",
     "reassignTitle": "Hand over open records",
     "nothingOpen": "Nothing open in any of the {{modules, number}} modules.",
     "ownershipLoadError": "What this user owns could not be loaded.",

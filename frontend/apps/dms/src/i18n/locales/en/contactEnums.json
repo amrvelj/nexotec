@@ -81,7 +81,7 @@
     "weitere": "Other"
   },
   "role": {
-    "contact": "Customer",
+    "customer": "Customer",
     "supplier": "Supplier"
   }
 }

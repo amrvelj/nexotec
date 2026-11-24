@@ -11,7 +11,7 @@
   "trade_in_valuation_names_no_car": "Questa valutazione non indica un veicolo con VIN che possa essere ritirato in permuta.",
   "trade_in_chassis_number_requires_configuration": "Un veicolo con numero di telaio invece del VIN viene ritirato in permuta con la sua configurazione: valutatelo tramite «Identificare e valutare», che registra il numero di telaio, la marca e la prima immatricolazione.",
   "vehicle_not_changed": "Il veicolo in stock non è stato modificato dal calcolo del prezzo.",
-  "document_has_no_contact": "Questo documento non indica alcun cliente a cui inviarlo.",
+  "document_has_no_contact": "Questo documento non indica alcun contatto a cui inviarlo.",
   "whatsapp_text_fixed": "Su WhatsApp il modello approvato viene inviato così com'è; il suo testo non può essere modificato qui.",
   "message_text_missing": "Non c'è alcun testo da inviare su questo canale. Ne scriva uno o crei un testo standard."
 }

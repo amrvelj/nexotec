@@ -1,7 +1,7 @@
 {
-  "title": "E-mails clients",
-  "subtitle": "Les offres, contrats et autres e-mails aux clients partent uniquement d'une boîte de votre entreprise – Microsoft 365 ou Google Workspace. Si une personne a connecté sa propre boîte, ses e-mails partent de celle-ci ; sinon de la boîte de l'entreprise. Si aucune n'est connectée, l'application ne peut envoyer aucun e-mail client.",
-  "loadError": "Les réglages des e-mails clients n'ont pas pu être chargés.",
+  "title": "E-mails aux contacts",
+  "subtitle": "Les offres, contrats et autres e-mails aux contacts partent uniquement d'une boîte de votre entreprise – Microsoft 365 ou Google Workspace. Si une personne a connecté sa propre boîte, ses e-mails partent de celle-ci ; sinon de la boîte de l'entreprise. Si aucune n'est connectée, l'application ne peut envoyer aucun e-mail aux contacts.",
+  "loadError": "Les réglages des e-mails aux contacts n'ont pas pu être chargés.",
   "providers": {
     "microsoft_365_mail": "Microsoft 365",
     "google_workspace_mail": "Google Workspace"
@@ -39,12 +39,12 @@
   },
   "own": {
     "heading": "Ma boîte",
-    "intro": "Connectez votre propre boîte : vos clients reçoivent vos e-mails de votre part et les réponses vous parviennent. Les e-mails envoyés apparaissent dans votre dossier « Envoyés ».",
+    "intro": "Connectez votre propre boîte : vos contacts reçoivent vos e-mails de votre part et les réponses vous parviennent. Les e-mails envoyés apparaissent dans votre dossier « Envoyés ».",
     "none": "Vous n'avez pas encore connecté votre propre boîte.",
     "connect": "Connecter avec {{provider}}",
     "disconnect": "Déconnecter",
     "confirmDisconnect": "Oui, déconnecter",
-    "senderTitle": "Vos e-mails clients partent de",
+    "senderTitle": "Vos e-mails aux contacts partent de",
     "sender": {
       "user_mailbox": "votre propre boîte : {{address}}",
       "business_mailbox": "la boîte de l'entreprise : {{address}}"
@@ -53,7 +53,7 @@
   },
   "links": {
     "ownScreen": "Ma boîte",
-    "businessScreen": "Administration › E-mails clients"
+    "businessScreen": "Administration › E-mails aux contacts"
   },
   "callback": {
     "working": "Votre boîte est en cours de connexion …",
@@ -75,7 +75,7 @@
     "business_mailbox_in_error": "La boîte de l'entreprise ne peut pas envoyer pour le moment. Un manager la reconnecte.",
     "no_recipient": "L'e-mail n'a aucun destinataire.",
     "already_disconnected": "Cette boîte est déjà déconnectée.",
-    "mail_provider_platform_only": "Ce fournisseur est configuré par Nexotec. Connectez votre boîte sous Administration › E-mails clients.",
+    "mail_provider_platform_only": "Ce fournisseur est configuré par Nexotec. Connectez votre boîte sous Administration › E-mails aux contacts.",
     "id_token_invalid": "La connexion chez le fournisseur n'a pas pu être confirmée. Veuillez recommencer.",
     "not_a_business_account": "Veuillez vous connecter avec le compte de votre entreprise, pas avec un compte privé.",
     "not_an_administrator": "Seul un administrateur de votre organisation peut connecter la boîte de l'entreprise.",

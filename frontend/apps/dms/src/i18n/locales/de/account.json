@@ -24,7 +24,7 @@
     "uiLanguage": "Sprache der Anwendung",
     "uiLanguageHint": "Gilt sofort, auf allen Ihren Geräten.",
     "correspondenceLanguage": "Sprache meiner Dokumente",
-    "correspondenceLanguageHint": "Für Dokumente, die Sie erstellen und die keine Kundensprache haben.",
+    "correspondenceLanguageHint": "Für Dokumente, die Sie erstellen und die keine Korrespondenzsprache eines Kontakts haben.",
     "betriebDefault": "Wie der Betrieb ({{language}})",
     "saved": "Gespeichert.",
     "conflict": "Ihr Konto wurde inzwischen anderswo geändert. Mit «Abbrechen» sehen Sie den neuen Stand; Ihre Eingaben gehen dabei verloren.",

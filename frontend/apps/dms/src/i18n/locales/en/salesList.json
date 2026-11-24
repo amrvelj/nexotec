@@ -1,13 +1,13 @@
 {
   "title": "Offers & Contracts",
   "newOffer": "New offer",
-  "searchPlaceholder": "Plate, VIN, customer, offer …",
+  "searchPlaceholder": "Plate, VIN, contact, offer …",
   "loadError": "Offers and contracts could not be loaded.",
   "allDealsView": "All offers and contracts",
   "columns": {
     "number": "Number",
     "type": "Type",
-    "contact": "Customer",
+    "contact": "Contact",
     "vehicle": "Vehicle",
     "grossPrice": "Sale price",
     "status": "Status",

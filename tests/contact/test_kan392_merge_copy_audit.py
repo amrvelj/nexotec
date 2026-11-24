@@ -50,7 +50,7 @@ def test_a_repointed_copy_is_audited_on_its_contact(db_session):
     db_session.expire_all()
     assert db_session.get(VehicleParty, ids.kept).merged_into_contact_id == ids.t
     [update] = _party_updates(db_session, ids.x)
-    assert update.entity_type == "customer"
+    assert update.entity_type == "contact"
     assert update.tenant_id == ids.group
     assert update.reason == "contact_merged"
     assert update.before == {

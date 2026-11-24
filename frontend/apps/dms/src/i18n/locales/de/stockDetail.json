@@ -77,8 +77,8 @@
       "cancel": "Abbrechen",
       "failed": "Der Einkauf konnte nicht storniert werden.",
       "leftStock": "Nicht möglich: Das Fahrzeug hat den Bestand verlassen.",
-      "returnedToContact": "Das Fahrzeug geht an den Kunden zurück",
-      "returnedToContactHint": "Der Kunde, der es eingetauscht hat, wird wieder als Eigentümer und Halter geführt. Ohne Haken bleibt seine Fahrzeughistorie, wie der Einkauf sie geschrieben hat."
+      "returnedToContact": "Das Fahrzeug geht an den Kontakt zurück",
+      "returnedToContactHint": "Der Kontakt, der es eingetauscht hat, wird wieder als Eigentümer und Halter geführt. Ohne Haken bleibt seine Fahrzeughistorie, wie der Einkauf sie geschrieben hat."
     }
   },
   "wagenbuch": {

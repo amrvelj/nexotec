@@ -124,7 +124,8 @@ def test_the_migration_refuses_to_run_over_an_inverted_row_and_adds_nothing(migr
         with engine.begin() as conn:
             conn.execute(
                 text(
-                    "INSERT INTO vehicle_party (id, vehicle_id, contact_id, role, effective_from, effective_to, "
+                    # at the revision before KAN-643, so before KAN-464 PR-3 too: `customer_id`
+                    "INSERT INTO vehicle_party (id, vehicle_id, customer_id, role, effective_from, effective_to, "
                     "created_at, updated_at) VALUES (:id, :v, :c, 'owner', :f, :t, now(), now())"
                 ),
                 {"id": uuid.uuid4(), "v": uuid.uuid4(), "c": uuid.uuid4(), "f": _T0, "t": _T0 - dt.timedelta(days=1)},

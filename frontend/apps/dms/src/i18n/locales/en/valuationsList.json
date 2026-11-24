@@ -1,22 +1,22 @@
 {
   "title": "Valuations",
   "newValuation": "Create valuation",
-  "searchPlaceholder": "Valuation number, VIN, plate, customer …",
+  "searchPlaceholder": "Valuation number, VIN, plate, contact …",
   "allView": "All valuations",
-  "noContact": "No customer",
+  "noContact": "No contact",
   "loadError": "Valuations could not be loaded.",
   "chips": {
     "all": "All",
     "valid": "Valid",
     "expiring_soon": "Expiring soon",
     "expired": "Expired",
-    "unattached": "No customer",
+    "unattached": "No contact",
     "mine": "Mine"
   },
   "columns": {
     "number": "Number",
     "vehicle": "Vehicle",
-    "contact": "Customer",
+    "contact": "Contact",
     "mileage": "Mileage",
     "finalOffer": "Trade-in offer",
     "source": "Source",
@@ -26,7 +26,7 @@
   },
   "emptyState": {
     "title": "No valuations yet",
-    "description": "Create a valuation — with or without a customer, offer, or a registered vehicle."
+    "description": "Create a valuation — with or without a contact, offer, or a registered vehicle."
   },
   "emptyFilteredState": {
     "title": "No matches",

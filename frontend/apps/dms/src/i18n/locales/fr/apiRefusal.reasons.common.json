@@ -1,6 +1,6 @@
 {
   "colleague_cannot_act_there": "Le collègue choisi ne travaille pas dans l’entreprise à laquelle appartient cet enregistrement.",
-  "contact_do_not_contact": "Le client {{customerNumber}} est marqué « ne pas contacter » et ne peut être associé à aucune offre ni à aucun contrat.",
+  "contact_do_not_contact": "Le contact {{contactNumber}} est marqué « ne pas contacter » et ne peut être associé à aucune offre ni à aucun contrat.",
   "no_provider_connection": "Aucun fournisseur de données véhicule n’est connecté.",
   "nul_character": "La saisie contient un caractère non autorisé. Supprimez-le et réessayez.",
   "too_many_images": "Un véhicule en stock a au plus {{max, number}} images. Retirez d’abord une image.",

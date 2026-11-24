@@ -148,7 +148,7 @@ Stubs keep every context in the contract: never delete one or put its concerns e
 12. **A write spanning two contexts is a call with a compensating action, never a shared
     transaction** (ADR-047) — each side commits its own work. It would work today because everything
     shares one database; that is why it is forbidden. The import-linter cannot catch it; `test_adr_047_no_shared_transaction.py`
-    does (its ruled exceptions: `tests-architecture.md`). A contact merge reaches Sales only through `contact.merged`.
+    does (its ruled exceptions: `tests-architecture.md`). A contact merge reaches Sales only through `contact.merged` (and `customer.merged` until KAN-464 PR-5).
 
 ## Preserve verbatim — already correct, do not "improve"
 

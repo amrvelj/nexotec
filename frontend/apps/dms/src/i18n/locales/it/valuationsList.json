@@ -1,22 +1,22 @@
 {
   "title": "Valutazioni",
   "newValuation": "Crea valutazione",
-  "searchPlaceholder": "Numero valutazione, VIN, targa, cliente …",
+  "searchPlaceholder": "Numero valutazione, VIN, targa, contatto …",
   "allView": "Tutte le valutazioni",
-  "noContact": "Senza cliente",
+  "noContact": "Senza contatto",
   "loadError": "Impossibile caricare le valutazioni.",
   "chips": {
     "all": "Tutte",
     "valid": "Valide",
     "expiring_soon": "In scadenza",
     "expired": "Scadute",
-    "unattached": "Senza cliente",
+    "unattached": "Senza contatto",
     "mine": "Le mie"
   },
   "columns": {
     "number": "Numero",
     "vehicle": "Veicolo",
-    "contact": "Cliente",
+    "contact": "Contatto",
     "mileage": "Chilometraggio",
     "finalOffer": "Offerta di permuta",
     "source": "Fonte",
@@ -26,7 +26,7 @@
   },
   "emptyState": {
     "title": "Nessuna valutazione",
-    "description": "Crea una valutazione — con o senza cliente, offerta o veicolo registrato."
+    "description": "Crea una valutazione — con o senza contatto, offerta o veicolo registrato."
   },
   "emptyFilteredState": {
     "title": "Nessun risultato",

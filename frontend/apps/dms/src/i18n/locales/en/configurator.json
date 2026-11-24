@@ -232,7 +232,7 @@
       "label": "Source of the new price",
       "catalogue": "Catalogue (model year)",
       "document": "Registration / importer document",
-      "contact": "Stated by the customer"
+      "customer": "Stated by the contact"
     },
     "modelDescription": "Model description (optional)",
     "ask": "Find best match",

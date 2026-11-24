@@ -18,6 +18,7 @@ from app.contact.models.contact import (
     Language,
     PhoneType,
 )
+from tests.pre_rename_names import pre_rename_names
 
 _MIG_PATH = (
     pathlib.Path(__file__).resolve().parents[2]
@@ -64,7 +65,9 @@ def _phone(db_session, contact, e164, *, is_primary, days, valid_to=None, do_not
 
 
 def _run(db_session) -> dict[str, int]:
-    return _mig._repair_table(db_session.connection(), "contact_phone", "phone_type")
+    # The migration names the tables as they were before KAN-464 PR-3.
+    with pre_rename_names(db_session.connection()):
+        return _mig._repair_table(db_session.connection(), "customer_phone", "phone_type")
 
 
 def _reload(db_session, *phones) -> list[bool]:

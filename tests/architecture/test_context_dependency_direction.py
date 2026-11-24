@@ -61,7 +61,7 @@ _RANK: dict[str, int] = {
     "platform": 1,
     "integration": 2,
     "vehicle": 3,
-    "customer": 4,
+    "contact": 4,
     "valuation": 5,
     "inventory": 6,
     "parts": 6,

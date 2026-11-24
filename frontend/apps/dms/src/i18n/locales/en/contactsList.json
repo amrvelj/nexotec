@@ -1,8 +1,8 @@
 {
-  "title": "Customers",
-  "newContact": "New customer",
+  "title": "Contacts",
+  "newContact": "New contact",
   "searchPlaceholder": "Search by name, email, phone…",
-  "loadError": "Customers could not be loaded.",
+  "loadError": "Contacts could not be loaded.",
   "columns": {
     "contactNumber": "Contact #",
     "name": "Name",
@@ -50,7 +50,7 @@
     "vatStatusConfirmed": "VAT status confirmed",
     "creditBlockReason": "Credit block reason",
     "creditBlockedAt": "Credit blocked since",
-    "contactSince": "Customer since",
+    "contactSince": "Contact since",
     "nextFollowUp": "Next follow-up",
     "notes": "Notes",
     "contactGroups": "Contact groups",
@@ -61,8 +61,8 @@
     "copyContactNumber": "Copy contact number"
   },
   "emptyState": {
-    "title": "No customers yet",
-    "description": "Create your first customer to get started."
+    "title": "No contacts yet",
+    "description": "Create your first contact to get started."
   },
   "emptyFilteredState": {
     "title": "No matches",
@@ -70,14 +70,14 @@
     "action": "Clear search and filters"
   },
   "filters": {
-    "contactType": "Customer type",
+    "contactType": "Contact type",
     "lifecycleStatus": "Lifecycle status",
     "language": "Language",
     "canton": "Canton",
     "changedSince": "Changed since",
     "changedSinceChip": "Changed since {{date}}"
   },
-  "allContactsView": "All customers",
+  "allContactsView": "All contacts",
   "selection": {
     "count": "{{count, number}} selected",
     "clear": "Clear selection",

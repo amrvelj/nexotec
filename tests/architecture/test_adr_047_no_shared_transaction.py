@@ -107,7 +107,7 @@ _APP_ROOT = _REPO_ROOT / "app"
 _CONTEXTS = frozenset(
     {
         "platform",
-        "customer",
+        "contact",
         "vehicle",
         "sales",
         "inventory",

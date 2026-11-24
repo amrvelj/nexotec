@@ -15,7 +15,7 @@
   "purchase_storno_invoice_requested": "Für Vertrag {{contractNumber}} wurde die Rechnung bereits angefordert. Der Einkauf kann nicht mehr storniert werden.",
   "purchase_storno_published": "Dieses Fahrzeug ist noch auf {{channels}} veröffentlicht. Ziehen Sie das Inserat zuerst zurück, dann kann der Einkauf storniert werden.",
   "source_ref_reserved": "Diese Referenz ist für den Einkauf und seine Stornierung reserviert.",
-  "storno_return_not_trade_in": "Nur ein Eintauschfahrzeug kann an den Kunden zurückgehen.",
+  "storno_return_not_trade_in": "Nur ein Eintauschfahrzeug kann an den Kontakt zurückgehen.",
   "trade_in_vin_differs": "Diese VIN ist nicht die VIN, die im Vertrag für das Eintauschfahrzeug erfasst ist. Ist die VIN im Vertrag falsch, ordnen Sie dem Fahrzeug über «Konfiguration zuordnen» eine Konfiguration mit der richtigen VIN zu – hat es schon eine, tragen Sie die VIN dort über «Konfiguration bearbeiten» ein. Danach gilt deren VIN.",
   "marketplace_connection_disabled": "Die Verbindung zu {{channel}} ist ausgeschaltet. {{channel}} zeigt das Fahrzeug weiterhin an, bis die Verbindung wieder eingeschaltet ist. Schalten Sie sie unter Verwaltung › Integrationen ein und depublizieren Sie das Fahrzeug dann.",
   "vin_correction_left_stock": "Nicht möglich: Das Fahrzeug hat den Bestand verlassen.",

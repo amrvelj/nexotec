@@ -106,5 +106,5 @@ def test_only_administration_routes_pass_the_activation_gate():
         module = route.endpoint.__module__
         (allowed if module.startswith(_ADMINISTRATION_MODULE_PREFIXES) else gated).add(module.split(".")[1])
     assert allowed == {"platform", "integration"}
-    assert {"customer", "vehicle", "inventory", "sales", "valuation"} <= gated
+    assert {"contact", "vehicle", "inventory", "sales", "valuation"} <= gated
     assert "platform" not in gated

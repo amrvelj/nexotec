@@ -82,7 +82,7 @@ def test_an_orphan_alarms_and_the_worker_survives(db_session):
 
     # The finding is durable: run_all persisted it before the alarm was
     # ever raised.
-    orphans = db_session.query(ReconciliationOrphan).filter_by(context="customer").all()
+    orphans = db_session.query(ReconciliationOrphan).filter_by(context="contact").all()
     assert len(orphans) == 1
     assert orphans[0].check_label == "vehicle_party.vehicle_id -> vehicle_mdm.id"
 
@@ -114,7 +114,7 @@ def test_a_clean_run_is_recorded_distinguishably_from_no_run(db_session):
     runs = db_session.query(ReconciliationRun).all()
     assert {r.context for r in runs} == {
         "platform",
-        "customer",
+        "contact",
         "inventory",
         "sales",
         "valuation",

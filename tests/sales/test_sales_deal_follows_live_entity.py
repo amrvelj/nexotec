@@ -243,7 +243,7 @@ def test_a_freed_offer_is_found_in_the_queue_and_under_its_heir_after_a_hand_ove
             dealership,
             leaver,
             transfers=[
-                {"module": "customer", "group": "contacts", "toUserId": heir["id"]},
+                {"module": "contact", "group": "contacts", "toUserId": heir["id"]},
                 {"module": "sales", "group": "offers", "toUserId": to_user},
             ],
         )

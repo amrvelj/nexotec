@@ -1,5 +1,5 @@
 {
-  "title": "Neuer Kunde",
+  "title": "Neuer Kontakt",
   "steps": {
     "type": "Typ",
     "details": "Details"
@@ -8,7 +8,7 @@
     "next": "Weiter",
     "back": "Zurück",
     "cancel": "Abbrechen",
-    "submit": "Kunde erstellen"
+    "submit": "Kontakt erstellen"
   },
   "type": {
     "individual": {
@@ -44,14 +44,14 @@
     "roles": "Rollen"
   },
   "descriptions": {
-    "correspondenceLanguage": "Die Sprache, in der die Dokumente und Briefe dieses Kunden verfasst werden."
+    "correspondenceLanguage": "Die Sprache, in der die Dokumente und Briefe dieses Kontakts verfasst werden."
   },
   "placeholders": {
     "uid": "CHE-123.456.789"
   },
   "duplicates": {
-    "heading_one": "Möglicher bestehender Kunde",
-    "heading_other": "{{count, number}} mögliche bestehende Kunden",
+    "heading_one": "Möglicher bestehender Kontakt",
+    "heading_other": "{{count, number}} mögliche bestehende Kontakte",
     "exactMatch": "Exakte Übereinstimmung",
     "openInstead": "Stattdessen öffnen"
   },
@@ -62,6 +62,6 @@
     "roleRequired": "Wählen Sie mindestens eine Rolle."
   },
   "errors": {
-    "createFailed": "Der Kunde konnte nicht erstellt werden. Prüfen Sie das Formular und versuchen Sie es erneut."
+    "createFailed": "Der Kontakt konnte nicht erstellt werden. Prüfen Sie das Formular und versuchen Sie es erneut."
   }
 }
