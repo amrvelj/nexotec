@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest'
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { basename, dirname, join, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import ts from 'typescript'
 
 // KAN-464 PR-4 (ADR-210; Anto, 2026-10-26: one register, roles). Customers
 // became Kontakte / Contacts / Contacts / Contatti in PR-3. This is the test
@@ -109,29 +110,42 @@ function collectSources(dir: string, out: string[] = []): string[] {
 const OLD_ROUTE_LITERAL = /['"`][^'"`\n]*\/customers\b|path=["'{`]+customers\b/
 
 // Hardcoded strings are forbidden by the i18n rule; this catches one that names the old
-// register anyway, in German, French and Italian. English is left out: its pattern meets the
-// role code 'customer' in every contact screen, and an English literal would also be caught by
-// no review of translations. Import paths are not text.
-const LITERAL = /'([^'\n]*)'|"([^"\n]*)"|`([^`]*)`|>([^<>{}\n]+)</g
-const IMPORT_LINE = /^\s*(import|export)\b.*\bfrom\s|^\s*import\s*['"]|^\s*\/\/\/\s*<reference/
-// Source file → why it may hold such a literal (OAuth «client», not the register).
+// register anyway, in all four languages. Literals are read with the TypeScript parser, so a
+// `/*` inside a string or a `//` comment hides nothing. Module specifiers are not text, and the
+// bare role code 'customer' is a value, not a word on screen.
+const ROLE_CODE = 'customer'
+// Source file → why it may hold such a literal.
 const ALLOWED_LITERAL_FILES: Record<string, string> = {
   'pages/PlatformStatusPage.tsx': "the route /integrations/business-profile/client-status (Nexotec's OAuth client)",
+  'App.tsx': 'the /customers → /contacts redirect, kept until KAN-464 PR-5',
+}
+
+function literalTexts(file: string): string[] {
+  const kind = file.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS
+  const source = ts.createSourceFile(file, readFileSync(file, 'utf8'), ts.ScriptTarget.Latest, true, kind)
+  const texts: string[] = []
+  const visit = (node: ts.Node) => {
+    const parent = node.parent as ts.Node | undefined
+    const isSpecifier =
+      parent !== undefined &&
+      (((ts.isImportDeclaration(parent) || ts.isExportDeclaration(parent)) && node === parent.moduleSpecifier) ||
+        (ts.isCallExpression(parent) && parent.expression.kind === ts.SyntaxKind.ImportKeyword) ||
+        ts.isExternalModuleReference(parent) ||
+        ts.isLiteralTypeNode(parent))
+    if ((ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) && !isSpecifier) texts.push(node.text)
+    else if (ts.isTemplateExpression(node)) texts.push(node.head.text, ...node.templateSpans.map((span) => span.literal.text))
+    else if (ts.isJsxText(node)) texts.push(node.text)
+    ts.forEachChild(node, visit)
+  }
+  visit(source)
+  return texts.filter((text) => text.trim() !== ROLE_CODE)
 }
 
 function literalHits(): string[] {
-  const hits: string[] = []
-  for (const file of collectSources(SRC_ROOT)) {
-    const lines = readFileSync(file, 'utf8').split('\n').filter((line) => !IMPORT_LINE.test(line))
-    const source = lines.join('\n').replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/[^\n]*/g, '$1')
-    for (const match of source.matchAll(LITERAL)) {
-      const text = match.slice(1).find((group) => group !== undefined) ?? ''
-      for (const language of ['de', 'fr', 'it'] as const) {
-        if (OLD_NAME[language].test(text)) hits.push(relative(SRC_ROOT, file))
-      }
-    }
-  }
-  return [...new Set(hits)].sort()
+  const hits = collectSources(SRC_ROOT).filter((file) =>
+    literalTexts(file).some((text) => LANGUAGES.some((language) => OLD_NAME[language].test(text))),
+  )
+  return hits.map((file) => relative(SRC_ROOT, file)).sort()
 }
 
 describe('no half-rename: customers are contacts (KAN-464, ADR-210)', () => {
@@ -156,7 +170,7 @@ describe('no half-rename: customers are contacts (KAN-464, ADR-210)', () => {
     expect(Object.keys(ALLOWED_ROUTE_FILES).filter((file) => !files.includes(file))).toEqual([])
   })
 
-  it('no hardcoded German, French or Italian literal in the SPA uses the old name', () => {
+  it('no hardcoded literal in the SPA uses the old name', () => {
     const files = literalHits()
     expect(files.filter((file) => !(file in ALLOWED_LITERAL_FILES))).toEqual([])
     expect(Object.keys(ALLOWED_LITERAL_FILES).filter((file) => !files.includes(file))).toEqual([])
