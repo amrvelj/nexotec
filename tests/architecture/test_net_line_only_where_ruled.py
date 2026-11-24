@@ -11,31 +11,37 @@ net-amount field may be declared in `aftersales` and `parts`, and nowhere
 else.
 
 What counts as a net line: an identifier, declared or assigned (a colon or
-`=` right after it, as in `test_no_vat_treatment_field.py`), in which the
-word `net` or `netto` stands directly next to an amount word — `net_price`,
-`unitNetPrice`, `total_net`, `"netAmount":`. Words are split on `_` and on
-camelCase. `price_is_net` (the provider catalogue's flag: whether a list
-price *arrived* net, vehicle and integration) is a flag about an input, not
-a net amount, and does not match: `is` stands between the two words.
+`=` right after it, as in `test_no_vat_treatment_field.py`), that has the
+word `net` or `netto` in it — `net_price`, `net_unit_price`, `netUnitPrice`,
+`subtotal_net`, `net_chf`, `"netAmount":` — or says «excluding VAT»
+(`price_excl_vat`, `exkl_mwst`). Words are split on `_` and on camelCase.
+Two shapes are not amounts and do not count: a flag led by `is`
+(`price_is_net`, `isNet` — the provider catalogue's flag that a list price
+*arrived* net, vehicle and integration), and a payment term `NET_<days>`
+(contact's `NET_30`).
 
 Where it looks: every `.py` file under `app/<context>/`, and every `.ts` /
 `.tsx` file under the SPA's `src/modules/<module>/`, the module mapped to
 its context (`stock` is inventory). The SPA's shared code (`src/` outside
 `modules/`) and the ui-kit are no context: a net-amount field there fails
 too, until a ticket names that shared file in `_SHARED_ALLOWED` with why.
+Two SPA files are not scanned, because their content is decided elsewhere:
+the generated API types (`src/api/schema.d.ts`, made from the backend's
+schemas, which the backend scan already judges by their owning context) and
+the test fake backend (`src/test/`, which mirrors those schemas).
 `app/core` is not scanned: the money calculation (KAN-807, ADR-215) is
 shared arithmetic that every payer total runs through, gross-only Sales
 included; presenting its net figure is a context's decision, and that is
 what this test rules on.
 
 Not seen (stated, not hidden): a net amount under a name without the word
-(`base`, `subtotal`), a translation key in the locale JSON, and a figure
-built in a template. `test_no_vat_treatment_field.py` stays as it is: there
+(`base`, `subtotal`, `ex_vat`), a translation key in the locale JSON, a
+figure built in a template, and `app/api` (the composition root's routers,
+which mount contexts' schemas and declare none of their own). `test_no_vat_treatment_field.py` stays as it is: there
 is no `vatTreatment` in any context, these two included.
 """
 
 import re
-from itertools import pairwise
 from pathlib import Path
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -49,11 +55,15 @@ NET_LINE_CONTEXTS = frozenset({"aftersales", "parts"})
 # Shared frontend files that may carry a net amount, each with its ticket.
 _SHARED_ALLOWED: dict[str, str] = {}
 
+# Not scanned: generated from the backend, or a test double of it.
+_NOT_SCANNED = (_SPA_SRC / "api" / "schema.d.ts", _SPA_SRC / "test")
+
 # The SPA's module folders and the context each belongs to.
 _MODULE_CONTEXT = {"stock": "inventory"}
 
-_AMOUNT_WORDS = frozenset({"price", "prices", "amount", "amounts", "total", "totals", "sum", "sums", "line", "lines", "value", "values"})
 _NET_WORDS = frozenset({"net", "netto"})
+_EXCLUDING = frozenset({"excl", "exkl", "exklusive", "excluding"})
+_TAX_WORDS = frozenset({"vat", "mwst", "tva", "iva"})
 
 # An identifier (optionally quoted, for a JSON-shaped key) followed by `:` or `=`.
 _DECLARATION = re.compile(r"[\"']?([A-Za-z_][A-Za-z0-9_]*)[\"']?\s*[:=](?!=)")
@@ -66,10 +76,14 @@ def _words(identifier: str) -> list[str]:
 
 def is_net_amount_name(identifier: str) -> bool:
     words = _words(identifier)
-    return any(
-        (a in _NET_WORDS and b in _AMOUNT_WORDS) or (a in _AMOUNT_WORDS and b in _NET_WORDS)
-        for a, b in pairwise(words)
-    )
+    for i, word in enumerate(words):
+        before = words[i - 1] if i else ""
+        after = words[i + 1] if i + 1 < len(words) else ""
+        if word in _NET_WORDS and before != "is" and not after.isdigit():
+            return True
+        if word in _EXCLUDING and after in _TAX_WORDS:
+            return True
+    return False
 
 
 def _net_declarations(path: Path, root: Path = _REPO_ROOT) -> list[str]:
@@ -112,7 +126,12 @@ def _scanned() -> list[Path]:
         if context_dir.is_dir() and context_dir.name not in {"core", "api", "__pycache__"}
         for path in _files(context_dir, {".py"})
     ]
-    return backend + _files(_SPA_SRC, {".ts", ".tsx"}) + _files(_KIT_SRC, {".ts", ".tsx"})
+    frontend = [
+        path
+        for path in _files(_SPA_SRC, {".ts", ".tsx"}) + _files(_KIT_SRC, {".ts", ".tsx"})
+        if not any(path == skip or path.is_relative_to(skip) for skip in _NOT_SCANNED)
+    ]
+    return backend + frontend
 
 
 def test_a_net_amount_is_declared_only_where_adr_212_allows_one():
@@ -139,9 +158,16 @@ def test_the_allowed_contexts_exist():
 
 
 def test_the_name_rule_on_the_shapes_it_must_judge():
-    for net in ("net_price", "unitNetPrice", "total_net", "netAmount", "NET_TOTAL", "line_net", "nettoPrice", "priceNet"):
+    for net in (
+        "net_price", "unitNetPrice", "total_net", "netAmount", "NET_TOTAL", "line_net", "nettoPrice", "priceNet",
+        "net_unit_price", "netUnitPrice", "net_sale_price", "net_list_price", "net_purchase_price", "net_chf",
+        "net_fee", "subtotal_net", "nettoBetrag", "net", "price_excl_vat", "amountExklMwst",
+    ):
         assert is_net_amount_name(net), net
-    for other in ("price_is_net", "network", "net_10", "gross_price", "subnet_total", "internet_value", "netloc"):
+    for other in (
+        "price_is_net", "isNet", "is_net", "NET_10", "net_30", "network", "gross_price", "subnet_total",
+        "internet_value", "netloc", "vat_amount", "excl_reason",
+    ):
         assert not is_net_amount_name(other), other
 
 
@@ -165,3 +191,10 @@ def test_the_owner_of_a_file():
     assert _owner(_SPA_SRC / "modules" / "stock" / "pages" / "x.tsx") == "inventory"
     assert _owner(_SPA_SRC / "components" / "x.tsx") == "shared"
     assert _owner(_KIT_SRC / "x.tsx") == "shared"
+
+
+def test_generated_api_types_and_the_test_backend_are_not_scanned():
+    scanned = set(_scanned())
+    assert _SPA_SRC / "api" / "schema.d.ts" not in scanned
+    assert not any(path.is_relative_to(_SPA_SRC / "test") for path in scanned)
+    assert any(path.is_relative_to(_SPA_SRC / "modules" / "sales") for path in scanned)

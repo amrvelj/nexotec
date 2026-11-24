@@ -110,7 +110,7 @@ Lowest layer first (ADR-131, ADR-211); peers: parts and inventory, aftersales an
 | `inventory` | stock items, pipeline vehicles, reservation, Wagenbuch, marketplace publishing |
 | `parts` | *(stub)* part master, stock, suppliers, purchase orders |
 | `sales` | offers and contracts, pricing build-up, trade-ins, the offer workspace, documents |
-| `aftersales` | *(stub)* service orders, appointments, labour, technicians |
+| `aftersales` | *(stub)* service orders, the car's stay, labour (ADR-213) |
 | `finance` | *(stub)* invoicing and payment matching — **not a ledger** (ADR-037) |
 | `reporting` | projections from events (public stock) |
 | `compliance` | *(stub)* audit, revDSG, retention |
