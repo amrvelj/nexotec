@@ -1,0 +1,255 @@
+{
+  "_about": "KAN-801 — every `\"reason\": <expression>` in app/ that is neither a string literal nor a module-level constant. kind refusal: a refusal body's details.reason, each value translated in REASON_KEYS (apiRefusal.ts) or listed in notARefusalReasons.json; kind problem: a reassignment 422's details.problems[].reason, each value in userOptions.ts PROBLEM_REASONS; kind notARefusal: never a refusal body, and why. values are what tests/refusal_reason_values.py reads from the code (hints say how, for a form it cannot follow alone); tests/test_refusal_reason_value_sites.py keeps this file equal to the code. Keyed <path>::<function>::<expression>, no line numbers.",
+  "sites": {
+    "app/core/export.py::write_archive::reason": {
+      "kind": "notARefusal",
+      "why": "The archive manifest's `excluded[].reason` (an exporter's excluded_tables() text), written into the export file, never a refusal body."
+    },
+    "app/core/export.py::write_archive::str(spec.exclusion_reason)": {
+      "kind": "notARefusal",
+      "why": "The archive manifest's `excluded[].reason` (a table spec's exclusion text), written into the export file, never a refusal body."
+    },
+    "app/core/list_query.py::_refuse::reason": {
+      "kind": "refusal",
+      "values": [
+        "filter_malformed",
+        "invalid_filter_value",
+        "operator_not_allowed",
+        "unknown_field"
+      ]
+    },
+    "app/customer/ownership.py::_transfer_customers::refusal.code": {
+      "kind": "refusal",
+      "hints": {
+        "refusal.code": {
+          "argumentsOf": "OwnershipRefusal",
+          "parameter": "code"
+        }
+      },
+      "values": [
+        "colleague_cannot_act_there"
+      ]
+    },
+    "app/integration/services/gbp_client_check.py::_refusal::reason": {
+      "kind": "refusal",
+      "values": [
+        "business_profile_breaker_open",
+        "business_profile_no_active_binding",
+        "business_profile_not_configured"
+      ]
+    },
+    "app/integration/services/gbp_link.py::_refusal::reason": {
+      "kind": "refusal",
+      "values": [
+        "binding_already_disconnected",
+        "binding_not_pending",
+        "business_profile_consent_incomplete",
+        "business_profile_grant_refused",
+        "business_profile_not_configured",
+        "google_location_already_bound",
+        "google_location_not_accessible",
+        "link_expired",
+        "location_already_bound",
+        "provider_declined"
+      ]
+    },
+    "app/integration/services/mail_link.py::_refusal::reason": {
+      "kind": "refusal",
+      "hints": {
+        "exc.code": {
+          "argumentsOf": "MailLinkRefused",
+          "parameter": "code",
+          "position": 0
+        }
+      },
+      "values": [
+        "consent_incomplete",
+        "consent_not_granted",
+        "delegation_not_granted",
+        "id_token_invalid",
+        "link_expired",
+        "mail_provider_not_configured",
+        "mailbox_already_connected",
+        "mailbox_not_in_tenant",
+        "not_a_business_account",
+        "not_an_administrator",
+        "provider_declined",
+        "tenant_bound_elsewhere"
+      ]
+    },
+    "app/integration/services/mail_sending.py::_sender_refusal::reason": {
+      "kind": "refusal",
+      "values": [
+        "business_mailbox_in_error",
+        "no_mailbox_connected",
+        "own_mailbox_in_error"
+      ]
+    },
+    "app/platform/administration/services/data_export.py::_assert_downloadable::f'export_{job.status.value}'": {
+      "kind": "refusal",
+      "hints": {
+        "f'export_{job.status.value}'": {
+          "enum": "app.platform.administration.models.export_job:ExportJobStatus",
+          "format": "export_{}",
+          "except": [
+            "ready",
+            "expired"
+          ]
+        }
+      },
+      "values": [
+        "export_failed",
+        "export_requested"
+      ]
+    },
+    "app/platform/administration/services/publishing_profile.py::_refuse_image::reason": {
+      "kind": "refusal",
+      "values": [
+        "image_not_an_image",
+        "image_too_large",
+        "image_too_small",
+        "image_unreadable"
+      ]
+    },
+    "app/platform/documents/services/standard_text.py::_refuse::reason": {
+      "kind": "refusal",
+      "values": [
+        "standard_text_category_mismatch",
+        "standard_text_code_target_mismatch",
+        "standard_text_code_unknown",
+        "standard_text_exists",
+        "standard_text_not_an_override",
+        "standard_text_seed_language_missing",
+        "standard_text_seed_not_shipped",
+        "standard_text_slot_unknown",
+        "standard_text_target_required",
+        "standard_text_target_unknown",
+        "standard_text_template_id_required",
+        "standard_text_template_whatsapp_only"
+      ]
+    },
+    "app/platform/health.py::readyz::str(exc)": {
+      "kind": "notARefusal",
+      "why": "/readyz's 503 body for the infrastructure probe (the driver's text); no screen reads it."
+    },
+    "app/platform/identity/api/support_sessions.py::<module>::SupportSession.reason": {
+      "kind": "notARefusal",
+      "why": "A sort column of the support-session log (`sort=reason`), not a value."
+    },
+    "app/platform/identity/services/connected_account.py::revoke::reason.value": {
+      "kind": "notARefusal",
+      "why": "The ConnectedAccountRevokeReason code in the auth event and the audit row of a revocation, never a refusal body."
+    },
+    "app/platform/identity/services/identity.py::_deliver::str(exc)": {
+      "kind": "notARefusal",
+      "why": "The mail-delivery failure's text in the ERROR log line's extra, never a refusal body."
+    },
+    "app/platform/identity/services/identity.py::_revoke_all::reason": {
+      "kind": "notARefusal",
+      "why": "Why the sessions ended (email_changed, invitation, password_reset) in the session_revoked auth event's details, never a refusal body."
+    },
+    "app/platform/identity/services/identity.py::send_pending_mail::str(exc)": {
+      "kind": "notARefusal",
+      "why": "The mail-delivery failure's text in the ERROR log line's extra, never a refusal body."
+    },
+    "app/platform/identity/services/ownership.py::resolve_transfers.problem::reason": {
+      "kind": "problem",
+      "values": [
+        "colleague_not_active",
+        "decided_twice",
+        "not_owned",
+        "self",
+        "undecided"
+      ]
+    },
+    "app/platform/identity/services/ownership.py::resolve_transfers::refusal.code": {
+      "kind": "problem",
+      "hints": {
+        "refusal.code": {
+          "argumentsOf": "OwnershipRefusal",
+          "parameter": "code"
+        }
+      },
+      "values": [
+        "colleague_cannot_act_there"
+      ]
+    },
+    "app/platform/identity/services/platform_staff.py::_refuse::reason": {
+      "kind": "refusal",
+      "values": [
+        "last_platform_admin",
+        "platform_admin_self_revoke",
+        "staff_role_is_the_only_role"
+      ]
+    },
+    "app/platform/identity/services/recovery.py::_record::reason": {
+      "kind": "notARefusal",
+      "why": "The recovery request's free-text reason (body.reason) in the auth event and audit row, never a refusal body."
+    },
+    "app/platform/identity/services/support_sessions.py::_own_sort_values::session.reason": {
+      "kind": "notARefusal",
+      "why": "The support session's free-text reason as a sort key of the log, not a refusal."
+    },
+    "app/platform/identity/services/support_sessions.py::start_support_session::reason": {
+      "kind": "notARefusal",
+      "why": "The support session's free-text reason (body.reason) in its audit row, never a refusal body."
+    },
+    "app/platform/identity/services/user.py::_assert_not_last_manager::reason": {
+      "kind": "refusal",
+      "values": [
+        "last_manager",
+        "last_manager_elsewhere"
+      ]
+    },
+    "app/platform/identity/services/user.py::end_sessions::reason": {
+      "kind": "notARefusal",
+      "why": "Why the sessions ended (a user status, access_changed, …) in the session_revoked auth event's details, never a refusal body."
+    },
+    "app/platform/organisation/services/dealership.py::_assert_status_change::reason": {
+      "kind": "refusal",
+      "values": [
+        "status_transition_not_allowed",
+        "use_activation_procedure",
+        "use_offboarding_procedure"
+      ]
+    },
+    "app/platform/organisation/services/location.py::_closure_snapshot::closure.reason": {
+      "kind": "notARefusal",
+      "why": "A location closure's free-text reason in its audit snapshot, never a refusal body."
+    },
+    "app/platform/organisation/services/logo_validation.py::_refuse::reason": {
+      "kind": "refusal",
+      "values": [
+        "logo_dimensions_too_large",
+        "logo_file_too_large",
+        "logo_format_jpeg",
+        "logo_format_unsupported",
+        "logo_png_damaged",
+        "logo_svg_entities",
+        "logo_svg_invalid",
+        "logo_too_many_pixels",
+        "logo_too_small"
+      ]
+    },
+    "app/sales/services/contract.py::cancel_contract::reason": {
+      "kind": "notARefusal",
+      "why": "The cancellation's free-text reason (body.reason) in the sales.contract.cancelled outbox payload, never a refusal body."
+    },
+    "app/sales/services/offer.py::cancel_offer::reason": {
+      "kind": "notARefusal",
+      "why": "The cancellation's free-text reason (body.reason) in the sales.offer.cancelled outbox payload, never a refusal body."
+    },
+    "app/sales/services/ownership.py::_assert_colleague_acts_everywhere::refusal.code": {
+      "kind": "refusal",
+      "hints": {
+        "refusal.code": {
+          "argumentsOf": "OwnershipRefusal",
+          "parameter": "code"
+        }
+      },
+      "values": [
+        "colleague_cannot_act_there"
+      ]
+    }
+  }
+}
