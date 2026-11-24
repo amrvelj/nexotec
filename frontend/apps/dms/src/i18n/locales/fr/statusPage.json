@@ -23,7 +23,8 @@
     "integration": "Intégrations",
     "nexotec": "Nexotec",
     "google_business_profile": "Google Business Profile",
-    "google_business_profile_drift": "Google Business Profile – comparaison"
+    "google_business_profile_drift": "Google Business Profile – comparaison",
+    "google_business_profile_photos": "Google Business Profile – photos"
   },
   "open": "Ouvrir",
   "since": "depuis le {{date}}",

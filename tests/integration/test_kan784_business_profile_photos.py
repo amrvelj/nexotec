@@ -234,7 +234,7 @@ def test_a_removed_image_stays_at_google_and_in_the_record(db_session, site, sto
 
 
 def test_an_image_missing_from_the_store_is_skipped(db_session, site, store, caplog):
-    fake, location, _binding = site
+    _fake, location, _binding = site
     image = _image(db_session, store, location, BrandingAssetKind.PREMISES)
     store.delete(image.object_key)
     _queue(db_session, location)
@@ -321,7 +321,7 @@ def test_the_backoff_doubles_and_is_capped():
 
 
 def test_a_pass_never_drops_a_job_queued_again_while_it_ran(db_session, site, store):
-    fake, location, _binding = site
+    _fake, location, _binding = site
     _image(db_session, store, location, BrandingAssetKind.PREMISES)
     _queue(db_session, location)
     claim = gbp_photos.claim_due_job(db_session)
@@ -336,7 +336,7 @@ def test_a_pass_never_drops_a_job_queued_again_while_it_ran(db_session, site, st
 
 
 def test_the_runner_runs_every_due_job_once(db_session, engine, site, store):
-    fake, location, _binding = site
+    _fake, location, _binding = site
     _image(db_session, store, location, BrandingAssetKind.TEAM)
     _queue(db_session, location)
     factory = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)

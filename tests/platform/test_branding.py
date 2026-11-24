@@ -709,3 +709,19 @@ def test_the_logo_url_script_migrates_what_it_can_fetch_and_reports_the_rest(cli
 
     again = {str(d.id): outcome for d, outcome in script.migrate(db_session, store, commit=True, fetcher=fetcher)}
     assert good["id"] not in again and db_session.query(BrandingAsset).count() == 1
+
+
+def test_the_svg_keeps_its_plain_namespace_after_another_library_registers_the_empty_prefix():
+    """ElementTree's prefix map is global; WeasyPrint re-registers the empty
+    prefix on import, which dropped the SVG default and made every sanitised
+    logo `<ns0:svg …>` once the import order changed (KAN-217 PR-7)."""
+
+    from xml.etree import ElementTree as ET
+
+    from app.platform.organisation.services.logo_validation import validate_logo
+
+    ET.register_namespace("", "")
+    svg = b'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><rect width="10" height="10"/></svg>'
+    data = validate_logo(svg).data
+    assert b'<svg xmlns="http://www.w3.org/2000/svg"' in data
+    assert b"ns0:" not in data

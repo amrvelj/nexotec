@@ -373,6 +373,10 @@ _READS = {
     # a SELECT only.
     "app.platform.public.location_channel_facts",
     "app.platform.public.closed_days_until",  # KAN-226 PR-4: pure date arithmetic, reads nothing
+    # KAN-784 (ADR-209): a location's imagery for the Business Profile photo upload — a SELECT,
+    # and one image's bytes from the object store; neither writes.
+    "app.platform.public.location_channel_images",
+    "app.platform.public.read_location_channel_image",
     # KAN-403: users' names for the nightly advisor-label refresh; a SELECT only.
     "app.platform.public.get_user_display_labels",
     # KAN-410: the advisor picker — users homed in the Betrieb or members of it; a SELECT only.
