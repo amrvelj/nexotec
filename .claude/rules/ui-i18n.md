@@ -52,7 +52,7 @@ main@3b2bf69 (2026-11-18). -->
   fallbackKey)`: a body-less response is `common.requestFailed`; then a stale If-Match 409; a known
   `details.reason` (`REASON_KEYS` — `apiRefusal.test.ts` and its backend-lane twin
   `tests/test_frontend_knows_backend_refusals.py` fail on a `"reason": "…"` in `app/` it does not
-  translate (or a `NAME` string constant, KAN-796; a value: `tests/refusal_reason_value_sites.json`, KAN-801), unless `utils/notARefusalReasons.json` lists it as a log or event value, and where;
+  translate (or a `NAME` string constant, KAN-796), unless `utils/notARefusalReasons.json` lists it as a log or event value, and where;
   the vitest file pins the twin, KAN-679/KAN-732; a value the details carry
   goes through `REASON_PARAMS`); a 403, 404 and schema 422
   by status; anything else, a business rule refused without a reason included, is the screen's own
