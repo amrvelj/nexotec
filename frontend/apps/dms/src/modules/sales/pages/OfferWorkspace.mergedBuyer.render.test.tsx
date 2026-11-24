@@ -86,8 +86,8 @@ describe('OfferWorkspace — a merged contact is refused as the buyer (KAN-656)'
     await user.click(await screen.findByText('Ursi Vogt'))
 
     // Hardcoded on purpose: a key missing from the French bundle must not pass.
-    expect(await screen.findByText('Ce client a été fusionné avec un autre et ne peut plus être choisi comme acheteur.')).toBeInTheDocument()
-    expect(await screen.findByText('Le client choisi a été fusionné avec Ursula Vogt (K-000009).')).toBeInTheDocument()
+    expect(await screen.findByText('Ce contact a été fusionné avec un autre et ne peut plus être choisi comme acheteur.')).toBeInTheDocument()
+    expect(await screen.findByText('Le contact choisi a été fusionné avec Ursula Vogt (K-000009).')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Choisir Ursula Vogt' }))
 
     await waitFor(() => expect(backend.callsTo(/^\/sales\/offers\/o1$/, 'PATCH')).toHaveLength(2))
@@ -96,6 +96,6 @@ describe('OfferWorkspace — a merged contact is refused as the buyer (KAN-656)'
       { contactId: 'cust-9' },
     ])
     expect(await screen.findByText('Ursula Vogt')).toBeInTheDocument()
-    expect(screen.queryByText('Le client choisi a été fusionné avec Ursula Vogt (K-000009).')).not.toBeInTheDocument()
+    expect(screen.queryByText('Le contact choisi a été fusionné avec Ursula Vogt (K-000009).')).not.toBeInTheDocument()
   })
 })

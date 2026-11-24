@@ -353,8 +353,8 @@ describe('ContractDetailPage — a pending contract can be completed (KAN-67)', 
     await user.click(await screen.findByText('Ursi Vogt'))
 
     // Hardcoded German on purpose: a key missing on both sides must not pass.
-    expect(await screen.findByText('Dieser Kunde wurde mit einem anderen zusammengeführt und kann nicht mehr als Käufer gewählt werden.')).toBeInTheDocument()
-    expect(await screen.findByText('Der gewählte Kunde wurde mit Ursula Vogt (K-000009) zusammengeführt.')).toBeInTheDocument()
+    expect(await screen.findByText('Dieser Kontakt wurde mit einem anderen zusammengeführt und kann nicht mehr als Käufer gewählt werden.')).toBeInTheDocument()
+    expect(await screen.findByText('Der gewählte Kontakt wurde mit Ursula Vogt (K-000009) zusammengeführt.')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Ursula Vogt wählen' }))
 
     await waitFor(() => expect(backend.callsTo(/^\/sales\/contracts\/k1$/, 'PATCH')).toHaveLength(2))
@@ -364,7 +364,7 @@ describe('ContractDetailPage — a pending contract can be completed (KAN-67)', 
     ])
     const section = screen.getByTestId('contract-priced-without-inputs')
     expect(await within(section).findByText('Ursula Vogt')).toBeInTheDocument()
-    expect(screen.queryByText('Der gewählte Kunde wurde mit Ursula Vogt (K-000009) zusammengeführt.')).not.toBeInTheDocument()
+    expect(screen.queryByText('Der gewählte Kontakt wurde mit Ursula Vogt (K-000009) zusammengeführt.')).not.toBeInTheDocument()
   })
 
   it('a discount typed just before Confirm is saved first, then signed with its version (review finding)', async () => {

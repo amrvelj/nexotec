@@ -76,7 +76,7 @@ describe('HistoryTab in French (KAN-336)', () => {
       { [ADVISOR_ID]: 'Anna Muster' },
     )
 
-    expect(screen.getByText(/Client créé/)).toBeInTheDocument()
+    expect(screen.getByText(/Contact créé/)).toBeInTheDocument()
     expect(screen.queryByText(/create/)).not.toBeInTheDocument()
     expect(screen.queryByText(/ce client/)).not.toBeInTheDocument()
 
@@ -117,7 +117,7 @@ describe('HistoryTab in French (KAN-336)', () => {
       }),
     ])
 
-    expect(screen.getByText(/Client modifié/)).toBeInTheDocument()
+    expect(screen.getByText(/Contact modifié/)).toBeInTheDocument()
     expect(screen.queryByText(/update/)).not.toBeInTheDocument()
 
     expect(screen.getByText('Assujetti à la TVA')).toBeInTheDocument()
@@ -126,7 +126,7 @@ describe('HistoryTab in French (KAN-336)', () => {
     expect(screen.getByText(/E-mail → Téléphone/)).toBeInTheDocument()
     expect(screen.getByText('Conditions de paiement')).toBeInTheDocument()
     expect(screen.getByText(/— → Net à 30 jours/)).toBeInTheDocument()
-    expect(screen.getByText('Client depuis')).toBeInTheDocument()
+    expect(screen.getByText('Contact depuis')).toBeInTheDocument()
     expect(screen.getByText(/— → 31\.01\.2026/)).toBeInTheDocument()
 
     expect(screen.queryByText('Vat registered')).not.toBeInTheDocument()

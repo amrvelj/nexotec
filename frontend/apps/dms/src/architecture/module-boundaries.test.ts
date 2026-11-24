@@ -59,6 +59,13 @@ const MODULE_WORDS: Record<string, string[]> = {
 
 /** Outside src/modules/, these folders may carry a module's word: shared API types, bundles, the guards. */
 const NAME_CHECK_EXEMPT_DIRS = ['api/', 'i18n/', 'architecture/']
+/**
+ * KAN-464 PR-3: the contact module's word is «Contact» since customers became
+ * contacts. Dealer Administration's contact-group list (platform reference
+ * data, A-RULE-0) carried the word before the rename, when the word was
+ * «Customer» and the scan did not see it either; it stays where it is.
+ */
+const NAME_CHECK_EXEMPT_FILES = ['hooks/useContactGroups.ts', 'pages/ContactGroupsPage.tsx', 'pages/ContactGroupsPage.render.test.tsx']
 
 const RESOLVE_SUFFIXES = ['', '.ts', '.tsx', '/index.ts', '/index.tsx']
 
@@ -146,7 +153,7 @@ export function carriesWord(fileName: string, word: string): boolean {
 /** Rule 3, by name: a file outside src/modules/ carrying a moved module's word. */
 export function leftBehind(paths: string[], moduleWords: Record<string, string[]>): string[] {
   return paths
-    .filter((path) => !path.startsWith('modules/') && !NAME_CHECK_EXEMPT_DIRS.some((dir) => path.startsWith(dir)))
+    .filter((path) => !path.startsWith('modules/') && !NAME_CHECK_EXEMPT_DIRS.some((dir) => path.startsWith(dir)) && !NAME_CHECK_EXEMPT_FILES.includes(path))
     .flatMap((path) => {
       const name = path.split('/').pop()!
       return Object.entries(moduleWords)

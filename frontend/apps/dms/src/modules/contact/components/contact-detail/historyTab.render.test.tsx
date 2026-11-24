@@ -157,8 +157,8 @@ describe('HistoryTab — empty fields are not listed and dates are formatted (KA
     expect(screen.getByText(/— → Hans/)).toBeInTheDocument()
     expect(screen.queryByText(/— → —/)).not.toBeInTheDocument()
     // The field names are the German UI labels since KAN-336 (the tests run in DE).
-    expect(screen.queryByText('Kunde seit')).not.toBeInTheDocument()
-    expect(screen.queryByText('Nächster Kontakt')).not.toBeInTheDocument()
+    expect(screen.queryByText('Kontakt seit')).not.toBeInTheDocument()
+    expect(screen.queryByText('Nächste Kontaktaufnahme')).not.toBeInTheDocument()
     expect(screen.queryByText('Website')).not.toBeInTheDocument()
   })
 

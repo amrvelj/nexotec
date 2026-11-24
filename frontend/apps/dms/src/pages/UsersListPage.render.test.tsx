@@ -198,7 +198,7 @@ describe('UsersListPage (KAN-200)', () => {
     await user.click(await screen.findByText('Offene Vorgänge übergeben'))
     const dialog = within(await screen.findByRole('dialog'))
     expect(await dialog.findByText("1'200")).toBeInTheDocument() // KAN-160: a count is formatted
-    await user.click(await dialog.findByRole('textbox', { name: 'Übergeben: Betreute Kunden' }))
+    await user.click(await dialog.findByRole('textbox', { name: 'Übergeben: Betreute Kontakte' }))
     await user.click(await screen.findByRole('option', { name: 'Nicht zuweisen (Warteschlange des Moduls)' }))
     await user.click(dialog.getByRole('button', { name: 'Übergeben' }))
     const alert = await screen.findByRole('alert')

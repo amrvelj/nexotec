@@ -170,7 +170,7 @@ describe('kit components speak the UI language on the app\'s screens (KAN-364)',
     function OpenContact() {
       const overlay = useOverlay()
       return (
-        <button type="button" onClick={() => overlay.push({ key: 'c1', content: <p>Fiche client</p> })}>
+        <button type="button" onClick={() => overlay.push({ key: 'c1', content: <p>Fiche contact</p> })}>
           ouvrir
         </button>
       )
@@ -184,9 +184,9 @@ describe('kit components speak the UI language on the app\'s screens (KAN-364)',
 
     await user.click(screen.getByRole('button', { name: 'ouvrir' }))
     const dialog = screen.getByRole('dialog')
-    expect(within(dialog).getByText('Fiche client')).toBeInTheDocument()
+    expect(within(dialog).getByText('Fiche contact')).toBeInTheDocument()
     await user.click(within(dialog).getByRole('button', { name: 'Fermer' }))
-    expect(screen.queryByText('Fiche client')).toBeNull()
+    expect(screen.queryByText('Fiche contact')).toBeNull()
     expect(screen.queryByRole('button', { name: 'Close' })).toBeNull()
   })
 })
@@ -277,8 +277,8 @@ describe('the rest of the kit speaks the UI language on the app\'s screens (KAN-
     ])
     renderWithProviders(<ValuationCreateDialog opened onClose={() => {}} onCreated={() => {}} />)
 
-    await user.click(await screen.findByRole('button', { name: 'Rechercher un client' }))
-    const picker = await screen.findByRole('dialog', { name: 'Rechercher un client' })
+    await user.click(await screen.findByRole('button', { name: 'Rechercher un contact' }))
+    const picker = await screen.findByRole('dialog', { name: 'Rechercher un contact' })
     await user.type(within(picker).getByRole('textbox'), 'zzz')
 
     expect(await within(picker).findByText('Aucun résultat', {}, { timeout: 2000 })).toBeInTheDocument()

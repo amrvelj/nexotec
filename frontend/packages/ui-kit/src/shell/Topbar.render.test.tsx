@@ -21,7 +21,7 @@ function renderTopbar(segments: string[]) {
 
 describe("Topbar breadcrumb — one line, ellipsis, record name last (KAN-301)", () => {
   it("never wraps and lets its column shrink it", () => {
-    const { container } = renderTopbar(["Stammdaten", "Kunden", "Marco Rossi"]);
+    const { container } = renderTopbar(["Stammdaten", "Kontakte", "Marco Rossi"]);
     const crumb = container.querySelector<HTMLElement>("[data-breadcrumb]")!;
     expect(crumb.style.flexWrap).toBe("nowrap");
     expect(crumb.style.minWidth).toBe("0px");
@@ -29,8 +29,8 @@ describe("Topbar breadcrumb — one line, ellipsis, record name last (KAN-301)",
   });
 
   it("cuts each segment with an ellipsis and keeps the full text in its title", () => {
-    renderTopbar(["Stammdaten", "Kunden", "Marco Rossi"]);
-    for (const text of ["Stammdaten", "Kunden", "Marco Rossi"]) {
+    renderTopbar(["Stammdaten", "Kontakte", "Marco Rossi"]);
+    for (const text of ["Stammdaten", "Kontakte", "Marco Rossi"]) {
       const label = screen.getByText(text);
       expect(label.getAttribute("title")).toBe(text);
       expect(label.style.whiteSpace).toBe("nowrap");
@@ -40,7 +40,7 @@ describe("Topbar breadcrumb — one line, ellipsis, record name last (KAN-301)",
   });
 
   it("shrinks the leading segments before the record name", () => {
-    const { container } = renderTopbar(["Stammdaten", "Kunden", "Marco Rossi"]);
+    const { container } = renderTopbar(["Stammdaten", "Kontakte", "Marco Rossi"]);
     const [first, second, last] = Array.from(container.querySelectorAll<HTMLElement>("[data-breadcrumb-segment]"));
     expect(Number(first.style.flexShrink)).toBeGreaterThan(Number(last.style.flexShrink));
     expect(Number(second.style.flexShrink)).toBeGreaterThan(Number(last.style.flexShrink));
@@ -61,15 +61,15 @@ describe("Topbar breadcrumb — the dashboard is the root, screens are links (KA
   }
 
   it("puts the root first, as a link", () => {
-    renderWithRoot(["Stammdaten", { label: "Kunden", href: "/contacts" }, "Marco Rossi"]);
+    renderWithRoot(["Stammdaten", { label: "Kontakte", href: "/contacts" }, "Marco Rossi"]);
     const segments = Array.from(document.querySelectorAll<HTMLElement>("[data-breadcrumb-segment]")).map((s) => s.textContent);
-    expect(segments).toEqual(["Übersicht", "/Stammdaten", "/Kunden", "/Marco Rossi"]);
+    expect(segments).toEqual(["Übersicht", "/Stammdaten", "/Kontakte", "/Marco Rossi"]);
     expect(screen.getByRole("link", { name: "Übersicht" })).toHaveAttribute("href", "/");
   });
 
   it("links a segment that names a screen, never a plain group or the current screen", () => {
-    renderWithRoot(["Stammdaten", { label: "Kunden", href: "/contacts" }, { label: "Marco Rossi", href: "/contacts/1" }]);
-    expect(screen.getByRole("link", { name: "Kunden" })).toHaveAttribute("href", "/contacts");
+    renderWithRoot(["Stammdaten", { label: "Kontakte", href: "/contacts" }, { label: "Marco Rossi", href: "/contacts/1" }]);
+    expect(screen.getByRole("link", { name: "Kontakte" })).toHaveAttribute("href", "/contacts");
     expect(screen.queryByRole("link", { name: "Stammdaten" })).toBeNull();
     expect(screen.queryByRole("link", { name: "Marco Rossi" })).toBeNull();
     expect(screen.getByText("Marco Rossi")).toHaveAttribute("aria-current", "page");
@@ -84,7 +84,7 @@ describe("Topbar breadcrumb — the dashboard is the root, screens are links (KA
   it("draws a root with an icon as the icon alone, named by its label, never shrunk", () => {
     render(
       <MantineProvider theme={testTheme}>
-        <Topbar breadcrumb={["Stammdaten", "Kunden"]} breadcrumbRoot={{ ...root, icon: <svg data-testid="root-icon" /> }} />
+        <Topbar breadcrumb={["Stammdaten", "Kontakte"]} breadcrumbRoot={{ ...root, icon: <svg data-testid="root-icon" /> }} />
       </MantineProvider>,
     );
     const link = screen.getByRole("link", { name: "Übersicht" });
@@ -96,10 +96,10 @@ describe("Topbar breadcrumb — the dashboard is the root, screens are links (KA
   });
 
   it("keeps a segment's ellipsis and full text when it is a link", () => {
-    renderWithRoot([{ label: "Kunden", href: "/contacts" }, "Marco Rossi"]);
-    const label = screen.getByText("Kunden");
-    expect(label.getAttribute("title")).toBe("Kunden");
-    const link = screen.getByRole("link", { name: "Kunden" });
+    renderWithRoot([{ label: "Kontakte", href: "/contacts" }, "Marco Rossi"]);
+    const label = screen.getByText("Kontakte");
+    expect(label.getAttribute("title")).toBe("Kontakte");
+    const link = screen.getByRole("link", { name: "Kontakte" });
     expect(link.style.textOverflow).toBe("ellipsis");
     expect(link.style.whiteSpace).toBe("nowrap");
   });

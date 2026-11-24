@@ -80,7 +80,7 @@ describe('UserDeactivateDialog (KAN-200)', () => {
       />,
     )
     const dialog = within(await screen.findByRole('dialog'))
-    expect(await dialog.findByText('Betreute Kunden')).toBeInTheDocument()
+    expect(await dialog.findByText('Betreute Kontakte')).toBeInTheDocument()
     expect(dialog.getByText('Offene Offerten')).toBeInTheDocument()
     expect(dialog.getByText('12')).toBeInTheDocument()
     const confirm = dialog.getByRole('button', { name: 'Deaktivieren' })
@@ -89,7 +89,7 @@ describe('UserDeactivateDialog (KAN-200)', () => {
     await user.type(dialog.getByLabelText(/^Grund/), 'ausgetreten per 30.9.')
     expect(confirm).toBeDisabled() // the groups are still undecided
 
-    await user.click(dialog.getByRole('textbox', { name: 'Übergeben: Betreute Kunden' }))
+    await user.click(dialog.getByRole('textbox', { name: 'Übergeben: Betreute Kontakte' }))
     await user.click(await screen.findByRole('option', { name: 'Hans Erbe' }))
     await user.click(dialog.getByRole('textbox', { name: 'Übergeben: Offene Offerten' }))
     await user.click(await screen.findByRole('option', { name: 'Nicht zuweisen (Warteschlange des Moduls)' }))
@@ -213,7 +213,7 @@ describe('UserDeactivateDialog (KAN-200)', () => {
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveTextContent('Die Übergabe ist noch nicht vollständig:')
     expect(alert).toHaveTextContent('Offene Offerten: 1 davon gehören zu einem anderen Betrieb')
-    expect(alert).toHaveTextContent('Betreute Kunden: braucht eine Entscheidung')
+    expect(alert).toHaveTextContent('Betreute Kontakte: braucht eine Entscheidung')
     expect(alert).not.toHaveTextContent('belong to another business')
     expect(screen.getByRole('dialog')).toBeInTheDocument()
   })

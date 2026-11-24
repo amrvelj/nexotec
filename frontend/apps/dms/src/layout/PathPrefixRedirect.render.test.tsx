@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
-import { CustomersMovedToContacts } from './CustomersMovedToContacts'
+import { PathPrefixRedirect } from './PathPrefixRedirect'
 
 // KAN-464 PR-3 — /customers became /contacts; an old link lands on the same
 // screen, its query and hash kept.
@@ -15,7 +15,7 @@ function renderAt(path: string) {
   render(
     <MemoryRouter initialEntries={[path]}>
       <Routes>
-        <Route path="/customers/*" element={<CustomersMovedToContacts />} />
+        <Route path="/customers/*" element={<PathPrefixRedirect from="/customers" to="/contacts" />} />
         <Route path="*" element={<Where />} />
       </Routes>
     </MemoryRouter>,

@@ -22,7 +22,7 @@ describe('ContactsListPage — a failed load is reported in the UI language (KAN
     renderWithProviders(<ContactsListPage />, { route: '/contacts' })
 
     // Hardcoded expectation, not i18n.t(): a key missing on both sides must fail here.
-    expect(await screen.findByText('Impossible de charger les clients.')).toBeInTheDocument()
+    expect(await screen.findByText('Impossible de charger les contacts.')).toBeInTheDocument()
     expect(screen.queryByText('Failed to load contacts.')).not.toBeInTheDocument()
   })
 })
