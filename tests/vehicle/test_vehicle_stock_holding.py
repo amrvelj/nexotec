@@ -49,6 +49,7 @@ from app.worker import register_handlers
 from scripts import backfill_vehicle_stock_holding as backfill_script
 from tests.inventory.test_inventory_invoicing_gate import _make_dealership
 from tests.sales.test_sales_manual_configuration_link import _session_factory
+from tests.stock_support import supplier_contact
 from tests.token_support import dealer_group_of
 
 VIN = "WVWZZZ1KZAW667001"
@@ -74,7 +75,7 @@ def _bought(db_session, tenant_id: uuid.UUID, vin: str = VIN) -> StockItem:
         db_session,
         item=item,
         data=RecordPurchaseRequest(
-            supplier_name="Hans Muster", supplier_is_vat_registered=False,
+            supplier_contact_id=supplier_contact(db_session, tenant_id=item.tenant_id, name="Hans Muster"), supplier_is_vat_registered=False,
             purchase_price=Decimal("20000.00"), purchase_date=dt.date(2026, 11, 1),
         ),
         actor_id=uuid.uuid4(),

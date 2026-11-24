@@ -18,6 +18,7 @@ from app.inventory.services.purchase import record_purchase
 from app.inventory.services.stock_item import create_stock_item, list_stock_items
 from app.platform.organisation.models.dealership import DealerGroup, Dealership, FranchiseType
 from tests.dealership_support import valid_uid
+from tests.stock_support import supplier_contact
 
 
 def _make_dealership(db_session) -> Dealership:
@@ -55,7 +56,7 @@ def _make_invoiceable_item(db_session, tenant_id) -> StockItem:
         db_session,
         item=item,
         data=RecordPurchaseRequest(
-            supplier_name="Hans Muster",
+            supplier_contact_id=supplier_contact(db_session, tenant_id=item.tenant_id, name="Hans Muster"),
             supplier_is_vat_registered=False,
             purchase_price=Decimal("20000.00"),
             purchase_date=dt.date(2026, 8, 1),

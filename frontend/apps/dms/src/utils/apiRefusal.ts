@@ -280,6 +280,10 @@ const REASON_KEYS: Record<string, string> = {
       'provider_code_already_mapped',
       'purchase_requires_vin',
       'purchase_vin_mismatch',
+      // KAN-465 — the purchase booking's supplier contact.
+      'supplier_contact_merged',
+      'supplier_contact_unknown',
+      'supplier_role_missing',
       'signed_contract_carries_it',
       'sort_field_unknown',
       'stamp_too_recent',

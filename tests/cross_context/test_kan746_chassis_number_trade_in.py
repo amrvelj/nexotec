@@ -41,6 +41,7 @@ from tests.cross_context.test_configurator_hosts import (
 )
 from tests.sales.test_sales_contract_edit import _edit
 from tests.sales.test_sales_lifecycle_reservation import _dealership, _with_buyer
+from tests.stock_support import supplier_for_item
 
 CHASSIS = "1130101234567"  # a W113 «Pagode»: 13 digits, no ISO VIN
 PRE_1981 = dt.date(1968, 5, 2)
@@ -322,7 +323,8 @@ def test_a_chassis_number_trade_in_is_bought_onto_stock_under_its_number(client,
     bought = client.post(
         f"/v1/inventory/stock-items/{item.id}/purchase",
         json={
-            "supplierName": "Hans Muster", "supplierIsVatRegistered": False, "purchasePrice": "60000.00",
+            "supplierContactId": supplier_for_item(db_session, item.id), "supplierIsVatRegistered": False,
+            "purchasePrice": "60000.00",
             "purchaseDate": "2026-11-20", "vin": CHASSIS,
         },
         headers={"Authorization": f"Bearer {token}", "If-Match": str(item.version)},

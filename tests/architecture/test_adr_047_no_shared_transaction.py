@@ -325,6 +325,8 @@ _READS = {
     "app.customer.public.customer_reference_check",
     "app.customer.public.get_customer_or_404",
     "app.customer.public.get_customer_sales_labels",  # KAN-590: label read for sales.customer_labels
+    "app.customer.public.customer_display_name",  # KAN-465: formats a read CustomerRef, no session
+    "app.customer.public.supplier_contact",  # KAN-465: the purchase booking's SELECT-only read of its supplier
     "app.customer.public.has_usable_domicile_address",
     # KAN-185: Sales' customer.merged consumer follows the survivor's merge chain; a SELECT only.
     "app.customer.public.resolve_live_customer_id",

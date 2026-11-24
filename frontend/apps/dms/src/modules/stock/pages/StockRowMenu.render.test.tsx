@@ -37,7 +37,7 @@ const ITEM: StockItemRead = {
   bodyStyle: null, exteriorColour: null, odometerKm: 23000, firstRegistrationDate: null, basePrice: null,
   listPrice: null, effectivePrice: null, landedCost: null, notionalInputTaxApplicable: false,
   notionalInputTaxRate: null, notionalInputTaxAmount: null, notionalInputTaxOverridden: false,
-  purchasePrice: '20000.00', purchaseDate: '2026-10-20', purchaseInvoiceRef: null, supplierName: 'Privat',
+  purchasePrice: '20000.00', purchaseDate: '2026-10-20', purchaseInvoiceRef: null, supplierContactId: null, supplierLabel: 'Privat',
   supplierIsVatRegistered: false, orderDate: null, expectedDelivery: null, inStockAt: NOW, leftStockAt: null,
   pipelineRef: null, locationId: null, locationLabel: null, valuationRefId: null, valuationRefSource: null, valuationRefAmount: null,
   valuationRefValuedAt: null, isInvoiceable: true, version: 3, configurationId: null, configurationLabel: null,

@@ -44,6 +44,7 @@ from app.vehicle.public import create_or_get_vehicle_mdm
 from app.vehicle.services import vehicle_mdm as vehicle_mdm_service
 from tests.configuration_test_support import stock_configuration_id
 from tests.dealership_support import valid_uid
+from tests.stock_support import supplier_for_item
 from tests.token_support import dealer_group_of
 
 VIN = "WVWZZZ1KZAW000001"
@@ -89,9 +90,9 @@ def _dealership(client) -> uuid.UUID:
     return uuid.UUID(response.json()["id"])
 
 
-def _book(client, headers, item: dict, **extra):
+def _book(client, db_session, headers, item: dict, **extra):
     body = {
-        "supplierName": "Hans Muster", "supplierIsVatRegistered": False,
+        "supplierContactId": supplier_for_item(db_session, item["id"]), "supplierIsVatRegistered": False,
         "purchasePrice": "8000.00", "purchaseDate": "2026-10-30", **extra,
     }
     return client.post(
@@ -207,7 +208,7 @@ def test_the_vehicle_a_purchase_resolves_names_the_user_who_booked_it(client, db
     created = _post(client, db_session, _bearer(tenant_id), vin=VIN)
     assert created.status_code == 201, created.text
 
-    booked = _book(client, _bearer(tenant_id, user_id=booker), created.json())
+    booked = _book(client, db_session, _bearer(tenant_id, user_id=booker), created.json())
 
     assert booked.status_code == 200, booked.text
     assert _vehicle_by_vin(db_session, VIN).created_by == booker
@@ -221,7 +222,7 @@ def test_the_purchase_of_a_car_created_with_a_vin_vehicle_mdm_knows_uses_that_re
     assert created.status_code == 201, created.text
     assert created.json()["vehicleId"] is None
 
-    booked = _book(client, _bearer(tenant_id), created.json())
+    booked = _book(client, db_session, _bearer(tenant_id), created.json())
 
     assert booked.status_code == 200, booked.text
     assert booked.json()["vehicleId"] == str(known.id)

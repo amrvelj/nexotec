@@ -301,7 +301,7 @@
       },
       {
         "defaultVisible": false,
-        "field": "supplierName",
+        "field": "supplierLabel",
         "labelKey": "stockList.columns.supplierName",
         "operators": [
           "contains",

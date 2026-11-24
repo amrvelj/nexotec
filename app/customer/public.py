@@ -12,6 +12,10 @@ dialog's read of a customer: where a message on e-mail, SMS or WhatsApp goes
 and Customers' consent verdict for a transactional or marketing send (a
 `MessageRecipient`, plain values, the refusal as a stable code), and the
 channel the dialog opens on. SELECTs only.
+
+`supplier_contact` (KAN-465) is Stock's purchase booking's read of the contact
+it names as the supplier: its label, whether it holds the supplier role, and
+the VAT-registration prefill. SELECTs only.
 """
 
 from app.customer.models.customer import CustomerLifecycleStatus
@@ -37,6 +41,7 @@ from app.customer.services.message_recipient import (
     preselected_message_channel,
 )
 from app.customer.services.reconciliation_targets import customer_exists, customer_reference_check
+from app.customer.services.supplier_contact import SupplierContact, supplier_contact
 from app.customer.services.vehicle_page import StockItemsFor, customer_vehicle_page
 from app.customer.services.vehicle_party import resolve_live_customer_id
 from app.customer.services.vehicle_party_labels import (
@@ -59,6 +64,7 @@ __all__ = [
     "CustomerVehiclePage",
     "MessageRecipient",
     "StockItemsFor",
+    "SupplierContact",
     "VehiclePartyRef",
     "VehiclePartyRole",
     "allocate_vehicle_party",
@@ -81,4 +87,5 @@ __all__ = [
     "refresh_advisor_labels",
     "refresh_vehicle_party_labels",
     "resolve_live_customer_id",
+    "supplier_contact",
 ]

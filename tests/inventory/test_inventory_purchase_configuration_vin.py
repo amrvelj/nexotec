@@ -107,7 +107,7 @@ def test_a_vin_that_is_not_the_configurations_is_refused_and_nothing_is_written(
     assert stored.vin is None
     assert stored.vehicle_id is None
     assert stored.purchase_price is None
-    assert stored.supplier_name is None
+    assert stored.supplier_label is None
     assert stored.version == item["version"]
     assert _events(db_session, item["id"]) == ["inventory.stock_item.added"]
     # Refused before vehicle-mdm is asked for the other car.

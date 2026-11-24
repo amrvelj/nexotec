@@ -20,6 +20,7 @@ from app.core.config import get_settings
 from app.core.errors import ConflictError, UnprocessableEntityError
 from app.core.outbox import OutboxEvent, publish
 from app.core.validators import is_chassis_number
+from app.customer.public import SupplierContact, supplier_contact
 from app.inventory.models.stock_item import LifecycleStatus, StockItem
 from app.inventory.models.stock_item_publishing import PublishingState, StockItemPublishing
 from app.inventory.schemas.purchase import (
@@ -39,7 +40,8 @@ from app.inventory.services.stock_item import (
     trade_in_vin_differs,
     trade_in_vin_differs_error,
 )
-from app.platform.public import get_dealership_or_404
+from app.inventory.services.supplier_lock import lock_supplier_contact
+from app.platform.public import DealershipSummary, get_dealership_or_404
 from app.vehicle.public import get_configuration_for_host
 
 _EVENT_PRODUCER = "inventory"
@@ -85,6 +87,13 @@ def record_purchase(
             f"The purchase of stock item {item.stock_number} is already booked — storno it before booking again.",
             details={"reason": "purchase_already_booked", "stockItemId": str(item.id)},
         )
+
+    # KAN-465: the supplier is judged before anything is written — the VIN
+    # rules below promote the item.
+    dealership = get_dealership_or_404(db, item.tenant_id)
+    # Re-entrant: the route took it before the item's row lock (supplier_lock.py).
+    lock_supplier_contact(db, data.supplier_contact_id)
+    supplier = _supplier_or_422(db, dealership=dealership, contact_id=data.supplier_contact_id)
 
     if item.lifecycle_status == LifecycleStatus.PIPELINE and item.vehicle_id is not None:
         # A stornoed car (KAN-146): it kept its VIN and its vehicle-mdm record
@@ -191,10 +200,11 @@ def record_purchase(
             details={"reason": "purchase_vin_mismatch", "stockItemId": str(item.id)},
         )
 
-    dealership = get_dealership_or_404(db, item.tenant_id)
     applicable = not data.supplier_is_vat_registered
 
-    item.supplier_name = data.supplier_name
+    item.supplier_contact_id = supplier.id
+    item.supplier_label = supplier.label
+    item.supplier_label_refreshed_at = utcnow()
     item.supplier_is_vat_registered = data.supplier_is_vat_registered
     item.purchase_price = data.purchase_price
     item.purchase_date = data.purchase_date
@@ -225,10 +235,48 @@ def record_purchase(
         actor_id=actor_id,
         after=_purchase_facts(item),
     )
+    # KAN-465 (PRD-Stock, fiktiver Vorsteuerabzug): the contact's own VAT
+    # status prefills the dialog; a booking that says otherwise is audited
+    # as an override — prefilled value, chosen value, actor.
+    if supplier.vat_registered_prefill is not None and supplier.vat_registered_prefill != data.supplier_is_vat_registered:
+        record_audit_event(
+            db,
+            entity_type="stock_item",
+            entity_id=item.id,
+            tenant_id=item.tenant_id,
+            action="supplier_vat_status_overridden",
+            actor_id=actor_id,
+            before={"supplierContactId": str(supplier.id), "supplierIsVatRegistered": supplier.vat_registered_prefill},
+            after={"supplierContactId": str(supplier.id), "supplierIsVatRegistered": data.supplier_is_vat_registered},
+        )
     mark_purchased_if_ready(db, item)
     db.commit()
     db.refresh(item)
     return item
+
+
+def _supplier_or_422(db: Session, *, dealership: DealershipSummary, contact_id: uuid.UUID) -> SupplierContact:
+    """KAN-465: the contact a booking names as its supplier, read through
+    customer.public (customers are group-scoped, ADR-014). Another group's
+    contact is refused as one that does not exist (rule 7)."""
+
+    contact = supplier_contact(db, group_id=dealership.dealer_group_id, customer_id=contact_id)
+    if contact is None:
+        raise UnprocessableEntityError(
+            "The supplier is not a contact of this business.",
+            details={"reason": "supplier_contact_unknown", "field": "supplierContactId"},
+        )
+    if contact.merged:
+        raise UnprocessableEntityError(
+            "The supplier was merged into another contact — book with that one.",
+            details={"reason": "supplier_contact_merged", "field": "supplierContactId"},
+        )
+    if not contact.holds_supplier_role:
+        raise UnprocessableEntityError(
+            "The supplier does not hold the supplier role — give it the role first.",
+            details={"reason": "supplier_role_missing", "field": "supplierContactId"},
+        )
+    return contact
 
 
 def _start_of_swiss_day(day: dt.date) -> dt.datetime:
@@ -246,7 +294,8 @@ def _purchase_facts(item: StockItem) -> dict[str, Any]:
         return None if value is None else str(value)
 
     return {
-        "supplierName": item.supplier_name,
+        "supplierContactId": str(item.supplier_contact_id) if item.supplier_contact_id else None,
+        "supplierLabel": item.supplier_label,
         "supplierIsVatRegistered": item.supplier_is_vat_registered,
         "purchasePrice": text(item.purchase_price),
         "purchaseDate": item.purchase_date.isoformat() if item.purchase_date else None,
@@ -344,7 +393,9 @@ def storno_purchase(
     stornoed_purchase_date = item.purchase_date
     reverse_purchase_entries(db, item=item, occurred_at=utcnow(), actor_id=actor_id)
 
-    item.supplier_name = None
+    item.supplier_contact_id = None
+    item.supplier_label = None
+    item.supplier_label_refreshed_at = None
     item.supplier_is_vat_registered = None
     item.purchase_price = None
     item.purchase_date = None

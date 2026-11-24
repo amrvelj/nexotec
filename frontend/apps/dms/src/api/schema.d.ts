@@ -12745,10 +12745,17 @@ export interface components {
             purchaseInvoiceRef?: string | null;
             /** Purchaseprice */
             purchasePrice: number | string;
-            /** Supplierisvatregistered */
+            /**
+             * Suppliercontactid
+             * Format: uuid
+             * @description KAN-465 (PRD-Stock: supplier = reference + label; Anto, 2026-11-21, option A): the supplier — a contact of this Betrieb's group holding the supplier role, picked by contact search. Its name is copied beside it as `supplierLabel`. 422 `supplier_contact_unknown` for an id naming no contact of the group, `supplier_contact_merged` for a merged one (book with the contact it was merged into), `supplier_role_missing` for a contact without the supplier role (give it the role first). Replaces the free-text `supplierName` (a breaking change, accepted: the SPA is the only client).
+             */
+            supplierContactId: string;
+            /**
+             * Supplierisvatregistered
+             * @description Whether the supplier is VAT-registered — it drives the notional input tax prefill (Art. 28a MWSTG). The dialog prefills it from the contact (a confirmed VAT status says it; an unconfirmed private individual is not registered; an unconfirmed business is the user's call). A value other than the contact's own (when the contact tells one) is audited as `supplier_vat_status_overridden` (KAN-465).
+             */
             supplierIsVatRegistered: boolean;
-            /** Suppliername */
-            supplierName: string;
             /**
              * Vin
              * @description KAN-446 (ADR-045, FR-V-04): the car's VIN. Required to book the purchase of a pipeline item, which the booking promotes into stock with it (422 `purchase_requires_vin` without one; 409 `vin_already_in_stock` when another item of this dealership holds it in stock) — unless the item already carries its VIN (created with one, KAN-554; or stornoed, KAN-146): then it may be left out and, when sent, must be the item's own (422 `purchase_vin_mismatch`). One created with its VIN and never bought is the exception: when its configuration's VIN has changed since, the configuration's wins and the booking corrects the item's (audited `vin_corrected_at_purchase`, KAN-575). When the item's configuration carries a VIN, it must be that one (422 `configuration_vin_differs`, KAN-510; the VIN is corrected on the configuration). A trade-in whose configuration carries none is bought under the VIN its contract holds (the item's `tradeInVin`; 422 `trade_in_vin_differs`, KAN-536). On an item already in stock it may be sent and must be the item's own (422 `purchase_vin_mismatch`). KAN-535 (ADR-103 as amended): a car first registered before 1981 may be bought under its chassis number (1 to 17 letters and digits) instead: its configuration must carry that number (422 `chassis_number_requires_configuration`), a first registration before 1981 (422 `chassis_number_requires_pre_1981_registration`) and the make (422 `chassis_number_requires_make`); its vehicle-mdm record is the number together with the make.
@@ -13808,10 +13815,23 @@ export interface components {
             reservationState: components["schemas"]["ReservationState"];
             /** Stocknumber */
             stockNumber: string;
+            /**
+             * Suppliercontactid
+             * @description KAN-465: the supplier contact the purchase booking named (customer context, a contact with the supplier role). Null before a booking and on one booked before KAN-465, which keeps only its label.
+             */
+            supplierContactId?: string | null;
             /** Supplierisvatregistered */
             supplierIsVatRegistered: boolean | null;
-            /** Suppliername */
-            supplierName: string | null;
+            /**
+             * Supplierlabel
+             * @description KAN-465: the supplier's name beside `supplierContactId` (rule 2's copy, refreshed nightly); on a booking from before KAN-465, the name typed then.
+             */
+            supplierLabel?: string | null;
+            /**
+             * Tradeincustomerid
+             * @description KAN-465: the customer who traded the car in (KAN-632, from Sales' confirmation) — «Einkauf erfassen» offers this contact as the supplier with one click (never preselected). Null on every other item.
+             */
+            tradeInCustomerId?: string | null;
             /**
              * Tradeinsignedat
              * @description KAN-461 (ADR-060): when the trade-in's contract was signed — a grid column. Null on every other item.

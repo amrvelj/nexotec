@@ -214,6 +214,17 @@ describe('the reason table', () => {
     }
     return raised
   }
+  // KAN-801 — a reason raised as an expression is read by tests/refusal_reason_values.py
+  // (an AST: a helper's callers, a local, a hinted attribute) and pinned, site by site, in
+  // tests/refusal_reason_value_sites.json, which the backend lane keeps equal to app/.
+  // This file reads that list's values, so removing a sentence here fails here too.
+  const reasonsRaisedAsValues = (): string[] => {
+    const file = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', '..', '..', 'tests', 'refusal_reason_value_sites.json')
+    const { sites } = JSON.parse(readFileSync(file, 'utf-8')) as { sites: Record<string, { kind: string; values?: string[] }> }
+    const kinds = new Set(Object.values(sites).map((entry) => entry.kind))
+    expect([...kinds].filter((kind) => !['refusal', 'problem', 'notARefusal'].includes(kind))).toEqual([])
+    return Object.values(sites).flatMap((entry) => (entry.kind === 'refusal' ? (entry.values ?? []) : []))
+  }
   it('resolves a reason raised through a named constant, with the same patterns as its twin (KAN-796)', () => {
     const twin = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', '..', '..', 'tests', 'test_frontend_knows_backend_refusals.py'), 'utf-8')
     const declared = (name: string) => twin.match(new RegExp(`^${name} = re\\.compile\\(r'(.*)'(, re\\.MULTILINE)?\\)$`, 'm'))
@@ -259,6 +270,11 @@ describe('the reason table', () => {
     }
     walk(appRoot)
     const raised = raisedIn(sources)
+    // KAN-801: the reasons raised as a value (`_refuse(reason, …)`, `refusal.code`, an
+    // f-string over an enum), as the backend-lane twin reads and pins them.
+    for (const reason of reasonsRaisedAsValues()) raised.add(reason)
+    expect(raised).toContain('logo_png_damaged')
+    expect(raised).toContain('export_requested')
     // KAN-796: the send route's reasons are raised through named constants.
     expect(raised).toContain('recipient_refused')
     expect(raised).toContain('document_has_no_customer')

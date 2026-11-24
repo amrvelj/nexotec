@@ -20,6 +20,7 @@ import uuid
 from decimal import Decimal
 
 from sqlalchemy import func, select
+from sqlalchemy.orm import object_session
 
 from app.core.auth import AccessRole, create_access_token
 from app.core.consumer import consume_once
@@ -38,13 +39,13 @@ from tests.cross_context.test_configurator_hosts import (
 )
 from tests.sales.test_sales_contract_edit import _edit
 from tests.sales.test_sales_lifecycle_reservation import _dealership, _with_buyer
+from tests.stock_support import supplier_for_item
 
 CONTRACT_VIN = "WVWZZZ1KZAW536001"
 OTHER_VIN = "WVWZZZ1KZAW536002"
 CONFIGURED_VIN = "WVWZZZ1KZAW536003"
 
 _PURCHASE = {
-    "supplierName": "Hans Muster",
     "supplierIsVatRegistered": False,
     "purchasePrice": "8000.00",
     "purchaseDate": "2026-11-10",
@@ -105,9 +106,11 @@ def _auth(tenant_id: uuid.UUID, group_id: uuid.UUID, **extra: str) -> dict[str, 
 
 
 def _purchase(client, dealership, item: StockItem, **extra: str):
+    db = object_session(item)
+    assert db is not None
     return client.post(
         f"/v1/inventory/stock-items/{item.id}/purchase",
-        json={**_PURCHASE, **extra},
+        json={**_PURCHASE, "supplierContactId": supplier_for_item(db, item.id), **extra},
         headers=_auth(dealership.id, dealership.dealer_group_id, **{"If-Match": str(item.version)}),
     )
 
@@ -257,7 +260,7 @@ def test_another_vin_is_refused_and_nothing_is_written(client, db_session, engin
     assert response.json()["error"]["details"] == {"field": "vin", "reason": "trade_in_vin_differs"}
     stored = _trade_in_item(db_session, _contract)
     assert (stored.lifecycle_status, stored.vin, stored.vehicle_id) == (LifecycleStatus.PIPELINE, None, None)
-    assert (stored.purchase_price, stored.supplier_name, stored.version) == (None, None, version)
+    assert (stored.purchase_price, stored.supplier_label, stored.supplier_contact_id, stored.version) == (None, None, None, version)
     assert stored.trade_in_vin == CONTRACT_VIN
     assert _events(db_session, item.id) == events_before
     assert _vehicle_mdm_rows(db_session) == 0  # refused before vehicle-mdm is asked for the other car

@@ -31,7 +31,7 @@ from app.platform.organisation.models.dealership import DealerGroup, Dealership,
 from app.vehicle.public import create_or_get_vehicle_mdm
 from tests.configuration_test_support import stock_configuration_id
 from tests.dealership_support import valid_uid
-from tests.stock_support import create_in_stock_item
+from tests.stock_support import create_in_stock_item, supplier_contact
 from tests.token_support import dealer_group_of
 
 VIN = "WVWZZZ1KZAW000001"
@@ -88,7 +88,7 @@ def _sold(db_session, dealership: Dealership) -> StockItem:
         db_session,
         item=item,
         data=RecordPurchaseRequest(
-            supplier_name="Hans Muster",
+            supplier_contact_id=supplier_contact(db_session, tenant_id=item.tenant_id, name="Hans Muster"),
             supplier_is_vat_registered=False,
             purchase_price=Decimal("20000.00"),
             purchase_date=dt.date(2026, 8, 1),

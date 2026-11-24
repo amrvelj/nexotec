@@ -191,10 +191,30 @@ class StockItemRead(CamelModel):
         default=None,
         description="KAN-461 (ADR-060): when the trade-in's contract was signed — a grid column. Null on every other item.",
     )
+    trade_in_customer_id: uuid.UUID | None = Field(
+        default=None,
+        description=(
+            "KAN-465: the customer who traded the car in (KAN-632, from Sales' confirmation) — «Einkauf erfassen» "
+            "offers this contact as the supplier with one click (never preselected). Null on every other item."
+        ),
+    )
     order_date: dt.date | None
     expected_delivery: dt.date | None
     in_stock_at: dt.datetime | None
-    supplier_name: str | None
+    supplier_contact_id: uuid.UUID | None = Field(
+        default=None,
+        description=(
+            "KAN-465: the supplier contact the purchase booking named (customer context, a contact with the "
+            "supplier role). Null before a booking and on one booked before KAN-465, which keeps only its label."
+        ),
+    )
+    supplier_label: str | None = Field(
+        default=None,
+        description=(
+            "KAN-465: the supplier's name beside `supplierContactId` (rule 2's copy, refreshed nightly); on a "
+            "booking from before KAN-465, the name typed then."
+        ),
+    )
     supplier_is_vat_registered: bool | None
     purchase_date: dt.date | None
     purchase_price: Decimal | None

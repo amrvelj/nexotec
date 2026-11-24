@@ -24,6 +24,10 @@ and `consumer_name` of each:
   gateway, then the listings unpublished and `inventory.dealership_listings.withdrawn`
   stated, on which Integration disables the marketplace connections
   (app.inventory.services.listing_withdrawal).
+- `customer.merged` -> `inventory.customer_merged`
+  (`handle_customer_merged_message`, KAN-465): an item whose supplier is the
+  merged contact moves to the survivor, with its name
+  (app.inventory.services.supplier_labels).
 """
 
 import uuid
@@ -31,11 +35,14 @@ import uuid
 from sqlalchemy.orm import Session
 
 from app.core.outbox_model import OutboxMessage
+from app.customer.public import resolve_live_customer_id
 from app.inventory.models.stock_item_publishing import MarketplaceChannel
 from app.inventory.services import listing_withdrawal, marketplace_transmission, vehicle_merge
 from app.inventory.services.pipeline import handle_sales_contract_confirmed
 from app.inventory.services.reservation import record_contract_cancelled
 from app.inventory.services.sales_contract import apply_contract_message
+from app.inventory.services.supplier_labels import repoint_merged_supplier
+from app.inventory.services.supplier_lock import lock_supplier_contact
 
 
 def handle_sales_contract_confirmed_message(db: Session, message: OutboxMessage) -> None:
@@ -109,3 +116,24 @@ def handle_vehicle_merged_message(db: Session, message: OutboxMessage) -> None:
     survivor (`services/vehicle_merge.py`)."""
 
     vehicle_merge.handle_vehicle_merged_message(db, message)
+
+
+def handle_customer_merged_message(db: Session, message: OutboxMessage) -> None:
+    """KAN-465 — a contact merge moves the stock items whose supplier is the
+    duplicate to the survivor, in Stock's own transaction (ADR-047; the merge
+    writes nothing of Stock's). Delivery is unordered, so the survivor is
+    re-read from its owner (the end of its merge chain), as Sales' consumer
+    does (KAN-185); a chain that leaves the group or does not end falls back
+    to the payload's survivor. Idempotent: a redelivery finds nothing left on
+    the duplicate."""
+
+    if message.tenant_id is None:
+        raise ValueError(f"customer.merged message {message.id} has no tenant_id.")
+    payload = message.payload or {}
+    duplicate_id = uuid.UUID(payload["customerId"])
+    survivor_id = uuid.UUID(payload["duplicateOfCustomerId"])
+    # Before any stock item is read: a booking naming the duplicate in flight
+    # commits first (and is moved below) or waits and reads it merged.
+    lock_supplier_contact(db, duplicate_id)
+    target_id = resolve_live_customer_id(db, group_id=message.tenant_id, customer_id=survivor_id) or survivor_id
+    repoint_merged_supplier(db, group_id=message.tenant_id, duplicate_id=duplicate_id, target_id=target_id)
