@@ -51,6 +51,14 @@ jobs:
       - name: ruff check app tests scripts
         if: ${{ !cancelled() }}
         run: ruff check app tests scripts
+      # KAN-731: the rule-glob guard (KAN-721) runs on every PR, whatever it changes.
+      # In scripts/dev/check it sits in the backend lane, which a rule-only or
+      # frontend-only diff does not run - exactly the diffs that move or delete the
+      # file a `.claude/rules` glob names. The guard reads only `git ls-files` and the
+      # rule files, so it runs without the suite's conftest (no database, no settings).
+      - name: every .claude/rules glob matches a tracked file (KAN-721)
+        if: ${{ !cancelled() }}
+        run: python -m pytest --noconftest -p no:cacheprovider tests/architecture/test_rule_globs_match_a_file.py
       - name: mypy app scripts
         if: ${{ !cancelled() }}
         run: mypy app scripts
