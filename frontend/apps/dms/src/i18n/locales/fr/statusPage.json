@@ -55,6 +55,9 @@
       "drift_one": "{{location}} : {{count, number}} champ diffère chez Google. La carte sous Intégrations l'indique.",
       "drift_other": "{{location}} : {{count, number}} champs diffèrent chez Google. La carte sous Intégrations les indique.",
       "checkFailed": "{{location}} : la comparaison nocturne n'a pas pu lire Google."
+    },
+    "googleBusinessProfilePhotos": {
+      "failed": "{{location}} : les photos n'ont pas pu être transmises à Google. La prochaine modification des images réessaiera."
     }
   },
   "indicator": {

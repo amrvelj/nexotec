@@ -55,6 +55,9 @@
       "drift_one": "{{location}}: {{count, number}} campo è diverso su Google. La scheda in Integrazioni lo indica.",
       "drift_other": "{{location}}: {{count, number}} campi sono diversi su Google. La scheda in Integrazioni li indica.",
       "checkFailed": "{{location}}: il confronto notturno non ha potuto leggere Google."
+    },
+    "googleBusinessProfilePhotos": {
+      "failed": "{{location}}: non è stato possibile trasmettere le foto a Google. La prossima modifica delle immagini riproverà."
     }
   },
   "indicator": {

@@ -71,6 +71,7 @@ from app.integration.models.google_business_profile import (
     GbpDriftCheck,
     GbpDriftOutcome,
     GbpLocationBinding,
+    GbpPhotoJob,
 )
 from app.integration.services import resilience
 from app.integration.services.gbp_link import client_connection
@@ -318,3 +319,42 @@ class GbpDriftStatusProvider:
                 )
             )
         return items
+
+
+PHOTO_SOURCE = "google_business_profile_photos"
+PHOTO_ITEM_PREFIX = "google_business_profile.photos."
+
+
+class GbpPhotoStatusProvider:
+    """KAN-784 (ADR-209; rule 10): one warning per active binding whose
+    photo upload was dead-lettered — «the photos for <location> could not be
+    sent to Google» — linked to the integrations screen. It clears when the
+    next change to the location queues a fresh pass (the job's `dead_at` is
+    cleared then). A binding uploading normally has no item: the upload is
+    not something the dealer watches. Derived on read; writes nothing."""
+
+    source = PHOTO_SOURCE
+
+    def items(self, db: Session, *, dealership_id: uuid.UUID, now: dt.datetime) -> list[StatusItem]:
+        rows = db.execute(
+            select(GbpLocationBinding.id, GbpLocationBinding.location_label)
+            .join(GbpPhotoJob, GbpPhotoJob.binding_id == GbpLocationBinding.id)
+            .where(
+                GbpLocationBinding.tenant_id == dealership_id,
+                GbpPhotoJob.tenant_id == dealership_id,
+                GbpLocationBinding.status == GbpBindingStatus.ACTIVE,
+                GbpPhotoJob.dead_at.is_not(None),
+            )
+            .order_by(TextSortKey(GbpLocationBinding.location_label), GbpLocationBinding.id)
+        ).all()
+        return [
+            StatusItem(
+                key=f"{PHOTO_ITEM_PREFIX}{binding_id}",
+                source=PHOTO_SOURCE,
+                state=StatusState.WARNING,
+                message_key="statusPage.items.googleBusinessProfilePhotos.failed",
+                link=DRIFT_LINK,
+                params={"location": label},
+            )
+            for binding_id, label in rows
+        ]

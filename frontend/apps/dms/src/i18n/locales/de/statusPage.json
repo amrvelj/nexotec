@@ -55,6 +55,9 @@
       "drift_one": "{{location}}: {{count, number}} Feld weicht bei Google ab. Die Karte unter Integrationen nennt es.",
       "drift_other": "{{location}}: {{count, number}} Felder weichen bei Google ab. Die Karte unter Integrationen nennt sie.",
       "checkFailed": "{{location}}: Der nächtliche Abgleich konnte Google nicht lesen."
+    },
+    "googleBusinessProfilePhotos": {
+      "failed": "{{location}}: Die Fotos konnten nicht zu Google übertragen werden. Die nächste Änderung der Bilder versucht es erneut."
     }
   },
   "indicator": {

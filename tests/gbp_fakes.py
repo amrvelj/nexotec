@@ -109,6 +109,8 @@ class FakeGoogle:
         # the test changed «at Google». A status every read answers with.
         self.location_bodies: dict[str, dict[str, Any]] = {}
         self.get_failure_status: int | None = None
+        # KAN-784: a status every photo upload's first step answers with.
+        self.media_failure_status: int | None = None
 
     def track(self, location_name: str, **fields: Any) -> None:
         self.location_bodies[location_name] = {"name": location_name, **fields}
@@ -203,6 +205,8 @@ class FakeGoogle:
                 return _json(200, {**RECORDED["location_get"], **json.loads(request.content)})
             return _json(200, RECORDED["location_get"])
         if url.endswith("/media:startUpload"):
+            if self.media_failure_status is not None:
+                return _json(self.media_failure_status, {"error": {"code": self.media_failure_status}})
             return _json(200, RECORDED["media_start_upload"])
         if url.startswith(gbp.UPLOAD_API + "/"):
             return httpx.Response(200)

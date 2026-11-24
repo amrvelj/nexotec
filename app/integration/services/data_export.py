@@ -20,6 +20,8 @@ from app.integration.models.google_business_profile import (
     GbpDriftCheck,
     GbpLinkState,
     GbpLocationBinding,
+    GbpPhotoJob,
+    GbpPhotoUpload,
     GbpPushState,
 )
 from app.integration.models.mail import MailLinkState, MessageDelivery, SendingIdentity, SendingIdentityKind
@@ -97,6 +99,11 @@ class IntegrationExporter(TableExporter):
             # KAN-226 PR-4: the nightly drift check's latest result — written
             # by the worker, not the Betrieb.
             _tenant(GbpDriftCheck, marks_write=False),
+            # KAN-784: which photos went to which Google location, and a
+            # pass still waiting — written by the photo runner and the
+            # worker, not the Betrieb.
+            _tenant(GbpPhotoUpload, marks_write=False),
+            _tenant(GbpPhotoJob, marks_write=False),
             _tenant(IntegrationCallLog, marks_write=False),
             _tenant(IntegrationNotification, marks_write=False),
             _tenant(

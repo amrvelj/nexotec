@@ -989,6 +989,54 @@ def _business_profile_activated(db_session, engine, monkeypatch):
     return _message(db_session, gbp_link.BINDING_ACTIVATED_EVENT, binding.id), _business_profile_patches(fake)
 
 
+def _business_profile_photo_jobs(db: Session) -> int:
+    from app.integration.models.google_business_profile import GbpPhotoJob
+
+    return db.scalar(select(func.count()).select_from(GbpPhotoJob)) or 0
+
+
+def _business_profile_photos_on(event_type: str):
+    """KAN-784 — a fact about a bound location queues one photo pass for its
+    binding (one job row); the worker reads no image."""
+
+    def fixture(db_session, engine, monkeypatch):
+        from app.core.outbox import OutboxEvent
+        from app.core.outbox import publish as publish_event
+        from app.integration.services import gbp_link
+        from app.platform.organisation.services import location_facts
+
+        _fake, location, binding = _business_profile_site(db_session, monkeypatch)
+        if event_type == location_facts.LOCATION_UPDATED_EVENT:
+            location_facts.publish_location_changes(db_session, location=location, changed_fields=["phone"])
+            aggregate_id = location.id
+        elif event_type == gbp_link.BINDING_ACTIVATED_EVENT:
+            gbp_link._publish_activated(db_session, binding)
+            aggregate_id = binding.id
+        else:
+            aggregate_id = uuid.uuid4()
+            publish_event(
+                db_session,
+                OutboxEvent(
+                    event_type=event_type,
+                    tenant_id=location.tenant_id,
+                    producer="platform",
+                    aggregate_type="publishing_profile",
+                    aggregate_id=aggregate_id,
+                    payload={
+                        "dealershipId": str(location.tenant_id),
+                        "profileId": str(aggregate_id),
+                        "version": 2,
+                        "locationId": str(location.id),
+                        "changedFields": ["imagery"],
+                    },
+                ),
+            )
+        db_session.commit()
+        return _message(db_session, event_type, aggregate_id), _business_profile_photo_jobs
+
+    return fixture
+
+
 def _business_profile_push_on_dealership_updated(db_session, engine, monkeypatch):
     """KAN-785 — the Betrieb's website changed: its bound location pushed once."""
 
@@ -1012,6 +1060,15 @@ _FIXTURES: dict[str, Fixture] = {
         "platform.location.schedule_changed"
     ),
     "integration.business_profile_push_on_binding_activated": _business_profile_activated,
+    "integration.business_profile_photos_on_profile_updated": _business_profile_photos_on(
+        "platform.publishing_profile.updated"
+    ),
+    "integration.business_profile_photos_on_location_updated": _business_profile_photos_on(
+        "platform.location.updated"
+    ),
+    "integration.business_profile_photos_on_binding_activated": _business_profile_photos_on(
+        "integration.gbp_location_binding.activated"
+    ),
     "platform.connected_account_provider_revocation": _connected_account_revoked,
     "platform.administration_notification_on_connection_expiry": _connection_expiry_approaching,
     "inventory.listings_withdrawn_on_offboarded": _listings_withdrawn_on_offboarded,
