@@ -90,7 +90,7 @@ function requirementOf(deal: SalesPricedDealRead, id: string, fallback: string) 
  * which read the same record to gate their primary action. */
 export function useDealContact(contactId: string | null | undefined) {
   return useQuery({
-    queryKey: ['customer', contactId],
+    queryKey: ['contact', contactId],
     queryFn: () => api.get<ContactRead>(`/contacts/${contactId}`),
     enabled: contactId != null,
   })
@@ -165,7 +165,7 @@ export function DealContactContainer<D extends SalesPricedDealRead>({
   )
 
   return (
-    <OverviewCard title={t('offerWorkspace.containers.contact')} badge={<RequirementBadge requirement={requirementOf(deal, 'customer', 'required')} />}>
+    <OverviewCard title={t('offerWorkspace.containers.contact')} badge={<RequirementBadge requirement={requirementOf(deal, 'contact', 'required')} />}>
       {deal.contactId ? (
         <Stack gap={4}>
           <UnstyledButton onClick={onOpenContact}>

@@ -78,7 +78,7 @@ const EMPTY: SalesContractRead = {
   invoiceRef: null,
   cancelledReason: null,
   containers: [
-    { id: 'customer', requirement: 'required', status: 'complete' },
+    { id: 'contact', requirement: 'required', status: 'complete' },
     { id: 'vehicle', requirement: 'required', status: 'not_started' },
     { id: 'pricing', requirement: 'required', status: 'not_started' },
     { id: 'trade_in', requirement: 'optional', status: 'not_started' },
@@ -107,7 +107,7 @@ const PRICED: SalesContractRead = {
   payable: '18000.00',
   vehicleCondition: 'used',
   containers: [
-    { id: 'customer', requirement: 'required', status: 'complete' },
+    { id: 'contact', requirement: 'required', status: 'complete' },
     { id: 'vehicle', requirement: 'required', status: 'complete' },
     { id: 'pricing', requirement: 'required', status: 'complete' },
     { id: 'trade_in', requirement: 'optional', status: 'not_started' },
@@ -247,7 +247,7 @@ describe('ContractDetailPage — a pending contract can be completed (KAN-67)', 
     manualBasePrice: null,
     contactId: null,
     contactLabel: null,
-    containers: PRICED.containers?.map((c) => (c.id === 'customer' ? { ...c, status: 'not_started' } : c)),
+    containers: PRICED.containers?.map((c) => (c.id === 'contact' ? { ...c, status: 'not_started' } : c)),
   }
 
   it('a contract priced before it kept its inputs and without a buyer offers the buyer picker, and nothing else', async () => {

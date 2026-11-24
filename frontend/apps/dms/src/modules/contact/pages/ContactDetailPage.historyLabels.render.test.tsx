@@ -29,7 +29,7 @@ function routes() {
         items: [
           {
             id: 'ev-1',
-            entityType: 'customer',
+            entityType: 'contact',
             entityId: 'c1',
             tenantId: 'group-1',
             action: 'update',

@@ -1,4 +1,4 @@
-"""Customer service layer: GROUP-scoped CRUD (WP-3 PR-2, ADR-014 — moved
+"""Contact service layer: GROUP-scoped CRUD (WP-3 PR-2, ADR-014 — moved
 from tenant-scoped), duplicate-check typeahead, and merge, all operating
 group-wide. PII changes (name/email/phone/address) and lifecycle_status
 transitions are audit-logged with before/after (spec: "Every change to PII

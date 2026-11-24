@@ -53,7 +53,7 @@ const offerAt = (version: number, overrides: Partial<SalesOfferRead> = {}): Sale
   cancelledReason: null,
   copiedFromOfferId: null,
   containers: [
-    { id: 'customer', requirement: 'required', status: 'complete' },
+    { id: 'contact', requirement: 'required', status: 'complete' },
     { id: 'vehicle', requirement: 'required', status: 'complete' },
     { id: 'pricing', requirement: 'required', status: 'complete' },
     { id: 'trade_in', requirement: 'optional', status: 'not_started' },

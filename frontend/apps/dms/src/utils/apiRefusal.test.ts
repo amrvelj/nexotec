@@ -51,7 +51,7 @@ describe('apiRefusalText — the API refusal in the UI language, never its Engli
   // KAN-472: the reasons whose sentence names what the refusal carries.
   it('names the containers an offer still misses, by their names in the UI language', async () => {
     await i18n.changeLanguage('it')
-    const text = apiRefusalText(t, refusal(409, { reason: 'missing_containers', missingContainers: ['customer', 'trade_in'] }), FALLBACK)
+    const text = apiRefusalText(t, refusal(409, { reason: 'missing_containers', missingContainers: ['contact', 'trade_in'] }), FALLBACK)
     expect(text).toBe(it_.apiRefusal.reasons.missing_containers.replace('{{containers}}', `${it_.offerWorkspace.containers.contact}, ${it_.offerWorkspace.containers.tradeIn}`))
   })
 

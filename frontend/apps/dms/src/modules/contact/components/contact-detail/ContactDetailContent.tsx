@@ -150,17 +150,17 @@ export function ContactDetailContent({ contactId: id, embedded = false }: Contac
   }
 
   const contactQuery = useQuery({
-    queryKey: ['customer', id],
+    queryKey: ['contact', id],
     queryFn: () => api.get<ContactRead>(`/contacts/${id}`),
     enabled: Boolean(id),
   })
   const phonesQuery = useQuery({
-    queryKey: ['customer', id, 'phones'],
+    queryKey: ['contact', id, 'phones'],
     queryFn: () => api.get<ContactPhonePage>(`/contacts/${id}/phones`),
     enabled: Boolean(id),
   })
   const emailsQuery = useQuery({
-    queryKey: ['customer', id, 'emails'],
+    queryKey: ['contact', id, 'emails'],
     queryFn: () => api.get<ContactEmailPage>(`/contacts/${id}/emails`),
     enabled: Boolean(id),
   })
@@ -170,10 +170,10 @@ export function ContactDetailContent({ contactId: id, embedded = false }: Contac
   const mayWriteCustomerRole = useCanWrite('contact_customer_role')
   const endVehicleEntry = async (row: ContactVehicleRead) => {
     await api.delete(`/contacts/${id}/vehicles/${row.id}`)
-    void queryClient.invalidateQueries({ queryKey: ['customer', id, 'vehicles'] })
+    void queryClient.invalidateQueries({ queryKey: ['contact', id, 'vehicles'] })
   }
   const vehiclesQuery = useQuery({
-    queryKey: ['customer', id, 'vehicles'],
+    queryKey: ['contact', id, 'vehicles'],
     // KAN-49 / FR-19 — include_closed=true: the tab shows this contact's
     // historical (ended) roles too, marked as ended via effectiveTo.
     queryFn: () => api.get<ContactVehiclePage>(`/contacts/${id}/vehicles?include_closed=true`),
@@ -183,22 +183,22 @@ export function ContactDetailContent({ contactId: id, embedded = false }: Contac
   // contact's deals are their offers and contracts, filtered by contactId
   // (KAN-45). Dealership-scoped, not group-scoped — see OffersContractsTab.
   const offersQuery = useQuery({
-    queryKey: ['customer', id, 'offers'],
+    queryKey: ['contact', id, 'offers'],
     queryFn: () => api.get<SalesOfferPage>(`/sales/offers?contact_id=${id}&limit=100`),
     enabled: Boolean(id) && salesEntitled,
   })
   const contractsQuery = useQuery({
-    queryKey: ['customer', id, 'contracts'],
+    queryKey: ['contact', id, 'contracts'],
     queryFn: () => api.get<SalesContractPage>(`/sales/contracts?contact_id=${id}&limit=100`),
     enabled: Boolean(id) && salesEntitled,
   })
   const externalIdsQuery = useQuery({
-    queryKey: ['customer', id, 'external-ids'],
+    queryKey: ['contact', id, 'external-ids'],
     queryFn: () => api.get<ContactExternalIdPage>(`/contacts/${id}/external-ids`),
     enabled: Boolean(id),
   })
   const historyQuery = useQuery({
-    queryKey: ['customer', id, 'history'],
+    queryKey: ['contact', id, 'history'],
     queryFn: () => api.get<ContactHistoryPage>(`/contacts/${id}/audit-log`),
     enabled: Boolean(id),
   })
@@ -214,12 +214,12 @@ export function ContactDetailContent({ contactId: id, embedded = false }: Contac
     const current = contactQuery.data
     if (!current || !id) throw new Error('Contact not loaded.')
     const updated = await api.patch<ContactRead>(`/contacts/${id}`, patch, { 'If-Match': String(current.version) })
-    queryClient.setQueryData(['customer', id], updated)
+    queryClient.setQueryData(['contact', id], updated)
     // Every PATCH writes a new audit_event row server-side — the History
     // tab's cached page is now stale even though it isn't what we just
     // wrote to, so it needs its own invalidation rather than relying on
     // the contact cache update above.
-    void queryClient.invalidateQueries({ queryKey: ['customer', id, 'history'] })
+    void queryClient.invalidateQueries({ queryKey: ['contact', id, 'history'] })
   }
 
   // KAN-30: the address lives on /contacts/{id}/addresses (ADR-067), a
@@ -255,7 +255,7 @@ export function ContactDetailContent({ contactId: id, embedded = false }: Contac
           // A response lost on the way back may still have created the row.
           // Refetch before the error shows, so the next save PATCHes that row
           // instead of adding a second address this screen would never show.
-          await queryClient.invalidateQueries({ queryKey: ['customer', id] })
+          await queryClient.invalidateQueries({ queryKey: ['contact', id] })
           throw err
         }
       }
@@ -264,8 +264,8 @@ export function ContactDetailContent({ contactId: id, embedded = false }: Contac
     // The address is embedded on the contact resource itself
     // (ContactRead.address), unlike phones/emails' own list endpoint —
     // refetching the contact is what picks up the change.
-    void queryClient.invalidateQueries({ queryKey: ['customer', id] })
-    void queryClient.invalidateQueries({ queryKey: ['customer', id, 'history'] })
+    void queryClient.invalidateQueries({ queryKey: ['contact', id] })
+    void queryClient.invalidateQueries({ queryKey: ['contact', id, 'history'] })
   }
 
   // KAN-14 / FR-22 — the alternative action. `POST /sales/offers` takes
@@ -337,8 +337,8 @@ export function ContactDetailContent({ contactId: id, embedded = false }: Contac
   const invalidateContact = (kind: 'phones' | 'emails') => {
     const createKey = kind === 'phones' ? phoneKey : emailKey
     createKey.renew()
-    void queryClient.invalidateQueries({ queryKey: ['customer', id, kind] })
-    void queryClient.invalidateQueries({ queryKey: ['customer', id, 'history'] })
+    void queryClient.invalidateQueries({ queryKey: ['contact', id, kind] })
+    void queryClient.invalidateQueries({ queryKey: ['contact', id, 'history'] })
   }
 
   const createPhone = async (row: { type: PhoneType; value: string }) => {
@@ -398,8 +398,8 @@ export function ContactDetailContent({ contactId: id, embedded = false }: Contac
   // no-If-Match shape as the contact-point handlers above.
   const invalidateExternalIds = () => {
     externalIdKey.renew()
-    void queryClient.invalidateQueries({ queryKey: ['customer', id, 'external-ids'] })
-    void queryClient.invalidateQueries({ queryKey: ['customer', id, 'history'] })
+    void queryClient.invalidateQueries({ queryKey: ['contact', id, 'external-ids'] })
+    void queryClient.invalidateQueries({ queryKey: ['contact', id, 'history'] })
   }
 
   const createExternalId = async (row: { systemName: string; externalId: string }) => {
@@ -671,7 +671,7 @@ export function ContactDetailContent({ contactId: id, embedded = false }: Contac
           opened={linkVehicleOpen}
           onClose={() => setLinkVehicleOpen(false)}
           contactId={id}
-          onLinked={() => void queryClient.invalidateQueries({ queryKey: ['customer', id, 'vehicles'] })}
+          onLinked={() => void queryClient.invalidateQueries({ queryKey: ['contact', id, 'vehicles'] })}
         />
       )}
 
@@ -680,8 +680,8 @@ export function ContactDetailContent({ contactId: id, embedded = false }: Contac
         onClose={() => setCreditBlockOpen(false)}
         contact={contact}
         onSaved={(updated) => {
-          queryClient.setQueryData(['customer', id], updated)
-          void queryClient.invalidateQueries({ queryKey: ['customer', id, 'history'] })
+          queryClient.setQueryData(['contact', id], updated)
+          void queryClient.invalidateQueries({ queryKey: ['contact', id, 'history'] })
         }}
       />
     </div>

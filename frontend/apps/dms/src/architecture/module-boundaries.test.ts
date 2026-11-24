@@ -211,7 +211,7 @@ describe('frontend modules keep their boundary (KAN-636, ADR-161)', () => {
     ])
     // And contact's: the Vehicle 360, the deal workspace, the contract page, the offer workspace and valuation.
     const throughContactsDoor = [...realFiles].filter(
-      ([path, source]) => moduleOf(path) !== 'customer' && !isTestCode(path) && importsOf(path, source).some(({ specifier }) => /(^|\/)(modules\/)?contact$/.test(specifier) && resolveImport(path, specifier, (p) => realFiles.has(p)) === 'modules/contact/index.ts'),
+      ([path, source]) => moduleOf(path) !== 'contact' && !isTestCode(path) && importsOf(path, source).some(({ specifier }) => /(^|\/)(modules\/)?contact$/.test(specifier) && resolveImport(path, specifier, (p) => realFiles.has(p)) === 'modules/contact/index.ts'),
     )
     expect(throughContactsDoor.map(([path]) => path).sort()).toEqual([
       'modules/sales/components/deal-workspace/DealWorkspaceContainers.tsx',

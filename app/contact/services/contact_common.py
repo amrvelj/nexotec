@@ -1,4 +1,4 @@
-"""Helpers every customer service module shares (split from contact.py, KAN-617):
+"""Helpers every contact service module shares (split from contact.py, KAN-617):
 the outbox producer name, the group-scoped 404 lookups, a contact's display
 name and label payload, the contact-row usability test and the single-primary
 fix-up, country-code validation.

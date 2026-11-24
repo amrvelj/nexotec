@@ -16,7 +16,7 @@ import { HistoryTab } from './HistoryTab'
 function event(over: Partial<AuditEventRead>): AuditEventRead {
   return {
     id: 'ev-1',
-    entityType: 'customer',
+    entityType: 'contact',
     entityId: 'c1',
     tenantId: 'group-1',
     action: 'update',
@@ -36,6 +36,24 @@ function renderHistory(events: AuditEventRead[]) {
 
 afterEach(async () => {
   await i18n.changeLanguage('de')
+})
+
+// KAN-464 PR-3 — the audit log is append-only: a row written before customers
+// became contacts says entity_type "customer" and names its fields so. It
+// reads exactly as today's row.
+describe('HistoryTab — a row written before the rename to contacts', () => {
+  it('labels and formats its fields as a contact row', () => {
+    renderHistory([
+      event({
+        entityType: 'customer',
+        before: { customer_number: 'K-000001', credit_limit: '9000.00' },
+        after: { customer_number: 'K-000002', credit_limit: '12500.00' },
+      }),
+    ])
+    expect(screen.getByText(i18n.t('contactDetail.overview.fields.contactNumber'))).toBeInTheDocument()
+    expect(screen.getByText(/K-000001 → K-000002/)).toBeInTheDocument()
+    expect(screen.getByText(/CHF 9'000\.00 → CHF 12'500\.00/)).toBeInTheDocument()
+  })
 })
 
 describe('HistoryTab — values are formatted by field (KAN-164)', () => {

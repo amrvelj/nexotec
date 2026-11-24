@@ -16,7 +16,7 @@ import { HistoryTab } from './HistoryTab'
 function event(over: Partial<AuditEventRead>): AuditEventRead {
   return {
     id: 'ev-1',
-    entityType: 'customer',
+    entityType: 'contact',
     entityId: 'c1',
     tenantId: 'group-1',
     action: 'update',
@@ -264,7 +264,7 @@ describe('HistoryTab — id lists, the merged-into contact, a replaced advisor a
         }),
         event({
           action: 'vehicle_party_update',
-          entityType: 'customer',
+          entityType: 'contact',
           before: { mergedIntoContactId: null },
           after: { mergedIntoContactId: SURVIVOR },
         }),
@@ -302,7 +302,7 @@ describe('HistoryTab — the vehicle-link copies a merge re-pointed (KAN-392)', 
         // The shape contact_merge.py writes for a re-pointed copy (KAN-392).
         event({
           action: 'vehicle_party_update',
-          entityType: 'customer',
+          entityType: 'contact',
           reason: 'contact_merged',
           before: { vehicleId: CAR, role: 'owner', mergedIntoContactId: EARLIER },
           after: { mergedIntoContactId: LATER },

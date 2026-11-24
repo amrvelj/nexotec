@@ -181,7 +181,7 @@ def compute_containers(deal: PricedDeal) -> list[OfferContainerState]:
     priced = has_base_price(deal) or (isinstance(deal, SalesContract) and is_priced_without_inputs(deal))
     containers = [
         OfferContainerState(
-            id="customer",
+            id="contact",
             requirement="required",
             status="complete" if deal.contact_id is not None else "not_started",
         ),

@@ -9,8 +9,8 @@ import { languageEndonym } from '../../../../i18n/languageEndonyms'
 
 type Translate = (key: string, options?: Record<string, unknown>) => string
 
-// KAN-336 — every audit action the customer service writes (`record_audit_event`
-// with entity_type "customer", app/contact/services/contact.py) has its own
+// KAN-336 — every audit action the contact service writes (`record_audit_event`
+// with entity_type "contact", app/contact/services/contact.py) has its own
 // headline key; any other action reads as the generic `otherAction`, never as
 // the raw verb.
 const KNOWN_ACTIONS = new Set([
@@ -167,7 +167,7 @@ function enumLabel(key: string, value: string, t: Translate, exists: (key: strin
   return t(`${base}.${value}`)
 }
 
-// Every event on this tab is entity_type "customer" (app/contact/services/
+// Every event on this tab is a contact's (app/contact/services/
 // contact.py), so a value's meaning comes from the entity and key, not typeof
 // (KAN-164): credit_limit reaches the audit log as a decimal *string*
 // (`"12500.00"`), while contact_number, postal codes and IDs are figures that
@@ -181,12 +181,20 @@ type FieldKind = 'amountChf' | 'quantity' | 'date' | 'timestamp'
 // A calendar day as the backend's `date.isoformat()` writes it.
 const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/
 
+// KAN-464 PR-3 — rows written before customers became contacts keep their
+// names (the audit log is append-only): entity_type "customer", keys such as
+// `customer_number` or `mergedIntoCustomerId`. They read as today's.
+const CONTACT_ENTITY_TYPES = new Set(['contact', 'customer'])
+
 function camelKey(key: string): string {
-  return key.replace(/_([a-z0-9])/g, (_, c: string) => c.toUpperCase())
+  return key
+    .replace(/_([a-z0-9])/g, (_, c: string) => c.toUpperCase())
+    .replace(/^customer/, 'contact')
+    .replace(/Customer/g, 'Contact')
 }
 
 function fieldKind(entityType: string, key: string): FieldKind | null {
-  if (entityType !== 'customer') return null
+  if (!CONTACT_ENTITY_TYPES.has(entityType)) return null
   const k = camelKey(key)
   if (k === 'creditLimit') return 'amountChf'
   // The merge event's counts (vehiclePartiesRepointed, vehiclePartiesKeptClosed, tagsDropped, …).
@@ -251,7 +259,7 @@ function formatValue(
     return v.map((item: string) => idLabels[item] ?? (UUID.test(item) ? t('contactDetail.history.unknownReference') : item)).join(', ')
   }
   if (typeof v === 'object') return JSON.stringify(v)
-  if (entityType === 'customer' && typeof v === 'string') {
+  if (CONTACT_ENTITY_TYPES.has(entityType) && typeof v === 'string') {
     // KAN-336 — an id renders the display label the contact record carries
     // for it (the advisor's name, a linked vehicle's make and model); one the
     // record carries no label for is shown as recorded.

@@ -133,7 +133,7 @@ describe('UsersListPage (KAN-200)', () => {
     const backend = installFakeBackend([
       ...routes(),
       { method: 'PATCH', match: /\/users\/u-3$/, handler: () => user3({}) },
-      { method: 'GET', match: /\/users\/u-3\/ownership$/, handler: () => ({ groups: [], modules: ['customer', 'sales'] }) },
+      { method: 'GET', match: /\/users\/u-3\/ownership$/, handler: () => ({ groups: [], modules: ['contact', 'sales'] }) },
     ])
     renderWithProviders(<UsersListPage />, { route: '/administration/users' })
     await screen.findByText('Carla Gross')
@@ -185,11 +185,11 @@ describe('UsersListPage (KAN-200)', () => {
     const user = userEvent.setup()
     installFakeBackend([
       ...routes(),
-      { method: 'GET', match: /\/users\/u-1\/ownership$/, handler: () => ({ groups: [{ module: 'customer', group: 'contacts', count: 1200 }], modules: ['customer'] }) },
+      { method: 'GET', match: /\/users\/u-1\/ownership$/, handler: () => ({ groups: [{ module: 'contact', group: 'contacts', count: 1200 }], modules: ['contact'] }) },
       {
         method: 'POST',
         match: /\/users\/u-1\/ownership\/transfers$/,
-        handler: () => ({ transfers: [], failed: [{ module: 'customer', group: 'contacts', reason: 'module_failed', message: 'The module could not complete the hand-over; the error is in the log.' }] }),
+        handler: () => ({ transfers: [], failed: [{ module: 'contact', group: 'contacts', reason: 'module_failed', message: 'The module could not complete the hand-over; the error is in the log.' }] }),
       },
     ])
     renderWithProviders(<UsersListPage />, { route: '/administration/users' })

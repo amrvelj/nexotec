@@ -1,4 +1,5 @@
 import { BrowserRouter, Navigate, Outlet, Route, Routes } from 'react-router-dom'
+import { CustomersMovedToContacts } from './layout/CustomersMovedToContacts'
 import { AuthProvider } from './auth/AuthContext'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { RequireEntitlement } from './components/RequireEntitlement'
@@ -88,6 +89,7 @@ function ProtectedLayout() {
   )
 }
 
+
 export default function App() {
   return (
     <BrowserRouter>
@@ -126,6 +128,7 @@ export default function App() {
               <Route path="/contacts" element={<ContactsListPage />} />
               <Route path="/contacts/new" element={<ContactCreatePage />} />
               <Route path="/contacts/:id" element={<ContactDetailPage />} />
+              <Route path="/customers/*" element={<CustomersMovedToContacts />} />
               <Route path="/catalogue" element={<CatalogueBrowsePage />} />
               {/* C-B (KAN-40): the mapping-gap queue moved into /catalogue as a tab.
                   Kept as a redirect so existing deep links don't 404. */}

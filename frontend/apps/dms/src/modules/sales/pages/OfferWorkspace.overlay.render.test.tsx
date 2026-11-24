@@ -58,7 +58,7 @@ const draftOffer = (): SalesOfferRead => ({
   cancelledReason: null,
   copiedFromOfferId: null,
   containers: [
-    { id: 'customer', requirement: 'required', status: 'complete' },
+    { id: 'contact', requirement: 'required', status: 'complete' },
     { id: 'vehicle', requirement: 'required', status: 'not_started' },
     { id: 'pricing', requirement: 'required', status: 'not_started' },
     { id: 'trade_in', requirement: 'optional', status: 'not_started' },

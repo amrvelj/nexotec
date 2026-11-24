@@ -49,10 +49,10 @@ describe('UserDeactivateDialog (KAN-200)', () => {
         match: /\/users\/u-1\/ownership$/,
         handler: () => ({
           groups: [
-            { module: 'customer', group: 'contacts', count: 12 },
+            { module: 'contact', group: 'contacts', count: 12 },
             { module: 'sales', group: 'offers', count: 3 },
           ],
-          modules: ['aftersales', 'customer', 'inventory', 'parts', 'sales'],
+          modules: ['aftersales', 'contact', 'inventory', 'parts', 'sales'],
         }),
       },
       {
@@ -61,7 +61,7 @@ describe('UserDeactivateDialog (KAN-200)', () => {
         handler: () => ({
           user: { ...LEAVER, status: 'deactivated', version: 5 },
           transfers: [
-            { module: 'customer', group: 'contacts', toUserId: 'u-2', count: 12 },
+            { module: 'contact', group: 'contacts', toUserId: 'u-2', count: 12 },
             { module: 'sales', group: 'offers', toUserId: null, count: 3 },
           ],
         }),
@@ -104,7 +104,7 @@ describe('UserDeactivateDialog (KAN-200)', () => {
       reason: 'ausgetreten per 30.9.',
       employmentStatus: 'terminated',
       transfers: [
-        { module: 'customer', group: 'contacts', toUserId: 'u-2' },
+        { module: 'contact', group: 'contacts', toUserId: 'u-2' },
         { module: 'sales', group: 'offers', toUserId: null },
       ],
     })
@@ -117,7 +117,7 @@ describe('UserDeactivateDialog (KAN-200)', () => {
       {
         method: 'GET',
         match: /\/users\/u-1\/ownership$/,
-        handler: () => ({ groups: [{ module: 'sales', group: 'offers', count: 3 }], modules: ['customer', 'sales'] }),
+        handler: () => ({ groups: [{ module: 'sales', group: 'offers', count: 3 }], modules: ['contact', 'sales'] }),
       },
       {
         method: 'POST',
@@ -195,7 +195,7 @@ describe('UserDeactivateDialog (KAN-200)', () => {
               details: {
                 problems: [
                   { module: 'sales', group: 'offers', reason: 'colleague_cannot_act_there', count: 1, message: 'sales/offers: 1 of these records belong to another business the colleague cannot act in — …' },
-                  { module: 'customer', group: 'contacts', reason: 'undecided', message: 'contact/contacts: needs a decision: a colleague, or null to leave it unassigned' },
+                  { module: 'contact', group: 'contacts', reason: 'undecided', message: 'contact/contacts: needs a decision: a colleague, or null to leave it unassigned' },
                 ],
                 openGroups: [],
               },
@@ -221,7 +221,7 @@ describe('UserDeactivateDialog (KAN-200)', () => {
   it('says a last-manager refusal and keeps the dialog open', async () => {
     const user = userEvent.setup()
     installFakeBackend([
-      { method: 'GET', match: /\/users\/u-1\/ownership$/, handler: () => ({ groups: [], modules: ['customer', 'sales'] }) },
+      { method: 'GET', match: /\/users\/u-1\/ownership$/, handler: () => ({ groups: [], modules: ['contact', 'sales'] }) },
       {
         method: 'POST',
         match: /\/users\/u-1\/deactivate$/,
@@ -247,7 +247,7 @@ describe('UserDeactivateDialog (KAN-200)', () => {
       const user = userEvent.setup()
       let posts = 0
       installFakeBackend([
-        { method: 'GET', match: /\/users\/u-1\/ownership$/, handler: () => ({ groups: [], modules: ['customer', 'sales'] }) },
+        { method: 'GET', match: /\/users\/u-1\/ownership$/, handler: () => ({ groups: [], modules: ['contact', 'sales'] }) },
         {
           method: 'POST',
           match: /\/users\/u-1\/deactivate$/,

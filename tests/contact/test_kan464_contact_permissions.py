@@ -203,17 +203,17 @@ def test_inventory_merges_suppliers_but_not_a_customer(client):
     assert _merge(client, inventory, duplicate, survivor).status_code == 200
 
     supplier = _created(client, inventory, roles=["supplier"])
-    contact = _created(client, sales)
+    customer = _created(client, sales)
     # Either side holding the customer role refuses it; nothing is merged.
-    _refused(_merge(client, inventory, supplier, contact), "merge")
-    _refused(_merge(client, inventory, contact, supplier), "merge")
+    _refused(_merge(client, inventory, supplier, customer), "merge")
+    _refused(_merge(client, inventory, customer, supplier), "merge")
     # The refusal comes after the child rows moved; they are back on the duplicate.
-    for contact in (supplier, contact):
+    for contact in (supplier, customer):
         emails = client.get(f"/v1/contacts/{contact['id']}/emails", headers=sales).json()["items"]
         assert len(emails) == 1, contact
     assert _get(client, sales, supplier["id"])["lifecycleStatus"] == "active"
-    assert _get(client, sales, contact["id"])["lifecycleStatus"] != "merged"
-    assert _merge(client, sales, supplier, contact).status_code == 200
+    assert _get(client, sales, customer["id"])["lifecycleStatus"] != "merged"
+    assert _merge(client, sales, supplier, customer).status_code == 200
 
 
 def test_a_supplier_takes_its_number_from_the_contacts_sequence(client):

@@ -262,7 +262,7 @@ describe('ContractDetailPage — the trade-in figure carries its source (KAN-101
 describe('ContractDetailPage — the buyer is picked in the contract (KAN-307)', () => {
   const NO_BUYER = {
     ...CONTRACT, offerNumber: null, contactId: null, contactLabel: null, vehicleSnapshotFrozenAt: '2026-10-12T08:00:00Z',
-    containers: [{ id: 'customer', requirement: 'required', status: 'not_started' }],
+    containers: [{ id: 'contact', requirement: 'required', status: 'not_started' }],
   }
 
   it('a pending contract without a buyer offers the contact search and keeps confirm disabled', async () => {

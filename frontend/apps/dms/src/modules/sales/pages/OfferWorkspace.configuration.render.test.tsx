@@ -42,7 +42,7 @@ function draftOffer(overrides: Partial<SalesOfferRead> = {}): SalesOfferRead {
     tradeInValuationId: null, tradeInValue: null, tradeInPurchasePrice: null, payable: null, cancelledReason: null,
     copiedFromOfferId: null,
     containers: [
-      { id: 'customer', requirement: 'required', status: 'not_started' },
+      { id: 'contact', requirement: 'required', status: 'not_started' },
       { id: 'vehicle', requirement: 'required', status: 'not_started' },
       { id: 'pricing', requirement: 'required', status: 'not_started' },
       { id: 'trade_in', requirement: 'optional', status: 'not_started' },

@@ -22,7 +22,7 @@ class OfferContainerState(CamelModel):
     and each container's own status badge always agree, by construction.
     """
 
-    id: str  # "customer" | "vehicle" | "pricing" | "trade_in" | "leasing"
+    id: str  # "contact" | "vehicle" | "pricing" | "trade_in" | "leasing"
     requirement: str  # "required" | "optional"
     status: str  # "not_started" | "in_progress" | "complete" | "placeholder"
 
