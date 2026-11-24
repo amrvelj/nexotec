@@ -2,6 +2,7 @@
 platform.public, «not set» as a state, values per Betrieb and per location,
 history, restore as a change, concurrency, the export."""
 
+import threading
 import uuid
 from decimal import Decimal
 
@@ -30,6 +31,7 @@ from app.platform.organisation.services.setting_declarations import (
 )
 from tests import setting_store_support as s
 from tests.identity_support import create_dealership
+from tests.postgres_only import NEEDS_ITS_OWN_CONNECTION
 
 
 @pytest.fixture()
@@ -300,3 +302,135 @@ def test_a_stale_version_is_a_conflict_the_first_write_included(db_session, betr
     db_session.rollback()
     with pytest.raises(ConflictError):
         _change(db_session, betrieb, s.WAIT.key, Decimal(20), version=5)
+
+
+# --- review fixes (KAN-805 PR-1) ----------------------------------------------------
+
+
+def test_clearing_a_slot_never_written_writes_nothing(db_session, betrieb, samples):
+    slot = _change(db_session, betrieb, s.WAIT.key, store.NOT_SET, version=0)
+
+    assert (slot.is_set, slot.version) == (False, 0)
+    assert db_session.scalar(select(func.count()).select_from(SettingValue)) == 0
+    assert db_session.scalar(select(func.count()).select_from(SettingValueChange)) == 0
+    assert db_session.scalar(select(func.count()).select_from(AuditEvent).where(AuditEvent.entity_type == "setting_value")) == 0
+
+
+@pytest.mark.parametrize("declaration", [s.WAIT, s.FEE])
+def test_a_number_the_column_cannot_hold_is_refused_by_the_declaration(db_session, betrieb, declaration):
+    unbounded = SettingDeclaration(
+        key=declaration.key, module=None, kind=declaration.kind, when_not_set=WhenNotSet.QUIET
+    )
+    with s.declared(unbounded), pytest.raises(SettingValueError) as refused:
+        _change(db_session, betrieb, unbounded.key, Decimal("1E14"), version=0)
+    assert refused.value.reason == "setting_value_too_large"
+
+
+def test_the_version_checked_is_the_committed_one_not_a_row_the_session_holds(engine, db_session, betrieb, samples):
+    from sqlalchemy.orm import sessionmaker
+
+    _change(db_session, betrieb, s.WAIT.key, Decimal(10))
+    held = db_session.scalar(select(SettingValue).where(SettingValue.dealership_id == betrieb))
+    assert held is not None and held.version == 1  # the session holds the row at version 1
+    other = sessionmaker(bind=engine)()
+    try:
+        _change(other, betrieb, s.WAIT.key, Decimal(20), version=1)
+    finally:
+        other.close()
+
+    with pytest.raises(ConflictError):
+        store.change_setting(
+            db_session, dealership_id=betrieb, location_id=None, key=s.WAIT.key, value=Decimal(30),
+            expected_version=1, actor_id=None,
+        )
+    assert held.version == 2  # read again under the lock
+
+
+@NEEDS_ITS_OWN_CONNECTION
+def test_two_first_writes_at_once_are_one_change_and_one_conflict(engine, betrieb, samples):
+    """The advisory lock serialises the Betrieb's writes: the second first
+    write waits, then sees version 1 and is a conflict — never a duplicate
+    slot or an IntegrityError."""
+
+    from sqlalchemy.orm import sessionmaker
+
+    factory = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
+    start = threading.Barrier(2)
+    outcomes: list[str] = []
+    lock = threading.Lock()
+
+    def write(value: Decimal) -> None:
+        session = factory()
+        try:
+            start.wait()
+            store.change_setting(
+                session, dealership_id=betrieb, location_id=None, key=s.WAIT.key, value=value,
+                expected_version=0, actor_id=None,
+            )
+            session.commit()
+            outcome = "written"
+        except ConflictError:
+            session.rollback()
+            outcome = "conflict"
+        except BaseException as exc:  # noqa: BLE001 - reported below
+            session.rollback()
+            outcome = type(exc).__name__
+        finally:
+            session.close()
+        with lock:
+            outcomes.append(outcome)
+
+    threads = [threading.Thread(target=write, args=(Decimal(v),)) for v in (10, 20)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(timeout=60)
+
+    assert sorted(outcomes) == ["conflict", "written"]
+    with factory() as session:
+        assert session.scalar(select(func.count()).select_from(SettingValue)) == 1
+        assert session.scalar(select(func.count()).select_from(SettingValueChange)) == 1
+
+
+def test_a_text_setting_is_cleared_back_to_not_set(db_session, betrieb, samples):
+    _change(db_session, betrieb, s.NOTE.key, TextValue(name="Schlüssel", translations=(("fr", "Clés"),)))
+    _change(db_session, betrieb, s.NOTE.key, store.NOT_SET)
+
+    row = db_session.scalar(select(SettingValue).where(SettingValue.key == s.NOTE.key))
+    assert row is not None and (row.state, row.value_text, row.value_text_translations) == (SettingState.NOT_SET, None, None)
+    assert _read(db_session, betrieb, s.NOTE.key).is_set is False
+
+
+def test_a_value_of_a_kind_the_setting_no_longer_has_is_not_restored(db_session, betrieb):
+    as_number = SettingDeclaration(key="testarea.shape", module=None, kind=SettingKind.NUMBER, when_not_set=WhenNotSet.QUIET)
+    with s.declared(as_number):
+        _change(db_session, betrieb, as_number.key, Decimal(3))
+        old = store.setting_history(db_session, dealership_id=betrieb, location_id=None, key=as_number.key)[0]
+    as_switch = SettingDeclaration(key="testarea.shape", module=None, kind=SettingKind.SWITCH, when_not_set=WhenNotSet.QUIET)
+    with s.declared(as_switch), pytest.raises(SettingValueError) as refused:
+        store.restore_change(db_session, dealership_id=betrieb, change_id=old.id, expected_version=1, actor_id=None)
+    assert refused.value.reason == "setting_value_no_longer_valid"
+
+
+def test_the_tests_area_and_an_unknown_module_are_refused_outside_the_tests():
+    with pytest.raises(SettingDeclarationError):
+        register_setting(s.WAIT)
+    unknown = SettingDeclaration(key="werkstatt.x", module="werkstatt", kind=SettingKind.SWITCH, when_not_set=WhenNotSet.QUIET)
+    with pytest.raises(SettingDeclarationError):
+        register_setting(unknown)
+
+
+def test_the_betriebs_settings_rows_reach_its_export_and_no_other(client, db_session, betrieb, samples):
+    from app.core.export import ExportScope
+    from app.platform.public import PlatformExporter
+
+    other = uuid.UUID(create_dealership(client, legalName="Garage Nachbar AG"))
+    _change(db_session, betrieb, s.WAIT.key, Decimal(10))
+    _change(db_session, other, s.WAIT.key, Decimal(99))
+    tables = {t.table.name: t for t in PlatformExporter().exported_tables()}
+
+    for name in ("setting_value", "setting_value_change"):
+        exported = tables[name]
+        scope = ExportScope(dealership_id=betrieb, group_id=uuid.uuid4())
+        rows = db_session.execute(select(exported.table).where(exported.scope(scope))).all()
+        assert [row.dealership_id for row in rows] == [betrieb], name

@@ -60,11 +60,11 @@ def _value_matches_kind() -> str:
     return (
         f"(state = 'not_set' AND {none} AND value_text_translations IS NULL) OR (state = 'set' AND ("
         "(kind = 'switch' AND value_switch IS NOT NULL AND value_decimal IS NULL AND value_choice IS NULL "
-        "AND value_text IS NULL) OR "
+        "AND value_text IS NULL AND value_text_translations IS NULL) OR "
         "(kind IN ('number', 'amount') AND value_decimal IS NOT NULL AND value_switch IS NULL "
-        "AND value_choice IS NULL AND value_text IS NULL) OR "
+        "AND value_choice IS NULL AND value_text IS NULL AND value_text_translations IS NULL) OR "
         "(kind = 'choice' AND value_choice IS NOT NULL AND value_switch IS NULL AND value_decimal IS NULL "
-        "AND value_text IS NULL) OR "
+        "AND value_text IS NULL AND value_text_translations IS NULL) OR "
         "(kind = 'text' AND value_text IS NOT NULL AND value_switch IS NULL AND value_decimal IS NULL "
         "AND value_choice IS NULL)))"
     )

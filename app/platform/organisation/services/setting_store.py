@@ -233,7 +233,9 @@ def _slot_row(
         SettingValue.location_id.is_(None) if location_id is None else SettingValue.location_id == location_id,
     )
     if for_update:
-        stmt = stmt.with_for_update()
+        # populate_existing: a row the session loaded before the lock is read again, so the
+        # version checked is the committed one.
+        stmt = stmt.with_for_update().execution_options(populate_existing=True)
     return db.scalar(stmt)
 
 
@@ -312,6 +314,9 @@ def change_setting(
     row = _slot_row(db, dealership_id=dealership_id, location_id=location_id, key=key, for_update=True)
     check_version(row.version if row is not None else 0, expected_version, entity_name="setting")
     before = _value_of(row) if row is not None else None
+    if row is None and checked is None:
+        # Clearing a slot never written changes nothing.
+        return _slot_of(key, location_id, None)
     if row is not None and before == checked and (row.state == SettingState.SET) == (checked is not None):
         return _slot_of(key, location_id, row)
 

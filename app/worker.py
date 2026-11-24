@@ -599,8 +599,9 @@ def register_status() -> None:
 
 def register_contact_message_types() -> None:
     """KAN-217: the send consumers and reminders to come read the message-type
-    registry, which the composition root fills. KAN-805: the setup checklist's
-    daily job reads the setting declarations the same way."""
+    registry, which the composition root fills. KAN-805: the setting
+    declarations are registered here too, for the worker's readers of the
+    settings store (the setup checklist's job reads them from KAN-805 PR-3)."""
 
     register_message_types()
     register_settings()

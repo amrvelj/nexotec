@@ -26,10 +26,17 @@ import re
 from dataclasses import dataclass
 from decimal import Decimal
 
+from app.core.permissions import ModuleCode
+
 KEY_MAX_LENGTH = 64
 TEXT_MAX_LENGTH = 500
 TEXT_LANGUAGES = ("de", "fr", "it", "en")
+# The tests' own area (tests/setting_store_support.py); refused unless a test opens it.
+TEST_AREA = "testarea"
+_test_area_open = False
 
+# setting_value.value_decimal is Numeric(18, 4): fourteen digits before the point.
+_NUMERIC_LIMIT = Decimal("1E14")
 _KEY = re.compile(r"[a-z][a-z0-9_]*\.[a-z][a-z0-9_]*")
 _CHOICE = re.compile(r"[a-z][a-z0-9_]*")
 
@@ -93,6 +100,10 @@ def _check(declaration: SettingDeclaration) -> None:
         raise SettingDeclarationError(
             f"Setting key {key!r} is not `<area>.<name>` in lower case, at most {KEY_MAX_LENGTH} characters."
         )
+    if declaration.module is not None and declaration.module not in {code.value for code in ModuleCode}:
+        raise SettingDeclarationError(f"Setting {key!r} names {declaration.module!r}, no module of Nexotec.")
+    if key.startswith(TEST_AREA + ".") and not _test_area_open:
+        raise SettingDeclarationError(f"Setting {key!r}: the area {TEST_AREA!r} is the tests' own.")
     kind = SettingKind(declaration.kind)
     if kind == SettingKind.CHOICE:
         if not declaration.choices or len(set(declaration.choices)) != len(declaration.choices):
@@ -166,6 +177,8 @@ def validate_value(declaration: SettingDeclaration, value: object) -> bool | Dec
         exponent = value.normalize().as_tuple().exponent
         if isinstance(exponent, int) and -exponent > places:
             raise SettingValueError(f"{key} takes at most {places} decimals.", reason="setting_value_too_many_decimals")
+        if abs(value) >= _NUMERIC_LIMIT:
+            raise SettingValueError(f"{key} is less than {_NUMERIC_LIMIT} in size.", reason="setting_value_too_large")
         if declaration.minimum is not None and value < declaration.minimum:
             raise SettingValueError(f"{key} is at least {declaration.minimum}.", reason="setting_value_below_minimum")
         if declaration.maximum is not None and value > declaration.maximum:
@@ -216,6 +229,13 @@ def unregister_setting(key: str) -> None:
     """Tests only: removes a sample declaration again."""
 
     _REGISTRY.pop(key, None)
+
+
+def open_test_area(is_open: bool) -> None:
+    """Tests only: lets `testarea.*` samples be declared."""
+
+    global _test_area_open
+    _test_area_open = is_open
 
 
 def declared_settings() -> tuple[SettingDeclaration, ...]:

@@ -18,6 +18,7 @@ from app.platform.organisation.services.setting_declarations import (
     SettingDeclaration,
     SettingKind,
     WhenNotSet,
+    open_test_area,
     register_setting,
     unregister_setting,
 )
@@ -54,13 +55,15 @@ SAMPLES = (WAIT, SWITCH, UNIT, FEE, NOTE)
 
 @contextmanager
 def declared(*declarations: SettingDeclaration) -> Iterator[None]:
-    for declaration in declarations:
-        register_setting(declaration)
+    open_test_area(True)
     try:
+        for declaration in declarations:
+            register_setting(declaration)
         yield
     finally:
         for declaration in declarations:
             unregister_setting(declaration.key)
+        open_test_area(False)
 
 
 def add_location(db: Session, dealership_id: uuid.UUID, *, name: str = "Filiale Nord", active: bool = True) -> uuid.UUID:
