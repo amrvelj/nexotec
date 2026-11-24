@@ -10,6 +10,18 @@ from app.platform.public import MessageChannel
 from app.sales.models.document import DocumentOwnerType
 
 
+class DocumentDeliveryRead(CamelModel):
+    """KAN-217 PR-6: the newest send of a document (integration's delivery
+    row, as values) — the delivery chip on the document (FR-A-51)."""
+
+    delivery_id: uuid.UUID
+    channel: str
+    status: str
+    sent_at: dt.datetime
+    failure_code: str | None
+    provider_status: str | None
+
+
 class DocumentRead(CamelModel):
     id: uuid.UUID
     owner_type: DocumentOwnerType
@@ -18,6 +30,8 @@ class DocumentRead(CamelModel):
     correspondence_language: str
     rendered_at: dt.datetime
     rendered_by: uuid.UUID | None
+    # The newest send of this version; None while it was never sent.
+    last_delivery: DocumentDeliveryRead | None = None
 
 
 class DocumentPage(CamelModel):
@@ -41,3 +55,32 @@ class MessageDeliveryRead(CamelModel):
     sender_address: str | None
     failure_code: str | None
     provider_status: str | None
+
+
+class SendChannelOptionRead(CamelModel):
+    """One channel of the send dialog (KAN-217 PR-6). `blocked` is the first
+    refusal the send would give now, in the send's order: `recipient_refused`
+    (with `refusal`), `message_text_missing` on WhatsApp, the channel not
+    ready, `whatsapp_template_not_approved`, and last `message_text_missing`
+    on e-mail and SMS (the author's own text lifts it); None when the send
+    may go."""
+
+    channel: MessageChannel
+    ready: bool
+    not_ready_reason: str | None
+    sender_address: str | None
+    address: str | None
+    allowed: bool
+    refusal: str | None
+    language: str
+    text: str | None
+    text_editable: bool
+    delivery: str
+    blocked: str | None
+
+
+class SendOptionsRead(CamelModel):
+    document_id: uuid.UUID
+    customer_label: str
+    preselected_channel: MessageChannel | None
+    channels: list[SendChannelOptionRead]
