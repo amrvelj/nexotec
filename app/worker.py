@@ -137,6 +137,7 @@ from app.sales.public import (
     refresh_owner_labels,
 )
 from app.sales.public import referenced_configuration_ids as referenced_by_offers_and_contracts
+from app.setting_registry import register_settings
 from app.status_registry import register_status_providers
 from app.valuation.daily_jobs import run_daily_unused_provider_quote_purge
 from app.valuation.public import referenced_configuration_ids as referenced_by_valuations
@@ -603,6 +604,13 @@ def register_contact_message_types() -> None:
     register_message_types()
 
 
+def register_setting_declarations() -> None:
+    """KAN-805: every area's setting declarations, for the worker's readers of
+    the settings store (the setup checklist's daily job from KAN-805 PR-3)."""
+
+    register_settings()
+
+
 def register_daily_jobs() -> None:
     """Twenty daily jobs, run in registration order once per day on this
     process (app.core.daily_scheduler):
@@ -784,6 +792,7 @@ def run(*, max_iterations: int | None = None) -> None:
     register_exports()
     register_status()
     register_contact_message_types()
+    register_setting_declarations()
     register_daily_jobs()
     # KAN-215 (ADR-118): the mailbox providers' revokers end a revoked grant
     # at Google / drop its token; platform's consumer runs them, here only.
