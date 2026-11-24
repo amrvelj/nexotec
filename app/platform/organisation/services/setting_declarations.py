@@ -173,12 +173,13 @@ def validate_value(declaration: SettingDeclaration, value: object) -> bool | Dec
     if kind in (SettingKind.NUMBER, SettingKind.AMOUNT):
         if isinstance(value, bool) or not isinstance(value, Decimal) or not value.is_finite():
             raise SettingValueError(f"{key} takes a number.", reason="setting_value_not_a_number")
+        # The size first: it compares without arithmetic, so a huge exponent never overflows below.
+        if value.copy_abs() >= _NUMERIC_LIMIT:  # copy_abs is exact; abs() rounds and can overflow
+            raise SettingValueError(f"{key} is less than {_NUMERIC_LIMIT} in size.", reason="setting_value_too_large")
         places = 2 if kind == SettingKind.AMOUNT else declaration.decimals
         exponent = value.normalize().as_tuple().exponent
         if isinstance(exponent, int) and -exponent > places:
             raise SettingValueError(f"{key} takes at most {places} decimals.", reason="setting_value_too_many_decimals")
-        if abs(value) >= _NUMERIC_LIMIT:
-            raise SettingValueError(f"{key} is less than {_NUMERIC_LIMIT} in size.", reason="setting_value_too_large")
         if declaration.minimum is not None and value < declaration.minimum:
             raise SettingValueError(f"{key} is at least {declaration.minimum}.", reason="setting_value_below_minimum")
         if declaration.maximum is not None and value > declaration.maximum:

@@ -19,8 +19,9 @@ its declaration is 422 with its reason; a deactivated location's value is
 409 `setting_location_inactive`.
 """
 
+import re
 import uuid
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal
 from typing import Any
 
 from fastapi import APIRouter, Depends, Query
@@ -63,6 +64,8 @@ from app.platform.organisation.services.setting_declarations import (
 router = APIRouter(tags=["settings-store"], route_class=IdempotentRoute)
 settings = get_settings()
 
+_PLAIN_DECIMAL = re.compile(r"-?[0-9]{1,30}(\.[0-9]{1,10})?", re.ASCII)
+
 _KIND_FIELD = {
     SettingKind.SWITCH: "switch",
     SettingKind.NUMBER: "number",
@@ -99,10 +102,12 @@ def _value_of_body(declaration: SettingDeclaration, body: SettingValueBody | Non
         assert body.text is not None
         return TextValue(name=body.text.name, translations=tuple(sorted(body.text.translations.items())))
     if field == "number":
-        try:
-            return Decimal(body.number or "")
-        except InvalidOperation as exc:
-            raise SettingValueError(f"{declaration.key} takes a number.", reason="setting_value_not_a_number") from exc
+        # A plain decimal only: digits, one optional point, an optional minus. Python's
+        # Decimal() would also take spaces, «_», «+», exponents and non-ASCII digits.
+        text = body.number or ""
+        if not _PLAIN_DECIMAL.fullmatch(text):
+            raise SettingValueError(f"{declaration.key} takes a number.", reason="setting_value_not_a_number")
+        return Decimal(text) + 0  # «-0» is 0
     return getattr(body, field)
 
 

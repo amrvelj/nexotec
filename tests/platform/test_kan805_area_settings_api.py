@@ -285,3 +285,44 @@ def test_every_role_reads_the_areas_and_the_platform_tenant_has_none(client, db_
     platform_id = uuid.UUID(ensure_platform_tenant(client))
     staff = platform_admin_headers(tenant_id=platform_id)
     assert client.get(f"{_base(platform_id)}/setting-areas", headers=staff).status_code == 404
+
+
+@pytest.mark.parametrize("text", ["1e1000000", " 5", "5 ", "1_0", "+5", "1e1", "\u0661\u0665", "5.", ".5", "", "--5"])
+def test_only_a_plain_decimal_string_is_a_number(client, db_session, declared, text):
+    dealership_id, boss, _ = _betrieb(client, db_session)
+    refused = _put(client, boss, dealership_id, samples.FEE.key, {"number": text}, 0)
+    assert (refused.status_code, refused.json()["error"]["details"]["reason"]) == (422, "setting_value_not_a_number")
+
+
+def test_minus_zero_is_zero(client, db_session, declared):
+    dealership_id, boss, _ = _betrieb(client, db_session)
+    zero = _put(client, boss, dealership_id, samples.WAIT.key, {"number": "-0"}, 0)
+    assert zero.json()["value"]["number"] == "0"
+
+
+def test_a_huge_exponent_never_overflows_the_declaration_check(db_session):
+    from decimal import Decimal
+
+    from app.platform.organisation.services.setting_declarations import SettingValueError, validate_value
+
+    with pytest.raises(SettingValueError) as refused:
+        validate_value(samples.FEE, Decimal("1e1000000"))
+    assert refused.value.reason == "setting_value_too_large"
+
+
+def test_a_stale_location_value_shows_the_location_column(client, db_session):
+    wide = samples.SettingDeclaration(
+        key="testarea.unit", module=None, kind=samples.SettingKind.CHOICE, when_not_set=samples.WhenNotSet.QUIET,
+        choices=("hours", "work_units"),
+    )
+    with samples.declared(wide):
+        dealership_id, boss, _ = _betrieb(client, db_session)
+        assert _put(client, boss, dealership_id, wide.key, {"choice": "work_units"}, 0, location_id=_seat(db_session, dealership_id)).status_code == 200
+    narrow = samples.SettingDeclaration(
+        key="testarea.unit", module=None, kind=samples.SettingKind.CHOICE, when_not_set=samples.WhenNotSet.QUIET,
+        choices=("hours",),
+    )
+    with samples.declared(narrow):
+        body = client.get(f"{_base(dealership_id)}/setting-areas/testarea", headers=boss).json()
+        assert body["showsLocations"] is True  # one active location, but a value of its own (stale)
+        assert body["settings"][0]["locations"][0]["fitsDeclaration"] is False
