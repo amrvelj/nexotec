@@ -13,9 +13,14 @@ which is what ADR-015's «extraction is triggered, not scheduled» assumes.
 `public` of a context with a LOWER rank, never one with the same or a higher
 rank:
 
-    core · platform · integration · vehicle · contact · valuation ·
-    inventory (parts beside it) · sales (aftersales beside it) · finance ·
-    reporting and compliance (on top, consuming events only)
+    core · platform · planning · integration · vehicle · contact ·
+    valuation · inventory (parts beside it) · sales (aftersales beside it) ·
+    finance · reporting and compliance (on top, consuming events only)
+
+`planning` (KAN-804, amending ADR-131) sits directly above `platform`: Sales,
+Aftersales and Stock all book people, workplaces and cars, and a planner
+inside one of the peers could not be called by the other. It calls
+`platform` only.
 
 `contact` sits above `vehicle`: `VehicleParty` is contact-owned data about a
 vehicle, and vehicle master data serves every context above it (ADR-131 gives
@@ -59,17 +64,18 @@ _APP_ROOT = _REPO_ROOT / "app"
 _RANK: dict[str, int] = {
     "core": 0,
     "platform": 1,
-    "integration": 2,
-    "vehicle": 3,
-    "contact": 4,
-    "valuation": 5,
-    "inventory": 6,
-    "parts": 6,
-    "sales": 7,
-    "aftersales": 7,
-    "finance": 8,
-    "reporting": 9,
-    "compliance": 9,
+    "planning": 2,
+    "integration": 3,
+    "vehicle": 4,
+    "contact": 5,
+    "valuation": 6,
+    "inventory": 7,
+    "parts": 7,
+    "sales": 8,
+    "aftersales": 8,
+    "finance": 9,
+    "reporting": 10,
+    "compliance": 10,
 }
 
 # Top-level modules of app/ and what they count as. The composition roots
@@ -200,8 +206,8 @@ def test_no_upward_import_outside_the_debt_list() -> None:
     found = _scan()
     new = {key: where for key, where in found.items() if key not in _DEBT}
     assert not new, (
-        "A context imports a context at its own rank or above it (ADR-131: calls go down the "
-        "layer order core · platform · integration · vehicle · contact · valuation · inventory/parts · "
+        "A context imports a context at its own rank or above it (ADR-131 as amended by KAN-804: calls go down the "
+        "layer order core · platform · planning · integration · vehicle · contact · valuation · inventory/parts · "
         "sales/aftersales · finance · reporting/compliance). Carry the fact in an event and keep a local "
         "projection, or have the higher context pass it in the call. Do not add to the debt list:\n"
         + "\n".join(f"  {w}  imports {key[2] or key[1]} from {key[1]}" for key, ws in new.items() for w in ws)
@@ -271,3 +277,19 @@ def test_reader_exempts_only_the_context_reconciliation_module() -> None:
     source = "from app.sales.public import f\n"
     assert _upward_in("vehicle/reconciliation.py", source) == []
     assert _upward_in("vehicle/services/reconciliation.py", source) == [("app.sales.public", "f", "vehicle", "sales")]
+
+
+def test_planning_calls_platform_only_and_everything_above_may_call_planning() -> None:
+    """KAN-804 (Decision A, amending ADR-131): planning sits directly above
+    platform. It calls platform and nothing else; every context above it may
+    book through planning.public, platform may not."""
+
+    assert _upward_in("planning/services/x.py", "from app.platform.public import f\n") == []
+    for higher in ("integration", "vehicle", "contact", "inventory", "sales", "aftersales"):
+        assert _upward_in("planning/services/x.py", f"from app.{higher}.public import f\n") == [
+            (f"app.{higher}.public", "f", "planning", higher)
+        ]
+        assert _upward_in(f"{higher}/services/x.py", "from app.planning.public import f\n") == []
+    assert _upward_in("platform/services/x.py", "from app.planning.public import f\n") == [
+        ("app.planning.public", "f", "platform", "planning")
+    ]

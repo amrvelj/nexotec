@@ -73,7 +73,7 @@ sales-reconciliation.md. Last verified against main@3b2bf69 (2026-11-18). -->
   stays unfilled (ruled).
 
 ## Price and VAT (ADR-057)
-One gross price, the printed VAT line (ADR-098), the fiktiver Vorsteuerabzug, the pricing bounds
+One gross price (vehicle sales, ADR-212), the printed VAT line (ADR-098), the fiktiver Vorsteuerabzug, the pricing bounds
 and the discount cap: `sales-pricing.md`. **There is no `vatTreatment`.**
 
 ## Contract rules

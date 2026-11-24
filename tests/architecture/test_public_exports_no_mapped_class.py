@@ -30,10 +30,11 @@ from sqlalchemy.orm import Mapper
 
 _APP_ROOT = Path(__file__).resolve().parents[2] / "app"
 
-# The twelve bounded contexts (CLAUDE.md); test_adr_047_no_shared_transaction.py
+# The thirteen bounded contexts (CLAUDE.md); test_adr_047_no_shared_transaction.py
 # fails when app/ gains a package that is neither one of these nor wiring.
 _CONTEXTS = (
     "platform",
+    "planning",
     "contact",
     "vehicle",
     "sales",

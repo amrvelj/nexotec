@@ -14,16 +14,21 @@ paths:
   - "tests/sales/test_sales_offer_pricing_bounds.py"
   - "tests/sales/test_sales_documents.py"
   - "tests/architecture/test_no_vat_treatment_field.py"
+  - "tests/architecture/test_net_line_only_where_ruled.py"
   - "frontend/apps/dms/src/modules/sales/components/PriceBuildUp.tsx"
   - "frontend/apps/dms/src/modules/sales/pages/OfferWorkspace.pricing*"
 ---
-<!-- Maintainer note. ADR-033, ADR-053, ADR-057, ADR-098. Moved out of sales.md by KAN-615 (2026-11-13)
+<!-- Maintainer note. ADR-033, ADR-053, ADR-057, ADR-098, ADR-212. Moved out of sales.md by KAN-615 (2026-11-13)
 for the pricing and document files. Last verified against main@3b2bf69 (2026-11-18). -->
 
-# Sales pricing and VAT (ADR-057)
+# Vehicle-sales pricing and VAT (ADR-057, as limited by ADR-212)
 
-- **One price: gross, CHF incl. MwSt**, after all discounts; no net line, no VAT breakdown on
-  screen or on the contact document. **There is no `vatTreatment`**:
+- **ADR-057's presentation rule is for vehicle sales** — offers, contracts, stock prices (ADR-212,
+  2026-11-24). A workshop order and later a parts document show net and gross per position and one
+  VAT line per payer (`aftersales.md`); `test_net_line_only_where_ruled.py` lets only `aftersales`
+  and `parts` declare a net amount, so vehicle sales cannot drift.
+- **A vehicle sale has one price: gross, CHF incl. MwSt**, after all discounts; no net line, no VAT breakdown on
+  screen or on the contact document. **There is no `vatTreatment`**, in any context (ADR-212 keeps it):
   `test_no_vat_treatment_field.py` scans `app/` and the frontend sources, not `alembic/` or locale JSON.
 - VAT is **one line on the printed document only**, at `Dealership.vat_rate` (Notion's
   `dealer_settings.vat_rate` does not exist), directly under «Verkaufspreis», before the trade-in

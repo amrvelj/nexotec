@@ -45,7 +45,7 @@ What it proves:
    (import-linter forbids it too since KAN-120; this scan names it) or a public function
    exported by assignment (an alias, a lambda, a `partial(...)`) fails,
    since point 1 could not see the call.
-   Every package under app/ is one of the twelve contexts or declared
+   Every package under app/ is one of the thirteen contexts or declared
    wiring (`core`, `api`).
 
 The one debt this test tracked — decided by Anto on 2026-10-07 (KAN-90,
@@ -75,7 +75,7 @@ pending. The behavioural tests cover those per call
 reads no Sales row at all, by recording each transaction's statements), and in `test_integration_gateway`
 the two KAN-90 tests on the caller's own rows). It does not follow a
 write made by assigning to another context's ORM object (rule 1's
-territory), and it scans the twelve contexts only: the composition roots
+territory), and it scans the thirteen contexts only: the composition roots
 directly under app/ (main, worker, reconciliation_runner) wire contexts
 together. scripts/ is scanned separately, at the end of this file: the
 migration smoke test's two CI fixtures reach several contexts' internals,
@@ -101,12 +101,13 @@ import pytest
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 _APP_ROOT = _REPO_ROOT / "app"
 
-# The twelve bounded contexts (CLAUDE.md). Every package directly under
+# The thirteen bounded contexts (CLAUDE.md). Every package directly under
 # app/ is one of these or declared in _NOT_A_CONTEXT, so a new context
 # cannot be skipped by the scan without a visible edit here.
 _CONTEXTS = frozenset(
     {
         "platform",
+        "planning",
         "contact",
         "vehicle",
         "sales",
@@ -1166,7 +1167,7 @@ def test_self_test_a_partial_export_is_reported(tmp_path: Path) -> None:
 # --- scripts/ (KAN-106; ADR-140) ----------------------------------------
 #
 # The import-linter's root package is `app` and the scan above walks the
-# twelve contexts, so a script under scripts/ that reaches into two
+# thirteen contexts, so a script under scripts/ that reaches into two
 # contexts' internals is seen by neither. This scan does. KAN-106 found the
 # legacy transaction import (scripts/migrate_transaction_rows.py), excepted by
 # ADR-091 until it was deleted (KAN-79, Anto 2026-11-02: the old system's
