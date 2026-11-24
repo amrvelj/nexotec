@@ -252,7 +252,7 @@ describe('every offered filter is applied server-side (KAN-458)', () => {
         { id: 'c', fieldId: 'purchaseDate', type: 'date', condition: 'before', value: '2026-03-12' },
         { id: 'd', fieldId: 'updatedAt', type: 'date', condition: 'inTheLastDays', days: 30 },
         { id: 'e', fieldId: 'isInvoiceable', type: 'boolean', condition: 'is', value: false },
-        { id: 'f', fieldId: 'supplierName', type: 'text', condition: 'contains', value: 'a:b' },
+        { id: 'f', fieldId: 'supplierLabel', type: 'text', condition: 'contains', value: 'a:b' },
       ],
       fields,
     )
@@ -262,7 +262,7 @@ describe('every offered filter is applied server-side (KAN-458)', () => {
       'purchaseDate:before:2026-03-12',
       'updatedAt:inTheLastDays:30',
       'isInvoiceable:is:false',
-      'supplierName:contains:a:b',
+      'supplierLabel:contains:a:b',
     ])
   })
 

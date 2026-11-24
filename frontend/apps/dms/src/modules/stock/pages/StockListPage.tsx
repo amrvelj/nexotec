@@ -314,7 +314,7 @@ export function StockListPage() {
         cell: ({ row }) => yesNo(row.original.isInvoiceable),
       },
       {
-        id: 'supplierName',
+        id: 'supplierLabel',
         header: t('stockList.columns.supplierName'),
         // KAN-465: the supplier contact's name, linking to the contact; a booking from before keeps its typed name.
         cell: ({ row }) =>

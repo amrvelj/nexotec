@@ -92,9 +92,9 @@ STOCK_ITEM_COLUMNS: Registry = (
         "notionalInputTaxAmount", StockItem.notional_input_tax_amount, "money", _L + "notionalInputTaxAmount"
     ),
     ColumnSpec("isInvoiceable", StockItem.is_invoiceable, "boolean", _L + "isInvoiceable"),
-    # KAN-465: the supplier contact's name (rule 2's copy). The key stays
-    # `supplierName`, so saved views, column layouts and links keep working.
-    ColumnSpec("supplierName", StockItem.supplier_label, "text", _L + "supplierName"),
+    # KAN-465: the supplier contact's name (rule 2's copy) — `supplierLabel`, a
+    # field of the read like every column; its header keeps the «Lieferant» key.
+    ColumnSpec("supplierLabel", StockItem.supplier_label, "text", _L + "supplierName"),
     ColumnSpec("purchaseDate", StockItem.purchase_date, "date", _L + "purchaseDate"),
     ColumnSpec("orderDate", StockItem.order_date, "date", _L + "orderDate"),
     ColumnSpec("expectedDelivery", StockItem.expected_delivery, "date", _L + "expectedDelivery"),
