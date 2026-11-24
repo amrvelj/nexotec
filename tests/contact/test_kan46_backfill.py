@@ -18,6 +18,7 @@ from app.contact.models.contact import (
     Language,
     PhoneType,
 )
+from tests.postgres_only import POSTGRES_SQL
 from tests.pre_rename_names import pre_rename_names
 
 _MIG_PATH = (
@@ -76,6 +77,7 @@ def _reload(db_session, *phones) -> list[bool]:
     return [p.is_primary for p in phones]
 
 
+@POSTGRES_SQL
 def test_zero_usable_primary_group_gets_the_oldest_usable_promoted(db_session):
     c = _contact(db_session)
     older = _phone(db_session, c, "+41791111111", is_primary=False, days=0)
@@ -87,6 +89,7 @@ def test_zero_usable_primary_group_gets_the_oldest_usable_promoted(db_session):
     assert _reload(db_session, older, newer) == [True, False]
 
 
+@POSTGRES_SQL
 def test_dead_primary_with_a_usable_survivor_hands_the_flag_over(db_session):
     c = _contact(db_session)
     dead = _phone(
@@ -102,6 +105,7 @@ def test_dead_primary_with_a_usable_survivor_hands_the_flag_over(db_session):
     assert _reload(db_session, dead, alive) == [False, True]
 
 
+@POSTGRES_SQL
 def test_multiple_usable_primaries_collapse_to_the_oldest(db_session):
     c = _contact(db_session)
     a = _phone(db_session, c, "+41791111111", is_primary=True, days=0)
@@ -113,6 +117,7 @@ def test_multiple_usable_primaries_collapse_to_the_oldest(db_session):
     assert _reload(db_session, a, b) == [True, False]
 
 
+@POSTGRES_SQL
 def test_group_with_no_usable_row_elects_nothing(db_session):
     c = _contact(db_session)
     dead = _phone(
@@ -126,6 +131,7 @@ def test_group_with_no_usable_row_elects_nothing(db_session):
     assert _reload(db_session, dead) == [False]
 
 
+@POSTGRES_SQL
 def test_healthy_group_is_left_untouched(db_session):
     c = _contact(db_session)
     primary = _phone(db_session, c, "+41791111111", is_primary=True, days=0)
