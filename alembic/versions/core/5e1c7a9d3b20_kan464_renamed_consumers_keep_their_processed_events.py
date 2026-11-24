@@ -1,6 +1,6 @@
 """KAN-464 PR-3: the renamed consumers keep the events they processed
 
-Customers became contacts (ADR-209). Six consumers of other contexts' events
+Customers became contacts (ADR-210). Six consumers of other contexts' events
 were named `customer.*` and are `contact.*` now; their events did not change
 name. Idempotency is keyed by (event, consumer name), so a row still pending
 or dead in the outbox that the old name already processed would run again

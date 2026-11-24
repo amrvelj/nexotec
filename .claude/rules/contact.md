@@ -54,7 +54,7 @@ sales files belong to other rules. Last verified against main@3b2bf69 (2026-11-1
   evidence record exists (`LegalBasis`, ADR-030, append-only; `enable_group_read` refuses without
   one); whether a real group may share data is the open legal question — raise it, never decide it.
 
-## The rename from customers (KAN-464 PR-3, ADR-209)
+## The rename from customers (KAN-464 PR-3, ADR-210)
 - Kept: the Alembic chain label and history; old audit rows' `entity_type` `customer` (readers take
   both); `{{customer.salutation}}`. Until PR-5: `customer.merged` stays subscribed
   (`sales.customer_merged`), payload readers fall back to old keys, reconciliation reports old-name

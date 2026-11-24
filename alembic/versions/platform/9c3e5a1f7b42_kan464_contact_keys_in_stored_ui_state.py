@@ -1,6 +1,6 @@
 """KAN-464 PR-3: stored UI state follows the contact rename
 
-Customers became contacts (ADR-209). Two kinds of platform rows name what the
+Customers became contacts (ADR-210). Two kinds of platform rows name what the
 SPA renamed:
 
 - `ui_translation` holds one row per (namespace, key, language). Every bundle

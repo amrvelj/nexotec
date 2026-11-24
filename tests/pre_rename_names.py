@@ -1,7 +1,7 @@
 """Today's contact tables under the names they had before KAN-464 PR-3.
 
 A migration on `main` is immutable, and the ones written before customers
-became contacts (ADR-209) name `customer`, `customer_phone`, `customer_id`, ….
+became contacts (ADR-210) name `customer`, `customer_phone`, `customer_id`, ….
 A test that calls such a migration's function against today's schema runs it
 inside `pre_rename_names(connection)`: each renamed table is shown under its old
 name, with its renamed columns under their old names, as a temporary view.

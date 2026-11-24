@@ -80,7 +80,7 @@ export interface ContactDetailContentProps {
 /**
  * FR-06 Contact 360 view. "The Contact 360 pattern generalises to every
  * entity" per the UI/UX doc's Detail Screens section — this page is the
- * app-specific wiring (data fetching, the customer field set, the actual
+ * app-specific wiring (data fetching, the contact field set, the actual
  * PATCH calls) around the generic DetailHeader/DetailTabs/InlineEditField
  * shell in @nexotec/ui-kit. Replaces the old ContactFormPage entirely:
  * editing here is inline (FR-05), not a separate Save-button form.

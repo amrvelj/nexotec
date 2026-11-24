@@ -116,7 +116,7 @@ def _has(db: Session, sentinel: str) -> bool:
     return column in {col["name"] for col in inspect(db.get_bind()).get_columns(_live_table_name(db, table))}
 
 
-# KAN-464 PR-3 (ADR-209): customers became contacts. A schema from before it
+# KAN-464 PR-3 (ADR-210): customers became contacts. A schema from before it
 # (main's heads, every older one) names the contact tables and columns as
 # they were; this PR's migrations rename them. The sentinels above and the
 # raw inserts of older shapes below use the old names on purpose.

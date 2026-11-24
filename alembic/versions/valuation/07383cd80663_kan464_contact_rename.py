@@ -1,6 +1,6 @@
 """KAN-464 PR-3: Valuation's contact columns and index
 
-Customers became contacts (ADR-209; Anto, 2026-10-26: one register with roles, the full
+Customers became contacts (ADR-210; Anto, 2026-10-26: one register with roles, the full
 rename). Renames only, in the catalogue: no row is rewritten, and every name is listed
 explicitly because Postgres renames no index or constraint with its table or column. The
 applied history keeps its names, the chain its label `customer`.

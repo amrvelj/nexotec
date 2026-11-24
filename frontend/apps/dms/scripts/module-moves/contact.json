@@ -2,7 +2,7 @@
   "module": "contact",
   "ticket": "KAN-636",
   "adr": "ADR-161",
-  "renamedBy": {"ticket": "KAN-464", "adr": "ADR-209", "note": "customers became contacts: the module folder and its files renamed (PR-3)"},
+  "renamedBy": {"ticket": "KAN-464", "adr": "ADR-210", "note": "customers became contacts: the module folder and its files renamed (PR-3)"},
   "moves": [
     ["src/pages/CustomerCreatePage.tsx", "src/modules/customer/pages/CustomerCreatePage.tsx"],
     ["src/pages/CustomerDetailPage.historyLabels.render.test.tsx", "src/modules/customer/pages/CustomerDetailPage.historyLabels.render.test.tsx"],

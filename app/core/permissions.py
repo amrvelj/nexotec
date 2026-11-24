@@ -100,7 +100,7 @@ CAPABILITY_MATRIX: dict[str, Capability] = {
     # --- shipped modules --------------------------------------------------
     # KAN-464 Q3 (Anto, 2026-11-14, A): inventory (purchasing) writes
     # contacts too and gives the supplier role; the customer role and its
-    # data (lifecycle, advisor, credit block, a merge of a contact) stay
+    # data (lifecycle, advisor, credit block, a merge of a customer) stay
     # with sales and aftersales — the next row.
     "contacts": Capability(read_roles=_ANY, write_roles=frozenset({_S, _AS, _I})),
     "contact_customer_role": Capability(read_roles=_ANY, write_roles=frozenset({_S, _AS})),

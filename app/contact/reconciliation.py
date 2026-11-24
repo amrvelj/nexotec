@@ -52,7 +52,7 @@ CONTEXT = "contact"
 # is a finding: the outbox's normal delay, as Stock's and Sales' checks allow.
 _OUTBOX_LAG_GRACE = dt.timedelta(hours=1)
 _BOOKING_EVENT_TYPES = ("inventory.stock_item.purchased", "inventory.stock_item.storno")
-# KAN-464 PR-3 (ADR-209): every event this context publishes, and the name it
+# KAN-464 PR-3 (ADR-210): every event this context publishes, and the name it
 # was published under before customers became contacts. A row already in the
 # outbox keeps its name (never rewritten); the old names stay subscribed
 # until the check below finds none pending or dead, then KAN-464 PR-5

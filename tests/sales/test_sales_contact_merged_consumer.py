@@ -84,7 +84,7 @@ def test_the_consumer_is_registered_for_contact_merged():
 
 
 def test_the_name_before_the_rename_stays_subscribed_under_its_own_consumer():
-    """KAN-464 PR-3 (ADR-209): a `customer.merged` still in the outbox is
+    """KAN-464 PR-3 (ADR-210): a `customer.merged` still in the outbox is
     consumed under its old consumer name, so one it already processed stays
     processed. KAN-464 PR-5 removes it."""
 
