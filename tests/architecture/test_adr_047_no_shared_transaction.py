@@ -101,12 +101,13 @@ import pytest
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 _APP_ROOT = _REPO_ROOT / "app"
 
-# The twelve bounded contexts (CLAUDE.md). Every package directly under
+# The thirteen bounded contexts (CLAUDE.md). Every package directly under
 # app/ is one of these or declared in _NOT_A_CONTEXT, so a new context
 # cannot be skipped by the scan without a visible edit here.
 _CONTEXTS = frozenset(
     {
         "platform",
+        "planning",
         "contact",
         "vehicle",
         "sales",

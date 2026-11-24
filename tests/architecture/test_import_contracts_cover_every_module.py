@@ -23,11 +23,12 @@ import pytest
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 _APP_ROOT = _REPO_ROOT / "app"
 
-# The twelve bounded contexts (CLAUDE.md). test_adr_047_no_shared_transaction.py
+# The thirteen bounded contexts (CLAUDE.md). test_adr_047_no_shared_transaction.py
 # fails when app/ gains a package that is neither one of these nor declared
 # wiring; this test relies on that and repeats only the names.
 _CONTEXTS = (
     "platform",
+    "planning",
     "contact",
     "vehicle",
     "sales",
@@ -91,7 +92,17 @@ def test_every_module_but_public_is_forbidden_to_the_other_contexts(context):
     )
 
 
-@pytest.mark.parametrize("context", _contexts_with_modules())
+def _contexts_with_a_contract() -> list[str]:
+    """Every context with modules (the test above demands its contract) and
+    every context that has a contract before it has modules — planning since
+    KAN-804, so that its first module lands in a contract that is already
+    whole."""
+
+    contracts = _contracts()
+    return [context for context in _CONTEXTS if _contract_name(context) in contracts or _top_level_modules(context)]
+
+
+@pytest.mark.parametrize("context", _contexts_with_a_contract())
 def test_every_other_context_is_a_source_and_nothing_is_ignored(context):
     contract = _contracts()[_contract_name(context)]
     assert contract["type"] == "forbidden"

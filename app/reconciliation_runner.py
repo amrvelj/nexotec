@@ -9,7 +9,7 @@ dealership and dealership.dealer_group_id -> dealer_group are its own), so
 app.platform.reconciliation carries only the created_by / updated_by checks
 every context runs (KAN-243; added by KAN-318, once
 scripts/seed_staging_demo.py stopped stamping a random actor on the rows it
-creates). aftersales, parts, finance, reporting and compliance still need to
+creates). planning, aftersales, parts, finance, reporting and compliance still need to
 add their own once they're built out. The one table with actor columns and
 no job is core's daily_job_run, which nothing writes an actor to:
 tests/architecture/test_actor_columns_reconciled.py names it as the open

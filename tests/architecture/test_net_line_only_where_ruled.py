@@ -1,0 +1,166 @@
+"""Architecture test (KAN-804; ADR-212, which limits ADR-057 to vehicle
+sales): only the contexts named here may present a net line.
+
+ADR-057's presentation rule — one price, gross CHF incl. MwSt, no net line
+and no VAT breakdown on screen — holds for vehicle sales: offers, contracts
+and stock prices. Anto ruled on 2026-11-12 (Aftersales PRD, ruling 4) that a
+workshop order shows net and gross per position and one VAT line per payer;
+a parts document will do the same. So two presentation rules live in one
+product, and this test keeps the second from drifting into the first: a
+net-amount field may be declared in `aftersales` and `parts`, and nowhere
+else.
+
+What counts as a net line: an identifier, declared or assigned (a colon or
+`=` right after it, as in `test_no_vat_treatment_field.py`), in which the
+word `net` or `netto` stands directly next to an amount word — `net_price`,
+`unitNetPrice`, `total_net`, `"netAmount":`. Words are split on `_` and on
+camelCase. `price_is_net` (the provider catalogue's flag: whether a list
+price *arrived* net, vehicle and integration) is a flag about an input, not
+a net amount, and does not match: `is` stands between the two words.
+
+Where it looks: every `.py` file under `app/<context>/`, and every `.ts` /
+`.tsx` file under the SPA's `src/modules/<module>/`, the module mapped to
+its context (`stock` is inventory). The SPA's shared code (`src/` outside
+`modules/`) and the ui-kit are no context: a net-amount field there fails
+too, until a ticket names that shared file in `_SHARED_ALLOWED` with why.
+`app/core` is not scanned: the money calculation (KAN-807, ADR-215) is
+shared arithmetic that every payer total runs through, gross-only Sales
+included; presenting its net figure is a context's decision, and that is
+what this test rules on.
+
+Not seen (stated, not hidden): a net amount under a name without the word
+(`base`, `subtotal`), a translation key in the locale JSON, and a figure
+built in a template. `test_no_vat_treatment_field.py` stays as it is: there
+is no `vatTreatment` in any context, these two included.
+"""
+
+import re
+from pathlib import Path
+
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+_APP_ROOT = _REPO_ROOT / "app"
+_SPA_SRC = _REPO_ROOT / "frontend" / "apps" / "dms" / "src"
+_KIT_SRC = _REPO_ROOT / "frontend" / "packages" / "ui-kit" / "src"
+
+# ADR-212: the contexts that may present a net line. A new one is an ADR.
+NET_LINE_CONTEXTS = frozenset({"aftersales", "parts"})
+
+# Shared frontend files that may carry a net amount, each with its ticket.
+_SHARED_ALLOWED: dict[str, str] = {}
+
+# The SPA's module folders and the context each belongs to.
+_MODULE_CONTEXT = {"stock": "inventory"}
+
+_AMOUNT_WORDS = frozenset({"price", "prices", "amount", "amounts", "total", "totals", "sum", "sums", "line", "lines", "value", "values"})
+_NET_WORDS = frozenset({"net", "netto"})
+
+# An identifier (optionally quoted, for a JSON-shaped key) followed by `:` or `=`.
+_DECLARATION = re.compile(r"[\"']?([A-Za-z_][A-Za-z0-9_]*)[\"']?\s*[:=](?!=)")
+_CAMEL_SPLIT = re.compile(r"[A-Z]?[a-z0-9]+|[A-Z]+(?![a-z])")
+
+
+def _words(identifier: str) -> list[str]:
+    return [word.lower() for part in identifier.split("_") for word in _CAMEL_SPLIT.findall(part)]
+
+
+def is_net_amount_name(identifier: str) -> bool:
+    words = _words(identifier)
+    return any(
+        (a in _NET_WORDS and b in _AMOUNT_WORDS) or (a in _AMOUNT_WORDS and b in _NET_WORDS)
+        for a, b in zip(words, words[1:], strict=False)
+    )
+
+
+def _net_declarations(path: Path, root: Path = _REPO_ROOT) -> list[str]:
+    found = []
+    for lineno, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+        if line.strip().startswith(("#", "*", "//")):
+            continue
+        for match in _DECLARATION.finditer(line):
+            if is_net_amount_name(match.group(1)):
+                found.append(f"{path.relative_to(root)}:{lineno}: {line.strip()}")
+    return found
+
+
+def _files(root: Path, suffixes: set[str]) -> list[Path]:
+    return [
+        path
+        for path in sorted(root.rglob("*"))
+        if path.is_file()
+        and path.suffix in suffixes
+        and "__pycache__" not in path.parts
+        and "node_modules" not in path.parts
+    ]
+
+
+def _owner(path: Path) -> str:
+    """The context a scanned file belongs to, or `shared`."""
+
+    if path.is_relative_to(_APP_ROOT):
+        return path.relative_to(_APP_ROOT).parts[0]
+    if path.is_relative_to(_SPA_SRC / "modules"):
+        module = path.relative_to(_SPA_SRC / "modules").parts[0]
+        return _MODULE_CONTEXT.get(module, module)
+    return "shared"
+
+
+def _scanned() -> list[Path]:
+    backend = [
+        path
+        for context_dir in sorted(_APP_ROOT.iterdir())
+        if context_dir.is_dir() and context_dir.name not in {"core", "api", "__pycache__"}
+        for path in _files(context_dir, {".py"})
+    ]
+    return backend + _files(_SPA_SRC, {".ts", ".tsx"}) + _files(_KIT_SRC, {".ts", ".tsx"})
+
+
+def test_a_net_amount_is_declared_only_where_adr_212_allows_one():
+    violations = []
+    for path in _scanned():
+        owner = _owner(path)
+        if owner in NET_LINE_CONTEXTS:
+            continue
+        if owner == "shared" and str(path.relative_to(_REPO_ROOT)) in _SHARED_ALLOWED:
+            continue
+        violations.extend(f"[{owner}] {hit}" for hit in _net_declarations(path))
+
+    assert not violations, (
+        "A net amount is declared outside the contexts that may present a net line "
+        f"({sorted(NET_LINE_CONTEXTS)}; ADR-212, which limits ADR-057's gross-only rule to vehicle "
+        "sales). Vehicle sales show one gross price. A new context or shared file on the list is an "
+        "ADR:\n" + "\n".join(violations)
+    )
+
+
+def test_the_allowed_contexts_exist():
+    missing = sorted(context for context in NET_LINE_CONTEXTS if not (_APP_ROOT / context).is_dir())
+    assert not missing, f"ADR-212 names contexts that are not under app/: {missing}"
+
+
+def test_the_name_rule_on_the_shapes_it_must_judge():
+    for net in ("net_price", "unitNetPrice", "total_net", "netAmount", "NET_TOTAL", "line_net", "nettoPrice", "priceNet"):
+        assert is_net_amount_name(net), net
+    for other in ("price_is_net", "network", "net_10", "gross_price", "subnet_total", "internet_value", "netloc"):
+        assert not is_net_amount_name(other), other
+
+
+def test_the_scan_sees_a_declaration_and_skips_prose(tmp_path):
+    source = tmp_path / "x.py"
+    source.write_text(
+        "net_price: Decimal\n"
+        "    unitNetPrice = 3\n"
+        "# net_price: prose in a comment\n"
+        "if net_price == other:\n"
+        'payload = {"netAmount": 1}\n',
+        encoding="utf-8",
+    )
+    hits = _net_declarations(source, root=tmp_path)
+    assert [hit.split(": ", 1)[1] for hit in hits] == ["net_price: Decimal", "unitNetPrice = 3", 'payload = {"netAmount": 1}']
+
+
+def test_the_owner_of_a_file():
+    assert _owner(_APP_ROOT / "sales" / "schemas" / "offer.py") == "sales"
+    assert _owner(_APP_ROOT / "aftersales" / "public.py") == "aftersales"
+    assert _owner(_SPA_SRC / "modules" / "stock" / "pages" / "x.tsx") == "inventory"
+    assert _owner(_SPA_SRC / "components" / "x.tsx") == "shared"
+    assert _owner(_KIT_SRC / "x.tsx") == "shared"

@@ -24,7 +24,7 @@ from app.sales.public import SalesExporter
 from app.valuation.public import ValuationExporter
 from app.vehicle.public import VehicleExporter
 
-STUB_CONTEXTS = ("aftersales", "parts", "finance", "compliance")
+STUB_CONTEXTS = ("planning", "aftersales", "parts", "finance", "compliance")
 
 
 def register_exporters() -> None:

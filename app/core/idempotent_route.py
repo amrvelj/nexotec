@@ -96,11 +96,12 @@ logger = logging.getLogger("app.core.idempotent_route")
 IDEMPOTENCY_KEY_HEADER = "Idempotency-Key"
 IDEMPOTENCY_RECORD_TTL = dt.timedelta(hours=24)
 
-# The twelve bounded contexts (CLAUDE.md). Written out because app/core
+# The thirteen bounded contexts (CLAUDE.md). Written out because app/core
 # imports no context (rule 8); the architecture test named in the module
 # docstring checks them against the packages under app/.
 RESERVED_KEY_CONTEXTS = (
     "platform",
+    "planning",
     "contact",
     "vehicle",
     "sales",

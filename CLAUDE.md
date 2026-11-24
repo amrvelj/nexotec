@@ -95,13 +95,14 @@ keep breaking it · engineering headcount reaches three · a provider licence de
 isolation. Until then we build **hard seams inside one application** — no second deployable,
 second database, service template, broker or top-level `services/` directory. A trigger fired? Say so; do not act.
 
-## The twelve bounded contexts
+## The thirteen bounded contexts
 
-Lowest layer first (ADR-131); peers: parts and inventory, aftersales and sales, reporting and compliance (on top, consuming events only).
+Lowest layer first (ADR-131, ADR-211); peers: parts and inventory, aftersales and sales, reporting and compliance (on top, consuming events only).
 
 | Context | Owns |
 |---|---|
 | `platform` | tenants/dealers, users, auth, roles, module entitlements, feature flags, reference data, locations, document templates, standard texts, branding, UI translations, staff notifications |
+| `planning` | *(stub)* resources, bookings, blocks (ADR-211) |
 | `integration` | the integration registry (connections, write-only secret refs, entitlements, call log, retention) + provider-gateway adapters; AI (ADR-181) |
 | `vehicle` | physical vehicles, catalogue, plates, odometer, custody, provenance, the configurator |
 | `contact` | contacts (**group-scoped**, ADR-014), contact channels (ADR-067), external IDs, duplicates/merges, `VehicleParty` |
@@ -179,7 +180,7 @@ Each line ends in the `.claude/rules/` file that holds the detail.
 - **Tenant** (ADR-014): group → dealership → location; the **dealership** is the tenant, **Betrieb** in the UI, `dealership` in table and code (D-A-10); contacts are group-scoped (`group_id`), stock and contact history dealership-owned but readable group-wide; cost, margin, commission, discount, trade-in purchase price and valuations stay private to the legal entity; all writes require switching the active dealership — `platform-users.md`.
 - **One administration surface (A-RULE-0):** every setting a dealership owns is configured in Dealer Administration; no module ships its own settings screen — `platform-admin.md`.
 - **Vehicle identity:** a licence plate is never an identifier — `vehicle-mdm.md`.
-- **VAT** (ADR-057): one price, gross CHF incl. MwSt; no net line or VAT breakdown on screen; **there is no `vatTreatment`** — no field, enum, column, badge or switch, anywhere (`test_no_vat_treatment_field.py`) — `sales-pricing.md`.
+- **VAT** (ADR-057; ADR-212 limits it to vehicle sales, only `aftersales` and `parts` show net): one price, gross CHF incl. MwSt; no net line or VAT breakdown on screen; **there is no `vatTreatment`** — no field, enum, column, badge or switch, anywhere (`test_no_vat_treatment_field.py`) — `sales-pricing.md`.
 - **i18n:** DE, FR, IT, EN are all first class, reference data included; no user-visible string is hardcoded; the contact's correspondence language is not the user's UI language — `ui-i18n.md`.
 
 ## Reference material outside the repository
