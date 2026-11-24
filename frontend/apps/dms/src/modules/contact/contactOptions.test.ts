@@ -12,6 +12,7 @@ const FIELDS: FilterFieldDef[] = [
   },
   { id: 'advisor', label: 'Advisor', type: 'select', param: 'advisorUserId', conditions: ['is', 'isNot'] },
   { id: 'language', label: 'Language', type: 'select', param: 'language', conditions: ['is', 'isNot'] },
+  { id: 'contactType', label: 'Type', type: 'select', param: 'contactType', conditions: ['is', 'isNot'] },
 ]
 function paramsFor(predicates: FilterPredicate[]): Record<string, string> {
   const params = new URLSearchParams()
@@ -62,6 +63,13 @@ describe('applyContactFilters — «ist nicht» (KAN-476)', () => {
     expect(paramsFor([{ id: 'a', fieldId: 'language', type: 'select', condition: 'isNot', value: 'de' }])).toEqual({ language_not: 'de' })
     expect(paramsFor([{ id: 'a', fieldId: 'advisor', type: 'select', condition: 'isNot', value: 'user-7' }])).toEqual({
       advisorUserIdNot: 'user-7',
+    })
+    // KAN-464 PR-3: renamed with the register, camelCase on both sides (`contactType`, `contactTypeNot`).
+    expect(paramsFor([{ id: 'a', fieldId: 'contactType', type: 'select', condition: 'is', value: 'business' }])).toEqual({
+      contactType: 'business',
+    })
+    expect(paramsFor([{ id: 'a', fieldId: 'contactType', type: 'select', condition: 'isNot', value: 'business' }])).toEqual({
+      contactTypeNot: 'business',
     })
   })
 

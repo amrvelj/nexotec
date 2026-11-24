@@ -16731,7 +16731,7 @@ export interface operations {
             query?: {
                 q?: string | null;
                 lifecycle_status?: components["schemas"]["ContactLifecycleStatus"] | null;
-                contact_type?: components["schemas"]["ContactType"] | null;
+                contactType?: components["schemas"]["ContactType"] | null;
                 language?: components["schemas"]["Language"] | null;
                 canton?: string | null;
                 updated_since?: string | null;
@@ -16748,7 +16748,7 @@ export interface operations {
                 /** @description KAN-476: contacts whose lifecycle status is not this one. */
                 lifecycle_status_not?: components["schemas"]["ContactLifecycleStatus"] | null;
                 /** @description KAN-476: contacts not of this type. */
-                contact_type_not?: components["schemas"]["ContactType"] | null;
+                contactTypeNot?: components["schemas"]["ContactType"] | null;
                 /** @description KAN-476: contacts whose language is not this one (none set included). */
                 language_not?: components["schemas"]["Language"] | null;
                 /** @description KAN-476: contacts whose primary domicile is not in this canton (none recorded included). */
@@ -27232,7 +27232,7 @@ export interface operations {
                 sort?: string | null;
                 limit?: number;
                 cursor?: string | null;
-                contact_id?: string | null;
+                contactId?: string | null;
             };
             header?: {
                 authorization?: string | null;
@@ -27969,7 +27969,7 @@ export interface operations {
                 sort?: string | null;
                 limit?: number;
                 cursor?: string | null;
-                contact_id?: string | null;
+                contactId?: string | null;
             };
             header?: {
                 authorization?: string | null;

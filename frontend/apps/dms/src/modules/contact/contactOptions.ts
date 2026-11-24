@@ -315,8 +315,9 @@ export function applyContactFilters(params: URLSearchParams, predicates: FilterP
       if (paramName === 'advisorUserId') {
         if (predicate.value === UNASSIGNED_ADVISOR) params.set('assigned', 'true')
         else params.set('advisorUserIdNot', predicate.value)
-      } else if (paramName === 'contactGroup' || paramName === 'role') {
-        // KAN-466, KAN-464: camelCase like `advisorUserId`.
+      } else if (paramName === 'contactGroup' || paramName === 'role' || paramName === 'contactType') {
+        // KAN-466, KAN-464: camelCase like `advisorUserId` (`contactType` since
+        // KAN-464 PR-3 renamed it; the other legacy names keep `…_not`).
         params.set(`${paramName}Not`, predicate.value)
       } else params.set(`${paramName}_not`, predicate.value)
     }
