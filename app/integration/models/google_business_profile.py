@@ -30,7 +30,7 @@ import datetime as dt
 import enum
 import uuid
 
-from sqlalchemy import JSON, ForeignKey, Index, Integer, String, UniqueConstraint, text
+from sqlalchemy import JSON, CheckConstraint, ForeignKey, Index, Integer, String, UniqueConstraint, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.base import PrimaryKeyMixin, TenantScopedMixin, TimestampMixin, VersionedMixin
@@ -194,7 +194,9 @@ class GbpPhotoJob(PrimaryKeyMixin, TimestampMixin, TenantScopedMixin, Base):
 
 class GbpPhotoUpload(PrimaryKeyMixin, TimestampMixin, TenantScopedMixin, Base):
     """KAN-226 / KAN-784 (ADR-209): one photo Nexotec uploaded to one
-    binding's Google location, under one category — what makes each upload
+    binding's Google location, under one category — or that Google refused
+    (`refusal_code`, e.g. a size outside Google's photo guidelines; the
+    status page names it and it is not sent again) — what makes each upload
     happen once. Never deleted with the photo: Nexotec never deletes at
     Google (Anto, 2026-11-21), so the row outlives an image removed in
     Nexotec, as the photo outlives it at Google. A hero that becomes the
@@ -204,6 +206,11 @@ class GbpPhotoUpload(PrimaryKeyMixin, TimestampMixin, TenantScopedMixin, Base):
     __tablename__ = "integration_gbp_photo_upload"
     __table_args__ = (
         UniqueConstraint("binding_id", "asset_id", "category", name="uq_integration_gbp_photo_upload_asset"),
+        # Exactly one outcome: Google's media item, or Google's refusal.
+        CheckConstraint(
+            "(google_media_name IS NULL) <> (refusal_code IS NULL)",
+            name="ck_integration_gbp_photo_upload_outcome",
+        ),
     )
 
     binding_id: Mapped[uuid.UUID] = mapped_column(
@@ -214,6 +221,9 @@ class GbpPhotoUpload(PrimaryKeyMixin, TimestampMixin, TenantScopedMixin, Base):
     )
     # Google's v4 media category (`COVER`, `EXTERIOR`, `TEAMS`, `ADDITIONAL`).
     category: Mapped[str] = mapped_column(String(16), nullable=False)
-    # Google's media item, as Google named it (`accounts/…/locations/…/media/…`).
-    google_media_name: Mapped[str] = mapped_column(String(300), nullable=False)
+    # Google's media item, as Google named it (`accounts/…/locations/…/media/…`); null when refused.
+    google_media_name: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    # A closed code when Google refused this image (`provider_refused_request`); never Google's text.
+    refusal_code: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    # When it was uploaded, or refused.
     uploaded_at: Mapped[dt.datetime] = mapped_column(UTCDateTime(), nullable=False)

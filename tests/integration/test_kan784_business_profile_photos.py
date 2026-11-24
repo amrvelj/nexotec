@@ -314,6 +314,68 @@ def test_a_failure_backs_off_then_dead_letters_with_a_status_warning(db_session,
     assert _run(db_session, store).uploaded == 1
 
 
+def test_one_image_google_refuses_never_holds_the_others(db_session, site, store):
+    """KAN-784 review: Google refusing one image (its size or format) is that
+    image's refusal — recorded, not retried, named on the status page — and
+    the location's other photos still go."""
+
+    fake, location, binding = site
+    refused = _image(db_session, store, location, BrandingAssetKind.HERO, primary=True)
+    other = _image(db_session, store, location, BrandingAssetKind.PREMISES)
+    fake.refused_media.add(_JPEG + refused.id.bytes)
+    _queue(db_session, location)
+
+    result = _run(db_session, store)
+
+    assert result.outcome == gbp_photos.PhotoPassOutcome.DONE and result.uploaded == 1
+    assert _job(db_session) is None
+    rows = {r.asset_id: r for r in db_session.scalars(select(GbpPhotoUpload)).all()}
+    assert rows[refused.id].refusal_code == "provider_refused_request" and rows[refused.id].google_media_name is None
+    assert rows[other.id].google_media_name is not None and rows[other.id].refusal_code is None
+
+    status = GbpPhotoStatusProvider()
+    [item] = status.items(db_session, dealership_id=binding.tenant_id, now=utcnow())
+    assert item.message_key == "statusPage.items.googleBusinessProfilePhotos.refused"
+    assert item.params == {"location": "Zürich", "count": 1}
+    assert item.link == "/administration/publishing"
+
+    # Not sent again on the next pass.
+    before = len(fake.requests)
+    _queue(db_session, location)
+    assert _run(db_session, store).uploaded == 0
+    assert len(fake.requests) == before
+
+    # The dealer removes it in Nexotec: the refusal is no longer shown.
+    db_session.delete(db_session.get(BrandingAsset, refused.id))
+    db_session.commit()
+    _queue(db_session, location)
+    _run(db_session, store)
+    assert status.items(db_session, dealership_id=binding.tenant_id, now=utcnow()) == []
+
+
+def test_an_unexpected_failure_is_counted_and_dead_letters(db_session, site, store, monkeypatch, caplog):
+    """KAN-784 review: a defect (here the store raising) backs off and
+    dead-letters like any failure — never retried forever."""
+
+    _fake, location, _binding = site
+    _image(db_session, store, location, BrandingAssetKind.TEAM)
+    _queue(db_session, location)
+
+    def _broken(*args, **kwargs):
+        raise OSError("disk gone")
+
+    monkeypatch.setattr(gbp_photos, "read_location_channel_image", _broken)
+    now = utcnow()
+    with caplog.at_level(logging.ERROR):
+        assert _run(db_session, store, now=now).outcome == gbp_photos.PhotoPassOutcome.RETRY
+    job = _job(db_session)
+    assert job.attempts == 1 and job.last_error_code == "internal_error"
+    assert "failed unexpectedly" in caplog.text
+    for _ in range(gbp_photos.MAX_ATTEMPTS - 1):
+        _run(db_session, store, now=_job(db_session).due_at)
+    assert _job(db_session).dead_at is not None
+
+
 def test_the_backoff_doubles_and_is_capped():
     assert gbp_photos.backoff(1) == dt.timedelta(minutes=5)
     assert gbp_photos.backoff(2) == dt.timedelta(minutes=10)

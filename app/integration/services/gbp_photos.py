@@ -34,8 +34,11 @@ removed in Nexotec stays at Google, and so does an earlier cover.
 
 **Failures.** A refused grant moves the binding to `error`, as the push does
 (`gbp_link.mark_grant_refused`), and drops the job: nothing is retried until
-the manager reconnects (the binding's activation queues a pass again). Any
-other failure backs off (`BACKOFF`); after `MAX_ATTEMPTS` the job is
+the manager reconnects (the binding's activation queues a pass again). Google
+refusing one image (a 400/404/422 — its size or format) is that image's
+refusal: recorded, named on the status page, not sent again, and the pass
+goes on with the others. Any other failure — Google's, the gateway's or a
+defect of ours — backs off (`BACKOFF`); after `MAX_ATTEMPTS` the job is
 dead-lettered (`dead_at`), logged at ERROR, and the Betrieb's status page
 shows a warning for the location (`GbpPhotoStatusProvider`, rule 10) until
 the next change queues it afresh. A deactivated location is skipped
@@ -181,7 +184,7 @@ class PhotoPassResult:
     uploaded: int = 0
 
 
-def _error_code(error: ProviderGatewayError) -> str:
+def _error_code(error: Exception) -> str:
     if isinstance(error, CircuitOpenError):
         return "circuit_open"
     if isinstance(error, ProviderTimeoutError):
@@ -194,7 +197,9 @@ def _error_code(error: ProviderGatewayError) -> str:
         return "provider_refused_request"
     if isinstance(error, ProviderRejectedError):
         return "provider_rejected"
-    return "provider_error"
+    if isinstance(error, ProviderGatewayError):
+        return "provider_error"
+    return "internal_error"
 
 
 @contextmanager
@@ -232,6 +237,23 @@ def _pending(
     return pending
 
 
+def _forget_refusals_of_removed_images(
+    db: Session, binding: GbpLocationBinding, images: tuple[ChannelImage, ...]
+) -> None:
+    """A refusal names an image the dealer can replace; once it is gone from
+    the location, its refusal is no longer something to show. Uploaded rows
+    stay: the photo stays at Google."""
+
+    current = {image.asset_id for image in images}
+    refused = db.scalars(
+        select(GbpPhotoUpload).where(GbpPhotoUpload.binding_id == binding.id, GbpPhotoUpload.refusal_code.is_not(None))
+    ).all()
+    for row in refused:
+        if row.asset_id not in current:
+            db.delete(row)
+    db.commit()
+
+
 def _upload_pending(
     db: Session, binding: GbpLocationBinding, pending: list[tuple[ChannelImage, str]], *, store: ObjectStore | None
 ) -> int:
@@ -247,14 +269,40 @@ def _upload_pending(
             )
             if stored is None:
                 continue  # removed meanwhile, or missing from the store (logged by platform)
-            media = adapter.upload_photo(
-                access_token=token,
-                account_name=account_name,
-                location_name=location_name,
-                content=stored.data,
-                content_type=stored.content_type,
-                category=category,
-            )
+            try:
+                media = adapter.upload_photo(
+                    access_token=token,
+                    account_name=account_name,
+                    location_name=location_name,
+                    content=stored.data,
+                    content_type=stored.content_type,
+                    category=category,
+                )
+            except ProviderRequestError:
+                # Google refused this image itself (a 400/404/422: its size, its
+                # format). Retrying sends the same bytes again, and holding the
+                # pass would keep the location's other photos from Google: the
+                # refusal is recorded, shown on the status page, and the pass
+                # goes on (KAN-784 review).
+                db.rollback()
+                db.add(
+                    GbpPhotoUpload(
+                        binding_id=binding_id,
+                        tenant_id=tenant_id,
+                        asset_id=image.asset_id,
+                        category=category,
+                        refusal_code="provider_refused_request",
+                        uploaded_at=utcnow(),
+                    )
+                )
+                db.commit()
+                logger.warning(
+                    "business profile photos: Google refused image %s for binding %s",
+                    image.asset_id,
+                    binding_id,
+                    extra={"bindingId": str(binding_id), "assetId": str(image.asset_id)},
+                )
+                continue
             db.add(
                 GbpPhotoUpload(
                     binding_id=binding_id,
@@ -346,6 +394,7 @@ def run_photo_job(
     if imagery is None or not imagery.is_active:
         _settle_done(db, claim)
         return PhotoPassResult(PhotoPassOutcome.DROPPED)
+    _forget_refusals_of_removed_images(db, binding, imagery.images)
     pending = _pending(db, binding, imagery.images)
     if not pending:
         _settle_done(db, claim)
@@ -357,16 +406,25 @@ def run_photo_job(
         _settle_done(db, claim)
         return PhotoPassResult(PhotoPassOutcome.GRANT_REFUSED)
     except ProviderGatewayError as error:
-        # Google's or the gateway's failure: back off, then dead-letter. Anything
-        # else is a defect: the runner logs it at ERROR and the job is taken
-        # again after its lease.
+        # Google's or the gateway's failure: back off, then dead-letter.
+        db.rollback()
+        return _failed(db, claim, error=error, now=now or utcnow())
+    except Exception as error:
+        # Anything else is a defect (the store, the database, an adapter bug):
+        # logged with its traceback, and counted like any failure, so it too
+        # backs off and dead-letters instead of retrying forever (rule 10).
+        logger.exception(
+            "business profile photos: binding %s failed unexpectedly",
+            claim.binding_id,
+            extra={"bindingId": str(claim.binding_id)},
+        )
         db.rollback()
         return _failed(db, claim, error=error, now=now or utcnow())
     _settle_done(db, claim)
     return PhotoPassResult(PhotoPassOutcome.DONE, uploaded=uploaded)
 
 
-def _failed(db: Session, claim: PhotoJobClaim, *, error: ProviderGatewayError, now: dt.datetime) -> PhotoPassResult:
+def _failed(db: Session, claim: PhotoJobClaim, *, error: Exception, now: dt.datetime) -> PhotoPassResult:
     code = _error_code(error)
     job = _locked_job(db, claim)
     if job is None:

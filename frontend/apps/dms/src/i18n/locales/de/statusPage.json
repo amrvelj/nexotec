@@ -58,7 +58,9 @@
       "checkFailed": "{{location}}: Der nächtliche Abgleich konnte Google nicht lesen."
     },
     "googleBusinessProfilePhotos": {
-      "failed": "{{location}}: Die Fotos konnten nicht zu Google übertragen werden. Die nächste Änderung der Bilder versucht es erneut."
+      "failed": "{{location}}: Die Fotos konnten nicht zu Google übertragen werden. Die nächste Änderung der Bilder versucht es erneut.",
+      "refused_one": "{{location}}: Google hat {{count, number}} Foto abgelehnt (Grösse oder Format). Ersetzen Sie es unter Veröffentlichung.",
+      "refused_other": "{{location}}: Google hat {{count, number}} Fotos abgelehnt (Grösse oder Format). Ersetzen Sie sie unter Veröffentlichung."
     }
   },
   "indicator": {

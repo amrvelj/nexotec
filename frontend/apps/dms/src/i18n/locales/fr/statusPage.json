@@ -58,7 +58,9 @@
       "checkFailed": "{{location}} : la comparaison nocturne n'a pas pu lire Google."
     },
     "googleBusinessProfilePhotos": {
-      "failed": "{{location}} : les photos n'ont pas pu être transmises à Google. La prochaine modification des images réessaiera."
+      "failed": "{{location}} : les photos n'ont pas pu être transmises à Google. La prochaine modification des images réessaiera.",
+      "refused_one": "{{location}} : Google a refusé {{count, number}} photo (taille ou format). Remplacez-la sous Publication.",
+      "refused_other": "{{location}} : Google a refusé {{count, number}} photos (taille ou format). Remplacez-les sous Publication."
     }
   },
   "indicator": {

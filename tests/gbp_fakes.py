@@ -111,6 +111,8 @@ class FakeGoogle:
         self.get_failure_status: int | None = None
         # KAN-784: a status every photo upload's first step answers with.
         self.media_failure_status: int | None = None
+        # KAN-784 review: image bytes Google refuses (400) when they are uploaded.
+        self.refused_media: set[bytes] = set()
 
     def track(self, location_name: str, **fields: Any) -> None:
         self.location_bodies[location_name] = {"name": location_name, **fields}
@@ -209,6 +211,8 @@ class FakeGoogle:
                 return _json(self.media_failure_status, {"error": {"code": self.media_failure_status}})
             return _json(200, RECORDED["media_start_upload"])
         if url.startswith(gbp.UPLOAD_API + "/"):
+            if request.content in self.refused_media:
+                return _json(400, {"error": {"code": 400, "status": "INVALID_ARGUMENT"}})
             return httpx.Response(200)
         if url.startswith(gbp.MEDIA_API + "/accounts/") and url.endswith("/media"):
             return _json(200, RECORDED["media_create"])

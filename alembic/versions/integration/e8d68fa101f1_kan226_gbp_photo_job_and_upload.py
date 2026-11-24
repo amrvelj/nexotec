@@ -4,7 +4,8 @@
   when it is due, how many attempts failed, which queuing it is, when it was dead-lettered and a
   closed code for the last failure.
 - `integration_gbp_photo_upload`: one row per photo uploaded to a binding's
-  Google location under one category, with Google's media name.
+  Google location under one category, with Google's media name — or
+  Google's refusal of it, as a closed code.
 Ids, codes and Google's resource names only; no image bytes and no secret
 material, so the downgrade drops both.
 
@@ -64,7 +65,8 @@ def upgrade() -> None:
             comment="Owned by the platform context (BrandingAsset.id). No DB-level FK.",
         ),
         sa.Column("category", sa.String(length=16), nullable=False),
-        sa.Column("google_media_name", sa.String(length=300), nullable=False),
+        sa.Column("google_media_name", sa.String(length=300), nullable=True),
+        sa.Column("refusal_code", sa.String(length=64), nullable=True),
         sa.Column("uploaded_at", UTCDateTime(), nullable=False),
         sa.Column("id", GUID(), nullable=False),
         sa.Column("created_at", UTCDateTime(), nullable=False),
@@ -78,6 +80,9 @@ def upgrade() -> None:
         ),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("binding_id", "asset_id", "category", name="uq_integration_gbp_photo_upload_asset"),
+        sa.CheckConstraint(
+            "(google_media_name IS NULL) <> (refusal_code IS NULL)", name="ck_integration_gbp_photo_upload_outcome"
+        ),
     )
     op.create_index(
         op.f("ix_integration_gbp_photo_upload_tenant_id"), "integration_gbp_photo_upload", ["tenant_id"], unique=False

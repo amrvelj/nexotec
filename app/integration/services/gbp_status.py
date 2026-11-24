@@ -72,6 +72,7 @@ from app.integration.models.google_business_profile import (
     GbpDriftOutcome,
     GbpLocationBinding,
     GbpPhotoJob,
+    GbpPhotoUpload,
 )
 from app.integration.services import resilience
 from app.integration.services.gbp_link import client_connection
@@ -323,6 +324,8 @@ class GbpDriftStatusProvider:
 
 PHOTO_SOURCE = "google_business_profile_photos"
 PHOTO_ITEM_PREFIX = "google_business_profile.photos."
+PHOTO_REFUSED_ITEM_PREFIX = "google_business_profile.photos_refused."
+PHOTO_LINK = "/administration/publishing"
 
 
 class GbpPhotoStatusProvider:
@@ -330,8 +333,12 @@ class GbpPhotoStatusProvider:
     photo upload was dead-lettered — «the photos for <location> could not be
     sent to Google» — linked to the integrations screen. It clears when the
     next change to the location queues a fresh pass (the job's `dead_at` is
-    cleared then). A binding uploading normally has no item: the upload is
-    not something the dealer watches. Derived on read; writes nothing."""
+    cleared then). And one warning per active binding with images Google
+    refused (their size or format) — «Google refused n photos of
+    <location>» — linked to the publishing profile, where the dealer
+    replaces them; it goes once they are removed there. A binding uploading
+    normally has no item: the upload is not something the dealer watches.
+    Derived on read; writes nothing."""
 
     source = PHOTO_SOURCE
 
@@ -347,7 +354,7 @@ class GbpPhotoStatusProvider:
             )
             .order_by(TextSortKey(GbpLocationBinding.location_label), GbpLocationBinding.id)
         ).all()
-        return [
+        items = [
             StatusItem(
                 key=f"{PHOTO_ITEM_PREFIX}{binding_id}",
                 source=PHOTO_SOURCE,
@@ -358,3 +365,27 @@ class GbpPhotoStatusProvider:
             )
             for binding_id, label in rows
         ]
+        refused = db.execute(
+            select(GbpLocationBinding.id, GbpLocationBinding.location_label, func.count(GbpPhotoUpload.id))
+            .join(GbpPhotoUpload, GbpPhotoUpload.binding_id == GbpLocationBinding.id)
+            .where(
+                GbpLocationBinding.tenant_id == dealership_id,
+                GbpPhotoUpload.tenant_id == dealership_id,
+                GbpLocationBinding.status == GbpBindingStatus.ACTIVE,
+                GbpPhotoUpload.refusal_code.is_not(None),
+            )
+            .group_by(GbpLocationBinding.id, GbpLocationBinding.location_label)
+            .order_by(TextSortKey(GbpLocationBinding.location_label), GbpLocationBinding.id)
+        ).all()
+        items.extend(
+            StatusItem(
+                key=f"{PHOTO_REFUSED_ITEM_PREFIX}{binding_id}",
+                source=PHOTO_SOURCE,
+                state=StatusState.WARNING,
+                message_key="statusPage.items.googleBusinessProfilePhotos.refused",
+                link=PHOTO_LINK,
+                params={"location": label, "count": int(count)},
+            )
+            for binding_id, label, count in refused
+        )
+        return items
