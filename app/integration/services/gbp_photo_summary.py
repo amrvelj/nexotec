@@ -10,8 +10,9 @@ location's imagery — read from Nexotec's own records, never from Google:
   removed in Nexotec stays at Google (Anto, 2026-11-21), so it still counts.
   Nexotec never reads Google's media, so a photo the dealer deleted at Google
   itself still counts too — the card says «übertragen», not «bei Google»;
-- `refused` — the images Google refused (size, format); not sent again until
-  the image is replaced;
+- `refused` — the images Google refused (size, format), each image once (a
+  refused hero that becomes the cover is refused again as `COVER`); not sent
+  again until the image is replaced;
 - `waiting` — the location's images the next pass would upload, judged by
   the pass's own rule (`gbp_photos.pending_uploads`). A deactivated location
   uploads nothing (ADR-199) but its images still wait: activating it again
@@ -61,7 +62,7 @@ def photo_summaries(
         select(
             GbpPhotoUpload.binding_id,
             func.count(distinct(case((GbpPhotoUpload.google_media_name.is_not(None), GbpPhotoUpload.asset_id)))),
-            func.count(GbpPhotoUpload.refusal_code),
+            func.count(distinct(case((GbpPhotoUpload.refusal_code.is_not(None), GbpPhotoUpload.asset_id)))),
         )
         .where(GbpPhotoUpload.tenant_id == dealership_id, GbpPhotoUpload.binding_id.in_(ids))
         .group_by(GbpPhotoUpload.binding_id)

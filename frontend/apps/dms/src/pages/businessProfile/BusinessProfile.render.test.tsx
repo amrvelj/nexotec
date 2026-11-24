@@ -229,7 +229,7 @@ describe('Google’s callback (KAN-226 PR-4)', () => {
   })
 
   // KAN-821: the card's «Fotos» line, from Nexotec's own upload records.
-  it('counts the photos at Google, the refused and the waiting ones', async () => {
+  it('counts the uploaded, the refused and the waiting photos', async () => {
     installFakeBackend(routes([binding({ photos: { uploaded: 3, refused: 1, waiting: 2, stopped: false } })]))
     renderWithProviders(<BusinessProfileSection />)
 

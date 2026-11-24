@@ -108,6 +108,32 @@ function collectSources(dir: string, out: string[] = []): string[] {
 // relative route `path="customers"`.
 const OLD_ROUTE_LITERAL = /['"`][^'"`\n]*\/customers\b|path=["'{`]+customers\b/
 
+// Hardcoded strings are forbidden by the i18n rule; this catches one that names the old
+// register anyway, in German, French and Italian. English is left out: its pattern meets the
+// role code 'customer' in every contact screen, and an English literal would also be caught by
+// no review of translations. Import paths are not text.
+const LITERAL = /'([^'\n]*)'|"([^"\n]*)"|`([^`]*)`|>([^<>{}\n]+)</g
+const IMPORT_LINE = /^\s*(import|export)\b.*\bfrom\s|^\s*import\s*['"]|^\s*\/\/\/\s*<reference/
+// Source file → why it may hold such a literal (OAuth «client», not the register).
+const ALLOWED_LITERAL_FILES: Record<string, string> = {
+  'pages/PlatformStatusPage.tsx': "the route /integrations/business-profile/client-status (Nexotec's OAuth client)",
+}
+
+function literalHits(): string[] {
+  const hits: string[] = []
+  for (const file of collectSources(SRC_ROOT)) {
+    const lines = readFileSync(file, 'utf8').split('\n').filter((line) => !IMPORT_LINE.test(line))
+    const source = lines.join('\n').replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/[^\n]*/g, '$1')
+    for (const match of source.matchAll(LITERAL)) {
+      const text = match.slice(1).find((group) => group !== undefined) ?? ''
+      for (const language of ['de', 'fr', 'it'] as const) {
+        if (OLD_NAME[language].test(text)) hits.push(relative(SRC_ROOT, file))
+      }
+    }
+  }
+  return [...new Set(hits)].sort()
+}
+
 describe('no half-rename: customers are contacts (KAN-464, ADR-210)', () => {
   it('no translated string uses the old name outside the allow-list', () => {
     const unexpected = [...oldNameHits().keys()].filter((id) => !(id in ALLOWED_STRINGS))
@@ -128,6 +154,12 @@ describe('no half-rename: customers are contacts (KAN-464, ADR-210)', () => {
       .map((file) => relative(SRC_ROOT, file))
     expect(files.filter((file) => !(file in ALLOWED_ROUTE_FILES))).toEqual([])
     expect(Object.keys(ALLOWED_ROUTE_FILES).filter((file) => !files.includes(file))).toEqual([])
+  })
+
+  it('no hardcoded German, French or Italian literal in the SPA uses the old name', () => {
+    const files = literalHits()
+    expect(files.filter((file) => !(file in ALLOWED_LITERAL_FILES))).toEqual([])
+    expect(Object.keys(ALLOWED_LITERAL_FILES).filter((file) => !files.includes(file))).toEqual([])
   })
 
   it('the patterns find the old name and spare the words that only look like it', () => {

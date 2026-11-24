@@ -280,7 +280,10 @@ def test_every_total_adds_up(seed):
         assert abs(total.rounding) <= CASH / 2
         assert (total.rounded_total / CASH) == (total.rounded_total / CASH).to_integral_value()
         for v in total.vat_lines:
-            assert abs(Fraction(v.vat) - Fraction(v.net) * Fraction(v.rate) / 100) <= Fraction(1, 100)
+            assert (
+                abs(Fraction(v.vat) - Fraction(v.net) * Fraction(v.rate) / 100)
+                <= Fraction(1, 100) / 2 + Fraction(1, 100) * Fraction(v.rate) / 100 / 2
+            )
 
 
 def test_the_module_imports_no_context_and_no_io():

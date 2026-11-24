@@ -152,3 +152,17 @@ def test_the_bindings_list_carries_the_photos(client, db_session, site, store):
     outsider_betrieb = _make_dealership(db_session)
     outsider = make_user(db_session, tenant_id=outsider_betrieb.id, email="chef-fremd@example.test")
     assert client.get(base, headers=pr2._as(outsider)).status_code == 404
+
+
+def test_a_refused_hero_refused_again_as_cover_counts_once(db_session, site, store):
+    fake, location, binding = site
+    hero = _image(db_session, store, location, BrandingAssetKind.HERO, position=1)
+    fake.refused_media.add(_JPEG + hero.id.bytes)
+    _queue(db_session, location)
+    _run(db_session, store)  # refused as ADDITIONAL
+    hero.is_primary = True
+    db_session.commit()
+    _queue(db_session, location)
+    _run(db_session, store)  # refused again as COVER
+
+    assert _summary(db_session, binding).refused == 1
