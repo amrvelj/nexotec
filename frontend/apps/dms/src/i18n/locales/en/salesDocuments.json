@@ -10,5 +10,54 @@
     "missingVehicle": "A contract document cannot be generated without a vehicle. Add a vehicle first.",
     "missingPrice": "A contract document cannot be generated without a price. Complete the price build-up first.",
     "generic": "The document could not be generated."
+  },
+  "send": {
+    "action": "Send",
+    "title": "Send document",
+    "channels": "Channel",
+    "text": "Text",
+    "textFixed": "WhatsApp sends the approved template as it is; its text cannot be changed here.",
+    "noChannel": "No channel is connected. Connect your own mailbox under «My mailbox», or a manager connects the business's mailbox or an SMS or WhatsApp provider under Administration › Integrations.",
+    "chooseChannel": "Choose a channel.",
+    "submit": "Send",
+    "cancel": "Cancel",
+    "channel": {
+      "email": "E-mail",
+      "sms": "SMS",
+      "whatsapp": "WhatsApp"
+    },
+    "to": "To: {{address}}",
+    "note": {
+      "attachment": "The PDF is attached. Sender: {{sender}}",
+      "secureLink": "A secure link to the document is added; it is valid for 14 days."
+    },
+    "blocked": {
+      "own_mailbox_in_error": "Your own mailbox cannot send right now. Reconnect it under «My mailbox».",
+      "business_mailbox_in_error": "The business's mailbox cannot send right now. A manager reconnects it.",
+      "whatsapp_template_not_approved": "This WhatsApp text is not approved as a template by the provider. Check it in Administration under Standard texts.",
+      "message_text_missing": "There is no standard text for this channel. Write a text or create a standard text.",
+      "generic": "The document cannot be sent on this channel.",
+      "message_text_missing_fixed": "There is no standard text for this channel. Create it in Administration under Standard texts and have the provider approve it as a template."
+    },
+    "refusal": {
+      "customer_merged": "This customer was merged into another.",
+      "customer_do_not_contact": "The customer is marked «Do not contact».",
+      "no_usable_contact": "The customer has no usable contact detail on this channel.",
+      "marketing_consent_missing": "The customer's consent to marketing is missing.",
+      "channel_consent_missing": "The consent to marketing is missing for this contact detail.",
+      "newsletter_not_subscribed": "The customer has not subscribed to the newsletter.",
+      "generic": "This customer cannot receive this message on this channel."
+    },
+    "status": {
+      "sent": "Sent",
+      "failed": "Not delivered"
+    },
+    "chip": "{{status}} · {{channel}} · {{date}}",
+    "success": "The document was sent by {{channel}}.",
+    "failedResult": "The provider did not accept the message. It was not delivered.",
+    "errors": {
+      "generic": "The document could not be sent.",
+      "loadOptions": "The sending options could not be loaded."
+    }
   }
 }

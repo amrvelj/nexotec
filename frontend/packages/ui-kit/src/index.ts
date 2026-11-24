@@ -18,6 +18,7 @@ export * from "./components/StickyActionFooter";
 export * from "./components/StatRow";
 export * from "./components/Picker";
 export * from "./components/FormDialog";
+export * from "./components/SendMessageDialog";
 export * from "./components/RowMenu";
 export * from "./components/RepeatableRowGroup";
 export * from "./components/DocumentPreview";

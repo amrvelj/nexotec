@@ -10,10 +10,19 @@ from sqlalchemy.orm import Session
 
 from app.core.auth import Principal, get_current_principal
 from app.core.idempotent_route import IdempotentRoute
-from app.core.permissions import ModuleCode, require_entitlement, require_write
+from app.core.permissions import ModuleCode, require_entitlement, require_read, require_write
 from app.db import get_db
-from app.sales.models.document import DocumentOwnerType
-from app.sales.schemas.document import DocumentPage, DocumentRead, DocumentSendRequest, MessageDeliveryRead
+from app.integration.public import latest_deliveries
+from app.sales.models.document import DocumentOwnerType, SalesDocument
+from app.sales.schemas.document import (
+    DocumentDeliveryRead,
+    DocumentPage,
+    DocumentRead,
+    DocumentSendRequest,
+    MessageDeliveryRead,
+    SendChannelOptionRead,
+    SendOptionsRead,
+)
 from app.sales.services import contract as contract_service
 from app.sales.services import document as document_service
 from app.sales.services import message_send
@@ -21,7 +30,31 @@ from app.sales.services import offer as offer_service
 
 # KAN-198 (D-A-04): the entitlement gate runs before any role check; an
 # unlicensed module is 404 for everyone (router-level, so every route).
-router = APIRouter(tags=["sales"], route_class=IdempotentRoute, dependencies=[Depends(require_entitlement(ModuleCode.SALES))])
+router = APIRouter(
+    tags=["sales"], route_class=IdempotentRoute, dependencies=[Depends(require_entitlement(ModuleCode.SALES))]
+)
+
+
+def _page(db: Session, *, tenant_id: uuid.UUID, documents: list[SalesDocument]) -> DocumentPage:
+    """The version list, each with its newest send (KAN-217 PR-6, the
+    delivery chip): one read of integration's delivery rows for the page."""
+
+    sent = latest_deliveries(db, tenant_id=tenant_id, document_ids=[d.id for d in documents])
+    items = []
+    for document in documents:
+        item = DocumentRead.model_validate(document, from_attributes=True)
+        delivery = sent.get(document.id)
+        if delivery is not None:
+            item.last_delivery = DocumentDeliveryRead(
+                delivery_id=delivery.delivery_id,
+                channel=delivery.channel,
+                status=delivery.status,
+                sent_at=delivery.sent_at,
+                failure_code=delivery.failure_code,
+                provider_status=delivery.provider_status,
+            )
+        items.append(item)
+    return DocumentPage(items=items)
 
 
 @router.post("/sales/offers/{offer_id}/documents", response_model=DocumentRead, status_code=201)
@@ -47,7 +80,7 @@ def list_offer_documents(
     documents = document_service.list_documents(
         db, tenant_id=principal.tenant_id, owner_type=DocumentOwnerType.OFFER, owner_id=offer_id
     )
-    return DocumentPage(items=[DocumentRead.model_validate(d, from_attributes=True) for d in documents])
+    return _page(db, tenant_id=principal.tenant_id, documents=list(documents))
 
 
 @router.post("/sales/contracts/{contract_id}/documents", response_model=DocumentRead, status_code=201)
@@ -70,7 +103,7 @@ def list_contract_documents(
     documents = document_service.list_documents(
         db, tenant_id=principal.tenant_id, owner_type=DocumentOwnerType.CONTRACT, owner_id=contract_id
     )
-    return DocumentPage(items=[DocumentRead.model_validate(d, from_attributes=True) for d in documents])
+    return _page(db, tenant_id=principal.tenant_id, documents=list(documents))
 
 
 @router.get("/sales/documents/{document_id}/pdf")
@@ -87,6 +120,48 @@ def download_document_pdf(
     document = document_service.get_document_or_404(db, tenant_id=principal.tenant_id, document_id=document_id)
     pdf_bytes = document_service.render_document_pdf(db, document=document, dealership_id=principal.tenant_id)
     return Response(content=pdf_bytes, media_type="application/pdf")
+
+
+@router.get("/sales/documents/{document_id}/send-options", response_model=SendOptionsRead)
+def get_send_options(
+    document_id: uuid.UUID,
+    principal: Principal = Depends(require_read("customer_send_dialog")),
+    db: Session = Depends(get_db),
+):
+    """KAN-217 PR-6 (FR-A-52/53): what the send dialog shows before a send —
+    per channel the recipient, Customers' verdict, whether the channel is
+    connected, the text the send would carry and the first refusal the send
+    would give. A read: no link, no delivery row, no provider call."""
+
+    options = message_send.send_options(
+        db,
+        tenant_id=principal.tenant_id,
+        group_id=principal.group_id,
+        author_user_id=principal.user_id,
+        document_id=document_id,
+    )
+    return SendOptionsRead(
+        document_id=options.document_id,
+        customer_label=options.customer_label,
+        preselected_channel=options.preselected_channel,
+        channels=[
+            SendChannelOptionRead(
+                channel=option.channel,
+                ready=option.ready,
+                not_ready_reason=option.not_ready_reason,
+                sender_address=option.sender_address,
+                address=option.address,
+                allowed=option.allowed,
+                refusal=option.refusal,
+                language=option.language,
+                text=option.text,
+                text_editable=option.text_editable,
+                delivery=option.delivery.value,
+                blocked=option.blocked,
+            )
+            for option in options.channels
+        ],
+    )
 
 
 @router.post("/sales/documents/{document_id}/send", response_model=MessageDeliveryRead, status_code=201)

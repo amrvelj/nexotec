@@ -4902,6 +4902,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/sales/documents/{document_id}/send-options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Send Options
+         * @description KAN-217 PR-6 (FR-A-52/53): what the send dialog shows before a send —
+         *     per channel the recipient, Customers' verdict, whether the channel is
+         *     connected, the text the send would carry and the first refusal the send
+         *     would give. A read: no link, no delivery row, no provider call.
+         */
+        get: operations["get_send_options_v1_sales_documents__document_id__send_options_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/sales/offers": {
         parameters: {
             query?: never;
@@ -9279,6 +9302,31 @@ export interface components {
             confirm?: boolean;
         };
         /**
+         * DocumentDeliveryRead
+         * @description KAN-217 PR-6: the newest send of a document (integration's delivery
+         *     row, as values) — the delivery chip on the document (FR-A-51).
+         */
+        DocumentDeliveryRead: {
+            /** Channel */
+            channel: string;
+            /**
+             * Deliveryid
+             * Format: uuid
+             */
+            deliveryId: string;
+            /** Failurecode */
+            failureCode: string | null;
+            /** Providerstatus */
+            providerStatus: string | null;
+            /**
+             * Sentat
+             * Format: date-time
+             */
+            sentAt: string;
+            /** Status */
+            status: string;
+        };
+        /**
          * DocumentOwnerType
          * @enum {string}
          */
@@ -9297,6 +9345,7 @@ export interface components {
              * Format: uuid
              */
             id: string;
+            lastDelivery?: components["schemas"]["DocumentDeliveryRead"] | null;
             /**
              * Ownerid
              * Format: uuid
@@ -13009,6 +13058,53 @@ export interface components {
         SecretWriteRequest: {
             /** Secretvalue */
             secretValue: string;
+        };
+        /**
+         * SendChannelOptionRead
+         * @description One channel of the send dialog (KAN-217 PR-6). `blocked` is the first
+         *     refusal the send would give now, in the send's order: `recipient_refused`
+         *     (with `refusal`), `message_text_missing` on WhatsApp, the channel not
+         *     ready, `whatsapp_template_not_approved`, and last `message_text_missing`
+         *     on e-mail and SMS (the author's own text lifts it); None when the send
+         *     may go.
+         */
+        SendChannelOptionRead: {
+            /** Address */
+            address: string | null;
+            /** Allowed */
+            allowed: boolean;
+            /** Blocked */
+            blocked: string | null;
+            channel: components["schemas"]["MessageChannel"];
+            /** Delivery */
+            delivery: string;
+            /** Language */
+            language: string;
+            /** Notreadyreason */
+            notReadyReason: string | null;
+            /** Ready */
+            ready: boolean;
+            /** Refusal */
+            refusal: string | null;
+            /** Senderaddress */
+            senderAddress: string | null;
+            /** Text */
+            text: string | null;
+            /** Texteditable */
+            textEditable: boolean;
+        };
+        /** SendOptionsRead */
+        SendOptionsRead: {
+            /** Channels */
+            channels: components["schemas"]["SendChannelOptionRead"][];
+            /** Customerlabel */
+            customerLabel: string;
+            /**
+             * Documentid
+             * Format: uuid
+             */
+            documentId: string;
+            preselectedChannel: components["schemas"]["MessageChannel"] | null;
         };
         /**
          * SenderRead
@@ -27839,6 +27935,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MessageDeliveryRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_send_options_v1_sales_documents__document_id__send_options_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                document_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SendOptionsRead"];
                 };
             };
             /** @description Validation Error */

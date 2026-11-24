@@ -397,6 +397,11 @@ _READS = {
     "app.integration.public.check_deliverable",
     "app.integration.public.refuse_unless_allowed",
     "app.platform.public.sample_document_link_url",
+    # KAN-217 PR-6: the send dialog's reads — the pre-selected channel, each
+    # channel's readiness (a SELECT, no provider call) and the delivery chip.
+    "app.customer.public.preselected_message_channel",
+    "app.integration.public.channel_readiness",
+    "app.integration.public.latest_deliveries",
     # KAN-214 (FR-A-26): derives the setup checklist and raises when an item the
     # action needs is incomplete; a SELECT only, nothing written.
     "app.platform.public.require_setup_item_for",

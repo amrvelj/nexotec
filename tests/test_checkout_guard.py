@@ -40,8 +40,15 @@ def test_another_checkouts_venv_is_refused(tmp_path):
     [
         "dms_test_agent_a1b2",  # the worktree's own
         "dms_test_agent_a1b2_gw0",  # its xdist worker's
-        "dms_test_agent_a1b2_scratch",  # a scratch database derived from it
+        "dms_test_agent_a1b2_gw12",
+        # KAN-802: the scratch databases the suite derives from it, alone or after a worker's suffix
+        "dms_test_agent_a1b2_isolation_4711",  # test_postgres_test_isolation.py
+        "dms_test_agent_a1b2_gw3_isolation_4711",
+        "dms_test_agent_a1b2_leftover_4711",
+        "dms_test_agent_a1b2_kan251_0123456789ab",  # test_migrated_schema_matches_models.py
+        "dms_test_agent_a1b2_gw0_kan251_0123456789ab",
         "dms_platform_test",  # CI's: outside the per-checkout scheme
+        "dms_kan627_0123456789ab",  # the suite's own scratch scheme
         None,
     ],
 )
@@ -49,11 +56,91 @@ def test_this_checkouts_database_passes(database):
     assert checkout_guard.foreign_database(database, own_slug="agent_a1b2") is None
 
 
-@pytest.mark.parametrize("database", ["dms_test_root", "dms_test_root_gw1", "dms_test_agent_zz99"])
+@pytest.mark.parametrize(
+    "database",
+    [
+        "dms_test_root",
+        "dms_test_root_gw1",
+        "dms_test_agent_zz99",
+        # KAN-802: a sibling worktree whose slug starts with this one's
+        "dms_test_agent_a1b2_x",
+        "dms_test_agent_a1b2_x_gw0",
+        # a suffix the suite never makes
+        "dms_test_agent_a1b2_scratch",
+        "dms_test_agent_a1b2_gw",
+        "dms_test_agent_a1b2_kan251_xyz",
+    ],
+)
 def test_another_checkouts_database_is_refused(database):
     refusal = checkout_guard.foreign_database(database, own_slug="agent_a1b2")
     assert refusal is not None
     assert database in refusal and "dms_test_agent_a1b2" in refusal
+
+
+@pytest.mark.parametrize("database", ["dms_test_root_foo", "dms_test_root_foo_gw0", "dms_test_rootx"])
+def test_the_main_checkout_refuses_a_worktree_whose_slug_starts_with_root(database):
+    # KAN-802: `root` is the main checkout's slug; a worktree folder named `root-foo` is `root_foo`.
+    assert checkout_guard.foreign_database(database, own_slug="root") is not None
+
+
+def test_every_derived_name_the_suite_makes_is_listed():
+    # The two suffixes built from DMS_TEST_DATABASE_URL by the suite itself: if one of these modules
+    # changes its scheme, `_DERIVED` must follow (or a child pytest run is refused with code 4).
+    isolation = (_ROOT / "tests" / "test_postgres_test_isolation.py").read_text()
+    assert '{url.database}_isolation_{os.getpid()}' in isolation
+    assert '{url.database}_leftover_{os.getpid()}' in isolation
+    schema = (_ROOT / "tests" / "test_migrated_schema_matches_models.py").read_text()
+    assert "{make_url(base).database}_kan251_{uuid.uuid4().hex[:12]}" in schema
+
+
+def _git_fails(*args, **kwargs):
+    raise FileNotFoundError("git")
+
+
+def test_when_git_is_unavailable_is_worktree_says_it_does_not_know(monkeypatch):
+    monkeypatch.setattr(checkout_guard.subprocess, "run", _git_fails)
+    assert checkout_guard.is_worktree(_ROOT) is None
+
+
+def test_outside_a_repository_is_worktree_says_it_does_not_know(tmp_path, monkeypatch):
+    folder = tmp_path / "not-a-repo"
+    folder.mkdir()
+    monkeypatch.setenv("GIT_CEILING_DIRECTORIES", str(tmp_path))  # git must not find a repository above it
+    assert checkout_guard.is_worktree(folder) is None
+
+
+def test_a_checkout_path_with_a_space_is_still_judged(monkeypatch):
+    # git answers one path a line; a space inside a path is not a third answer.
+    def _answer(*args, **kwargs):
+        return subprocess.CompletedProcess(args, 0, stdout="/Users/x/My Projects/nexotec/.git\n/Users/x/My Projects/nexotec/.git\n")
+
+    monkeypatch.setattr(checkout_guard.subprocess, "run", _answer)
+    assert checkout_guard.is_worktree(Path("/Users/x/My Projects/nexotec")) is False
+    assert checkout_guard.database_refusal(Path("/Users/x/My Projects/nexotec"), "dms_test_root") is None
+
+
+def test_when_git_is_unavailable_a_per_checkout_database_is_refused(monkeypatch):
+    # KAN-802: never assume `root` — a worktree would then accept dms_test_root.
+    monkeypatch.setattr(checkout_guard.subprocess, "run", _git_fails)
+    refusal = checkout_guard.database_refusal(_ROOT, "dms_test_root")
+    assert refusal is not None
+    assert "git could not say" in refusal and str(_ROOT) in refusal
+
+
+@pytest.mark.parametrize("database", ["dms_platform_test", None])
+def test_a_database_outside_the_scheme_never_asks_git(monkeypatch, database):
+    # CI runs `dms_platform_test`; it must not depend on git answering.
+    def _must_not_run(*args, **kwargs):
+        raise AssertionError("git was asked")
+
+    monkeypatch.setattr(checkout_guard.subprocess, "run", _must_not_run)
+    assert checkout_guard.database_refusal(_ROOT, database) is None
+
+
+def test_this_checkouts_own_database_passes_the_whole_rule():
+    own = checkout_guard.checkout_slug(_ROOT, is_worktree=checkout_guard.is_worktree(_ROOT))
+    assert checkout_guard.database_refusal(_ROOT, f"dms_test_{own}") is None
+    assert checkout_guard.database_refusal(_ROOT, f"dms_test_{own}_gw0") is None
 
 
 def _hooks():

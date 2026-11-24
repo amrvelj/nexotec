@@ -1,13 +1,15 @@
 import { useEffect, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Alert, Button, Group, Loader, Stack, Text, UnstyledButton } from '@mantine/core'
-import { FileText } from 'lucide-react'
+import { FileText, Send } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { DocumentPreview } from '@nexotec/ui-kit'
+import { Badge, DocumentPreview } from '@nexotec/ui-kit'
 import { api, ApiError } from '../../../api/client'
+import { useCanWrite } from '../../../auth/useCanWrite'
 import { useIdempotencyKey } from '../../../hooks/useIdempotencyKey'
 import { formatDateTime } from '../../../utils/format'
-import type { SalesDocumentOwnerType, SalesDocumentPage, SalesDocumentRead } from '../../../api/types'
+import type { SalesDocumentDeliveryRead, SalesDocumentOwnerType, SalesDocumentPage, SalesDocumentRead } from '../../../api/types'
+import { DocumentSendDialog } from './DocumentSendDialog'
 
 export interface SalesDocumentsSectionProps {
   ownerType: SalesDocumentOwnerType
@@ -41,6 +43,10 @@ export function SalesDocumentsSection({ ownerType, ownerId, liveContractNumber =
   // server replays the version it built instead of building another. Every
   // generate that succeeds renews it: the next click is a new version.
   const generateKey = useIdempotencyKey()
+  // KAN-217 PR-6 — the one send dialog, for the version shown.
+  const canSend = useCanWrite('customer_send_dialog')
+  const [sendOpen, setSendOpen] = useState(false)
+  const [sendNotice, setSendNotice] = useState<{ tone: 'success' | 'failed'; text: string } | null>(null)
 
   const blockedByContract = ownerType === 'offer' && liveContractNumber != null
 
@@ -122,22 +128,70 @@ export function SalesDocumentsSection({ ownerType, ownerId, liveContractNumber =
     }
   }
 
+  const deliveryChip = (delivery: SalesDocumentDeliveryRead) => (
+    <Badge tone={delivery.status === 'sent' ? 'success' : 'destructive'} dot>
+      {t('salesDocuments.send.chip', {
+        status: t(`salesDocuments.send.status.${delivery.status}`),
+        channel: t(`salesDocuments.send.channel.${delivery.channel}`),
+        date: formatDateTime(delivery.sentAt),
+      })}
+    </Badge>
+  )
+
+  const selected = documents.find((d) => d.id === selectedId) ?? null
+
   return (
     <Stack gap="sm">
       <Group justify="space-between">
         <Text fw={600} size="sm">
           {t('salesDocuments.title')}
         </Text>
-        <Button
-          size="xs"
-          leftSection={<FileText size={14} />}
-          loading={generating}
-          disabled={blockedByContract}
-          onClick={() => void generate()}
-        >
-          {t('salesDocuments.generate')}
-        </Button>
+        <Group gap="xs">
+          {canSend && selected != null && (
+            <Button size="xs" variant="default" leftSection={<Send size={14} />} onClick={() => setSendOpen(true)}>
+              {t('salesDocuments.send.action')}
+            </Button>
+          )}
+          <Button
+            size="xs"
+            leftSection={<FileText size={14} />}
+            loading={generating}
+            disabled={blockedByContract}
+            onClick={() => void generate()}
+          >
+            {t('salesDocuments.generate')}
+          </Button>
+        </Group>
       </Group>
+
+      {sendNotice && (
+        <Alert
+          color={sendNotice.tone === 'success' ? 'green' : 'red'}
+          py="xs"
+          withCloseButton
+          closeButtonLabel={t('common.dismiss')}
+          onClose={() => setSendNotice(null)}
+        >
+          {sendNotice.text}
+        </Alert>
+      )}
+
+      {selected != null && (
+        <DocumentSendDialog
+          documentId={selected.id}
+          opened={sendOpen}
+          onClose={() => setSendOpen(false)}
+          onSent={(delivery) => {
+            setSendOpen(false)
+            setSendNotice(
+              delivery.status === 'sent'
+                ? { tone: 'success', text: t('salesDocuments.send.success', { channel: t(`salesDocuments.send.channel.${delivery.channel}`) }) }
+                : { tone: 'failed', text: t('salesDocuments.send.failedResult') },
+            )
+            void queryClient.invalidateQueries({ queryKey: ['sales-documents', ownerType, ownerId] })
+          }}
+        />
+      )}
 
       {/* An action, not a field: its reason is said (ADR-061; Anto, 2026-10-29). */}
       {blockedByContract && (
@@ -179,6 +233,7 @@ export function SalesDocumentsSection({ ownerType, ownerId, liveContractNumber =
                 <Text size="xs" c="dimmed">
                   {formatDateTime(doc.renderedAt)} · {doc.correspondenceLanguage.toUpperCase()}
                 </Text>
+                {doc.lastDelivery && <div style={{ marginTop: 4 }}>{deliveryChip(doc.lastDelivery)}</div>}
               </UnstyledButton>
             ))}
           </Stack>
