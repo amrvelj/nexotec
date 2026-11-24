@@ -1,11 +1,8 @@
 """The physical vehicle (WP-5 PR-3): "what is the car with VIN
-ZAR94000007123456?" — reduced to identity only. Deliberately a NEW file,
-not an edit to the shipped app/vehicle/models/vehicle.py — PR-7 needs that
-old model to keep compiling, read-only, until cutover, and a one-way
-migration is much easier to reason about between two distinct classes than
-between two states of one class.
+ZAR94000007123456?" — reduced to identity only. It replaced the legacy
+`vehicle` model and table, which KAN-79 retired after the cutover.
 
-Everything the shipped table got wrong on purpose gets fixed here:
+Everything the legacy table got wrong on purpose is fixed here:
 - vin no longer sits next to make/model/trim — those belong to
   ModelVariant (PR-1); catalogue_variant_id is the only link, and it's
   nullable (an unverified, off-catalogue vehicle has none, FR-V-03).

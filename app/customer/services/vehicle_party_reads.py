@@ -25,8 +25,8 @@ from app.customer.services.customer_common import customer_display_name
 from app.customer.services.vehicle_party_labels import _fill_unlabelled_vehicle_parties_for_read, _write_vehicle_labels
 
 # --- VehicleParty: customer-to-vehicle relationships (Customer PRD D-12,
-# FR-10). Vehicle is tenant-agnostic (no tenant_id — a VIN is global, see
-# app/models/vehicle.py), so the tenant boundary here is enforced purely by
+# FR-10). A vehicle-mdm record is global (ADR-022: no tenant_id, a VIN is
+# global), so the tenant boundary here is enforced purely by
 # resolving `customer` through get_customer_or_404 before any of these run;
 # the vehicle_id itself is looked up with no tenant filter, same as every
 # other vehicle lookup in the codebase.
