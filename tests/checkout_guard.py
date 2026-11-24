@@ -45,6 +45,7 @@ import os
 import re
 import subprocess
 from pathlib import Path
+from typing import TypeGuard
 
 _PREFIX = "dms_test_"
 
@@ -79,7 +80,7 @@ def is_worktree(root: Path) -> bool | None:
         out = subprocess.run(
             ["git", "-C", str(root), "rev-parse", "--path-format=absolute", "--git-dir", "--git-common-dir"],
             capture_output=True, text=True, timeout=10, check=True,
-        ).stdout.split()
+        ).stdout.splitlines()  # one path a line: a path may hold a space
     except (OSError, subprocess.SubprocessError):
         return None
     if len(out) != 2:
@@ -100,10 +101,10 @@ def foreign_venv(root: Path, prefix: str) -> str | None:
     )
 
 
-def judged(database: str | None) -> bool:
+def judged(database: str | None) -> TypeGuard[str]:
     """Whether `database` is in the per-checkout `dms_test_` scheme at all."""
 
-    return bool(database) and database.startswith(_PREFIX)
+    return database is not None and database.startswith(_PREFIX)
 
 
 def foreign_database(database: str | None, *, own_slug: str) -> str | None:

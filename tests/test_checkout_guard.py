@@ -109,6 +109,16 @@ def test_outside_a_repository_is_worktree_says_it_does_not_know(tmp_path, monkey
     assert checkout_guard.is_worktree(folder) is None
 
 
+def test_a_checkout_path_with_a_space_is_still_judged(monkeypatch):
+    # git answers one path a line; a space inside a path is not a third answer.
+    def _answer(*args, **kwargs):
+        return subprocess.CompletedProcess(args, 0, stdout="/Users/x/My Projects/nexotec/.git\n/Users/x/My Projects/nexotec/.git\n")
+
+    monkeypatch.setattr(checkout_guard.subprocess, "run", _answer)
+    assert checkout_guard.is_worktree(Path("/Users/x/My Projects/nexotec")) is False
+    assert checkout_guard.database_refusal(Path("/Users/x/My Projects/nexotec"), "dms_test_root") is None
+
+
 def test_when_git_is_unavailable_a_per_checkout_database_is_refused(monkeypatch):
     # KAN-802: never assume `root` — a worktree would then accept dms_test_root.
     monkeypatch.setattr(checkout_guard.subprocess, "run", _git_fails)
