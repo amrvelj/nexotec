@@ -19,12 +19,12 @@ re-adds PR-2's foreign keys onto it (`vehicle_party.vehicle_id`,
 `transaction.vehicle_id`), so any party or transaction row would break that
 step. The cost, said here so nobody reads more into a green run: the round
 trip no longer re-adds a foreign key over a `vehicle_party` or `transaction`
-row; the dealership, user, contact chain and catalogue rows still carry it.
+row; the dealership, user, customer chain and catalogue rows still carry it.
 
 Inserts directly via the ORM, bypassing the service layer entirely — this
 only needs rows to exist with the right foreign keys, not the business
 validation those services also perform. The one exception is `user`, and
-now the whole dealer/dealership + contact/group chain too: this script
+now the whole dealer/dealership + customer/group chain too: this script
 runs against TWO different schema states depending on which CI job calls
 it — migration-smoke-test seeds AFTER upgrading to this PR's own heads,
 migration-upgrade-from-previous seeds against `main`'s CURRENT schema,
@@ -34,19 +34,20 @@ column breaks the ORM insert in whichever job hasn't reached that
 migration yet:
   - WP-2 PR-2: user.access_role -> access_roles/is_dealer_manager
   - WP-3 PR-1: dealer table -> dealership (+ new NOT NULL dealer_group_id)
-  - WP-3 PR-2: contact/contact_number_sequence/contact_phone/
-    contact_email/contact_external_id: tenant_id -> group_id
-`_seed_user` and `_seed_dealer_and_group`/`_seed_contact_chain` below all
+  - WP-3 PR-2: customer/customer_number_sequence/customer_phone/
+    customer_email/customer_external_id: tenant_id -> group_id
+`_seed_user` and `_seed_dealer_and_group`/`_seed_customer_chain` below all
 follow the same pattern: detect which schema is actually live (table/
 column presence), and use a raw `sa.table()` insert for the old shape
 since this PR's ORM classes literally cannot address a table that no
 longer exists under that name (`Dealer`) or a column that's been renamed
-away (`Contact.tenant_id`). The new-schema branch uses this PR's own ORM
+away (`Customer.tenant_id`). The new-schema branch uses this PR's own ORM
 classes directly, since there schema and code genuinely agree.
 
 Usage: DMS_DATABASE_URL=... DMS_TAX_ID_ENCRYPTION_KEY=... python scripts/seed_migration_smoke_test.py
 """
 
+import enum
 import uuid
 
 import sqlalchemy as sa
@@ -100,19 +101,76 @@ _SCHEMA_SENTINELS: dict[str, tuple[str, str]] = {
     # KAN-197 / D-A-22 (plain uid replaced the encrypted tax_id)
     "dealership_has_kan197_columns": ("dealership", "uid"),
     # WP-8 PR-6 (credit_block, credit_block_reason, credit_blocked_at)
-    "contact_has_credit_block_column": ("customer", "credit_block"),
+    "customer_has_credit_block_column": ("customer", "credit_block"),
     # KAN-50 (the FR-17 fields; gender/newsletter/vat_registered NOT NULL)
-    "contact_has_fr17_fields": ("customer", "gender"),
+    "customer_has_fr17_fields": ("customer", "gender"),
     # KAN-295 (vat_status_confirmed, NOT NULL with a Python-side default)
-    "contact_has_vat_status_confirmed": ("customer", "vat_status_confirmed"),
+    "customer_has_vat_status_confirmed": ("customer", "vat_status_confirmed"),
     # KAN-52 / FR-23 §1 (consent_scope on the three contact-channel tables)
-    "contact_channel_has_consent_scope": ("contact_phone", "consent_scope"),
+    "contact_channel_has_consent_scope": ("customer_phone", "consent_scope"),
 }
 
 
 def _has(db: Session, sentinel: str) -> bool:
     table, column = _SCHEMA_SENTINELS[sentinel]
-    return column in {col["name"] for col in inspect(db.get_bind()).get_columns(table)}
+    return column in {col["name"] for col in inspect(db.get_bind()).get_columns(_live_table_name(db, table))}
+
+
+# KAN-464 PR-3 (ADR-209): customers became contacts. A schema from before it
+# (main's heads, every older one) names the contact tables and columns as
+# they were; this PR's migrations rename them. The sentinels above and the
+# raw inserts of older shapes below use the old names on purpose.
+_RENAMED_TABLES = {
+    "customer": "contact",
+    "customer_phone": "contact_phone",
+    "customer_email": "contact_email",
+    "customer_external_id": "contact_external_id",
+    "customer_number_sequence": "contact_number_sequence",
+    "customer_role": "contact_role",
+}
+_COLUMN_BEFORE_THE_RENAME = {
+    "contact_number": "customer_number",
+    "contact_type": "customer_type",
+    "contact_since": "customer_since",
+    "contact_id": "customer_id",
+    "duplicate_of_contact_id": "duplicate_of_customer_id",
+}
+
+
+def _live_table_name(db: Session, name: str) -> str:
+    """`name` as the live schema has it: an old name once renamed, or a new
+    one not renamed yet."""
+
+    live = set(inspect(db.get_bind()).get_table_names())
+    if name in live:
+        return name
+    renamed = {**_RENAMED_TABLES, **{new: old for old, new in _RENAMED_TABLES.items()}}
+    return renamed.get(name, name)
+
+
+def _insert_live(db: Session, model: type, values: dict[str, object]) -> None:
+    """One `model` row on whichever schema is live: this PR's own (the ORM
+    class's names) or one from before the rename (main's heads). The live
+    table is reflected, so only its columns are named; a column `values`
+    leaves out takes the class's Python-side default; an enum is stored as
+    its `.value`, as main writes it since KAN-86 step 2."""
+
+    mapped = model.__table__  # type: ignore[attr-defined]
+    live = sa.Table(_live_table_name(db, mapped.name), sa.MetaData(), autoload_with=db.get_bind())
+    renamed = live.name != mapped.name
+    row: dict[str, object] = {}
+    for column in mapped.columns:
+        name = _COLUMN_BEFORE_THE_RENAME.get(column.name, column.name) if renamed else column.name
+        if name not in live.c:
+            continue
+        if column.name in values:
+            value = values[column.name]
+        elif column.default is not None and (column.default.is_scalar or column.default.is_callable):
+            value = column.default.arg(None) if column.default.is_callable else column.default.arg
+        else:
+            continue
+        row[name] = value.value if isinstance(value, enum.Enum) else value
+    db.execute(live.insert().values(row))
 
 
 def _live_columns_table(db: Session, model: type) -> sa.Table | None:
@@ -309,7 +367,7 @@ def _seed_dealer_and_group_new_schema(db: Session) -> tuple[uuid.UUID, uuid.UUID
         )
         # On the new schema the invalid value cannot be stored at all: the
         # row is written the way the migration leaves it, uid NULL. In its own
-        # group of one: the trunk's contact migrations resolve a tenant from
+        # group of one: the trunk's customer migrations resolve a tenant from
         # the group ("one dealership per group") on downgrade, and they are
         # immutable.
         invalid_group = DealerGroup(name="Migration Smoke Test Invalid UID Group")
@@ -538,66 +596,69 @@ def _seed_dealer_old_schema(db: Session) -> uuid.UUID:
     return dealer_id
 
 
-def _seed_fr17_contact_raw(db: Session, *, group_id: uuid.UUID) -> uuid.UUID:
-    """The FR-17 contact shape (KAN-50) without KAN-295's column, written
+def _seed_fr17_customer_raw(db: Session, *, group_id: uuid.UUID) -> uuid.UUID:
+    """The FR-17 customer shape (KAN-50) without KAN-295's column, written
     through the reflected table so only the columns main's schema really has
     are named. Values, not names: main writes .value since KAN-86 step 2."""
 
-    contact_table = sa.Table("customer", sa.MetaData(), autoload_with=db.get_bind())
-    contact_id = uuid7()
+    customer_table = sa.Table("customer", sa.MetaData(), autoload_with=db.get_bind())
+    customer_id = uuid7()
     now = utcnow()
     values = {
-        "id": contact_id, "group_id": group_id, "contact_number": "K-000001", "contact_type": "individual",
+        "id": customer_id, "group_id": group_id, "customer_number": "K-000001", "customer_type": "individual",
         "language": "de", "first_name": "Anna", "last_name": "Muster", "lifecycle_status": "prospect",
         "gender": "unspecified", "marketing_consent": False, "credit_block": False, "newsletter": False,
         "vat_registered": False, "version": 1, "created_at": now, "updated_at": now,
     }
-    db.execute(contact_table.insert().values({k: v for k, v in values.items() if k in contact_table.c}))
-    return contact_id
+    db.execute(customer_table.insert().values({k: v for k, v in values.items() if k in customer_table.c}))
+    return customer_id
 
 
-def _seed_contact_chain_new_schema(db: Session, *, group_id: uuid.UUID) -> uuid.UUID:
+def _seed_customer_chain_new_schema(db: Session, *, group_id: uuid.UUID) -> uuid.UUID:
     """This PR's own heads already applied — group_id exists everywhere
     tenant_id used to, so the current ORM classes address the real schema
-    directly. Except WP-8 PR-6's and KAN-50's own new contact columns
-    specifically — see the `contact_has_*` entries of _SCHEMA_SENTINELS.
+    directly. Except WP-8 PR-6's and KAN-50's own new customer columns
+    specifically — see the `customer_has_*` entries of _SCHEMA_SENTINELS.
     """
 
-    if _has(db, "contact_has_fr17_fields") and not _has(db, "contact_has_vat_status_confirmed"):
-        contact_id = _seed_fr17_contact_raw(db, group_id=group_id)
-    elif _has(db, "contact_has_fr17_fields"):
-        contact = Contact(
-            group_id=group_id,
-            contact_number="K-000001",
-            contact_type=ContactType.INDIVIDUAL,
-            language=Language.DE,
-            first_name="Anna",
-            last_name="Muster",
-            lifecycle_status=ContactLifecycleStatus.PROSPECT,
+    if _has(db, "customer_has_fr17_fields") and not _has(db, "customer_has_vat_status_confirmed"):
+        customer_id = _seed_fr17_customer_raw(db, group_id=group_id)
+    elif _has(db, "customer_has_fr17_fields"):
+        customer_id = uuid7()
+        _insert_live(
+            db,
+            Contact,
+            {
+                "id": customer_id,
+                "group_id": group_id,
+                "contact_number": "K-000001",
+                "contact_type": ContactType.INDIVIDUAL,
+                "language": Language.DE,
+                "first_name": "Anna",
+                "last_name": "Muster",
+                "lifecycle_status": ContactLifecycleStatus.PROSPECT,
+            },
         )
-        db.add(contact)
-        db.flush()
-        contact_id = contact.id
-        # KAN-464: on a schema with roles, the seeded contact holds one, as
+        # KAN-464: on a schema with roles, the seeded customer holds one, as
         # every create does; before it, the migration's backfill gives it one
         # (the verify step asserts both paths end the same).
-        if inspect(db.get_bind()).has_table("contact_role"):
-            db.add(ContactRoleAssignment(group_id=group_id, contact_id=contact.id, role=ContactRole.CUSTOMER))
-            db.flush()
-    elif _has(db, "contact_has_credit_block_column"):
+        if _live_table_name(db, "contact_role") in set(inspect(db.get_bind()).get_table_names()):
+            _insert_live(db, ContactRoleAssignment, {"group_id": group_id, "contact_id": customer_id, "role": ContactRole.CUSTOMER})
+        db.flush()
+    elif _has(db, "customer_has_credit_block_column"):
         # credit_block is live but KAN-50's FR-17 columns are not — the ORM
-        # Contact class above always sends gender/newsletter/vat_registered
+        # Customer class above always sends gender/newsletter/vat_registered
         # (NOT NULL, Python-side defaults), so a raw insert naming every
-        # column through WP-8's own contact shape, and no further, is the
+        # column through WP-8's own customer shape, and no further, is the
         # only way to write a row this PR's migrations haven't reached yet.
-        contact_id = uuid7()
+        customer_id = uuid7()
         db.execute(
             sa.table(
                 "customer",
                 sa.column("id", GUID()),
                 sa.column("group_id", GUID()),
-                sa.column("contact_number", sa.String()),
-                sa.column("contact_type", sa.String()),
+                sa.column("customer_number", sa.String()),
+                sa.column("customer_type", sa.String()),
                 sa.column("language", sa.String()),
                 sa.column("first_name", sa.String()),
                 sa.column("last_name", sa.String()),
@@ -610,10 +671,10 @@ def _seed_contact_chain_new_schema(db: Session, *, group_id: uuid.UUID) -> uuid.
             )
             .insert()
             .values(
-                id=contact_id,
+                id=customer_id,
                 group_id=group_id,
-                contact_number="K-000001",
-                contact_type="INDIVIDUAL",
+                customer_number="K-000001",
+                customer_type="INDIVIDUAL",
                 language="DE",
                 first_name="Anna",
                 last_name="Muster",
@@ -629,14 +690,14 @@ def _seed_contact_chain_new_schema(db: Session, *, group_id: uuid.UUID) -> uuid.
     else:
         # Neither credit_block nor KAN-50's columns are live yet — the
         # WP-3-PR-2 group-scoped shape only.
-        contact_id = uuid7()
+        customer_id = uuid7()
         db.execute(
             sa.table(
                 "customer",
                 sa.column("id", GUID()),
                 sa.column("group_id", GUID()),
-                sa.column("contact_number", sa.String()),
-                sa.column("contact_type", sa.String()),
+                sa.column("customer_number", sa.String()),
+                sa.column("customer_type", sa.String()),
                 sa.column("language", sa.String()),
                 sa.column("first_name", sa.String()),
                 sa.column("last_name", sa.String()),
@@ -648,10 +709,10 @@ def _seed_contact_chain_new_schema(db: Session, *, group_id: uuid.UUID) -> uuid.
             )
             .insert()
             .values(
-                id=contact_id,
+                id=customer_id,
                 group_id=group_id,
-                contact_number="K-000001",
-                contact_type="INDIVIDUAL",
+                customer_number="K-000001",
+                customer_type="INDIVIDUAL",
                 language="DE",
                 first_name="Anna",
                 last_name="Muster",
@@ -664,41 +725,45 @@ def _seed_contact_chain_new_schema(db: Session, *, group_id: uuid.UUID) -> uuid.
         )
         db.flush()
 
-    db.add(ContactNumberSequence(group_id=group_id, next_value=2))
+    _insert_live(db, ContactNumberSequence, {"group_id": group_id, "next_value": 2})
 
     if _has(db, "contact_channel_has_consent_scope"):
-        db.add(
-            ContactPhone(
-                group_id=group_id,
-                contact_id=contact_id,
-                phone_type=PhoneType.MOBILE,
-                phone_e164="+41791234567",
-                phone_normalised="41791234567",
-                is_primary=True,
-            )
+        _insert_live(
+            db,
+            ContactPhone,
+            {
+                "group_id": group_id,
+                "contact_id": customer_id,
+                "phone_type": PhoneType.MOBILE,
+                "phone_e164": "+41791234567",
+                "phone_normalised": "41791234567",
+                "is_primary": True,
+            },
         )
-        db.add(
-            ContactEmail(
-                group_id=group_id,
-                contact_id=contact_id,
-                email_type=EmailType.PERSONAL,
-                email_address="anna@example.ch",
-                is_primary=True,
-            )
+        _insert_live(
+            db,
+            ContactEmail,
+            {
+                "group_id": group_id,
+                "contact_id": customer_id,
+                "email_type": EmailType.PERSONAL,
+                "email_address": "anna@example.ch",
+                "is_primary": True,
+            },
         )
     else:
-        # KAN-52's consent_scope isn't live yet — the ContactPhone /
-        # ContactEmail ORM classes always send it now, so raw-insert the
+        # KAN-52's consent_scope isn't live yet — the CustomerPhone /
+        # CustomerEmail ORM classes always send it now, so raw-insert the
         # pre-KAN-52 ContactChannelMixin shape. valid_from / do_not_use /
         # consent_granted / is_primary are NOT NULL with no server default
         # (c7e2a91f4b06), so all four must be named; the rest are nullable.
         now = utcnow()
         db.execute(
             sa.table(
-                "contact_phone",
+                "customer_phone",
                 sa.column("id", GUID()),
                 sa.column("group_id", GUID()),
-                sa.column("contact_id", GUID()),
+                sa.column("customer_id", GUID()),
                 sa.column("phone_type", sa.String()),
                 sa.column("phone_e164", sa.String()),
                 sa.column("phone_normalised", sa.String()),
@@ -713,7 +778,7 @@ def _seed_contact_chain_new_schema(db: Session, *, group_id: uuid.UUID) -> uuid.
             .values(
                 id=uuid7(),
                 group_id=group_id,
-                contact_id=contact_id,
+                customer_id=customer_id,
                 phone_type="MOBILE",
                 phone_e164="+41791234567",
                 phone_normalised="41791234567",
@@ -727,10 +792,10 @@ def _seed_contact_chain_new_schema(db: Session, *, group_id: uuid.UUID) -> uuid.
         )
         db.execute(
             sa.table(
-                "contact_email",
+                "customer_email",
                 sa.column("id", GUID()),
                 sa.column("group_id", GUID()),
-                sa.column("contact_id", GUID()),
+                sa.column("customer_id", GUID()),
                 sa.column("email_type", sa.String()),
                 sa.column("email_address", sa.String()),
                 sa.column("is_primary", sa.Boolean()),
@@ -744,7 +809,7 @@ def _seed_contact_chain_new_schema(db: Session, *, group_id: uuid.UUID) -> uuid.
             .values(
                 id=uuid7(),
                 group_id=group_id,
-                contact_id=contact_id,
+                customer_id=customer_id,
                 email_type="PERSONAL",
                 email_address="anna@example.ch",
                 is_primary=True,
@@ -756,33 +821,33 @@ def _seed_contact_chain_new_schema(db: Session, *, group_id: uuid.UUID) -> uuid.
             )
         )
 
-    db.add(
-        ContactExternalId(group_id=group_id, contact_id=contact_id, system_name="crm", external_id="CRM-1")
+    _insert_live(
+        db, ContactExternalId, {"group_id": group_id, "contact_id": customer_id, "system_name": "crm", "external_id": "CRM-1"}
     )
     db.flush()
-    return contact_id
+    return customer_id
 
 
-def _seed_contact_chain_old_schema(db: Session, *, dealer_id: uuid.UUID) -> uuid.UUID:
-    """main's current state — contact/contact_number_sequence/
-    contact_phone/contact_email/contact_external_id are all still
+def _seed_customer_chain_old_schema(db: Session, *, dealer_id: uuid.UUID) -> uuid.UUID:
+    """main's current state — customer/customer_number_sequence/
+    customer_phone/customer_email/customer_external_id are all still
     tenant_id-scoped, and none of them has PR-5's new contact-channel
     columns (label/isPrimary-per-type/validFrom/doNotUse/consent) yet.
     Raw insert for all five tables, same reasoning as _seed_dealer_old_schema.
     """
 
     now = utcnow()
-    contact_id = uuid7()
+    customer_id = uuid7()
 
     db.execute(
         sa.table(
             "customer",
             sa.column("id", GUID()),
             sa.column("tenant_id", GUID()),
-            sa.column("contact_number", sa.String()),
+            sa.column("customer_number", sa.String()),
             sa.column("first_name", sa.String()),
             sa.column("last_name", sa.String()),
-            sa.column("contact_type", sa.String()),
+            sa.column("customer_type", sa.String()),
             sa.column("language", sa.String()),
             sa.column("lifecycle_status", sa.String()),
             sa.column("marketing_consent", sa.Boolean()),
@@ -792,12 +857,12 @@ def _seed_contact_chain_old_schema(db: Session, *, dealer_id: uuid.UUID) -> uuid
         )
         .insert()
         .values(
-            id=contact_id,
+            id=customer_id,
             tenant_id=dealer_id,
-            contact_number="K-000001",
+            customer_number="K-000001",
             first_name="Anna",
             last_name="Muster",
-            contact_type="INDIVIDUAL",
+            customer_type="INDIVIDUAL",
             language="DE",
             lifecycle_status="PROSPECT",
             marketing_consent=False,
@@ -809,7 +874,7 @@ def _seed_contact_chain_old_schema(db: Session, *, dealer_id: uuid.UUID) -> uuid
 
     db.execute(
         sa.table(
-            "contact_number_sequence",
+            "customer_number_sequence",
             sa.column("tenant_id", GUID()),
             sa.column("next_value", sa.Integer()),
         )
@@ -819,10 +884,10 @@ def _seed_contact_chain_old_schema(db: Session, *, dealer_id: uuid.UUID) -> uuid
 
     db.execute(
         sa.table(
-            "contact_phone",
+            "customer_phone",
             sa.column("id", GUID()),
             sa.column("tenant_id", GUID()),
-            sa.column("contact_id", GUID()),
+            sa.column("customer_id", GUID()),
             sa.column("phone_type", sa.String()),
             sa.column("phone_e164", sa.String()),
             sa.column("phone_normalised", sa.String()),
@@ -834,7 +899,7 @@ def _seed_contact_chain_old_schema(db: Session, *, dealer_id: uuid.UUID) -> uuid
         .values(
             id=uuid7(),
             tenant_id=dealer_id,
-            contact_id=contact_id,
+            customer_id=customer_id,
             phone_type="MOBILE",
             phone_e164="+41791234567",
             phone_normalised="41791234567",
@@ -846,10 +911,10 @@ def _seed_contact_chain_old_schema(db: Session, *, dealer_id: uuid.UUID) -> uuid
 
     db.execute(
         sa.table(
-            "contact_email",
+            "customer_email",
             sa.column("id", GUID()),
             sa.column("tenant_id", GUID()),
-            sa.column("contact_id", GUID()),
+            sa.column("customer_id", GUID()),
             sa.column("email_type", sa.String()),
             sa.column("email_address", sa.String()),
             sa.column("is_primary", sa.Boolean()),
@@ -860,7 +925,7 @@ def _seed_contact_chain_old_schema(db: Session, *, dealer_id: uuid.UUID) -> uuid
         .values(
             id=uuid7(),
             tenant_id=dealer_id,
-            contact_id=contact_id,
+            customer_id=customer_id,
             # Pre-WP-3-PR-5 name: PRIVATE (renamed to PERSONAL by that
             # migration, which hasn't run yet at seed time in this branch).
             email_type="PRIVATE",
@@ -873,10 +938,10 @@ def _seed_contact_chain_old_schema(db: Session, *, dealer_id: uuid.UUID) -> uuid
 
     db.execute(
         sa.table(
-            "contact_external_id",
+            "customer_external_id",
             sa.column("id", GUID()),
             sa.column("tenant_id", GUID()),
-            sa.column("contact_id", GUID()),
+            sa.column("customer_id", GUID()),
             sa.column("system_name", sa.String()),
             sa.column("external_id", sa.String()),
             sa.column("created_at", sa.DateTime(timezone=True)),
@@ -886,7 +951,7 @@ def _seed_contact_chain_old_schema(db: Session, *, dealer_id: uuid.UUID) -> uuid
         .values(
             id=uuid7(),
             tenant_id=dealer_id,
-            contact_id=contact_id,
+            customer_id=customer_id,
             system_name="crm",
             external_id="CRM-1",
             created_at=now,
@@ -894,7 +959,7 @@ def _seed_contact_chain_old_schema(db: Session, *, dealer_id: uuid.UUID) -> uuid
         )
     )
     db.flush()
-    return contact_id
+    return customer_id
 
 
 def main() -> None:
@@ -914,14 +979,14 @@ def main() -> None:
         # group_id is set exactly when new_schema is; testing it rather than
         # new_schema lets the type checker see it is not None here.
         if group_id is not None:
-            contact_id = _seed_contact_chain_new_schema(db, group_id=group_id)
+            customer_id = _seed_customer_chain_new_schema(db, group_id=group_id)
         else:
-            contact_id = _seed_contact_chain_old_schema(db, dealer_id=dealer_id)
+            customer_id = _seed_customer_chain_old_schema(db, dealer_id=dealer_id)
 
         seed_catalogue_type_approval(db)
 
         db.commit()
-        print(f"Seeded dealer={dealer_id} user={user_id} contact={contact_id}")
+        print(f"Seeded dealer={dealer_id} user={user_id} customer={customer_id}")
     finally:
         db.close()
 
