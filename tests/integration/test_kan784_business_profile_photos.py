@@ -353,6 +353,47 @@ def test_one_image_google_refuses_never_holds_the_others(db_session, site, store
     assert status.items(db_session, dealership_id=binding.tenant_id, now=utcnow()) == []
 
 
+def test_a_refusal_of_the_location_is_a_job_failure_not_the_images(db_session, site, store):
+    """KAN-784 re-review: Google refusing the location itself (a 404 on
+    `startUpload`, which carries no image) refuses no image: the job backs
+    off and, once Google takes media again, every photo goes."""
+
+    fake, location, binding = site
+    _image(db_session, store, location, BrandingAssetKind.HERO, primary=True)
+    _image(db_session, store, location, BrandingAssetKind.PREMISES)
+    _queue(db_session, location)
+    fake.media_failure_status = 404
+    now = utcnow()
+
+    assert _run(db_session, store, now=now).outcome == gbp_photos.PhotoPassOutcome.RETRY
+    job = _job(db_session)
+    assert job.attempts == 1 and job.last_error_code == "provider_refused_request"
+    assert _uploads(db_session) == {}
+    assert GbpPhotoStatusProvider().items(db_session, dealership_id=binding.tenant_id, now=now) == []
+
+    fake.media_failure_status = None
+    assert _run(db_session, store, now=job.due_at).uploaded == 2
+
+
+def test_an_image_refused_twice_counts_once(db_session, site, store):
+    _fake, location, binding = site
+    image = _image(db_session, store, location, BrandingAssetKind.HERO, position=1)
+    for category in ("ADDITIONAL", "COVER"):
+        db_session.add(
+            GbpPhotoUpload(
+                binding_id=binding.id,
+                tenant_id=binding.tenant_id,
+                asset_id=image.id,
+                category=category,
+                refusal_code="provider_refused_request",
+                uploaded_at=utcnow(),
+            )
+        )
+    db_session.commit()
+    [item] = GbpPhotoStatusProvider().items(db_session, dealership_id=binding.tenant_id, now=utcnow())
+    assert item.params["count"] == 1
+
+
 def test_an_unexpected_failure_is_counted_and_dead_letters(db_session, site, store, monkeypatch, caplog):
     """KAN-784 review: a defect (here the store raising) backs off and
     dead-letters like any failure — never retried forever."""

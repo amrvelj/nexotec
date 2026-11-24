@@ -197,9 +197,10 @@ class GbpPhotoUpload(PrimaryKeyMixin, TimestampMixin, TenantScopedMixin, Base):
     binding's Google location, under one category — or that Google refused
     (`refusal_code`, e.g. a size outside Google's photo guidelines; the
     status page names it and it is not sent again) — what makes each upload
-    happen once. Never deleted with the photo: Nexotec never deletes at
-    Google (Anto, 2026-11-21), so the row outlives an image removed in
-    Nexotec, as the photo outlives it at Google. A hero that becomes the
+    happen once. An uploaded row is never deleted with the photo: Nexotec
+    never deletes at Google (Anto, 2026-11-21), so it outlives an image
+    removed in Nexotec, as the photo outlives it at Google. A refused row is
+    deleted once its image is removed (nothing is left to show). A hero that becomes the
     primary one is uploaded again, as the new `COVER`; the earlier cover
     stays at Google, as ruled."""
 

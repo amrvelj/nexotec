@@ -60,7 +60,11 @@ from sqlalchemy.orm import Session
 from app.core.base import utcnow
 from app.core.object_store import ObjectStore
 from app.core.outbox_model import OutboxMessage
-from app.integration.adapters.google_business_profile import GBP_CAPABILITY, GoogleBusinessProfileAdapter
+from app.integration.adapters.google_business_profile import (
+    GBP_CAPABILITY,
+    GoogleBusinessProfileAdapter,
+    PhotoRefusedError,
+)
 from app.integration.errors import (
     ProviderAccountRefusedError,
     ProviderConfigurationError,
@@ -278,12 +282,15 @@ def _upload_pending(
                     content_type=stored.content_type,
                     category=category,
                 )
-            except ProviderRequestError:
-                # Google refused this image itself (a 400/404/422: its size, its
-                # format). Retrying sends the same bytes again, and holding the
-                # pass would keep the location's other photos from Google: the
-                # refusal is recorded, shown on the status page, and the pass
-                # goes on (KAN-784 review).
+            except PhotoRefusedError:
+                # Google refused this image itself (a 400/404/422 on the steps
+                # that carry its bytes: its size, its format). Retrying sends
+                # the same bytes again, and holding the pass would keep the
+                # location's other photos from Google: the refusal is recorded,
+                # shown on the status page, and the pass goes on (KAN-784
+                # review). A refusal of the location itself (`startUpload`, the
+                # binding's names) is a plain ProviderRequestError: the job
+                # fails, backs off and dead-letters.
                 db.rollback()
                 db.add(
                     GbpPhotoUpload(
@@ -390,16 +397,16 @@ def run_photo_job(
     ):
         _settle_done(db, claim)
         return PhotoPassResult(PhotoPassOutcome.DROPPED)
-    imagery = location_channel_images(db, dealership_id=binding.tenant_id, location_id=binding.location_id)
-    if imagery is None or not imagery.is_active:
-        _settle_done(db, claim)
-        return PhotoPassResult(PhotoPassOutcome.DROPPED)
-    _forget_refusals_of_removed_images(db, binding, imagery.images)
-    pending = _pending(db, binding, imagery.images)
-    if not pending:
-        _settle_done(db, claim)
-        return PhotoPassResult(PhotoPassOutcome.DONE)
     try:
+        imagery = location_channel_images(db, dealership_id=binding.tenant_id, location_id=binding.location_id)
+        if imagery is None or not imagery.is_active:
+            _settle_done(db, claim)
+            return PhotoPassResult(PhotoPassOutcome.DROPPED)
+        _forget_refusals_of_removed_images(db, binding, imagery.images)
+        pending = _pending(db, binding, imagery.images)
+        if not pending:
+            _settle_done(db, claim)
+            return PhotoPassResult(PhotoPassOutcome.DONE)
         uploaded = _upload_pending(db, binding, pending, store=store)
     except ProviderAccountRefusedError:
         gbp_link.mark_grant_refused(db, binding)
