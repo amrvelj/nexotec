@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Alert, Button, Group, Loader, Stack, Text } from '@mantine/core'
+import { Alert, Button, Group, Image, Loader, Stack, Text } from '@mantine/core'
 import { useTranslation } from 'react-i18next'
 import { api } from '../api/client'
 import { SUPPORTED_LANGUAGES } from '../i18n'
@@ -11,6 +11,10 @@ type LinkState =
   | { kind: 'loading' }
   | { kind: 'ready'; url: string; filename: string | null }
   | { kind: 'refused' }
+  // The link named its sender, then the document could not be opened.
+  | { kind: 'unavailable' }
+
+type Sender = { name: string; logoUrl: string | null }
 
 function readToken(): string {
   const fromHash = window.location.hash.replace(/^#/, '')
@@ -30,12 +34,18 @@ function readToken(): string {
  *
  * `?lang=` is the customer's correspondence language (not a secret): the page
  * opens in it. The token is kept for this tab only (sessionStorage), so a
- * reload of the cleaned address still opens the document. */
+ * reload of the cleaned address still opens the document.
+ *
+ * KAN-217 PR-7 (ADR-208; Anto, 2026-11-20, option 1): the page is the
+ * dealer's. It asks the link who sent it first; a link that cannot be read
+ * names nobody and keeps the neutral text and frame. A link that named its
+ * Betrieb and whose document then fails says «Wenden Sie sich an <Betrieb>». */
 export function DocumentLinkPage() {
   const { t, i18n } = useTranslation()
   // Read once, before any effect clears it (an effect may run twice).
   const [token] = useState(readToken)
   const [state, setState] = useState<LinkState>(token ? { kind: 'loading' } : { kind: 'refused' })
+  const [sender, setSender] = useState<Sender | null>(null)
 
   // Once per page, even when an effect runs twice.
   const languageApplied = useRef(false)
@@ -54,26 +64,59 @@ export function DocumentLinkPage() {
       window.history.replaceState(null, '', window.location.pathname + window.location.search)
     }
     if (!token) return
-    let objectUrl: string | null = null
+    const objectUrls: string[] = []
     let cancelled = false
-    api
-      .getDocumentLink(token)
-      .then(({ url, filename }) => {
-        objectUrl = url
-        if (cancelled) URL.revokeObjectURL(url)
-        else setState({ kind: 'ready', url, filename })
-      })
-      .catch(() => {
+    const keep = (url: string) => {
+      objectUrls.push(url)
+      if (cancelled) URL.revokeObjectURL(url)
+      return !cancelled
+    }
+    void (async () => {
+      let named: { name: string; hasLogo: boolean }
+      try {
+        named = await api.getDocumentLinkSender(token)
+      } catch {
         if (!cancelled) setState({ kind: 'refused' })
-      })
+        return
+      }
+      if (cancelled) return
+      setSender({ name: named.name, logoUrl: null })
+      if (named.hasLogo) {
+        // A logo that does not load leaves the name alone.
+        api
+          .getDocumentLinkLogo(token)
+          .then((logoUrl) => {
+            if (keep(logoUrl)) setSender({ name: named.name, logoUrl })
+          })
+          .catch(() => undefined)
+      }
+      try {
+        const { url, filename } = await api.getDocumentLink(token)
+        if (keep(url)) setState({ kind: 'ready', url, filename })
+      } catch {
+        if (!cancelled) setState({ kind: 'unavailable' })
+      }
+    })()
     return () => {
       cancelled = true
-      if (objectUrl) URL.revokeObjectURL(objectUrl)
+      for (const url of objectUrls) URL.revokeObjectURL(url)
     }
   }, [token])
 
   return (
-    <AuthScreen title={t('documentLink.title')}>
+    <AuthScreen
+      title={t('documentLink.title')}
+      brand={
+        sender && (
+          <Stack gap="xs" align="center" data-testid="document-link-sender">
+            {sender.logoUrl && <Image src={sender.logoUrl} alt="" h={48} w="auto" maw={240} fit="contain" />}
+            <Text ta="center" fw={600} fz="lg">
+              {sender.name}
+            </Text>
+          </Stack>
+        )
+      }
+    >
       {state.kind === 'loading' && (
         <Group gap="sm">
           <Loader size="sm" />
@@ -83,6 +126,11 @@ export function DocumentLinkPage() {
       {state.kind === 'refused' && (
         <Alert color="red" role="alert">
           {t('documentLink.refused')}
+        </Alert>
+      )}
+      {state.kind === 'unavailable' && sender && (
+        <Alert color="red" role="alert">
+          {t('documentLink.unavailable', { name: sender.name })}
         </Alert>
       )}
       {state.kind === 'ready' && (

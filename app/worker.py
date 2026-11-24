@@ -54,6 +54,7 @@ from app.customer.services.vehicle_merge import handle_vehicle_merged_message
 from app.db import SessionLocal
 from app.export_registry import register_exporters
 from app.integration.consumers import (
+    handle_business_profile_photos_message,
     handle_business_profile_push_message,
     handle_business_profile_push_on_dealership_message,
 )
@@ -390,7 +391,7 @@ def register_handlers(transport: InProcessTransport) -> None:
     )
     # KAN-226 PR-3 — Google Business Profile, Nexotec → Google: Platform's
     # location facts (and Integration's own fact that a binding went live)
-    # push the location's fields (photos wait for KAN-784). Each reads the
+    # push the location's fields (photos: KAN-784 below). Each reads the
     # current state through platform.public; a refusal of the grant moves the
     # binding to error, anything else is retried, then dead-letters.
     for event_type, consumer_name in (
@@ -399,6 +400,15 @@ def register_handlers(transport: InProcessTransport) -> None:
         ("integration.gbp_location_binding.activated", "integration.business_profile_push_on_binding_activated"),
     ):
         transport.register(event_type, consumer_name=consumer_name, handler=handle_business_profile_push_message)
+    # KAN-784 (ADR-209) — the location's photos: the worker cannot read the
+    # object store's disk, so it only queues a photo pass; the web service's
+    # gbp_photo_runner uploads.
+    for event_type, consumer_name in (
+        ("platform.publishing_profile.updated", "integration.business_profile_photos_on_profile_updated"),
+        ("platform.location.updated", "integration.business_profile_photos_on_location_updated"),
+        ("integration.gbp_location_binding.activated", "integration.business_profile_photos_on_binding_activated"),
+    ):
+        transport.register(event_type, consumer_name=consumer_name, handler=handle_business_profile_photos_message)
     # KAN-785 — the Betrieb's website is one of the pushed fields: its own
     # fact pushes every bound location of that Betrieb.
     transport.register(

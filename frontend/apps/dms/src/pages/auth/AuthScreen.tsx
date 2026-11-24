@@ -10,14 +10,28 @@ import { LEGAL_PRIVACY_PATH, LEGAL_TERMS_PATH } from '../../config/legalPages'
  *
  * KAN-452: below the card, the public Terms of Use and Privacy Policy — on
  * the sign-in screen and every other identity screen alike. */
-export function AuthScreen({ title, hint, children }: { title: string; hint?: string; children: ReactNode }) {
+export function AuthScreen({
+  title,
+  hint,
+  brand,
+  children,
+}: {
+  title: string
+  hint?: string
+  /** KAN-217 PR-7: what stands above the card in place of the product name
+   * — the customer's link page shows the dealer who sent it. */
+  brand?: ReactNode
+  children: ReactNode
+}) {
   const { t } = useTranslation()
   return (
     <Center mih="100vh" p="md">
       <Stack w="100%" maw={420} gap="md">
-        <Text ta="center" fw={600} fz="lg">
-          Nexotec
-        </Text>
+        {brand ?? (
+          <Text ta="center" fw={600} fz="lg">
+            Nexotec
+          </Text>
+        )}
         <Paper withBorder radius="md" p="xl" shadow="xs">
           <Stack gap="md">
             <div>

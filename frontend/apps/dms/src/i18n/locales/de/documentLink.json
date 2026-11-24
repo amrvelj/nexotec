@@ -4,5 +4,6 @@
   "ready": "Ihr Dokument ist bereit.",
   "open": "Öffnen",
   "download": "Herunterladen",
-  "refused": "Dieser Link ist ungültig oder abgelaufen. Bitte wenden Sie sich an Ihren Betrieb, wenn Sie das Dokument noch benötigen."
+  "refused": "Dieser Link ist ungültig oder abgelaufen. Bitte wenden Sie sich an Ihren Betrieb, wenn Sie das Dokument noch benötigen.",
+  "unavailable": "Dieses Dokument kann gerade nicht geöffnet werden. Bitte wenden Sie sich an {{name}}."
 }

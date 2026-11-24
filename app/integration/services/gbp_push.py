@@ -12,9 +12,10 @@ enters the horizon on a day no event fires. The nightly
 `run_horizon_pushes` (KAN-793) therefore offers every active binding to the
 same push: the debounce sends nothing unless today's facts differ from the
 last push's, which in practice is the day a closed day enters or leaves the
-year. Photos are not pushed yet: the worker
+year. Photos are not pushed here: the worker
 cannot read the object store's disk in production (render.yaml, ADR-081 as
-amended, KAN-738), so they wait for KAN-784.
+amended, KAN-738), so the web service uploads them (`gbp_photos`, KAN-784,
+ADR-209).
 
 The handler reads the location's current state through
 `platform.public.location_channel_facts` — never the payload, since delivery

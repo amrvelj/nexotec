@@ -23,7 +23,8 @@
     "integration": "Integrationen",
     "nexotec": "Nexotec",
     "google_business_profile": "Google Business Profile",
-    "google_business_profile_drift": "Google Business Profile – Abgleich"
+    "google_business_profile_drift": "Google Business Profile – Abgleich",
+    "google_business_profile_photos": "Google Business Profile – Fotos"
   },
   "open": "Öffnen",
   "since": "seit {{date}}",
@@ -55,6 +56,11 @@
       "drift_one": "{{location}}: {{count, number}} Feld weicht bei Google ab. Die Karte unter Integrationen nennt es.",
       "drift_other": "{{location}}: {{count, number}} Felder weichen bei Google ab. Die Karte unter Integrationen nennt sie.",
       "checkFailed": "{{location}}: Der nächtliche Abgleich konnte Google nicht lesen."
+    },
+    "googleBusinessProfilePhotos": {
+      "failed": "{{location}}: Die Fotos konnten nicht zu Google übertragen werden. Die nächste Änderung der Bilder versucht es erneut.",
+      "refused_one": "{{location}}: Google hat {{count, number}} Foto abgelehnt (Grösse oder Format). Ersetzen Sie es unter Veröffentlichung.",
+      "refused_other": "{{location}}: Google hat {{count, number}} Fotos abgelehnt (Grösse oder Format). Ersetzen Sie sie unter Veröffentlichung."
     }
   },
   "indicator": {

@@ -23,7 +23,8 @@
     "integration": "Integrazioni",
     "nexotec": "Nexotec",
     "google_business_profile": "Google Business Profile",
-    "google_business_profile_drift": "Google Business Profile – confronto"
+    "google_business_profile_drift": "Google Business Profile – confronto",
+    "google_business_profile_photos": "Google Business Profile – foto"
   },
   "open": "Apri",
   "since": "dal {{date}}",
@@ -55,6 +56,11 @@
       "drift_one": "{{location}}: {{count, number}} campo è diverso su Google. La scheda in Integrazioni lo indica.",
       "drift_other": "{{location}}: {{count, number}} campi sono diversi su Google. La scheda in Integrazioni li indica.",
       "checkFailed": "{{location}}: il confronto notturno non ha potuto leggere Google."
+    },
+    "googleBusinessProfilePhotos": {
+      "failed": "{{location}}: non è stato possibile trasmettere le foto a Google. La prossima modifica delle immagini riproverà.",
+      "refused_one": "{{location}}: Google ha rifiutato {{count, number}} foto (dimensione o formato). La sostituisca in Pubblicazione.",
+      "refused_other": "{{location}}: Google ha rifiutato {{count, number}} foto (dimensione o formato). Le sostituisca in Pubblicazione."
     }
   },
   "indicator": {
