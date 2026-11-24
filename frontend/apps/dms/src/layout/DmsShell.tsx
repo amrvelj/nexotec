@@ -167,7 +167,7 @@ function buildNavGroups(t: (key: string) => string, statusIndicator?: NavItemInd
         // provider in use and its prompts. Inventory and sales read, the manager
         // writes; never role-hidden (A-RULE-7).
         { label: t('shell.nav.aiTexts'), href: '/administration/ai', icon: Sparkles, status: 'active' },
-        // KAN-215 — Dealer Administration › Kundenmails (D-A-28 as re-cut 2026-11-14): the
+        // KAN-215 — Dealer Administration › Mails an Kontakte (D-A-28 as re-cut 2026-11-14): the
         // Betrieb's shared mailbox. Finance and the manager read, the manager connects;
         // never role-hidden (A-RULE-7).
         { label: t('shell.nav.contactMail'), href: '/administration/mail', icon: Mail, status: 'active' },

@@ -100,7 +100,7 @@ def test_filter_by_contact_type_individual(client):
         companyName="Alpha AG", emails=[_business_email()],
     )
 
-    body = _list(client, dealer_id, contact_type="individual")
+    body = _list(client, dealer_id, contactType="individual")
     ids = [c["id"] for c in body["items"]]
     assert ids == [individual["id"]]
 
@@ -113,7 +113,7 @@ def test_filter_by_contact_type_business(client):
         companyName="Alpha AG", emails=[_business_email()],
     )
 
-    body = _list(client, dealer_id, contact_type="business")
+    body = _list(client, dealer_id, contactType="business")
     ids = [c["id"] for c in body["items"]]
     assert ids == [business["id"]]
 
@@ -157,7 +157,7 @@ def test_combined_filters_narrow_correctly(client):
         language="fr", addresses=_as_contact_addresses(VD_ADDRESS), emails=[_business_email()],
     )
 
-    body = _list(client, dealer_id, contact_type="individual", language="fr", canton="VD")
+    body = _list(client, dealer_id, contactType="individual", language="fr", canton="VD")
     ids = [c["id"] for c in body["items"]]
     assert ids == [target["id"]]
 
@@ -166,7 +166,7 @@ def test_combined_filters_with_no_matches_returns_empty(client):
     dealer_id = _create_dealer(client)
     _create_contact(client, dealer_id, lastName="Deutsch", language="de", addresses=_as_contact_addresses(ZH_ADDRESS))
 
-    body = _list(client, dealer_id, contact_type="business", language="it", canton="GE")
+    body = _list(client, dealer_id, contactType="business", language="it", canton="GE")
     assert body["items"] == []
     assert body["total"] == 0
 

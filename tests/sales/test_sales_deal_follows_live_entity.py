@@ -209,7 +209,7 @@ def test_a_cancelled_contract_hands_the_row_back_to_its_offer(client, db_session
     assert deal["margin"] is None
     assert deal["ownerUserId"] == seller["id"]
     # The cancelled contract stays on the contact's and the offer's history.
-    history = client.get(f"/v1/sales/contracts?contact_id={beat['id']}", headers=_as(seller)).json()["items"]
+    history = client.get(f"/v1/sales/contracts?contactId={beat['id']}", headers=_as(seller)).json()["items"]
     assert [(c["id"], c["status"]) for c in history] == [(contract["id"], "cancelled")]
 
 

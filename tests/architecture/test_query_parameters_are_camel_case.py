@@ -30,8 +30,6 @@ CAMEL_CASE = re.compile(r"^[a-z][a-zA-Z0-9]*$")
 LEGACY_SNAKE_CASE = frozenset(
     {
         ("canton_not", "GET /v1/contacts"),
-        ("contact_type", "GET /v1/contacts"),
-        ("contact_type_not", "GET /v1/contacts"),
         ("include_merged", "GET /v1/contacts"),
         ("language_not", "GET /v1/contacts"),
         ("lifecycle_status", "GET /v1/contacts"),
@@ -47,8 +45,6 @@ LEGACY_SNAKE_CASE = frozenset(
         ("lifecycle_status_not", "GET /v1/inventory/stock-items"),
         ("provider_code", "GET /v1/integrations/connections"),
         ("tenant_id", "GET /v1/integrations/connections"),
-        ("contact_id", "GET /v1/sales/contracts"),
-        ("contact_id", "GET /v1/sales/offers"),
         ("vehicle_number", "GET /v1/vehicle-mdm/lookup"),
         ("include_closed", "GET /v1/vehicle-mdm/{vehicle_id}/party-roles"),
     }

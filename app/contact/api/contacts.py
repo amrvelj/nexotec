@@ -257,7 +257,8 @@ def merge_contact(
 def list_contacts(
     q: str | None = None,
     lifecycle_status: ContactLifecycleStatus | None = None,
-    contact_type: ContactType | None = None,
+    # KAN-464 PR-3: renamed with the register, so camelCase from the start (CLAUDE.md, API conventions).
+    contact_type: ContactType | None = Query(default=None, alias="contactType"),
     language: Language | None = None,
     canton: str | None = None,
     updated_since: dt.datetime | None = None,
@@ -296,7 +297,9 @@ def list_contacts(
     lifecycle_status_not: ContactLifecycleStatus | None = Query(
         default=None, description="KAN-476: contacts whose lifecycle status is not this one."
     ),
-    contact_type_not: ContactType | None = Query(default=None, description="KAN-476: contacts not of this type."),
+    contact_type_not: ContactType | None = Query(
+        default=None, alias="contactTypeNot", description="KAN-476: contacts not of this type."
+    ),
     language_not: Language | None = Query(
         default=None, description="KAN-476: contacts whose language is not this one (none set included)."
     ),

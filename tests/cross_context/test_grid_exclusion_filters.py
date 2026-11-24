@@ -112,7 +112,7 @@ def test_contacts_exclude_a_type_a_language_and_a_lifecycle_status(client):
     )
     assert activated.status_code == 200, activated.text
 
-    assert _ids(client.get("/v1/contacts?contact_type_not=business", headers=headers)) == {anna["id"], marie["id"]}
+    assert _ids(client.get("/v1/contacts?contactTypeNot=business", headers=headers)) == {anna["id"], marie["id"]}
     assert _ids(client.get("/v1/contacts?language_not=de", headers=headers)) == {marie["id"], firma["id"]}
     assert _ids(client.get("/v1/contacts?lifecycle_status_not=active", headers=headers)) == {anna["id"], firma["id"]}
     assert client.get("/v1/contacts?language_not=es", headers=headers).status_code == 422

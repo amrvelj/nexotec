@@ -96,7 +96,7 @@ def test_platform_admin_can_record_a_legal_basis(client):
         f"/v1/contacts/{contact['id']}/legal-basis",
         json={
             "basis": "joint_controller_agreement",
-            "scope": "contact contact data, group-wide",
+            "scope": "contact data, group-wide",
             "sourceDocument": "Joint Controller Agreement, signed 2026-08-25",
         },
         headers=_bearer(token),

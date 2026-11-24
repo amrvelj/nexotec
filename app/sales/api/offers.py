@@ -88,7 +88,7 @@ def list_offers(
     sort: str | None = Query(default=None),
     limit: int = Query(default=settings.pagination_default_limit, ge=1, le=settings.pagination_max_limit),
     cursor: str | None = Query(default=None),
-    contact_id: uuid.UUID | None = Query(default=None),
+    contact_id: uuid.UUID | None = Query(default=None, alias="contactId"),  # KAN-464 PR-3: renamed, so camelCase
     principal: Principal = Depends(get_current_principal),
     db: Session = Depends(get_db),
 ):

@@ -2,8 +2,8 @@
 
 Customers became contacts (ADR-210; Anto, 2026-10-26: one register with roles, the full
 rename). Renames only, in the catalogue: no row is rewritten, and every name is listed
-explicitly because Postgres renames no index or constraint with its table or column. The
-applied history keeps its names, the chain its label `customer`.
+explicitly because Postgres renames no index or constraint with its table or column.
+Applied migrations keep the names of their day.
 
 Revision ID: f3dee38222c5
 Revises: 6975a1f4524e

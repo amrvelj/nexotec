@@ -184,12 +184,12 @@ export function ContactDetailContent({ contactId: id, embedded = false }: Contac
   // (KAN-45). Dealership-scoped, not group-scoped — see OffersContractsTab.
   const offersQuery = useQuery({
     queryKey: ['contact', id, 'offers'],
-    queryFn: () => api.get<SalesOfferPage>(`/sales/offers?contact_id=${id}&limit=100`),
+    queryFn: () => api.get<SalesOfferPage>(`/sales/offers?contactId=${id}&limit=100`),
     enabled: Boolean(id) && salesEntitled,
   })
   const contractsQuery = useQuery({
     queryKey: ['contact', id, 'contracts'],
-    queryFn: () => api.get<SalesContractPage>(`/sales/contracts?contact_id=${id}&limit=100`),
+    queryFn: () => api.get<SalesContractPage>(`/sales/contracts?contactId=${id}&limit=100`),
     enabled: Boolean(id) && salesEntitled,
   })
   const externalIdsQuery = useQuery({

@@ -433,7 +433,7 @@ def create_contact(
         # members and colleagues legitimately share an address. What can
         # still collide here is the same number/address supplied twice for
         # one contact, or a contact_number race.
-        raise ConflictError("Contact contact details conflict with an existing record.") from exc
+        raise ConflictError("Contact details conflict with an existing record.") from exc
 
     after = {field: _redact(field, getattr(contact, field)) for field in _AUDITED_FIELDS}
     after["tags"] = sorted(data.tags)

@@ -14,7 +14,7 @@ import { businessMailboxKey, MAIL_PROVIDERS, mailNavigation } from './mail/mailL
 const STATUS_COLOR: Record<MailboxRead['status'], string> = { active: 'green', error: 'red', disconnected: 'gray' }
 
 /**
- * KAN-215 — Dealer Administration › Kundenmails (`/administration/mail`; D-A-28
+ * KAN-215 — Dealer Administration › Mails an Kontakte (`/administration/mail`; D-A-28
  * as re-cut by Anto on 2026-11-14, A-RULE-0: the one place the Betrieb sets up
  * its contact mail). Contact mail leaves only through a mailbox of the
  * Betrieb: a person's own (My account › Mein Postfach) or, failing that, the

@@ -158,7 +158,7 @@ def test_offers_endpoint_accepts_contact_id(client):
     token = _token()
     client.post("/v1/sales/offers", headers=_bearer(token))  # a draft offer, no contact
 
-    match = client.get(f"/v1/sales/offers?contact_id={uuid.uuid4()}", headers=_bearer(token))
+    match = client.get(f"/v1/sales/offers?contactId={uuid.uuid4()}", headers=_bearer(token))
     assert match.status_code == 200, match.text
     assert match.json()["items"] == []
 
@@ -172,12 +172,12 @@ def test_contracts_endpoint_accepts_contact_id(client):
     offer = client.post("/v1/sales/offers", headers=_bearer(token)).json()
     client.post("/v1/sales/contracts", json={"offerId": offer["id"]}, headers=_bearer(token))
 
-    match = client.get(f"/v1/sales/contracts?contact_id={uuid.uuid4()}", headers=_bearer(token))
+    match = client.get(f"/v1/sales/contracts?contactId={uuid.uuid4()}", headers=_bearer(token))
     assert match.status_code == 200, match.text
     assert match.json()["items"] == []
 
 
 def test_offers_endpoint_rejects_a_non_uuid_contact_id(client):
     token = _token()
-    response = client.get("/v1/sales/offers?contact_id=not-a-uuid", headers=_bearer(token))
+    response = client.get("/v1/sales/offers?contactId=not-a-uuid", headers=_bearer(token))
     assert response.status_code == 422, response.text

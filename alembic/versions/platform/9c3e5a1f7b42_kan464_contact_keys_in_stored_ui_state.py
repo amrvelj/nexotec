@@ -1,6 +1,6 @@
 """KAN-464 PR-3: stored UI state follows the contact rename
 
-Customers became contacts (ADR-210). Two kinds of platform rows name what the
+Customers became contacts (ADR-209). Two kinds of platform rows name what the
 SPA renamed:
 
 - `ui_translation` holds one row per (namespace, key, language). Every bundle
@@ -12,10 +12,11 @@ SPA renamed:
   and the bundle import reports it. The global revision is bumped, so a cached
   runtime map is not served with the old keys (FR-A-31).
 - `user_preference` holds a user's grid layout and saved views. The contact
-  list's scopes moved (`mdm.customers.list` → `mdm.contacts.list`), and three
-  column ids moved on every grid that had them (`customerNumber`,
-  `customerType`, `customerLabel`). A filter *value* is never touched: the
-  role filter's value `customer` is the role and keeps its name.
+  list's scopes moved (`mdm.customers.list` → `mdm.contacts.list`), and the
+  column ids that named a customer moved on every grid that had them (the
+  contact list's six, the sales and valuation lists' `customerLabel`) — as a
+  column, a sort or a saved filter's field. A filter *value* is never
+  touched: the role filter's value `customer` is the role and keeps its name.
 
 The key map is written out (ADR-133): a migration keeps the keys it ran with.
 
@@ -503,7 +504,6 @@ _KEYS = (
     ("salesList", "columns.customer", "salesList", "columns.contact"),
     ("shell", "nav.customerMail", "shell", "nav.contactMail"),
     ("shell", "nav.customers", "shell", "nav.contacts"),
-    ("standardTexts", "placeholder.customer_salutation", "standardTexts", "placeholder.contact_salutation"),
     ("stockDetail", "purchase.storno.returnedToCustomer", "stockDetail", "purchase.storno.returnedToContact"),
     ("stockDetail", "purchase.storno.returnedToCustomerHint", "stockDetail", "purchase.storno.returnedToContactHint"),
     ("usersAdmin", "ownedGroup.customer.customers", "usersAdmin", "ownedGroup.contact.contacts"),
@@ -529,6 +529,9 @@ _SCOPES = (
 _COLUMN_IDS = {
     "customerNumber": "contactNumber",
     "customerType": "contactType",
+    "customerSince": "contactSince",
+    "customerTitle": "contactTitle",
+    "duplicateOfCustomerId": "duplicateOfContactId",
     "customerLabel": "contactLabel",
 }
 

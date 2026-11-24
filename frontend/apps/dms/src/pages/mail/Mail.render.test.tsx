@@ -12,7 +12,7 @@ import { MailLinkCallbackPage } from '../MailLinkCallbackPage'
 import { mailNavigation } from './mailLink'
 
 // KAN-215 — contact mail through the dealer's own mailbox: Administration ›
-// Kundenmails (the Betrieb's shared mailbox), My account › Mein Postfach (the
+// Mails an Kontakte (the Betrieb's shared mailbox), My account › Mein Postfach (the
 // user's own, and which address contacts see right now — D1 A) and the
 // provider's callback page.
 
@@ -50,7 +50,7 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
-describe('Administration › Kundenmails (KAN-215)', () => {
+describe('Administration › Mails an Kontakte (KAN-215)', () => {
   it('a manager connects the shared mailbox: the provider sign-in opens, unconfigured providers are disabled', async () => {
     const user = userEvent.setup()
     const toProvider = vi.spyOn(mailNavigation, 'toProvider').mockImplementation(() => {})

@@ -256,7 +256,7 @@ export function ContactsListPage() {
           <ContactTypeBadge type={row.original.contactType} label={translatedContactTypeLabel(t, row.original.contactType)} />
         ),
         meta: {
-          filter: { type: 'select', param: 'contact_type', options: translatedContactTypeOptions(t), conditions: ['is', 'isNot'] },
+          filter: { type: 'select', param: 'contactType', options: translatedContactTypeOptions(t), conditions: ['is', 'isNot'] },
           exportValue: (row) => translatedContactTypeLabel(t, row.contactType),
         },
       },
