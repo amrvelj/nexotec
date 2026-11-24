@@ -4,6 +4,7 @@ the diff, without the suite's conftest, and even after an earlier step failed. I
 diff does not run; pinned here so a workflow edit cannot drop it silently.
 """
 
+import ast
 from pathlib import Path
 
 import yaml
@@ -39,7 +40,17 @@ def test_pr_light_runs_the_rule_glob_guard_on_every_pr():
 
 
 def test_the_guard_needs_no_conftest():
-    """The guard imports nothing of `app`, so --noconftest cannot hide an import error."""
+    """Neither the guard nor `scripts/rule_budget.py` imports `app` or `tests`: the step needs
+    no settings, database or conftest fixture."""
 
-    source = (ROOT / GUARD).read_text(encoding="utf-8")
-    assert "import app" not in source and "from app" not in source
+    for path in (ROOT / GUARD, ROOT / "scripts" / "rule_budget.py"):
+        imported = {
+            alias.name.split(".")[0]
+            for node in ast.walk(ast.parse(path.read_text(encoding="utf-8")))
+            for alias in (node.names if isinstance(node, ast.Import) else [])
+        } | {
+            (node.module or "").split(".")[0]
+            for node in ast.walk(ast.parse(path.read_text(encoding="utf-8")))
+            if isinstance(node, ast.ImportFrom)
+        }
+        assert not imported & {"app", "tests"}, f"{path.name} imports {sorted(imported & {'app', 'tests'})}"

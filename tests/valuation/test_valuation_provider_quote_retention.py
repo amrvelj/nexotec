@@ -17,12 +17,13 @@ import uuid
 from decimal import Decimal
 
 import pytest
-from sqlalchemy import func, select, text, update
+from sqlalchemy import bindparam, func, select, text, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker
 
 from app.core.audit_model import AuditEvent
 from app.core.base import utcnow
+from app.core.types import GUID
 from app.valuation import daily_jobs
 from app.valuation.daily_jobs import run_daily_unused_provider_quote_purge
 from app.valuation.models.valuation import (
@@ -39,7 +40,7 @@ from app.valuation.services.provider_quote_retention import (
     retention_cutoff,
 )
 from app.worker import register_daily_jobs
-from tests.postgres_only import ROW_LOCKS, UUID_IN_RAW_SQL
+from tests.postgres_only import ROW_LOCKS
 from tests.valuation.test_valuation_provider_quote import (
     _connected,
     _fresh_breakers,  # noqa: F401 - autouse fixture, reset after each test here too
@@ -190,7 +191,6 @@ def test_a_quote_a_valuation_references_stays_however_old(db_session, monkeypatc
     assert db_session.get(Valuation, valuation_id).provider_quote_id == used
 
 
-@UUID_IN_RAW_SQL
 def test_the_database_refuses_to_delete_a_quote_a_valuation_references(db_session):
     """The backstop under the job: `fk_valuation_provider_quote_id` has no
     ON DELETE, so a referenced quote cannot go, whatever the job reads."""
@@ -199,7 +199,9 @@ def test_the_database_refuses_to_delete_a_quote_a_valuation_references(db_sessio
     _valuation_on(db_session, used)
 
     with pytest.raises(IntegrityError):
-        db_session.execute(text("DELETE FROM valuation_provider_quote WHERE id = :id"), {"id": used})
+        # Typed bind: the GUID type renders the id for either database.
+        delete = text("DELETE FROM valuation_provider_quote WHERE id = :id").bindparams(bindparam("id", type_=GUID))
+        db_session.execute(delete, {"id": used})
         db_session.flush()
     db_session.rollback()
     assert _exists(db_session, used)

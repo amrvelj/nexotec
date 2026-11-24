@@ -38,8 +38,9 @@ from tests import checkout_guard
 from tests.demo_models import DemoBase
 
 # Two test lanes: Postgres when DMS_TEST_DATABASE_URL is set (the lane of
-# record, and the only one CI runs: .github/workflows/test.yml's `postgres`
-# job, ADR-011), else SQLite in-memory as a fast local lane. SQLite checks
+# record: .github/workflows/test.yml's `postgres` job, ADR-011), else SQLite
+# in-memory as a fast lane that never counts as verification (the nightly
+# `sqlite-fast-lane` job only keeps it green, KAN-661). SQLite checks
 # less than Postgres: foreign keys only because _make_engine turns them on,
 # and never VARCHAR lengths, row locks (with_for_update is a no-op) or the
 # Postgres-only tests, which skip. pytest_report_header below names the lane
