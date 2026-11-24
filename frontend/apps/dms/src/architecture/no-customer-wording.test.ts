@@ -31,31 +31,33 @@ const OLD_NAME: Record<Language, RegExp> = {
   it: /\bclient(e|i|ela)\b/i,
 }
 
-// `<namespace>:<key path>` → why it may use the word, in the languages that do.
-const ALLOWED_STRINGS: Record<string, string> = {
+// `<namespace>:<key path>` → why it may use the word, and exactly the languages that do: the
+// same key saying «Kunden» for the register in another language still fails.
+const ALL: Language[] = ['de', 'en', 'fr', 'it']
+const ALLOWED_STRINGS: Record<string, [string, Language[]]> = {
   // The role keeps its name: a contact holds the role «Kunde» (ADR-210).
-  'contactEnums:role.customer': 'the role «Kunde» itself',
-  'apiRefusal.reasons.contact:customer_role_required': 'names the role «Kunde»',
-  'apiRefusal.reasons.contact:customer_role_not_permitted': 'names the role «Kunde»',
-  'apiRefusal.reasons.contact:customer_role_credit_blocked': 'names the role «Kunde»',
-  'contactDetail:mergeRefused.customerRoleNotPermitted': 'names the role «Kunde»',
-  'contactDetail:overview.customerRoleFieldsHint': 'names the role «Kunde»',
-  'contactDetail:overview.removeCustomerRole.title': 'names the role «Kunde»',
-  'contactDetail:overview.removeCustomerRole.body': 'names the role «Kunde»',
-  'contactRowMenu:removeDoNotContactCustomerRole': 'names the role «Kunde»',
+  'contactEnums:role.customer': ['the role «Kunde» itself', ALL],
+  'apiRefusal.reasons.contact:customer_role_required': ['names the role «Kunde»', ALL],
+  'apiRefusal.reasons.contact:customer_role_not_permitted': ['names the role «Kunde»', ALL],
+  'apiRefusal.reasons.contact:customer_role_credit_blocked': ['names the role «Kunde»', ALL],
+  'contactDetail:mergeRefused.customerRoleNotPermitted': ['names the role «Kunde»', ALL],
+  'contactDetail:overview.customerRoleFieldsHint': ['names the role «Kunde»', ALL],
+  'contactDetail:overview.removeCustomerRole.title': ['names the role «Kunde»', ALL],
+  'contactDetail:overview.removeCustomerRole.body': ['names the role «Kunde»', ALL],
+  'contactRowMenu:removeDoNotContactCustomerRole': ['names the role «Kunde»', ALL],
   // AutoScout24's own credential field: the dealer's customer number at AutoScout24.
-  'integrationEnums:configKey.kundennummer': "the marketplace's account number, as it names it",
+  'integrationEnums:configKey.kundennummer': ["the marketplace's account number, as it names it", ALL],
   // OAuth vocabulary («Client-ID», «client secret»), French uses the same word.
-  'integrationEnums:configKey.clientId': 'OAuth client',
-  'integrationEnums:secretSlot.client_secret': 'OAuth client',
-  'integrationsList:connectModal.testAccessHint': 'OAuth client',
-  'statusPage:platform.businessProfile.title': "Nexotec's Google OAuth client",
-  'statusPage:platform.businessProfile.subtitle': "Nexotec's Google OAuth client",
-  'statusPage:platform.businessProfile.loadError': "Nexotec's Google OAuth client",
-  'statusPage:platform.businessProfile.cause.notConfigured': "Nexotec's Google OAuth client",
-  'statusPage:platform.businessProfile.cause.refusal': "Nexotec's Google OAuth client",
-  'statusPage:platform.businessProfile.outcome.answered': "Nexotec's Google OAuth client",
-  'statusPage:platform.businessProfile.outcome.refused': "Nexotec's Google OAuth client",
+  'integrationEnums:configKey.clientId': ['OAuth client', ['fr']],
+  'integrationEnums:secretSlot.client_secret': ['OAuth client', ['fr']],
+  'integrationsList:connectModal.testAccessHint': ['OAuth client', ['fr']],
+  'statusPage:platform.businessProfile.title': ["Nexotec's Google OAuth client", ['fr']],
+  'statusPage:platform.businessProfile.subtitle': ["Nexotec's Google OAuth client", ['fr']],
+  'statusPage:platform.businessProfile.loadError': ["Nexotec's Google OAuth client", ['fr']],
+  'statusPage:platform.businessProfile.cause.notConfigured': ["Nexotec's Google OAuth client", ['fr']],
+  'statusPage:platform.businessProfile.cause.refusal': ["Nexotec's Google OAuth client", ['fr']],
+  'statusPage:platform.businessProfile.outcome.answered': ["Nexotec's Google OAuth client", ['fr']],
+  'statusPage:platform.businessProfile.outcome.refused': ["Nexotec's Google OAuth client", ['fr']],
 }
 
 // Source files that may still name the /customers route, and why.
@@ -102,8 +104,9 @@ function collectSources(dir: string, out: string[] = []): string[] {
   return out
 }
 
-// A string literal (quote or backtick) that starts with the old route.
-const OLD_ROUTE_LITERAL = /['"`]\/customers\b/
+// A string or template literal holding the old route anywhere (`${base}/customers`), or a
+// relative route `path="customers"`.
+const OLD_ROUTE_LITERAL = /['"`][^'"`\n]*\/customers\b|path=["'{`]+customers\b/
 
 describe('no half-rename: customers are contacts (KAN-464, ADR-210)', () => {
   it('no translated string uses the old name outside the allow-list', () => {
@@ -111,9 +114,12 @@ describe('no half-rename: customers are contacts (KAN-464, ADR-210)', () => {
     expect(unexpected).toEqual([])
   })
 
-  it('every allow-list entry still matches a string', () => {
+  it('every allow-list entry matches in exactly its languages', () => {
     const hits = oldNameHits()
-    expect(Object.keys(ALLOWED_STRINGS).filter((id) => !hits.has(id))).toEqual([])
+    const mismatched = Object.entries(ALLOWED_STRINGS)
+      .filter(([id, [, languages]]) => (hits.get(id) ?? []).join() !== languages.join())
+      .map(([id]) => `${id}: ${(hits.get(id) ?? []).join() || 'none'}`)
+    expect(mismatched).toEqual([])
   })
 
   it('no route or link is under /customers outside the allow-list', () => {
@@ -139,6 +145,8 @@ describe('no half-rename: customers are contacts (KAN-464, ADR-210)', () => {
     expect(OLD_NAME.it.test('Client-ID')).toBe(false)
     expect(OLD_ROUTE_LITERAL.test("navigate('/customers/' + id)")).toBe(true)
     expect(OLD_ROUTE_LITERAL.test('`/customers?role=x`')).toBe(true)
+    expect(OLD_ROUTE_LITERAL.test('`${base}/customers`')).toBe(true)
+    expect(OLD_ROUTE_LITERAL.test('<Route path="customers" />')).toBe(true)
     expect(OLD_ROUTE_LITERAL.test("navigate('/contacts')")).toBe(false)
   })
 })

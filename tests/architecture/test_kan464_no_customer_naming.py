@@ -152,23 +152,73 @@ def test_every_old_name_consumer_has_its_twin_on_the_new_name() -> None:
     assert missing == []
 
 
-def test_every_contact_event_is_in_the_old_name_map() -> None:
-    """Each event the contact context publishes is a `contact.*` name the reconciliation knows
-    the old name of, so its check covers every old-name row still pending or dead."""
+def _contact_published_event_types() -> set[str]:
+    """Every literal the contact context passes as `event_type=`, both arms of a conditional too."""
 
-    published = {
-        value
-        for path in (APP_ROOT / "contact").rglob("*.py")
-        for node in ast.walk(ast.parse(path.read_text(encoding="utf-8")))
-        if isinstance(node, ast.keyword)
-        and node.arg == "event_type"
-        and isinstance(node.value, ast.Constant)
-        and isinstance(node.value.value, str)
-        for value in [node.value.value]
+    found: set[str] = set()
+    for path in (APP_ROOT / "contact").rglob("*.py"):
+        for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+            if isinstance(node, ast.keyword) and node.arg == "event_type":
+                found |= {
+                    inner.value
+                    for inner in ast.walk(node.value)
+                    if isinstance(inner, ast.Constant) and isinstance(inner.value, str)
+                }
+    return found
+
+
+def test_the_renamed_events_are_published_under_their_new_names_only() -> None:
+    """Every name in the reconciliation's old-name map is still published by the contact context
+    (the map is not stale), and nothing it publishes is an old `customer.*` name. A new
+    `contact.*` event that never had an old name needs no entry."""
+
+    published = _contact_published_event_types()
+    assert set(_BEFORE_THE_RENAME) <= published, sorted(set(_BEFORE_THE_RENAME) - published)
+    assert not any(name.startswith("customer.") for name in published)
+
+
+# The modules whose strings a customer reads: PDF labels, the seeded standard and message
+# texts, prompts, label copies. Placeholders (`{{customer.salutation}}`, kept by Anto) are
+# not text. Hardcoded SPA strings are forbidden by the i18n rule and not scanned here.
+RENDERED_TEXT_MODULES = sorted(
+    path
+    for path in APP_ROOT.rglob("*.py")
+    if path.name == "i18n.py" or "seed" in path.name or path.name.endswith("_labels.py")
+)
+_PLACEHOLDER = re.compile(r"\{\{[^}]*\}\}")
+TEXT_OLD_NAME = {
+    "de": re.compile(r"kund(e|in)(?!ndienst)", re.IGNORECASE),
+    "en": re.compile(r"\bcustomers?\b", re.IGNORECASE),
+    "fr": re.compile(r"\bclient(e|s|es|èle)?\b", re.IGNORECASE),
+    "it": re.compile(r"\bclient(e|i|ela)\b", re.IGNORECASE),
+}
+
+
+def _docstrings(tree: ast.AST) -> set[int]:
+    kinds = (ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)
+    return {
+        id(node.body[0].value)
+        for node in ast.walk(tree)
+        if isinstance(node, kinds) and node.body and isinstance(node.body[0], ast.Expr)
     }
-    assert published, "the scan found no event the contact context publishes"
-    assert published <= set(_BEFORE_THE_RENAME), sorted(published - set(_BEFORE_THE_RENAME))
-    assert all(name.startswith("contact.") for name in published)
+
+
+def test_no_rendered_backend_text_says_customer() -> None:
+    names = {path.name for path in RENDERED_TEXT_MODULES}
+    assert {"i18n.py", "standard_text_seed.py", "message_text_seed.py"} <= names, "the scan lost its modules"
+    hits = []
+    for path in RENDERED_TEXT_MODULES:
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        skip = _docstrings(tree)
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Constant) and isinstance(node.value, str) and id(node) not in skip:
+                text = _PLACEHOLDER.sub("", node.value)
+                hits += [
+                    f"{path.relative_to(APP_ROOT)}:{node.lineno} ({language})"
+                    for language, pattern in TEXT_OLD_NAME.items()
+                    if pattern.search(text)
+                ]
+    assert hits == [], "A text a customer reads says «Kunde/customer/client»: it is a Kontakt (ADR-210)."
 
 
 def test_the_guard_sees_an_old_name() -> None:
@@ -177,3 +227,6 @@ def test_the_guard_sees_an_old_name() -> None:
     assert not OLD_EVENT_NAME.fullmatch("contact.created")
     assert not OLD_EVENT_NAME.fullmatch("the customer.created event")
     assert OLD_NAME.search("/v1/customers/{customer_id}")
+    assert TEXT_OLD_NAME["de"].search("Sehr geehrter Kunde")
+    assert not TEXT_OLD_NAME["de"].search("Kundendienst")
+    assert not TEXT_OLD_NAME["en"].search(_PLACEHOLDER.sub("", "{{customer.salutation}}, hello"))

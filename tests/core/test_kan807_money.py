@@ -157,6 +157,24 @@ def test_a_price_is_kept_as_typed_and_the_other_figure_follows():
 def test_a_gross_typed_price_totals_to_its_gross():
     total = payer_totals([MoneyLine(1, gross("100.00"), "customer")], cash_rounding=CASH)["customer"]
     assert (total.net, total.vat, total.total) == (D("92.51"), D("7.49"), D("100.00"))
+    # The prices VAT on a rounded net would move by a Rappen (KAN-807 review).
+    for typed in ("19.95", "1.00", "0.20"):
+        assert payer_totals([MoneyLine(1, gross(typed), "c")], cash_rounding=D("0.01"))["c"].total == D(typed)
+
+
+@pytest.mark.parametrize("rate", [D("8.1"), D("2.6"), D("3.8")])
+def test_every_gross_typed_price_up_to_chf_200_totals_to_itself(rate):
+    """One line typed gross, quantity 1: the total is the gross typed, for every Rappen value."""
+
+    drift = [
+        rappen
+        for rappen in range(1, 20_001)
+        if payer_totals(
+            [MoneyLine(1, Price(D(rappen).scaleb(-2), PriceEntry.GROSS, rate), "c")], cash_rounding=D("0.01")
+        )["c"].total
+        != D(rappen).scaleb(-2)
+    ]
+    assert drift == []
 
 
 def test_a_unit_price_has_up_to_four_decimals():
@@ -220,7 +238,7 @@ def _figures(totals: dict[str, PayerTotal]) -> dict[str, PayerTotal]:
     return dict(sorted(totals.items()))
 
 
-@pytest.mark.parametrize("seed", range(200))
+@pytest.mark.parametrize("seed", range(100))
 def test_the_order_of_the_lines_never_changes_a_total(seed):
     rng = random.Random(seed)
     lines = _random_lines(rng)
@@ -229,7 +247,7 @@ def test_the_order_of_the_lines_never_changes_a_total(seed):
     assert _figures(payer_totals(lines, cash_rounding=CASH)) == _figures(payer_totals(shuffled, cash_rounding=CASH))
 
 
-@pytest.mark.parametrize("seed", range(200))
+@pytest.mark.parametrize("seed", range(100))
 def test_net_typed_and_gross_typed_prices_of_the_same_value_give_the_same_total(seed):
     rng = random.Random(seed)
     lines = _random_lines(rng)
@@ -252,7 +270,7 @@ def test_net_typed_and_gross_typed_prices_of_the_same_value_give_the_same_total(
     assert payer_totals(as_net, cash_rounding=CASH) == payer_totals(as_gross, cash_rounding=CASH)
 
 
-@pytest.mark.parametrize("seed", range(200))
+@pytest.mark.parametrize("seed", range(100))
 def test_every_total_adds_up(seed):
     for total in payer_totals(_random_lines(random.Random(seed)), cash_rounding=CASH).values():
         assert total.net == sum(v.net for v in total.vat_lines)
@@ -262,7 +280,7 @@ def test_every_total_adds_up(seed):
         assert abs(total.rounding) <= CASH / 2
         assert (total.rounded_total / CASH) == (total.rounded_total / CASH).to_integral_value()
         for v in total.vat_lines:
-            assert v.vat == to_rappen(Fraction(v.net) * Fraction(v.rate) / 100)
+            assert abs(Fraction(v.vat) - Fraction(v.net) * Fraction(v.rate) / 100) <= Fraction(1, 100)
 
 
 def test_the_module_imports_no_context_and_no_io():

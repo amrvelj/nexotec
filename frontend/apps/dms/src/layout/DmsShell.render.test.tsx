@@ -106,7 +106,7 @@ describe('DmsShell sidebar — every chrome string is translated (KAN-152)', () 
   // role, so the greyed «Partner — bald» entry is gone rather than promising a second register.
   it('master data has no «Partner» entry: suppliers are contacts (KAN-464)', async () => {
     renderShell('de')
-    const nav = await screen.findByRole('navigation', { name: i18n.t('shell.sidebar.mainNavigation') })
+    const nav = await screen.findByRole('navigation', { name: i18n.getFixedT('de')('shell.sidebar.mainNavigation') })
     expect(await within(nav).findByRole('link', { name: /^Kontakte/ })).toHaveAttribute('href', '/contacts')
     expect(within(nav).queryByText('Partner')).not.toBeInTheDocument()
     expect(nav.querySelector('a[href="/partners"]')).toBeNull()

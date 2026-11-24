@@ -77,8 +77,8 @@
       "expired": "Diese Anmeldung ist abgelaufen oder wurde schon verwendet. Bitte beginnen Sie neu."
     },
     "photos": {
-      "uploaded_one": "{{count, number}} bei Google",
-      "uploaded_other": "{{count, number}} bei Google",
+      "uploaded_one": "{{count, number}} übertragen",
+      "uploaded_other": "{{count, number}} übertragen",
       "refused_one": "{{count, number}} abgelehnt",
       "refused_other": "{{count, number}} abgelehnt",
       "waiting_one": "{{count, number}} wartet auf die Übertragung",

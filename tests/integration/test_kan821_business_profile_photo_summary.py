@@ -88,13 +88,29 @@ def test_a_dead_lettered_pass_is_stopped(db_session, site, store):
     )
 
 
-def test_a_deactivated_location_has_nothing_waiting(db_session, site, store):
+def test_a_deactivated_location_still_shows_what_waits(db_session, site, store):
+    """Nothing is uploaded for a deactivated location (ADR-199); activating it again queues the
+    pass, so its images are shown as waiting, never as «no images» (KAN-821 review)."""
+
     _fake, location, binding = site
     _image(db_session, store, location, BrandingAssetKind.PREMISES)
     location.is_active = False
     db_session.commit()
 
-    assert _summary(db_session, binding).waiting == 0
+    assert _summary(db_session, binding).waiting == 1
+
+
+def test_a_hero_that_became_the_cover_counts_once(db_session, site, store):
+    _fake, location, binding = site
+    hero = _image(db_session, store, location, BrandingAssetKind.HERO, position=1)
+    _queue(db_session, location)
+    _run(db_session, store)  # ADDITIONAL
+    hero.is_primary = True
+    db_session.commit()
+    _queue(db_session, location)
+    _run(db_session, store)  # COVER, sent again
+
+    assert _summary(db_session, binding).uploaded == 1
 
 
 def test_only_an_active_binding_of_the_betrieb_has_a_summary(db_session, site, store):

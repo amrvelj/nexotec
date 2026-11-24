@@ -233,7 +233,7 @@ describe('Google’s callback (KAN-226 PR-4)', () => {
     installFakeBackend(routes([binding({ photos: { uploaded: 3, refused: 1, waiting: 2, stopped: false } })]))
     renderWithProviders(<BusinessProfileSection />)
 
-    expect(await screen.findByText('3 bei Google · 1 abgelehnt · 2 warten auf die Übertragung')).toBeInTheDocument()
+    expect(await screen.findByText('3 übertragen · 1 abgelehnt · 2 warten auf die Übertragung')).toBeInTheDocument()
     expect(screen.getByText(i18n.t('businessProfile.card.fields.photos'))).toBeInTheDocument()
     expect(screen.getByText(i18n.t('businessProfile.card.photos.refusedHint'))).toBeInTheDocument()
     expect(screen.queryByText(i18n.t('businessProfile.card.photos.stopped'))).not.toBeInTheDocument()
@@ -252,7 +252,7 @@ describe('Google’s callback (KAN-226 PR-4)', () => {
     renderWithProviders(<BusinessProfileSection />)
 
     expect(await screen.findByText(i18n.t('businessProfile.card.photos.none'))).toBeInTheDocument()
-    expect(screen.getByText('1 bei Google · 1 wartet auf die Übertragung')).toBeInTheDocument()
+    expect(screen.getByText('1 übertragen · 1 wartet auf die Übertragung')).toBeInTheDocument()
     expect(screen.getByText(i18n.t('businessProfile.card.photos.stopped'))).toBeInTheDocument()
     expect(screen.queryByText(i18n.t('businessProfile.card.photos.refusedHint'))).not.toBeInTheDocument()
   })
@@ -271,7 +271,7 @@ describe('Google’s callback (KAN-226 PR-4)', () => {
     try {
       installFakeBackend(routes([binding({ photos: { uploaded: 1, refused: 2, waiting: 0, stopped: false } })]))
       renderWithProviders(<BusinessProfileSection />)
-      expect(await screen.findByText('1 chez Google · 2 refusées')).toBeInTheDocument()
+      expect(await screen.findByText('1 transférée · 2 refusées')).toBeInTheDocument()
     } finally {
       await i18n.changeLanguage('de')
     }

@@ -77,8 +77,8 @@
       "expired": "Cette connexion a expiré ou a déjà été utilisée. Veuillez recommencer."
     },
     "photos": {
-      "uploaded_one": "{{count, number}} chez Google",
-      "uploaded_other": "{{count, number}} chez Google",
+      "uploaded_one": "{{count, number}} transférée",
+      "uploaded_other": "{{count, number}} transférées",
       "refused_one": "{{count, number}} refusée",
       "refused_other": "{{count, number}} refusées",
       "waiting_one": "{{count, number}} en attente de transfert",

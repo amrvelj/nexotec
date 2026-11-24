@@ -11,9 +11,12 @@ rounded on the way: a gross price turned into its net, hours from work units
 price. Rounding happens only in `payer_totals`, in this order (decisions 15,
 20, 32 and 34 of the Aftersales PRD):
 
-1. per payer and VAT rate, the **net sum** of the lines, rounded to the Rappen;
-2. the **VAT** on that rounded net sum, once, rounded to the Rappen — so the
-   VAT printed is the rate applied to the net printed;
+1. per payer and VAT rate, the **net sum** of the lines, exact;
+2. the **VAT** on that exact sum, once; then the net and the VAT are each
+   rounded to the Rappen. Taking the VAT on the exact sum keeps a price typed
+   gross: CHF 19.95 with VAT totals CHF 19.95 (VAT on the rounded net would
+   make it 19.96 for about one gross price in thirteen). The printed VAT is
+   within a Rappen of the rate times the printed net;
 3. the **total** = net + VAT, to the Rappen;
 4. the Betrieb's **cash rounding** (the step the caller passes, e.g. 0.05) on
    the payer's total; the difference is its own line, «Rundung». The VAT is
@@ -184,7 +187,7 @@ class MoneyLine:
 
 @dataclasses.dataclass(frozen=True)
 class VatLine:
-    """The VAT of one rate for one payer: on the rounded net sum, once."""
+    """The VAT of one rate for one payer: once, on the exact net sum; both rounded to the Rappen."""
 
     rate: Decimal
     net: Decimal
@@ -222,8 +225,8 @@ def payer_totals(lines: Iterable[MoneyLine], *, cash_rounding: Decimal) -> dict[
     for payer, rates in by_payer.items():
         vat_lines = []
         for rate in sorted(rates):
-            net = to_rappen(rates[rate])
-            vat_lines.append(VatLine(rate=rate, net=net, vat=to_rappen(Fraction(net) * _rate(rate))))
+            exact_net = rates[rate]
+            vat_lines.append(VatLine(rate=rate, net=to_rappen(exact_net), vat=to_rappen(exact_net * _rate(rate))))
         net_sum = sum((v.net for v in vat_lines), Decimal("0.00"))
         vat_sum = sum((v.vat for v in vat_lines), Decimal("0.00"))
         total = net_sum + vat_sum

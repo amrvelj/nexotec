@@ -77,8 +77,8 @@
       "expired": "This sign-in has expired or was already used. Please start again."
     },
     "photos": {
-      "uploaded_one": "{{count, number}} at Google",
-      "uploaded_other": "{{count, number}} at Google",
+      "uploaded_one": "{{count, number}} uploaded",
+      "uploaded_other": "{{count, number}} uploaded",
       "refused_one": "{{count, number}} refused",
       "refused_other": "{{count, number}} refused",
       "waiting_one": "{{count, number}} waiting to be uploaded",

@@ -77,8 +77,8 @@
       "expired": "Questo accesso è scaduto o è già stato usato. Ricominciate, per favore."
     },
     "photos": {
-      "uploaded_one": "{{count, number}} su Google",
-      "uploaded_other": "{{count, number}} su Google",
+      "uploaded_one": "{{count, number}} trasferita",
+      "uploaded_other": "{{count, number}} trasferite",
       "refused_one": "{{count, number}} rifiutata",
       "refused_other": "{{count, number}} rifiutate",
       "waiting_one": "{{count, number}} in attesa di trasferimento",
