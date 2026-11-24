@@ -3,11 +3,12 @@ platform.public, «not set» as a state, values per Betrieb and per location,
 history, restore as a change, concurrency, the export."""
 
 import threading
+import time
 import uuid
 from decimal import Decimal
 
 import pytest
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
 
 from app.core.audit_model import AuditEvent
 from app.core.errors import ConflictError, NotFoundError
@@ -31,7 +32,7 @@ from app.platform.organisation.services.setting_declarations import (
 )
 from tests import setting_store_support as s
 from tests.identity_support import create_dealership
-from tests.postgres_only import NEEDS_ITS_OWN_CONNECTION
+from tests.postgres_only import ROW_LOCKS
 
 
 @pytest.fixture()
@@ -346,50 +347,100 @@ def test_the_version_checked_is_the_committed_one_not_a_row_the_session_holds(en
     assert held.version == 2  # read again under the lock
 
 
-@NEEDS_ITS_OWN_CONNECTION
+def _wait_until_a_backend_waits_on_a_lock(engine, seconds: float = 10.0) -> None:
+    """Returns once a session of this test database is blocked on a lock, so
+    the race below is really contended instead of hoping a sleep was enough."""
+
+    deadline = time.monotonic() + seconds
+    with engine.connect() as watcher:
+        while time.monotonic() < deadline:
+            waiting = watcher.execute(
+                text(
+                    "SELECT count(*) FROM pg_stat_activity "
+                    "WHERE datname = current_database() AND wait_event_type = 'Lock'"
+                )
+            ).scalar_one()
+            if waiting:
+                return
+            watcher.rollback()
+            time.sleep(0.05)
+    raise AssertionError("the second write never waited for the first one's lock")
+
+
+@ROW_LOCKS
 def test_two_first_writes_at_once_are_one_change_and_one_conflict(engine, betrieb, samples):
-    """The advisory lock serialises the Betrieb's writes: the second first
-    write waits, then sees version 1 and is a conflict — never a duplicate
-    slot or an IntegrityError."""
+    """The advisory lock serialises the Betrieb's writes: while the first
+    write's transaction is open, a second first write waits; once the first
+    commits, the second sees version 1 and is a conflict — never a duplicate
+    slot or an IntegrityError on the unique index."""
 
     from sqlalchemy.orm import sessionmaker
 
     factory = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
-    start = threading.Barrier(2)
-    outcomes: list[str] = []
-    lock = threading.Lock()
+    outcome: list[str] = []
 
-    def write(value: Decimal) -> None:
+    def second() -> None:
         session = factory()
         try:
-            start.wait()
             store.change_setting(
-                session, dealership_id=betrieb, location_id=None, key=s.WAIT.key, value=value,
+                session, dealership_id=betrieb, location_id=None, key=s.WAIT.key, value=Decimal(20),
                 expected_version=0, actor_id=None,
             )
             session.commit()
-            outcome = "written"
+            outcome.append("written")
         except ConflictError:
             session.rollback()
-            outcome = "conflict"
+            outcome.append("conflict")
         except BaseException as exc:  # noqa: BLE001 - reported below
             session.rollback()
-            outcome = type(exc).__name__
+            outcome.append(type(exc).__name__)
         finally:
             session.close()
-        with lock:
-            outcomes.append(outcome)
 
-    threads = [threading.Thread(target=write, args=(Decimal(v),)) for v in (10, 20)]
-    for thread in threads:
+    first = factory()
+    try:
+        store.change_setting(
+            first, dealership_id=betrieb, location_id=None, key=s.WAIT.key, value=Decimal(10),
+            expected_version=0, actor_id=None,
+        )  # flushed, not committed: it holds the Betrieb's lock
+        thread = threading.Thread(target=second)
         thread.start()
-    for thread in threads:
-        thread.join(timeout=60)
+        _wait_until_a_backend_waits_on_a_lock(engine)
+        first.commit()
+    finally:
+        first.close()
+    thread.join(timeout=30)
 
-    assert sorted(outcomes) == ["conflict", "written"]
+    assert outcome == ["conflict"]
     with factory() as session:
         assert session.scalar(select(func.count()).select_from(SettingValue)) == 1
         assert session.scalar(select(func.count()).select_from(SettingValueChange)) == 1
+
+
+def test_a_slot_whose_kind_changed_reads_as_not_set_and_is_written_again(db_session, betrieb):
+    as_number = SettingDeclaration(key="testarea.shape", module=None, kind=SettingKind.NUMBER, when_not_set=WhenNotSet.QUIET)
+    with s.declared(as_number):
+        _change(db_session, betrieb, as_number.key, Decimal(1))
+    as_switch = SettingDeclaration(key="testarea.shape", module=None, kind=SettingKind.SWITCH, when_not_set=WhenNotSet.QUIET)
+    with s.declared(as_switch):
+        assert _read(db_session, betrieb, as_switch.key).is_set is False  # Decimal(1) is no switch value
+        slot = _change(db_session, betrieb, as_switch.key, True, version=1)  # True == Decimal(1) in Python
+        assert (slot.value, slot.version) == (True, 2)
+        assert _read(db_session, betrieb, as_switch.key).value is True
+
+
+def test_a_withdrawn_choice_reads_as_not_set(db_session, betrieb):
+    wide = SettingDeclaration(
+        key="testarea.unit", module=None, kind=SettingKind.CHOICE, when_not_set=WhenNotSet.QUIET,
+        choices=("hours", "work_units"),
+    )
+    with s.declared(wide):
+        _change(db_session, betrieb, wide.key, "work_units")
+    narrow = SettingDeclaration(
+        key="testarea.unit", module=None, kind=SettingKind.CHOICE, when_not_set=WhenNotSet.QUIET, choices=("hours",)
+    )
+    with s.declared(narrow):
+        assert _read(db_session, betrieb, narrow.key).is_set is False
 
 
 def test_a_text_setting_is_cleared_back_to_not_set(db_session, betrieb, samples):

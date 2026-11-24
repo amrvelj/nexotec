@@ -14,6 +14,7 @@ from decimal import Decimal
 from sqlalchemy.orm import Session
 
 from app.platform.organisation.models.dealership import Location
+from app.platform.organisation.services import setting_declarations
 from app.platform.organisation.services.setting_declarations import (
     SettingDeclaration,
     SettingKind,
@@ -55,6 +56,7 @@ SAMPLES = (WAIT, SWITCH, UNIT, FEE, NOTE)
 
 @contextmanager
 def declared(*declarations: SettingDeclaration) -> Iterator[None]:
+    was_open = setting_declarations._test_area_open
     open_test_area(True)
     try:
         for declaration in declarations:
@@ -63,7 +65,7 @@ def declared(*declarations: SettingDeclaration) -> Iterator[None]:
     finally:
         for declaration in declarations:
             unregister_setting(declaration.key)
-        open_test_area(False)
+        open_test_area(was_open)
 
 
 def add_location(db: Session, dealership_id: uuid.UUID, *, name: str = "Filiale Nord", active: bool = True) -> uuid.UUID:

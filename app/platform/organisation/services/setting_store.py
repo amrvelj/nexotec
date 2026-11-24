@@ -31,6 +31,7 @@ changed (`SettingRefused`).
 from __future__ import annotations
 
 import hashlib
+import logging
 import uuid
 from dataclasses import dataclass
 from decimal import Decimal
@@ -61,6 +62,8 @@ from app.platform.organisation.services.setting_declarations import (
 )
 
 Value = bool | Decimal | str | TextValue
+
+logger = logging.getLogger(__name__)
 
 
 class UndeclaredSettingError(LookupError):
@@ -197,13 +200,32 @@ def _slots(db: Session, *, dealership_id: uuid.UUID, location_id: uuid.UUID | No
     return sorted(rows, key=lambda row: row.location_id is None)
 
 
+def _still_fits(declaration: SettingDeclaration, row: SettingValue) -> bool:
+    """A stored value counts only while it fits today's declaration: the same
+    kind, and a value it still accepts (a choice withdrawn, a bound moved). A
+    slot that no longer fits reads as not set, and is logged: ADR-216 says a
+    change of kind needs a data migration, and this is what one would miss."""
+
+    try:
+        if SettingKind(row.kind) != SettingKind(declaration.kind):
+            raise SettingValueError(f"stored as {row.kind}", reason="setting_value_no_longer_valid")
+        validate_value(declaration, _value_of(row))
+    except SettingValueError as exc:
+        logger.warning(
+            "Setting %s of Betrieb %s (location %s) no longer fits its declaration (%s): read as not set.",
+            row.key, row.dealership_id, row.location_id, exc,
+        )
+        return False
+    return True
+
+
 def read_setting(db: Session, *, dealership_id: uuid.UUID, location_id: uuid.UUID | None, key: str) -> SettingRead:
     """The value of `key` for this Betrieb at this location (None: the Betrieb's
     own): the location's where it has one, else the Betrieb's, else «not set»."""
 
     declaration = _declaration(key)
     for row in _slots(db, dealership_id=dealership_id, location_id=location_id, key=key):
-        if row.state == SettingState.SET:
+        if row.state == SettingState.SET and _still_fits(declaration, row):
             return SettingRead(
                 key=key,
                 is_set=True,
@@ -317,7 +339,12 @@ def change_setting(
     if row is None and checked is None:
         # Clearing a slot never written changes nothing.
         return _slot_of(key, location_id, None)
-    if row is not None and before == checked and (row.state == SettingState.SET) == (checked is not None):
+    if (
+        row is not None
+        and SettingKind(row.kind) == kind
+        and before == checked
+        and (row.state == SettingState.SET) == (checked is not None)
+    ):
         return _slot_of(key, location_id, row)
 
     now = utcnow()
@@ -379,15 +406,12 @@ def setting_history(
     """Every change of the slot, newest first."""
 
     _declaration(key)
+    slot = _slot_row(db, dealership_id=dealership_id, location_id=location_id, key=key)
+    if slot is None:
+        return []
     rows = db.scalars(
         select(SettingValueChange)
-        .where(
-            SettingValueChange.dealership_id == dealership_id,
-            SettingValueChange.key == key,
-            SettingValueChange.location_id.is_(None)
-            if location_id is None
-            else SettingValueChange.location_id == location_id,
-        )
+        .where(SettingValueChange.setting_value_id == slot.id)
         .order_by(SettingValueChange.created_at.desc(), SettingValueChange.id.desc())
     )
     return [_change_of(row) for row in rows]

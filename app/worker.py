@@ -599,11 +599,15 @@ def register_status() -> None:
 
 def register_contact_message_types() -> None:
     """KAN-217: the send consumers and reminders to come read the message-type
-    registry, which the composition root fills. KAN-805: the setting
-    declarations are registered here too, for the worker's readers of the
-    settings store (the setup checklist's job reads them from KAN-805 PR-3)."""
+    registry, which the composition root fills."""
 
     register_message_types()
+
+
+def register_setting_declarations() -> None:
+    """KAN-805: every area's setting declarations, for the worker's readers of
+    the settings store (the setup checklist's daily job from KAN-805 PR-3)."""
+
     register_settings()
 
 
@@ -788,6 +792,7 @@ def run(*, max_iterations: int | None = None) -> None:
     register_exports()
     register_status()
     register_contact_message_types()
+    register_setting_declarations()
     register_daily_jobs()
     # KAN-215 (ADR-118): the mailbox providers' revokers end a revoked grant
     # at Google / drop its token; platform's consumer runs them, here only.
