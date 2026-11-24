@@ -12,7 +12,8 @@ from app.platform.organisation.models.dealership import Location
 from app.platform.organisation.models.module_entitlement import ModuleEntitlement
 from tests import setting_store_support as samples
 from tests import setup_checklist_support as s
-from tests.identity_support import create_dealership
+from tests.identity_support import create_dealership, platform_admin_headers
+from tests.platform_tenant_support import ensure_platform_tenant
 
 
 @pytest.fixture()
@@ -207,3 +208,80 @@ def test_the_history_is_newest_first_in_pages_and_a_restore_is_a_change(client, 
     assert (newest["origin"], newest["restoredFromId"], newest["versionAfter"]) == ("restore", oldest, 4)
     stale = client.post(f"{_base(dealership_id)}/setting-changes/{oldest}/restore", headers={**boss, "If-Match": "3"})
     assert stale.status_code == 409
+
+
+# --- review fixes (KAN-805 PR-2) ----------------------------------------------------
+
+
+def test_a_value_that_no_longer_fits_shows_as_not_set_and_says_why(client, db_session):
+    wide = samples.SettingDeclaration(
+        key="testarea.unit", module=None, kind=samples.SettingKind.CHOICE, when_not_set=samples.WhenNotSet.QUIET,
+        choices=("hours", "work_units"),
+    )
+    with samples.declared(wide):
+        dealership_id, boss, _ = _betrieb(client, db_session)
+        assert _put(client, boss, dealership_id, wide.key, {"choice": "work_units"}, 0).status_code == 200
+    narrow = samples.SettingDeclaration(
+        key="testarea.unit", module=None, kind=samples.SettingKind.CHOICE, when_not_set=samples.WhenNotSet.QUIET,
+        choices=("hours", "days"),
+    )
+    with samples.declared(narrow):
+        body = client.get(f"{_base(dealership_id)}/setting-areas/testarea", headers=boss).json()
+        slot = body["settings"][0]["dealership"]
+        assert (slot["isSet"], slot["value"], slot["fitsDeclaration"], slot["version"]) == (False, None, False, 1)
+        # Set again: it fits once more.
+        again = _put(client, boss, dealership_id, narrow.key, {"choice": "days"}, 1)
+        assert (again.json()["isSet"], again.json()["fitsDeclaration"]) == (True, True)
+
+
+def test_a_number_travels_as_a_decimal_string_and_json_types_are_strict(client, db_session, declared):
+    dealership_id, boss, _ = _betrieb(client, db_session)
+    key = samples.FEE.key
+    stored = _put(client, boss, dealership_id, key, {"number": "99999999999999.99"}, 0)
+    assert stored.json()["value"]["number"] == "99999999999999.99"  # exact: a string, never a float
+    too_large = _put(client, boss, dealership_id, key, {"number": "100000000000000"}, 1)
+    assert too_large.json()["error"]["details"]["reason"] == "setting_value_too_large"
+
+    assert _put(client, boss, dealership_id, key, {"number": 12}, 1).status_code == 422  # a JSON number
+    bad = _put(client, boss, dealership_id, key, {"number": "zwölf"}, 1)
+    assert bad.json()["error"]["details"]["reason"] == "setting_value_not_a_number"
+    assert _put(client, boss, dealership_id, samples.SWITCH.key, {"switch": "yes"}, 0).status_code == 422
+    long_choice = _put(client, boss, dealership_id, samples.UNIT.key, {"choice": "x" * 100}, 0)
+    assert long_choice.json()["error"]["details"]["reason"] == "setting_value_not_a_choice"
+
+
+def test_a_restore_into_a_location_slot_takes_that_slots_version(client, db_session, declared):
+    dealership_id, boss, _ = _betrieb(client, db_session)
+    seat = _seat(db_session, dealership_id)
+    for version, value in enumerate(("10", "20")):
+        assert _put(client, boss, dealership_id, samples.WAIT.key, {"number": value}, version, location_id=seat).status_code == 200
+    history = client.get(
+        f"{_base(dealership_id)}/setting-values/{samples.WAIT.key}/history", params={"locationId": str(seat)}, headers=boss
+    ).json()["items"]
+    oldest = history[-1]["id"]
+    assert client.post(f"{_base(dealership_id)}/setting-changes/{oldest}/restore", headers={**boss, "If-Match": "0"}).status_code == 409
+    restored = client.post(f"{_base(dealership_id)}/setting-changes/{oldest}/restore", headers={**boss, "If-Match": "2"})
+    assert (restored.status_code, restored.json()["locationId"], restored.json()["value"]["number"]) == (200, str(seat), "10")
+    assert client.get(f"{_base(dealership_id)}/setting-values/{samples.WAIT.key}/history", headers=boss).json()["items"] == []
+
+
+def test_a_restore_of_a_module_the_betrieb_no_longer_holds_is_not_found(client, db_session, declared):
+    dealership_id, boss, _ = _betrieb(client, db_session)
+    assert _put(client, boss, dealership_id, samples.WAIT.key, {"number": "5"}, 0).status_code == 200
+    change = client.get(f"{_base(dealership_id)}/setting-values/{samples.WAIT.key}/history", headers=boss).json()["items"][0]
+    for row in db_session.scalars(select(ModuleEntitlement).where(ModuleEntitlement.dealership_id == dealership_id)):
+        db_session.delete(row)
+    db_session.commit()
+
+    assert client.post(
+        f"{_base(dealership_id)}/setting-changes/{change['id']}/restore", headers={**boss, "If-Match": "1"}
+    ).status_code == 404
+
+
+def test_every_role_reads_the_areas_and_the_platform_tenant_has_none(client, db_session, declared):
+    dealership_id, _, clerk = _betrieb(client, db_session)
+    assert client.get(f"{_base(dealership_id)}/setting-areas", headers=clerk).status_code == 200
+
+    platform_id = uuid.UUID(ensure_platform_tenant(client))
+    staff = platform_admin_headers(tenant_id=platform_id)
+    assert client.get(f"{_base(platform_id)}/setting-areas", headers=staff).status_code == 404

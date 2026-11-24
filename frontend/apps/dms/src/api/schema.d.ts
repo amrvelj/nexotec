@@ -13412,13 +13412,13 @@ export interface components {
             origin: string;
             /** Restoredfromid */
             restoredFromId: string | null;
-            value: components["schemas"]["SettingValueBody-Output"] | null;
+            value: components["schemas"]["SettingValueBody"] | null;
             /** Versionafter */
             versionAfter: number;
         };
         /** SettingDeclarationRead */
         SettingDeclarationRead: {
-            actsAs: components["schemas"]["SettingValueBody-Output"] | null;
+            actsAs: components["schemas"]["SettingValueBody"] | null;
             /** Area */
             area: string;
             /** Checklistblocks */
@@ -13465,11 +13465,13 @@ export interface components {
             changedAt: string | null;
             /** Changedby */
             changedBy: string | null;
+            /** Fitsdeclaration */
+            fitsDeclaration: boolean;
             /** Isset */
             isSet: boolean;
             /** Locationid */
             locationId: string | null;
-            value: components["schemas"]["SettingValueBody-Output"] | null;
+            value: components["schemas"]["SettingValueBody"] | null;
             /** Version */
             version: number;
         };
@@ -13477,20 +13479,7 @@ export interface components {
          * SettingValueBody
          * @description A value: exactly the field of the setting's kind.
          */
-        "SettingValueBody-Input": {
-            /** Choice */
-            choice?: string | null;
-            /** Number */
-            number?: number | string | null;
-            /** Switch */
-            switch?: boolean | null;
-            text?: components["schemas"]["TextValueBody"] | null;
-        };
-        /**
-         * SettingValueBody
-         * @description A value: exactly the field of the setting's kind.
-         */
-        "SettingValueBody-Output": {
+        SettingValueBody: {
             /** Choice */
             choice?: string | null;
             /** Number */
@@ -13504,7 +13493,7 @@ export interface components {
          * @description The new value of a slot; `null` clears it back to «not set».
          */
         SettingWrite: {
-            value: components["schemas"]["SettingValueBody-Input"] | null;
+            value: components["schemas"]["SettingValueBody"] | null;
         };
         /** SetupChecklistItemRead */
         SetupChecklistItemRead: {

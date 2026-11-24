@@ -1,9 +1,11 @@
 """Schemas of Dealer Administration's settings-store API (KAN-805 PR-2,
 ADR-214, ADR-216).
 
-A value travels in the field of its kind: `switch`, `number` (a number or an
-amount, a decimal string), `choice`, or `text` (one name and its
-translations, ruling 176). `null` in a write clears the slot back to «not
+A value travels in the field of its kind: `switch` (a JSON boolean), `number`
+(a number or an amount, as a decimal string — never a JSON number, which would
+pass through a float), `choice`, or `text` (one name and its translations,
+ruling 176). The setting's declaration judges the value and answers with a
+reason; the schema checks only the JSON types. `null` in a write clears the slot back to «not
 set»; «not set» is a state, never a default value.
 """
 
@@ -11,13 +13,13 @@ import datetime as dt
 import uuid
 from decimal import Decimal
 
-from pydantic import Field
+from pydantic import Field, StrictBool, StrictStr
 
 from app.core.schemas import CamelModel
 
 
 class TextValueBody(CamelModel):
-    name: str = Field(max_length=500)
+    name: StrictStr
     # {"fr": …, "it": …, "en": …, "de": …}: only the languages translated.
     translations: dict[str, str] = Field(default_factory=dict)
 
@@ -25,9 +27,10 @@ class TextValueBody(CamelModel):
 class SettingValueBody(CamelModel):
     """A value: exactly the field of the setting's kind."""
 
-    switch: bool | None = None
-    number: Decimal | None = None
-    choice: str | None = Field(default=None, max_length=64)
+    switch: StrictBool | None = None
+    # A decimal string ("15", "4.50"); the declaration checks its decimals and bounds.
+    number: StrictStr | None = None
+    choice: StrictStr | None = None
     text: TextValueBody | None = None
 
 
@@ -62,6 +65,9 @@ class SettingSlotRead(CamelModel):
     version: int
     changed_at: dt.datetime | None
     changed_by: uuid.UUID | None
+    # False: the value stored no longer fits the setting's declaration and is
+    # read as not set — the manager sets it again.
+    fits_declaration: bool
 
 
 class AreaSettingRead(CamelModel):

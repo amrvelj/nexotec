@@ -8,7 +8,8 @@ tenant is not found (`get_dealer_dealership_or_404`). The matrix row
 «Dealership settings»: every role of the Betrieb reads — the values and,
 by Anto's ruling of 2026-11-24, the history — and only the manager (or
 platform staff, as the row says) writes. A setting of a module the Betrieb
-does not hold is not found, like every route of that module.
+does not hold is not found (404) to whoever may call the route; the role
+check runs first, so a non-manager's write is 403 whatever the key.
 
 A write is a PUT of the slot's whole value with If-Match on the slot's
 version (0 for a slot never written); `{"value": null}` clears it back to
@@ -19,6 +20,7 @@ its declaration is 422 with its reason; a deactivated location's value is
 """
 
 import uuid
+from decimal import Decimal, InvalidOperation
 from typing import Any
 
 from fastapi import APIRouter, Depends, Query
@@ -79,7 +81,7 @@ def _body_of(value: Any) -> SettingValueBody | None:
         return SettingValueBody(text=TextValueBody(name=value.name, translations=dict(value.translations)))
     if isinstance(value, str):
         return SettingValueBody(choice=value)
-    return SettingValueBody(number=value)
+    return SettingValueBody(number=str(value))
 
 
 def _value_of_body(declaration: SettingDeclaration, body: SettingValueBody | None) -> Any:
@@ -96,6 +98,11 @@ def _value_of_body(declaration: SettingDeclaration, body: SettingValueBody | Non
     if field == "text":
         assert body.text is not None
         return TextValue(name=body.text.name, translations=tuple(sorted(body.text.translations.items())))
+    if field == "number":
+        try:
+            return Decimal(body.number or "")
+        except InvalidOperation as exc:
+            raise SettingValueError(f"{declaration.key} takes a number.", reason="setting_value_not_a_number") from exc
     return getattr(body, field)
 
 
@@ -125,6 +132,7 @@ def _slot_read(slot: store.SettingSlot) -> SettingSlotRead:
         version=slot.version,
         changed_at=slot.changed_at,
         changed_by=slot.changed_by,
+        fits_declaration=slot.fits_declaration,
     )
 
 

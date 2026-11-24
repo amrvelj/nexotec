@@ -122,6 +122,10 @@ class SettingSlot:
     version: int
     changed_at: Any
     changed_by: uuid.UUID | None
+    # False: a value is stored but no longer fits today's declaration, so it is
+    # read as not set (`_still_fits`); the administration says so instead of
+    # showing it as the value in force.
+    fits_declaration: bool = True
 
 
 @dataclass(frozen=True)
@@ -268,14 +272,18 @@ def _slot_row(
 def _slot_of(key: str, location_id: uuid.UUID | None, row: SettingValue | None) -> SettingSlot:
     if row is None:
         return SettingSlot(key=key, location_id=location_id, is_set=False, value=None, version=0, changed_at=None, changed_by=None)
+    declaration = get_declaration(key)
+    fits = row.state != SettingState.SET or declaration is None or _still_fits(declaration, row)
+    in_force = row.state == SettingState.SET and fits
     return SettingSlot(
         key=key,
         location_id=location_id,
-        is_set=row.state == SettingState.SET,
-        value=_value_of(row),
+        is_set=in_force,
+        value=_value_of(row) if in_force else None,
         version=row.version,
         changed_at=row.updated_at,
         changed_by=row.updated_by,
+        fits_declaration=fits,
     )
 
 

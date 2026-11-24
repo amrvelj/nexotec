@@ -28,8 +28,9 @@ per-location column while any location holds a value). Split out of platform-adm
   stays as it is.
 - **API** (`administration/api/area_settings.py`, matrix row `dealership_settings`: every role reads,
   the manager writes): `GET …/setting-areas`, `…/setting-areas/{area}` (`showsLocations`: more than one
-  active location, or any location value — Anto), `PUT …/setting-values/{key}` and
-  `…/{key}/locations/{location_id}` (If-Match on the slot, 0 never written; `{"value": null}` clears),
+  active location, or any location value — Anto; `fitsDeclaration: false`: a stored value that no
+  longer fits reads as not set), `PUT …/setting-values/{key}` and
+  `…/{key}/locations/{location_id}` (If-Match on the slot, 0 never written; `{"value": null}` clears; a number travels as a decimal string),
   `GET …/{key}/history` (newest first, cursor), `POST …/setting-changes/{id}/restore` (If-Match). A
-  setting of a module the Betrieb does not hold is 404; a value that does not fit is 422 with its
+  setting of a module the Betrieb does not hold is 404 (a non-manager's write is 403 first, the role check runs first); a value that does not fit is 422 with its
   reason, a deactivated location's 409 `setting_location_inactive`.

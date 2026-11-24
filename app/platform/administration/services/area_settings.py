@@ -87,7 +87,9 @@ def area_view(db: Session, *, dealership_id: uuid.UUID, area: str) -> AreaView:
         own = [slot for slot in slots if slot.key == declaration.key]
         betrieb = next((slot for slot in own if slot.location_id is None), None)
         at_locations = tuple(slot for slot in own if slot.location_id is not None)
-        any_location_value = any_location_value or any(slot.is_set for slot in at_locations)
+        any_location_value = any_location_value or any(
+            slot.is_set or not slot.fits_declaration for slot in at_locations
+        )
         settings.append(
             AreaSetting(
                 declaration=declaration,
