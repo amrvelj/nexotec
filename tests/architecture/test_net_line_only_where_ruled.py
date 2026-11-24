@@ -35,6 +35,7 @@ is no `vatTreatment` in any context, these two included.
 """
 
 import re
+from itertools import pairwise
 from pathlib import Path
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -67,7 +68,7 @@ def is_net_amount_name(identifier: str) -> bool:
     words = _words(identifier)
     return any(
         (a in _NET_WORDS and b in _AMOUNT_WORDS) or (a in _AMOUNT_WORDS and b in _NET_WORDS)
-        for a, b in zip(words, words[1:], strict=False)
+        for a, b in pairwise(words)
     )
 
 
