@@ -39,6 +39,7 @@ from tests.cross_context.test_kan189_trade_in_without_register import (
     contract_group_id,
 )
 from tests.sales.test_sales_lifecycle_reservation import _customer, _dealership
+from tests.stock_support import supplier_contact
 
 _STORNO_ACTOR = uuid.uuid4()
 # KAN-189: the 2026-10-20 purchase closes the rows at the start of that day in Switzerland.
@@ -83,7 +84,7 @@ def _buy_again(db_session, item, purchase_date: dt.date) -> OutboxMessage:
     record_purchase(
         db_session, item=item,
         data=RecordPurchaseRequest(
-            supplier_name="Privat", supplier_is_vat_registered=False, purchase_price=Decimal("8800.00"),
+            supplier_contact_id=supplier_contact(db_session, tenant_id=item.tenant_id, name="Privat"), supplier_is_vat_registered=False, purchase_price=Decimal("8800.00"),
             purchase_date=purchase_date, vin=_TRADE_IN_VIN,
         ),
         actor_id=uuid.uuid4(),
@@ -394,7 +395,7 @@ def test_only_a_trade_in_can_go_back_to_a_customer(db_session):
     record_purchase(
         db_session, item=item,
         data=RecordPurchaseRequest(
-            supplier_name="AMAG", supplier_is_vat_registered=True, purchase_price=Decimal("12000.00"),
+            supplier_contact_id=supplier_contact(db_session, tenant_id=item.tenant_id, name="AMAG", business=True), supplier_is_vat_registered=True, purchase_price=Decimal("12000.00"),
             purchase_date=dt.date(2026, 10, 1), vin="WVWZZZ6JZ8W572011",
         ),
         actor_id=uuid.uuid4(),

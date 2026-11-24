@@ -110,6 +110,9 @@ export interface CustomerCreateFlowProps {
    * instead' action." Omit to hide the "Open instead" affordance (e.g.
    * an embedding context with nowhere sensible to navigate to). */
   onOpenExisting?: (customerId: string) => void;
+  /** KAN-465: the roles the new contact starts with — the purchase dialog
+   * presets the supplier role. The user may still change them. */
+  initialRoles?: ContactRole[];
 }
 
 /**
@@ -126,7 +129,7 @@ export interface CustomerCreateFlowProps {
  * future Offer-creation screen with different onSuccess/onCancel wiring,
  * with zero duplication of the two-step logic, validation, or the API call.
  */
-export function CustomerCreateFlow({ onSuccess, onCancel, initialCustomerType, onOpenExisting }: CustomerCreateFlowProps) {
+export function CustomerCreateFlow({ onSuccess, onCancel, initialCustomerType, onOpenExisting, initialRoles }: CustomerCreateFlowProps) {
   const { t, i18n } = useTranslation()
   const hint = useFieldHint()
   const steps: WizardStep[] = [
@@ -142,7 +145,7 @@ export function CustomerCreateFlow({ onSuccess, onCancel, initialCustomerType, o
   // suppliers — the customer option is shown, not selectable.
   const mayWriteCustomerRole = useCanWrite('contact_customer_role')
   // Until the user picks, the default follows the session (it may still be loading).
-  const [chosenRoles, setRoles] = useState<ContactRole[] | null>(null)
+  const [chosenRoles, setRoles] = useState<ContactRole[] | null>(initialRoles ?? null)
   const roles: ContactRole[] = chosenRoles ?? (mayWriteCustomerRole ? ['customer'] : ['supplier'])
   const roleOptions = translatedRoleOptions(t).map((option) =>
     option.value === 'customer' && !mayWriteCustomerRole ? { ...option, disabled: true } : option,

@@ -19,6 +19,7 @@ from app.inventory.models.stock_item_ledger import StockItemLedger
 from app.inventory.models.stock_item_publishing import StockItemMedia
 from tests.configuration_test_support import stock_configuration_id
 from tests.dealership_support import valid_uid
+from tests.stock_support import supplier_for_item
 from tests.token_support import dealer_group_of
 
 
@@ -149,7 +150,6 @@ def test_condition_change_with_a_reused_key_and_another_condition_is_a_409(clien
 
 
 _PURCHASE = {
-    "supplierName": "Garage Muster AG",
     "supplierIsVatRegistered": True,
     "purchasePrice": "18500.00",
     "purchaseDate": "2026-09-01",
@@ -161,8 +161,9 @@ _PURCHASE = {
 def test_a_retried_purchase_replays_its_success_instead_of_a_version_conflict(client, db_session):
     token = _dealership_token(client)
     item = _item(client, db_session, token)
+    purchase = {**_PURCHASE, "supplierContactId": supplier_for_item(db_session, item["id"], business=True)}
 
-    _, body = _twice(client, f"/v1/inventory/stock-items/{item['id']}/purchase", token, _PURCHASE, **{"If-Match": "1"})
+    _, body = _twice(client, f"/v1/inventory/stock-items/{item['id']}/purchase", token, purchase, **{"If-Match": "1"})
 
     db_session.expire_all()
     assert db_session.get(StockItem, uuid.UUID(item["id"])).version == body["version"]
@@ -172,11 +173,12 @@ def test_purchase_with_a_reused_key_and_another_price_is_a_409(client, db_sessio
     token = _dealership_token(client)
     item = _item(client, db_session, token)
     path = f"/v1/inventory/stock-items/{item['id']}/purchase"
-    key, body = _twice(client, path, token, _PURCHASE, **{"If-Match": "1"})
+    purchase = {**_PURCHASE, "supplierContactId": supplier_for_item(db_session, item["id"], business=True)}
+    key, body = _twice(client, path, token, purchase, **{"If-Match": "1"})
 
     response = client.post(
         path,
-        json={**_PURCHASE, "purchasePrice": "19000.00"},
+        json={**purchase, "purchasePrice": "19000.00"},
         headers=_headers(token, key, **{"If-Match": str(body["version"])}),
     )
 

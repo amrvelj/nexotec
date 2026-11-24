@@ -21,5 +21,8 @@
   "vin_correction_left_stock": "Not possible: the vehicle has left stock.",
   "vin_correction_needs_vehicle": "This vehicle has not been bought yet — its VIN is corrected in the configuration.",
   "vin_unchanged": "That is already this vehicle's VIN.",
-  "chassis_number_requires_configuration": "A vehicle with a chassis number instead of a VIN is bought through its configuration: assign the configuration with the chassis number, make and first registration («Assign configuration»)."
+  "chassis_number_requires_configuration": "A vehicle with a chassis number instead of a VIN is bought through its configuration: assign the configuration with the chassis number, make and first registration («Assign configuration»).",
+  "supplier_contact_unknown": "The supplier is not a contact of this business — pick it with the contact search.",
+  "supplier_contact_merged": "This supplier was merged into another contact — pick that one.",
+  "supplier_role_missing": "This contact does not hold the «Supplier» role — give it the role first."
 }

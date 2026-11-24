@@ -316,7 +316,15 @@ export function StockListPage() {
       {
         id: 'supplierName',
         header: t('stockList.columns.supplierName'),
-        cell: ({ row }) => row.original.supplierName ?? '—',
+        // KAN-465: the supplier contact's name, linking to the contact; a booking from before keeps its typed name.
+        cell: ({ row }) =>
+          row.original.supplierContactId ? (
+            <Link to={`/customers/${row.original.supplierContactId}`} onClick={(event) => event.stopPropagation()}>
+              {row.original.supplierLabel ?? '—'}
+            </Link>
+          ) : (
+            (row.original.supplierLabel ?? '—')
+          ),
       },
       {
         id: 'purchaseDate',

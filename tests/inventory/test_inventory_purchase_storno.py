@@ -125,7 +125,7 @@ def test_storno_reverses_the_purchase_returns_the_car_to_pipeline_and_publishes_
     assert body["lifecycleStatus"] == "pipeline"
     assert body["isInvoiceable"] is False
     assert body["purchasePrice"] is None
-    assert body["supplierName"] is None
+    assert (body["supplierContactId"], body["supplierLabel"]) == (None, None)
     assert body["inStockAt"] is None
     # Anto, 2026-11-05: the stornoed car keeps its VIN and its vehicle-mdm record.
     assert body["vin"] == VIN

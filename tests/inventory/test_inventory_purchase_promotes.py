@@ -14,12 +14,12 @@ from app.core.outbox_model import OutboxMessage
 from app.inventory.models.stock_item import StockItem
 from tests.configuration_test_support import stock_configuration_id
 from tests.dealership_support import valid_uid
+from tests.stock_support import supplier_over_api
 from tests.token_support import dealer_group_of
 
 VIN = "WVWZZZ1KZAW004461"
 
 _PURCHASE = {
-    "supplierName": "Hans Muster",
     "supplierIsVatRegistered": False,
     "purchasePrice": "8000.00",
     "purchaseDate": "2026-10-30",
@@ -60,10 +60,11 @@ def _create(client, db_session, token: str, **body: str) -> dict:
 
 
 def _purchase(client, token: str, item: dict, **extra: str):
+    headers = _auth(token, **{"If-Match": str(item["version"])})
     return client.post(
         f"/v1/inventory/stock-items/{item['id']}/purchase",
-        json={**_PURCHASE, **extra},
-        headers=_auth(token, **{"If-Match": str(item["version"])}),
+        json={**_PURCHASE, "supplierContactId": supplier_over_api(client, headers), **extra},
+        headers=headers,
     )
 
 

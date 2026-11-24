@@ -58,6 +58,17 @@
       "vin": "VIN",
       "vinHint": "A pipeline vehicle is purchased with its VIN, which puts it on stock."
     },
+    "supplier": {
+      "search": "Search contacts",
+      "create": "Create a new contact",
+      "change": "Change",
+      "useTradeInCustomer": "Use the trade-in customer: {{name}}",
+      "roleWillBeAdded": "This contact is given the «Supplier» role when the purchase is recorded.",
+      "roleFailed": "The «Supplier» role could not be given to the contact. Please try again.",
+      "vatUnknown": "This contact's VAT status is not confirmed — please check.",
+      "vatFromContact": "Taken from the contact.",
+      "vatOverridden": "Differs from the contact — this is logged."
+    },
     "notionalInputTax": "Notional input tax deduction",
     "notionalInputTaxNotApplicable": "Not applicable",
     "notionalInputTaxRateNotConfigured": "VAT rate not yet configured",

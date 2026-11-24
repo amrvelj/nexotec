@@ -69,6 +69,7 @@ from tests.sales.test_sales_manual_configuration_link import (
     _stock_buys_it,
     _stock_creates_the_pipeline_item,
 )
+from tests.stock_support import supplier_contact
 
 
 class _RecordingTransport(InProcessTransport):
@@ -228,7 +229,7 @@ def _stock_item_purchased(db_session, engine, monkeypatch):
     record_purchase(
         db_session, item=item,
         data=RecordPurchaseRequest(
-            supplier_name="AMAG Import AG", supplier_is_vat_registered=True,
+            supplier_contact_id=supplier_contact(db_session, tenant_id=item.tenant_id, name="AMAG Import AG", business=True), supplier_is_vat_registered=True,
             purchase_price=Decimal("44000.00"), purchase_date=dt.date(2026, 10, 1),
         ),
         actor_id=uuid.uuid4(),
@@ -254,7 +255,7 @@ def _stock_item_storno(db_session, engine, monkeypatch):
     record_purchase(
         db_session, item=item,
         data=RecordPurchaseRequest(
-            supplier_name="AMAG Import AG", supplier_is_vat_registered=True,
+            supplier_contact_id=supplier_contact(db_session, tenant_id=item.tenant_id, name="AMAG Import AG", business=True), supplier_is_vat_registered=True,
             purchase_price=Decimal("44000.00"), purchase_date=dt.date(2026, 10, 1),
         ),
         actor_id=uuid.uuid4(),
@@ -388,6 +389,30 @@ def _customer_merged(db_session, engine, monkeypatch):
         return db.scalar(select(func.count()).select_from(SalesOffer).where(SalesOffer.customer_id == survivor.id))
 
     return message, offers_on_survivor
+
+
+def _stock_suppliers_on_customer_merged(db_session, engine, monkeypatch):
+    """KAN-465 — a contact merge: Stock moves the item whose supplier is the
+    duplicate to the survivor once (the measure counts items on the survivor)."""
+
+    from app.inventory.schemas.stock_item import StockItemCreate
+    from app.inventory.services.stock_item import create_stock_item
+    from tests.sales.test_sales_customer_merged_consumer import _customer, _merge
+
+    tenant_id, group_id = uuid.uuid4(), uuid.uuid4()
+    survivor = _customer(db_session, group_id, tenant_id, "Survivor")
+    duplicate = _customer(db_session, group_id, tenant_id, "Duplicate")
+    item = create_stock_item(
+        db_session, tenant_id=tenant_id, data=StockItemCreate(vehicle_label="VW Golf", condition="used"), actor_id=None
+    )
+    item.supplier_contact_id, item.supplier_label = duplicate.id, "Duplicate Keller"
+    db_session.commit()
+    message = _merge(db_session, duplicate_id=duplicate.id, survivor_id=survivor.id, group_id=group_id)
+
+    def items_on_survivor(db: Session) -> int:
+        return db.scalar(select(func.count()).select_from(StockItem).where(StockItem.supplier_contact_id == survivor.id))
+
+    return message, items_on_survivor
 
 
 def _invoice_requested_with_plate(db_session, engine, monkeypatch):
@@ -868,7 +893,7 @@ def _stock_holding_item(db_session) -> StockItem:
     item = record_purchase(
         db_session, item=item,
         data=RecordPurchaseRequest(
-            supplier_name="Hans Muster", supplier_is_vat_registered=False,
+            supplier_contact_id=supplier_contact(db_session, tenant_id=item.tenant_id, name="Hans Muster"), supplier_is_vat_registered=False,
             purchase_price=Decimal("20000.00"), purchase_date=dt.date(2026, 11, 1),
         ),
         actor_id=uuid.uuid4(),
@@ -1040,6 +1065,7 @@ _FIXTURES: dict[str, Fixture] = {
     "customer.trade_in_purchased": _trade_in_purchased,
     "customer.trade_in_storno": _trade_in_storno,
     "sales.customer_merged": _customer_merged,
+    "inventory.customer_merged": _stock_suppliers_on_customer_merged,
     "sales.stock_item_reassigned": _stock_item_reassigned,
     "inventory.marketplace_transmission_on_publish": _stock_item_published,
     "reporting.public_stock_listing": _website_listing_changed,

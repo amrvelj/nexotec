@@ -34,3 +34,81 @@ def promote_created_item(db: Session, *, stock_item_id: uuid.UUID | str) -> Stoc
     assert item is not None and item.vin is not None
     item = promote_to_vehicle_mdm(db, item=item, vin=item.vin)
     return item
+
+
+def supplier_contact(
+    db: Session,
+    *,
+    tenant_id: uuid.UUID,
+    name: str = "Hans Muster",
+    business: bool = False,
+    vat_registered: bool = False,
+    vat_status_confirmed: bool = False,
+    roles: tuple[str, ...] = ("supplier",),
+) -> uuid.UUID:
+    """KAN-465: a purchase booking names a contact with the supplier role, in
+    the dealership's group. A contact for a test whose subject is not the
+    supplier: by default a private individual (VAT prefill: not registered)."""
+
+    from app.customer.schemas.customer import CustomerCreate, CustomerEmailCreate
+    from app.customer.services import customer as customer_service
+    from app.platform.public import get_dealership_or_404
+
+    group_id = get_dealership_or_404(db, tenant_id).dealer_group_id
+    names: dict[str, str] = (
+        {"company_name": name}
+        if business
+        else {"first_name": name.split(" ", 1)[0], "last_name": (name.split(" ", 1)[1:] or ["Muster"])[0]}
+    )
+    customer = customer_service.create_customer(
+        db,
+        group_id=group_id,
+        data=CustomerCreate(
+            customer_type="business" if business else "individual",
+            language="de",
+            roles=list(roles),
+            vat_registered=vat_registered,
+            vat_status_confirmed=vat_status_confirmed,
+            emails=[
+                CustomerEmailCreate(
+                    email_type="work" if business else "personal",
+                    email_address=f"supplier-{uuid.uuid4().hex[:8]}@example.ch",
+                    is_primary=True,
+                )
+            ],
+            **names,
+        ),
+        actor_id=uuid.uuid4(),
+        acting_dealership_id=tenant_id,
+        dealership_id=tenant_id,
+    )
+    return customer.id
+
+
+def supplier_for_item(db: Session, item_id: uuid.UUID | str, **kwargs) -> str:
+    """`supplier_contact` in the Betrieb of the stock item `item_id`, as the
+    `supplierContactId` of a purchase request body."""
+
+    item = db.get(StockItem, uuid.UUID(str(item_id)))
+    assert item is not None
+    return str(supplier_contact(db, tenant_id=item.tenant_id, **kwargs))
+
+
+def supplier_over_api(client, headers: dict[str, str], *, name: str = "Hans Muster") -> str:
+    """KAN-465: a supplier contact created as the purchasing user creates one
+    (POST /v1/customers with the supplier role; inventory may give it), in
+    the token's group — for a test that books over HTTP."""
+
+    first, _, last = name.partition(" ")
+    last = last or "Muster"
+    response = client.post(
+        "/v1/customers",
+        json={
+            "customerType": "individual", "language": "de", "firstName": first, "lastName": last,
+            "roles": ["supplier"],
+            "emails": [{"emailType": "personal", "emailAddress": f"supplier-{uuid.uuid4().hex[:8]}@example.ch", "isPrimary": True}],
+        },
+        headers={key: value for key, value in headers.items() if key.lower() == "authorization"},
+    )
+    assert response.status_code == 201, response.text
+    return response.json()["id"]

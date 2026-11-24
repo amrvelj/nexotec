@@ -15,6 +15,7 @@ from app.sales.models.line_item import LineItemKind, SalesLineItem
 from app.sales.schemas.offer import OfferUpdate
 from app.sales.services.offer import create_offer, update_offer
 from tests.dealership_support import valid_uid
+from tests.stock_support import supplier_contact
 from tests.vin_support import unique_vin
 
 
@@ -59,7 +60,7 @@ def _priced_stock_item(db_session, tenant_id):
         db_session,
         item=item,
         data=RecordPurchaseRequest(
-            supplier_name="Auto AG",
+            supplier_contact_id=supplier_contact(db_session, tenant_id=item.tenant_id, name="Auto AG", business=True),
             supplier_is_vat_registered=True,
             purchase_price=Decimal("42000.00"),
             purchase_date="2026-01-01", vin=unique_vin(),
@@ -116,7 +117,7 @@ def _priced_stock_item_with_landed_cost(db_session, tenant_id):
         db_session,
         item=item,
         data=RecordPurchaseRequest(
-            supplier_name="Privat, Hans Muster",
+            supplier_contact_id=supplier_contact(db_session, tenant_id=item.tenant_id, name="Privat, Hans Muster"),
             supplier_is_vat_registered=False,
             purchase_price=Decimal("30000.00"),
             purchase_date="2026-01-01", vin=unique_vin(),
@@ -236,7 +237,7 @@ def _priced_stock_item_no_landed_cost_but_vat_free_supplier(db_session, tenant_i
         db_session,
         item=item,
         data=RecordPurchaseRequest(
-            supplier_name="Privat, Hans Muster",
+            supplier_contact_id=supplier_contact(db_session, tenant_id=item.tenant_id, name="Privat, Hans Muster"),
             supplier_is_vat_registered=False,
             purchase_price=Decimal("30000.00"),
             purchase_date="2026-01-01", vin=unique_vin(),

@@ -300,7 +300,19 @@ class StockItem(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, TimestampMix
     # notional_input_tax_* is a purchase-side fact, never shown to a
     # customer, never a per-vehicle "VAT treatment" the way pre-2010
     # Margenbesteuerung was.
-    supplier_name: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    # KAN-465 (PRD-Stock: supplier = reference + label; Anto, 2026-11-21,
+    # option A): the supplier is a contact with the supplier role, owned by the
+    # customer context — the three-column pattern (rule 2), no FK. Every booking
+    # since names one; a booking from before KAN-465 keeps the name typed then
+    # as its label, with no contact (`supplier_contact_id` NULL). The label is
+    # refreshed nightly (`inventory.supplier_labels`) and follows a contact
+    # merge (`inventory.customer_merged`).
+    supplier_contact_id: Mapped[uuid.UUID | None] = mapped_column(
+        GUID(), nullable=True,
+        comment="Owned by the customer context (Customer.id, a contact with the supplier role). No DB-level FK.",
+    )
+    supplier_label: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    supplier_label_refreshed_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)
     supplier_is_vat_registered: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
     purchase_date: Mapped[dt.date | None] = mapped_column(Date(), nullable=True)
     purchase_price: Mapped[Decimal | None] = mapped_column(DECIMAL(12, 2), nullable=True)

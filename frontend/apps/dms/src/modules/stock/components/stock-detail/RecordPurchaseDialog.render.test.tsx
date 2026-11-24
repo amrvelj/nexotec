@@ -7,6 +7,7 @@ import { renderWithProviders } from '../../../../test/renderWithProviders'
 import { ApiError } from '../../../../api/client'
 import { BlockingConditionBanner } from './BlockingConditionBanner'
 import { RecordPurchaseDialog } from './RecordPurchaseDialog'
+import { pickSupplier, SUPPLIER, supplierSearchRoute } from '../../../../test/purchaseSupplier'
 
 // KAN-358 — the purchase date drives the Wagenbuch and the fiktiver
 // Vorsteuerabzug booking date. It was pre-filled with the UTC day, so a
@@ -17,7 +18,7 @@ const ORIGINAL_TZ = process.env.TZ
 beforeEach(() => {
   process.env.TZ = 'Europe/Zurich'
   vi.useFakeTimers({ toFake: ['Date'] })
-  installFakeBackend([])
+  installFakeBackend([supplierSearchRoute()])
 })
 afterEach(() => {
   cleanup()
@@ -62,7 +63,7 @@ describe('RecordPurchaseDialog — a refusal in the UI language (KAN-437)', () =
     renderWithProviders(<RecordPurchaseDialog opened onClose={() => {}} onSubmit={() => Promise.reject(refused)} />)
 
     const field = (key: string) => screen.getByRole('textbox', { name: (n) => n.startsWith(i18n.t(key)) })
-    fireEvent.change(field('stockDetail.purchase.fields.supplierName'), { target: { value: 'Garage Muster AG' } })
+    await pickSupplier()
     fireEvent.change(field('stockDetail.purchase.fields.purchasePrice'), { target: { value: '18000' } })
     fireEvent.click(screen.getByRole('button', { name: i18n.t('stockDetail.purchase.submit') }))
 
@@ -80,8 +81,8 @@ describe('RecordPurchaseDialog — a pipeline item is bought with its VIN (KAN-4
   })
 
   const field = (key: string) => screen.getByRole('textbox', { name: (n) => n.startsWith(i18n.t(key)) })
-  const fillPurchase = () => {
-    fireEvent.change(field('stockDetail.purchase.fields.supplierName'), { target: { value: 'Hans Muster' } })
+  const fillPurchase = async () => {
+    await pickSupplier()
     fireEvent.change(field('stockDetail.purchase.fields.purchasePrice'), { target: { value: '8000' } })
   }
   const submitButton = () => screen.getByRole('button', { name: i18n.t('stockDetail.purchase.submit') })
@@ -96,7 +97,7 @@ describe('RecordPurchaseDialog — a pipeline item is bought with its VIN (KAN-4
     const onSubmit = vi.fn().mockResolvedValue(undefined)
     renderWithProviders(<RecordPurchaseDialog opened requiresVin onClose={() => {}} onSubmit={onSubmit} />)
 
-    fillPurchase()
+    await fillPurchase()
     expect(submitButton()).toBeDisabled()
 
     fireEvent.change(field('stockDetail.purchase.fields.vin'), { target: { value: ' WVWZZZ1KZAW004461 ' } })
@@ -104,7 +105,7 @@ describe('RecordPurchaseDialog — a pipeline item is bought with its VIN (KAN-4
     fireEvent.click(submitButton())
 
     await vi.waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1))
-    expect(onSubmit.mock.calls[0][0]).toMatchObject({ supplierName: 'Hans Muster', purchasePrice: 8000, vin: 'WVWZZZ1KZAW004461' })
+    expect(onSubmit.mock.calls[0][0]).toMatchObject({ supplierContactId: SUPPLIER.id, purchasePrice: 8000, vin: 'WVWZZZ1KZAW004461' })
   })
 
   it.each([
@@ -116,7 +117,7 @@ describe('RecordPurchaseDialog — a pipeline item is bought with its VIN (KAN-4
     const refused = new ApiError(status, 'refused', 'English text for logs only.', { reason, ...extra })
     renderWithProviders(<RecordPurchaseDialog opened requiresVin onClose={() => {}} onSubmit={() => Promise.reject(refused)} />)
 
-    fillPurchase()
+    await fillPurchase()
     fireEvent.change(field('stockDetail.purchase.fields.vin'), { target: { value: 'WVWZZZ1KZAW004461' } })
     fireEvent.click(submitButton())
 
@@ -135,7 +136,7 @@ describe('RecordPurchaseDialog — a pipeline item is bought with its VIN (KAN-4
     const onSubmit = vi.fn().mockRejectedValue(refused)
     renderWithProviders(<RecordPurchaseDialog opened requiresVin onClose={() => {}} onSubmit={onSubmit} />)
 
-    fillPurchase()
+    await fillPurchase()
     fireEvent.change(field('stockDetail.purchase.fields.vin'), { target: { value: '1130101234567' } })
     fireEvent.click(submitButton())
 
@@ -151,7 +152,7 @@ describe('RecordPurchaseDialog — a pipeline item is bought with its VIN (KAN-4
     })
     renderWithProviders(<RecordPurchaseDialog opened requiresVin onClose={() => {}} onSubmit={() => Promise.reject(refused)} />)
 
-    fillPurchase()
+    await fillPurchase()
     fireEvent.change(field('stockDetail.purchase.fields.vin'), { target: { value: 'WVWZZZ1KZAW00446O' } })
     fireEvent.click(submitButton())
 
@@ -182,5 +183,79 @@ describe('BlockingConditionBanner — in the UI language (KAN-437)', () => {
     expect(screen.getByText(i18n.t('stockDetail.publishing.blockingCondition.other'), { exact: false })).toBeInTheDocument()
     expect(screen.queryByText(/Kein Effektivpreis/)).not.toBeInTheDocument()
     expect(screen.queryByText(/Etwas fehlt/)).not.toBeInTheDocument()
+  })
+})
+
+// KAN-465 (PRD-Stock: supplier = reference + label; Anto, 2026-11-21, option
+// A) — the supplier is a contact picked with the contact search, never typed.
+describe('RecordPurchaseDialog — the supplier is a contact picked by search (KAN-465)', () => {
+  const field = (key: string) => screen.getByRole('textbox', { name: (n) => n.startsWith(i18n.t(key)) })
+  const submitButton = () => screen.getByRole('button', { name: i18n.t('stockDetail.purchase.submit') })
+  const vatBox = () => screen.getByRole('checkbox', { name: i18n.t('stockDetail.purchase.fields.supplierIsVatRegistered') }) as HTMLInputElement
+
+  it('has no free-text supplier field: it searches contacts and sends the picked contact', async () => {
+    const backend = installFakeBackend([supplierSearchRoute()])
+    const onSubmit = vi.fn().mockResolvedValue(undefined)
+    renderWithProviders(<RecordPurchaseDialog opened onClose={() => {}} onSubmit={onSubmit} />)
+
+    expect(screen.queryByRole('textbox', { name: (n) => n === i18n.t('stockDetail.purchase.fields.supplierName') })).toBeNull()
+    fireEvent.change(field('stockDetail.purchase.fields.purchasePrice'), { target: { value: '8000' } })
+    expect(submitButton()).toBeDisabled()
+
+    await pickSupplier()
+    const search = backend.calls.find((call) => call.pathname === '/customers' && call.method === 'GET')
+    expect(search?.params.get('q')).toBe('Muster')
+    expect(screen.getByTestId('purchase-supplier').textContent).toContain('Hans Muster')
+    fireEvent.click(submitButton())
+
+    await vi.waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1))
+    expect(onSubmit.mock.calls[0][0]).toMatchObject({ supplierContactId: SUPPLIER.id, supplierIsVatRegistered: false })
+    expect(onSubmit.mock.calls[0][0]).not.toHaveProperty('supplierName')
+  })
+
+  it('prefills «MWST-pflichtig» from a contact whose VAT status is confirmed, and says an override', async () => {
+    const amag = { ...SUPPLIER, id: 'c-amag', customerNumber: 'K-0466', customerType: 'business' as const, companyName: 'AMAG', firstName: null, lastName: null, vatRegistered: true, vatStatusConfirmed: true }
+    installFakeBackend([supplierSearchRoute([amag])])
+    renderWithProviders(<RecordPurchaseDialog opened onClose={() => {}} onSubmit={async () => {}} />)
+
+    fireEvent.click(screen.getByRole('button', { name: i18n.t('stockDetail.purchase.supplier.search') }))
+    fireEvent.change(await screen.findByRole('textbox', { name: i18n.t('stockDetail.purchase.supplier.search') }), { target: { value: 'AMAG' } })
+    fireEvent.click(await screen.findByRole('option', { name: /K-0466/ }, { timeout: 3000 }))
+
+    expect(vatBox().checked).toBe(true)
+    expect(screen.getByText(i18n.t('stockDetail.purchase.supplier.vatFromContact'))).toBeInTheDocument()
+    fireEvent.click(vatBox())
+    expect(screen.getByText(i18n.t('stockDetail.purchase.supplier.vatOverridden'))).toBeInTheDocument()
+  })
+
+  it('gives a picked contact without the supplier role the role before booking', async () => {
+    const customerOnly = { ...SUPPLIER, roles: ['customer' as const], version: 3 }
+    const backend = installFakeBackend([
+      supplierSearchRoute([customerOnly]),
+      { method: 'PATCH', match: /^\/customers\/[^/]+$/, handler: () => ({ ...customerOnly, roles: ['customer', 'supplier'], version: 4 }) },
+    ])
+    const onSubmit = vi.fn().mockResolvedValue(undefined)
+    renderWithProviders(<RecordPurchaseDialog opened onClose={() => {}} onSubmit={onSubmit} />)
+
+    await pickSupplier(customerOnly)
+    expect(screen.getByText(i18n.t('stockDetail.purchase.supplier.roleWillBeAdded'))).toBeInTheDocument()
+    fireEvent.change(field('stockDetail.purchase.fields.purchasePrice'), { target: { value: '8000' } })
+    fireEvent.click(submitButton())
+
+    await vi.waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1))
+    const [patch] = backend.calls.filter((call) => call.method === 'PATCH')
+    expect(patch.pathname).toBe(`/customers/${SUPPLIER.id}`)
+    expect(patch.body).toEqual({ roles: ['customer', 'supplier'] })
+    expect(patch.headers.get('If-Match')).toBe('3')
+  })
+
+  it("offers the trade-in's customer with one click, never preselected", async () => {
+    installFakeBackend([{ method: 'GET', match: /^\/customers\/c-trade$/, handler: () => ({ ...SUPPLIER, id: 'c-trade', firstName: 'Anna', lastName: 'Keller' }) }])
+    renderWithProviders(<RecordPurchaseDialog opened tradeInCustomerId="c-trade" onClose={() => {}} onSubmit={async () => {}} />)
+
+    const offer = await screen.findByRole('button', { name: i18n.t('stockDetail.purchase.supplier.useTradeInCustomer', { name: 'Anna Keller' }) })
+    expect(screen.queryByTestId('purchase-supplier')).toBeNull()
+    fireEvent.click(offer)
+    expect(screen.getByTestId('purchase-supplier').textContent).toContain('Anna Keller')
   })
 })
