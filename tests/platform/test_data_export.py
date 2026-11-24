@@ -40,6 +40,7 @@ from tests.data_export_support import (
     staff,
 )
 from tests.membership_support import bearer, token
+from tests.postgres_only import NEEDS_ITS_OWN_CONNECTION
 
 
 def _customer(client, headers, **fields) -> dict:
@@ -155,6 +156,7 @@ def test_a_redelivered_production_changes_nothing(client, export_store, engine, 
     assert get_export(client, dealership_id, job["id"], headers) == first
 
 
+@NEEDS_ITS_OWN_CONNECTION
 def test_a_failed_production_is_recorded_never_offered(client, export_store, engine, monkeypatch):
     dealership_id, _, headers = betrieb_with_manager(client)
     job = request_export(client, dealership_id, headers)

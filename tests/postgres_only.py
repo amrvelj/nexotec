@@ -59,3 +59,26 @@ SAVEPOINT_ROLLBACK = pytest.mark.skipif(
 NON_ASCII_CASE_FOLDING = pytest.mark.skipif(
     _ON_SQLITE, reason="folds case beyond ASCII: SQLite's LIKE folds ASCII letters only (KAN-652)"
 )
+
+# Raw `text()` SQL binding a Python `uuid.UUID`: an untyped bind skips the
+# GUID type (`app/core/types.py::GUID`), which turns a UUID into a string
+# for SQLite, and pysqlite has no adapter for `uuid.UUID` («Error binding
+# parameter: type 'UUID' is not supported»). psycopg binds it natively.
+UUID_IN_RAW_SQL = pytest.mark.skipif(
+    _ON_SQLITE, reason="binds a uuid.UUID in raw text() SQL: pysqlite cannot bind one (KAN-661)"
+)
+
+# stock_item's two in-stock unique indexes split a car by its identifier
+# (KAN-535, `app/inventory/models/stock_item.py`): an ISO 3779 VIN is unique
+# per Betrieb by VIN (`uq_stock_item_tenant_id_iso_vin_in_stock`), a pre-1981
+# chassis number by vehicle-mdm record
+# (`uq_stock_item_tenant_id_chassis_vehicle_in_stock`). The split is a regex
+# (`~` / `!~` on ISO_VIN_PATTERN) SQLite does not have, so their
+# `sqlite_where` predicates are wider: every VIN is unique per Betrieb, and
+# every car with a record is in stock once per record. Two makes sharing a
+# chassis number, or two ISO-VIN items on one merged record, are refused there.
+STOCK_ITEM_VIN_SPLIT = pytest.mark.skipif(
+    _ON_SQLITE,
+    reason="needs stock_item's ISO-VIN / chassis-number index split: SQLite has no regex, its predicates "
+    "are wider (KAN-661)",
+)

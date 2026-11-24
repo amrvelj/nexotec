@@ -25,6 +25,7 @@ from app.vehicle.public import resolve_vehicle_mdm_by_vin
 from app.vehicle.services.vehicle_mdm import get_vehicle_mdm_by_vin
 from tests.inventory.test_inventory_purchase_promotes import _auth, _purchase, _token
 from tests.inventory.test_kan535_chassis_number_purchase import CHASSIS, PRE_1981, _manager, _oldtimer, _tenant_of
+from tests.postgres_only import STOCK_ITEM_VIN_SPLIT
 from tests.token_support import dealer_group_of
 
 NEW_CHASSIS = "1130101234568"  # one digit further: the typo the correction repairs
@@ -123,6 +124,7 @@ def test_only_the_dealer_manager_corrects_a_chassis_number(client, db_session, r
     _nothing_written(db_session, item)
 
 
+@STOCK_ITEM_VIN_SPLIT
 def test_another_make_sharing_the_new_number_is_another_car(client, db_session):
     token, item = _bought(client, db_session)
     _bought(client, db_session, token, number=NEW_CHASSIS, make="Porsche")

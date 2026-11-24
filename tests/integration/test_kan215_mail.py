@@ -49,6 +49,7 @@ from tests.mail_fakes import (
     query_of,
 )
 from tests.membership_support import bearer, token
+from tests.postgres_only import NEEDS_ITS_OWN_CONNECTION, POSTGRES_SQL
 
 TID = "0b8e6f2a-5d3c-4c1e-9a7b-2f4d6e8a1c3b"
 OTHER_TID = "7c1d2e3f-4a5b-4c6d-8e9f-0a1b2c3d4e5f"
@@ -190,6 +191,7 @@ def test_the_pkce_verifier_and_nonce_are_derived_and_never_stored(app_registrati
         assert secret not in stored
 
 
+@POSTGRES_SQL
 def test_a_state_is_single_use_bound_to_its_user_and_expires(client, db_session, fakes, app_registrations, betrieb):
     providers, _ = fakes
     anna = make_user(db_session, tenant_id=betrieb.id, email="anna@garage-muster.ch")
@@ -444,6 +446,7 @@ def test_a_grant_revoked_in_my_account_counts_as_no_own_mailbox(client, db_sessi
 # -- F2: the send and its delivery record -------------------------------------------
 
 
+@NEEDS_ITS_OWN_CONNECTION
 def test_a_send_writes_one_delivery_row_on_its_own_session_and_leaves_the_callers_alone(client, db_session, engine, fakes, app_registrations, betrieb):
     providers, _ = fakes
     anna = make_user(db_session, tenant_id=betrieb.id, email="anna@garage-muster.ch")
