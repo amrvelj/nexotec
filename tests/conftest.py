@@ -95,8 +95,7 @@ def _refuse_another_checkout() -> None:
     root = Path(__file__).resolve().parents[1]
     refusal = checkout_guard.foreign_venv(root, sys.prefix)
     if refusal is None and _TEST_DATABASE_URL:
-        own = checkout_guard.checkout_slug(root, is_worktree=checkout_guard.is_worktree(root))
-        refusal = checkout_guard.foreign_database(make_url(_TEST_DATABASE_URL).database, own_slug=own)
+        refusal = checkout_guard.database_refusal(root, make_url(_TEST_DATABASE_URL).database)
     if refusal is not None:
         pytest.exit(f"KAN-783: {refusal}", returncode=4)
 
