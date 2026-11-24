@@ -45,6 +45,7 @@ from app.platform.organisation.models.location_schedule import LocationClosure, 
 from app.platform.organisation.models.module_entitlement import ModuleEntitlement
 from app.platform.organisation.models.number_range import NumberRange, NumberRangeConfirmation
 from app.platform.organisation.models.publishing_profile import LocationLeadRouting, PublishingProfile
+from app.platform.organisation.models.setting_value import SettingValue, SettingValueChange
 from app.platform.organisation.services import contact_group
 from app.platform.reference.models.reference_data import ReferenceList, ReferenceValue
 from app.platform.reference.models.ui_translation import MissingTranslation, UiTranslation, UiTranslationRevision
@@ -115,6 +116,9 @@ class PlatformExporter(TableExporter):
             ExportedTable(table=table_of(LocationOpeningHours), scope=_by_location(table_of(LocationOpeningHours))),
             ExportedTable(table=table_of(LocationClosure), scope=_by_location(table_of(LocationClosure))),
             ExportedTable(table=table_of(DealershipSettings), scope=_by_dealership(table_of(DealershipSettings))),
+            # KAN-805 (ADR-214): the settings store's values and every change of them.
+            ExportedTable(table=table_of(SettingValue), scope=_by_dealership(table_of(SettingValue))),
+            ExportedTable(table=table_of(SettingValueChange), scope=_by_dealership(table_of(SettingValueChange))),
             ExportedTable(table=table_of(DealershipAuthConfig), scope=_by_dealership(table_of(DealershipAuthConfig))),
             ExportedTable(table=table_of(DealershipBankAccount), scope=_by_dealership(table_of(DealershipBankAccount))),
             contact_group.export_table(),

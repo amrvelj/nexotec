@@ -81,6 +81,7 @@ from app.platform.organisation.models.location_schedule import LocationClosure, 
 from app.platform.organisation.models.module_entitlement import ModuleEntitlement
 from app.platform.organisation.models.number_range import NumberRange, NumberRangeConfirmation
 from app.platform.organisation.models.publishing_profile import LocationLeadRouting, PublishingProfile
+from app.platform.organisation.models.setting_value import SettingValue, SettingValueChange
 from app.platform.reference.models.reference_data import ReferenceList, ReferenceValue
 from app.platform.reference.models.ui_translation import MissingTranslation, UiTranslation, UiTranslationRevision
 from app.reporting.models.public_stock_listing import PublicStockListing
@@ -222,6 +223,8 @@ __all__ = [
     "SalesOffer",
     "SalesStockItemPurchase",
     "SendingIdentity",
+    "SettingValue",
+    "SettingValueChange",
     "SetupChecklistRegression",
     "StandardText",
     "StandardTextDelegation",

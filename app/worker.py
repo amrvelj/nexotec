@@ -137,6 +137,7 @@ from app.sales.public import (
     refresh_owner_labels,
 )
 from app.sales.public import referenced_configuration_ids as referenced_by_offers_and_contracts
+from app.setting_registry import register_settings
 from app.status_registry import register_status_providers
 from app.valuation.daily_jobs import run_daily_unused_provider_quote_purge
 from app.valuation.public import referenced_configuration_ids as referenced_by_valuations
@@ -598,9 +599,11 @@ def register_status() -> None:
 
 def register_contact_message_types() -> None:
     """KAN-217: the send consumers and reminders to come read the message-type
-    registry, which the composition root fills."""
+    registry, which the composition root fills. KAN-805: the setup checklist's
+    daily job reads the setting declarations the same way."""
 
     register_message_types()
+    register_settings()
 
 
 def register_daily_jobs() -> None:

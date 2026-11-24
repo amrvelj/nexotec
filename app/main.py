@@ -28,6 +28,7 @@ from app.ownership_registry import register_ownership_providers
 from app.platform.administration.services import data_export_runner
 from app.platform.identity.session_guard import enforce_live_session, enforce_open_dealership
 from app.platform.reference.services.mailer import get_mailer
+from app.setting_registry import register_settings
 from app.status_registry import register_status_providers
 
 configure_logging()
@@ -44,6 +45,9 @@ register_status_providers()
 # KAN-217: every module's contact message types, so the send dialog asks
 # platform's registry and platform imports no module.
 register_message_types()
+# KAN-805: every area's setting declarations, so the settings store and the
+# administration ask platform's registry and platform imports no area.
+register_settings()
 
 
 @asynccontextmanager

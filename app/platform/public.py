@@ -121,6 +121,15 @@ from app.platform.organisation.services.reconciliation_targets import (
     find_dealership_group_ids,
     location_reference_check,
 )
+from app.platform.organisation.services.setting_declarations import (
+    SettingDeclaration,
+    SettingDeclarationError,
+    SettingKind,
+    TextValue,
+    WhenNotSet,
+    register_setting,
+)
+from app.platform.organisation.services.setting_store import SettingRead, read_setting
 from app.platform.reference.services.reference_data import get_active_reference_value_codes
 
 # WP-6b: Addressee/ContentDefinition/.../render_document are the shared
@@ -201,6 +210,17 @@ from app.platform.reference.services.reference_data import get_active_reference_
 # before the link is issued. Only its SHA-256 is
 # stored; the URL carries it in the fragment ({app}/d#<token>), never a path.
 # Platform serves the SPA's GET /v1/document-links/current (token in a header).
+#
+# KAN-805 (ADR-214): the settings store. An area declares each setting it reads
+# (SettingDeclaration: key `<area>.<name>`, kind, what «not set» does, whether it
+# is a setup-checklist item) with register_setting, called from the composition
+# root app/setting_registry.py (platform never imports the area); a wrong or
+# conflicting declaration raises SettingDeclarationError at start-up. It reads a
+# value with read_setting(db, dealership_id=, location_id=, key="<literal>"): the
+# location's value where it has one, else the Betrieb's, else «not set» with what
+# that acts as (SettingRead, plain values). The key is a literal so
+# tests/architecture/test_setting_keys_declared_and_read.py can pair every read
+# with its declaration. A plain read; it writes nothing.
 __all__ = [
     "PLACEHOLDER_UNRESOLVED",
     "ActingUser",
@@ -245,13 +265,19 @@ __all__ = [
     "RenderedDocument",
     "RenderedStandardText",
     "RevokedGrant",
+    "SettingDeclaration",
+    "SettingDeclarationError",
+    "SettingKind",
+    "SettingRead",
     "SetupBlockedAction",
     "SignatureBlock",
     "StandardTextAppliesTo",
     "StandardTextCategory",
     "StandardTextSlot",
+    "TextValue",
     "UnknownNotificationEvent",
     "UserDisplayLabel",
+    "WhenNotSet",
     "actor_reference_checks",
     "allocate_number",
     "closed_days_until",
@@ -295,9 +321,11 @@ __all__ = [
     "publishing_profile_missing_items",
     "publishing_profile_ready",
     "read_location_channel_image",
+    "read_setting",
     "register_document_source",
     "register_grant_revoker",
     "register_message_type",
+    "register_setting",
     "render_document",
     "render_standard_text",
     "require_setup_item_for",
