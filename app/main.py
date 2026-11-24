@@ -22,6 +22,7 @@ from app.core.observability import (
 )
 from app.db import SessionLocal
 from app.export_registry import register_exporters
+from app.integration.public import start_business_profile_photo_runner, stop_business_profile_photo_runner
 from app.message_type_registry import register_message_types
 from app.ownership_registry import register_ownership_providers
 from app.platform.administration.services import data_export_runner
@@ -52,9 +53,13 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     The tests' TestClient never enters the lifespan; they call `run_once`."""
 
     data_export_runner.start(SessionLocal)
+    # KAN-784 (ADR-209): the Business Profile photos are uploaded here too,
+    # for the same reason — the worker cannot read the disk.
+    start_business_profile_photo_runner(SessionLocal)
     try:
         yield
     finally:
+        stop_business_profile_photo_runner()
         data_export_runner.stop()
 
 
@@ -100,6 +105,7 @@ app.include_router(api_v1_router)
 @app.get("/.well-known/jwks.json", include_in_schema=False)
 def jwks() -> dict:
     return get_jwks()
+
 
 # Credentialed CORS for the frontend dev server (issue #8 cookie session) —
 # allow_credentials requires an explicit origin list, not "*".

@@ -10,6 +10,7 @@ import { CODED_REFERENCE_ROUTES, PICKED_CODED_VALUES, configurationRead } from '
 import type { ConfigurationRead, StockItemRead } from '../../../../api/types'
 import { DetailsTab } from './DetailsTab'
 import { RecordPurchaseDialog } from './RecordPurchaseDialog'
+import { pickSupplier, SUPPLIER, supplierSearchRoute } from '../../../../test/purchaseSupplier'
 
 // KAN-510 (Anto, 2026-11-01: option B, then A) — a pipeline car is bought
 // with the VIN of its configuration. The purchase dialog prefills it; the
@@ -36,7 +37,7 @@ const PIPELINE_ITEM: StockItemRead = {
   landedCost: null, locationId: null, locationLabel: null, notionalInputTaxAmount: null, notionalInputTaxApplicable: null,
   notionalInputTaxOverridden: false, notionalInputTaxRate: null, orderDate: null, expectedDelivery: null,
   pipelineRef: null, purchaseDate: null, purchaseInvoiceRef: null, purchasePrice: null, supplierIsVatRegistered: null,
-  supplierName: null, valuationRefAmount: null, valuationRefId: null, valuationRefSource: null,
+  supplierContactId: null, supplierLabel: null, tradeInContactId: null, valuationRefAmount: null, valuationRefId: null, valuationRefSource: null,
   valuationRefValuedAt: null, createdAt: NOW, updatedAt: NOW, version: 1,
   configurationId: 'cfg-1',
 }
@@ -60,6 +61,7 @@ function configurationBackend(configuration: ConfigurationRead, extra: FakeRoute
   const patches: Record<string, unknown>[] = []
   let current = configuration
   const backend = installFakeBackend([
+    supplierSearchRoute(),
     ...extra,
     ...CODED_REFERENCE_ROUTES,
     { method: 'GET', match: /\/reference-data\//, handler: () => ({ items: [], nextCursor: null }) },
@@ -129,7 +131,7 @@ describe('RecordPurchaseDialog — the VIN comes from the configuration (KAN-510
     await waitFor(() => expect(vinField().value).toBe(CONFIGURED_VIN))
     await user.clear(vinField())
     await user.type(vinField(), CORRECTED_VIN)
-    await user.type(field('stockDetail.purchase.fields.supplierName'), 'Hans Muster')
+    await pickSupplier()
     await user.type(field('stockDetail.purchase.fields.purchasePrice'), '8000')
     await user.click(screen.getByRole('button', { name: i18n.t('stockDetail.purchase.submit') }))
 
@@ -152,7 +154,7 @@ describe('RecordPurchaseDialog — the VIN comes from the configuration (KAN-510
     )
 
     await waitFor(() => expect(vinField().value).toBe(CONFIGURED_VIN))
-    await user.type(field('stockDetail.purchase.fields.supplierName'), 'Hans Muster')
+    await pickSupplier()
     await user.type(field('stockDetail.purchase.fields.purchasePrice'), '8000')
     await user.click(screen.getByRole('button', { name: i18n.t('stockDetail.purchase.submit') }))
 
@@ -200,7 +202,7 @@ describe('RecordPurchaseDialog — a VIN naming a merged record says the way out
     )
 
     await waitFor(() => expect(vinField().value).toBe(CONFIGURED_VIN))
-    await user.type(field('stockDetail.purchase.fields.supplierName'), 'Hans Muster')
+    await pickSupplier()
     await user.type(field('stockDetail.purchase.fields.purchasePrice'), '8000')
     await user.click(screen.getByRole('button', { name: i18n.t('stockDetail.purchase.submit') }))
 
@@ -218,13 +220,13 @@ describe('RecordPurchaseDialog — a VIN naming a merged record says the way out
 
   it('names «Konfiguration zuordnen» on a car without a configuration, and offers no edit', async () => {
     const user = userEvent.setup()
-    installFakeBackend([])
+    installFakeBackend([supplierSearchRoute()])
     renderWithProviders(
       <RecordPurchaseDialog opened requiresVin onClose={() => {}} onSubmit={() => Promise.reject(mergedRefusal())} />,
     )
 
     await user.type(vinField(), 'WVWZZZ1KZAW005103')
-    await user.type(field('stockDetail.purchase.fields.supplierName'), 'Hans Muster')
+    await pickSupplier()
     await user.type(field('stockDetail.purchase.fields.purchasePrice'), '8000')
     await user.click(screen.getByRole('button', { name: i18n.t('stockDetail.purchase.submit') }))
 
@@ -383,7 +385,7 @@ describe('Stock detail — «Konfiguration bearbeiten» (KAN-510)', () => {
     await waitFor(() => expect(vinField().value).toBe(CONFIGURED_VIN))
     await user.clear(vinField())
     await user.type(vinField(), CORRECTED_VIN)
-    await user.type(field('stockDetail.purchase.fields.supplierName'), 'Hans Muster')
+    await pickSupplier()
     await user.type(field('stockDetail.purchase.fields.purchasePrice'), '8000')
     await user.click(screen.getByRole('button', { name: i18n.t('stockDetail.purchase.submit') }))
 
@@ -404,7 +406,7 @@ describe('Stock detail — «Konfiguration bearbeiten» (KAN-510)', () => {
     await waitFor(() => expect(vinField().value).toBe(CONFIGURED_VIN))
     await user.clear(vinField())
     await user.type(vinField(), CORRECTED_VIN)
-    await user.type(field('stockDetail.purchase.fields.supplierName'), 'Hans Muster')
+    await pickSupplier()
     await user.type(field('stockDetail.purchase.fields.purchasePrice'), '8000')
     await user.click(screen.getByRole('button', { name: i18n.t('stockDetail.purchase.submit') }))
 
@@ -421,12 +423,12 @@ describe('Stock detail — «Konfiguration bearbeiten» (KAN-510)', () => {
 
     // Back in the booking: what was entered is kept, the VIN is the corrected one, the refusal is gone.
     await waitFor(() => expect(vinField().value).toBe(CORRECTED_VIN))
-    expect((field('stockDetail.purchase.fields.supplierName') as HTMLInputElement).value).toBe('Hans Muster')
+    expect(screen.getByTestId('purchase-supplier').textContent).toContain('Hans Muster')
     expect(screen.queryByRole('alert')).toBeNull()
 
     await user.click(screen.getByRole('button', { name: i18n.t('stockDetail.purchase.submit') }))
     await waitFor(() => expect(onRecordPurchase).toHaveBeenCalledTimes(2))
-    expect(onRecordPurchase.mock.calls[1][0]).toMatchObject({ vin: CORRECTED_VIN, supplierName: 'Hans Muster' })
+    expect(onRecordPurchase.mock.calls[1][0]).toMatchObject({ vin: CORRECTED_VIN, supplierContactId: SUPPLIER.id })
   })
 })
 
@@ -453,6 +455,7 @@ describe('Stock detail — the configurator routes a bought car\'s VIN through �
     let current = configurationRead({ ...RECORDED, vehicleId: item.vehicleId, ...configuration })
     let stock = item
     const backend = installFakeBackend([
+    supplierSearchRoute(),
       ...CODED_REFERENCE_ROUTES,
       { method: 'GET', match: /\/reference-data\//, handler: () => ({ items: [], nextCursor: null }) },
       { method: 'GET', match: /^\/vehicle-mdm\/v-557$/, handler: () => ({ id: 'v-557', vehicleNumber: 'F-000557', vin: current.vin }) },

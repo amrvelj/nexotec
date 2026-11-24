@@ -30,6 +30,8 @@ from app.integration.models.google_business_profile import (
     GbpDriftCheck,
     GbpLinkState,
     GbpLocationBinding,
+    GbpPhotoJob,
+    GbpPhotoUpload,
     GbpPushState,
 )
 from app.integration.models.mail import MailLinkState, MessageDelivery, SendingIdentity
@@ -156,6 +158,8 @@ __all__ = [
     "GbpDriftCheck",
     "GbpLinkState",
     "GbpLocationBinding",
+    "GbpPhotoJob",
+    "GbpPhotoUpload",
     "GbpPushState",
     "Holiday",
     "HolidayCalendar",

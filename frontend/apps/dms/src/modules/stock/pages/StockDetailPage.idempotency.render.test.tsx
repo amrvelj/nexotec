@@ -8,6 +8,7 @@ import { renderWithProviders } from '../../../test/renderWithProviders'
 import { installFakeBackend, status } from '../../../test/fakeBackend'
 import type { StockItemRead } from '../../../api/types'
 import { StockDetailPage } from './StockDetailPage'
+import { pickSupplier, supplierSearchRoute } from '../../../test/purchaseSupplier'
 
 // KAN-266 — the stock detail page's POSTs (the purchase, a Wagenbuch cost)
 // carry one Idempotency-Key per submission, and a successful write retires
@@ -22,7 +23,7 @@ const ITEM: StockItemRead = {
   firstRegistrationDate: null, basePrice: null, listPrice: null, effectivePrice: null, landedCost: null,
   notionalInputTaxApplicable: null, notionalInputTaxRate: null, notionalInputTaxAmount: null,
   notionalInputTaxOverridden: false, purchasePrice: null, purchaseDate: null, purchaseInvoiceRef: null,
-  supplierName: null, supplierIsVatRegistered: null, orderDate: null, expectedDelivery: null, inStockAt: null,
+  supplierContactId: null, supplierLabel: null, tradeInContactId: null, supplierIsVatRegistered: null, orderDate: null, expectedDelivery: null, inStockAt: null,
   leftStockAt: null, pipelineRef: null, locationId: null, locationLabel: null, valuationRefId: null, valuationRefSource: null,
   valuationRefAmount: null, valuationRefValuedAt: null, isInvoiceable: true, version: 1,
   createdAt: '2026-01-01T00:00:00Z', updatedAt: '2026-01-01T00:00:00Z',
@@ -31,6 +32,7 @@ const ITEM: StockItemRead = {
 function install({ failFirstPurchase = false }: { failFirstPurchase?: boolean } = {}) {
   let purchaseFailed = !failFirstPurchase
   return installFakeBackend([
+    supplierSearchRoute(),
     { method: 'GET', match: new RegExp(`^/inventory/stock-items/${ID}$`), handler: () => ITEM },
     { method: 'GET', match: new RegExp(`^/inventory/stock-items/${ID}/ledger-entries$`), handler: () => ({ items: [] }) },
     {
@@ -102,7 +104,7 @@ describe('StockDetailPage — one Idempotency-Key per submission (KAN-266)', () 
     // The first match: the VAT-registered checkbox's label starts with the supplier's.
     const field = (key: string) =>
       within(dialog).getAllByLabelText(i18n.t(`stockDetail.purchase.fields.${key}`), { exact: false })[0]
-    await user.type(field('supplierName'), 'Garage Muster AG')
+    await pickSupplier()
     await user.type(field('purchasePrice'), '18500')
     fireEvent.change(field('purchaseDate'), { target: { value: '2026-09-01' } })
     await user.click(within(dialog).getByRole('button', { name: i18n.t('stockDetail.purchase.submit') }))
@@ -123,14 +125,14 @@ describe('StockDetailPage — one Idempotency-Key per submission (KAN-266)', () 
     const dialog = await screen.findByRole('dialog')
     const field = (key: string) =>
       within(dialog).getAllByLabelText<HTMLInputElement>(i18n.t(`stockDetail.purchase.fields.${key}`), { exact: false })[0]
-    await user.type(field('supplierName'), 'Garage Muster AG')
+    await pickSupplier()
     await user.type(field('purchasePrice'), '18500')
     fireEvent.change(field('purchaseDate'), { target: { value: '2026-09-01' } })
     const submit = within(dialog).getByRole('button', { name: i18n.t('stockDetail.purchase.submit') })
     await user.click(submit)
 
     expect((await within(dialog).findByRole('alert')).textContent).toBe(i18n.t('stockDetail.purchase.error'))
-    expect(field('supplierName').value).toBe('Garage Muster AG')
+    expect(within(dialog).getByTestId('purchase-supplier').textContent).toContain('Hans Muster')
     await waitFor(() => expect(submit).not.toHaveAttribute('data-loading'))
 
     await user.click(submit)

@@ -129,6 +129,7 @@ from app.integration.errors import (
 )
 from app.integration.models.connection import ConnectionStatus
 from app.integration.models.mail import DeliveryChannel, DeliveryStatus, SendingIdentityKind
+from app.integration.services import gbp_photo_runner
 from app.integration.services.ai_generation import GeneratedText, generate
 from app.integration.services.ai_prompt_registry import VEHICLE_LISTING as AI_PROMPT_VEHICLE_LISTING
 from app.integration.services.captions import ProviderCaption, get_captions
@@ -148,7 +149,7 @@ from app.integration.services.gateway import (
     call_capability,
     resolve_adapter,
 )
-from app.integration.services.gbp_status import GbpDriftStatusProvider, GbpStatusProvider
+from app.integration.services.gbp_status import GbpDriftStatusProvider, GbpPhotoStatusProvider, GbpStatusProvider
 from app.integration.services.location_labels import oldest_location_label_age_seconds, refresh_location_labels
 from app.integration.services.mail_sending import (
     DeliveryRecord,
@@ -172,6 +173,11 @@ from app.integration.services.send_readiness import (
 )
 from app.integration.services.status import IntegrationStatusProvider
 
+# KAN-784 (ADR-209): the web service uploads the Business Profile photos,
+# beside the object store's disk; app.main starts and stops it.
+start_business_profile_photo_runner = gbp_photo_runner.start
+stop_business_profile_photo_runner = gbp_photo_runner.stop
+
 __all__ = [
     "AI_PROMPT_VEHICLE_LISTING",
     "MARKETPLACE_PUBLISH_CAPABILITY",
@@ -192,6 +198,7 @@ __all__ = [
     "EnergyLabelData",
     "EntitlementState",
     "GbpDriftStatusProvider",
+    "GbpPhotoStatusProvider",
     "GbpStatusProvider",
     "GeneratedText",
     "IntegrationExporter",
@@ -239,6 +246,8 @@ __all__ = [
     "register_mail_grant_revokers",
     "resolve_adapter",
     "resolve_sender",
+    "start_business_profile_photo_runner",
+    "stop_business_profile_photo_runner",
     "valuation_granted",
     "vin_decode_granted",
 ]

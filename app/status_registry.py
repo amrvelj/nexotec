@@ -17,11 +17,21 @@ replaces by source.
 """
 
 from app.core.status import register_status_provider
-from app.integration.public import GbpDriftStatusProvider, GbpStatusProvider, IntegrationStatusProvider
+from app.integration.public import (
+    GbpDriftStatusProvider,
+    GbpPhotoStatusProvider,
+    GbpStatusProvider,
+    IntegrationStatusProvider,
+)
 
 
 def register_status_providers() -> None:
-    for provider in (IntegrationStatusProvider(), GbpStatusProvider(), GbpDriftStatusProvider()):
+    for provider in (
+        IntegrationStatusProvider(),
+        GbpStatusProvider(),
+        GbpDriftStatusProvider(),
+        GbpPhotoStatusProvider(),
+    ):
         register_status_provider(provider)
 
 

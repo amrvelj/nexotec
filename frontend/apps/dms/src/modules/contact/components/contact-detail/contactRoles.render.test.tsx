@@ -166,3 +166,31 @@ describe('creating a contact asks for its roles (KAN-464)', () => {
     expect(body).not.toHaveProperty('lifecycleStatus')
   })
 })
+
+// KAN-465: the purchase dialog opens the one create dialog with the supplier role preset.
+describe('a create that presets its roles (KAN-465)', () => {
+  it('starts with the preset roles and sends them, so a new supplier has no status', async () => {
+    const user = userEvent.setup()
+    const backend = installFakeBackend([
+      { match: /^\/contacts\/duplicate-check$/, handler: () => ({ items: [], nextCursor: null }) },
+      { method: 'POST', match: /^\/contacts$/, handler: (req) => ({ id: 'new-1', ...(req.body as object) }) },
+    ])
+    const created = vi.fn()
+    const { container } = renderWithProviders(
+      <ContactCreateFlow onSuccess={created} onCancel={() => {}} initialRoles={['supplier']} />,
+    )
+    await user.click(screen.getByRole('button', { name: i18n.t('contactCreate.actions.next') }))
+    await screen.findByText(i18n.t('contactDetail.contactPoints.phoneNumbers'))
+    expect(screen.queryByText(i18n.t('contactCreate.fields.lifecycleStatus'))).toBeNull()
+
+    await user.type(container.querySelector<HTMLInputElement>('input[data-path="firstName"]')!, 'Hans')
+    await user.type(container.querySelector<HTMLInputElement>('input[data-path="lastName"]')!, 'Muster')
+    await user.click(screen.getByRole('button', { name: new RegExp(i18n.t('contactDetail.contactPoints.addEmail'), 'i') }))
+    await user.type(container.querySelector<HTMLInputElement>('input[type="email"]')!, 'hans@example.ch')
+    await user.click(screen.getByRole('button', { name: i18n.t('contactDetail.contactPoints.save') }))
+    await user.click(screen.getByRole('button', { name: i18n.t('contactCreate.actions.submit') }))
+
+    await waitFor(() => expect(created).toHaveBeenCalledTimes(1))
+    expect((backend.callsTo(/^\/contacts$/, 'POST')[0].body as Record<string, unknown>).roles).toEqual(['supplier'])
+  })
+})

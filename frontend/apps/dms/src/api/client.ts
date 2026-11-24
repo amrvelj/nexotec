@@ -115,6 +115,31 @@ async function getDocumentLink(token: string): Promise<{ url: string; filename: 
   return { url: URL.createObjectURL(await response.blob()), filename }
 }
 
+/** KAN-217 PR-7 (ADR-208): the Betrieb that sent a secure link — read by
+ * the link's token, in the same header, never in the URL. */
+async function getDocumentLinkSender(token: string): Promise<{ name: string; hasLogo: boolean }> {
+  const response = await fetch(`${API_BASE_URL}/document-links/current/sender`, {
+    credentials: 'omit',
+    headers: { 'X-Document-Link': token },
+  })
+  if (!response.ok) {
+    throw toApiError(response.status, (await response.json().catch(() => null)) as ApiErrorBody | null)
+  }
+  return (await response.json()) as { name: string; hasLogo: boolean }
+}
+
+/** KAN-217 PR-7: the sender's logo as an object URL; the caller revokes it. */
+async function getDocumentLinkLogo(token: string): Promise<string> {
+  const response = await fetch(`${API_BASE_URL}/document-links/current/logo`, {
+    credentials: 'omit',
+    headers: { 'X-Document-Link': token },
+  })
+  if (!response.ok) {
+    throw toApiError(response.status, (await response.json().catch(() => null)) as ApiErrorBody | null)
+  }
+  return URL.createObjectURL(await response.blob())
+}
+
 /** KAN-200 — the one upload today (a user's signature image): the body is
  * the file itself with its own Content-Type, never JSON, never base64. */
 async function putBinary<T>(path: string, body: Blob, contentType: string, extraHeaders?: HeadersInit): Promise<T> {
@@ -152,6 +177,8 @@ export const api = {
   get: <T>(path: string, extraHeaders?: HeadersInit) => request<T>(path, extraHeaders ? { headers: extraHeaders } : {}),
   getBlobUrl,
   getDocumentLink,
+  getDocumentLinkSender,
+  getDocumentLinkLogo,
   putBinary,
   postBinary,
   post: <T>(path: string, body?: unknown, extraHeaders?: HeadersInit) =>

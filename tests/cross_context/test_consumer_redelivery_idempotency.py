@@ -69,6 +69,7 @@ from tests.sales.test_sales_manual_configuration_link import (
     _stock_buys_it,
     _stock_creates_the_pipeline_item,
 )
+from tests.stock_support import supplier_contact
 
 
 class _RecordingTransport(InProcessTransport):
@@ -228,7 +229,7 @@ def _stock_item_purchased(db_session, engine, monkeypatch):
     record_purchase(
         db_session, item=item,
         data=RecordPurchaseRequest(
-            supplier_name="AMAG Import AG", supplier_is_vat_registered=True,
+            supplier_contact_id=supplier_contact(db_session, tenant_id=item.tenant_id, name="AMAG Import AG", business=True), supplier_is_vat_registered=True,
             purchase_price=Decimal("44000.00"), purchase_date=dt.date(2026, 10, 1),
         ),
         actor_id=uuid.uuid4(),
@@ -254,7 +255,7 @@ def _stock_item_storno(db_session, engine, monkeypatch):
     record_purchase(
         db_session, item=item,
         data=RecordPurchaseRequest(
-            supplier_name="AMAG Import AG", supplier_is_vat_registered=True,
+            supplier_contact_id=supplier_contact(db_session, tenant_id=item.tenant_id, name="AMAG Import AG", business=True), supplier_is_vat_registered=True,
             purchase_price=Decimal("44000.00"), purchase_date=dt.date(2026, 10, 1),
         ),
         actor_id=uuid.uuid4(),
@@ -390,19 +391,46 @@ def _contact_merged(db_session, engine, monkeypatch):
     return message, offers_on_survivor
 
 
-def _customer_merged(db_session, engine, monkeypatch):
-    """KAN-464 PR-3 — a merge published before customers became contacts:
-    the real producer's row, turned back into the name and payload keys it
-    carried then (`customer.merged`, `customerId`, `duplicateOfCustomerId`).
-    Sales moves the duplicate's offer once."""
+def _before_the_rename(fixture):
+    """KAN-464 PR-3 — the same merge as published before customers became
+    contacts: the real producer's row, turned back into the name and payload
+    keys it carried then (`customer.merged`, `customerId`,
+    `duplicateOfCustomerId`), for the consumer that stays subscribed to it."""
 
-    message, offers_on_survivor = _contact_merged(db_session, engine, monkeypatch)
-    payload = dict(message.payload)
-    payload["customerId"] = payload.pop("contactId")
-    payload["duplicateOfCustomerId"] = payload.pop("duplicateOfContactId")
-    message.event_type, message.payload = "customer.merged", payload
-    db_session.flush()
-    return message, offers_on_survivor
+    def build(db_session, engine, monkeypatch):
+        message, measure = fixture(db_session, engine, monkeypatch)
+        payload = dict(message.payload)
+        payload["customerId"] = payload.pop("contactId")
+        payload["duplicateOfCustomerId"] = payload.pop("duplicateOfContactId")
+        message.event_type, message.payload = "customer.merged", payload
+        db_session.flush()
+        return message, measure
+
+    return build
+
+
+def _stock_suppliers_on_contact_merged(db_session, engine, monkeypatch):
+    """KAN-465 — a contact merge: Stock moves the item whose supplier is the
+    duplicate to the survivor once (the measure counts items on the survivor)."""
+
+    from app.inventory.schemas.stock_item import StockItemCreate
+    from app.inventory.services.stock_item import create_stock_item
+    from tests.sales.test_sales_contact_merged_consumer import _contact, _merge
+
+    tenant_id, group_id = uuid.uuid4(), uuid.uuid4()
+    survivor = _contact(db_session, group_id, tenant_id, "Survivor")
+    duplicate = _contact(db_session, group_id, tenant_id, "Duplicate")
+    item = create_stock_item(
+        db_session, tenant_id=tenant_id, data=StockItemCreate(vehicle_label="VW Golf", condition="used"), actor_id=None
+    )
+    item.supplier_contact_id, item.supplier_label = duplicate.id, "Duplicate Keller"
+    db_session.commit()
+    message = _merge(db_session, duplicate_id=duplicate.id, survivor_id=survivor.id, group_id=group_id)
+
+    def items_on_survivor(db: Session) -> int:
+        return db.scalar(select(func.count()).select_from(StockItem).where(StockItem.supplier_contact_id == survivor.id))
+
+    return message, items_on_survivor
 
 
 def _invoice_requested_with_plate(db_session, engine, monkeypatch):
@@ -883,7 +911,7 @@ def _stock_holding_item(db_session) -> StockItem:
     item = record_purchase(
         db_session, item=item,
         data=RecordPurchaseRequest(
-            supplier_name="Hans Muster", supplier_is_vat_registered=False,
+            supplier_contact_id=supplier_contact(db_session, tenant_id=item.tenant_id, name="Hans Muster"), supplier_is_vat_registered=False,
             purchase_price=Decimal("20000.00"), purchase_date=dt.date(2026, 11, 1),
         ),
         actor_id=uuid.uuid4(),
@@ -1004,6 +1032,54 @@ def _business_profile_activated(db_session, engine, monkeypatch):
     return _message(db_session, gbp_link.BINDING_ACTIVATED_EVENT, binding.id), _business_profile_patches(fake)
 
 
+def _business_profile_photo_jobs(db: Session) -> int:
+    from app.integration.models.google_business_profile import GbpPhotoJob
+
+    return db.scalar(select(func.count()).select_from(GbpPhotoJob)) or 0
+
+
+def _business_profile_photos_on(event_type: str):
+    """KAN-784 — a fact about a bound location queues one photo pass for its
+    binding (one job row); the worker reads no image."""
+
+    def fixture(db_session, engine, monkeypatch):
+        from app.core.outbox import OutboxEvent
+        from app.core.outbox import publish as publish_event
+        from app.integration.services import gbp_link
+        from app.platform.organisation.services import location_facts
+
+        _fake, location, binding = _business_profile_site(db_session, monkeypatch)
+        if event_type == location_facts.LOCATION_UPDATED_EVENT:
+            location_facts.publish_location_changes(db_session, location=location, changed_fields=["phone"])
+            aggregate_id = location.id
+        elif event_type == gbp_link.BINDING_ACTIVATED_EVENT:
+            gbp_link._publish_activated(db_session, binding)
+            aggregate_id = binding.id
+        else:
+            aggregate_id = uuid.uuid4()
+            publish_event(
+                db_session,
+                OutboxEvent(
+                    event_type=event_type,
+                    tenant_id=location.tenant_id,
+                    producer="platform",
+                    aggregate_type="publishing_profile",
+                    aggregate_id=aggregate_id,
+                    payload={
+                        "dealershipId": str(location.tenant_id),
+                        "profileId": str(aggregate_id),
+                        "version": 2,
+                        "locationId": str(location.id),
+                        "changedFields": ["imagery"],
+                    },
+                ),
+            )
+        db_session.commit()
+        return _message(db_session, event_type, aggregate_id), _business_profile_photo_jobs
+
+    return fixture
+
+
 def _business_profile_push_on_dealership_updated(db_session, engine, monkeypatch):
     """KAN-785 — the Betrieb's website changed: its bound location pushed once."""
 
@@ -1027,6 +1103,15 @@ _FIXTURES: dict[str, Fixture] = {
         "platform.location.schedule_changed"
     ),
     "integration.business_profile_push_on_binding_activated": _business_profile_activated,
+    "integration.business_profile_photos_on_profile_updated": _business_profile_photos_on(
+        "platform.publishing_profile.updated"
+    ),
+    "integration.business_profile_photos_on_location_updated": _business_profile_photos_on(
+        "platform.location.updated"
+    ),
+    "integration.business_profile_photos_on_binding_activated": _business_profile_photos_on(
+        "integration.gbp_location_binding.activated"
+    ),
     "platform.connected_account_provider_revocation": _connected_account_revoked,
     "platform.administration_notification_on_connection_expiry": _connection_expiry_approaching,
     "inventory.listings_withdrawn_on_offboarded": _listings_withdrawn_on_offboarded,
@@ -1055,7 +1140,9 @@ _FIXTURES: dict[str, Fixture] = {
     "contact.trade_in_purchased": _trade_in_purchased,
     "contact.trade_in_storno": _trade_in_storno,
     "sales.contact_merged": _contact_merged,
-    "sales.customer_merged": _customer_merged,
+    "sales.customer_merged": _before_the_rename(_contact_merged),
+    "inventory.contact_merged": _stock_suppliers_on_contact_merged,
+    "inventory.customer_merged": _before_the_rename(_stock_suppliers_on_contact_merged),
     "sales.stock_item_reassigned": _stock_item_reassigned,
     "inventory.marketplace_transmission_on_publish": _stock_item_published,
     "reporting.public_stock_listing": _website_listing_changed,

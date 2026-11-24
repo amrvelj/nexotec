@@ -6,7 +6,7 @@ explicitly because Postgres renames no index or constraint with its table or col
 Applied migrations keep the names of their day.
 
 Revision ID: 28d7bcdebcf5
-Revises: a4e81c9d3f27
+Revises: e8d68fa101f1
 Create Date: 2026-11-24 12:00:00.000000
 
 """
@@ -17,7 +17,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = "28d7bcdebcf5"
-down_revision: str | Sequence[str] | None = "a4e81c9d3f27"
+down_revision: str | Sequence[str] | None = "e8d68fa101f1"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

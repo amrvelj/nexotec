@@ -47,6 +47,7 @@ from tests.cross_context.test_configurator_hosts import (
 )
 from tests.sales.test_sales_contract_edit import _edit
 from tests.sales.test_sales_lifecycle_reservation import _contact, _dealership, _with_buyer
+from tests.stock_support import supplier_contact
 
 
 def _vehicle_mdm_rows(db_session) -> int:
@@ -231,7 +232,7 @@ def _bought_trade_in(db_session, engine, *, purchase_date=dt.date(2026, 10, 20))
     record_purchase(
         db_session, item=item,
         data=RecordPurchaseRequest(
-            supplier_name="Privat", supplier_is_vat_registered=False, purchase_price=Decimal("9000.00"),
+            supplier_contact_id=supplier_contact(db_session, tenant_id=item.tenant_id, name="Privat"), supplier_is_vat_registered=False, purchase_price=Decimal("9000.00"),
             purchase_date=purchase_date, vin=_TRADE_IN_VIN,
         ),
         actor_id=_BUYER_ACTOR,
@@ -388,7 +389,7 @@ def test_a_purchase_that_is_not_a_trade_in_links_nobody(db_session, engine):
     record_purchase(
         db_session, item=item,
         data=RecordPurchaseRequest(
-            supplier_name="AMAG", supplier_is_vat_registered=True, purchase_price=Decimal("12000.00"),
+            supplier_contact_id=supplier_contact(db_session, tenant_id=item.tenant_id, name="AMAG", business=True), supplier_is_vat_registered=True, purchase_price=Decimal("12000.00"),
             purchase_date=dt.date(2026, 10, 1), vin="WVWZZZ6JZ8W189011",
         ),
         actor_id=uuid.uuid4(),

@@ -29,7 +29,7 @@ const ITEM: StockItemRead = {
   firstRegistrationDate: null, inStockAt: NOW, leftStockAt: null, isInvoiceable: false, landedCost: null,
   locationId: null, locationLabel: null, notionalInputTaxAmount: null, notionalInputTaxApplicable: null, notionalInputTaxOverridden: false,
   notionalInputTaxRate: null, orderDate: null, expectedDelivery: null, pipelineRef: null, purchaseDate: null,
-  purchaseInvoiceRef: null, purchasePrice: null, supplierIsVatRegistered: null, supplierName: null,
+  purchaseInvoiceRef: null, purchasePrice: null, supplierIsVatRegistered: null, supplierContactId: null, supplierLabel: null,
   valuationRefAmount: null, valuationRefId: null, valuationRefSource: null, valuationRefValuedAt: null,
   createdAt: NOW, updatedAt: NOW, version: 1,
 }

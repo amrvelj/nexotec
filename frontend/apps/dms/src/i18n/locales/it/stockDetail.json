@@ -58,6 +58,17 @@
       "vin": "VIN",
       "vinHint": "Un veicolo della pipeline viene acquistato con il suo VIN, che lo mette in stock."
     },
+    "supplier": {
+      "search": "Cerca contatto",
+      "create": "Crea un nuovo contatto",
+      "change": "Modifica",
+      "useTradeInContact": "Usa il contatto della permuta: {{name}}",
+      "roleWillBeAdded": "Questo contatto riceve il ruolo «Fornitore» alla registrazione.",
+      "roleFailed": "Non è stato possibile assegnare il ruolo «Fornitore» al contatto. Riprovate.",
+      "vatUnknown": "Lo stato IVA di questo contatto non è confermato — verificate.",
+      "vatFromContact": "Ripreso dal contatto.",
+      "vatOverridden": "Diverso dal contatto — viene registrato."
+    },
     "notionalInputTax": "Deduzione fittizia dell'imposta precedente",
     "notionalInputTaxNotApplicable": "Non applicabile",
     "notionalInputTaxRateNotConfigured": "Aliquota IVA non ancora configurata",

@@ -1,5 +1,5 @@
 import { useEffect, useId, useState } from 'react'
-import { Button, Group, Text } from '@mantine/core'
+import { Anchor, Button, Group, Text } from '@mantine/core'
 import { FieldLabel, InlineEditField, KeyValueRow, OverviewCard, ProgressiveDisclosure, SpecGrid, chfInlineEditor, slate } from '@nexotec/ui-kit'
 import { HostConfigurationCard } from '../../../vehicle'
 import { useTranslation } from 'react-i18next'
@@ -12,6 +12,7 @@ import { isChassisNumber } from '../../../../utils/vin'
 import { AttachConfigurationButton } from './AttachConfigurationButton'
 import { useAttachConfiguration } from './useAttachConfiguration'
 import { PurchaseStornoDialog } from './PurchaseStornoDialog'
+import { Link } from 'react-router-dom'
 import { RecordPurchaseDialog } from './RecordPurchaseDialog'
 import { useStockConfigurationEditor } from './useStockConfigurationEditor'
 import type { ConfigurationRead, StockItemRead } from '../../../../api/types'
@@ -55,7 +56,7 @@ interface DetailsTabProps {
   requestedAction?: DetailsTabAction | null
   onRequestedActionHandled?: () => void
   onRecordPurchase: (data: {
-    supplierName: string
+    supplierContactId: string
     supplierIsVatRegistered: boolean
     purchasePrice: number
     purchaseDate: string
@@ -300,7 +301,16 @@ export function DetailsTab({
             )
           ) : (
             <OverviewCard title={t('stockDetail.purchase.title')}>
-              <KeyValueRow label={t('stockDetail.purchase.fields.supplierName')}>{item.supplierName}</KeyValueRow>
+              <KeyValueRow label={t('stockDetail.purchase.fields.supplierName')}>
+                {/* KAN-465: the supplier contact's name, linking to it; a booking from before keeps its typed name. */}
+                {item.supplierContactId ? (
+                  <Anchor component={Link} to={`/contacts/${item.supplierContactId}`} fz="sm">
+                    {item.supplierLabel ?? '—'}
+                  </Anchor>
+                ) : (
+                  (item.supplierLabel ?? '—')
+                )}
+              </KeyValueRow>
               <KeyValueRow label={t('stockDetail.purchase.fields.purchasePrice')}>
                 {formatCurrencyChf(Number(item.purchasePrice))}
               </KeyValueRow>
@@ -360,6 +370,7 @@ export function DetailsTab({
         requiresVin={item.lifecycleStatus === 'pipeline' && item.vin == null}
         configurationId={item.configurationId ?? null}
         tradeInVin={item.tradeInVin ?? null}
+        tradeInContactId={item.tradeInContactId ?? null}
         onEditConfiguration={mayEditConfiguration ? editConfigurationFromPurchase : undefined}
         onSubmit={onRecordPurchase}
       />

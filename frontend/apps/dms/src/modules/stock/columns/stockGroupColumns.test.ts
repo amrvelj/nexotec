@@ -10,7 +10,7 @@ const FORBIDDEN_COLUMN_IDS = [
   'landedCost',
   'purchasePrice',
   'purchaseInvoiceRef',
-  'supplierName',
+  'supplierLabel',
   'notionalInputTaxApplicable',
   'notionalInputTaxRate',
   'notionalInputTaxAmount',

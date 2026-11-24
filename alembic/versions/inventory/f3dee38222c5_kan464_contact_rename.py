@@ -6,7 +6,7 @@ explicitly because Postgres renames no index or constraint with its table or col
 Applied migrations keep the names of their day.
 
 Revision ID: f3dee38222c5
-Revises: 6975a1f4524e
+Revises: 2b287ef9c1e7
 Create Date: 2026-11-24 12:00:00.000000
 
 """
@@ -17,7 +17,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = "f3dee38222c5"
-down_revision: str | Sequence[str] | None = "6975a1f4524e"
+down_revision: str | Sequence[str] | None = "2b287ef9c1e7"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
@@ -33,6 +33,12 @@ _COMMENTS = (
         "trade_in_contact_id",
         "Owned by the contact context (Contact). No DB-level FK.",
         "Owned by the customer context (Customer). No DB-level FK.",
+    ),
+    (
+        "stock_item",
+        "supplier_contact_id",
+        "Owned by the contact context (Contact.id, a contact with the supplier role). No DB-level FK.",
+        "Owned by the customer context (Customer.id, a contact with the supplier role). No DB-level FK.",
     ),
 )
 

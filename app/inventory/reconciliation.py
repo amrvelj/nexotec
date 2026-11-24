@@ -312,6 +312,14 @@ CHECKS: list[ReferenceCheck | StateCheck] = [
         source_fk_column=StockItem.trade_in_contact_id,
         nullable=True,  # set only on a trade-in's pipeline item created since KAN-632
     ),
+    # KAN-465 — the supplier contact a purchase booking named.
+    contact_reference_check(
+        label="stock_item.supplier_contact_id -> contact.id",
+        source_model=StockItem,
+        source_row_id_column=StockItem.id,
+        source_fk_column=StockItem.supplier_contact_id,
+        nullable=True,  # null before a booking and on one booked before KAN-465
+    ),
     StateCheck(
         # A valuation is never edited after creation (ADR-066), so a copied
         # amount that differs from it — or is missing — is a copy gone wrong.

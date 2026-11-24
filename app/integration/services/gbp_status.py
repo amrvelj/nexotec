@@ -4,12 +4,15 @@ ADR-195, ADR-196).
 Every Business Profile request goes through Nexotec's own OAuth client, the
 one platform-scope connection to `google_business_profile` (ADR-195). When
 Google refuses that client or Nexotec's project, every Business Profile call
-fails at once — the manager's link flow (`gbp_link`) in the API, and in the
-worker the push consumers (`gbp_push`, KAN-226 PR-3: a location's, a
-Betrieb's or a binding's fact pushes its fields), the daily horizon push
-(`gbp_push.run_horizon_pushes`, KAN-793: a closed day entering the one-year
-horizon, through the same `_push`) and the daily drift job (`gbp_drift`,
-KAN-226 PR-4) — and the cause is Nexotec's to fix, never the Betrieb's.
+fails at once — in the API process the manager's link flow (`gbp_link`)
+and the photo upload (`gbp_photo_runner`, KAN-784: the web service's
+thread beside the object store); in the worker the push consumers
+(`gbp_push`, KAN-226 PR-3: a location's, a Betrieb's or a binding's fact
+pushes its fields), the daily horizon push (`gbp_push.run_horizon_pushes`,
+KAN-793: a closed day entering the one-year horizon, through the same
+`_push`) and the daily drift job (`gbp_drift`, KAN-226 PR-4); the worker's
+photo consumers only queue and call nobody — and the cause is Nexotec's to
+fix, never the Betrieb's.
 Anto, 2026-11-20 (KAN-776, option C), rules who sees what:
 
 - **Staff** see the cause on the platform status view: whether the client is
@@ -31,8 +34,13 @@ The client counts as interrupted when any of these holds:
   charged it five times in a row. The breaker lives in memory per process:
   the push consumers, the horizon push and the drift job run in the worker
   and charge the worker's breaker, which the API's status read never sees —
-  the API's breaker opens only on the API's own calls (the link flow,
-  «Erneut prüfen»). A refusal the worker met still reaches this read through the
+  the API's breaker opens only on the API process's own calls: the link
+  flow, «Erneut prüfen», and the photo upload (`gbp_photo_runner`, KAN-784,
+  ADR-209), which runs in the web service beside the object store's disk. So
+  a streak of Google failures on photo uploads opens the API's breaker too:
+  the link flow and «Erneut prüfen» are refused for the breaker's window and
+  this item reads «interrupted» — intended, since such a streak is Google
+  failing Nexotec's client, not one Betrieb's photo. A refusal the worker met still reaches this read through the
   next condition, since every one of those calls writes its call-log row
   (`gateway.call_capability`); a worker-only timeout or 5xx streak does
   not, and is the worker's to alert on (retry, dead letter);
@@ -73,6 +81,8 @@ from app.integration.models.google_business_profile import (
     GbpDriftCheck,
     GbpDriftOutcome,
     GbpLocationBinding,
+    GbpPhotoJob,
+    GbpPhotoUpload,
 )
 from app.integration.services import resilience
 from app.integration.services.gbp_link import client_connection
@@ -319,4 +329,78 @@ class GbpDriftStatusProvider:
                     params=params,
                 )
             )
+        return items
+
+
+PHOTO_SOURCE = "google_business_profile_photos"
+PHOTO_ITEM_PREFIX = "google_business_profile.photos."
+PHOTO_REFUSED_ITEM_PREFIX = "google_business_profile.photos_refused."
+PHOTO_LINK = "/administration/publishing"
+
+
+class GbpPhotoStatusProvider:
+    """KAN-784 (ADR-209; rule 10): one warning per active binding whose
+    photo upload was dead-lettered — «the photos for <location> could not be
+    sent to Google» — linked to the integrations screen. It clears when the
+    next change to the location queues a fresh pass (the job's `dead_at` is
+    cleared then). And one warning per active binding with images Google
+    refused (their size or format) — «Google refused n photos of
+    <location>» — linked to the publishing profile, where the dealer
+    replaces them; it goes once they are removed there. A binding uploading
+    normally has no item: the upload is not something the dealer watches.
+    Derived on read; writes nothing."""
+
+    source = PHOTO_SOURCE
+
+    def items(self, db: Session, *, dealership_id: uuid.UUID, now: dt.datetime) -> list[StatusItem]:
+        rows = db.execute(
+            select(GbpLocationBinding.id, GbpLocationBinding.location_label)
+            .join(GbpPhotoJob, GbpPhotoJob.binding_id == GbpLocationBinding.id)
+            .where(
+                GbpLocationBinding.tenant_id == dealership_id,
+                GbpPhotoJob.tenant_id == dealership_id,
+                GbpLocationBinding.status == GbpBindingStatus.ACTIVE,
+                GbpPhotoJob.dead_at.is_not(None),
+            )
+            .order_by(TextSortKey(GbpLocationBinding.location_label), GbpLocationBinding.id)
+        ).all()
+        items = [
+            StatusItem(
+                key=f"{PHOTO_ITEM_PREFIX}{binding_id}",
+                source=PHOTO_SOURCE,
+                state=StatusState.WARNING,
+                message_key="statusPage.items.googleBusinessProfilePhotos.failed",
+                link=DRIFT_LINK,
+                params={"location": label},
+            )
+            for binding_id, label in rows
+        ]
+        refused = db.execute(
+            select(
+                GbpLocationBinding.id,
+                GbpLocationBinding.location_label,
+                # An image refused as ADDITIONAL and again as COVER is one image.
+                func.count(func.distinct(GbpPhotoUpload.asset_id)),
+            )
+            .join(GbpPhotoUpload, GbpPhotoUpload.binding_id == GbpLocationBinding.id)
+            .where(
+                GbpLocationBinding.tenant_id == dealership_id,
+                GbpPhotoUpload.tenant_id == dealership_id,
+                GbpLocationBinding.status == GbpBindingStatus.ACTIVE,
+                GbpPhotoUpload.refusal_code.is_not(None),
+            )
+            .group_by(GbpLocationBinding.id, GbpLocationBinding.location_label)
+            .order_by(TextSortKey(GbpLocationBinding.location_label), GbpLocationBinding.id)
+        ).all()
+        items.extend(
+            StatusItem(
+                key=f"{PHOTO_REFUSED_ITEM_PREFIX}{binding_id}",
+                source=PHOTO_SOURCE,
+                state=StatusState.WARNING,
+                message_key="statusPage.items.googleBusinessProfilePhotos.refused",
+                link=PHOTO_LINK,
+                params={"location": label, "count": int(count)},
+            )
+            for binding_id, label, count in refused
+        )
         return items

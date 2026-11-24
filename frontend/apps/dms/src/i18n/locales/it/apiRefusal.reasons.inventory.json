@@ -21,5 +21,8 @@
   "vin_correction_left_stock": "Non possibile: il veicolo ha lasciato lo stock.",
   "vin_correction_needs_vehicle": "Questo veicolo non è ancora acquistato — il VIN si corregge nella configurazione.",
   "vin_unchanged": "È già il VIN di questo veicolo.",
-  "chassis_number_requires_configuration": "Un veicolo con un numero di telaio al posto del VIN viene acquistato tramite la sua configurazione: assegni la configurazione con numero di telaio, marca e prima immatricolazione («Assegna configurazione»)."
+  "chassis_number_requires_configuration": "Un veicolo con un numero di telaio al posto del VIN viene acquistato tramite la sua configurazione: assegni la configurazione con numero di telaio, marca e prima immatricolazione («Assegna configurazione»).",
+  "supplier_contact_unknown": "Il fornitore non è un contatto di questa azienda — sceglietelo con la ricerca contatti.",
+  "supplier_contact_merged": "Questo fornitore è stato unito a un altro contatto — scegliete quello.",
+  "supplier_role_missing": "Questo contatto non ha il ruolo «Fornitore» — assegnateglielo prima."
 }

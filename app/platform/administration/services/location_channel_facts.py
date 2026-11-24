@@ -21,8 +21,9 @@ payloads):
 - the days it is closed within a horizon from `today`: its own closures and
   the observed holidays of its holiday calendar, each day once.
 
-Its publishing imagery is not read here yet: the push consumers run in the
-worker, which cannot read the object store's disk in production (KAN-784).
+Its publishing imagery is read by `location_channel_images` (KAN-784,
+ADR-209): the push consumers run in the worker, which cannot read the object
+store's disk in production.
 """
 
 import dataclasses

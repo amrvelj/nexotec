@@ -54,6 +54,7 @@ from app.core.reconciliation import seconds_since_last_reconciliation
 from app.db import SessionLocal
 from app.export_registry import register_exporters
 from app.integration.consumers import (
+    handle_business_profile_photos_message,
     handle_business_profile_push_message,
     handle_business_profile_push_on_dealership_message,
 )
@@ -74,6 +75,9 @@ from app.integration.public import (
     register_mail_grant_revokers,
 )
 from app.inventory.consumers import (
+    handle_contact_merged_message as move_stock_suppliers_on_contact_merged,
+)
+from app.inventory.consumers import (
     handle_dealership_offboarded_message as withdraw_listings_on_offboarded,
 )
 from app.inventory.consumers import (
@@ -91,8 +95,10 @@ from app.inventory.public import (
     SALES_CONTRACT_PROJECTION_CONSUMERS,
     oldest_configuration_label_age_seconds,
     oldest_stock_location_label_age_seconds,
+    oldest_supplier_label_age_seconds,
     refresh_configuration_labels,
     refresh_stock_location_labels,
+    refresh_supplier_labels,
 )
 from app.inventory.public import referenced_configuration_ids as referenced_by_stock_items
 from app.message_type_registry import register_message_types
@@ -226,6 +232,20 @@ def register_handlers(transport: InProcessTransport) -> None:
         "customer.merged",
         consumer_name="sales.customer_merged",
         handler=handle_contact_merged_message,
+    )
+    # KAN-465 — the same fact moves the stock items whose supplier is the
+    # duplicate contact to the survivor, with its name. Its consumer was
+    # `inventory.customer_merged` on `customer.merged` until KAN-464 PR-3;
+    # like Sales', that one stays subscribed under its own name until PR-5.
+    transport.register(
+        "contact.merged",
+        consumer_name="inventory.contact_merged",
+        handler=move_stock_suppliers_on_contact_merged,
+    )
+    transport.register(
+        "customer.merged",
+        consumer_name="inventory.customer_merged",
+        handler=move_stock_suppliers_on_contact_merged,
     )
     # KAN-632 (ADR-147) — the contact context's record of Stock's bookings,
     # which the two trade-in consumers below judge an event's order by. Its
@@ -388,7 +408,7 @@ def register_handlers(transport: InProcessTransport) -> None:
     )
     # KAN-226 PR-3 — Google Business Profile, Nexotec → Google: Platform's
     # location facts (and Integration's own fact that a binding went live)
-    # push the location's fields (photos wait for KAN-784). Each reads the
+    # push the location's fields (photos: KAN-784 below). Each reads the
     # current state through platform.public; a refusal of the grant moves the
     # binding to error, anything else is retried, then dead-letters.
     for event_type, consumer_name in (
@@ -397,6 +417,15 @@ def register_handlers(transport: InProcessTransport) -> None:
         ("integration.gbp_location_binding.activated", "integration.business_profile_push_on_binding_activated"),
     ):
         transport.register(event_type, consumer_name=consumer_name, handler=handle_business_profile_push_message)
+    # KAN-784 (ADR-209) — the location's photos: the worker cannot read the
+    # object store's disk, so it only queues a photo pass; the web service's
+    # gbp_photo_runner uploads.
+    for event_type, consumer_name in (
+        ("platform.publishing_profile.updated", "integration.business_profile_photos_on_profile_updated"),
+        ("platform.location.updated", "integration.business_profile_photos_on_location_updated"),
+        ("integration.gbp_location_binding.activated", "integration.business_profile_photos_on_binding_activated"),
+    ):
+        transport.register(event_type, consumer_name=consumer_name, handler=handle_business_profile_photos_message)
     # KAN-785 — the Betrieb's website is one of the pushed fields: its own
     # fact pushes every bound location of that Betrieb.
     transport.register(
@@ -460,6 +489,8 @@ def _heartbeat(db, transport: InProcessTransport) -> None:
     record_label_age_seconds("inventory.configuration", configuration_label_age)
     stock_location_label_age = oldest_stock_location_label_age_seconds(db)
     record_label_age_seconds("inventory.location", stock_location_label_age)
+    supplier_label_age = oldest_supplier_label_age_seconds(db)
+    record_label_age_seconds("inventory.supplier", supplier_label_age)
     location_label_age = oldest_location_label_age_seconds(db)
     record_label_age_seconds("integration.location", location_label_age)
 
@@ -525,6 +556,15 @@ def _refresh_stock_location_labels(db: Session) -> None:
     report = refresh_stock_location_labels(db)
     logger.info(
         "inventory.location_labels: %d stock item(s) relabelled, %d left alone (no location of the item's business)",
+        len(report.changed),
+        len(report.unresolved),
+    )
+
+
+def _refresh_supplier_labels(db: Session) -> None:
+    report = refresh_supplier_labels(db)
+    logger.info(
+        "inventory.supplier_labels: %d stock item(s) relabelled, %d left alone (no contact, or a merged one)",
         len(report.changed),
         len(report.unresolved),
     )
@@ -599,6 +639,10 @@ def register_daily_jobs() -> None:
     6b. ``inventory.location_labels`` — KAN-739: the same for Stock's copy
        of each stock item's location name, through app.platform.public, so a
        renamed site shows in the stock list's «Standort» column within a day.
+    6c. ``inventory.supplier_labels`` — KAN-465: the same for Stock's copy
+       of each booked item's supplier contact name, through
+       app.contact.public, so a renamed contact shows in the stock list's
+       «Lieferant» column within a day.
     7. ``integration.location_labels`` — KAN-222: the same for a
        connection's copy of the name of the location it is bound to
        (FR-A-21), through app.platform.public, so a renamed site shows on
@@ -695,6 +739,7 @@ def register_daily_jobs() -> None:
     register_daily_job("sales.contact_labels", _refresh_contact_labels)
     register_daily_job("inventory.configuration_labels", _refresh_configuration_labels)
     register_daily_job("inventory.location_labels", _refresh_stock_location_labels)
+    register_daily_job("inventory.supplier_labels", _refresh_supplier_labels)
     register_daily_job("integration.location_labels", _refresh_location_labels)
     register_daily_job("reconciliation.run_all", run_all_daily)
     register_daily_job("inventory.orphaned_reservations.release", run_daily_reservation_sweep)

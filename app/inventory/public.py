@@ -77,6 +77,7 @@ from app.inventory.services.reservation import release, reserve, reserve_for_con
 from app.inventory.services.sales_contract import CONSUMERS as SALES_CONTRACT_PROJECTION_CONSUMERS
 from app.inventory.services.sales_contract import apply_backfilled_contract, backfill_recorded, record_backfill
 from app.inventory.services.stock_item import get_stock_numbers, is_stock_item_purchased
+from app.inventory.services.supplier_labels import oldest_supplier_label_age_seconds, refresh_supplier_labels
 from app.inventory.services.valuation import set_valuation_ref
 from app.inventory.services.vehicle_link import HeldVehicleRecord, get_stock_item_vehicle, list_held_vehicle_records
 
@@ -100,11 +101,13 @@ __all__ = [
     "listed_on_website_check",
     "oldest_configuration_label_age_seconds",
     "oldest_stock_location_label_age_seconds",
+    "oldest_supplier_label_age_seconds",
     "purchased_stock_item_check",
     "record_backfill",
     "referenced_configuration_ids",
     "refresh_configuration_labels",
     "refresh_stock_location_labels",
+    "refresh_supplier_labels",
     "release",
     "reserve",
     "reserve_for_contract",

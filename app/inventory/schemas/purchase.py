@@ -1,4 +1,5 @@
 import datetime as dt
+import uuid
 from decimal import Decimal
 
 from pydantic import Field, field_validator
@@ -8,8 +9,24 @@ from app.core.validators import NormalisedVinOrChassisNumber
 
 
 class RecordPurchaseRequest(CamelModel):
-    supplier_name: str
-    supplier_is_vat_registered: bool
+    supplier_contact_id: uuid.UUID = Field(
+        description=(
+            "KAN-465 (PRD-Stock: supplier = reference + label; Anto, 2026-11-21, option A): the supplier — a "
+            "contact of this Betrieb's group holding the supplier role, picked by contact search. Its name is "
+            "copied beside it as `supplierLabel`. 422 `supplier_contact_unknown` for an id naming no contact of "
+            "the group, `supplier_contact_merged` for a merged one (book with the contact it was merged into), "
+            "`supplier_role_missing` for a contact without the supplier role (give it the role first). Replaces "
+            "the free-text `supplierName` (a breaking change, accepted: the SPA is the only client)."
+        )
+    )
+    supplier_is_vat_registered: bool = Field(
+        description=(
+            "Whether the supplier is VAT-registered — it drives the notional input tax prefill (Art. 28a MWSTG). "
+            "The dialog prefills it from the contact (a confirmed VAT status says it; an unconfirmed private "
+            "individual is not registered; an unconfirmed business is the user's call). A value other than the "
+            "contact's own (when the contact tells one) is audited as `supplier_vat_status_overridden` (KAN-465)."
+        )
+    )
     purchase_price: Decimal
     purchase_date: dt.date
     purchase_invoice_ref: str | None = None

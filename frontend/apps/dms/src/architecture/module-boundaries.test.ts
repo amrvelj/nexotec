@@ -216,7 +216,8 @@ describe('frontend modules keep their boundary (KAN-636, ADR-161)', () => {
       'modules/sales/pages/ContractDetailPage.tsx',
       'modules/stock/components/stock-detail/EvaluationTab.tsx',
     ])
-    // And contact's: the Vehicle 360, the deal workspace, the contract page, the offer workspace and valuation.
+    // And contact's: the Vehicle 360, the deal workspace, the contract page, the offer workspace, valuation and
+    // the purchase dialog's supplier (KAN-465).
     const throughContactsDoor = [...realFiles].filter(
       ([path, source]) => moduleOf(path) !== 'contact' && !isTestCode(path) && importsOf(path, source).some(({ specifier }) => /(^|\/)(modules\/)?contact$/.test(specifier) && resolveImport(path, specifier, (p) => realFiles.has(p)) === 'modules/contact/index.ts'),
     )
@@ -224,6 +225,7 @@ describe('frontend modules keep their boundary (KAN-636, ADR-161)', () => {
       'modules/sales/components/deal-workspace/DealWorkspaceContainers.tsx',
       'modules/sales/pages/ContractDetailPage.tsx',
       'modules/sales/pages/OfferWorkspacePage.tsx',
+      'modules/stock/components/stock-detail/RecordPurchaseDialog.tsx',
       'modules/valuation/components/ValuationCreateDialog.tsx',
       'modules/valuation/pages/ValuationDetailPage.tsx',
       'modules/vehicle/components/vehicle-detail/IdentityTab.tsx',

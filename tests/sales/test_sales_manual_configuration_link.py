@@ -32,6 +32,7 @@ from app.sales.services.contract import confirm_contract, create_contract, reque
 from app.sales.services.offer import create_offer, update_offer
 from tests.dealership_support import valid_uid
 from tests.sales.test_sales_lifecycle_reservation import _contact
+from tests.stock_support import supplier_contact
 
 
 def _session_factory(engine):
@@ -102,7 +103,7 @@ def _stock_buys_it(db_session, item):
     record_purchase(
         db_session, item=item,
         data=RecordPurchaseRequest(
-            supplier_name="AMAG Import AG", supplier_is_vat_registered=True,
+            supplier_contact_id=supplier_contact(db_session, tenant_id=item.tenant_id, name="AMAG Import AG", business=True), supplier_is_vat_registered=True,
             purchase_price=Decimal("44000.00"), purchase_date=dt.date(2026, 10, 1),
         ),
         actor_id=uuid.uuid4(),

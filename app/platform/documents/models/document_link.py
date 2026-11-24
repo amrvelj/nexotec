@@ -18,9 +18,11 @@ another Betrieb's document, whatever id it carries.
 offer and the contract) — a plain id with no foreign key (rule 2); the module
 that registered the message type is its owner and renders it.
 
-**Rate limit:** at most `OPENS_PER_WINDOW` renders per link in a rolling
-`OPEN_WINDOW`; more answer 404 like an unknown link (the error taxonomy has no
-429, and a 404 confirms nothing).
+**Rate limit:** at most `OPENS_PER_WINDOW` reads per link in a rolling
+`OPEN_WINDOW` — a render of the document or a read of the sender's logo
+(KAN-217 PR-7, ADR-208), each one; more answer 404 like an unknown link (the
+error taxonomy has no 429, and a 404 confirms nothing). `open_count` counts
+the document's opens only.
 """
 
 import datetime as dt

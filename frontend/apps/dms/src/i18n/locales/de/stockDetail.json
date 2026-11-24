@@ -58,6 +58,17 @@
       "vin": "VIN",
       "vinHint": "Ein Fahrzeug in der Pipeline wird mit seiner VIN eingekauft und kommt damit an Lager."
     },
+    "supplier": {
+      "search": "Kontakt suchen",
+      "create": "Neuen Kontakt anlegen",
+      "change": "Ändern",
+      "useTradeInContact": "Kontakt aus dem Eintausch übernehmen: {{name}}",
+      "roleWillBeAdded": "Dieser Kontakt erhält beim Erfassen die Rolle «Lieferant».",
+      "roleFailed": "Die Rolle «Lieferant» konnte dem Kontakt nicht gegeben werden. Bitte erneut versuchen.",
+      "vatUnknown": "Der MWST-Status dieses Kontakts ist nicht bestätigt — bitte prüfen.",
+      "vatFromContact": "Vom Kontakt übernommen.",
+      "vatOverridden": "Abweichend vom Kontakt — wird protokolliert."
+    },
     "notionalInputTax": "Fiktiver Vorsteuerabzug",
     "notionalInputTaxNotApplicable": "Nicht anwendbar",
     "notionalInputTaxRateNotConfigured": "MWST-Satz noch nicht konfiguriert",

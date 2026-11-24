@@ -132,7 +132,8 @@ def _provider_case(db_session) -> _Case:
 
 
 _PURCHASE = {
-    "supplierName": "Garage Muster AG", "supplierIsVatRegistered": True,
+    # The case refuses before the booking reads its supplier: any id will do.
+    "supplierContactId": "00000000-0000-7000-8000-000000000465", "supplierIsVatRegistered": True,
     "purchasePrice": "18000.00", "purchaseDate": "2026-10-01",
     # KAN-446: the case's item is a pipeline item, bought with its VIN.
     "vin": "WVWZZZ1KZAW000446",

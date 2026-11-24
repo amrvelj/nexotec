@@ -73,7 +73,7 @@ const STOCK_PAGE = {
     landedCost: null, locationId: null, notionalInputTaxAmount: null, notionalInputTaxApplicable: null,
     notionalInputTaxOverridden: false, notionalInputTaxRate: null, orderDate: null, expectedDelivery: null,
     pipelineRef: null, purchaseDate: null, purchaseInvoiceRef: null, purchasePrice: null,
-    supplierIsVatRegistered: null, supplierName: null, valuationRefAmount: null, valuationRefId: null,
+    supplierIsVatRegistered: null, supplierContactId: null, supplierLabel: null, valuationRefAmount: null, valuationRefId: null,
     valuationRefSource: null, valuationRefValuedAt: null, createdAt: NOW, updatedAt: NOW, version: 1,
   }],
   nextCursor: null, total: 1, totalIsEstimate: false,

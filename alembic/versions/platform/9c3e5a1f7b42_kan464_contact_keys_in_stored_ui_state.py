@@ -506,6 +506,7 @@ _KEYS = (
     ("shell", "nav.customers", "shell", "nav.contacts"),
     ("stockDetail", "purchase.storno.returnedToCustomer", "stockDetail", "purchase.storno.returnedToContact"),
     ("stockDetail", "purchase.storno.returnedToCustomerHint", "stockDetail", "purchase.storno.returnedToContactHint"),
+    ("stockDetail", "purchase.supplier.useTradeInCustomer", "stockDetail", "purchase.supplier.useTradeInContact"),
     ("usersAdmin", "ownedGroup.customer.customers", "usersAdmin", "ownedGroup.contact.contacts"),
     ("valuationCreate", "createCustomer", "valuationCreate", "createContact"),
     ("valuationCreate", "customerSection", "valuationCreate", "contactSection"),

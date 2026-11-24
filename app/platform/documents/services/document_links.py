@@ -33,6 +33,7 @@ from sqlalchemy.orm import Session
 
 from app.core.base import utcnow
 from app.core.config import get_settings
+from app.core.object_store import ObjectStore, StoredObject, get_object_store
 from app.platform.documents.models.document_link import (
     LINK_VALID_DAYS,
     OPEN_WINDOW,
@@ -43,7 +44,9 @@ from app.platform.documents.services.message_types import (
     MessageTypeRegistrationError,
     get_message_type,
 )
+from app.platform.organisation.models.branding_asset import BrandingAssetKind
 from app.platform.organisation.models.dealership import Dealership, DealershipStatus
+from app.platform.organisation.services.branding import resolve_asset
 
 logger = logging.getLogger(__name__)
 
@@ -168,8 +171,19 @@ def issue_document_link(
     return IssuedDocumentLink(link_id=link.id, token=raw, url=link_url(raw, language), expires_at=link.expires_at)
 
 
+def _window_spent(link: DocumentLink, now: dt.datetime) -> bool:
+    """True while the link's rolling window holds no read to spare — the
+    check alone, nothing claimed."""
+
+    return (
+        link.window_started_at is not None
+        and link.window_started_at + OPEN_WINDOW > now
+        and link.window_opens >= OPENS_PER_WINDOW
+    )
+
+
 def _within_rate(link: DocumentLink, now: dt.datetime) -> bool:
-    """Claims one open in the link's rolling window; False once it is spent."""
+    """Claims one read in the link's rolling window; False once it is spent."""
 
     if link.window_started_at is None or link.window_started_at + OPEN_WINDOW <= now:
         link.window_started_at = now
@@ -180,15 +194,16 @@ def _within_rate(link: DocumentLink, now: dt.datetime) -> bool:
     return True
 
 
-def open_document_link(db: Session, raw_token: str, *, now: dt.datetime | None = None) -> RenderedDocument | None:
-    """The document behind a link, or None (the route's uniform 404). Counts
-    the open on the row and commits it — the read is the contact's, there is
-    no other transaction to join."""
+def _usable_link(db: Session, raw_token: str, at: dt.datetime, *, lock: bool) -> DocumentLink | None:
+    """The link a token names while it may still be read: well-formed, known,
+    not expired, its Betrieb not offboarded, its type still with a source.
+    Anything else rolls back and answers None — the route's one 404. The rate
+    window is the caller's to judge."""
 
     if not _TOKEN.fullmatch(raw_token):
         return None
-    at = now or utcnow()
-    link = db.scalar(select(DocumentLink).where(DocumentLink.token_hash == hash_token(raw_token)).with_for_update())
+    query = select(DocumentLink).where(DocumentLink.token_hash == hash_token(raw_token))
+    link = db.scalar(query.with_for_update() if lock else query)
     if link is None or link.expires_at <= at:
         db.rollback()
         return None
@@ -196,16 +211,27 @@ def open_document_link(db: Session, raw_token: str, *, now: dt.datetime | None =
     if status is None or status == DealershipStatus.OFFBOARDED:
         db.rollback()
         return None
-    source = _SOURCES.get(link.message_type)
-    if source is None:
+    if link.message_type not in _SOURCES:
         logger.error("document link %s names message type %r with no document source", link.id, link.message_type)
         db.rollback()
         return None
+    return link
+
+
+def open_document_link(db: Session, raw_token: str, *, now: dt.datetime | None = None) -> RenderedDocument | None:
+    """The document behind a link, or None (the route's uniform 404). Counts
+    the open on the row and commits it — the read is the contact's, there is
+    no other transaction to join."""
+
+    at = now or utcnow()
+    link = _usable_link(db, raw_token, at, lock=True)
+    if link is None:
+        return None
     if not _within_rate(link, at):
-        logger.warning("document link %s refused: more than %d opens in its window", link.id, OPENS_PER_WINDOW)
+        logger.warning("document link %s refused: more than %d reads in its window", link.id, OPENS_PER_WINDOW)
         db.commit()
         return None
-    rendered = source(db, link.tenant_id, link.document_id)
+    rendered = _SOURCES[link.message_type](db, link.tenant_id, link.document_id)
     if rendered is None:
         logger.warning("document link %s names a document its business does not hold", link.id)
         db.rollback()
@@ -216,3 +242,69 @@ def open_document_link(db: Session, raw_token: str, *, now: dt.datetime | None =
     link.open_count += 1
     db.commit()
     return rendered
+
+
+# --- the sender (KAN-217 PR-7; Anto, 2026-11-20, option 1) -----------------------
+
+
+@dataclasses.dataclass(frozen=True)
+class LinkSender:
+    """Whose page the contact is on: the Betrieb that issued the link. Read
+    by link only — an unusable link names nobody."""
+
+    name: str
+    has_logo: bool
+
+
+def read_link_sender(db: Session, raw_token: str, *, now: dt.datetime | None = None) -> LinkSender | None:
+    """The issuing Betrieb's name (its trade name, else its legal name) and
+    whether it has a logo, or None — refused exactly when opening the
+    document would be refused before its render: unknown, malformed, expired,
+    an offboarded Betrieb's, a type without a source, or a spent rate window.
+    It does not render the document, so a link whose document is gone still
+    names its sender: that is the page's «Wenden Sie sich an …» (ADR-208).
+
+    Two indexed reads and no claim on the window: it costs what an unknown
+    token's 404 costs, which nothing limits either. Writes nothing."""
+
+    at = now or utcnow()
+    link = _usable_link(db, raw_token, at, lock=False)
+    if link is None:
+        return None
+    if _window_spent(link, at):
+        db.rollback()
+        return None
+    dealership = db.get(Dealership, link.tenant_id)
+    has_logo = resolve_asset(db, link.tenant_id, BrandingAssetKind.PRIMARY) is not None
+    db.rollback()
+    if dealership is None:
+        return None
+    return LinkSender(name=dealership.trade_name or dealership.legal_name, has_logo=has_logo)
+
+
+def open_link_logo(
+    db: Session, raw_token: str, *, store: ObjectStore | None = None, now: dt.datetime | None = None
+) -> StoredObject | None:
+    """The issuing Betrieb's primary logo, or None (the one 404): the link's
+    refusals, no logo, or a file the store does not hold. Reading the file
+    claims one read of the link's window, as opening the document does — a
+    logo may weigh 5 MB."""
+
+    at = now or utcnow()
+    link = _usable_link(db, raw_token, at, lock=True)
+    if link is None:
+        return None
+    asset = resolve_asset(db, link.tenant_id, BrandingAssetKind.PRIMARY)
+    if asset is None:
+        db.rollback()
+        return None
+    if not _within_rate(link, at):
+        logger.warning("document link %s refused: more than %d reads in its window", link.id, OPENS_PER_WINDOW)
+        db.commit()
+        return None
+    key = asset.object_key
+    db.commit()
+    stored = (store or get_object_store()).get(key)
+    if stored is None:
+        logger.error("document link %s: the logo %s is not in the object store", link.id, asset.id)
+    return stored

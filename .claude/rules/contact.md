@@ -144,7 +144,7 @@ sales files belong to other rules. Last verified against main@3b2bf69 (2026-11-1
   the `lifecycleStatus` value `do_not_contact`, not a flag, and stops the offer and the contract. A
   credit block is visible on the contact's own screens, not only inside the offer.
 - **`vatStatusConfirmed`**: `vatRegistered = false` is also the default, so a second checkbox says
-  someone checked it; every row started unconfirmed; live business does not read it yet.
+  someone checked it; every row started unconfirmed; the purchase booking's supplier VAT prefill reads it (KAN-465).
 
 ## History and labels
 - Group-wide contact history must be served from an event-built projection keyed by `group_id`
