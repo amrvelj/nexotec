@@ -8,8 +8,9 @@ contacts across the rename — each proven by a run, not by reading.
 - The contact reconciliation reports an event published under its old name
   still pending or dead (KAN-464 PR-5's precondition for retiring the names).
 - Every consumer reading a renamed payload key still reads an event published
-  before the rename (`sales.customer_merged`'s is in
-  test_consumer_redelivery_idempotency.py).
+  before the rename (the two `customer.merged` consumers kept under their
+  old names, `sales.customer_merged` and `inventory.customer_merged`, are
+  proven in test_consumer_redelivery_idempotency.py).
 """
 
 import datetime as dt
