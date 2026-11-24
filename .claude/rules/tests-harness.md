@@ -30,4 +30,6 @@ paths:
   creates it (dropping first one a killed run left behind, KAN-773), builds the schema as for the single one and drops it at the end (ADR-130).
 - **A run refuses another checkout** (KAN-783, `tests/checkout_guard.py`): `pytest_configure` exits
   (code 4) when `sys.prefix` is another checkout's `.venv`, or `DMS_TEST_DATABASE_URL` names another
-  checkout's `dms_test_<slug>`; names outside that scheme (CI's) are not judged.
+  checkout's `dms_test_<slug>` — only the own name, its `_gw<n>` and the suite's listed scratch suffixes pass (KAN-802,
+  `_DERIVED`; a new derived name is added there), and git failing to say worktree-or-not refuses; names outside that
+  scheme (CI's) are not judged.
