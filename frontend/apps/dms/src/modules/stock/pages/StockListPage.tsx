@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { Button, Group, Stack, Title } from '@mantine/core'
+import { Anchor, Button, Group, Stack, Title } from '@mantine/core'
 import { useDebouncedValue } from '@mantine/hooks'
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 import { ExternalLink, Warehouse } from 'lucide-react'
@@ -319,9 +319,14 @@ export function StockListPage() {
         // KAN-465: the supplier contact's name, linking to the contact; a booking from before keeps its typed name.
         cell: ({ row }) =>
           row.original.supplierContactId ? (
-            <Link to={`/customers/${row.original.supplierContactId}`} onClick={(event) => event.stopPropagation()}>
+            <Anchor
+              component={Link}
+              to={`/customers/${row.original.supplierContactId}`}
+              fz="sm"
+              onClick={(event) => event.stopPropagation()}
+            >
               {row.original.supplierLabel ?? '—'}
-            </Link>
+            </Anchor>
           ) : (
             (row.original.supplierLabel ?? '—')
           ),

@@ -1,5 +1,5 @@
 import { useEffect, useId, useState } from 'react'
-import { Button, Group, Text } from '@mantine/core'
+import { Anchor, Button, Group, Text } from '@mantine/core'
 import { FieldLabel, InlineEditField, KeyValueRow, OverviewCard, ProgressiveDisclosure, SpecGrid, chfInlineEditor, slate } from '@nexotec/ui-kit'
 import { HostConfigurationCard } from '../../../vehicle'
 import { useTranslation } from 'react-i18next'
@@ -304,7 +304,9 @@ export function DetailsTab({
               <KeyValueRow label={t('stockDetail.purchase.fields.supplierName')}>
                 {/* KAN-465: the supplier contact's name, linking to it; a booking from before keeps its typed name. */}
                 {item.supplierContactId ? (
-                  <Link to={`/customers/${item.supplierContactId}`}>{item.supplierLabel ?? '—'}</Link>
+                  <Anchor component={Link} to={`/customers/${item.supplierContactId}`} fz="sm">
+                    {item.supplierLabel ?? '—'}
+                  </Anchor>
                 ) : (
                   (item.supplierLabel ?? '—')
                 )}
