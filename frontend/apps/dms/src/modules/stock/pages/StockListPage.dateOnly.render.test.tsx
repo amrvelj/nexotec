@@ -30,7 +30,7 @@ const ITEM: StockItemRead = {
   landedCost: null, locationId: null, locationLabel: null, notionalInputTaxAmount: null, notionalInputTaxApplicable: null,
   notionalInputTaxOverridden: false, notionalInputTaxRate: null, orderDate: '2026-08-03',
   expectedDelivery: '2026-12-01', pipelineRef: null, purchaseDate: '2026-09-15', purchaseInvoiceRef: null,
-  purchasePrice: null, supplierIsVatRegistered: null, supplierName: null, valuationRefAmount: null,
+  purchasePrice: null, supplierIsVatRegistered: null, supplierContactId: null, supplierLabel: null, valuationRefAmount: null,
   valuationRefId: null, valuationRefSource: null, valuationRefValuedAt: null, createdAt: NOW, updatedAt: NOW,
   version: 1,
 }

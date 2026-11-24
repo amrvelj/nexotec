@@ -190,7 +190,7 @@ export function StockDetailContent({ stockItemId: id, embedded = false }: StockD
   }
 
   const recordPurchase = async (data: {
-    supplierName: string
+    supplierContactId: string
     supplierIsVatRegistered: boolean
     purchasePrice: number
     purchaseDate: string

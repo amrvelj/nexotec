@@ -10,6 +10,7 @@ import { CODED_REFERENCE_ROUTES, PICKED_CODED_VALUES, configurationRead } from '
 import type { ConfigurationRead, StockItemRead } from '../../../../api/types'
 import { DetailsTab } from './DetailsTab'
 import { RecordPurchaseDialog } from './RecordPurchaseDialog'
+import { pickSupplier, supplierSearchRoute } from '../../../../test/purchaseSupplier'
 
 // KAN-536 (Anto, 2026-11-12, option A) — a trade-in's pipeline item keeps the
 // VIN its contract holds (`tradeInVin`). «Einkauf buchen» prefills it, and a
@@ -35,7 +36,7 @@ const TRADE_IN_ITEM: StockItemRead = {
   landedCost: null, locationId: null, locationLabel: null, notionalInputTaxAmount: null, notionalInputTaxApplicable: null,
   notionalInputTaxOverridden: false, notionalInputTaxRate: null, orderDate: null, expectedDelivery: null,
   pipelineRef: 'contract:k-1:trade_in', purchaseDate: null, purchaseInvoiceRef: null, purchasePrice: null,
-  supplierIsVatRegistered: null, supplierName: null, valuationRefAmount: null, valuationRefId: null,
+  supplierIsVatRegistered: null, supplierContactId: null, supplierLabel: null, tradeInCustomerId: null, valuationRefAmount: null, valuationRefId: null,
   valuationRefSource: null, valuationRefValuedAt: null, createdAt: NOW, updatedAt: NOW, version: 1,
   configurationId: null, tradeInVin: CONTRACT_VIN,
 }
@@ -51,6 +52,7 @@ const submit = () => screen.getByRole('button', { name: i18n.t('stockDetail.purc
 
 function configurationBackend(configuration: ConfigurationRead) {
   return installFakeBackend([
+    supplierSearchRoute(),
     ...CODED_REFERENCE_ROUTES,
     { method: 'GET', match: /\/reference-data\//, handler: () => ({ items: [], nextCursor: null }) },
     { method: 'GET', match: /^\/configurations\/cfg-1$/, handler: () => configuration },
@@ -60,7 +62,7 @@ function configurationBackend(configuration: ConfigurationRead) {
 describe('RecordPurchaseDialog — the VIN a trade-in\'s contract holds (KAN-536)', () => {
   it('prefills it, reading no configuration, and sends it', async () => {
     const user = userEvent.setup()
-    const backend = installFakeBackend([])
+    const backend = installFakeBackend([supplierSearchRoute()])
     const onSubmit = vi.fn().mockResolvedValue(undefined)
     renderWithProviders(
       <RecordPurchaseDialog opened requiresVin tradeInVin={CONTRACT_VIN} onClose={() => {}} onSubmit={onSubmit} />,
@@ -69,7 +71,7 @@ describe('RecordPurchaseDialog — the VIN a trade-in\'s contract holds (KAN-536
     await waitFor(() => expect(vinField().value).toBe(CONTRACT_VIN))
     expect(backend.callsTo(/^\/configurations\//, 'GET')).toHaveLength(0)
 
-    await user.type(field('stockDetail.purchase.fields.supplierName'), 'Hans Muster')
+    await pickSupplier()
     await user.type(field('stockDetail.purchase.fields.purchasePrice'), '8000')
     await user.click(submit())
     await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1))
@@ -77,7 +79,7 @@ describe('RecordPurchaseDialog — the VIN a trade-in\'s contract holds (KAN-536
   })
 
   it('leaves the field empty for an item that keeps none (created before KAN-536)', () => {
-    installFakeBackend([])
+    installFakeBackend([supplierSearchRoute()])
     renderWithProviders(<RecordPurchaseDialog opened requiresVin tradeInVin={null} onClose={() => {}} onSubmit={async () => {}} />)
 
     expect(vinField().value).toBe('')
@@ -104,7 +106,7 @@ describe('RecordPurchaseDialog — the VIN a trade-in\'s contract holds (KAN-536
 
   it('says a differing VIN in the UI language, keeps the dialog open and offers no edit', async () => {
     const user = userEvent.setup()
-    installFakeBackend([])
+    installFakeBackend([supplierSearchRoute()])
     const refused = new ApiError(422, 'unprocessable_entity', "The VIN is not the one the trade-in's contract holds.", {
       field: 'vin',
       reason: 'trade_in_vin_differs',
@@ -124,7 +126,7 @@ describe('RecordPurchaseDialog — the VIN a trade-in\'s contract holds (KAN-536
     await waitFor(() => expect(vinField().value).toBe(CONTRACT_VIN))
     await user.clear(vinField())
     await user.type(vinField(), OTHER_VIN)
-    await user.type(field('stockDetail.purchase.fields.supplierName'), 'Hans Muster')
+    await pickSupplier()
     await user.type(field('stockDetail.purchase.fields.purchasePrice'), '8000')
     await user.click(submit())
 
@@ -139,14 +141,14 @@ describe('RecordPurchaseDialog — the VIN a trade-in\'s contract holds (KAN-536
 
   it.each(['fr', 'it', 'en'])('has the refusal in %s', async (language) => {
     await i18n.changeLanguage(language)
-    installFakeBackend([])
+    installFakeBackend([supplierSearchRoute()])
     const user = userEvent.setup()
     const refused = new ApiError(422, 'unprocessable_entity', 'refused', { field: 'vin', reason: 'trade_in_vin_differs' })
     renderWithProviders(
       <RecordPurchaseDialog opened requiresVin tradeInVin={CONTRACT_VIN} onClose={() => {}} onSubmit={() => Promise.reject(refused)} />,
     )
 
-    await user.type(field('stockDetail.purchase.fields.supplierName'), 'Hans Muster')
+    await pickSupplier()
     await user.type(field('stockDetail.purchase.fields.purchasePrice'), '8000')
     await user.click(submit())
 
@@ -171,14 +173,14 @@ describe('Stock detail — «Einkauf erfassen» on a trade-in\'s pipeline item (
     )
 
   it('opens the dialog with the contract\'s VIN', async () => {
-    installFakeBackend([{ method: 'GET', match: /\/reference-data\//, handler: () => ({ items: [], nextCursor: null }) }])
+    installFakeBackend([supplierSearchRoute(), { method: 'GET', match: /\/reference-data\//, handler: () => ({ items: [], nextCursor: null }) }])
     renderDetails(TRADE_IN_ITEM)
 
     await waitFor(() => expect(vinField().value).toBe(CONTRACT_VIN))
   })
 
   it('asks for no VIN once the car carries its own (a stornoed purchase)', async () => {
-    installFakeBackend([{ method: 'GET', match: /\/reference-data\//, handler: () => ({ items: [], nextCursor: null }) }])
+    installFakeBackend([supplierSearchRoute(), { method: 'GET', match: /\/reference-data\//, handler: () => ({ items: [], nextCursor: null }) }])
     renderDetails({ ...TRADE_IN_ITEM, vin: OTHER_VIN, vehicleId: 'v-1' })
 
     await screen.findByRole('button', { name: i18n.t('stockDetail.purchase.submit') })

@@ -7,6 +7,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { testTheme } from '../../../../test/testTheme'
 import i18n from '../../../../i18n'
 import { TranslatedOverlayProvider } from '../../../../test/TranslatedOverlayProvider'
+import { MemoryRouter } from 'react-router-dom'
 import { DetailsTab } from './DetailsTab'
 import type { StockItemRead } from '../../../../api/types'
 
@@ -29,7 +30,7 @@ const ITEM: StockItemRead = {
   landedCost: null, locationId: null, locationLabel: null, notionalInputTaxAmount: null, notionalInputTaxApplicable: null,
   notionalInputTaxOverridden: false, notionalInputTaxRate: null, orderDate: null, expectedDelivery: null,
   pipelineRef: null, purchaseDate: null, purchaseInvoiceRef: null, purchasePrice: null, supplierIsVatRegistered: null,
-  supplierName: null, valuationRefAmount: null, valuationRefId: null, valuationRefSource: null,
+  supplierContactId: null, supplierLabel: null, valuationRefAmount: null, valuationRefId: null, valuationRefSource: null,
   valuationRefValuedAt: null, createdAt: NOW, updatedAt: NOW, version: 1,
 }
 
@@ -159,5 +160,45 @@ describe('DetailsTab — the identifier is named for what it is (KAN-535)', () =
     renderWith('WVWZZZ1KZ00000001')
     expect(screen.getByText('VIN')).toBeInTheDocument()
     expect(screen.queryByText('Chassisnummer')).not.toBeInTheDocument()
+  })
+})
+
+// KAN-465: the purchase card names the supplier contact and links to it; a
+// booking from before KAN-465 keeps the name typed then, unlinked.
+describe('DetailsTab — the supplier on the purchase card (KAN-465)', () => {
+  const renderBooked = (item: Partial<StockItemRead>) =>
+    render(
+      <MantineProvider theme={testTheme} env="test">
+        <QueryClientProvider client={new QueryClient()}>
+          <MemoryRouter>
+            <TranslatedOverlayProvider>
+              <DetailsTab
+                item={{ ...ITEM, purchaseDate: '2026-11-20', purchasePrice: '21500.00', ...item }}
+                locale="de-CH"
+                onSaveField={vi.fn()}
+                onReload={vi.fn()}
+                onRecordPurchase={vi.fn()}
+              />
+            </TranslatedOverlayProvider>
+          </MemoryRouter>
+        </QueryClientProvider>
+      </MantineProvider>,
+    )
+
+  it('links the supplier contact', async () => {
+    const user = userEvent.setup()
+    renderBooked({ supplierContactId: 'c-amag', supplierLabel: 'AMAG Import AG' })
+    await user.click(screen.getByRole('button', { name: i18n.t('stockDetail.purchase.title') }))
+
+    expect(screen.getByRole('link', { name: 'AMAG Import AG' })).toHaveAttribute('href', '/customers/c-amag')
+  })
+
+  it('shows a typed name from before as text', async () => {
+    const user = userEvent.setup()
+    renderBooked({ supplierContactId: null, supplierLabel: 'Privat, Hans Muster' })
+    await user.click(screen.getByRole('button', { name: i18n.t('stockDetail.purchase.title') }))
+
+    expect(screen.getByText('Privat, Hans Muster')).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Privat, Hans Muster' })).toBeNull()
   })
 })

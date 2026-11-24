@@ -330,7 +330,7 @@ describe('Stock detail — a pipeline item shows its configuration', () => {
     const item = {
       id: 'si-9', stockNumber: 'S-00099', vehicleLabel: 'Subaru Justy G3X', vehicleId: null, vin: null,
       listPrice: null, effectivePrice: null, firstRegistrationDate: null, odometerKm: null, isInvoiceable: false,
-      purchaseDate: null, purchasePrice: null, supplierName: null, notionalInputTaxAmount: null,
+      purchaseDate: null, purchasePrice: null, supplierContactId: null, supplierLabel: null, notionalInputTaxAmount: null,
       notionalInputTaxApplicable: null, configurationId: 'cfg-r', configurationLabel: 'Subaru Justy G3X',
     } as unknown as StockItemRead
     renderWithProviders(

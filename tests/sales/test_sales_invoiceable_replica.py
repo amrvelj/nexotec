@@ -43,6 +43,7 @@ from app.sales.services.contract import cancel_contract, confirm_contract, creat
 from app.sales.services.offer import create_offer, update_offer
 from app.sales.services.stock_item_purchase import record_stock_item_purchased
 from tests.dealership_support import valid_uid
+from tests.stock_support import supplier_contact
 
 _CONSUMER = "sales.stock_item_purchased"
 
@@ -114,7 +115,7 @@ def _purchase(db_session, item):
     record_purchase(
         db_session, item=item,
         data=RecordPurchaseRequest(
-            supplier_name="Hans Muster", supplier_is_vat_registered=False,
+            supplier_contact_id=supplier_contact(db_session, tenant_id=item.tenant_id, name="Hans Muster"), supplier_is_vat_registered=False,
             purchase_price=Decimal("20000.00"), purchase_date=dt.date(2026, 8, 1),
         ),
         actor_id=uuid.uuid4(),

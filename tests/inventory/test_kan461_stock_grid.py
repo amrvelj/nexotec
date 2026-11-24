@@ -327,7 +327,7 @@ def test_a_text_filter_takes_wildcards_and_colons_literally(client, stock):
     tenant_id, _items = stock
     headers = _headers(tenant_id, AccessRole.INVENTORY)
     for value in ("%", "_", "a:b"):
-        response = client.get("/v1/inventory/stock-items", params={"filter": f"supplierName:contains:{value}"}, headers=headers)
+        response = client.get("/v1/inventory/stock-items", params={"filter": f"supplierLabel:contains:{value}"}, headers=headers)
         assert response.status_code == 200 and response.json()["items"] == [], value
 
 

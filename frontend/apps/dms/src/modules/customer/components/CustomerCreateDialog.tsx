@@ -1,7 +1,7 @@
 import { Modal } from '@mantine/core'
 import { useTranslation } from 'react-i18next'
 import { CustomerCreateFlow } from './CustomerCreateFlow'
-import type { CustomerRead, CustomerType } from '../../../api/types'
+import type { ContactRole, CustomerRead, CustomerType } from '../../../api/types'
 
 export interface CustomerCreateDialogProps {
   opened: boolean
@@ -11,6 +11,8 @@ export interface CustomerCreateDialogProps {
    * panel. Omit where there is nowhere sensible to navigate to. */
   onOpenExisting?: (customerId: string) => void
   initialCustomerType?: CustomerType
+  /** KAN-465: the roles the new contact starts with (the purchase dialog presets the supplier role). */
+  initialRoles?: ContactRole[]
 }
 
 /**
@@ -27,7 +29,7 @@ export interface CustomerCreateDialogProps {
  * CustomerCreatePage for a pasted or bookmarked link; Sales' offer
  * workspace and the valuation create dialog mount the same component.
  */
-export function CustomerCreateDialog({ opened, onClose, onCreated, onOpenExisting, initialCustomerType }: CustomerCreateDialogProps) {
+export function CustomerCreateDialog({ opened, onClose, onCreated, onOpenExisting, initialCustomerType, initialRoles }: CustomerCreateDialogProps) {
   const { t } = useTranslation()
 
   return (
@@ -37,6 +39,7 @@ export function CustomerCreateDialog({ opened, onClose, onCreated, onOpenExistin
         onCancel={onClose}
         onOpenExisting={onOpenExisting}
         initialCustomerType={initialCustomerType}
+        initialRoles={initialRoles}
       />
     </Modal>
   )

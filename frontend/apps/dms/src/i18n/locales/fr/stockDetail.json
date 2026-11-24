@@ -58,6 +58,17 @@
       "vin": "VIN",
       "vinHint": "Un véhicule du pipeline est acheté avec son VIN, ce qui le met en stock."
     },
+    "supplier": {
+      "search": "Rechercher un contact",
+      "create": "Créer un nouveau contact",
+      "change": "Modifier",
+      "useTradeInCustomer": "Reprendre le client de la reprise : {{name}}",
+      "roleWillBeAdded": "Ce contact reçoit le rôle «Fournisseur» lors de l'enregistrement.",
+      "roleFailed": "Le rôle «Fournisseur» n'a pas pu être attribué au contact. Veuillez réessayer.",
+      "vatUnknown": "Le statut TVA de ce contact n'est pas confirmé — veuillez vérifier.",
+      "vatFromContact": "Repris du contact.",
+      "vatOverridden": "Diffère du contact — ceci est journalisé."
+    },
     "notionalInputTax": "Déduction fictive de l'impôt préalable",
     "notionalInputTaxNotApplicable": "Non applicable",
     "notionalInputTaxRateNotConfigured": "Taux de TVA pas encore configuré",

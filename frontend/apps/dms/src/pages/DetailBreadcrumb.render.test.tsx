@@ -100,7 +100,7 @@ describe('Vehicle and Stock detail breadcrumbs never show the raw UUID (KAN-63)'
       purchasePrice: null,
       purchaseDate: null,
       purchaseInvoiceRef: null,
-      supplierName: null,
+      supplierContactId: null, supplierLabel: null,
       supplierIsVatRegistered: null,
       orderDate: null,
       expectedDelivery: null,

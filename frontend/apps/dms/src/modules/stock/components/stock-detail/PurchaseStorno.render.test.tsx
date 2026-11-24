@@ -32,12 +32,12 @@ const BOUGHT: StockItemRead = {
   landedCost: null, locationId: null, locationLabel: null, notionalInputTaxAmount: null, notionalInputTaxApplicable: false,
   notionalInputTaxOverridden: false, notionalInputTaxRate: null, orderDate: null, expectedDelivery: null,
   pipelineRef: null, purchaseDate: '2026-09-15', purchaseInvoiceRef: null, purchasePrice: '20000.00',
-  supplierIsVatRegistered: true, supplierName: 'Auto Grossist AG', valuationRefAmount: null, valuationRefId: null,
+  supplierIsVatRegistered: true, supplierContactId: null, supplierLabel: 'Auto Grossist AG', valuationRefAmount: null, valuationRefId: null,
   valuationRefSource: null, valuationRefValuedAt: null, createdAt: NOW, updatedAt: NOW, version: 4,
 }
 const STORNOED: StockItemRead = {
   ...BOUGHT, lifecycleStatus: 'pipeline', inStockAt: null, isInvoiceable: false, purchaseDate: null,
-  purchasePrice: null, supplierIsVatRegistered: null, supplierName: null, notionalInputTaxApplicable: null, version: 5,
+  purchasePrice: null, supplierIsVatRegistered: null, supplierContactId: null, supplierLabel: null, notionalInputTaxApplicable: null, version: 5,
 }
 
 function renderTab(item: StockItemRead, props: Partial<Parameters<typeof DetailsTab>[0]> = {}) {

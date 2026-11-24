@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { Button, Group, Stack, Title } from '@mantine/core'
+import { Anchor, Button, Group, Stack, Title } from '@mantine/core'
 import { useDebouncedValue } from '@mantine/hooks'
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 import { ExternalLink, Warehouse } from 'lucide-react'
@@ -314,9 +314,22 @@ export function StockListPage() {
         cell: ({ row }) => yesNo(row.original.isInvoiceable),
       },
       {
-        id: 'supplierName',
+        id: 'supplierLabel',
         header: t('stockList.columns.supplierName'),
-        cell: ({ row }) => row.original.supplierName ?? '—',
+        // KAN-465: the supplier contact's name, linking to the contact; a booking from before keeps its typed name.
+        cell: ({ row }) =>
+          row.original.supplierContactId ? (
+            <Anchor
+              component={Link}
+              to={`/customers/${row.original.supplierContactId}`}
+              fz="sm"
+              onClick={(event) => event.stopPropagation()}
+            >
+              {row.original.supplierLabel ?? '—'}
+            </Anchor>
+          ) : (
+            (row.original.supplierLabel ?? '—')
+          ),
       },
       {
         id: 'purchaseDate',

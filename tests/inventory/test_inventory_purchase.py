@@ -16,6 +16,7 @@ from app.inventory.services.purchase import override_notional_input_tax, record_
 from app.inventory.services.stock_item import create_stock_item
 from app.platform.organisation.models.dealership import DealerGroup, Dealership, FranchiseType
 from tests.dealership_support import valid_uid
+from tests.stock_support import supplier_contact
 
 
 def _make_dealership(db_session, *, vat_rate: Decimal | None = Decimal("8.10")) -> Dealership:
@@ -69,7 +70,7 @@ def test_record_purchase_from_private_individual_computes_notional_input_tax(db_
         db_session,
         item=item,
         data=RecordPurchaseRequest(
-            supplier_name="Hans Muster",
+            supplier_contact_id=supplier_contact(db_session, tenant_id=item.tenant_id, name="Hans Muster"),
             supplier_is_vat_registered=False,
             purchase_price=Decimal("20000.00"),
             purchase_date=dt.date(2026, 8, 1),
@@ -96,7 +97,7 @@ def test_record_purchase_from_vat_registered_business_has_no_notional_input_tax(
         db_session,
         item=item,
         data=RecordPurchaseRequest(
-            supplier_name="Auto Grossist AG",
+            supplier_contact_id=supplier_contact(db_session, tenant_id=item.tenant_id, name="Auto Grossist AG", business=True),
             supplier_is_vat_registered=True,
             purchase_price=Decimal("20000.00"),
             purchase_date=dt.date(2026, 8, 1),
@@ -121,7 +122,7 @@ def test_record_purchase_with_no_configured_vat_rate_leaves_amount_uncomputed(db
         db_session,
         item=item,
         data=RecordPurchaseRequest(
-            supplier_name="Hans Muster",
+            supplier_contact_id=supplier_contact(db_session, tenant_id=item.tenant_id, name="Hans Muster"),
             supplier_is_vat_registered=False,
             purchase_price=Decimal("20000.00"),
             purchase_date=dt.date(2026, 8, 1),
@@ -149,7 +150,7 @@ def test_a_pipeline_item_is_bought_with_its_vin_and_is_invoiceable_at_once(db_se
         db_session,
         item=item,
         data=RecordPurchaseRequest(
-            supplier_name="Hans Muster",
+            supplier_contact_id=supplier_contact(db_session, tenant_id=item.tenant_id, name="Hans Muster"),
             supplier_is_vat_registered=False,
             purchase_price=Decimal("8000.00"),
             purchase_date=dt.date(2026, 8, 1),
@@ -178,7 +179,7 @@ def test_override_notional_input_tax_is_audited(db_session):
         db_session,
         item=item,
         data=RecordPurchaseRequest(
-            supplier_name="Hans Muster",
+            supplier_contact_id=supplier_contact(db_session, tenant_id=item.tenant_id, name="Hans Muster"),
             supplier_is_vat_registered=False,
             purchase_price=Decimal("20000.00"),
             purchase_date=dt.date(2026, 8, 1),

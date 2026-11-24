@@ -92,7 +92,9 @@ STOCK_ITEM_COLUMNS: Registry = (
         "notionalInputTaxAmount", StockItem.notional_input_tax_amount, "money", _L + "notionalInputTaxAmount"
     ),
     ColumnSpec("isInvoiceable", StockItem.is_invoiceable, "boolean", _L + "isInvoiceable"),
-    ColumnSpec("supplierName", StockItem.supplier_name, "text", _L + "supplierName"),
+    # KAN-465: the supplier contact's name (rule 2's copy) — `supplierLabel`, a
+    # field of the read like every column; its header keeps the «Lieferant» key.
+    ColumnSpec("supplierLabel", StockItem.supplier_label, "text", _L + "supplierName"),
     ColumnSpec("purchaseDate", StockItem.purchase_date, "date", _L + "purchaseDate"),
     ColumnSpec("orderDate", StockItem.order_date, "date", _L + "orderDate"),
     ColumnSpec("expectedDelivery", StockItem.expected_delivery, "date", _L + "expectedDelivery"),
@@ -138,6 +140,8 @@ STOCK_ITEM_EXCLUDED_COLUMNS: dict[str, str] = {
     "reserved_by_contract_id": "Sales' contract id; `reservationState` shows the reservation",
     "active_reservation_id": "the reservation row's id; `reservationState` shows the reservation",
     "trade_in_customer_id": "a customer id relayed from Sales with no label on the item",
+    "supplier_contact_id": "the supplier contact's id; shown by `supplierLabel`, which links to it (KAN-465)",
+    "supplier_label_refreshed_at": "label-refresh bookkeeping (the three-column pattern)",
     "valuation_ref_id": "the valuation's id; its amount, source and date are columns",
     "left_stock_at": "always empty in this list: a car that left stock is not in it (FR-I-12)",
     "location_id": "the location's id; shown by `locationLabel` (KAN-739)",
