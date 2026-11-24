@@ -147,8 +147,10 @@ def handle_contact_merged_message(db: Session, message: OutboxMessage) -> None:
     if message.tenant_id is None:
         raise ValueError(f"contact.merged message {message.id} has no tenant_id.")
     payload = message.payload or {}
-    duplicate_id = uuid.UUID(payload["contactId"])
-    survivor_id = uuid.UUID(payload["duplicateOfContactId"])
+    # KAN-464 PR-3: `customer.merged`, published before the rename, names
+    # the customer; both names are consumed until PR-5 retires the old one.
+    duplicate_id = uuid.UUID(payload.get("contactId", payload.get("customerId")))
+    survivor_id = uuid.UUID(payload.get("duplicateOfContactId", payload.get("duplicateOfCustomerId")))
     # KAN-657: before any Sales row is read — an attach of the duplicate in
     # flight commits first (and its deal is moved below) or waits and reads it
     # merged (contact_attach_lock).

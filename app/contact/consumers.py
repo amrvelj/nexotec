@@ -77,7 +77,8 @@ def _trade_in_seller(message: OutboxMessage) -> TradeInSeller:
     first production deploy (README, «One-time backfills after a deploy»)."""
 
     payload = message.payload or {}
-    contact_id, signed_at = payload.get("tradeInContactId"), payload.get("tradeInSignedAt")
+    contact_id = payload.get("tradeInContactId", payload.get("tradeInCustomerId"))  # KAN-464 PR-3: an event published before the rename names the customer (PR-5 drops it)
+    signed_at = payload.get("tradeInSignedAt")
     if not (contact_id and signed_at):
         raise TradeInEventWithoutSeller(f"{message.event_type} message {message.id} names no trade-in seller.")
     return TradeInSeller(contact_id=uuid.UUID(contact_id), known_since=dt.datetime.fromisoformat(signed_at))
@@ -219,7 +220,7 @@ def handle_stock_item_storno_message(db: Session, message: OutboxMessage) -> Non
     if message.tenant_id is not None:
         lock_stock_item(db, stock_item_id=message.aggregate_id)
         overtaken = storno_overtaken(db, message=message)
-    if not payload.get("returnedToContact"):
+    if not payload.get("returnedToContact", payload.get("returnedToCustomer")):  # KAN-464 PR-3: an event published before the rename names the customer (PR-5 drops it)
         return
     if payload.get("originRole") != "trade_in" or not payload.get("originContractId"):
         # Stock refuses `returnedToContact` for anything but a trade-in (422).

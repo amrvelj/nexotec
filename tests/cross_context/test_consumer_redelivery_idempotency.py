@@ -390,6 +390,21 @@ def _contact_merged(db_session, engine, monkeypatch):
     return message, offers_on_survivor
 
 
+def _customer_merged(db_session, engine, monkeypatch):
+    """KAN-464 PR-3 — a merge published before customers became contacts:
+    the real producer's row, turned back into the name and payload keys it
+    carried then (`customer.merged`, `customerId`, `duplicateOfCustomerId`).
+    Sales moves the duplicate's offer once."""
+
+    message, offers_on_survivor = _contact_merged(db_session, engine, monkeypatch)
+    payload = dict(message.payload)
+    payload["customerId"] = payload.pop("contactId")
+    payload["duplicateOfCustomerId"] = payload.pop("duplicateOfContactId")
+    message.event_type, message.payload = "customer.merged", payload
+    db_session.flush()
+    return message, offers_on_survivor
+
+
 def _invoice_requested_with_plate(db_session, engine, monkeypatch):
     """KAN-523 — «Rechnung anfordern» with the plate the car leaves with, from
     the real producer: vehicle-mdm records it on the sold car, once."""
@@ -1040,6 +1055,7 @@ _FIXTURES: dict[str, Fixture] = {
     "contact.trade_in_purchased": _trade_in_purchased,
     "contact.trade_in_storno": _trade_in_storno,
     "sales.contact_merged": _contact_merged,
+    "sales.customer_merged": _customer_merged,
     "sales.stock_item_reassigned": _stock_item_reassigned,
     "inventory.marketplace_transmission_on_publish": _stock_item_published,
     "reporting.public_stock_listing": _website_listing_changed,

@@ -32,7 +32,7 @@ from app.contact.models.vehicle_party import VehicleParty
 from app.contact.services.contact_common import CONTACT_AUDIT_ENTITY_TYPES
 from app.core.audit_model import AuditEvent
 from app.core.base import utcnow
-from app.core.outbox_model import OutboxMessage
+from app.core.outbox_model import OutboxMessage, OutboxStatus
 from app.core.reconciliation import ReconciliationRun, ReferenceCheck, StateCheck, run_reconciliation
 from app.integration.public import message_delivery_recipient_reference_check
 from app.inventory.public import stock_item_reference_check
@@ -52,6 +52,18 @@ CONTEXT = "contact"
 # is a finding: the outbox's normal delay, as Stock's and Sales' checks allow.
 _OUTBOX_LAG_GRACE = dt.timedelta(hours=1)
 _BOOKING_EVENT_TYPES = ("inventory.stock_item.purchased", "inventory.stock_item.storno")
+# KAN-464 PR-3 (ADR-209): every event this context publishes, and the name it
+# was published under before customers became contacts. A row already in the
+# outbox keeps its name (never rewritten); the old names stay subscribed
+# until the check below finds none pending or dead, then KAN-464 PR-5
+# retires them.
+_BEFORE_THE_RENAME = {
+    "contact.created": "customer.created",
+    "contact.updated": "customer.updated",
+    "contact.merged": "customer.merged",
+    "contact.vehicle_party.linked": "customer.vehicle_party.linked",
+    "contact.vehicle_party.unlinked": "customer.vehicle_party.unlinked",
+}
 
 # Every Contact table with created_by / updated_by: each must name a platform
 # user, or be null (KAN-243; see app.platform.public.actor_reference_checks).
@@ -97,6 +109,20 @@ CHECKS: list[ReferenceCheck | StateCheck] = [
             .where(StockItemBooking.event_id == OutboxMessage.id)
             .correlate(OutboxMessage)
             .exists()
+        ),
+    ),
+    StateCheck(
+        # KAN-464 PR-3 (rule 10): an event published under its name before
+        # the rename, still waiting for a consumer (or dead) an hour on. Zero
+        # findings where a worker runs is KAN-464 PR-5's precondition for
+        # retiring the old names (staging runs none, so it never drains there).
+        label="event under its name before the rename to contacts, still pending or dead",
+        source_model=OutboxMessage,
+        source_row_id_column=OutboxMessage.id,
+        where=lambda: (
+            OutboxMessage.event_type.in_(tuple(_BEFORE_THE_RENAME.values()))
+            & OutboxMessage.status.in_((OutboxStatus.PENDING, OutboxStatus.DEAD))
+            & (OutboxMessage.created_at < utcnow() - _OUTBOX_LAG_GRACE)
         ),
     ),
     vehicle_reference_check(
@@ -365,10 +391,11 @@ def _classify_vehicle_party_stamps(
         raw.append(("audit_event", row_id, at, contact_id, stamped))
     for row_id, payload, stamped, at in db.execute(
         select(OutboxMessage.id, OutboxMessage.payload, OutboxMessage.tenant_id, OutboxMessage.occurred_at)
-        .where(OutboxMessage.event_type == event_type)
+        .where(OutboxMessage.event_type.in_((event_type, _BEFORE_THE_RENAME[event_type])))
         .order_by(OutboxMessage.occurred_at, OutboxMessage.id)
     ).all():
-        contact_ref = payload.get("contactId") if isinstance(payload, dict) else None
+        # KAN-464 PR-3: rows published before the rename name the customer
+        contact_ref = payload.get("contactId", payload.get("customerId")) if isinstance(payload, dict) else None
         raw.append(("outbox_message", row_id, at, _as_uuid(contact_ref), stamped))
 
     contact_groups: dict[uuid.UUID, uuid.UUID] = {}

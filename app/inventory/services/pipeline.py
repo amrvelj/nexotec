@@ -279,7 +279,12 @@ def _handle_sales_contract_confirmed(
             # signed, kept for the item's purchase and storno events
             # (`trade_in_origin`). A confirmation published before KAN-632
             # carries neither; the item then keeps none.
-            apply_trade_in_seller(item, contact_id=payload.get("contactId"), signed_at=payload.get("signedAt"))
+            apply_trade_in_seller(
+                item,
+                # KAN-464 PR-3: a contract confirmed before the rename names the customer (PR-5 drops it)
+                contact_id=payload.get("contactId", payload.get("customerId")),
+                signed_at=payload.get("signedAt"),
+            )
             # KAN-536 — the VIN the contract holds for the car, kept as the
             # item's known future VIN (`trade_in_vin`, never `vin`: no
             # vehicle-mdm record and no stock VIN before the purchase,
