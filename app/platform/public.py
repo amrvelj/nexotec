@@ -10,6 +10,12 @@ from app.platform.administration.services.location_channel_facts import (
     closed_days_until,
     location_channel_facts,
 )
+from app.platform.administration.services.location_channel_images import (
+    ChannelImage,
+    LocationChannelImagery,
+    location_channel_images,
+    read_location_channel_image,
+)
 from app.platform.administration.services.publishing_readiness import (
     PublishingMissingItem,
     publishing_profile_missing_items,
@@ -199,6 +205,7 @@ __all__ = [
     "PLACEHOLDER_UNRESOLVED",
     "ActingUser",
     "Addressee",
+    "ChannelImage",
     "ChannelOpeningHours",
     "ConnectedAccountProvider",
     "ConnectedAccountStatus",
@@ -219,6 +226,7 @@ __all__ = [
     "LineStyle",
     "LinkedGrant",
     "LocationChannelFacts",
+    "LocationChannelImagery",
     "LocationLabel",
     "LocationSummary",
     "MessageChannel",
@@ -280,11 +288,13 @@ __all__ = [
     "list_user_dealer_group_ids",
     "list_user_dealership_ids",
     "location_channel_facts",
+    "location_channel_images",
     "location_reference_check",
     "message_types",
     "notify",
     "publishing_profile_missing_items",
     "publishing_profile_ready",
+    "read_location_channel_image",
     "register_document_source",
     "register_grant_revoker",
     "register_message_type",

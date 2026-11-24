@@ -29,6 +29,12 @@ register_handlers` lists them with the event type and `consumer_name`:
   (`handle_business_profile_push_message`, KAN-226 PR-3): the location's
   fields, hours and closed days pushed to its live Google Business Profile
   binding, once per state (`services/gbp_push.py::push_location`).
+- `platform.publishing_profile.updated` -> `integration.business_profile_photos_on_profile_updated`,
+  `platform.location.updated` -> `integration.business_profile_photos_on_location_updated`,
+  `integration.gbp_location_binding.activated` -> `integration.business_profile_photos_on_binding_activated`
+  (`handle_business_profile_photos_message`, KAN-784, ADR-209): queues a
+  photo pass for the location's live bindings; the web service uploads
+  (`services/gbp_photos.py`, `services/gbp_photo_runner.py`).
 - `platform.dealership.updated` -> `integration.business_profile_push_on_dealership_updated`
   (`handle_business_profile_push_on_dealership_message`, KAN-785): the Betrieb's
   website changed, so each of its bound locations is pushed through the same
@@ -50,6 +56,7 @@ from app.integration.services.connections import (
     disable_withdrawn_marketplace_connections,
 )
 from app.integration.services.gbp_link import disconnect_offboarded_dealership_bindings
+from app.integration.services.gbp_photos import queue_photo_pass
 from app.integration.services.gbp_push import push_dealership_locations, push_location
 from app.integration.services.mail_sending import disconnect_offboarded_dealership_mailboxes
 
@@ -78,3 +85,7 @@ def handle_business_profile_push_message(db: Session, message: OutboxMessage) ->
 
 def handle_business_profile_push_on_dealership_message(db: Session, message: OutboxMessage) -> None:
     push_dealership_locations(db, message)
+
+
+def handle_business_profile_photos_message(db: Session, message: OutboxMessage) -> None:
+    queue_photo_pass(db, message)

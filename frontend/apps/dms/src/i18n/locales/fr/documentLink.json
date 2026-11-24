@@ -4,5 +4,6 @@
   "ready": "Votre document est prêt.",
   "open": "Ouvrir",
   "download": "Télécharger",
-  "refused": "Ce lien n'est pas valable ou a expiré. Veuillez vous adresser à votre entreprise si vous avez encore besoin du document."
+  "refused": "Ce lien n'est pas valable ou a expiré. Veuillez vous adresser à votre entreprise si vous avez encore besoin du document.",
+  "unavailable": "Ce document ne peut pas être ouvert pour le moment. Veuillez vous adresser à {{name}}."
 }

@@ -33,7 +33,7 @@ _ALLOWED: dict[str, str] = {
     "app/platform/identity/services/membership.py::list_memberships": (
         "a user's own memberships; grant_membership refuses the platform tenant as a target (KAN-221 PR-1)"
     ),
-    "app/platform/documents/services/document_links.py::open_document_link": _BY_ID,
+    "app/platform/documents/services/document_links.py::_usable_link": _BY_ID,
     "app/platform/identity/services/onboarding.py::onboard": (
         "the UID duplicate check; the platform tenant has no UID"
     ),

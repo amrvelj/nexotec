@@ -23,7 +23,8 @@
     "integration": "Integrations",
     "nexotec": "Nexotec",
     "google_business_profile": "Google Business Profile",
-    "google_business_profile_drift": "Google Business Profile – comparison"
+    "google_business_profile_drift": "Google Business Profile – comparison",
+    "google_business_profile_photos": "Google Business Profile – photos"
   },
   "open": "Open",
   "since": "since {{date}}",
@@ -55,6 +56,11 @@
       "drift_one": "{{location}}: {{count, number}} field differs at Google. The card under Integrations names it.",
       "drift_other": "{{location}}: {{count, number}} fields differ at Google. The card under Integrations names them.",
       "checkFailed": "{{location}}: the nightly comparison could not read Google."
+    },
+    "googleBusinessProfilePhotos": {
+      "failed": "{{location}}: the photos could not be sent to Google. The next change to the images tries again.",
+      "refused_one": "{{location}}: Google refused {{count, number}} photo (size or format). Replace it under Publishing.",
+      "refused_other": "{{location}}: Google refused {{count, number}} photos (size or format). Replace them under Publishing."
     }
   },
   "indicator": {

@@ -136,6 +136,12 @@ PATCHABLE_FIELDS: frozenset[str] = frozenset(
     }
 )
 
+class PhotoRefusedError(ProviderRequestError):
+    """Google refused one photo itself (a 400/404/422 on the steps that carry
+    its bytes) — its size or format; the location accepted the upload. Sending
+    the same bytes again changes nothing (KAN-784, ADR-209)."""
+
+
 # The v4 media categories of a location photo.
 PHOTO_CATEGORIES: frozenset[str] = frozenset(
     {"COVER", "PROFILE", "LOGO", "EXTERIOR", "INTERIOR", "PRODUCT", "AT_WORK", "TEAMS", "ADDITIONAL"}
@@ -609,27 +615,34 @@ class GoogleBusinessProfileAdapter:
         resource = started.get("resourceName")
         if not isinstance(resource, str) or not _MEDIA_RESOURCE.fullmatch(resource) or ".." in resource:
             raise ProviderTransportError("Google Business Profile sent no upload reference.")
-        self._request(
-            "media_upload_bytes",
-            "POST",
-            f"{UPLOAD_API}/{resource}",
-            headers={**self._bearer(access_token), "Content-Type": content_type},
-            params={"uploadType": "media"},
-            content=content,
-        )
-        created = self._json(
+        # The two steps that carry this image: Google refusing either (a
+        # 400/404/422) refuses the image itself — its size, its format — not
+        # the location, which `startUpload` above already accepted (KAN-784
+        # review). A refusal there stays a plain `ProviderRequestError`.
+        try:
             self._request(
-                "media_create",
+                "media_upload_bytes",
                 "POST",
-                parent,
-                headers=self._bearer(access_token),
-                json_body={
-                    "mediaFormat": "PHOTO",
-                    "locationAssociation": {"category": category},
-                    "dataRef": {"resourceName": resource},
-                },
+                f"{UPLOAD_API}/{resource}",
+                headers={**self._bearer(access_token), "Content-Type": content_type},
+                params={"uploadType": "media"},
+                content=content,
             )
-        )
+            created = self._json(
+                self._request(
+                    "media_create",
+                    "POST",
+                    parent,
+                    headers=self._bearer(access_token),
+                    json_body={
+                        "mediaFormat": "PHOTO",
+                        "locationAssociation": {"category": category},
+                        "dataRef": {"resourceName": resource},
+                    },
+                )
+            )
+        except ProviderRequestError as error:
+            raise PhotoRefusedError("Google Business Profile refused this photo.") from error
         name = created.get("name")
         if not isinstance(name, str):
             raise ProviderTransportError("Google Business Profile sent no media item.")

@@ -76,8 +76,18 @@ XML_NS = "http://www.w3.org/XML/1998/namespace"
 # ElementTree's generated prefixes (its `default_namespace` option refuses
 # the unprefixed attributes every SVG has). Nothing else in the application
 # serialises these namespaces through ElementTree.
-ET.register_namespace("", SVG_NS)
-ET.register_namespace("xlink", XLINK_NS)
+#
+# The prefix map is ElementTree's one global, and a library may re-register
+# the empty prefix on import (WeasyPrint's PDF metadata does), which drops
+# ours: so the prefixes are asserted again at each serialisation, never
+# trusted from import time (found by KAN-217 PR-7, whose import moved this
+# module ahead of WeasyPrint's).
+def _register_namespaces() -> None:
+    ET.register_namespace("", SVG_NS)
+    ET.register_namespace("xlink", XLINK_NS)
+
+
+_register_namespaces()
 
 
 @dataclasses.dataclass(frozen=True)
@@ -340,6 +350,7 @@ def sanitise_svg(data: bytes) -> bytes:
     _copy_attributes(root, clean, "svg")
     clean.text = root.text
     _sanitised_children(root, clean)
+    _register_namespaces()
     return ET.tostring(clean, encoding="utf-8", xml_declaration=True)
 
 

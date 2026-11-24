@@ -111,6 +111,10 @@ A-RULE-3). Cut from platform.md by KAN-614 (2026-11-10). Last verified against m
   source** the owning module registers (`platform.public.register_document_source`), inside the
   link's own Betrieb only. Every refusal (unknown, expired, offboarded, another Betrieb's or type's
   document, > 30 opens an hour) is the same 404. Never put a token in a path or query.
+  The page is the dealer's (KAN-217 PR-7, ADR-208): `…/current/sender` names the issuing Betrieb
+  (trade name, else legal name) and `…/current/logo` serves its primary logo, both by the same header;
+  an unusable link names nobody (the neutral text), a usable one whose document fails names its Betrieb.
+  The sender read claims no read of the window; the logo and the document claim one each.
 - Carried-over footers: each non-empty `document_template` footer became the Betrieb's **default**
   offer and contract footer (`offer|contract.footer.carried_over`) and an invoice text that is not
   the default (`invoice.footer.carried_over`), so documents keep printing what they printed; an

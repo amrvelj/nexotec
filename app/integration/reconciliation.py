@@ -22,6 +22,8 @@ from app.integration.models.google_business_profile import (
     GbpDriftCheck,
     GbpLinkState,
     GbpLocationBinding,
+    GbpPhotoJob,
+    GbpPhotoUpload,
     GbpPushState,
 )
 from app.integration.models.mail import MailLinkState, MessageDelivery, SendingIdentity
@@ -59,6 +61,8 @@ ACTOR_TABLES = (
     GbpLinkState,  # KAN-226: none written (no actor columns are set)
     GbpPushState,  # KAN-226 PR-3: written by the push consumer only — null actors
     GbpDriftCheck,  # KAN-226 PR-4: written by the drift job only — null actors
+    GbpPhotoJob,  # KAN-784: written by the photo consumers and runner only — null actors
+    GbpPhotoUpload,  # KAN-784: written by the photo runner only — null actors
 )
 
 
@@ -196,6 +200,22 @@ CHECKS = [
         source_model=GbpDriftCheck,
         source_row_id_column=GbpDriftCheck.id,
         source_fk_column=GbpDriftCheck.tenant_id,
+    ),
+    # KAN-784: the photo queue and the upload record name their Betrieb.
+    # `integration_gbp_photo_upload.asset_id` is deliberately not checked:
+    # an image removed in Nexotec stays at Google (Anto, 2026-11-21), and
+    # its upload row with it, so an id naming no image is expected (ADR-209).
+    dealership_reference_check(
+        label="integration_gbp_photo_job.tenant_id -> dealership.id",
+        source_model=GbpPhotoJob,
+        source_row_id_column=GbpPhotoJob.id,
+        source_fk_column=GbpPhotoJob.tenant_id,
+    ),
+    dealership_reference_check(
+        label="integration_gbp_photo_upload.tenant_id -> dealership.id",
+        source_model=GbpPhotoUpload,
+        source_row_id_column=GbpPhotoUpload.id,
+        source_fk_column=GbpPhotoUpload.tenant_id,
     ),
     *actor_reference_checks(*ACTOR_TABLES),
 ]

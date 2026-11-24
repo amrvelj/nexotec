@@ -2615,6 +2615,49 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/document-links/current/logo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Open Document Link Logo
+         * @description The sending Betrieb's primary logo, as the Branding screen's own read
+         *     serves it: an SVG is sandboxed, never sniffed.
+         */
+        get: operations["open_document_link_logo_v1_document_links_current_logo_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/document-links/current/sender": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Document Link Sender
+         * @description The Betrieb that sent the link: its name, and whether it has a logo
+         *     (`…/current/logo`). The same 404 as the document for a link that names
+         *     nobody (Anto, 2026-11-20, option 1).
+         */
+        get: operations["read_document_link_sender_v1_document_links_current_sender_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/healthz": {
         parameters: {
             query?: never;
@@ -9325,6 +9368,16 @@ export interface components {
             sentAt: string;
             /** Status */
             status: string;
+        };
+        /**
+         * DocumentLinkSenderRead
+         * @description KAN-217 PR-7 (ADR-208): whose page the customer is on.
+         */
+        DocumentLinkSenderRead: {
+            /** Haslogo */
+            hasLogo: boolean;
+            /** Name */
+            name: string;
         };
         /**
          * DocumentOwnerType
@@ -22472,6 +22525,69 @@ export interface operations {
                 };
                 content: {
                     "application/pdf": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    open_document_link_logo_v1_document_links_current_logo_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Document-Link"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The sender's logo. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/png": unknown;
+                    "image/svg+xml": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_document_link_sender_v1_document_links_current_sender_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Document-Link"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentLinkSenderRead"];
                 };
             };
             /** @description Validation Error */
