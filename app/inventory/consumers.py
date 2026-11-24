@@ -42,6 +42,7 @@ from app.inventory.services.pipeline import handle_sales_contract_confirmed
 from app.inventory.services.reservation import record_contract_cancelled
 from app.inventory.services.sales_contract import apply_contract_message
 from app.inventory.services.supplier_labels import repoint_merged_supplier
+from app.inventory.services.supplier_lock import lock_supplier_contact
 
 
 def handle_sales_contract_confirmed_message(db: Session, message: OutboxMessage) -> None:
@@ -131,5 +132,8 @@ def handle_customer_merged_message(db: Session, message: OutboxMessage) -> None:
     payload = message.payload or {}
     duplicate_id = uuid.UUID(payload["customerId"])
     survivor_id = uuid.UUID(payload["duplicateOfCustomerId"])
+    # Before any stock item is read: a booking naming the duplicate in flight
+    # commits first (and is moved below) or waits and reads it merged.
+    lock_supplier_contact(db, duplicate_id)
     target_id = resolve_live_customer_id(db, group_id=message.tenant_id, customer_id=survivor_id) or survivor_id
     repoint_merged_supplier(db, group_id=message.tenant_id, duplicate_id=duplicate_id, target_id=target_id)

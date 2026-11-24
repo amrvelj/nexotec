@@ -40,6 +40,7 @@ from app.inventory.services.stock_item import (
     trade_in_vin_differs,
     trade_in_vin_differs_error,
 )
+from app.inventory.services.supplier_lock import lock_supplier_contact
 from app.platform.public import DealershipSummary, get_dealership_or_404
 from app.vehicle.public import get_configuration_for_host
 
@@ -90,6 +91,8 @@ def record_purchase(
     # KAN-465: the supplier is judged before anything is written — the VIN
     # rules below promote the item.
     dealership = get_dealership_or_404(db, item.tenant_id)
+    # Re-entrant: the route took it before the item's row lock (supplier_lock.py).
+    lock_supplier_contact(db, data.supplier_contact_id)
     supplier = _supplier_or_422(db, dealership=dealership, contact_id=data.supplier_contact_id)
 
     if item.lifecycle_status == LifecycleStatus.PIPELINE and item.vehicle_id is not None:

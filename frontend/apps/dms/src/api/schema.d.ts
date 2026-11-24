@@ -13733,7 +13733,7 @@ export interface components {
             supplierLabel?: string | null;
             /**
              * Tradeincustomerid
-             * @description KAN-465: the customer who traded the car in (KAN-632, from Sales' confirmation) — «Einkauf buchen» prefills the supplier with this contact. Null on every other item.
+             * @description KAN-465: the customer who traded the car in (KAN-632, from Sales' confirmation) — «Einkauf erfassen» offers this contact as the supplier with one click (never preselected). Null on every other item.
              */
             tradeInCustomerId?: string | null;
             /**

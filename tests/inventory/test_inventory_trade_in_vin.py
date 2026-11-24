@@ -260,7 +260,7 @@ def test_another_vin_is_refused_and_nothing_is_written(client, db_session, engin
     assert response.json()["error"]["details"] == {"field": "vin", "reason": "trade_in_vin_differs"}
     stored = _trade_in_item(db_session, _contract)
     assert (stored.lifecycle_status, stored.vin, stored.vehicle_id) == (LifecycleStatus.PIPELINE, None, None)
-    assert (stored.purchase_price, stored.supplier_label, stored.version) == (None, None, version)
+    assert (stored.purchase_price, stored.supplier_label, stored.supplier_contact_id, stored.version) == (None, None, None, version)
     assert stored.trade_in_vin == CONTRACT_VIN
     assert _events(db_session, item.id) == events_before
     assert _vehicle_mdm_rows(db_session) == 0  # refused before vehicle-mdm is asked for the other car

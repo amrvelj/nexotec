@@ -28,7 +28,7 @@ Moved out of inventory.md by KAN-615 (2026-11-13). Last verified against main@3b
 - **The supplier is a contact** (KAN-465; Anto, 2026-11-21, A): `supplierContactId` (required; a contact of the
   group holding the supplier role — else 422 `supplier_contact_unknown` / `_merged` / `supplier_role_missing`),
   stored with `supplier_label` (three-column pattern; nightly `inventory.supplier_labels`, merge consumer
-  `inventory.customer_merged`); a booking from before keeps its typed label, no contact. A booking against the
+  `inventory.customer_merged`; both take Stock's advisory lock on the contact first, `supplier_lock.py`); a booking from before keeps its typed label, no contact. A booking against the
   contact's VAT prefill (`customer.public.supplier_contact`) audits `supplier_vat_status_overridden`.
 - **«Einkauf stornieren» reverses it** (`stock_acquisition`, If-Match, a required reason), in one
   transaction: one negated counter-entry per automatic purchase entry not yet reversed (key

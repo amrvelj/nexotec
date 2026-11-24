@@ -116,8 +116,8 @@ export function RecordPurchaseDialog({
 
   const pickSupplier = (contact: CustomerRead) => {
     setSupplier(contact)
-    const prefill = supplierVatPrefill(contact)
-    if (prefill !== null) setSupplierIsVatRegistered(prefill)
+    // An unknown status starts unticked, never with the previous contact's value.
+    setSupplierIsVatRegistered(supplierVatPrefill(contact) ?? false)
   }
   const [purchasePrice, setPurchasePrice] = useState<number | ''>('')
   const [purchaseDate, setPurchaseDate] = useState(() => todayLocalIsoDate())
@@ -169,6 +169,14 @@ export function RecordPurchaseDialog({
       }
     } catch (err) {
       setError(apiRefusalText(t, err, 'stockDetail.purchase.supplier.roleFailed'))
+      // A stale version (the contact changed meanwhile) is re-read, so the retry sends the current one.
+      if (err instanceof ApiError && err.status === 409 && contact) {
+        try {
+          setSupplier(await api.get<CustomerRead>(`/customers/${contact.id}`))
+        } catch {
+          // the message above stands; «Ändern» picks the contact again
+        }
+      }
       setSubmitting(false)
       return
     }

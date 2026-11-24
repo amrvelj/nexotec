@@ -194,8 +194,8 @@ class StockItemRead(CamelModel):
     trade_in_customer_id: uuid.UUID | None = Field(
         default=None,
         description=(
-            "KAN-465: the customer who traded the car in (KAN-632, from Sales' confirmation) — «Einkauf buchen» "
-            "prefills the supplier with this contact. Null on every other item."
+            "KAN-465: the customer who traded the car in (KAN-632, from Sales' confirmation) — «Einkauf erfassen» "
+            "offers this contact as the supplier with one click (never preselected). Null on every other item."
         ),
     )
     order_date: dt.date | None

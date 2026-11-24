@@ -2,7 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, screen } from '@testing-library/react'
 import i18n from '../../../../i18n'
-import { installFakeBackend } from '../../../../test/fakeBackend'
+import { installFakeBackend, status } from '../../../../test/fakeBackend'
 import { renderWithProviders } from '../../../../test/renderWithProviders'
 import { ApiError } from '../../../../api/client'
 import { BlockingConditionBanner } from './BlockingConditionBanner'
@@ -247,6 +247,51 @@ describe('RecordPurchaseDialog — the supplier is a contact picked by search (K
     expect(patch.pathname).toBe(`/customers/${SUPPLIER.id}`)
     expect(patch.body).toEqual({ roles: ['customer', 'supplier'] })
     expect(patch.headers.get('If-Match')).toBe('3')
+  })
+
+  it('says a refused role in the UI language, re-reads a stale contact and retries with its new version', async () => {
+    const customerOnly = { ...SUPPLIER, roles: ['customer' as const], version: 3 }
+    let patches = 0
+    const backend = installFakeBackend([
+      supplierSearchRoute([customerOnly]),
+      { method: 'GET', match: /^\/customers\/[^/]+$/, handler: () => ({ ...customerOnly, version: 5 }) },
+      {
+        method: 'PATCH',
+        match: /^\/customers\/[^/]+$/,
+        handler: () => {
+          patches += 1
+          if (patches === 1) return status(409, { error: { code: 'conflict', message: 'stale', details: { currentVersion: 5 } } })
+          return { ...customerOnly, roles: ['customer', 'supplier'], version: 6 }
+        },
+      },
+    ])
+    const onSubmit = vi.fn().mockResolvedValue(undefined)
+    renderWithProviders(<RecordPurchaseDialog opened onClose={() => {}} onSubmit={onSubmit} />)
+
+    await pickSupplier(customerOnly)
+    fireEvent.change(field('stockDetail.purchase.fields.purchasePrice'), { target: { value: '8000' } })
+    fireEvent.click(submitButton())
+    expect((await screen.findByRole('alert')).textContent).toBe(i18n.t('apiRefusal.staleVersion'))
+    expect(onSubmit).not.toHaveBeenCalled()
+
+    await vi.waitFor(() => expect(submitButton()).toBeEnabled())
+    fireEvent.click(submitButton())
+    await vi.waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1))
+    expect(backend.calls.filter((call) => call.method === 'PATCH').map((call) => call.headers.get('If-Match'))).toEqual(['3', '5'])
+  })
+
+  it('starts an unconfirmed business unticked, whatever the contact picked before said', async () => {
+    const confirmed = { ...SUPPLIER, id: 'c-1', customerNumber: 'K-0001', lastName: 'Eins', vatRegistered: true, vatStatusConfirmed: true }
+    const unknown = { ...SUPPLIER, id: 'c-2', customerNumber: 'K-0002', customerType: 'business' as const, companyName: 'Zwei AG', firstName: null, lastName: 'Zwei' }
+    installFakeBackend([supplierSearchRoute([confirmed, unknown])])
+    renderWithProviders(<RecordPurchaseDialog opened onClose={() => {}} onSubmit={async () => {}} />)
+
+    await pickSupplier(confirmed)
+    expect(vatBox().checked).toBe(true)
+    fireEvent.click(screen.getByRole('button', { name: i18n.t('stockDetail.purchase.supplier.change') }))
+    await pickSupplier(unknown)
+    expect(vatBox().checked).toBe(false)
+    expect(screen.getByText(i18n.t('stockDetail.purchase.supplier.vatUnknown'))).toBeInTheDocument()
   })
 
   it("offers the trade-in's customer with one click, never preselected", async () => {

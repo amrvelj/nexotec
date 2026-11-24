@@ -27,6 +27,7 @@ from app.inventory.schemas.stock_item import (
 from app.inventory.services import purchase as purchase_service
 from app.inventory.services import stock_item as stock_item_service
 from app.inventory.services.stock_grid import DEFAULT_STOCK_ITEM_SORT, STOCK_ITEM_COLUMNS
+from app.inventory.services.supplier_lock import lock_supplier_contact
 
 # KAN-198 (D-A-04): the entitlement gate runs before any role check; an
 # unlicensed module is 404 for everyone (router-level, so every route).
@@ -255,6 +256,7 @@ def record_purchase(
     principal: Principal = Depends(require_write("stock_acquisition")),
     db: Session = Depends(get_db),
 ):
+    lock_supplier_contact(db, body.supplier_contact_id)  # KAN-465, before the item's row lock
     item = stock_item_service.get_stock_item_for_update_or_404(db, principal.tenant_id, stock_item_id)
     check_version(item.version, if_match, entity_name="StockItem")
     item = purchase_service.record_purchase(db, item=item, data=body, actor_id=principal.user_id)
