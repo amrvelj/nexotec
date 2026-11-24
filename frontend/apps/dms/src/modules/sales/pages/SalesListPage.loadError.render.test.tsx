@@ -8,7 +8,7 @@ import { SalesListPage } from './SalesListPage'
 
 // KAN-162 — the deals grid's load-failure line was the hardcoded English
 // "Failed to load deals." under every UI language. KAN-321 moved it to
-// salesList.loadError; this pins it, as CustomersListPage's test pins its own.
+// salesList.loadError; this pins it, as ContactsListPage's test pins its own.
 
 afterEach(async () => {
   await i18n.changeLanguage('de')

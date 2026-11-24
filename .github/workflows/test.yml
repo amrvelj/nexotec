@@ -235,11 +235,11 @@ jobs:
       - run: pip install -e ".[dev]"
       - name: alembic upgrade heads (from empty)
         run: alembic upgrade heads
-      # Since KAN-79 the seed writes dealership, user, customer-chain and
+      # Since KAN-79 the seed writes dealership, user, contact-chain and
       # catalogue rows only: no vehicle_party, transaction or legacy vehicle
       # row (the downgrade below recreates `vehicle` empty and re-adds FKs onto
       # it, which such a row would break - see the seed's docstring).
-      - name: seed rows (dealership, user, customer chain, catalogue)
+      - name: seed rows (dealership, user, contact chain, catalogue)
         run: python scripts/seed_migration_smoke_test.py
       # Targets an explicit revision (d2f7b0e9c453, the last trunk revision
       # before PR-2's FK-drop migration), never `alembic downgrade -1`.
@@ -248,7 +248,7 @@ jobs:
       # well-defined regardless of how many heads exist, since Alembic
       # walks each branch's own path down to that common ancestor. This
       # also re-adds PR-2's dropped FKs; those on the dealership, user,
-      # customer-chain and catalogue tables are re-added over the rows
+      # contact-chain and catalogue tables are re-added over the rows
       # seeded above — the actual point of this step. Those onto the legacy
       # `vehicle` table (recreated empty since KAN-79) carry no rows.
       - name: alembic downgrade to d2f7b0e9c453 (re-adds PR-2's FKs over the seeded rows)
@@ -379,7 +379,7 @@ jobs:
           while IFS= read -r rev; do
             [ -n "$rev" ] && alembic upgrade "$rev"
           done <<< "${{ steps.previous.outputs.revisions }}"
-      - name: seed rows (dealership, user, customer chain, catalogue)
+      - name: seed rows (dealership, user, contact chain, catalogue)
         run: python scripts/seed_migration_smoke_test.py
       - name: alembic upgrade heads (this PR's migrations)
         run: alembic upgrade heads

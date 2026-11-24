@@ -1,17 +1,17 @@
-"""Sending an offer or contract document to the customer (KAN-217 PR-5;
+"""Sending an offer or contract document to the contact (KAN-217 PR-5;
 Dealer Administration D-A-41, FR-A-51–54, A-RULE-10; ADR-204).
 
 `POST /v1/sales/documents/{id}/send` (`channel`, optional `text`). Sales owns
 the document, so Sales runs the send — every call goes down the layers:
 
 1. the document, in the acting Betrieb (another Betrieb's is 404), and its
-   offer or contract: the customer, the number, the vehicle;
-2. **the recipient and the consent verdict** from Customers
-   (`customer.public.message_recipient`): the address on the channel, the
+   offer or contract: the contact, the number, the vehicle;
+2. **the recipient and the consent verdict** from Contacts
+   (`contact.public.message_recipient`): the address on the channel, the
    correspondence language, the letter opening and whether this send may go;
-   a refusal is 409 `recipient_refused` with Customers' reason, nothing sent;
+   a refusal is 409 `recipient_refused` with Contacts' reason, nothing sent;
 3. **the text** from platform's library (`render_standard_text`, the type's
-   code per channel) in the customer's language — or the language the
+   code per channel) in the contact's language — or the language the
    library fell back to, which the whole message then follows. The author's own wording
    (`text`) replaces it on e-mail and SMS; WhatsApp sends the approved
    template exactly (422 `whatsapp_text_fixed`);
@@ -23,10 +23,10 @@ the document, so Sales runs the send — every call goes down the layers:
    and the delivery record.
 
 **ADR-047.** Each side commits its own work: platform the secure link (on its
-own session, before the provider is called, so the customer can open it as
+own session, before the provider is called, so the contact can open it as
 soon as it arrives), integration the delivery row. Sales writes nothing. A send that fails after the link was issued leaves an
 unused link that expires in 14 days — the compensation is its expiry, and
-it serves only the document the customer was being sent.
+it serves only the document the contact was being sent.
 """
 
 import dataclasses
@@ -35,9 +35,9 @@ import uuid
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.contact.public import MessageRecipient, message_recipient, preselected_message_channel
 from app.core.errors import ConflictError, NotFoundError, UnprocessableEntityError
 from app.core.i18n import SwissLanguage, format_date_ch
-from app.customer.public import MessageRecipient, message_recipient, preselected_message_channel
 from app.integration.public import (
     DeliveryRecord,
     MailAttachment,
@@ -70,7 +70,7 @@ from app.sales.models.offer import SalesOffer
 from app.sales.services.document import get_document_or_404, render_document_pdf
 
 WHATSAPP_TEXT_FIXED = "whatsapp_text_fixed"
-NO_CUSTOMER = "document_has_no_customer"
+NO_CONTACT = "document_has_no_contact"
 TEXT_MISSING = "message_text_missing"
 
 _MESSAGE_TYPE = {DocumentOwnerType.OFFER: OFFER, DocumentOwnerType.CONTRACT: SALES_CONTRACT}
@@ -110,15 +110,15 @@ def _document_and_type(
     db: Session, *, tenant_id: uuid.UUID, document_id: uuid.UUID
 ) -> tuple[SalesDocument, SalesOffer | SalesContract, MessageType, uuid.UUID]:
     """The document in the acting Betrieb (404 otherwise), its owner, its
-    registered message type and its customer (409 without one)."""
+    registered message type and its contact (409 without one)."""
 
     document = get_document_or_404(db, tenant_id=tenant_id, document_id=document_id)
     owner = _owner(db, document)
     message_type = get_message_type(_MESSAGE_TYPE[document.owner_type])
     assert message_type is not None  # registered at start-up by app/message_type_registry.py
-    if owner.customer_id is None:
-        raise ConflictError("This document names no customer to send it to.", details={"reason": NO_CUSTOMER})
-    return document, owner, message_type, owner.customer_id
+    if owner.contact_id is None:
+        raise ConflictError("This document names no contact to send it to.", details={"reason": NO_CONTACT})
+    return document, owner, message_type, owner.contact_id
 
 
 def _text(
@@ -151,7 +151,7 @@ def _text(
             applies_to=message_type.applies_to,
             slot=StandardTextSlot.BODY,
             language=language,
-            values={**values, Placeholder.CUSTOMER_SALUTATION.value: recipient.salutations[language.value]},
+            values={**values, Placeholder.CONTACT_SALUTATION.value: recipient.salutations[language.value]},
             location_id=document.location_id,
             code=message_type.text_codes[channel],
         )
@@ -160,7 +160,7 @@ def _text(
     rendered = render(language)
     if text_override is None and rendered is not None and rendered.language != language:
         # The library fell back to another language (the Betrieb has no text
-        # in the customer's) and the author wrote nothing of their own: the
+        # in the contact's) and the author wrote nothing of their own: the
         # whole message follows the text — opening,
         # subject, the link's page and the WhatsApp template's language — so
         # it never mixes two languages.
@@ -180,14 +180,14 @@ def send_document(
     channel: MessageChannel,
     text_override: str | None,
 ) -> DeliveryRecord:
-    document, owner, message_type, customer_id = _document_and_type(db, tenant_id=tenant_id, document_id=document_id)
+    document, owner, message_type, contact_id = _document_and_type(db, tenant_id=tenant_id, document_id=document_id)
 
     recipient = message_recipient(
-        db, group_id=group_id, customer_id=customer_id, channel=channel, purpose=message_type.purpose
+        db, group_id=group_id, contact_id=contact_id, channel=channel, purpose=message_type.purpose
     )
-    if recipient is None:  # the customer left the group (a merge is followed, never this)
-        raise ConflictError("This document names no customer to send it to.", details={"reason": NO_CUSTOMER})
-    # Customers' refusal is the first answer a refused customer gets.
+    if recipient is None:  # the contact left the group (a merge is followed, never this)
+        raise ConflictError("This document names no contact to send it to.", details={"reason": NO_CONTACT})
+    # Contacts' refusal is the first answer a refused contact gets.
     refuse_unless_allowed(recipient=recipient)
     if channel == MessageChannel.WHATSAPP and text_override is not None:
         raise UnprocessableEntityError(
@@ -282,7 +282,7 @@ class ChannelOption:
     """One channel of the send dialog, as the send would answer it now.
 
     `blocked` is the first refusal the send would give, in the send's own
-    order, once the author has written what they may write: Customers'
+    order, once the author has written what they may write: Contacts'
     verdict (`recipient_refused`, with `refusal`); on WhatsApp, whose text is
     fixed, no text (`message_text_missing`); the channel not ready
     (`no_mailbox_connected`, `own_mailbox_in_error`,
@@ -309,7 +309,7 @@ class ChannelOption:
 @dataclasses.dataclass(frozen=True)
 class SendOptions:
     document_id: uuid.UUID
-    customer_label: str
+    contact_label: str
     preselected_channel: MessageChannel | None
     channels: tuple[ChannelOption, ...]
 
@@ -323,26 +323,26 @@ def send_options(
     document_id: uuid.UUID,
 ) -> SendOptions:
     """`GET /v1/sales/documents/{id}/send-options` — every channel the
-    document's type is sent on, with the recipient, Customers' verdict, the
+    document's type is sent on, with the recipient, Contacts' verdict, the
     channel's readiness and the text the send would carry (FR-A-52/53). A
     read: no link is issued, nothing is written, no provider is called.
 
-    The pre-selected channel is Customers' (`preselected_message_channel`)
+    The pre-selected channel is Contacts' (`preselected_message_channel`)
     when it is offered and ready; otherwise none, so the dialog never opens
     on a channel nothing is connected for (FR-A-52). A pre-selected channel
-    may still be refused (Customers' verdict, no text): the dialog says why."""
+    may still be refused (Contacts' verdict, no text): the dialog says why."""
 
-    document, owner, message_type, customer_id = _document_and_type(db, tenant_id=tenant_id, document_id=document_id)
+    document, owner, message_type, contact_id = _document_and_type(db, tenant_id=tenant_id, document_id=document_id)
     readiness = channel_readiness(db, tenant_id=tenant_id, author_user_id=author_user_id)
     options: list[ChannelOption] = []
-    customer_label: str | None = None
+    contact_label: str | None = None
     for channel in message_type.channels:
         recipient = message_recipient(
-            db, group_id=group_id, customer_id=customer_id, channel=channel, purpose=message_type.purpose
+            db, group_id=group_id, contact_id=contact_id, channel=channel, purpose=message_type.purpose
         )
-        if recipient is None:  # the customer left the group, as the send answers
-            raise ConflictError("This document names no customer to send it to.", details={"reason": NO_CUSTOMER})
-        customer_label = recipient.display_name
+        if recipient is None:  # the contact left the group, as the send answers
+            raise ConflictError("This document names no contact to send it to.", details={"reason": NO_CONTACT})
+        contact_label = recipient.display_name
         language, rendered, text = _text(
             db,
             tenant_id=tenant_id,
@@ -388,11 +388,11 @@ def send_options(
                 blocked=blocked,
             )
         )
-    _found, preferred = preselected_message_channel(db, group_id=group_id, customer_id=customer_id)
+    _found, preferred = preselected_message_channel(db, group_id=group_id, contact_id=contact_id)
     ready_channels = {option.channel for option in options if option.ready}
     return SendOptions(
         document_id=document.id,
-        customer_label=customer_label or owner.customer_label or "",
+        contact_label=contact_label or owner.contact_label or "",
         preselected_channel=preferred if preferred in ready_channels else None,
         channels=tuple(options),
     )

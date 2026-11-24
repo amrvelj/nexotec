@@ -2,7 +2,7 @@
 a send — `GET /v1/sales/documents/{id}/send-options` — and the delivery chip's
 `lastDelivery` on the document list.
 
-The read answers per channel what the send would answer now: Customers'
+The read answers per channel what the send would answer now: Contacts'
 verdict, the channel's readiness from integration, the text from platform's
 library. It writes nothing: no secure link, no delivery row, no provider call.
 Fake mail and messaging providers only."""
@@ -11,7 +11,7 @@ import uuid
 
 from sqlalchemy import func, select
 
-from app.customer.models.customer import Customer, CustomerPhone, PreferredChannel
+from app.contact.models.contact import Contact, ContactPhone, PreferredChannel
 from app.integration.models.mail import MessageDelivery, SendingIdentity, SendingIdentityStatus
 from app.integration.public import latest_deliveries
 from app.platform.documents.models.document_link import DocumentLink
@@ -48,11 +48,11 @@ def _written(db_session) -> tuple[int, int]:
 
 
 def test_nothing_connected_names_each_channels_reason_and_preselects_nothing(client, db_session, scene):
-    _dealer_id, author, _customer_id, document = scene
+    _dealer_id, author, _contact_id, document = scene
 
     body, channels = _options(client, author, document.id)
 
-    assert body["documentId"] == str(document.id) and body["customerLabel"] == "Anna Muster"
+    assert body["documentId"] == str(document.id) and body["contactLabel"] == "Anna Muster"
     assert list(channels) == ["email", "sms", "whatsapp"]
     assert channels["email"]["ready"] is False and channels["email"]["blocked"] == "no_mailbox_connected"
     assert channels["sms"]["blocked"] == "messaging_not_connected"
@@ -66,7 +66,7 @@ def test_an_own_mailbox_makes_email_ready_with_the_text_the_send_would_carry(
     client, db_session, fakes, app_registrations, scene
 ):
     providers, _ = fakes
-    _dealer_id, author, _customer_id, document = scene
+    _dealer_id, author, _contact_id, document = scene
     _connect_own_ms(client, providers, author)
 
     body, channels = _options(client, author, document.id)
@@ -93,7 +93,7 @@ def test_without_an_own_mailbox_the_shared_one_is_the_sender_the_preview_names(
     client, db_session, fakes, app_registrations, scene
 ):
     providers, _ = fakes
-    dealer, author, _customer_id, document = scene
+    dealer, author, _contact_id, document = scene
     manager = make_user(db_session, tenant_id=dealer, email="chef@garage-muster.ch")
     _connect_business_ms(client, providers, manager)
 
@@ -105,7 +105,7 @@ def test_without_an_own_mailbox_the_shared_one_is_the_sender_the_preview_names(
 
 def test_an_own_mailbox_in_error_says_so_and_is_not_preselected(client, db_session, fakes, app_registrations, scene):
     providers, _ = fakes
-    _dealer_id, author, _customer_id, document = scene
+    _dealer_id, author, _contact_id, document = scene
     _connect_own_ms(client, providers, author)
     for identity in db_session.scalars(select(SendingIdentity)):
         identity.status = SendingIdentityStatus.ERROR
@@ -119,7 +119,7 @@ def test_an_own_mailbox_in_error_says_so_and_is_not_preselected(client, db_sessi
 
 
 def test_no_standard_text_is_said_and_the_authors_own_text_still_sends(client, db_session, provider, scene):
-    dealer, author, _customer_id, document = scene
+    dealer, author, _contact_id, document = scene
     _messaging_connection(db_session, "twilio", tenant_id=dealer)
     for text in db_session.scalars(select(StandardText).where(StandardText.code == "sms.offer_sent")):
         text.active = False
@@ -141,7 +141,7 @@ def test_a_missing_standard_text_comes_after_every_other_refusal_on_editable_cha
     is fixed, so there a missing text is said before its connection."""
 
     providers, _ = fakes
-    _dealer_id, author, _customer_id, document = scene
+    _dealer_id, author, _contact_id, document = scene
     _connect_own_ms(client, providers, author)
     for identity in db_session.scalars(select(SendingIdentity)):
         identity.status = SendingIdentityStatus.ERROR
@@ -156,10 +156,10 @@ def test_a_missing_standard_text_comes_after_every_other_refusal_on_editable_cha
     assert channels["whatsapp"]["blocked"] == "message_text_missing"
 
 
-def test_customers_refusal_is_the_channels_first_answer(client, db_session, provider, scene):
-    dealer, author, customer_id, document = scene
+def test_contacts_refusal_is_the_channels_first_answer(client, db_session, provider, scene):
+    dealer, author, contact_id, document = scene
     _messaging_connection(db_session, "twilio", tenant_id=dealer)
-    for phone in db_session.scalars(select(CustomerPhone).where(CustomerPhone.customer_id == customer_id)):
+    for phone in db_session.scalars(select(ContactPhone).where(ContactPhone.contact_id == contact_id)):
         phone.do_not_use = True
         phone.do_not_use_reason = "falsche Nummer"
     db_session.commit()
@@ -175,7 +175,7 @@ def test_customers_refusal_is_the_channels_first_answer(client, db_session, prov
 
 
 def test_an_sms_carries_a_secure_link_and_its_text_is_editable(client, db_session, provider, scene):
-    dealer, author, _customer_id, document = scene
+    dealer, author, _contact_id, document = scene
     _messaging_connection(db_session, "twilio", tenant_id=dealer)
 
     _body, channels = _options(client, author, document.id)
@@ -189,7 +189,7 @@ def test_an_sms_carries_a_secure_link_and_its_text_is_editable(client, db_sessio
 
 
 def test_whatsapp_without_an_approved_template_is_blocked_and_never_editable(client, db_session, provider, scene):
-    dealer, author, _customer_id, document = scene
+    dealer, author, _contact_id, document = scene
     _messaging_connection(db_session, "meta_whatsapp", tenant_id=dealer)
 
     _body, channels = _options(client, author, document.id)
@@ -202,10 +202,10 @@ def test_whatsapp_without_an_approved_template_is_blocked_and_never_editable(cli
     assert channels["whatsapp"]["text"].startswith("Sehr geehrte Frau Muster, Ihre Offerte O-2026/000217")
 
 
-def test_the_customers_preferred_channel_is_preselected_only_when_it_is_ready(client, db_session, provider, scene):
-    dealer, author, customer_id, document = scene
-    customer = db_session.get(Customer, customer_id)
-    customer.preferred_channel = PreferredChannel.WHATSAPP
+def test_the_contacts_preferred_channel_is_preselected_only_when_it_is_ready(client, db_session, provider, scene):
+    dealer, author, contact_id, document = scene
+    contact = db_session.get(Contact, contact_id)
+    contact.preferred_channel = PreferredChannel.WHATSAPP
     db_session.commit()
 
     body, _channels = _options(client, author, document.id)
@@ -217,7 +217,7 @@ def test_the_customers_preferred_channel_is_preselected_only_when_it_is_ready(cl
 
 
 def test_another_betriebs_document_is_404(client, db_session, scene):
-    _dealer_id, _author, _customer_id, document = scene
+    _dealer_id, _author, _contact_id, document = scene
     other = _dealer(client)
     stranger = make_user(db_session, tenant_id=other, email="fremd@garage-anders.ch")
 
@@ -226,21 +226,21 @@ def test_another_betriebs_document_is_404(client, db_session, scene):
     assert response.status_code == 404
 
 
-def test_a_document_without_a_customer_is_refused_by_reason(client, db_session, scene):
-    dealer, author, _customer_id, _document = scene
-    document = _offer_document(db_session, tenant_id=dealer, customer_id=None, number="O-2026/000218")
+def test_a_document_without_a_contact_is_refused_by_reason(client, db_session, scene):
+    dealer, author, _contact_id, _document = scene
+    document = _offer_document(db_session, tenant_id=dealer, contact_id=None, number="O-2026/000218")
 
     response = client.get(f"/v1/sales/documents/{document.id}/send-options", headers=_as(author))
 
     assert response.status_code == 409
-    assert response.json()["error"]["details"]["reason"] == "document_has_no_customer"
+    assert response.json()["error"]["details"]["reason"] == "document_has_no_contact"
 
 
 # -- the delivery chip: lastDelivery on the version list --------------------------
 
 
 def test_the_version_list_carries_each_documents_newest_send(client, db_session, provider, scene):
-    dealer, author, _customer_id, document = scene
+    dealer, author, _contact_id, document = scene
     _messaging_connection(db_session, "twilio", tenant_id=dealer)
     offer_id = document.owner_id
 
@@ -264,7 +264,7 @@ def test_another_betriebs_delivery_never_reaches_the_chip(client, db_session, pr
     """`latest_deliveries` reads the acting Betrieb's rows only, even for a
     document id that another Betrieb's row names."""
 
-    dealer, author, _customer_id, document = scene
+    dealer, author, _contact_id, document = scene
     _messaging_connection(db_session, "twilio", tenant_id=dealer)
     assert _send(client, author, document.id, channel="sms").status_code == 201
 

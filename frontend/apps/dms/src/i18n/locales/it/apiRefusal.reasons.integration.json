@@ -11,7 +11,7 @@
   "usage_period_too_long": "Un periodo copre al massimo un anno.",
   "provider_has_no_sandbox": "Questo fornitore non offre un accesso di prova. Lo colleghi come produzione.",
   "provider_sandbox_connections_exist": "Esistono ancora {{count, number}} connessioni di accesso di prova a questo fornitore. Le elimini prima.",
-  "recipient_refused": "Questo cliente non può ricevere questo messaggio su questo canale. Verifichi i suoi dati di contatto e i consensi.",
+  "recipient_refused": "Questo contatto non può ricevere questo messaggio su questo canale. Verifichi i suoi dati di contatto e i consensi.",
   "channel_not_offered": "Questo messaggio non viene inviato su questo canale. Scelga un altro canale.",
   "whatsapp_template_not_approved": "WhatsApp invia solo i testi che il fornitore ha approvato come modello, e questo non lo è. Lo verifichi nell'amministrazione, alla voce Testi standard.",
   "message_invalid": "Il messaggio non può essere inviato così: non rispetta le regole del canale (numero di telefono, lunghezza del testo o modello WhatsApp)."

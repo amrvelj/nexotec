@@ -3,14 +3,14 @@ confirms the seeded rows survived an alembic upgrade untouched — same
 values, same relationships, no duplicates, nothing silently dropped.
 
 Looks everything up by the seed's fixed, known values (dealer legal name,
-customer number, Typenschein number) rather than by ID passed between CI steps —
+contact number, Typenschein number) rather than by ID passed between CI steps —
 keeps this script self-contained, no state to thread through the workflow.
 
 Always runs AFTER `alembic upgrade heads` (this PR's own migrations) — see
 seed_migration_smoke_test.py's own docstring for why *that* script has to
 juggle two schema states and this one doesn't: by the time this runs, the
 schema always matches this PR's current ORM classes (Dealership, not
-Dealer; Customer.group_id, not tenant_id).
+Dealer; Contact.group_id, not tenant_id).
 
 Since KAN-79 the seed carries no legacy vehicle, vehicle_party, transaction
 or custody row (its docstring says why), so none is checked here.
@@ -26,13 +26,13 @@ from typing import NoReturn
 
 from sqlalchemy import select
 
-from app.customer.models.customer import (
-    Customer,
-    CustomerEmail,
-    CustomerExternalId,
-    CustomerNumberSequence,
-    CustomerPhone,
-    CustomerRole,
+from app.contact.models.contact import (
+    Contact,
+    ContactEmail,
+    ContactExternalId,
+    ContactNumberSequence,
+    ContactPhone,
+    ContactRoleAssignment,
 )
 from app.db import SessionLocal
 from app.platform.identity.models.user import User
@@ -44,11 +44,11 @@ from app.vehicle.models.provider import ProviderCodeMap
 _EXPECTED_ROW_COUNTS = {
     Dealership: 2,
     User: 1,
-    Customer: 1,
-    CustomerNumberSequence: 1,
-    CustomerPhone: 1,
-    CustomerEmail: 1,
-    CustomerExternalId: 1,
+    Contact: 1,
+    ContactNumberSequence: 1,
+    ContactPhone: 1,
+    ContactEmail: 1,
+    ContactExternalId: 1,
     ModelVariant: 1,
     TypeApproval: 1,
     # The m2m migration's backfill (or the new-schema seed) makes exactly
@@ -154,19 +154,19 @@ def main() -> None:
         if invalid.uid is not None:
             fail(f"dealership with an invalid old tax_id should have uid NULL, found {invalid.uid!r}")
 
-        customer = db.scalar(select(Customer).where(Customer.customer_number == "K-000001"))
-        if customer is None:
-            fail("seeded customer not found")
-        if customer.group_id != dealership.dealer_group_id:
-            fail("customer.group_id no longer points at the seeded dealership's group")
+        contact = db.scalar(select(Contact).where(Contact.contact_number == "K-000001"))
+        if contact is None:
+            fail("seeded contact not found")
+        if contact.group_id != dealership.dealer_group_id:
+            fail("contact.group_id no longer points at the seeded dealership's group")
         # KAN-464: seeded on main's schema (backfilled by the migration) or on
-        # the branch's (seeded with it), the customer holds exactly the
+        # the branch's (seeded with it), the contact holds exactly the
         # customer role.
         open_roles = db.scalars(
-            select(CustomerRole.role).where(CustomerRole.customer_id == customer.id, CustomerRole.valid_to.is_(None))
+            select(ContactRoleAssignment.role).where(ContactRoleAssignment.contact_id == contact.id, ContactRoleAssignment.valid_to.is_(None))
         ).all()
         if [role.value for role in open_roles] != ["customer"]:
-            fail(f"seeded customer should hold the customer role once, holds {[r.value for r in open_roles]}")
+            fail(f"seeded contact should hold the customer role once, holds {[r.value for r in open_roles]}")
 
         approval = db.scalar(
             select(TypeApproval).where(TypeApproval.type_approval_number == _CATALOGUE_TYPE_APPROVAL_NUMBER)

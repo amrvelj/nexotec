@@ -28,7 +28,7 @@ _APP_ROOT = _REPO_ROOT / "app"
 # wiring; this test relies on that and repeats only the names.
 _CONTEXTS = (
     "platform",
-    "customer",
+    "contact",
     "vehicle",
     "sales",
     "inventory",

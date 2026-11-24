@@ -1,7 +1,7 @@
 """KAN-404 — the responsible seller's label (`owner_label`, KAN-200) on
 offers, contracts and deal rows follows a rename within a day: the nightly
 `sales.owner_labels` job re-reads every seller's name through
-`platform.public.get_user_display_labels`, with the customer advisor job's
+`platform.public.get_user_display_labels`, with the contact advisor job's
 rules (KAN-403) — a deactivated user keeps the label they had, an id naming
 no user is left alone, `version` is not bumped, a held row is skipped.
 """
@@ -20,12 +20,12 @@ from app.sales.models.contract import SalesContract
 from app.sales.models.deal import SalesDeal
 from app.sales.models.offer import SalesOffer
 from app.sales.public import oldest_owner_label_age_seconds, refresh_owner_labels
-from tests.customer.test_customer_vehicle_party_close_rule import _postgres_only
+from tests.contact.test_contact_vehicle_party_close_rule import _postgres_only
 from tests.identity_support import create_dealership, create_user, platform_admin_headers
 from tests.platform.test_user_deactivation import (
     _as,
+    _contact_for,
     _contract_for,
-    _customer_for,
     _offer_for,
 )
 
@@ -62,7 +62,7 @@ def _backdate(db, rows, hours: int) -> dt.datetime:
 def _seller_with_deals(client, dealership: str, **names) -> tuple[dict, dict, dict]:
     seller = create_user(client, dealership, isDealerManager=False, **names)
     offer = _offer_for(client, seller)
-    contract = _contract_for(client, seller, _customer_for(client, seller))
+    contract = _contract_for(client, seller, _contact_for(client, seller))
     return seller, offer, contract
 
 
@@ -202,7 +202,7 @@ def _clean_registry():
 def test_the_worker_registers_the_owner_label_refresh_after_the_advisor_labels_before_reconciliation(_clean_registry):
     worker.register_daily_jobs()
     names = registered_job_names()
-    assert names.index("customer.advisor_labels") < names.index("sales.owner_labels")
+    assert names.index("contact.advisor_labels") < names.index("sales.owner_labels")
     assert names.index("sales.owner_labels") < names.index("reconciliation.run_all")
 
 

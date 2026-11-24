@@ -209,7 +209,7 @@ def test_routes_outside_the_sales_entitlement_are_not_gated(client):
     body = _create_dealership(client)
     tid = uuid.UUID(body["id"])
     token = _bearer(_token(AccessRole.AFTERSALES, tenant_id=tid, entitlements=frozenset({"aftersales"})))
-    assert client.get("/v1/customers", headers=token).status_code == 200
+    assert client.get("/v1/contacts", headers=token).status_code == 200
     assert client.get("/v1/vehicle-mdm/search", headers=token).status_code == 200
 
 

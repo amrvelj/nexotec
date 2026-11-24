@@ -1,6 +1,6 @@
 """KAN-674 step 1: `scripts/backfill_trade_in_seller_on_stock_items.py` gives a
 trade-in stock item created before KAN-632 the seller its events now carry
-(`trade_in_customer_id`, `trade_in_signed_at`), read from Sales
+(`trade_in_contact_id`, `trade_in_signed_at`), read from Sales
 (`sales.public.get_trade_in_seller`), as the retired worker fallback did."""
 
 import importlib.util
@@ -26,9 +26,9 @@ def _pre_kan632_item(db_session, engine):
     """A bought trade-in whose item kept no seller — created before KAN-632."""
 
     contract, item, _ = _bought_trade_in(db_session, engine)
-    seller = (item.trade_in_customer_id, item.trade_in_signed_at)
+    seller = (item.trade_in_contact_id, item.trade_in_signed_at)
     assert seller[0] is not None, "the fixture's item should carry the seller since KAN-632"
-    item.trade_in_customer_id = None
+    item.trade_in_contact_id = None
     item.trade_in_signed_at = None
     db_session.commit()
     return contract, item.id
@@ -46,7 +46,7 @@ def test_a_dry_run_reports_the_fill_and_writes_nothing(db_session, engine):
 
     assert [(item, contract_id) for item, contract_id, _ in report.filled] == [(item_id, contract.id)]
     item = _item(db_session, item_id)
-    assert (item.trade_in_customer_id, item.trade_in_signed_at) == (None, None)
+    assert (item.trade_in_contact_id, item.trade_in_signed_at) == (None, None)
     assert "DRY RUN" in backfill_script.render(report, committed=False)
 
 
@@ -68,12 +68,12 @@ def test_commit_fills_the_seller_the_fallback_would_answer_and_a_rerun_finds_not
 
     report = backfill_script.backfill(db_session, commit=True)
 
-    assert [customer for _, _, customer in report.filled] == [expected.customer_id]
+    assert [contact for _, _, contact in report.filled] == [expected.contact_id]
     item = _item(db_session, item_id)
-    assert (item.trade_in_customer_id, item.trade_in_signed_at) == (expected.customer_id, expected.known_since)
+    assert (item.trade_in_contact_id, item.trade_in_signed_at) == (expected.contact_id, expected.known_since)
     # What the item's purchase and storno events carry from now on.
     assert trade_in_seller_fields(item) == {
-        "tradeInCustomerId": str(expected.customer_id),
+        "tradeInContactId": str(expected.contact_id),
         "tradeInSignedAt": expected.known_since.isoformat(),
     }
     again = backfill_script.backfill(db_session, commit=True)
@@ -91,7 +91,7 @@ def test_an_item_whose_contract_this_betrieb_does_not_have_is_reported_not_guess
 
     assert report.filled == []
     assert [(i, c) for i, c, _ in report.unresolved] == [(item_id, stranger)]
-    assert _item(db_session, item_id).trade_in_customer_id is None
+    assert _item(db_session, item_id).trade_in_contact_id is None
 
 
 def test_items_that_are_no_trade_in_are_left_alone(db_session, engine):
@@ -103,4 +103,4 @@ def test_items_that_are_no_trade_in_are_left_alone(db_session, engine):
     report = backfill_script.backfill(db_session, commit=True)
 
     assert (report.filled, report.unresolved) == ([], [])
-    assert all(_item(db_session, other.id).trade_in_customer_id is None for other in others)
+    assert all(_item(db_session, other.id).trade_in_contact_id is None for other in others)

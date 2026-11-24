@@ -41,7 +41,7 @@ function row(label: string, value: string, opts?: { bold?: boolean; negative?: b
  * -> price (FR-S's own level order), confirmed live against the reference
  * prototype's own Preisaufbau tab. The "NUR INTERN — NICHT AUF DEM
  * DOKUMENT" block (margin/cost) is visually separated and rendered only
- * because this whole page is a seller-facing screen — the customer
+ * because this whole page is a seller-facing screen — the contact
  * document (PR-7) is built from a completely separate ContentDefinition
  * that never includes these fields at all (see
  * tests/architecture/test_margin_never_in_rendered_document.py).

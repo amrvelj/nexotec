@@ -19,6 +19,7 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.contact.public import get_contact_or_404
 from app.core.audit import record_audit_event
 from app.core.base import utcnow
 from app.core.config import get_settings
@@ -27,7 +28,6 @@ from app.core.outbox import OutboxEvent, publish
 from app.core.pagination import SortPageParams, count_capped, paginate_query_sorted
 from app.core.sorting import build_page_for_sort
 from app.core.validators import is_chassis_number, normalise_vin, require_vin_or_pre_1981_chassis_number
-from app.customer.public import get_customer_or_404
 from app.valuation.models.contract_carry import ContractCarryState
 from app.valuation.models.valuation import (
     Valuation,
@@ -98,10 +98,10 @@ def derive_status(valuation: Valuation) -> str:
     return "valid"
 
 
-def _resolve_customer_label(customer) -> str:
-    if customer.company_name:
-        return customer.company_name
-    return " ".join(part for part in [customer.first_name, customer.last_name] if part) or customer.customer_number
+def _resolve_contact_label(contact) -> str:
+    if contact.company_name:
+        return contact.company_name
+    return " ".join(part for part in [contact.first_name, contact.last_name] if part) or contact.contact_number
 
 
 def get_valuation_or_404(db: Session, tenant_id: uuid.UUID, valuation_id: uuid.UUID) -> Valuation:
@@ -178,7 +178,7 @@ def _provider_figure(
 def create_valuation(
     db: Session, *, tenant_id: uuid.UUID, group_id: uuid.UUID, data: ValuationCreate, actor_id: uuid.UUID | None
 ) -> Valuation:
-    """Creatable with no customer, no offer, no vehicle in the register
+    """Creatable with no contact, no offer, no vehicle in the register
     (confirmed live). Nothing is ever written to vehicle-mdm (KAN-189;
     with a configuration, FR-C-14, ADR-070): without a configuration a `vin`
     links the record vehicle-mdm already holds for it, if any; with one, the
@@ -257,10 +257,10 @@ def create_valuation(
         db, tenant_id=tenant_id, data=data, first_registration=first_registration, mileage=mileage
     )
 
-    customer_label = None
-    if data.customer_id is not None:
-        customer = get_customer_or_404(db, group_id, data.customer_id)
-        customer_label = _resolve_customer_label(customer)
+    contact_label = None
+    if data.contact_id is not None:
+        contact = get_contact_or_404(db, group_id, data.contact_id)
+        contact_label = _resolve_contact_label(contact)
 
     valid_from = utcnow().date()
     valid_until = utcnow() + dt.timedelta(days=data.valid_for_days)
@@ -279,8 +279,8 @@ def create_valuation(
         configuration_id=configuration.id if configuration is not None else None,
         configuration_label=configuration.label if configuration is not None else None,
         configuration_label_refreshed_at=utcnow() if configuration is not None else None,
-        customer_id=data.customer_id,
-        customer_label=customer_label,
+        contact_id=data.contact_id,
+        contact_label=contact_label,
         source=source,
         provider_value=provider_value,
         provider_quote_id=quote.id if quote is not None else None,
@@ -613,7 +613,7 @@ def list_valuations(
     elif chip == "expired":
         stmt = stmt.where(Valuation.used_at.is_(None), Valuation.valid_until < now)
     elif chip == "unattached":
-        stmt = stmt.where(Valuation.customer_id.is_(None))
+        stmt = stmt.where(Valuation.contact_id.is_(None))
     elif chip == "mine":
         stmt = stmt.where(Valuation.created_by == created_by)
 
@@ -624,7 +624,7 @@ def list_valuations(
                 Valuation.valuation_number.ilike(like),
                 Valuation.vehicle_vin.ilike(like),
                 Valuation.vehicle_plate.ilike(like),
-                Valuation.customer_label.ilike(like),
+                Valuation.contact_label.ilike(like),
             )
         )
 

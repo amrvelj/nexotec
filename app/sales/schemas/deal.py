@@ -20,9 +20,9 @@ class DealRead(CamelModel):
     offer_number: str | None
     contract_id: uuid.UUID | None
     contract_number: str | None
-    customer_id: uuid.UUID | None
-    customer_label: str | None
-    customer_locality: str | None
+    contact_id: uuid.UUID | None
+    contact_label: str | None
+    contact_locality: str | None
     vehicle_label: str | None
     # KAN-570: the stock car's number (null for a manual car or none yet).
     stock_item_label: str | None = None

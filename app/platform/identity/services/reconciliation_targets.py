@@ -4,7 +4,7 @@ leaves platform (KAN-123 step 7, ADR-162). The actor columns' checks are
 `actor_reference.py`'s; the organisation tables' builders are in
 `app/platform/organisation/services/reconciliation_targets.py`.
 
-Customers (a customer's advisor) and Sales (an offer's, contract's and
+Contacts (a contact's advisor) and Sales (an offer's, contract's and
 deal's responsible seller) hold user ids (the three-column pattern). Their
 `reconciliation.py` asks:
 

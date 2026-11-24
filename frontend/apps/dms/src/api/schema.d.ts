@@ -380,7 +380,7 @@ export interface paths {
          *     the TARGET dealership's own dealer_group_id, not assumed unchanged from
          *     the caller's current token: a membership may span two dealer groups
          *     (ADR-106, recorded by KAN-379 from Anto's KAN-423 pick), and while
-         *     switched the user reads the target group's customers, never the home
+         *     switched the user reads the target group's contacts, never the home
          *     group's.
          *
          *     A fresh token is a renewed session, so it is minted like a login
@@ -657,25 +657,25 @@ export interface paths {
         patch: operations["apply_resync_v1_configurations__configuration_id__resync_patch"];
         trace?: never;
     };
-    "/v1/customers": {
+    "/v1/contacts": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** List Customers */
-        get: operations["list_customers_v1_customers_get"];
+        /** List Contacts */
+        get: operations["list_contacts_v1_contacts_get"];
         put?: never;
-        /** Create Customer */
-        post: operations["create_customer_v1_customers_post"];
+        /** Create Contact */
+        post: operations["create_contact_v1_contacts_post"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/v1/customers/advisor-options": {
+    "/v1/contacts/advisor-options": {
         parameters: {
             query?: never;
             header?: never;
@@ -683,15 +683,15 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * List Customer Advisor Options
+         * List Contact Advisor Options
          * @description The advisor picker's options (KAN-50 / D-24) — everyone who may
          *     advise in the ACTING dealership: its active and invited users and its
-         *     active members (KAN-410). Declared before `/customers/{customer_id}` so the
-         *     literal path is matched first. Gated on the `customers` read
+         *     active members (KAN-410). Declared before `/contacts/{contact_id}` so the
+         *     literal path is matched first. Gated on the `contacts` read
          *     capability, not the manager-only `dealership_users` one: a plain
-         *     advisor must be able to (re)assign a customer's advisor.
+         *     advisor must be able to (re)assign a contact's advisor.
          */
-        get: operations["list_customer_advisor_options_v1_customers_advisor_options_get"];
+        get: operations["list_contact_advisor_options_v1_contacts_advisor_options_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -700,7 +700,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/customers/duplicate-check": {
+    "/v1/contacts/duplicate-check": {
         parameters: {
             query?: never;
             header?: never;
@@ -708,7 +708,7 @@ export interface paths {
             cookie?: never;
         };
         /** Duplicate Check */
-        get: operations["duplicate_check_v1_customers_duplicate_check_get"];
+        get: operations["duplicate_check_v1_contacts_duplicate_check_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -717,43 +717,43 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/customers/{customer_id}": {
+    "/v1/contacts/{contact_id}": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** Get Customer */
-        get: operations["get_customer_v1_customers__customer_id__get"];
+        /** Get Contact */
+        get: operations["get_contact_v1_contacts__contact_id__get"];
         put?: never;
         post?: never;
         delete?: never;
         options?: never;
         head?: never;
-        /** Update Customer */
-        patch: operations["update_customer_v1_customers__customer_id__patch"];
+        /** Update Contact */
+        patch: operations["update_contact_v1_contacts__contact_id__patch"];
         trace?: never;
     };
-    "/v1/customers/{customer_id}/addresses": {
+    "/v1/contacts/{contact_id}/addresses": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** List Customer Addresses */
-        get: operations["list_customer_addresses_v1_customers__customer_id__addresses_get"];
+        /** List Contact Addresses */
+        get: operations["list_contact_addresses_v1_contacts__contact_id__addresses_get"];
         put?: never;
-        /** Create Customer Address */
-        post: operations["create_customer_address_v1_customers__customer_id__addresses_post"];
+        /** Create Contact Address */
+        post: operations["create_contact_address_v1_contacts__contact_id__addresses_post"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/v1/customers/{customer_id}/addresses/{address_id}": {
+    "/v1/contacts/{contact_id}/addresses/{address_id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -763,23 +763,23 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /** Delete Customer Address */
-        delete: operations["delete_customer_address_v1_customers__customer_id__addresses__address_id__delete"];
+        /** Delete Contact Address */
+        delete: operations["delete_contact_address_v1_contacts__contact_id__addresses__address_id__delete"];
         options?: never;
         head?: never;
-        /** Update Customer Address */
-        patch: operations["update_customer_address_v1_customers__customer_id__addresses__address_id__patch"];
+        /** Update Contact Address */
+        patch: operations["update_contact_address_v1_contacts__contact_id__addresses__address_id__patch"];
         trace?: never;
     };
-    "/v1/customers/{customer_id}/audit-log": {
+    "/v1/contacts/{contact_id}/audit-log": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** Get Customer Audit Log */
-        get: operations["get_customer_audit_log_v1_customers__customer_id__audit_log_get"];
+        /** Get Contact Audit Log */
+        get: operations["get_contact_audit_log_v1_contacts__contact_id__audit_log_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -788,7 +788,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/customers/{customer_id}/credit-block": {
+    "/v1/contacts/{contact_id}/credit-block": {
         parameters: {
             query?: never;
             header?: never;
@@ -801,32 +801,32 @@ export interface paths {
          * Set Credit Block
          * @description WP-8 PR-6 (ADR-065/S-D19) — stops a contract, never an offer.
          */
-        post: operations["set_credit_block_v1_customers__customer_id__credit_block_post"];
+        post: operations["set_credit_block_v1_contacts__contact_id__credit_block_post"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/v1/customers/{customer_id}/emails": {
+    "/v1/contacts/{contact_id}/emails": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** List Customer Emails */
-        get: operations["list_customer_emails_v1_customers__customer_id__emails_get"];
+        /** List Contact Emails */
+        get: operations["list_contact_emails_v1_contacts__contact_id__emails_get"];
         put?: never;
-        /** Create Customer Email */
-        post: operations["create_customer_email_v1_customers__customer_id__emails_post"];
+        /** Create Contact Email */
+        post: operations["create_contact_email_v1_contacts__contact_id__emails_post"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/v1/customers/{customer_id}/emails/{email_id}": {
+    "/v1/contacts/{contact_id}/emails/{email_id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -836,33 +836,33 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /** Delete Customer Email */
-        delete: operations["delete_customer_email_v1_customers__customer_id__emails__email_id__delete"];
+        /** Delete Contact Email */
+        delete: operations["delete_contact_email_v1_contacts__contact_id__emails__email_id__delete"];
         options?: never;
         head?: never;
-        /** Update Customer Email */
-        patch: operations["update_customer_email_v1_customers__customer_id__emails__email_id__patch"];
+        /** Update Contact Email */
+        patch: operations["update_contact_email_v1_contacts__contact_id__emails__email_id__patch"];
         trace?: never;
     };
-    "/v1/customers/{customer_id}/external-ids": {
+    "/v1/contacts/{contact_id}/external-ids": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** List Customer External Ids */
-        get: operations["list_customer_external_ids_v1_customers__customer_id__external_ids_get"];
+        /** List Contact External Ids */
+        get: operations["list_contact_external_ids_v1_contacts__contact_id__external_ids_get"];
         put?: never;
-        /** Create Customer External Id */
-        post: operations["create_customer_external_id_v1_customers__customer_id__external_ids_post"];
+        /** Create Contact External Id */
+        post: operations["create_contact_external_id_v1_contacts__contact_id__external_ids_post"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/v1/customers/{customer_id}/external-ids/{external_id_row_id}": {
+    "/v1/contacts/{contact_id}/external-ids/{external_id_row_id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -872,15 +872,15 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /** Delete Customer External Id */
-        delete: operations["delete_customer_external_id_v1_customers__customer_id__external_ids__external_id_row_id__delete"];
+        /** Delete Contact External Id */
+        delete: operations["delete_contact_external_id_v1_contacts__contact_id__external_ids__external_id_row_id__delete"];
         options?: never;
         head?: never;
-        /** Update Customer External Id */
-        patch: operations["update_customer_external_id_v1_customers__customer_id__external_ids__external_id_row_id__patch"];
+        /** Update Contact External Id */
+        patch: operations["update_contact_external_id_v1_contacts__contact_id__external_ids__external_id_row_id__patch"];
         trace?: never;
     };
-    "/v1/customers/{customer_id}/legal-basis": {
+    "/v1/contacts/{contact_id}/legal-basis": {
         parameters: {
             query?: never;
             header?: never;
@@ -890,14 +890,14 @@ export interface paths {
         get?: never;
         put?: never;
         /** Create Legal Basis */
-        post: operations["create_legal_basis_v1_customers__customer_id__legal_basis_post"];
+        post: operations["create_legal_basis_v1_contacts__contact_id__legal_basis_post"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/v1/customers/{customer_id}/merge": {
+    "/v1/contacts/{contact_id}/merge": {
         parameters: {
             query?: never;
             header?: never;
@@ -906,69 +906,33 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Merge Customer */
-        post: operations["merge_customer_v1_customers__customer_id__merge_post"];
+        /** Merge Contact */
+        post: operations["merge_contact_v1_contacts__contact_id__merge_post"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/v1/customers/{customer_id}/phones": {
+    "/v1/contacts/{contact_id}/phones": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** List Customer Phones */
-        get: operations["list_customer_phones_v1_customers__customer_id__phones_get"];
+        /** List Contact Phones */
+        get: operations["list_contact_phones_v1_contacts__contact_id__phones_get"];
         put?: never;
-        /** Create Customer Phone */
-        post: operations["create_customer_phone_v1_customers__customer_id__phones_post"];
+        /** Create Contact Phone */
+        post: operations["create_contact_phone_v1_contacts__contact_id__phones_post"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/v1/customers/{customer_id}/phones/{phone_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /** Delete Customer Phone */
-        delete: operations["delete_customer_phone_v1_customers__customer_id__phones__phone_id__delete"];
-        options?: never;
-        head?: never;
-        /** Update Customer Phone */
-        patch: operations["update_customer_phone_v1_customers__customer_id__phones__phone_id__patch"];
-        trace?: never;
-    };
-    "/v1/customers/{customer_id}/vehicles": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List Customer Vehicles */
-        get: operations["list_customer_vehicles_v1_customers__customer_id__vehicles_get"];
-        put?: never;
-        /** Create Customer Vehicle */
-        post: operations["create_customer_vehicle_v1_customers__customer_id__vehicles_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/customers/{customer_id}/vehicles/{party_id}": {
+    "/v1/contacts/{contact_id}/phones/{phone_id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -978,12 +942,48 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /** Delete Customer Vehicle */
-        delete: operations["delete_customer_vehicle_v1_customers__customer_id__vehicles__party_id__delete"];
+        /** Delete Contact Phone */
+        delete: operations["delete_contact_phone_v1_contacts__contact_id__phones__phone_id__delete"];
         options?: never;
         head?: never;
-        /** Update Customer Vehicle */
-        patch: operations["update_customer_vehicle_v1_customers__customer_id__vehicles__party_id__patch"];
+        /** Update Contact Phone */
+        patch: operations["update_contact_phone_v1_contacts__contact_id__phones__phone_id__patch"];
+        trace?: never;
+    };
+    "/v1/contacts/{contact_id}/vehicles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Contact Vehicles */
+        get: operations["list_contact_vehicles_v1_contacts__contact_id__vehicles_get"];
+        put?: never;
+        /** Create Contact Vehicle */
+        post: operations["create_contact_vehicle_v1_contacts__contact_id__vehicles_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/contacts/{contact_id}/vehicles/{party_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Contact Vehicle */
+        delete: operations["delete_contact_vehicle_v1_contacts__contact_id__vehicles__party_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update Contact Vehicle */
+        patch: operations["update_contact_vehicle_v1_contacts__contact_id__vehicles__party_id__patch"];
         trace?: never;
     };
     "/v1/dealer-groups/{dealer_group_id}/enable-group-read": {
@@ -4932,8 +4932,8 @@ export interface paths {
         put?: never;
         /**
          * Send Document
-         * @description KAN-217 PR-5 (D-A-41, FR-A-51–54): sends the document to its customer
-         *     on one channel — consent from Customers, the text from the Betrieb's
+         * @description KAN-217 PR-5 (D-A-41, FR-A-51–54): sends the document to its contact
+         *     on one channel — consent from Contacts, the text from the Betrieb's
          *     library, the sender or provider and the delivery record from integration
          *     (`services/message_send.py`). 201 with the delivery record, `failed`
          *     included: the record says what the provider answered.
@@ -4955,7 +4955,7 @@ export interface paths {
         /**
          * Get Send Options
          * @description KAN-217 PR-6 (FR-A-52/53): what the send dialog shows before a send —
-         *     per channel the recipient, Customers' verdict, whether the channel is
+         *     per channel the recipient, Contacts' verdict, whether the channel is
          *     connected, the text the send would carry and the first refusal the send
          *     would give. A read: no link, no delivery row, no provider call.
          */
@@ -5559,22 +5559,22 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Allocate To Customer
-         * @description FR-V-05's vehicle-side entry point — "Allocate to customer", the
+         * Allocate To Contact
+         * @description FR-V-05's vehicle-side entry point — "Allocate to contact", the
          *     Vehicle 360 detail screen's alternative action (ADR-061). Calls
-         *     exactly the same app.customer.public.allocate_vehicle_party the
-         *     customer-side dialog uses, so the close-then-open semantics (ADR-064)
+         *     exactly the same app.contact.public.allocate_vehicle_party the
+         *     contact-side dialog uses, so the close-then-open semantics (ADR-064)
          *     are identical regardless of which record the user started from.
          *
-         *     Unlike the customer-side dialog, `body.customer_id` here names a
-         *     customer the caller has not already reached through a group-scoped
-         *     path — the customer-side route resolves `customer` via
-         *     `get_customer_or_404(principal.group_id, ...)` before it ever calls
+         *     Unlike the contact-side dialog, `body.contact_id` here names a
+         *     contact the caller has not already reached through a group-scoped
+         *     path — the contact-side route resolves `contact` via
+         *     `get_contact_or_404(principal.group_id, ...)` before it ever calls
          *     `allocate_vehicle_party`, so it can never name another group's
-         *     customer. This route must do the same lookup itself, or a caller
-         *     could allocate a party against any customer_id it can guess,
+         *     contact. This route must do the same lookup itself, or a caller
+         *     could allocate a party against any contact_id it can guess,
          *     regardless of which group owns it. VehicleParty carries no group_id
-         *     of its own to catch this at the write; a customer from another group
+         *     of its own to catch this at the write; a contact from another group
          *     is a 404, per rule #7, never a 403 and never a silent cross-group
          *     write.
          *
@@ -5583,7 +5583,7 @@ export interface paths {
          *     (`allocate_vehicle_party` resolves it under its lock), and the response's
          *     `vehicleId` names that survivor. An unknown id is the 404 below, as before.
          */
-        post: operations["allocate_to_customer_v1_vehicle_mdm__vehicle_id__allocate_post"];
+        post: operations["allocate_to_contact_v1_vehicle_mdm__vehicle_id__allocate_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -5625,9 +5625,9 @@ export interface paths {
         /**
          * Get Vehicle Configuration
          * @description FR-C-15 — Vehicle 360's Specification tab: this tenant's newest
-         *     configuration linked to the vehicle, read-only. Customer 360 reaches it
-         *     through the vehicle (this route), never through a customer: a
-         *     configuration has no customer, and giving it one would compete with
+         *     configuration linked to the vehicle, read-only. Contact 360 reaches it
+         *     through the vehicle (this route), never through a contact: a
+         *     configuration has no contact, and giving it one would compete with
          *     `VehicleParty`. 404 when this tenant holds none.
          */
         get: operations["get_vehicle_configuration_v1_vehicle_mdm__vehicle_id__configuration_get"];
@@ -5654,7 +5654,7 @@ export interface paths {
          *     merged into `survivorId` for good; there is no unmerge, and every Betrieb
          *     shares both records. Any user who may edit vehicles may do it (Anto, Q1 B).
          *     Answers the survivor. Refusals: `services/merge.py::merge_vehicle_records`.
-         *     Customers' party rows and Stock's items follow when the fact is consumed.
+         *     Contacts' party rows and Stock's items follow when the fact is consumed.
          */
         post: operations["merge_vehicle_v1_vehicle_mdm__vehicle_id__merge_post"];
         delete?: never;
@@ -5700,7 +5700,7 @@ export interface paths {
          *
          *     Scoped by the caller's own group_id (ADR-014/ADR-049): vehicle_mdm is
          *     a deliberately global fact, so a party row here may belong to a
-         *     customer in a different dealer group entirely — see
+         *     contact in a different dealer group entirely — see
          *     list_vehicle_parties' own docstring. The holder's name (KAN-140)
          *     comes from the same group-scoped read, never from a wider lookup.
          */
@@ -6566,7 +6566,7 @@ export interface components {
         };
         /**
          * CalendarPeriod
-         * @description `GET /v1/customers?updated_since_start_of=` — the current calendar day,
+         * @description `GET /v1/contacts?updated_since_start_of=` — the current calendar day,
          *     week (from Monday), month or year in the session time zone, resolved by
          *     the server (U-09, KAN-474). A query vocabulary, never a column.
          * @enum {string}
@@ -7232,7 +7232,7 @@ export interface components {
          * @description KAN-597 (ADR-142) — one gearbox's Energieetikette as the identAPI
          *     delivers it: the class, the gearbox as delivered (null when the provider
          *     named none) and the link to the label as PDF. Shown to the seller beside
-         *     the class; printed on no customer document.
+         *     the class; printed on no contact document.
          */
         ConfigurationEnergyLabelRead: {
             /** Category */
@@ -7769,6 +7769,434 @@ export interface components {
          * @enum {string}
          */
         ConsentSource: "form" | "counter" | "web" | "phone";
+        /** ContactAddressCreate */
+        ContactAddressCreate: {
+            /**
+             * Addresscountry
+             * @default CH
+             */
+            addressCountry?: string;
+            /** Addresshousenumber */
+            addressHouseNumber: string;
+            /** Addressline2 */
+            addressLine2?: string | null;
+            /** Addresslocality */
+            addressLocality: string;
+            /** Addresspostalcode */
+            addressPostalCode: string;
+            /** Addressstreet */
+            addressStreet: string;
+            addressType: components["schemas"]["AddressType"];
+            /**
+             * Consentgranted
+             * @default false
+             */
+            consentGranted?: boolean;
+            consentScope?: components["schemas"]["ConsentScope"] | null;
+            consentSource?: components["schemas"]["ConsentSource"] | null;
+            /**
+             * Isprimary
+             * @default false
+             */
+            isPrimary?: boolean;
+            /** Label */
+            label?: string | null;
+        };
+        /** ContactAddressPage */
+        ContactAddressPage: {
+            /** Items */
+            items: components["schemas"]["ContactAddressRead"][];
+        };
+        /** ContactAddressRead */
+        ContactAddressRead: {
+            /** Addresscanton */
+            addressCanton: string | null;
+            /** Addresscountry */
+            addressCountry: string;
+            /** Addresshousenumber */
+            addressHouseNumber: string;
+            /** Addressline2 */
+            addressLine2: string | null;
+            /** Addresslocality */
+            addressLocality: string;
+            /** Addresspostalcode */
+            addressPostalCode: string;
+            /** Addressstreet */
+            addressStreet: string;
+            addressType: components["schemas"]["AddressType"];
+            /** Consentgranted */
+            consentGranted: boolean;
+            consentScope: components["schemas"]["ConsentScope"] | null;
+            consentSource: components["schemas"]["ConsentSource"] | null;
+            /** Consenttimestamp */
+            consentTimestamp: string | null;
+            /**
+             * Contactid
+             * Format: uuid
+             */
+            contactId: string;
+            /**
+             * Createdat
+             * Format: date-time
+             */
+            createdAt: string;
+            /** Donotuse */
+            doNotUse: boolean;
+            /** Donotusereason */
+            doNotUseReason: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Isprimary */
+            isPrimary: boolean;
+            /** Label */
+            label: string | null;
+            /**
+             * Updatedat
+             * Format: date-time
+             */
+            updatedAt: string;
+            /**
+             * Validfrom
+             * Format: date-time
+             */
+            validFrom: string;
+            /** Validto */
+            validTo: string | null;
+        };
+        /** ContactAddressUpdate */
+        ContactAddressUpdate: {
+            /** Addresscountry */
+            addressCountry?: string | null;
+            /** Addresshousenumber */
+            addressHouseNumber?: string | null;
+            /** Addressline2 */
+            addressLine2?: string | null;
+            /** Addresslocality */
+            addressLocality?: string | null;
+            /** Addresspostalcode */
+            addressPostalCode?: string | null;
+            /** Addressstreet */
+            addressStreet?: string | null;
+            addressType?: components["schemas"]["AddressType"] | null;
+            /** Consentgranted */
+            consentGranted?: boolean | null;
+            consentScope?: components["schemas"]["ConsentScope"] | null;
+            consentSource?: components["schemas"]["ConsentSource"] | null;
+            /** Donotuse */
+            doNotUse?: boolean | null;
+            /** Donotusereason */
+            doNotUseReason?: string | null;
+            /** Isprimary */
+            isPrimary?: boolean | null;
+            /** Label */
+            label?: string | null;
+            /** Validto */
+            validTo?: string | null;
+        };
+        /**
+         * ContactAdvisorOption
+         * @description One option for the contact record's advisor picker (KAN-50 / D-24)
+         *     — someone who may advise in the ACTING dealership: an active or invited
+         *     user homed there or an active member of it (KAN-410). `label` is the
+         *     same `First Last` denormalised into `Contact.advisor_label` on
+         *     assignment.
+         */
+        ContactAdvisorOption: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Label */
+            label: string;
+        };
+        /** ContactAdvisorOptionList */
+        ContactAdvisorOptionList: {
+            /** Items */
+            items: components["schemas"]["ContactAdvisorOption"][];
+        };
+        /**
+         * ContactCreate
+         * @description contact_type is immutable after creation (not settable via
+         *     ContactUpdate below) — gates which of the individual-only
+         *     (first_name/last_name/birth_date/nationality) vs business-only
+         *     (company_name/legal_form/tax_id) fields apply, enforced by
+         *     _validate_contact_type_fields.
+         *
+         *     `contact_number` is absent by design: it is allocated by the server
+         *     (D-02) and is immutable, so a client can neither choose nor change it.
+         */
+        ContactCreate: {
+            /** Addresses */
+            addresses?: components["schemas"]["ContactAddressCreate"][];
+            /** Advisorid */
+            advisorId?: string | null;
+            /** Birthdate */
+            birthDate?: string | null;
+            /** Companyname */
+            companyName?: string | null;
+            /** Contactgroups */
+            contactGroups?: string[];
+            /** Contactsince */
+            contactSince?: string | null;
+            /** @default individual */
+            contactType?: components["schemas"]["ContactType"];
+            /** Creditlimit */
+            creditLimit?: number | string | null;
+            /** Emails */
+            emails?: components["schemas"]["ContactEmailCreate"][];
+            /** Firstname */
+            firstName?: string | null;
+            /** @default unspecified */
+            gender?: components["schemas"]["Gender"];
+            /** Iban */
+            iban?: string | null;
+            language: components["schemas"]["Language"];
+            /** Lastname */
+            lastName?: string | null;
+            legalForm?: components["schemas"]["LegalForm"] | null;
+            /** @default prospect */
+            lifecycleStatus?: components["schemas"]["ContactLifecycleStatus"];
+            /**
+             * Marketingconsent
+             * @default false
+             */
+            marketingConsent?: boolean;
+            /** Nationality */
+            nationality?: string | null;
+            /**
+             * Newsletter
+             * @default false
+             */
+            newsletter?: boolean;
+            /** Nextfollowup */
+            nextFollowUp?: string | null;
+            /** Notes */
+            notes?: string | null;
+            paymentTerms?: components["schemas"]["PaymentTerms"] | null;
+            /** Phones */
+            phones?: components["schemas"]["ContactPhoneCreate"][];
+            preferredChannel?: components["schemas"]["PreferredChannel"] | null;
+            /** Roles */
+            roles?: components["schemas"]["ContactRole"][];
+            salutation?: components["schemas"]["Salutation"] | null;
+            source?: components["schemas"]["ContactSource"] | null;
+            /** Sourceref */
+            sourceRef?: string | null;
+            /** Tags */
+            tags?: string[];
+            /**
+             * Taxid
+             * @description Write-only; never returned by read endpoints.
+             */
+            taxId?: string | null;
+            /** Title */
+            title?: string | null;
+            /**
+             * Vatregistered
+             * @default false
+             */
+            vatRegistered?: boolean;
+            /**
+             * Vatstatusconfirmed
+             * @default false
+             */
+            vatStatusConfirmed?: boolean;
+            /** Website */
+            website?: string | null;
+        };
+        /**
+         * ContactCreditBlockRequest
+         * @description WP-8 PR-6 (ADR-065/S-D19).
+         */
+        ContactCreditBlockRequest: {
+            /** Blocked */
+            blocked: boolean;
+            /** Reason */
+            reason?: string | null;
+        };
+        /**
+         * ContactDuplicateCandidate
+         * @description Reshaped in Phase B (D-07). The previous shape required first_name and
+         *     last_name, which meant a *business* contact among the candidates raised
+         *     a serialisation error — i.e. duplicate detection crashed precisely when
+         *     it found a company. Both name fields are now optional, company_name and
+         *     contact_type are included so the UI can label the row, and the primary
+         *     contact details come along so the advisor can recognise the person
+         *     without opening the record.
+         */
+        ContactDuplicateCandidate: {
+            /** Companyname */
+            companyName?: string | null;
+            /** Contactnumber */
+            contactNumber: string;
+            contactType: components["schemas"]["ContactType"];
+            /** Firstname */
+            firstName?: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Lastname */
+            lastName?: string | null;
+            lifecycleStatus: components["schemas"]["ContactLifecycleStatus"];
+            /** Match */
+            match: string;
+            /** Primaryemail */
+            primaryEmail?: string | null;
+            /** Primaryphone */
+            primaryPhone?: string | null;
+        };
+        /** ContactDuplicateCandidateList */
+        ContactDuplicateCandidateList: {
+            /** Items */
+            items: components["schemas"]["ContactDuplicateCandidate"][];
+        };
+        /** ContactEmailCreate */
+        ContactEmailCreate: {
+            /**
+             * Consentgranted
+             * @default false
+             */
+            consentGranted?: boolean;
+            consentScope?: components["schemas"]["ConsentScope"] | null;
+            consentSource?: components["schemas"]["ConsentSource"] | null;
+            /**
+             * Emailaddress
+             * Format: email
+             */
+            emailAddress: string;
+            emailType: components["schemas"]["EmailType"];
+            /**
+             * Isprimary
+             * @default false
+             */
+            isPrimary?: boolean;
+            /** Label */
+            label?: string | null;
+        };
+        /** ContactEmailPage */
+        ContactEmailPage: {
+            /** Items */
+            items: components["schemas"]["ContactEmailRead"][];
+        };
+        /** ContactEmailRead */
+        ContactEmailRead: {
+            /** Consentgranted */
+            consentGranted: boolean;
+            consentScope: components["schemas"]["ConsentScope"] | null;
+            consentSource: components["schemas"]["ConsentSource"] | null;
+            /** Consenttimestamp */
+            consentTimestamp: string | null;
+            /**
+             * Contactid
+             * Format: uuid
+             */
+            contactId: string;
+            /**
+             * Createdat
+             * Format: date-time
+             */
+            createdAt: string;
+            /** Donotuse */
+            doNotUse: boolean;
+            /** Donotusereason */
+            doNotUseReason: string | null;
+            /** Emailaddress */
+            emailAddress: string;
+            emailType: components["schemas"]["EmailType"];
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Isprimary */
+            isPrimary: boolean;
+            /** Label */
+            label: string | null;
+            /**
+             * Updatedat
+             * Format: date-time
+             */
+            updatedAt: string;
+            /**
+             * Validfrom
+             * Format: date-time
+             */
+            validFrom: string;
+            /** Validto */
+            validTo: string | null;
+        };
+        /** ContactEmailUpdate */
+        ContactEmailUpdate: {
+            /** Consentgranted */
+            consentGranted?: boolean | null;
+            consentScope?: components["schemas"]["ConsentScope"] | null;
+            consentSource?: components["schemas"]["ConsentSource"] | null;
+            /** Donotuse */
+            doNotUse?: boolean | null;
+            /** Donotusereason */
+            doNotUseReason?: string | null;
+            /** Emailaddress */
+            emailAddress?: string | null;
+            emailType?: components["schemas"]["EmailType"] | null;
+            /** Isprimary */
+            isPrimary?: boolean | null;
+            /** Label */
+            label?: string | null;
+            /** Validto */
+            validTo?: string | null;
+        };
+        /** ContactExternalIdCreate */
+        ContactExternalIdCreate: {
+            /** Externalid */
+            externalId: string;
+            /** Systemname */
+            systemName: string;
+        };
+        /** ContactExternalIdPage */
+        ContactExternalIdPage: {
+            /** Items */
+            items: components["schemas"]["ContactExternalIdRead"][];
+        };
+        /** ContactExternalIdRead */
+        ContactExternalIdRead: {
+            /**
+             * Contactid
+             * Format: uuid
+             */
+            contactId: string;
+            /**
+             * Createdat
+             * Format: date-time
+             */
+            createdAt: string;
+            /** Externalid */
+            externalId: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Systemname */
+            systemName: string;
+            /**
+             * Updatedat
+             * Format: date-time
+             */
+            updatedAt: string;
+        };
+        /** ContactExternalIdUpdate */
+        ContactExternalIdUpdate: {
+            /** Externalid */
+            externalId?: string | null;
+            /** Systemname */
+            systemName?: string | null;
+        };
         /** ContactGroupList */
         ContactGroupList: {
             /** Items */
@@ -7805,17 +8233,416 @@ export interface components {
             enabled: boolean;
         };
         /**
+         * ContactHistoryPage
+         * @description KAN-371: the contact's audit events plus `labels`, id → display label
+         *     for the ids they carry (a Betrieb, a user, another contact, a vehicle)
+         *     and their actors, resolved on read. An id absent from `labels` names
+         *     nothing this group can see.
+         */
+        ContactHistoryPage: {
+            /** Items */
+            items: components["schemas"]["AuditEventRead"][];
+            /** Labels */
+            labels?: {
+                [key: string]: string;
+            };
+            /** Nextcursor */
+            nextCursor: string | null;
+        };
+        /**
+         * ContactLifecycleStatus
+         * @enum {string}
+         */
+        ContactLifecycleStatus: "prospect" | "active" | "inactive" | "merged" | "do_not_contact";
+        /** ContactMergeRequest */
+        ContactMergeRequest: {
+            /**
+             * Duplicateofcontactid
+             * Format: uuid
+             */
+            duplicateOfContactId: string;
+        };
+        /** ContactPage */
+        ContactPage: {
+            /** Items */
+            items: components["schemas"]["ContactRead"][];
+            /** Nextcursor */
+            nextCursor: string | null;
+            /** Total */
+            total: number;
+            /** Totalisestimate */
+            totalIsEstimate: boolean;
+        };
+        /** ContactPhoneCreate */
+        ContactPhoneCreate: {
+            /**
+             * Consentgranted
+             * @default false
+             */
+            consentGranted?: boolean;
+            consentScope?: components["schemas"]["ConsentScope"] | null;
+            consentSource?: components["schemas"]["ConsentSource"] | null;
+            /**
+             * Isprimary
+             * @default false
+             */
+            isPrimary?: boolean;
+            /** Label */
+            label?: string | null;
+            /** Phonee164 */
+            phoneE164: string;
+            phoneType: components["schemas"]["PhoneType"];
+        };
+        /** ContactPhonePage */
+        ContactPhonePage: {
+            /** Items */
+            items: components["schemas"]["ContactPhoneRead"][];
+        };
+        /** ContactPhoneRead */
+        ContactPhoneRead: {
+            /** Consentgranted */
+            consentGranted: boolean;
+            consentScope: components["schemas"]["ConsentScope"] | null;
+            consentSource: components["schemas"]["ConsentSource"] | null;
+            /** Consenttimestamp */
+            consentTimestamp: string | null;
+            /**
+             * Contactid
+             * Format: uuid
+             */
+            contactId: string;
+            /**
+             * Createdat
+             * Format: date-time
+             */
+            createdAt: string;
+            /** Donotuse */
+            doNotUse: boolean;
+            /** Donotusereason */
+            doNotUseReason: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Isprimary */
+            isPrimary: boolean;
+            /** Label */
+            label: string | null;
+            /** Phonee164 */
+            phoneE164: string;
+            phoneType: components["schemas"]["PhoneType"];
+            /**
+             * Updatedat
+             * Format: date-time
+             */
+            updatedAt: string;
+            /**
+             * Validfrom
+             * Format: date-time
+             */
+            validFrom: string;
+            /** Validto */
+            validTo: string | null;
+        };
+        /** ContactPhoneUpdate */
+        ContactPhoneUpdate: {
+            /** Consentgranted */
+            consentGranted?: boolean | null;
+            consentScope?: components["schemas"]["ConsentScope"] | null;
+            consentSource?: components["schemas"]["ConsentSource"] | null;
+            /** Donotuse */
+            doNotUse?: boolean | null;
+            /** Donotusereason */
+            doNotUseReason?: string | null;
+            /** Isprimary */
+            isPrimary?: boolean | null;
+            /** Label */
+            label?: string | null;
+            /** Phonee164 */
+            phoneE164?: string | null;
+            phoneType?: components["schemas"]["PhoneType"] | null;
+            /** Validto */
+            validTo?: string | null;
+        };
+        /** ContactRead */
+        ContactRead: {
+            address?: components["schemas"]["ContactAddressRead"] | null;
+            /** Advisorid */
+            advisorId: string | null;
+            /** Advisorlabel */
+            advisorLabel: string | null;
+            /** Advisorlabelrefreshedat */
+            advisorLabelRefreshedAt: string | null;
+            /** Birthdate */
+            birthDate: string | null;
+            /** Companyname */
+            companyName: string | null;
+            /** Contactgroups */
+            contactGroups?: string[];
+            /** Contactnumber */
+            contactNumber: string;
+            /** Contactsince */
+            contactSince: string | null;
+            contactType: components["schemas"]["ContactType"];
+            /**
+             * Createdat
+             * Format: date-time
+             */
+            createdAt: string;
+            /** Createdby */
+            createdBy: string | null;
+            /** Creditblock */
+            creditBlock: boolean;
+            /** Creditblockreason */
+            creditBlockReason: string | null;
+            /** Creditblockedat */
+            creditBlockedAt: string | null;
+            /** Creditlimit */
+            creditLimit: string | null;
+            /** Dealershipid */
+            dealershipId: string | null;
+            /** Duplicateofcontactid */
+            duplicateOfContactId: string | null;
+            /** Email */
+            email?: string | null;
+            /** Emailsecondary */
+            emailSecondary?: string | null;
+            /** Firstname */
+            firstName: string | null;
+            gender: components["schemas"]["Gender"];
+            /**
+             * Groupid
+             * Format: uuid
+             */
+            groupId: string;
+            /** Iban */
+            iban: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            language: components["schemas"]["Language"];
+            /** Lastname */
+            lastName: string | null;
+            legalForm: components["schemas"]["LegalForm"] | null;
+            lifecycleStatus: components["schemas"]["ContactLifecycleStatus"];
+            /** Marketingconsent */
+            marketingConsent: boolean;
+            /** Nationality */
+            nationality: string | null;
+            /** Newsletter */
+            newsletter: boolean;
+            /** Nextfollowup */
+            nextFollowUp: string | null;
+            /** Notes */
+            notes: string | null;
+            paymentTerms: components["schemas"]["PaymentTerms"] | null;
+            /** Phonelandline */
+            phoneLandline?: string | null;
+            /** Phonemobile */
+            phoneMobile?: string | null;
+            /** Phonework */
+            phoneWork?: string | null;
+            preferredChannel: components["schemas"]["PreferredChannel"] | null;
+            /** Roles */
+            roles?: components["schemas"]["ContactRole"][];
+            salutation: components["schemas"]["Salutation"] | null;
+            source: components["schemas"]["ContactSource"] | null;
+            /** Sourceref */
+            sourceRef: string | null;
+            /** Tags */
+            tags?: string[];
+            /** Title */
+            title: string | null;
+            /**
+             * Updatedat
+             * Format: date-time
+             */
+            updatedAt: string;
+            /** Updatedby */
+            updatedBy: string | null;
+            /** Vatregistered */
+            vatRegistered: boolean;
+            /** Vatstatusconfirmed */
+            vatStatusConfirmed: boolean;
+            /** Version */
+            version: number;
+            /** Website */
+            website: string | null;
+        };
+        /**
          * ContactRole
          * @description The roles a contact holds (KAN-464; Anto, 2026-10-26: one register,
          *     roles). A contact is never duplicated because it gains a role (ADR-014).
          *
          *     Q1 (Anto, 2026-11-14, A): the lifecycle status (prospect / active /
-         *     inactive), the credit block and the advisor belong to the `customer`
+         *     inactive), the credit block and the advisor belong to the `contact`
          *     role; contact points, consent, do-not-contact, tags, contact groups and
          *     the legal basis belong to every contact.
          * @enum {string}
          */
         ContactRole: "customer" | "supplier";
+        /**
+         * ContactSource
+         * @enum {string}
+         */
+        ContactSource: "walk_in" | "phone" | "web_lead" | "marketplace" | "other";
+        /**
+         * ContactType
+         * @enum {string}
+         */
+        ContactType: "individual" | "business";
+        /**
+         * ContactUpdate
+         * @description duplicate_of_contact_id is not settable here — only through
+         *     POST /v1/contacts/{id}/merge, which sets it atomically with
+         *     lifecycle_status and audit-logs both source IDs. contact_type and
+         *     contact_number are not settable either (immutable after creation) —
+         *     individual/business-only field mutual exclusivity is checked in the
+         *     service layer against the existing row's contact_type, since it isn't
+         *     known at the schema level for a partial PATCH body.
+         *
+         *     Contact details are not editable here either: they are managed through
+         *     the /contacts/{id}/phones, /contacts/{id}/emails and
+         *     /contacts/{id}/addresses endpoints, which own the "exactly one primary
+         *     per type" invariant (ADR-067, WP-3 PR-5 — extended from "per contact"
+         *     to "per type" for phones/emails at the same time addresses joined them).
+         */
+        ContactUpdate: {
+            /** Advisorid */
+            advisorId?: string | null;
+            /** Birthdate */
+            birthDate?: string | null;
+            /** Companyname */
+            companyName?: string | null;
+            /** Contactgroups */
+            contactGroups?: string[] | null;
+            /** Contactsince */
+            contactSince?: string | null;
+            /** Creditlimit */
+            creditLimit?: number | string | null;
+            /** Firstname */
+            firstName?: string | null;
+            gender?: components["schemas"]["Gender"] | null;
+            /** Iban */
+            iban?: string | null;
+            language?: components["schemas"]["Language"] | null;
+            /** Lastname */
+            lastName?: string | null;
+            legalForm?: components["schemas"]["LegalForm"] | null;
+            lifecycleStatus?: components["schemas"]["ContactLifecycleStatus"] | null;
+            /** Marketingconsent */
+            marketingConsent?: boolean | null;
+            /** Nationality */
+            nationality?: string | null;
+            /** Newsletter */
+            newsletter?: boolean | null;
+            /** Nextfollowup */
+            nextFollowUp?: string | null;
+            /** Notes */
+            notes?: string | null;
+            paymentTerms?: components["schemas"]["PaymentTerms"] | null;
+            preferredChannel?: components["schemas"]["PreferredChannel"] | null;
+            /** Roles */
+            roles?: components["schemas"]["ContactRole"][] | null;
+            salutation?: components["schemas"]["Salutation"] | null;
+            source?: components["schemas"]["ContactSource"] | null;
+            /** Sourceref */
+            sourceRef?: string | null;
+            /** Tags */
+            tags?: string[] | null;
+            /**
+             * Taxid
+             * @description Write-only; never returned by read endpoints.
+             */
+            taxId?: string | null;
+            /** Title */
+            title?: string | null;
+            /** Vatregistered */
+            vatRegistered?: boolean | null;
+            /** Vatstatusconfirmed */
+            vatStatusConfirmed?: boolean | null;
+            /** Website */
+            website?: string | null;
+        };
+        /**
+         * ContactVehicleCreate
+         * @description role is not offered on update (see ContactVehicleUpdate) — an
+         *     ownership/keeper/driver change hands is a new row with its own
+         *     effective_from, per FR-10 and VehicleParty's own docstring.
+         */
+        ContactVehicleCreate: {
+            /** Effectivefrom */
+            effectiveFrom?: string | null;
+            /** Effectiveto */
+            effectiveTo?: string | null;
+            role: components["schemas"]["VehiclePartyRole"];
+            /**
+             * Vehicleid
+             * Format: uuid
+             */
+            vehicleId: string;
+        };
+        /** ContactVehiclePage */
+        ContactVehiclePage: {
+            /** Items */
+            items: components["schemas"]["ContactVehicleRead"][];
+        };
+        /** ContactVehicleRead */
+        ContactVehicleRead: {
+            /**
+             * Contactid
+             * Format: uuid
+             */
+            contactId: string;
+            /**
+             * Createdat
+             * Format: date-time
+             */
+            createdAt: string;
+            /**
+             * Effectivefrom
+             * Format: date-time
+             */
+            effectiveFrom: string;
+            /** Effectiveto */
+            effectiveTo: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Mergedintocontactid */
+            mergedIntoContactId?: string | null;
+            /** Mergedintovehicleid */
+            mergedIntoVehicleId?: string | null;
+            /** Mergedintovehiclevin */
+            mergedIntoVehicleVin?: string | null;
+            /** Otherparties */
+            otherParties?: components["schemas"]["OtherVehiclePartySummary"][];
+            role: components["schemas"]["VehiclePartyRole"];
+            stockItem?: components["schemas"]["VehicleStockLinkSummary"] | null;
+            /**
+             * Updatedat
+             * Format: date-time
+             */
+            updatedAt: string;
+            vehicle: components["schemas"]["VehiclePartySummary"];
+            /**
+             * Vehicleid
+             * Format: uuid
+             */
+            vehicleId: string;
+        };
+        /** ContactVehicleUpdate */
+        ContactVehicleUpdate: {
+            /** Effectivefrom */
+            effectiveFrom?: string | null;
+            /** Effectiveto */
+            effectiveTo?: string | null;
+        };
         /** ContractCancelRequest */
         ContractCancelRequest: {
             /** Reason */
@@ -7823,8 +8650,8 @@ export interface components {
         };
         /** ContractCreate */
         ContractCreate: {
-            /** Customerid */
-            customerId?: string | null;
+            /** Contactid */
+            contactId?: string | null;
             /** Offerid */
             offerId?: string | null;
             /** Stockitemid */
@@ -7876,6 +8703,12 @@ export interface components {
             configurationId?: string | null;
             /** Configurationlabel */
             configurationLabel?: string | null;
+            /** Contactid */
+            contactId: string | null;
+            /** Contactlabel */
+            contactLabel: string | null;
+            /** Contactlocality */
+            contactLocality: string | null;
             /** Containers */
             containers?: components["schemas"]["OfferContainerState"][];
             /** Contractnumber */
@@ -7887,12 +8720,6 @@ export interface components {
              * Format: date-time
              */
             createdAt: string;
-            /** Customerid */
-            customerId: string | null;
-            /** Customerlabel */
-            customerLabel: string | null;
-            /** Customerlocality */
-            customerLocality: string | null;
             /** Deliverydate */
             deliveryDate: string | null;
             /** Discountamount */
@@ -7997,17 +8824,17 @@ export interface components {
          *     recomputed server-side, never taken from the client. The trade-in and
          *     the line items have their own routes, as on the offer.
          *
-         *     `customer_id` (KAN-307, Anto 2026-10-12, amending ADR-083): the buyer is
+         *     `contact_id` (KAN-307, Anto 2026-10-12, amending ADR-083): the buyer is
          *     set, changed or cleared while the contract is pending, exactly as the
          *     offer workspace does it — a contract started from a stock car gets its
          *     buyer here. Confirmation refuses a contract without one
-         *     (`missing_customer`).
+         *     (`missing_contact`).
          */
         ContractUpdate: {
             /** Configurationid */
             configurationId?: string | null;
-            /** Customerid */
-            customerId?: string | null;
+            /** Contactid */
+            contactId?: string | null;
             /** Discounttype */
             discountType?: ("percent" | "amount") | null;
             /** Discountvalue */
@@ -8071,833 +8898,6 @@ export interface components {
             /** Items */
             items: components["schemas"]["LegalDocumentRead"][];
         };
-        /** CustomerAddressCreate */
-        CustomerAddressCreate: {
-            /**
-             * Addresscountry
-             * @default CH
-             */
-            addressCountry?: string;
-            /** Addresshousenumber */
-            addressHouseNumber: string;
-            /** Addressline2 */
-            addressLine2?: string | null;
-            /** Addresslocality */
-            addressLocality: string;
-            /** Addresspostalcode */
-            addressPostalCode: string;
-            /** Addressstreet */
-            addressStreet: string;
-            addressType: components["schemas"]["AddressType"];
-            /**
-             * Consentgranted
-             * @default false
-             */
-            consentGranted?: boolean;
-            consentScope?: components["schemas"]["ConsentScope"] | null;
-            consentSource?: components["schemas"]["ConsentSource"] | null;
-            /**
-             * Isprimary
-             * @default false
-             */
-            isPrimary?: boolean;
-            /** Label */
-            label?: string | null;
-        };
-        /** CustomerAddressPage */
-        CustomerAddressPage: {
-            /** Items */
-            items: components["schemas"]["CustomerAddressRead"][];
-        };
-        /** CustomerAddressRead */
-        CustomerAddressRead: {
-            /** Addresscanton */
-            addressCanton: string | null;
-            /** Addresscountry */
-            addressCountry: string;
-            /** Addresshousenumber */
-            addressHouseNumber: string;
-            /** Addressline2 */
-            addressLine2: string | null;
-            /** Addresslocality */
-            addressLocality: string;
-            /** Addresspostalcode */
-            addressPostalCode: string;
-            /** Addressstreet */
-            addressStreet: string;
-            addressType: components["schemas"]["AddressType"];
-            /** Consentgranted */
-            consentGranted: boolean;
-            consentScope: components["schemas"]["ConsentScope"] | null;
-            consentSource: components["schemas"]["ConsentSource"] | null;
-            /** Consenttimestamp */
-            consentTimestamp: string | null;
-            /**
-             * Createdat
-             * Format: date-time
-             */
-            createdAt: string;
-            /**
-             * Customerid
-             * Format: uuid
-             */
-            customerId: string;
-            /** Donotuse */
-            doNotUse: boolean;
-            /** Donotusereason */
-            doNotUseReason: string | null;
-            /**
-             * Id
-             * Format: uuid
-             */
-            id: string;
-            /** Isprimary */
-            isPrimary: boolean;
-            /** Label */
-            label: string | null;
-            /**
-             * Updatedat
-             * Format: date-time
-             */
-            updatedAt: string;
-            /**
-             * Validfrom
-             * Format: date-time
-             */
-            validFrom: string;
-            /** Validto */
-            validTo: string | null;
-        };
-        /** CustomerAddressUpdate */
-        CustomerAddressUpdate: {
-            /** Addresscountry */
-            addressCountry?: string | null;
-            /** Addresshousenumber */
-            addressHouseNumber?: string | null;
-            /** Addressline2 */
-            addressLine2?: string | null;
-            /** Addresslocality */
-            addressLocality?: string | null;
-            /** Addresspostalcode */
-            addressPostalCode?: string | null;
-            /** Addressstreet */
-            addressStreet?: string | null;
-            addressType?: components["schemas"]["AddressType"] | null;
-            /** Consentgranted */
-            consentGranted?: boolean | null;
-            consentScope?: components["schemas"]["ConsentScope"] | null;
-            consentSource?: components["schemas"]["ConsentSource"] | null;
-            /** Donotuse */
-            doNotUse?: boolean | null;
-            /** Donotusereason */
-            doNotUseReason?: string | null;
-            /** Isprimary */
-            isPrimary?: boolean | null;
-            /** Label */
-            label?: string | null;
-            /** Validto */
-            validTo?: string | null;
-        };
-        /**
-         * CustomerAdvisorOption
-         * @description One option for the customer record's advisor picker (KAN-50 / D-24)
-         *     — someone who may advise in the ACTING dealership: an active or invited
-         *     user homed there or an active member of it (KAN-410). `label` is the
-         *     same `First Last` denormalised into `Customer.advisor_label` on
-         *     assignment.
-         */
-        CustomerAdvisorOption: {
-            /**
-             * Id
-             * Format: uuid
-             */
-            id: string;
-            /** Label */
-            label: string;
-        };
-        /** CustomerAdvisorOptionList */
-        CustomerAdvisorOptionList: {
-            /** Items */
-            items: components["schemas"]["CustomerAdvisorOption"][];
-        };
-        /**
-         * CustomerCreate
-         * @description customer_type is immutable after creation (not settable via
-         *     CustomerUpdate below) — gates which of the individual-only
-         *     (first_name/last_name/birth_date/nationality) vs business-only
-         *     (company_name/legal_form/tax_id) fields apply, enforced by
-         *     _validate_customer_type_fields.
-         *
-         *     `customer_number` is absent by design: it is allocated by the server
-         *     (D-02) and is immutable, so a client can neither choose nor change it.
-         */
-        CustomerCreate: {
-            /** Addresses */
-            addresses?: components["schemas"]["CustomerAddressCreate"][];
-            /** Advisorid */
-            advisorId?: string | null;
-            /** Birthdate */
-            birthDate?: string | null;
-            /** Companyname */
-            companyName?: string | null;
-            /** Contactgroups */
-            contactGroups?: string[];
-            /** Creditlimit */
-            creditLimit?: number | string | null;
-            /** Customersince */
-            customerSince?: string | null;
-            /** @default individual */
-            customerType?: components["schemas"]["CustomerType"];
-            /** Emails */
-            emails?: components["schemas"]["CustomerEmailCreate"][];
-            /** Firstname */
-            firstName?: string | null;
-            /** @default unspecified */
-            gender?: components["schemas"]["Gender"];
-            /** Iban */
-            iban?: string | null;
-            language: components["schemas"]["Language"];
-            /** Lastname */
-            lastName?: string | null;
-            legalForm?: components["schemas"]["LegalForm"] | null;
-            /** @default prospect */
-            lifecycleStatus?: components["schemas"]["CustomerLifecycleStatus"];
-            /**
-             * Marketingconsent
-             * @default false
-             */
-            marketingConsent?: boolean;
-            /** Nationality */
-            nationality?: string | null;
-            /**
-             * Newsletter
-             * @default false
-             */
-            newsletter?: boolean;
-            /** Nextfollowup */
-            nextFollowUp?: string | null;
-            /** Notes */
-            notes?: string | null;
-            paymentTerms?: components["schemas"]["PaymentTerms"] | null;
-            /** Phones */
-            phones?: components["schemas"]["CustomerPhoneCreate"][];
-            preferredChannel?: components["schemas"]["PreferredChannel"] | null;
-            /** Roles */
-            roles?: components["schemas"]["ContactRole"][];
-            salutation?: components["schemas"]["Salutation"] | null;
-            source?: components["schemas"]["CustomerSource"] | null;
-            /** Sourceref */
-            sourceRef?: string | null;
-            /** Tags */
-            tags?: string[];
-            /**
-             * Taxid
-             * @description Write-only; never returned by read endpoints.
-             */
-            taxId?: string | null;
-            /** Title */
-            title?: string | null;
-            /**
-             * Vatregistered
-             * @default false
-             */
-            vatRegistered?: boolean;
-            /**
-             * Vatstatusconfirmed
-             * @default false
-             */
-            vatStatusConfirmed?: boolean;
-            /** Website */
-            website?: string | null;
-        };
-        /**
-         * CustomerCreditBlockRequest
-         * @description WP-8 PR-6 (ADR-065/S-D19).
-         */
-        CustomerCreditBlockRequest: {
-            /** Blocked */
-            blocked: boolean;
-            /** Reason */
-            reason?: string | null;
-        };
-        /**
-         * CustomerDuplicateCandidate
-         * @description Reshaped in Phase B (D-07). The previous shape required first_name and
-         *     last_name, which meant a *business* customer among the candidates raised
-         *     a serialisation error — i.e. duplicate detection crashed precisely when
-         *     it found a company. Both name fields are now optional, company_name and
-         *     customer_type are included so the UI can label the row, and the primary
-         *     contact details come along so the advisor can recognise the person
-         *     without opening the record.
-         */
-        CustomerDuplicateCandidate: {
-            /** Companyname */
-            companyName?: string | null;
-            /** Customernumber */
-            customerNumber: string;
-            customerType: components["schemas"]["CustomerType"];
-            /** Firstname */
-            firstName?: string | null;
-            /**
-             * Id
-             * Format: uuid
-             */
-            id: string;
-            /** Lastname */
-            lastName?: string | null;
-            lifecycleStatus: components["schemas"]["CustomerLifecycleStatus"];
-            /** Match */
-            match: string;
-            /** Primaryemail */
-            primaryEmail?: string | null;
-            /** Primaryphone */
-            primaryPhone?: string | null;
-        };
-        /** CustomerDuplicateCandidateList */
-        CustomerDuplicateCandidateList: {
-            /** Items */
-            items: components["schemas"]["CustomerDuplicateCandidate"][];
-        };
-        /** CustomerEmailCreate */
-        CustomerEmailCreate: {
-            /**
-             * Consentgranted
-             * @default false
-             */
-            consentGranted?: boolean;
-            consentScope?: components["schemas"]["ConsentScope"] | null;
-            consentSource?: components["schemas"]["ConsentSource"] | null;
-            /**
-             * Emailaddress
-             * Format: email
-             */
-            emailAddress: string;
-            emailType: components["schemas"]["EmailType"];
-            /**
-             * Isprimary
-             * @default false
-             */
-            isPrimary?: boolean;
-            /** Label */
-            label?: string | null;
-        };
-        /** CustomerEmailPage */
-        CustomerEmailPage: {
-            /** Items */
-            items: components["schemas"]["CustomerEmailRead"][];
-        };
-        /** CustomerEmailRead */
-        CustomerEmailRead: {
-            /** Consentgranted */
-            consentGranted: boolean;
-            consentScope: components["schemas"]["ConsentScope"] | null;
-            consentSource: components["schemas"]["ConsentSource"] | null;
-            /** Consenttimestamp */
-            consentTimestamp: string | null;
-            /**
-             * Createdat
-             * Format: date-time
-             */
-            createdAt: string;
-            /**
-             * Customerid
-             * Format: uuid
-             */
-            customerId: string;
-            /** Donotuse */
-            doNotUse: boolean;
-            /** Donotusereason */
-            doNotUseReason: string | null;
-            /** Emailaddress */
-            emailAddress: string;
-            emailType: components["schemas"]["EmailType"];
-            /**
-             * Id
-             * Format: uuid
-             */
-            id: string;
-            /** Isprimary */
-            isPrimary: boolean;
-            /** Label */
-            label: string | null;
-            /**
-             * Updatedat
-             * Format: date-time
-             */
-            updatedAt: string;
-            /**
-             * Validfrom
-             * Format: date-time
-             */
-            validFrom: string;
-            /** Validto */
-            validTo: string | null;
-        };
-        /** CustomerEmailUpdate */
-        CustomerEmailUpdate: {
-            /** Consentgranted */
-            consentGranted?: boolean | null;
-            consentScope?: components["schemas"]["ConsentScope"] | null;
-            consentSource?: components["schemas"]["ConsentSource"] | null;
-            /** Donotuse */
-            doNotUse?: boolean | null;
-            /** Donotusereason */
-            doNotUseReason?: string | null;
-            /** Emailaddress */
-            emailAddress?: string | null;
-            emailType?: components["schemas"]["EmailType"] | null;
-            /** Isprimary */
-            isPrimary?: boolean | null;
-            /** Label */
-            label?: string | null;
-            /** Validto */
-            validTo?: string | null;
-        };
-        /** CustomerExternalIdCreate */
-        CustomerExternalIdCreate: {
-            /** Externalid */
-            externalId: string;
-            /** Systemname */
-            systemName: string;
-        };
-        /** CustomerExternalIdPage */
-        CustomerExternalIdPage: {
-            /** Items */
-            items: components["schemas"]["CustomerExternalIdRead"][];
-        };
-        /** CustomerExternalIdRead */
-        CustomerExternalIdRead: {
-            /**
-             * Createdat
-             * Format: date-time
-             */
-            createdAt: string;
-            /**
-             * Customerid
-             * Format: uuid
-             */
-            customerId: string;
-            /** Externalid */
-            externalId: string;
-            /**
-             * Id
-             * Format: uuid
-             */
-            id: string;
-            /** Systemname */
-            systemName: string;
-            /**
-             * Updatedat
-             * Format: date-time
-             */
-            updatedAt: string;
-        };
-        /** CustomerExternalIdUpdate */
-        CustomerExternalIdUpdate: {
-            /** Externalid */
-            externalId?: string | null;
-            /** Systemname */
-            systemName?: string | null;
-        };
-        /**
-         * CustomerHistoryPage
-         * @description KAN-371: the customer's audit events plus `labels`, id → display label
-         *     for the ids they carry (a Betrieb, a user, another customer, a vehicle)
-         *     and their actors, resolved on read. An id absent from `labels` names
-         *     nothing this group can see.
-         */
-        CustomerHistoryPage: {
-            /** Items */
-            items: components["schemas"]["AuditEventRead"][];
-            /** Labels */
-            labels?: {
-                [key: string]: string;
-            };
-            /** Nextcursor */
-            nextCursor: string | null;
-        };
-        /**
-         * CustomerLifecycleStatus
-         * @enum {string}
-         */
-        CustomerLifecycleStatus: "prospect" | "active" | "inactive" | "merged" | "do_not_contact";
-        /** CustomerMergeRequest */
-        CustomerMergeRequest: {
-            /**
-             * Duplicateofcustomerid
-             * Format: uuid
-             */
-            duplicateOfCustomerId: string;
-        };
-        /** CustomerPage */
-        CustomerPage: {
-            /** Items */
-            items: components["schemas"]["CustomerRead"][];
-            /** Nextcursor */
-            nextCursor: string | null;
-            /** Total */
-            total: number;
-            /** Totalisestimate */
-            totalIsEstimate: boolean;
-        };
-        /** CustomerPhoneCreate */
-        CustomerPhoneCreate: {
-            /**
-             * Consentgranted
-             * @default false
-             */
-            consentGranted?: boolean;
-            consentScope?: components["schemas"]["ConsentScope"] | null;
-            consentSource?: components["schemas"]["ConsentSource"] | null;
-            /**
-             * Isprimary
-             * @default false
-             */
-            isPrimary?: boolean;
-            /** Label */
-            label?: string | null;
-            /** Phonee164 */
-            phoneE164: string;
-            phoneType: components["schemas"]["PhoneType"];
-        };
-        /** CustomerPhonePage */
-        CustomerPhonePage: {
-            /** Items */
-            items: components["schemas"]["CustomerPhoneRead"][];
-        };
-        /** CustomerPhoneRead */
-        CustomerPhoneRead: {
-            /** Consentgranted */
-            consentGranted: boolean;
-            consentScope: components["schemas"]["ConsentScope"] | null;
-            consentSource: components["schemas"]["ConsentSource"] | null;
-            /** Consenttimestamp */
-            consentTimestamp: string | null;
-            /**
-             * Createdat
-             * Format: date-time
-             */
-            createdAt: string;
-            /**
-             * Customerid
-             * Format: uuid
-             */
-            customerId: string;
-            /** Donotuse */
-            doNotUse: boolean;
-            /** Donotusereason */
-            doNotUseReason: string | null;
-            /**
-             * Id
-             * Format: uuid
-             */
-            id: string;
-            /** Isprimary */
-            isPrimary: boolean;
-            /** Label */
-            label: string | null;
-            /** Phonee164 */
-            phoneE164: string;
-            phoneType: components["schemas"]["PhoneType"];
-            /**
-             * Updatedat
-             * Format: date-time
-             */
-            updatedAt: string;
-            /**
-             * Validfrom
-             * Format: date-time
-             */
-            validFrom: string;
-            /** Validto */
-            validTo: string | null;
-        };
-        /** CustomerPhoneUpdate */
-        CustomerPhoneUpdate: {
-            /** Consentgranted */
-            consentGranted?: boolean | null;
-            consentScope?: components["schemas"]["ConsentScope"] | null;
-            consentSource?: components["schemas"]["ConsentSource"] | null;
-            /** Donotuse */
-            doNotUse?: boolean | null;
-            /** Donotusereason */
-            doNotUseReason?: string | null;
-            /** Isprimary */
-            isPrimary?: boolean | null;
-            /** Label */
-            label?: string | null;
-            /** Phonee164 */
-            phoneE164?: string | null;
-            phoneType?: components["schemas"]["PhoneType"] | null;
-            /** Validto */
-            validTo?: string | null;
-        };
-        /** CustomerRead */
-        CustomerRead: {
-            address?: components["schemas"]["CustomerAddressRead"] | null;
-            /** Advisorid */
-            advisorId: string | null;
-            /** Advisorlabel */
-            advisorLabel: string | null;
-            /** Advisorlabelrefreshedat */
-            advisorLabelRefreshedAt: string | null;
-            /** Birthdate */
-            birthDate: string | null;
-            /** Companyname */
-            companyName: string | null;
-            /** Contactgroups */
-            contactGroups?: string[];
-            /**
-             * Createdat
-             * Format: date-time
-             */
-            createdAt: string;
-            /** Createdby */
-            createdBy: string | null;
-            /** Creditblock */
-            creditBlock: boolean;
-            /** Creditblockreason */
-            creditBlockReason: string | null;
-            /** Creditblockedat */
-            creditBlockedAt: string | null;
-            /** Creditlimit */
-            creditLimit: string | null;
-            /** Customernumber */
-            customerNumber: string;
-            /** Customersince */
-            customerSince: string | null;
-            customerType: components["schemas"]["CustomerType"];
-            /** Dealershipid */
-            dealershipId: string | null;
-            /** Duplicateofcustomerid */
-            duplicateOfCustomerId: string | null;
-            /** Email */
-            email?: string | null;
-            /** Emailsecondary */
-            emailSecondary?: string | null;
-            /** Firstname */
-            firstName: string | null;
-            gender: components["schemas"]["Gender"];
-            /**
-             * Groupid
-             * Format: uuid
-             */
-            groupId: string;
-            /** Iban */
-            iban: string | null;
-            /**
-             * Id
-             * Format: uuid
-             */
-            id: string;
-            language: components["schemas"]["Language"];
-            /** Lastname */
-            lastName: string | null;
-            legalForm: components["schemas"]["LegalForm"] | null;
-            lifecycleStatus: components["schemas"]["CustomerLifecycleStatus"];
-            /** Marketingconsent */
-            marketingConsent: boolean;
-            /** Nationality */
-            nationality: string | null;
-            /** Newsletter */
-            newsletter: boolean;
-            /** Nextfollowup */
-            nextFollowUp: string | null;
-            /** Notes */
-            notes: string | null;
-            paymentTerms: components["schemas"]["PaymentTerms"] | null;
-            /** Phonelandline */
-            phoneLandline?: string | null;
-            /** Phonemobile */
-            phoneMobile?: string | null;
-            /** Phonework */
-            phoneWork?: string | null;
-            preferredChannel: components["schemas"]["PreferredChannel"] | null;
-            /** Roles */
-            roles?: components["schemas"]["ContactRole"][];
-            salutation: components["schemas"]["Salutation"] | null;
-            source: components["schemas"]["CustomerSource"] | null;
-            /** Sourceref */
-            sourceRef: string | null;
-            /** Tags */
-            tags?: string[];
-            /** Title */
-            title: string | null;
-            /**
-             * Updatedat
-             * Format: date-time
-             */
-            updatedAt: string;
-            /** Updatedby */
-            updatedBy: string | null;
-            /** Vatregistered */
-            vatRegistered: boolean;
-            /** Vatstatusconfirmed */
-            vatStatusConfirmed: boolean;
-            /** Version */
-            version: number;
-            /** Website */
-            website: string | null;
-        };
-        /**
-         * CustomerSource
-         * @enum {string}
-         */
-        CustomerSource: "walk_in" | "phone" | "web_lead" | "marketplace" | "other";
-        /**
-         * CustomerType
-         * @enum {string}
-         */
-        CustomerType: "individual" | "business";
-        /**
-         * CustomerUpdate
-         * @description duplicate_of_customer_id is not settable here — only through
-         *     POST /v1/customers/{id}/merge, which sets it atomically with
-         *     lifecycle_status and audit-logs both source IDs. customer_type and
-         *     customer_number are not settable either (immutable after creation) —
-         *     individual/business-only field mutual exclusivity is checked in the
-         *     service layer against the existing row's customer_type, since it isn't
-         *     known at the schema level for a partial PATCH body.
-         *
-         *     Contact details are not editable here either: they are managed through
-         *     the /customers/{id}/phones, /customers/{id}/emails and
-         *     /customers/{id}/addresses endpoints, which own the "exactly one primary
-         *     per type" invariant (ADR-067, WP-3 PR-5 — extended from "per customer"
-         *     to "per type" for phones/emails at the same time addresses joined them).
-         */
-        CustomerUpdate: {
-            /** Advisorid */
-            advisorId?: string | null;
-            /** Birthdate */
-            birthDate?: string | null;
-            /** Companyname */
-            companyName?: string | null;
-            /** Contactgroups */
-            contactGroups?: string[] | null;
-            /** Creditlimit */
-            creditLimit?: number | string | null;
-            /** Customersince */
-            customerSince?: string | null;
-            /** Firstname */
-            firstName?: string | null;
-            gender?: components["schemas"]["Gender"] | null;
-            /** Iban */
-            iban?: string | null;
-            language?: components["schemas"]["Language"] | null;
-            /** Lastname */
-            lastName?: string | null;
-            legalForm?: components["schemas"]["LegalForm"] | null;
-            lifecycleStatus?: components["schemas"]["CustomerLifecycleStatus"] | null;
-            /** Marketingconsent */
-            marketingConsent?: boolean | null;
-            /** Nationality */
-            nationality?: string | null;
-            /** Newsletter */
-            newsletter?: boolean | null;
-            /** Nextfollowup */
-            nextFollowUp?: string | null;
-            /** Notes */
-            notes?: string | null;
-            paymentTerms?: components["schemas"]["PaymentTerms"] | null;
-            preferredChannel?: components["schemas"]["PreferredChannel"] | null;
-            /** Roles */
-            roles?: components["schemas"]["ContactRole"][] | null;
-            salutation?: components["schemas"]["Salutation"] | null;
-            source?: components["schemas"]["CustomerSource"] | null;
-            /** Sourceref */
-            sourceRef?: string | null;
-            /** Tags */
-            tags?: string[] | null;
-            /**
-             * Taxid
-             * @description Write-only; never returned by read endpoints.
-             */
-            taxId?: string | null;
-            /** Title */
-            title?: string | null;
-            /** Vatregistered */
-            vatRegistered?: boolean | null;
-            /** Vatstatusconfirmed */
-            vatStatusConfirmed?: boolean | null;
-            /** Website */
-            website?: string | null;
-        };
-        /**
-         * CustomerVehicleCreate
-         * @description role is not offered on update (see CustomerVehicleUpdate) — an
-         *     ownership/keeper/driver change hands is a new row with its own
-         *     effective_from, per FR-10 and VehicleParty's own docstring.
-         */
-        CustomerVehicleCreate: {
-            /** Effectivefrom */
-            effectiveFrom?: string | null;
-            /** Effectiveto */
-            effectiveTo?: string | null;
-            role: components["schemas"]["VehiclePartyRole"];
-            /**
-             * Vehicleid
-             * Format: uuid
-             */
-            vehicleId: string;
-        };
-        /** CustomerVehiclePage */
-        CustomerVehiclePage: {
-            /** Items */
-            items: components["schemas"]["CustomerVehicleRead"][];
-        };
-        /** CustomerVehicleRead */
-        CustomerVehicleRead: {
-            /**
-             * Createdat
-             * Format: date-time
-             */
-            createdAt: string;
-            /**
-             * Customerid
-             * Format: uuid
-             */
-            customerId: string;
-            /**
-             * Effectivefrom
-             * Format: date-time
-             */
-            effectiveFrom: string;
-            /** Effectiveto */
-            effectiveTo: string | null;
-            /**
-             * Id
-             * Format: uuid
-             */
-            id: string;
-            /** Mergedintocustomerid */
-            mergedIntoCustomerId?: string | null;
-            /** Mergedintovehicleid */
-            mergedIntoVehicleId?: string | null;
-            /** Mergedintovehiclevin */
-            mergedIntoVehicleVin?: string | null;
-            /** Otherparties */
-            otherParties?: components["schemas"]["OtherVehiclePartySummary"][];
-            role: components["schemas"]["VehiclePartyRole"];
-            stockItem?: components["schemas"]["VehicleStockLinkSummary"] | null;
-            /**
-             * Updatedat
-             * Format: date-time
-             */
-            updatedAt: string;
-            vehicle: components["schemas"]["VehiclePartySummary"];
-            /**
-             * Vehicleid
-             * Format: uuid
-             */
-            vehicleId: string;
-        };
-        /** CustomerVehicleUpdate */
-        CustomerVehicleUpdate: {
-            /** Effectivefrom */
-            effectiveFrom?: string | null;
-            /** Effectiveto */
-            effectiveTo?: string | null;
-        };
         /** DealPage */
         DealPage: {
             /** Items */
@@ -8911,6 +8911,12 @@ export interface components {
         };
         /** DealRead */
         DealRead: {
+            /** Contactid */
+            contactId: string | null;
+            /** Contactlabel */
+            contactLabel: string | null;
+            /** Contactlocality */
+            contactLocality: string | null;
             /** Contractid */
             contractId: string | null;
             /** Contractnumber */
@@ -8920,12 +8926,6 @@ export interface components {
              * Format: date-time
              */
             createdAt: string;
-            /** Customerid */
-            customerId: string | null;
-            /** Customerlabel */
-            customerLabel: string | null;
-            /** Customerlocality */
-            customerLocality: string | null;
             /** Documentscount */
             documentsCount: number;
             /** Entitytype */
@@ -9017,7 +9017,7 @@ export interface components {
          * DealershipAddress
          * @description The registered seat (D-A-25). The postal code is validated for the
          *     country — four digits for CH, a plausible code of up to 12 characters
-         *     elsewhere (the same rule the customer address applies, D-11). No minimum
+         *     elsewhere (the same rule the contact address applies, D-11). No minimum
          *     lengths: the model is also the read shape, and a row the old API
          *     accepted must still read.
          */
@@ -9371,7 +9371,7 @@ export interface components {
         };
         /**
          * DocumentLinkSenderRead
-         * @description KAN-217 PR-7 (ADR-208): whose page the customer is on.
+         * @description KAN-217 PR-7 (ADR-208): whose page the contact is on.
          */
         DocumentLinkSenderRead: {
             /** Haslogo */
@@ -9417,7 +9417,7 @@ export interface components {
         };
         /**
          * DocumentSendRequest
-         * @description KAN-217 PR-5: send one document to its customer. `text` replaces the
+         * @description KAN-217 PR-5: send one document to its contact. `text` replaces the
          *     standard text on e-mail and SMS; WhatsApp sends its approved template.
          */
         DocumentSendRequest: {
@@ -9586,7 +9586,7 @@ export interface components {
          * EmailType
          * @description Remapped in WP-3 PR-5 (ADR-067): PRIVATE->PERSONAL, BUSINESS->WORK —
          *     same concept either way, "reachable at an address tied to their job/
-         *     company," whether the customer is an individual or a business.
+         *     company," whether the contact is an individual or a business.
          *     INVOICING is new, no existing data.
          * @enum {string}
          */
@@ -10017,7 +10017,7 @@ export interface components {
         };
         /**
          * Language
-         * @description The customer's correspondence language (Customer PRD D-01/FR-13).
+         * @description The contact's correspondence language (Contact PRD D-01/FR-13).
          *     Fixed to the three Swiss national languages plus English — this is the
          *     set the application ships translations for, not a per-tenant list.
          * @enum {string}
@@ -10175,10 +10175,10 @@ export interface components {
             /** Basis */
             basis: string;
             /**
-             * Customerid
+             * Contactid
              * Format: uuid
              */
-            customerId: string;
+            contactId: string;
             /**
              * Grantedat
              * Format: date-time
@@ -10291,7 +10291,7 @@ export interface components {
         LegalDocumentType: "tos" | "dpa";
         /**
          * LegalForm
-         * @description Fixed Swiss legal-entity taxonomy (Customer PRD) — hardcoded, not
+         * @description Fixed Swiss legal-entity taxonomy (Contact PRD) — hardcoded, not
          *     reference-data, same reasoning as Dealership.FranchiseType: this is a legal
          *     classification, not a per-tenant configurable list.
          * @enum {string}
@@ -11370,8 +11370,8 @@ export interface components {
         };
         /**
          * NumberRangeDocumentType
-         * @description The eleven document types the PRD's table names. Customer numbers stay
-         *     per group (`customer_number_sequence`) and are not here.
+         * @description The eleven document types the PRD's table names. Contact numbers stay
+         *     per group (`contact_number_sequence`) and are not here.
          * @enum {string}
          */
         NumberRangeDocumentType: "offer" | "order_confirmation" | "sales_contract" | "purchase_contract" | "invoice" | "credit_note" | "dunning" | "service_order" | "parts_order" | "workshop_job" | "stock_number";
@@ -11533,6 +11533,12 @@ export interface components {
             configurationId?: string | null;
             /** Configurationlabel */
             configurationLabel?: string | null;
+            /** Contactid */
+            contactId: string | null;
+            /** Contactlabel */
+            contactLabel: string | null;
+            /** Contactlocality */
+            contactLocality: string | null;
             /** Containers */
             containers?: components["schemas"]["OfferContainerState"][];
             /** Copiedfromofferid */
@@ -11544,12 +11550,6 @@ export interface components {
              * Format: date-time
              */
             createdAt: string;
-            /** Customerid */
-            customerId: string | null;
-            /** Customerlabel */
-            customerLabel: string | null;
-            /** Customerlocality */
-            customerLocality: string | null;
             /** Discountamount */
             discountAmount: string | null;
             /** Discounttype */
@@ -11653,8 +11653,8 @@ export interface components {
         OfferUpdate: {
             /** Configurationid */
             configurationId?: string | null;
-            /** Customerid */
-            customerId?: string | null;
+            /** Contactid */
+            contactId?: string | null;
             /** Discounttype */
             discountType?: ("percent" | "amount") | null;
             /** Discountvalue */
@@ -11878,18 +11878,18 @@ export interface components {
          * OtherVehiclePartySummary
          * @description KAN-49 / FR-19 — the other open party rows on the SAME vehicle, so a
          *     seller taking a leased company car in trade sees owner/keeper/driver as
-         *     three different people, not just "this customer's car". Live-resolved
-         *     (intra-context: VehicleParty.customer_id -> another Customer row), not
+         *     three different people, not just "this contact's car". Live-resolved
+         *     (intra-context: VehicleParty.contact_id -> another Contact row), not
          *     the three-column denormalization pattern — that pattern is for
-         *     CROSS-context references (rule #2/#3); this is customer -> customer.
+         *     CROSS-context references (rule #2/#3); this is contact -> contact.
          *     Closed rows are excluded — they are not parties now.
          */
         OtherVehiclePartySummary: {
             /**
-             * Customerid
+             * Contactid
              * Format: uuid
              */
-            customerId: string;
+            contactId: string;
             /** Displayname */
             displayName: string;
             /** Effectivefrom */
@@ -11984,7 +11984,7 @@ export interface components {
          * OwnershipTransfersRequest
          * @description A hand-over outside the deactivation: the retry after a module failed,
          *     or a plain hand-over for a user who stays. `reason` lands on platform's
-         *     audit row and on the modules' own (a customer's advisor change, say).
+         *     audit row and on the modules' own (a contact's advisor change, say).
          */
         OwnershipTransfersRequest: {
             /** Reason */
@@ -12063,7 +12063,7 @@ export interface components {
         PayloadKind: "success" | "error";
         /**
          * PaymentTerms
-         * @description FR-17 / FR-18 region 4. The customer's default terms, carried onto
+         * @description FR-17 / FR-18 region 4. The contact's default terms, carried onto
          *     the invoice by Finance. A per-deal override belongs to the deal, not
          *     here. Hardcoded, not reference data — a fixed commercial vocabulary,
          *     same call as `LegalForm`.
@@ -12205,10 +12205,10 @@ export interface components {
         };
         /**
          * PreferredChannel
-         * @description How the customer wants to be reached. Sole contact-preference field
+         * @description How the contact wants to be reached. Sole contact-preference field
          *     since Phase B — the old `preferred_contact_method` (email/phone/sms)
          *     overlapped with it and was dropped (D-03). "Which specific number" is
-         *     answered by CustomerPhone.is_primary, not by a second enum.
+         *     answered by ContactPhone.is_primary, not by a second enum.
          *
          *     D-21 (ruled 2026-09-07): the vocabulary is `email` / `phone` / `post` /
          *     `whatsapp`. WhatsApp is a real Swiss-dealership channel that was absent,
@@ -12710,11 +12710,11 @@ export interface components {
             /** Reason */
             reason: string;
             /**
-             * Returnedtocustomer
-             * @description KAN-572 (Anto, 2026-11-07, option C): the trade-in went back to the customer who traded it in, so the customer context reopens that customer as the car's owner and keeper. Only a trade-in's car (422 `storno_return_not_trade_in` otherwise); false — the default — leaves the customer's history as the purchase wrote it: the customer did hand the car over.
+             * Returnedtocontact
+             * @description KAN-572 (Anto, 2026-11-07, option C): the trade-in went back to the contact who traded it in, so the contact context reopens that contact as the car's owner and keeper. Only a trade-in's car (422 `storno_return_not_trade_in` otherwise); false — the default — leaves the contact's history as the purchase wrote it: the contact did hand the car over.
              * @default false
              */
-            returnedToCustomer?: boolean;
+            returnedToContact?: boolean;
         };
         /**
          * PushConfigRead
@@ -13088,7 +13088,7 @@ export interface components {
         };
         /**
          * Salutation
-         * @description Drives the letter opening in the customer's language (D-15).
+         * @description Drives the letter opening in the contact's language (D-15).
          *     NEUTRAL produces a gender-neutral salutation rather than guessing.
          * @enum {string}
          */
@@ -13150,8 +13150,8 @@ export interface components {
         SendOptionsRead: {
             /** Channels */
             channels: components["schemas"]["SendChannelOptionRead"][];
-            /** Customerlabel */
-            customerLabel: string;
+            /** Contactlabel */
+            contactLabel: string;
             /**
              * Documentid
              * Format: uuid
@@ -13870,7 +13870,7 @@ export interface components {
             stockNumber: string;
             /**
              * Suppliercontactid
-             * @description KAN-465: the supplier contact the purchase booking named (customer context, a contact with the supplier role). Null before a booking and on one booked before KAN-465, which keeps only its label.
+             * @description KAN-465: the supplier contact the purchase booking named (contact context, a contact with the supplier role). Null before a booking and on one booked before KAN-465, which keeps only its label.
              */
             supplierContactId?: string | null;
             /** Supplierisvatregistered */
@@ -13881,10 +13881,10 @@ export interface components {
              */
             supplierLabel?: string | null;
             /**
-             * Tradeincustomerid
-             * @description KAN-465: the customer who traded the car in (KAN-632, from Sales' confirmation) — «Einkauf erfassen» offers this contact as the supplier with one click (never preselected). Null on every other item.
+             * Tradeincontactid
+             * @description KAN-465: the contact who traded the car in (KAN-632, from Sales' confirmation) — «Einkauf erfassen» offers this contact as the supplier with one click (never preselected). Null on every other item.
              */
-            tradeInCustomerId?: string | null;
+            tradeInContactId?: string | null;
             /**
              * Tradeinsignedat
              * @description KAN-461 (ADR-060): when the trade-in's contract was signed — a grid column. Null on every other item.
@@ -14114,7 +14114,7 @@ export interface components {
          * SwissLanguage
          * @description DE/FR/IT/EN — the four languages the application ships translations
          *     for. See this module's own docstring for why this is a second
-         *     definition of the same four values as app.customer's Language, not a
+         *     definition of the same four values as app.contact's Language, not a
          *     shared import.
          * @enum {string}
          */
@@ -14173,11 +14173,11 @@ export interface components {
             /** Canton */
             canton?: string | null;
             /**
-             * Customerid
+             * Contactid
              * @deprecated
-             * @description Deprecated: ignored apart from a 404 when the customer is outside the caller's group. The former owner of a bought trade-in is always the contract's customer.
+             * @description Deprecated: ignored apart from a 404 when the contact is outside the caller's group. The former owner of a bought trade-in is always the contract's contact.
              */
-            customerId?: string | null;
+            contactId?: string | null;
             /** Plate */
             plate?: string | null;
             /** Vehiclelabel */
@@ -14719,8 +14719,8 @@ export interface components {
         ValuationCreate: {
             /** Configurationid */
             configurationId?: string | null;
-            /** Customerid */
-            customerId?: string | null;
+            /** Contactid */
+            contactId?: string | null;
             /** Deductions */
             deductions?: components["schemas"]["DeductionInput"][];
             /** Finaloffer */
@@ -14780,6 +14780,10 @@ export interface components {
             configurationId?: string | null;
             /** Configurationlabel */
             configurationLabel?: string | null;
+            /** Contactid */
+            contactId: string | null;
+            /** Contactlabel */
+            contactLabel: string | null;
             /**
              * Createdat
              * Format: date-time
@@ -14787,10 +14791,6 @@ export interface components {
             createdAt: string;
             /** Createdby */
             createdBy: string | null;
-            /** Customerid */
-            customerId: string | null;
-            /** Customerlabel */
-            customerLabel: string | null;
             /** Deductions */
             deductions?: components["schemas"]["DeductionRead"][];
             /** Finaloffer */
@@ -14940,16 +14940,16 @@ export interface components {
         };
         /**
          * VehicleAllocatePartyRequest
-         * @description FR-V-05: "Allocate to customer" — the vehicle-side entry point.
-         *     Same allocate_vehicle_party call the customer-side dialog uses
-         *     (Customers FR-19) — one dialog, not two that drift.
+         * @description FR-V-05: "Allocate to contact" — the vehicle-side entry point.
+         *     Same allocate_vehicle_party call the contact-side dialog uses
+         *     (Contacts FR-19) — one dialog, not two that drift.
          */
         VehicleAllocatePartyRequest: {
             /**
-             * Customerid
+             * Contactid
              * Format: uuid
              */
-            customerId: string;
+            contactId: string;
             role: components["schemas"]["VehiclePartyRole"];
         };
         /** VehicleMdmCreate */
@@ -15133,10 +15133,10 @@ export interface components {
         /** VehiclePartyAllocationRead */
         VehiclePartyAllocationRead: {
             /**
-             * Customerid
+             * Contactid
              * Format: uuid
              */
-            customerId: string;
+            contactId: string;
             /** Displayname */
             displayName?: string | null;
             /**
@@ -15168,7 +15168,7 @@ export interface components {
          * @description Just enough for the 360 view's Vehicles tab to render a row — not a
          *     full VehicleRead, which also carries the custody-visibility-redacted
          *     `status`/`currentCustodianPartnerId` fields that don't apply to "which
-         *     customer is which party" and would require re-implementing that
+         *     contact is which party" and would require re-implementing that
          *     redaction rule here for no reason.
          *
          *     KAN-31: make/model/modelYear are nullable, unlike the legacy Vehicle
@@ -16799,42 +16799,42 @@ export interface operations {
             };
         };
     };
-    list_customers_v1_customers_get: {
+    list_contacts_v1_contacts_get: {
         parameters: {
             query?: {
                 q?: string | null;
-                lifecycle_status?: components["schemas"]["CustomerLifecycleStatus"] | null;
-                customer_type?: components["schemas"]["CustomerType"] | null;
+                lifecycle_status?: components["schemas"]["ContactLifecycleStatus"] | null;
+                contactType?: components["schemas"]["ContactType"] | null;
                 language?: components["schemas"]["Language"] | null;
                 canton?: string | null;
                 updated_since?: string | null;
-                /** @description KAN-458: customers last changed before the start of the day N days ago (Europe/Zurich) — the grid's relative «more than N days ago» filter, resolved against the server's clock, never the client's. */
+                /** @description KAN-458: contacts last changed before the start of the day N days ago (Europe/Zurich) — the grid's relative «more than N days ago» filter, resolved against the server's clock, never the client's. */
                 updated_more_than_days_ago?: number | null;
-                /** @description KAN-474: customers changed since the start of the day N days ago (Europe/Zurich) — the grid's «in the last N days»; with updated_more_than_days_ago=N it partitions the list. */
+                /** @description KAN-474: contacts changed since the start of the day N days ago (Europe/Zurich) — the grid's «in the last N days»; with updated_more_than_days_ago=N it partitions the list. */
                 updated_in_last_days?: number | null;
-                /** @description KAN-474: customers changed since the current day, week (Monday), month or year began in Europe/Zurich — the grid's «today», «this week», «this month», «this year», resolved server-side. */
+                /** @description KAN-474: contacts changed since the current day, week (Monday), month or year began in Europe/Zurich — the grid's «today», «this week», «this month», «this year», resolved server-side. */
                 updated_since_start_of?: components["schemas"]["CalendarPeriod"] | null;
                 include_merged?: boolean;
                 advisorUserId?: string | null;
-                /** @description KAN-200: customers with no advisor — the queue a leaver's hand-over fills. */
+                /** @description KAN-200: contacts with no advisor — the queue a leaver's hand-over fills. */
                 unassigned?: boolean;
-                /** @description KAN-476: customers whose lifecycle status is not this one. */
-                lifecycle_status_not?: components["schemas"]["CustomerLifecycleStatus"] | null;
-                /** @description KAN-476: customers not of this type. */
-                customer_type_not?: components["schemas"]["CustomerType"] | null;
-                /** @description KAN-476: customers whose language is not this one (none set included). */
+                /** @description KAN-476: contacts whose lifecycle status is not this one. */
+                lifecycle_status_not?: components["schemas"]["ContactLifecycleStatus"] | null;
+                /** @description KAN-476: contacts not of this type. */
+                contactTypeNot?: components["schemas"]["ContactType"] | null;
+                /** @description KAN-476: contacts whose language is not this one (none set included). */
                 language_not?: components["schemas"]["Language"] | null;
-                /** @description KAN-476: customers whose primary domicile is not in this canton (none recorded included). */
+                /** @description KAN-476: contacts whose primary domicile is not in this canton (none recorded included). */
                 canton_not?: string | null;
-                /** @description KAN-476: customers this user does not advise (unassigned ones included). */
+                /** @description KAN-476: contacts this user does not advise (unassigned ones included). */
                 advisorUserIdNot?: string | null;
-                /** @description KAN-476: customers that have an advisor — «ist nicht Nicht zugewiesen». */
+                /** @description KAN-476: contacts that have an advisor — «ist nicht Nicht zugewiesen». */
                 assigned?: boolean;
-                /** @description KAN-466: customers carrying this contact group (a code of the platform list contact_group). */
+                /** @description KAN-466: contacts carrying this contact group (a code of the platform list contact_group). */
                 contactGroup?: string | null;
-                /** @description KAN-466: customers not carrying this contact group (customers with none included). */
+                /** @description KAN-466: contacts not carrying this contact group (contacts with none included). */
                 contactGroupNot?: string | null;
-                /** @description KAN-464: contacts holding this role today (`customer`, `supplier`). */
+                /** @description KAN-464: contacts holding this role today (`contact`, `supplier`). */
                 role?: components["schemas"]["ContactRole"] | null;
                 /** @description KAN-464: contacts not holding this role today. */
                 roleNot?: components["schemas"]["ContactRole"] | null;
@@ -16859,7 +16859,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["CustomerPage"];
+                    "application/json": components["schemas"]["ContactPage"];
                 };
             };
             /** @description Validation Error */
@@ -16873,7 +16873,7 @@ export interface operations {
             };
         };
     };
-    create_customer_v1_customers_post: {
+    create_contact_v1_contacts_post: {
         parameters: {
             query?: never;
             header?: {
@@ -16888,7 +16888,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["CustomerCreate"];
+                "application/json": components["schemas"]["ContactCreate"];
             };
         };
         responses: {
@@ -16898,7 +16898,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["CustomerRead"];
+                    "application/json": components["schemas"]["ContactRead"];
                 };
             };
             /** @description Validation Error */
@@ -16912,7 +16912,7 @@ export interface operations {
             };
         };
     };
-    list_customer_advisor_options_v1_customers_advisor_options_get: {
+    list_contact_advisor_options_v1_contacts_advisor_options_get: {
         parameters: {
             query?: never;
             header?: {
@@ -16931,7 +16931,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["CustomerAdvisorOptionList"];
+                    "application/json": components["schemas"]["ContactAdvisorOptionList"];
                 };
             };
             /** @description Validation Error */
@@ -16945,7 +16945,7 @@ export interface operations {
             };
         };
     };
-    duplicate_check_v1_customers_duplicate_check_get: {
+    duplicate_check_v1_contacts_duplicate_check_get: {
         parameters: {
             query: {
                 q: string;
@@ -16966,7 +16966,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["CustomerDuplicateCandidateList"];
+                    "application/json": components["schemas"]["ContactDuplicateCandidateList"];
                 };
             };
             /** @description Validation Error */
@@ -16980,14 +16980,14 @@ export interface operations {
             };
         };
     };
-    get_customer_v1_customers__customer_id__get: {
+    get_contact_v1_contacts__contact_id__get: {
         parameters: {
             query?: never;
             header?: {
                 authorization?: string | null;
             };
             path: {
-                customer_id: string;
+                contact_id: string;
             };
             cookie?: {
                 dms_session?: string | null;
@@ -17001,7 +17001,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["CustomerRead"];
+                    "application/json": components["schemas"]["ContactRead"];
                 };
             };
             /** @description Validation Error */
@@ -17015,7 +17015,7 @@ export interface operations {
             };
         };
     };
-    update_customer_v1_customers__customer_id__patch: {
+    update_contact_v1_contacts__contact_id__patch: {
         parameters: {
             query?: never;
             header?: {
@@ -17023,7 +17023,7 @@ export interface operations {
                 authorization?: string | null;
             };
             path: {
-                customer_id: string;
+                contact_id: string;
             };
             cookie?: {
                 dms_session?: string | null;
@@ -17031,7 +17031,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["CustomerUpdate"];
+                "application/json": components["schemas"]["ContactUpdate"];
             };
         };
         responses: {
@@ -17041,7 +17041,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["CustomerRead"];
+                    "application/json": components["schemas"]["ContactRead"];
                 };
             };
             /** @description Validation Error */
@@ -17055,14 +17055,14 @@ export interface operations {
             };
         };
     };
-    list_customer_addresses_v1_customers__customer_id__addresses_get: {
+    list_contact_addresses_v1_contacts__contact_id__addresses_get: {
         parameters: {
             query?: never;
             header?: {
                 authorization?: string | null;
             };
             path: {
-                customer_id: string;
+                contact_id: string;
             };
             cookie?: {
                 dms_session?: string | null;
@@ -17076,7 +17076,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["CustomerAddressPage"];
+                    "application/json": components["schemas"]["ContactAddressPage"];
                 };
             };
             /** @description Validation Error */
@@ -17090,7 +17090,7 @@ export interface operations {
             };
         };
     };
-    create_customer_address_v1_customers__customer_id__addresses_post: {
+    create_contact_address_v1_contacts__contact_id__addresses_post: {
         parameters: {
             query?: never;
             header?: {
@@ -17099,7 +17099,7 @@ export interface operations {
                 "Idempotency-Key"?: string | null;
             };
             path: {
-                customer_id: string;
+                contact_id: string;
             };
             cookie?: {
                 dms_session?: string | null;
@@ -17107,7 +17107,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["CustomerAddressCreate"];
+                "application/json": components["schemas"]["ContactAddressCreate"];
             };
         };
         responses: {
@@ -17117,7 +17117,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["CustomerAddressRead"];
+                    "application/json": components["schemas"]["ContactAddressRead"];
                 };
             };
             /** @description Validation Error */
@@ -17131,14 +17131,14 @@ export interface operations {
             };
         };
     };
-    delete_customer_address_v1_customers__customer_id__addresses__address_id__delete: {
+    delete_contact_address_v1_contacts__contact_id__addresses__address_id__delete: {
         parameters: {
             query?: never;
             header?: {
                 authorization?: string | null;
             };
             path: {
-                customer_id: string;
+                contact_id: string;
                 address_id: string;
             };
             cookie?: {
@@ -17165,14 +17165,14 @@ export interface operations {
             };
         };
     };
-    update_customer_address_v1_customers__customer_id__addresses__address_id__patch: {
+    update_contact_address_v1_contacts__contact_id__addresses__address_id__patch: {
         parameters: {
             query?: never;
             header?: {
                 authorization?: string | null;
             };
             path: {
-                customer_id: string;
+                contact_id: string;
                 address_id: string;
             };
             cookie?: {
@@ -17181,7 +17181,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["CustomerAddressUpdate"];
+                "application/json": components["schemas"]["ContactAddressUpdate"];
             };
         };
         responses: {
@@ -17191,7 +17191,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["CustomerAddressRead"];
+                    "application/json": components["schemas"]["ContactAddressRead"];
                 };
             };
             /** @description Validation Error */
@@ -17205,14 +17205,14 @@ export interface operations {
             };
         };
     };
-    get_customer_audit_log_v1_customers__customer_id__audit_log_get: {
+    get_contact_audit_log_v1_contacts__contact_id__audit_log_get: {
         parameters: {
             query?: never;
             header?: {
                 authorization?: string | null;
             };
             path: {
-                customer_id: string;
+                contact_id: string;
             };
             cookie?: {
                 dms_session?: string | null;
@@ -17226,7 +17226,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["CustomerHistoryPage"];
+                    "application/json": components["schemas"]["ContactHistoryPage"];
                 };
             };
             /** @description Validation Error */
@@ -17240,7 +17240,7 @@ export interface operations {
             };
         };
     };
-    set_credit_block_v1_customers__customer_id__credit_block_post: {
+    set_credit_block_v1_contacts__contact_id__credit_block_post: {
         parameters: {
             query?: never;
             header?: {
@@ -17250,7 +17250,7 @@ export interface operations {
                 "Idempotency-Key"?: string | null;
             };
             path: {
-                customer_id: string;
+                contact_id: string;
             };
             cookie?: {
                 dms_session?: string | null;
@@ -17258,7 +17258,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["CustomerCreditBlockRequest"];
+                "application/json": components["schemas"]["ContactCreditBlockRequest"];
             };
         };
         responses: {
@@ -17268,7 +17268,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["CustomerRead"];
+                    "application/json": components["schemas"]["ContactRead"];
                 };
             };
             /** @description Validation Error */
@@ -17282,14 +17282,14 @@ export interface operations {
             };
         };
     };
-    list_customer_emails_v1_customers__customer_id__emails_get: {
+    list_contact_emails_v1_contacts__contact_id__emails_get: {
         parameters: {
             query?: never;
             header?: {
                 authorization?: string | null;
             };
             path: {
-                customer_id: string;
+                contact_id: string;
             };
             cookie?: {
                 dms_session?: string | null;
@@ -17303,7 +17303,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["CustomerEmailPage"];
+                    "application/json": components["schemas"]["ContactEmailPage"];
                 };
             };
             /** @description Validation Error */
@@ -17317,7 +17317,7 @@ export interface operations {
             };
         };
     };
-    create_customer_email_v1_customers__customer_id__emails_post: {
+    create_contact_email_v1_contacts__contact_id__emails_post: {
         parameters: {
             query?: never;
             header?: {
@@ -17326,7 +17326,7 @@ export interface operations {
                 "Idempotency-Key"?: string | null;
             };
             path: {
-                customer_id: string;
+                contact_id: string;
             };
             cookie?: {
                 dms_session?: string | null;
@@ -17334,7 +17334,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["CustomerEmailCreate"];
+                "application/json": components["schemas"]["ContactEmailCreate"];
             };
         };
         responses: {
@@ -17344,7 +17344,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["CustomerEmailRead"];
+                    "application/json": components["schemas"]["ContactEmailRead"];
                 };
             };
             /** @description Validation Error */
@@ -17358,14 +17358,14 @@ export interface operations {
             };
         };
     };
-    delete_customer_email_v1_customers__customer_id__emails__email_id__delete: {
+    delete_contact_email_v1_contacts__contact_id__emails__email_id__delete: {
         parameters: {
             query?: never;
             header?: {
                 authorization?: string | null;
             };
             path: {
-                customer_id: string;
+                contact_id: string;
                 email_id: string;
             };
             cookie?: {
@@ -17392,14 +17392,14 @@ export interface operations {
             };
         };
     };
-    update_customer_email_v1_customers__customer_id__emails__email_id__patch: {
+    update_contact_email_v1_contacts__contact_id__emails__email_id__patch: {
         parameters: {
             query?: never;
             header?: {
                 authorization?: string | null;
             };
             path: {
-                customer_id: string;
+                contact_id: string;
                 email_id: string;
             };
             cookie?: {
@@ -17408,7 +17408,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["CustomerEmailUpdate"];
+                "application/json": components["schemas"]["ContactEmailUpdate"];
             };
         };
         responses: {
@@ -17418,7 +17418,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["CustomerEmailRead"];
+                    "application/json": components["schemas"]["ContactEmailRead"];
                 };
             };
             /** @description Validation Error */
@@ -17432,14 +17432,14 @@ export interface operations {
             };
         };
     };
-    list_customer_external_ids_v1_customers__customer_id__external_ids_get: {
+    list_contact_external_ids_v1_contacts__contact_id__external_ids_get: {
         parameters: {
             query?: never;
             header?: {
                 authorization?: string | null;
             };
             path: {
-                customer_id: string;
+                contact_id: string;
             };
             cookie?: {
                 dms_session?: string | null;
@@ -17453,7 +17453,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["CustomerExternalIdPage"];
+                    "application/json": components["schemas"]["ContactExternalIdPage"];
                 };
             };
             /** @description Validation Error */
@@ -17467,7 +17467,7 @@ export interface operations {
             };
         };
     };
-    create_customer_external_id_v1_customers__customer_id__external_ids_post: {
+    create_contact_external_id_v1_contacts__contact_id__external_ids_post: {
         parameters: {
             query?: never;
             header?: {
@@ -17476,7 +17476,7 @@ export interface operations {
                 "Idempotency-Key"?: string | null;
             };
             path: {
-                customer_id: string;
+                contact_id: string;
             };
             cookie?: {
                 dms_session?: string | null;
@@ -17484,7 +17484,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["CustomerExternalIdCreate"];
+                "application/json": components["schemas"]["ContactExternalIdCreate"];
             };
         };
         responses: {
@@ -17494,7 +17494,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["CustomerExternalIdRead"];
+                    "application/json": components["schemas"]["ContactExternalIdRead"];
                 };
             };
             /** @description Validation Error */
@@ -17508,14 +17508,14 @@ export interface operations {
             };
         };
     };
-    delete_customer_external_id_v1_customers__customer_id__external_ids__external_id_row_id__delete: {
+    delete_contact_external_id_v1_contacts__contact_id__external_ids__external_id_row_id__delete: {
         parameters: {
             query?: never;
             header?: {
                 authorization?: string | null;
             };
             path: {
-                customer_id: string;
+                contact_id: string;
                 external_id_row_id: string;
             };
             cookie?: {
@@ -17542,14 +17542,14 @@ export interface operations {
             };
         };
     };
-    update_customer_external_id_v1_customers__customer_id__external_ids__external_id_row_id__patch: {
+    update_contact_external_id_v1_contacts__contact_id__external_ids__external_id_row_id__patch: {
         parameters: {
             query?: never;
             header?: {
                 authorization?: string | null;
             };
             path: {
-                customer_id: string;
+                contact_id: string;
                 external_id_row_id: string;
             };
             cookie?: {
@@ -17558,7 +17558,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["CustomerExternalIdUpdate"];
+                "application/json": components["schemas"]["ContactExternalIdUpdate"];
             };
         };
         responses: {
@@ -17568,7 +17568,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["CustomerExternalIdRead"];
+                    "application/json": components["schemas"]["ContactExternalIdRead"];
                 };
             };
             /** @description Validation Error */
@@ -17582,7 +17582,7 @@ export interface operations {
             };
         };
     };
-    create_legal_basis_v1_customers__customer_id__legal_basis_post: {
+    create_legal_basis_v1_contacts__contact_id__legal_basis_post: {
         parameters: {
             query?: never;
             header?: {
@@ -17591,7 +17591,7 @@ export interface operations {
                 "Idempotency-Key"?: string | null;
             };
             path: {
-                customer_id: string;
+                contact_id: string;
             };
             cookie?: {
                 dms_session?: string | null;
@@ -17623,7 +17623,7 @@ export interface operations {
             };
         };
     };
-    merge_customer_v1_customers__customer_id__merge_post: {
+    merge_contact_v1_contacts__contact_id__merge_post: {
         parameters: {
             query?: never;
             header?: {
@@ -17633,7 +17633,7 @@ export interface operations {
                 "Idempotency-Key"?: string | null;
             };
             path: {
-                customer_id: string;
+                contact_id: string;
             };
             cookie?: {
                 dms_session?: string | null;
@@ -17641,7 +17641,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["CustomerMergeRequest"];
+                "application/json": components["schemas"]["ContactMergeRequest"];
             };
         };
         responses: {
@@ -17651,7 +17651,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["CustomerRead"];
+                    "application/json": components["schemas"]["ContactRead"];
                 };
             };
             /** @description Validation Error */
@@ -17665,14 +17665,14 @@ export interface operations {
             };
         };
     };
-    list_customer_phones_v1_customers__customer_id__phones_get: {
+    list_contact_phones_v1_contacts__contact_id__phones_get: {
         parameters: {
             query?: never;
             header?: {
                 authorization?: string | null;
             };
             path: {
-                customer_id: string;
+                contact_id: string;
             };
             cookie?: {
                 dms_session?: string | null;
@@ -17686,7 +17686,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["CustomerPhonePage"];
+                    "application/json": components["schemas"]["ContactPhonePage"];
                 };
             };
             /** @description Validation Error */
@@ -17700,7 +17700,7 @@ export interface operations {
             };
         };
     };
-    create_customer_phone_v1_customers__customer_id__phones_post: {
+    create_contact_phone_v1_contacts__contact_id__phones_post: {
         parameters: {
             query?: never;
             header?: {
@@ -17709,7 +17709,7 @@ export interface operations {
                 "Idempotency-Key"?: string | null;
             };
             path: {
-                customer_id: string;
+                contact_id: string;
             };
             cookie?: {
                 dms_session?: string | null;
@@ -17717,7 +17717,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["CustomerPhoneCreate"];
+                "application/json": components["schemas"]["ContactPhoneCreate"];
             };
         };
         responses: {
@@ -17727,7 +17727,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["CustomerPhoneRead"];
+                    "application/json": components["schemas"]["ContactPhoneRead"];
                 };
             };
             /** @description Validation Error */
@@ -17741,14 +17741,14 @@ export interface operations {
             };
         };
     };
-    delete_customer_phone_v1_customers__customer_id__phones__phone_id__delete: {
+    delete_contact_phone_v1_contacts__contact_id__phones__phone_id__delete: {
         parameters: {
             query?: never;
             header?: {
                 authorization?: string | null;
             };
             path: {
-                customer_id: string;
+                contact_id: string;
                 phone_id: string;
             };
             cookie?: {
@@ -17775,14 +17775,14 @@ export interface operations {
             };
         };
     };
-    update_customer_phone_v1_customers__customer_id__phones__phone_id__patch: {
+    update_contact_phone_v1_contacts__contact_id__phones__phone_id__patch: {
         parameters: {
             query?: never;
             header?: {
                 authorization?: string | null;
             };
             path: {
-                customer_id: string;
+                contact_id: string;
                 phone_id: string;
             };
             cookie?: {
@@ -17791,7 +17791,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["CustomerPhoneUpdate"];
+                "application/json": components["schemas"]["ContactPhoneUpdate"];
             };
         };
         responses: {
@@ -17801,7 +17801,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["CustomerPhoneRead"];
+                    "application/json": components["schemas"]["ContactPhoneRead"];
                 };
             };
             /** @description Validation Error */
@@ -17815,7 +17815,7 @@ export interface operations {
             };
         };
     };
-    list_customer_vehicles_v1_customers__customer_id__vehicles_get: {
+    list_contact_vehicles_v1_contacts__contact_id__vehicles_get: {
         parameters: {
             query?: {
                 include_closed?: boolean;
@@ -17824,7 +17824,7 @@ export interface operations {
                 authorization?: string | null;
             };
             path: {
-                customer_id: string;
+                contact_id: string;
             };
             cookie?: {
                 dms_session?: string | null;
@@ -17838,7 +17838,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["CustomerVehiclePage"];
+                    "application/json": components["schemas"]["ContactVehiclePage"];
                 };
             };
             /** @description Validation Error */
@@ -17852,7 +17852,7 @@ export interface operations {
             };
         };
     };
-    create_customer_vehicle_v1_customers__customer_id__vehicles_post: {
+    create_contact_vehicle_v1_contacts__contact_id__vehicles_post: {
         parameters: {
             query?: never;
             header?: {
@@ -17861,7 +17861,7 @@ export interface operations {
                 "Idempotency-Key"?: string | null;
             };
             path: {
-                customer_id: string;
+                contact_id: string;
             };
             cookie?: {
                 dms_session?: string | null;
@@ -17869,7 +17869,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["CustomerVehicleCreate"];
+                "application/json": components["schemas"]["ContactVehicleCreate"];
             };
         };
         responses: {
@@ -17879,7 +17879,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["CustomerVehicleRead"];
+                    "application/json": components["schemas"]["ContactVehicleRead"];
                 };
             };
             /** @description Validation Error */
@@ -17893,14 +17893,14 @@ export interface operations {
             };
         };
     };
-    delete_customer_vehicle_v1_customers__customer_id__vehicles__party_id__delete: {
+    delete_contact_vehicle_v1_contacts__contact_id__vehicles__party_id__delete: {
         parameters: {
             query?: never;
             header?: {
                 authorization?: string | null;
             };
             path: {
-                customer_id: string;
+                contact_id: string;
                 party_id: string;
             };
             cookie?: {
@@ -17927,14 +17927,14 @@ export interface operations {
             };
         };
     };
-    update_customer_vehicle_v1_customers__customer_id__vehicles__party_id__patch: {
+    update_contact_vehicle_v1_contacts__contact_id__vehicles__party_id__patch: {
         parameters: {
             query?: never;
             header?: {
                 authorization?: string | null;
             };
             path: {
-                customer_id: string;
+                contact_id: string;
                 party_id: string;
             };
             cookie?: {
@@ -17943,7 +17943,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["CustomerVehicleUpdate"];
+                "application/json": components["schemas"]["ContactVehicleUpdate"];
             };
         };
         responses: {
@@ -17953,7 +17953,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["CustomerVehicleRead"];
+                    "application/json": components["schemas"]["ContactVehicleRead"];
                 };
             };
             /** @description Validation Error */
@@ -27368,7 +27368,7 @@ export interface operations {
                 sort?: string | null;
                 limit?: number;
                 cursor?: string | null;
-                customer_id?: string | null;
+                contactId?: string | null;
             };
             header?: {
                 authorization?: string | null;
@@ -28105,7 +28105,7 @@ export interface operations {
                 sort?: string | null;
                 limit?: number;
                 cursor?: string | null;
-                customer_id?: string | null;
+                contactId?: string | null;
             };
             header?: {
                 authorization?: string | null;
@@ -29506,7 +29506,7 @@ export interface operations {
             };
         };
     };
-    allocate_to_customer_v1_vehicle_mdm__vehicle_id__allocate_post: {
+    allocate_to_contact_v1_vehicle_mdm__vehicle_id__allocate_post: {
         parameters: {
             query?: never;
             header?: {

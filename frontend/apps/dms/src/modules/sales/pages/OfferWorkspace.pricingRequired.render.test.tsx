@@ -6,7 +6,7 @@ import userEvent from '@testing-library/user-event'
 import i18n from '../../../i18n'
 import { renderWithProviders } from '../../../test/renderWithProviders'
 import { installFakeBackend } from '../../../test/fakeBackend'
-import { customer } from '../../../test/fixtures'
+import { contact } from '../../../test/fixtures'
 import type { SalesOfferRead } from '../../../api/types'
 import { OfferWorkspacePage } from './OfferWorkspacePage'
 
@@ -23,9 +23,9 @@ const baseOffer = (): SalesOfferRead => ({
   id: 'o1',
   offerNumber: 'ANG-2026-0002',
   status: 'draft',
-  customerId: 'cust-1',
-  customerLabel: 'Hans Muster',
-  customerLocality: null,
+  contactId: 'cust-1',
+  contactLabel: 'Hans Muster',
+  contactLocality: null,
   vehicleSource: 'stock',
   stockItemId: 'st-1',
   vehicleLabel: 'VW Golf 2019',
@@ -56,7 +56,7 @@ const baseOffer = (): SalesOfferRead => ({
   cancelledReason: null,
   copiedFromOfferId: null,
   containers: [
-    { id: 'customer', requirement: 'required', status: 'complete' },
+    { id: 'contact', requirement: 'required', status: 'complete' },
     { id: 'vehicle', requirement: 'required', status: 'complete' },
     { id: 'pricing', requirement: 'required', status: 'in_progress' },
     { id: 'trade_in', requirement: 'optional', status: 'not_started' },
@@ -73,10 +73,10 @@ function installBackend(offer: SalesOfferRead) {
     { match: /^\/sales\/offers\/o1$/, handler: () => offer },
     { match: /^\/integrations\/capabilities\/packages$/, handler: () => ({ capabilityCode: 'packages', granted: false }) },
     { match: /^\/sales\/offers\/o1\/line-items$/, handler: () => ({ items: [] }) },
-    { match: /^\/customers\/cust-1$/, handler: () => customer({ id: 'cust-1', firstName: 'Hans', lastName: 'Muster' }) },
-    { match: /^\/customers\/cust-1\/(phones|emails)$/, handler: () => ({ items: [] }) },
-    { match: /^\/customers\/cust-1\/(vehicles|external-ids)$/, handler: () => ({ items: [], nextCursor: null }) },
-    { match: /^\/customers\/cust-1\/audit-log$/, handler: () => ({ items: [], nextCursor: null }) },
+    { match: /^\/contacts\/cust-1$/, handler: () => contact({ id: 'cust-1', firstName: 'Hans', lastName: 'Muster' }) },
+    { match: /^\/contacts\/cust-1\/(phones|emails)$/, handler: () => ({ items: [] }) },
+    { match: /^\/contacts\/cust-1\/(vehicles|external-ids)$/, handler: () => ({ items: [], nextCursor: null }) },
+    { match: /^\/contacts\/cust-1\/audit-log$/, handler: () => ({ items: [], nextCursor: null }) },
   ])
 }
 

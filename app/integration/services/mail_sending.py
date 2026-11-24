@@ -1,4 +1,4 @@
-"""Whose mailbox a customer mail leaves from, and the send (KAN-215; D-A-28 as
+"""Whose mailbox a contact mail leaves from, and the send (KAN-215; D-A-28 as
 re-cut by Anto on 2026-11-14; A-RULE-9 — no module composes a sender).
 
 **`resolve_sender`** (Anto's D1 A, 2026-11-15): the author's own connected
@@ -6,12 +6,12 @@ mailbox in this Betrieb, else the Betrieb's shared mailbox, else a refusal
 that links to both connection screens — never a silent fallback, never a
 Nexotec sender. An author whose own mailbox is in error is told exactly that
 (`own_mailbox_in_error`), not «no mailbox connected», and is not sent from
-the shared mailbox instead: they chose their own, and a customer must not get
+the shared mailbox instead: they chose their own, and a contact must not get
 mail from another address without the author knowing. A grant ended in
 platform (the user revoked it in My account, or was deactivated) counts as no
 own mailbox.
 
-**`send_customer_mail`** writes exactly one `integration_message_delivery` row
+**`send_contact_mail`** writes exactly one `integration_message_delivery` row
 per send on a session of integration's own (F2 of the review; ADR-047): the
 caller's session is never written to or committed. Any adapter failure is a
 `failed` row with a closed code, and a mailbox's own refusal (consent
@@ -87,7 +87,7 @@ class ResolvedSender:
 @dataclasses.dataclass(frozen=True)
 class DeliveryRecord:
     """What a send answers: the delivery row's id, its channel and status, the
-    address the customer sees (an e-mail's mailbox; None on SMS and
+    address the contact sees (an e-mail's mailbox; None on SMS and
     WhatsApp, which leave from the Betrieb's provider account), the
     provider's first status word and, when it failed, a closed code."""
 
@@ -175,7 +175,7 @@ def failure_code_of(exc: BaseException) -> str:
     return "send_failed"
 
 
-def send_customer_mail(
+def send_contact_mail(
     db: Session,
     *,
     dealership_id: uuid.UUID,
@@ -187,16 +187,16 @@ def send_customer_mail(
     subject: str,
     body_text: str,
     attachments: Sequence[MailAttachment] = (),
-    customer_id: uuid.UUID | None = None,
-    customer_label: str | None = None,
+    contact_id: uuid.UUID | None = None,
+    contact_label: str | None = None,
 ) -> DeliveryRecord:
-    """Sends one customer mail from the resolved sender. Raises the
+    """Sends one contact mail from the resolved sender. Raises the
     resolution's 409 before anything is written; afterwards it answers, never
     raises: the delivery row says what happened. Commits on its own session
     only."""
 
     if not to:
-        raise ConflictError("A customer mail needs a recipient.", details={"reason": "no_recipient"})
+        raise ConflictError("A contact mail needs a recipient.", details={"reason": "no_recipient"})
     sender = resolve_sender(db, dealership_id=dealership_id, author_user_id=author_user_id)
     with Session(bind=db.get_bind(), autoflush=False, expire_on_commit=False) as own:
         identity = own.get(SendingIdentity, sender.identity_id)
@@ -254,9 +254,9 @@ def send_customer_mail(
             body_text=body_text,
             document_type=document_type,
             document_id=document_id,
-            customer_id=customer_id,
-            customer_label=customer_label,
-            customer_label_refreshed_at=utcnow() if customer_id is not None else None,
+            contact_id=contact_id,
+            contact_label=contact_label,
+            contact_label_refreshed_at=utcnow() if contact_id is not None else None,
             author_user_id=author_user_id,
             status=DeliveryStatus.FAILED if failure is not None else DeliveryStatus.SENT,
             failure_code=failure_code_of(failure) if failure is not None else None,

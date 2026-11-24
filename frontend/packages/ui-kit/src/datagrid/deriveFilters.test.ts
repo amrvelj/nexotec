@@ -23,7 +23,7 @@ const columns: GridColumnDef<Row>[] = [
     meta: {
       filter: {
         type: 'select',
-        param: 'customer_type',
+        param: 'contact_type',
         options: [{ value: 'a', label: 'A' }],
         conditions: ['is'],
       },
@@ -45,7 +45,7 @@ describe('deriveFilterFields', () => {
 
   it('carries the column header as the label and maps id -> param', () => {
     const [typeField] = deriveFilterFields(columns)
-    expect(typeField).toMatchObject({ id: 'type', label: 'Type', type: 'select', param: 'customer_type' })
+    expect(typeField).toMatchObject({ id: 'type', label: 'Type', type: 'select', param: 'contact_type' })
   })
 
   it('defaults param to the column id when the column does not override it', () => {

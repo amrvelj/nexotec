@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { fetchActiveReferenceValues, LABEL_FIELD, resolveLanguage } from './useReferenceValueOptions'
 
-/** `{ value, label }` for a Mantine `Select` / the customer `SelectField`. */
+/** `{ value, label }` for a Mantine `Select` / the contact `SelectField`. */
 export interface CountryOption {
   value: string
   label: string
@@ -29,7 +29,7 @@ export function useCountryOptions(): {
   const query = useQuery({
     queryKey: ['reference-data', 'country', 'active'],
     // ~250 rows; it changes essentially never — one long-lived cache entry,
-    // shared by the create wizard and every customer detail screen.
+    // shared by the create wizard and every contact detail screen.
     queryFn: () => fetchActiveReferenceValues('country'),
     staleTime: 60 * 60 * 1000,
     gcTime: 24 * 60 * 60 * 1000,

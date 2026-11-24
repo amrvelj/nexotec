@@ -6,9 +6,9 @@ only where an ADR names it.
 
 `test_no_ambient_group_read.py` cannot see such a read: the `dealer_group_id`
 predicate it looks for lives inside platform's allow-listed module, and the
-caller filters on its own `tenant_id`. So, as `customer_in_group` is confined
+caller filters on its own `tenant_id`. So, as `contact_in_group` is confined
 (KAN-259), this test confines the callers: platform itself and the one read
-ADR-055 rules — Stock's group-readable listing and the customer 360's
+ADR-055 rules — Stock's group-readable listing and the contact 360's
 in-group-stock lookup, both in `app/inventory/services/group_listing.py`.
 `list_group_stock_items` authorises the caller (own group only, 404 never
 403) before it asks; `get_stock_items_for_vehicles` takes the caller's
@@ -59,13 +59,13 @@ def test_the_allowed_callers_still_call_it():
 
 
 def test_the_guard_reports_an_unruled_caller():
-    # Red before green on synthetic sources: a sales service and a customer
+    # Red before green on synthetic sources: a sales service and a contact
     # API module are reported; platform and the ruled Stock module are not.
     uses = f"from app.platform.public import {_NAME}\n"
     assert _unruled_callers({
         "app/sales/services/offer.py": uses,
-        "app/customer/api/customers.py": uses,
+        "app/contact/api/contacts.py": uses,
         "app/platform/organisation/services/group_read_dealerships.py": f"def {_NAME}(): ...\n",
         "app/inventory/services/group_listing.py": uses,
         "app/sales/services/untouched.py": "x = 1\n",
-    }) == ["app/customer/api/customers.py", "app/sales/services/offer.py"]
+    }) == ["app/contact/api/contacts.py", "app/sales/services/offer.py"]

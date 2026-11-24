@@ -2,13 +2,13 @@
 read-only — see app.core.reconciliation for the mechanism.
 
 Every cross-context id on sales_offer and sales_contract must resolve
-(KAN-145): the dealership, the customer, stock item, trade-in vehicle,
+(KAN-145): the dealership, the contact, stock item, trade-in vehicle,
 trade-in valuation and configurations. A contract's reservation_id names no
 row of its own — it is the stock item's active_reservation_id, cleared when
 the hold is released — so it is checked only while the contract is
 confirmed: a signed contract whose car is no longer held for it could be
 sold twice. So must every one on Sales' other tables (KAN-243): each row's
-dealership, the deal projection's customer and the user who rendered a
+dealership, the deal projection's contact and the user who rendered a
 document. Offer, contract and owner ids inside Sales are Sales' own.
 
 Who wrote each row — created_by / updated_by on every table that has them —
@@ -22,8 +22,8 @@ Resolving on id is not enough where the target belongs to one dealership
 (KAN-259): Sales reads a stock item, a configuration and a valuation only in
 the deal's own dealership (is_invoiceable, reserve_for_contract,
 get_configuration_for_host, the valuation stamp — valuations are
-tenant-private, ADR-029), and a customer only in the dealership's group
-(customers are group-scoped, ADR-014). Each such reference is checked twice,
+tenant-private, ADR-029), and a contact only in the dealership's group
+(contacts are group-scoped, ADR-014). Each such reference is checked twice,
 for two different defects: the ReferenceCheck reports an id that resolves to
 nothing at all (orphan), the StateCheck one that resolves only outside the
 deal's dealership or group (mismatch). The StateCheck asks for the target to
@@ -56,10 +56,10 @@ from typing import Any
 from sqlalchemy import ColumnElement, func, or_, select
 from sqlalchemy.orm import InstrumentedAttribute, Session
 
+from app.contact.public import contact_exists, contact_in_group, contact_is_merged, contact_reference_check
 from app.core.base import utcnow
 from app.core.outbox_model import OutboxMessage
 from app.core.reconciliation import ReconciliationRun, ReferenceCheck, StateCheck, run_reconciliation
-from app.customer.public import customer_exists, customer_in_group, customer_is_merged, customer_reference_check
 from app.inventory.public import (
     purchased_stock_item_check,
     stock_item_exists,
@@ -163,38 +163,38 @@ def _valuation_in_another_dealership(deal: _Deal, table: str) -> StateCheck:
     )
 
 
-def _customer_outside_the_group(label: str, deal: _Deal) -> StateCheck:
-    """KAN-259 — customers are group-scoped (ADR-014): the deal's customer
+def _contact_outside_the_group(label: str, deal: _Deal) -> StateCheck:
+    """KAN-259 — contacts are group-scoped (ADR-014): the deal's contact
     exists, but not in the group of the deal's dealership. A deal whose
     dealership is itself missing is the tenant_id ReferenceCheck's finding."""
 
     def where() -> ColumnElement[bool]:
-        customer_named = customer_exists(deal.customer_id).correlate(deal)
+        contact_named = contact_exists(deal.contact_id).correlate(deal)
         dealership_named = dealership_exists(deal.tenant_id, correlate=deal)
         dealerships_group = dealership_group_of(deal.tenant_id, correlate=deal)
-        in_group = customer_in_group(deal.customer_id, dealerships_group).correlate(deal)
-        return customer_named & dealership_named & ~in_group
+        in_group = contact_in_group(deal.contact_id, dealerships_group).correlate(deal)
+        return contact_named & dealership_named & ~in_group
 
     return StateCheck(label=label, source_model=deal, source_row_id_column=deal.id, where=where)
 
 
-def _names_a_merged_customer(model: _Deal | type[SalesDeal]) -> StateCheck:
-    """KAN-581 — a customer merge reaches Sales only through `customer.merged`
-    (KAN-185): the consumer `sales.customer_merged` moves every offer,
-    contract and deal row of the duplicate to the survivor. A row still naming a merged customer after outbox lag has one
+def _names_a_merged_contact(model: _Deal | type[SalesDeal]) -> StateCheck:
+    """KAN-581 — a contact merge reaches Sales only through `contact.merged`
+    (KAN-185): the consumer `sales.contact_merged` moves every offer,
+    contract and deal row of the duplicate to the survivor. A row still naming a merged contact after outbox lag has one
     of two causes: that delivery failed — dead-lettered after its last
     attempt, or never run (staging has no worker, ADR-081). An attach or an
-    offer copy no longer causes one: an attach refuses a merged customer
+    offer copy no longer causes one: an attach refuses a merged contact
     (KAN-656), and both serialise with the consumer on Sales' attach lock, so
     one racing the merge is moved or refused (KAN-657). Either way the row is invisible from the
-    survivor's Offers & Contracts tab. Read through `customer.public`; the
-    hour runs from the merged customer's last write (see `customer_is_merged`)."""
+    survivor's Offers & Contracts tab. Read through `contact.public`; the
+    hour runs from the merged contact's last write (see `contact_is_merged`)."""
 
     def where() -> ColumnElement[bool]:
-        return customer_is_merged(model.customer_id, merged_before=utcnow() - _OUTBOX_LAG_GRACE).correlate(model)
+        return contact_is_merged(model.contact_id, merged_before=utcnow() - _OUTBOX_LAG_GRACE).correlate(model)
 
     return StateCheck(
-        label=f"{model.__tablename__}.customer_id names a merged customer",
+        label=f"{model.__tablename__}.contact_id names a merged contact",
         source_model=model,
         source_row_id_column=model.id,
         where=where,
@@ -229,9 +229,9 @@ def _row_differs_from(entity: _Deal) -> ColumnElement[bool]:
     return or_(
         SalesDeal.number.is_distinct_from(number),
         SalesDeal.status.is_distinct_from(entity.status),
-        SalesDeal.customer_id.is_distinct_from(entity.customer_id),
-        SalesDeal.customer_label.is_distinct_from(entity.customer_label),
-        SalesDeal.customer_locality.is_distinct_from(entity.customer_locality),
+        SalesDeal.contact_id.is_distinct_from(entity.contact_id),
+        SalesDeal.contact_label.is_distinct_from(entity.contact_label),
+        SalesDeal.contact_locality.is_distinct_from(entity.contact_locality),
         SalesDeal.vehicle_label.is_distinct_from(entity.vehicle_label),
         SalesDeal.stock_item_label.is_distinct_from(entity.stock_item_label),  # KAN-570
         SalesDeal.owner_user_id.is_distinct_from(entity.owner_user_id),
@@ -312,7 +312,7 @@ def _owned_by_a_deactivated_user(deal: _Deal, is_open: Callable[[], ColumnElemen
 def _same_dealership_checks(deal: _Deal) -> list[StateCheck]:
     table = deal.__tablename__
     return [
-        _customer_outside_the_group(f"{table}.customer_id names a customer outside its dealership's group", deal),
+        _contact_outside_the_group(f"{table}.contact_id names a contact outside its dealership's group", deal),
         _stock_item_in_another_dealership(deal, table),
         _configuration_in_another_dealership(deal, deal.configuration_id),
         _configuration_in_another_dealership(deal, deal.trade_in_configuration_id),
@@ -388,11 +388,11 @@ CHECKS: list[ReferenceCheck | StateCheck] = [
         source_row_id_column=SalesOffer.id,
         source_fk_column=SalesOffer.tenant_id,
     ),
-    customer_reference_check(
-        label="sales_offer.customer_id -> customer.id",
+    contact_reference_check(
+        label="sales_offer.contact_id -> contact.id",
         source_model=SalesOffer,
         source_row_id_column=SalesOffer.id,
-        source_fk_column=SalesOffer.customer_id,
+        source_fk_column=SalesOffer.contact_id,
         nullable=True,
     ),
     stock_item_reference_check(
@@ -439,11 +439,11 @@ CHECKS: list[ReferenceCheck | StateCheck] = [
         source_row_id_column=SalesContract.id,
         source_fk_column=SalesContract.tenant_id,
     ),
-    customer_reference_check(
-        label="sales_contract.customer_id -> customer.id",
+    contact_reference_check(
+        label="sales_contract.contact_id -> contact.id",
         source_model=SalesContract,
         source_row_id_column=SalesContract.id,
-        source_fk_column=SalesContract.customer_id,
+        source_fk_column=SalesContract.contact_id,
         nullable=True,
     ),
     stock_item_reference_check(
@@ -529,11 +529,11 @@ CHECKS: list[ReferenceCheck | StateCheck] = [
         source_row_id_column=SalesDeal.id,
         source_fk_column=SalesDeal.tenant_id,
     ),
-    customer_reference_check(
-        label="sales_deal.customer_id -> customer.id",
+    contact_reference_check(
+        label="sales_deal.contact_id -> contact.id",
         source_model=SalesDeal,
         source_row_id_column=SalesDeal.id,
-        source_fk_column=SalesDeal.customer_id,
+        source_fk_column=SalesDeal.contact_id,
         nullable=True,
     ),
     dealership_reference_check(
@@ -684,8 +684,8 @@ CHECKS: list[ReferenceCheck | StateCheck] = [
     _stock_price_moved_unflagged(SalesContract, lambda: SalesContract.status == ContractStatus.PENDING),
     # --- the deal grid against its live entity (KAN-408, KAN-409) ---
     *deal_row_checks(),
-    # --- a customer merge Sales never followed (KAN-581) ---
-    *(_names_a_merged_customer(model) for model in (SalesOffer, SalesContract, SalesDeal)),
+    # --- a contact merge Sales never followed (KAN-581) ---
+    *(_names_a_merged_contact(model) for model in (SalesOffer, SalesContract, SalesDeal)),
 ]
 
 

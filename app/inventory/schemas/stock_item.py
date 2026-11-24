@@ -191,10 +191,10 @@ class StockItemRead(CamelModel):
         default=None,
         description="KAN-461 (ADR-060): when the trade-in's contract was signed — a grid column. Null on every other item.",
     )
-    trade_in_customer_id: uuid.UUID | None = Field(
+    trade_in_contact_id: uuid.UUID | None = Field(
         default=None,
         description=(
-            "KAN-465: the customer who traded the car in (KAN-632, from Sales' confirmation) — «Einkauf erfassen» "
+            "KAN-465: the contact who traded the car in (KAN-632, from Sales' confirmation) — «Einkauf erfassen» "
             "offers this contact as the supplier with one click (never preselected). Null on every other item."
         ),
     )
@@ -204,7 +204,7 @@ class StockItemRead(CamelModel):
     supplier_contact_id: uuid.UUID | None = Field(
         default=None,
         description=(
-            "KAN-465: the supplier contact the purchase booking named (customer context, a contact with the "
+            "KAN-465: the supplier contact the purchase booking named (contact context, a contact with the "
             "supplier role). Null before a booking and on one booked before KAN-465, which keeps only its label."
         ),
     )
@@ -237,8 +237,8 @@ class StockItemRead(CamelModel):
     # Computed on read (PR-7), never stored — see
     # services/stock_item.py::compute_ageing_bucket. None until the model
     # is post-processed by the API layer; model_validate alone leaves it
-    # at this default, same pattern as customer's own computed
-    # projections (customer/api/customers.py::_customer_read).
+    # at this default, same pattern as contact's own computed
+    # projections (contact/api/contacts.py::_contact_read).
     ageing_bucket: AgeingBucket | None = None
     version: int
     created_at: dt.datetime

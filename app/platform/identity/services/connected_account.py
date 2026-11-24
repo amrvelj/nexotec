@@ -10,7 +10,7 @@ address, its usage or any content — and may revoke
 (`/v1/dealerships/{id}/users/{user_id}/connected-accounts`); deactivating a
 user revokes every one (FR-AU-24). Linking is the integration that holds
 the provider's flow (KAN-215: the user's own Microsoft 365 or Google
-Workspace mailbox, to send customer mail as that user): it calls
+Workspace mailbox, to send contact mail as that user): it calls
 `link_connected_account` through `app.platform.public` once the provider answered, and
 `revoke_connected_account` when the user disconnects the mailbox there — each commits
 its own transaction (ADR-047's own-commit shape), and `connected_account_states` is the

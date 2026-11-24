@@ -29,7 +29,7 @@ export type FakeHandler = (req: FakeRequest) => unknown
 export interface FakeRoute {
   method?: string
   /** Tested against `url.pathname` (no query string, no `/v1` prefix — the
-   * client's base URL already carries that, e.g. `/customers`). */
+   * client's base URL already carries that, e.g. `/contacts`). */
   match: RegExp
   handler: FakeHandler
 }
@@ -94,7 +94,7 @@ export const ALL_ENTITLEMENTS = ['sales', 'aftersales', 'parts', 'finance', 'rep
 export const ALL_GATED_CAPABILITIES: string[] = [...GATED_CAPABILITIES]
 
 // The `country` reference list (KAN-32) — a small stand-in for the ~250-row
-// seed. Backs `useCountryOptions`, which every customer screen now hits.
+// seed. Backs `useCountryOptions`, which every contact screen now hits.
 // A test that cares about a specific country can shadow this route.
 const DEFAULT_COUNTRY_VALUES = [
   ['CH', 'Schweiz', 'Suisse', 'Svizzera', 'Switzerland'],
@@ -152,7 +152,7 @@ const INFRA_ROUTES: FakeRoute[] = [
   // matched on pathname like every other route, the host is in `req.url`).
   { method: 'GET', match: /\/dealerships\/[^/]+\/address-autocomplete$/, handler: () => ({ enabled: false, browserKey: null }) },
   { method: 'PUT', match: /\/me\/preferences\//, handler: () => ({ ok: true }) },
-  // KAN-466 — the customer screens name contact groups through the Betrieb's
+  // KAN-466 — the contact screens name contact groups through the Betrieb's
   // list; none by default. A test about them shadows this route.
   { method: 'GET', match: /\/dealerships\/[^/]+\/contact-groups$/, handler: () => ({ items: [] }) },
   // KAN-216 — the shell's bell asks for the unread count; none by default.
@@ -171,8 +171,8 @@ const INFRA_ROUTES: FakeRoute[] = [
       }
     },
   },
-  // KAN-45 — the Customer 360's "Offers & contracts" tab fetches both,
-  // filtered by customerId. A test that cares shadows these with its own.
+  // KAN-45 — the Contact 360's "Offers & contracts" tab fetches both,
+  // filtered by contactId. A test that cares shadows these with its own.
   {
     method: 'GET',
     match: /\/sales\/offers$/,
@@ -221,7 +221,7 @@ export function installFakeBackend(routes: FakeRoute[]): FakeBackend {
       body = init.body // a binary upload (a Blob or File), recorded as sent
     }
     // The client's base URL carries the `/v1` prefix; routes are written
-    // against the bare resource path (`/customers`, `/me/preferences/ui`).
+    // against the bare resource path (`/contacts`, `/me/preferences/ui`).
     const pathname = url.pathname.replace(/^\/v1(?=\/|$)/, '')
     const headers = new Headers(init?.headers)
     const call: RecordedCall = {

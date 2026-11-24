@@ -1,10 +1,10 @@
 """KAN-465 — a stock item's copy of its supplier contact's name (rule 2's three-column pattern).
 
-`stock_item.supplier_contact_id` is the customer context's Customer.id (a
+`stock_item.supplier_contact_id` is the contact context's Contact.id (a
 contact with the supplier role); `supplier_label` (with
 `supplier_label_refreshed_at`) is the name beside it, what the Stock grid's
 «Lieferant» shows, sorts and filters by and the detail's purchase card names.
-Read only through `app.customer.public` — never a join into the customer
+Read only through `app.contact.public` — never a join into the contact
 context's tables.
 
 - **On booking** (`services/purchase.py::record_purchase`): the label is read
@@ -19,7 +19,7 @@ context's tables.
   `FOR NO KEY UPDATE SKIP LOCKED`. A booking from before KAN-465 has a label
   and no id: it keeps the name typed then (Anto, 2026-11-21, option A).
 - **On a contact merge** (`repoint_merged_supplier`, the consumer
-  `inventory.customer_merged`): the items naming the duplicate move to the
+  `inventory.contact_merged`): the items naming the duplicate move to the
   survivor with the survivor's name, as Sales' rows do (KAN-185).
 
 A refreshed copy is not a repair (.claude/rules/events.md).
@@ -33,9 +33,9 @@ from dataclasses import dataclass, field
 from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
+from app.contact.public import contact_display_name, get_contact_or_404, get_contact_sales_labels
 from app.core.base import utcnow
 from app.core.errors import NotFoundError
-from app.customer.public import customer_display_name, get_customer_or_404, get_customer_sales_labels
 from app.inventory.models.stock_item import StockItem
 
 _BATCH = 500
@@ -72,7 +72,7 @@ def refresh_supplier_labels(db: Session, *, commit: Callable[[], None] | None = 
             return report
         last_id = batch[-1].id
 
-        labels = get_customer_sales_labels(
+        labels = get_contact_sales_labels(
             db, {item.supplier_contact_id for item in batch if item.supplier_contact_id is not None}
         )
         now = utcnow()
@@ -143,7 +143,7 @@ def repoint_merged_supplier(
     if not items:
         return 0
     try:
-        label: str | None = customer_display_name(get_customer_or_404(db, group_id, target_id))
+        label: str | None = contact_display_name(get_contact_or_404(db, group_id, target_id))
     except NotFoundError:
         label = None
     now = utcnow()

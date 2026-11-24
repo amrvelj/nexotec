@@ -64,7 +64,7 @@ class ModelVariantEnergyLabel(PrimaryKeyMixin, TimestampMixin, Base):
     text as delivered ('' when it names none, so the key holds); the class is
     a code of the `energy_efficiency_category` list, like the rating's.
     Shown to the seller beside the class (the stock detail's technical data);
-    printed on no customer document until the BFE/legal question is settled.
+    printed on no contact document until the BFE/legal question is settled.
     """
 
     __tablename__ = "vehicle_model_variant_energy_label"

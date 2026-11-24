@@ -68,8 +68,8 @@ CHASSIS_NUMBER_IDENTITY_CONDITION = (
 
 class VehicleNumberSequence(Base):
     """Single global row allocating vehicle_number (`F-000001`). Global,
-    not per-group like CustomerNumberSequence (app.customer.models.customer)
-    — a physical vehicle is a global fact (ADR-022), so unlike a customer
+    not per-group like ContactNumberSequence (app.contact.models.contact)
+    — a physical vehicle is a global fact (ADR-022), so unlike a contact
     it must never receive a different number in two different groups' eyes.
     Same row-lock allocator, same "gaps are harmless, reuse is not"
     reasoning, just one row instead of one per group.
@@ -78,7 +78,7 @@ class VehicleNumberSequence(Base):
     __tablename__ = "vehicle_number_sequence"
 
     # A fixed literal key rather than a boolean/no-PK singleton: keeps the
-    # same db.get(Model, pk, with_for_update=True) idiom the customer
+    # same db.get(Model, pk, with_for_update=True) idiom the contact
     # allocator already uses, with no special-cased lookup.
     singleton_key: Mapped[str] = mapped_column(String(16), primary_key=True, default="GLOBAL")
     next_value: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
@@ -184,10 +184,10 @@ class VehicleMdm(PrimaryKeyMixin, VersionedMixin, TimestampMixin, Base):
     catalogue_variant: Mapped[ModelVariant | None] = relationship()
 
     # KAN-31: read-only display derivation for consumers outside this
-    # context (app.customer's VehiclePartySummary is the first — the
-    # customer-side Vehicles tab). ALL THREE ARE NONE WHEN
+    # context (app.contact's VehiclePartySummary is the first — the
+    # contact-side Vehicles tab). ALL THREE ARE NONE WHEN
     # catalogue_variant_id IS NULL, which is the common case today: every
-    # fixture in tests/customer/test_customer_vehicle_party_allocation.py creates an
+    # fixture in tests/contact/test_contact_vehicle_party_allocation.py creates an
     # unmatched vehicle, and nothing in this codebase resolves this join
     # anywhere else yet (even the global-search vehicle results fall back
     # to vehicleNumber as the label). A caller-side fallback is required,

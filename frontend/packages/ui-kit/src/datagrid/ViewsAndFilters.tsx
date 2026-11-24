@@ -8,7 +8,7 @@ import type { FilterFieldDef, FilterPredicate } from "./filterPredicate";
 import type { SavedView } from "./savedView";
 
 export interface ViewsAndFiltersProps {
-  /** The trigger button's own label — "( ▾ All customers )" — always the
+  /** The trigger button's own label — "( ▾ All contacts )" — always the
    * currently-applied view's name, "All <entities>" when none is applied. */
   currentViewName: string;
   views: SavedView[];

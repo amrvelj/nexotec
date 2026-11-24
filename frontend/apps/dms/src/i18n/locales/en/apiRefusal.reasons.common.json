@@ -1,6 +1,6 @@
 {
   "colleague_cannot_act_there": "The chosen colleague does not work in the business this record belongs to.",
-  "customer_do_not_contact": "Customer {{customerNumber}} is marked do-not-contact and cannot be attached to an offer or a contract.",
+  "contact_do_not_contact": "Contact {{contactNumber}} is marked do-not-contact and cannot be attached to an offer or a contract.",
   "no_provider_connection": "No vehicle data provider is connected.",
   "nul_character": "The entry contains a character that is not allowed. Remove it and try again.",
   "too_many_images": "A stock vehicle has at most {{max, number}} images. Remove an image first.",

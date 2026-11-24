@@ -1,4 +1,4 @@
-"""A secure link to a customer document (KAN-217 PR-4; Dealer Administration
+"""A secure link to a contact document (KAN-217 PR-4; Dealer Administration
 FR-A-52, ADR-193).
 
 SMS and WhatsApp carry no attachment, so a send on those channels carries a

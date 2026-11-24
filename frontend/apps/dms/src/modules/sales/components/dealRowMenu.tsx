@@ -29,7 +29,7 @@ export interface TakeOverTarget {
  * on a deal nobody is responsible for; a deal with a seller is handed on
  * through the seller picker, never taken by a click from the list.
  * Anto's ruling 2026-10-28 (option A): an offer already sent to the
- * customer may change its seller, so every row of the queue can be taken.
+ * contact may change its seller, so every row of the queue can be taken.
  */
 export function buildDealTakeOverAction(
   t: (key: string, options?: Record<string, unknown>) => string,

@@ -16,7 +16,7 @@ a location (the three-column pattern). Their `reconciliation.py` asks:
 - `dealership_outside_group` — an EXISTS: the id names a Betrieb whose dealer
   group `IS DISTINCT FROM` the given one.
 - `find_dealer_group_ids` / `find_dealership_group_ids` — plain reads for
-  Customers' vehicle-party stamp classification, which looks a batch of ids
+  Contacts' vehicle-party stamp classification, which looks a batch of ids
   up in Python rather than in a check: which of them name a dealer group,
   and the dealer group of each that names a Betrieb. They run the SELECT the
   caller ran before and hand back values, not a statement.

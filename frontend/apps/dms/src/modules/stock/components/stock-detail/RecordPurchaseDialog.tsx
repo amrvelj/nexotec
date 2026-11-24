@@ -5,8 +5,8 @@ import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { ChfInput, FormDialog, Picker, type PickerRow } from '@nexotec/ui-kit'
 import { api, ApiError } from '../../../../api/client'
-import type { ConfigurationRead, CustomerPage, CustomerRead } from '../../../../api/types'
-import { CustomerCreateDialog } from '../../../customer'
+import type { ConfigurationRead, ContactPage, ContactRead } from '../../../../api/types'
+import { ContactCreateDialog } from '../../../contact'
 import { supplierLabel, supplierVatPrefill } from './supplierContact'
 import { todayLocalIsoDate } from '../../../../utils/format'
 import { apiRefusalText } from '../../../../utils/apiRefusal'
@@ -27,10 +27,10 @@ interface RecordPurchaseDialogProps {
    * `tradeInVin`). It prefills the field when the configuration carries
    * none, and the booking refuses another (422 `trade_in_vin_differs`). */
   tradeInVin?: string | null
-  /** KAN-465: the customer who traded the car in (the item's
-   * `tradeInCustomerId`) — offered as the supplier with one click, never
+  /** KAN-465: the contact who traded the car in (the item's
+   * `tradeInContactId`) — offered as the supplier with one click, never
    * preselected (the picker contract). */
-  tradeInCustomerId?: string | null
+  tradeInContactId?: string | null
   /** KAN-510, KAN-736: offered beside those refusals — opens the configuration for
    * editing, where a wrong VIN is corrected. Omitted when the user's role
    * may not write configurations. */
@@ -78,7 +78,7 @@ interface RecordPurchaseDialogProps {
  * A): the supplier is a contact, picked with the contact search or created
  * inline in the one create dialog with the supplier role preset. Picking a
  * contact without that role gives it the role on booking (a PATCH of the
- * contact, audited by Customers) before the purchase is booked. The contact's
+ * contact, audited by Contacts) before the purchase is booked. The contact's
  * VAT status prefills «Lieferant ist MWST-pflichtig» (`supplierVatPrefill`,
  * the server's rule); the user may change it, and the server audits the
  * override.
@@ -89,32 +89,32 @@ export function RecordPurchaseDialog({
   requiresVin = false,
   configurationId = null,
   tradeInVin = null,
-  tradeInCustomerId = null,
+  tradeInContactId = null,
   onEditConfiguration,
   onSubmit,
 }: RecordPurchaseDialogProps) {
   const { t } = useTranslation()
   const hint = useFieldHint()
-  const [supplier, setSupplier] = useState<CustomerRead | null>(null)
+  const [supplier, setSupplier] = useState<ContactRead | null>(null)
   const [supplierIsVatRegistered, setSupplierIsVatRegistered] = useState(false)
   const [pickerOpen, setPickerOpen] = useState(false)
   const [createOpen, setCreateOpen] = useState(false)
   const [query, setQuery] = useState('')
   const [debouncedQuery] = useDebouncedValue(query, 250)
   const search = useQuery({
-    queryKey: ['customer-search', debouncedQuery],
-    queryFn: () => api.get<CustomerPage>(`/customers?q=${encodeURIComponent(debouncedQuery)}&limit=10`),
+    queryKey: ['contact-search', debouncedQuery],
+    queryFn: () => api.get<ContactPage>(`/contacts?q=${encodeURIComponent(debouncedQuery)}&limit=10`),
     enabled: pickerOpen && debouncedQuery.length > 0,
   })
-  const tradeInCustomer = useQuery({
-    queryKey: ['customer', tradeInCustomerId],
-    queryFn: () => api.get<CustomerRead>(`/customers/${tradeInCustomerId}`),
-    enabled: opened && tradeInCustomerId != null,
+  const tradeInContact = useQuery({
+    queryKey: ['contact', tradeInContactId],
+    queryFn: () => api.get<ContactRead>(`/contacts/${tradeInContactId}`),
+    enabled: opened && tradeInContactId != null,
   })
   const vatPrefill = supplier ? supplierVatPrefill(supplier) : null
   const lacksSupplierRole = supplier != null && !(supplier.roles ?? []).includes('supplier')
 
-  const pickSupplier = (contact: CustomerRead) => {
+  const pickSupplier = (contact: ContactRead) => {
     setSupplier(contact)
     // An unknown status starts unticked, never with the previous contact's value.
     setSupplierIsVatRegistered(supplierVatPrefill(contact) ?? false)
@@ -158,10 +158,10 @@ export function RecordPurchaseDialog({
     let contact = supplier
     try {
       // KAN-465: a contact picked without the supplier role gets it first —
-      // Customers' own write, audited there; a retry finds it held.
+      // Contacts' own write, audited there; a retry finds it held.
       if (contact && !(contact.roles ?? []).includes('supplier')) {
-        contact = await api.patch<CustomerRead>(
-          `/customers/${contact.id}`,
+        contact = await api.patch<ContactRead>(
+          `/contacts/${contact.id}`,
           { roles: [...(contact.roles ?? []), 'supplier'] },
           { 'If-Match': String(contact.version) },
         )
@@ -172,7 +172,7 @@ export function RecordPurchaseDialog({
       // A stale version (the contact changed meanwhile) is re-read, so the retry sends the current one.
       if (err instanceof ApiError && err.status === 409 && contact) {
         try {
-          setSupplier(await api.get<CustomerRead>(`/customers/${contact.id}`))
+          setSupplier(await api.get<ContactRead>(`/contacts/${contact.id}`))
         } catch {
           // the message above stands; «Ändern» picks the contact again
         }
@@ -252,7 +252,7 @@ export function RecordPurchaseDialog({
             {supplier ? (
               <Group gap="xs">
                 <Text size="sm" data-testid="purchase-supplier">
-                  {supplierLabel(supplier)} · {supplier.customerNumber}
+                  {supplierLabel(supplier)} · {supplier.contactNumber}
                 </Text>
                 <Button variant="subtle" size="xs" onClick={() => setSupplier(null)}>
                   {t('stockDetail.purchase.supplier.change')}
@@ -266,9 +266,9 @@ export function RecordPurchaseDialog({
                 <Button variant="subtle" size="xs" onClick={() => setCreateOpen(true)}>
                   {t('stockDetail.purchase.supplier.create')}
                 </Button>
-                {tradeInCustomer.data && (
-                  <Button variant="subtle" size="xs" onClick={() => pickSupplier(tradeInCustomer.data)}>
-                    {t('stockDetail.purchase.supplier.useTradeInCustomer', { name: supplierLabel(tradeInCustomer.data) })}
+                {tradeInContact.data && (
+                  <Button variant="subtle" size="xs" onClick={() => pickSupplier(tradeInContact.data)}>
+                    {t('stockDetail.purchase.supplier.useTradeInContact', { name: supplierLabel(tradeInContact.data) })}
                   </Button>
                 )}
               </Group>
@@ -331,7 +331,7 @@ export function RecordPurchaseDialog({
       <Modal opened={pickerOpen} onClose={() => setPickerOpen(false)} title={t('stockDetail.purchase.supplier.search')}>
         <Picker
           rows={(search.data?.items ?? []).map(
-            (c: CustomerRead): PickerRow => ({ id: c.id, identifier: c.customerNumber, label: supplierLabel(c) }),
+            (c: ContactRead): PickerRow => ({ id: c.id, identifier: c.contactNumber, label: supplierLabel(c) }),
           )}
           query={query}
           onQueryChange={setQuery}
@@ -351,7 +351,7 @@ export function RecordPurchaseDialog({
           emptyLabel={t('common.noMatches')}
         />
       </Modal>
-      <CustomerCreateDialog
+      <ContactCreateDialog
         opened={createOpen}
         onClose={() => setCreateOpen(false)}
         initialRoles={['supplier']}

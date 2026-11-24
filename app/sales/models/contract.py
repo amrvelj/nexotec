@@ -63,13 +63,13 @@ class SalesContract(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, Timestam
         StoredEnum(ContractStatus, length=16), nullable=False, default=ContractStatus.PENDING
     )
 
-    customer_id: Mapped[uuid.UUID | None] = mapped_column(
-        GUID(), nullable=True, index=True, comment="Owned by the customer context. No DB-level FK."
+    contact_id: Mapped[uuid.UUID | None] = mapped_column(
+        GUID(), nullable=True, index=True, comment="Owned by the contact context. No DB-level FK."
     )
-    customer_label: Mapped[str | None] = mapped_column(String(200), nullable=True)
-    customer_locality: Mapped[str | None] = mapped_column(String(100), nullable=True)
-    customer_denorm_refreshed_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)
-    customer_language: Mapped[str | None] = mapped_column(String(2), nullable=True)
+    contact_label: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    contact_locality: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    contact_denorm_refreshed_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)
+    contact_language: Mapped[str | None] = mapped_column(String(2), nullable=True)
 
     # KAN-200 (FR-A-37): the responsible seller, copied from the offer at
     # creation (the creator for a contract started directly), handed over
@@ -155,7 +155,7 @@ class SalesContract(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, Timestam
 
     # WP-8 PR-6 — trade-in, copied from the offer at creation; since KAN-189
     # it creates no vehicle-mdm record and allocates no party (the car's
-    # customer becomes its former owner when it is bought); since KAN-67
+    # contact becomes its former owner when it is bought); since KAN-67
     # (ADR-083) a pending contract may also record its own, through the
     # offer's trade-in service — a read-only reference all the same. At
     # confirmation (KAN-101)

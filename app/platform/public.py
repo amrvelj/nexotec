@@ -174,7 +174,7 @@ from app.platform.reference.services.reference_data import get_active_reference_
 # per process. Registering writes nothing.
 #
 # KAN-215 (FR-AU-23, ADR-118): the integration that runs a provider's link
-# flow (customer mail through the user's own Microsoft 365 or Google Workspace
+# flow (contact mail through the user's own Microsoft 365 or Google Workspace
 # mailbox) records the grant here — link_connected_account and
 # revoke_connected_account each commit their own transaction (ADR-047; the
 # caller compensates a link it cannot finish with the revoke), and
@@ -182,7 +182,7 @@ from app.platform.reference.services.reference_data import get_active_reference_
 # ids, provider, external account id and status — never the address or the
 # reference). platform alone writes the row; the grant is never an identity.
 #
-# KAN-217 (FR-A-52, FR-A-53): the registry of customer message types the one
+# KAN-217 (FR-A-52, FR-A-53): the registry of contact message types the one
 # send dialog serves. A module registers each document or reminder type it
 # lets a user send — purpose (transactional | marketing), document or
 # reminder, its standard-text code per channel — with register_message_type,

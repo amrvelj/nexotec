@@ -257,7 +257,7 @@ def test_a_session_owing_a_second_factor_is_confined_to_enrolment(client, login,
     refused = client.get(f"/v1/dealerships/{dealership}", headers=cookie_headers(annas))
     assert refused.status_code == 403, refused.text
     assert refused.json()["error"]["details"] == {"mfaEnrolmentRequired": True}
-    assert client.get("/v1/customers", headers=cookie_headers(annas)).status_code == 403
+    assert client.get("/v1/contacts", headers=cookie_headers(annas)).status_code == 403
     assert client.get("/v1/auth/me", headers=cookie_headers(annas)).status_code == 200
     assert client.get("/v1/auth/mfa", headers=cookie_headers(annas)).status_code == 200
     assert client.get("/v1/auth/sessions", headers=cookie_headers(annas)).status_code == 200
@@ -299,9 +299,9 @@ def test_a_session_owing_a_second_factor_is_confined_to_enrolment(client, login,
 
     # The manager may still switch the Betrieb's enforcement off instead of enrolling.
     managers = login.session_cookie(manager)
-    assert client.get("/v1/customers", headers=cookie_headers(managers)).status_code == 403
+    assert client.get("/v1/contacts", headers=cookie_headers(managers)).status_code == 403
     set_mfa_enforced(client, dealership, False)
-    assert client.get("/v1/customers", headers=cookie_headers(managers)).status_code == 200
+    assert client.get("/v1/contacts", headers=cookie_headers(managers)).status_code == 200
 
     # Platform staff are confined whatever the Betrieb says — and cannot
     # reach any Betrieb's enforcement switch from such a session.
@@ -370,12 +370,12 @@ def test_a_new_betriebs_first_user_signs_in_enrols_and_works(client, login, mail
     assert accepted.status_code == 200, accepted.text
     assert accepted.json()["session"]["mfaEnrolmentRequired"] is True
     cookie = accepted.cookies.get("dms_session")
-    assert client.get("/v1/customers", headers=cookie_headers(cookie)).status_code == 403
+    assert client.get("/v1/contacts", headers=cookie_headers(cookie)).status_code == 403
 
     begun = client.post("/v1/auth/mfa/totp/enrol", headers=cookie_headers(cookie)).json()
     confirmed = client.post("/v1/auth/mfa/totp/confirm", json={"code": pyotp.TOTP(begun["secret"]).now()}, headers=cookie_headers(cookie))
     assert confirmed.status_code == 200, confirmed.text
-    assert client.get("/v1/customers", headers=cookie_headers(cookie)).status_code == 200
+    assert client.get("/v1/contacts", headers=cookie_headers(cookie)).status_code == 200
     assert client.get("/v1/auth/me", headers=cookie_headers(cookie)).json()["mfaEnrolmentRequired"] is False
     assert client.get("/v1/auth/mfa", headers=cookie_headers(cookie)).json()["enrolmentRequired"] is False
 

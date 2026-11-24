@@ -9,7 +9,7 @@ independently and deterministically:
 - scope: location → dealership → platform seed.
 
 The language chain is the outer loop: the right language beats the narrower
-scope, so a French customer gets the French seed before the Betrieb's German
+scope, so a French contact gets the French seed before the Betrieb's German
 wording. Within one language, for each code: an active location row wins; a
 location row switched off falls back to the dealership's; a dealership row —
 active or switched off — masks the seed of the same code (switching an

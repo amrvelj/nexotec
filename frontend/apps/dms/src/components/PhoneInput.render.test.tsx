@@ -17,10 +17,10 @@ import { PHONE_INPUT_MIN_WIDTH, PhoneInput } from './PhoneInput'
 function renderPhone() {
   render(
     <MantineProvider theme={testTheme} env="test">
-      <PhoneInput label={i18n.t('customerDetail.phoneInput.country')} value="+447911123456" onChange={() => {}} />
+      <PhoneInput label={i18n.t('contactDetail.phoneInput.country')} value="+447911123456" onChange={() => {}} />
     </MantineProvider>,
   )
-  const number = screen.getByLabelText(i18n.t('customerDetail.phoneInput.number'))
+  const number = screen.getByLabelText(i18n.t('contactDetail.phoneInput.number'))
   const numberRoot = number.closest('.mantine-TextInput-root') as HTMLElement
   return { group: numberRoot.parentElement as HTMLElement, numberRoot }
 }
@@ -53,7 +53,7 @@ function StatefulPhone({ initial, onCommit }: { initial: string; onCommit: () =>
   return (
     <MantineProvider theme={testTheme} env="test">
       <Profiler id="phone" onRender={onCommit}>
-        <PhoneInput label={i18n.t('customerDetail.phoneInput.country')} value={value} onChange={setValue} />
+        <PhoneInput label={i18n.t('contactDetail.phoneInput.country')} value={value} onChange={setValue} />
       </Profiler>
       <output data-testid="emitted">{value}</output>
       <button type="button" onClick={() => setValue('+41443330000')}>
@@ -68,7 +68,7 @@ describe('PhoneInput renders (KAN-167)', () => {
     const user = userEvent.setup()
     const onCommit = vi.fn()
     render(<StatefulPhone initial="" onCommit={onCommit} />)
-    const number = screen.getByLabelText(i18n.t('customerDetail.phoneInput.number')) as HTMLInputElement
+    const number = screen.getByLabelText(i18n.t('contactDetail.phoneInput.number')) as HTMLInputElement
     await user.click(number)
     onCommit.mockClear()
 
@@ -91,7 +91,7 @@ describe('PhoneInput renders (KAN-167)', () => {
   it('shows a loaded value in national form and keeps the trunk 0 while typing', async () => {
     const user = userEvent.setup()
     render(<StatefulPhone initial="+41791110000" onCommit={() => {}} />)
-    const number = screen.getByLabelText(i18n.t('customerDetail.phoneInput.number')) as HTMLInputElement
+    const number = screen.getByLabelText(i18n.t('contactDetail.phoneInput.number')) as HTMLInputElement
     expect(number.value).toBe('0791110000')
 
     await user.clear(number)

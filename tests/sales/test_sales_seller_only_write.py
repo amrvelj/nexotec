@@ -1,5 +1,5 @@
 """KAN-405 (Anto, 2026-10-28, option A) — the responsible seller of an offer
-already sent to the customer (status «offen») may change: a PATCH carrying
+already sent to the contact (status «offen») may change: a PATCH carrying
 `ownerUserId` alone. The same narrow write is open on a pending contract
 priced before contracts kept their inputs, whose price is otherwise
 untouchable (KAN-67, KAN-315). That is what lets «Übernehmen» pick up any
@@ -69,7 +69,7 @@ def test_an_open_offer_takes_a_seller_alone_and_leaves_the_queue(client, db_sess
     assert body["status"] == "open"
     assert body["version"] == offer["version"] + 1
     unchanged = (
-        "grossPrice", "listPrice", "discountAmount", "vehicleSnapshotFrozenAt", "customerId", "vehicleLabel",
+        "grossPrice", "listPrice", "discountAmount", "vehicleSnapshotFrozenAt", "contactId", "vehicleLabel",
         "offerNumber",
     )
     assert {k: body[k] for k in unchanged} == {k: offer[k] for k in unchanged}
@@ -160,7 +160,7 @@ def test_a_contract_priced_without_inputs_takes_a_seller_alone(client, db_sessio
     body = taken.json()
     assert body["ownerUserId"] == seller["id"] and body["ownerLabel"] == "Sara Seller"
     assert body["version"] == before["version"] + 1
-    figures = ("grossPrice", "listPrice", "payable", "vehicleSnapshotFrozenAt", "customerId", "vehicleLabel")
+    figures = ("grossPrice", "listPrice", "payable", "vehicleSnapshotFrozenAt", "contactId", "vehicleLabel")
     assert {k: body[k] for k in figures} == {k: before[k] for k in figures}
 
     # A seller sent with any other field is still the KAN-67 refusal.

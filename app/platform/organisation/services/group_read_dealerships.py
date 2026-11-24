@@ -1,6 +1,6 @@
 """KAN-121 (ADR-055, rule 2): the Betriebe of a dealer group whose group
 read is enabled, as plain data — for a context that reads its own rows of a
-whole group (Stock's group-readable listing, ADR-055; the customer 360's
+whole group (Stock's group-readable listing, ADR-055; the contact 360's
 «in group stock» lookup) and must not join platform's tables to find them.
 
 Its own module so the ambient-group-read allowlist
@@ -47,7 +47,7 @@ def list_group_read_dealerships(db: Session, *, group_id: uuid.UUID) -> list[Dea
     its stock. Its archive is reached through staff's archive export only."""
 
     # One statement (platform's own two tables): the callers count their
-    # queries (the customer 360's Vehicles tab is batched, KAN-49). The
+    # queries (the contact 360's Vehicles tab is batched, KAN-49). The
     # outer join keeps the group's row when it has no Betrieb left, so an
     # enabled group whose only other Betrieb left is an empty list.
     rows = db.execute(

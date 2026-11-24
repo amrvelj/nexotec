@@ -1,5 +1,5 @@
 """KAN-121 (rule 2): the plain-data read that replaced another context's
-SQL — platform's group Betriebe for Stock's group listing. (Customer's party
+SQL — platform's group Betriebe for Stock's group listing. (Contact's party
 count for vehicle's legacy-reference check went with the legacy table, KAN-79.)"""
 
 import uuid

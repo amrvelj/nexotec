@@ -193,11 +193,11 @@ describe('«Einkauf stornieren» (KAN-146)', () => {
 })
 
 // KAN-572 (Anto, 2026-11-07, option C) — on a trade-in's car the user says
-// whether it went back to the customer who traded it in; that customer is then
+// whether it went back to the contact who traded it in; that contact is then
 // their owner and keeper again. Any other car is never asked.
 describe('«Einkauf stornieren» on a trade-in (KAN-572)', () => {
   const TRADE_IN: StockItemRead = { ...BOUGHT, pipelineRef: 'contract:c-0042:trade_in' }
-  const returnedLabel = () => i18n.t('stockDetail.purchase.storno.returnedToCustomer')
+  const returnedLabel = () => i18n.t('stockDetail.purchase.storno.returnedToContact')
 
   async function openStorno(item: StockItemRead) {
     const user = userEvent.setup()
@@ -212,7 +212,7 @@ describe('«Einkauf stornieren» on a trade-in (KAN-572)', () => {
     return user
   }
 
-  it('asks, unticked by default, and sends returnedToCustomer when ticked', async () => {
+  it('asks, unticked by default, and sends returnedToContact when ticked', async () => {
     const backend = installFakeBackend([
       { method: 'POST', match: /^\/inventory\/stock-items\/s1\/purchase\/storno$/, handler: () => STORNOED },
     ])
@@ -220,18 +220,18 @@ describe('«Einkauf stornieren» on a trade-in (KAN-572)', () => {
 
     const box = screen.getByRole('checkbox', { name: (n) => n.startsWith(returnedLabel()) })
     expect(box).not.toBeChecked()
-    expect(box).toHaveAccessibleDescription(i18n.t('stockDetail.purchase.storno.returnedToCustomerHint'))
+    expect(box).toHaveAccessibleDescription(i18n.t('stockDetail.purchase.storno.returnedToContactHint'))
     await user.click(box)
     await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: i18n.t('stockDetail.purchase.storno.submit') }))
 
     await waitFor(() => expect(backend.callsTo(/purchase\/storno$/, 'POST')).toHaveLength(1))
     expect(backend.callsTo(/purchase\/storno$/, 'POST')[0].body).toEqual({
       reason: 'Kunde behält das Fahrzeug',
-      returnedToCustomer: true,
+      returnedToContact: true,
     })
   })
 
-  it('left unticked, says the car stayed: the customer keeps their history', async () => {
+  it('left unticked, says the car stayed: the contact keeps their history', async () => {
     const backend = installFakeBackend([
       { method: 'POST', match: /^\/inventory\/stock-items\/s1\/purchase\/storno$/, handler: () => STORNOED },
     ])
@@ -241,7 +241,7 @@ describe('«Einkauf stornieren» on a trade-in (KAN-572)', () => {
     await waitFor(() => expect(backend.callsTo(/purchase\/storno$/, 'POST')).toHaveLength(1))
     expect(backend.callsTo(/purchase\/storno$/, 'POST')[0].body).toEqual({
       reason: 'Kunde behält das Fahrzeug',
-      returnedToCustomer: false,
+      returnedToContact: false,
     })
   })
 

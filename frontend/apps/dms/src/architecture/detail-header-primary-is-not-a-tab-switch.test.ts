@@ -7,7 +7,7 @@ import { dirname, join, posix, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import ts from 'typescript'
 
-// KAN-468: the customer screen's primary «Edit» was wired to
+// KAN-468: the contact screen's primary «Edit» was wired to
 // `onEdit: () => setActiveTab('overview')` — on the Overview tab, where the
 // button is used, it did nothing, and the most prominent button on the
 // screen taught users not to trust the primary action. ADR-061 gives every
@@ -1187,13 +1187,13 @@ describe('a detail header primary is never a tab switch (KAN-468, ADR-061)', () 
   it('no screen wires its primary to a handler that only selects a tab', () => {
     const sources = collectSources(SRC_ROOT)
     const builders = primaryHandlersOfBuilders(sources)
-    expect([...builders.keys()]).toEqual(expect.arrayContaining(['buildCustomerRowMenu', 'buildVehicleRowMenu']))
+    expect([...builders.keys()]).toEqual(expect.arrayContaining(['buildContactRowMenu', 'buildVehicleRowMenu']))
     expect(noOpPrimaries(sources, builders)).toEqual([])
   })
 
-  it('reads the customer and vehicle primaries from their builders', () => {
+  it('reads the contact and vehicle primaries from their builders', () => {
     const builders = primaryHandlersOfBuilders(collectSources(SRC_ROOT))
-    expect([...builders.get('buildCustomerRowMenu')!].sort()).toEqual(['onLinkVehicle', 'onNewOffer'])
+    expect([...builders.get('buildContactRowMenu')!].sort()).toEqual(['onLinkVehicle', 'onNewOffer'])
     expect([...builders.get('buildVehicleRowMenu')!]).toEqual(['onAllocate'])
     expect([...builders.get('buildValuationRowMenu')!]).toEqual(['onRevalue'])
   })
@@ -1209,7 +1209,7 @@ describe('a detail header primary is never a tab switch (KAN-468, ADR-061)', () 
     const page: Source = {
       path: 'pages/OldDetailPage.tsx',
       text: `export function OldDetailPage() {
-        const rowMenu = buildOldRowMenu(t, customer, { onEdit: () => setActiveTab('overview'), onCopy: () => {} })
+        const rowMenu = buildOldRowMenu(t, contact, { onEdit: () => setActiveTab('overview'), onCopy: () => {} })
         return <DetailHeader primaryAction={rowMenu.primary} />
       }
       export function Inline() {
@@ -1229,8 +1229,8 @@ describe('a detail header primary is never a tab switch (KAN-468, ADR-061)', () 
       text: `export function NamedDetailPage({ onEditProp }) {
         const goOverview = () => setActiveTab('overview')
         function focusIdentity() { setSearchParams({ tab: 'identity' }) }
-        const rowMenu = buildOldRowMenu(t, customer, { onEdit: goOverview })
-        const other = buildOldRowMenu(t, customer, { onEdit: () => focusIdentity() })
+        const rowMenu = buildOldRowMenu(t, contact, { onEdit: goOverview })
+        const other = buildOldRowMenu(t, contact, { onEdit: () => focusIdentity() })
         return <>
           <DetailHeader primaryAction={rowMenu.primary} />
           <DetailHeader primaryAction={{ label: 'x', onClick: onEditProp }} />
@@ -1260,7 +1260,7 @@ describe('a detail header primary is never a tab switch (KAN-468, ADR-061)', () 
     const page: Source = {
       path: 'pages/OldDetailPage.tsx',
       text: `export function OldDetailPage() {
-        const rowMenu = buildOldRowMenu(t, customer, { onEdit: () => setActiveTab('overview') }, new Date())
+        const rowMenu = buildOldRowMenu(t, contact, { onEdit: () => setActiveTab('overview') }, new Date())
         return <DetailHeader primaryAction={rowMenu.primary} />
       }`,
     }

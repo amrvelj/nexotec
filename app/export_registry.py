@@ -13,9 +13,9 @@ Betrieb's last write) and app.worker (the export job runs there). Importing
 it twice is harmless: the registry replaces by context.
 """
 
+from app.contact.public import ContactExporter
 from app.core.export import StubExporter, register_exporter
 from app.core.export_core import CoreExporter
-from app.customer.public import CustomerExporter
 from app.integration.public import IntegrationExporter
 from app.inventory.public import InventoryExporter
 from app.platform.public import PlatformExporter
@@ -33,7 +33,7 @@ def register_exporters() -> None:
         PlatformExporter(),
         IntegrationExporter(),
         VehicleExporter(),
-        CustomerExporter(),
+        ContactExporter(),
         ValuationExporter(),
         InventoryExporter(),
         SalesExporter(),

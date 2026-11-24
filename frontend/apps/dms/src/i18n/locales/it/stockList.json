@@ -1,7 +1,7 @@
 {
   "title": "Magazzino",
   "newStockItem": "Aggiungi veicolo",
-  "searchPlaceholder": "Targa, VIN, cliente, offerta…",
+  "searchPlaceholder": "Targa, VIN, contatto, offerta…",
   "loadError": "Impossibile caricare lo stock.",
   "groupLoadError": "Impossibile caricare lo stock del gruppo.",
   "allStockView": "Tutti i veicoli",

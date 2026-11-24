@@ -621,17 +621,17 @@ def test_removing_the_last_factor_makes_the_session_owe_enrolment_again(client, 
     anna = create_user(client, dealership)
     cookie = login.session_cookie(anna)
     secret, _ = _enrol_totp(client, cookie)
-    assert client.get("/v1/customers", headers=cookie_headers(cookie)).status_code == 200
+    assert client.get("/v1/contacts", headers=cookie_headers(cookie)).status_code == 200
     # A sibling that proved the factor at sign-in.
     challenge = login.login(anna).json()["challengeId"]
     sibling = client.post("/v1/auth/mfa/verify", json={"challengeId": challenge, "code": _fresh_code(db_session, secret)})
     assert sibling.status_code == 200, sibling.text
     sibling_cookie = sibling.cookies.get("dms_session")
-    assert client.get("/v1/customers", headers=cookie_headers(sibling_cookie)).status_code == 200
+    assert client.get("/v1/contacts", headers=cookie_headers(sibling_cookie)).status_code == 200
 
     assert client.delete("/v1/auth/mfa/totp", headers=cookie_headers(cookie)).status_code == 204
     assert client.get("/v1/auth/me", headers=cookie_headers(cookie)).json()["mfaEnrolmentRequired"] is True
-    assert client.get("/v1/customers", headers=cookie_headers(cookie)).status_code == 403
+    assert client.get("/v1/contacts", headers=cookie_headers(cookie)).status_code == 403
     assert client.get("/v1/auth/me", headers=cookie_headers(sibling_cookie)).status_code == 401
     ended = [e for e in _events(db_session, AuthEventKind.SESSION_REVOKED) if e.details["reason"] == "mfa_removed"]
     assert len(ended) == 1 and ended[0].details["count"] == 1
@@ -721,7 +721,7 @@ def test_the_guard_re_reads_the_row_before_ending_the_session_that_is_confirming
         return real_has_factor(db, uid)
 
     monkeypatch.setattr(mfa_service, "has_factor", confirm_commits_now)
-    response = client.get("/v1/customers", headers=cookie_headers(cookie))
+    response = client.get("/v1/contacts", headers=cookie_headers(cookie))
     assert fired, "the guard never asked for the factor"
     assert response.status_code == 200, response.text
     assert [e for e in _events(db_session, AuthEventKind.SESSION_REVOKED) if e.details["reason"] == "factor_enrolled"] == []
@@ -1273,14 +1273,14 @@ def test_a_real_passkey_ceremony_registers_and_signs_in(client, login, db_sessio
     dealership = create_dealership(client, mfa_enforced=True)
     anna = create_user(client, dealership)
     cookie = login.session_cookie(anna)
-    assert client.get("/v1/customers", headers=cookie_headers(cookie)).status_code == 403  # owes a factor
+    assert client.get("/v1/contacts", headers=cookie_headers(cookie)).status_code == 403  # owes a factor
     private_key = ec.generate_private_key(ec.SECP256R1())
     credential_id = b"laptop-" + uuid.uuid4().bytes
 
     registered = _register_through_the_library(client, cookie, credential_id, _cose_ec2(private_key))
     assert registered.status_code == 201, registered.text
     assert registered.json()["label"] == "Laptop"
-    assert client.get("/v1/customers", headers=cookie_headers(cookie)).status_code == 200  # the row proved it
+    assert client.get("/v1/contacts", headers=cookie_headers(cookie)).status_code == 200  # the row proved it
     stored = db_session.scalars(select(MfaPasskey).where(MfaPasskey.credential_id == _b64url(credential_id))).one()
     assert stored.transports == ["internal"] and stored.sign_count == 0
 

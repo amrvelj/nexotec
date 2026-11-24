@@ -1,10 +1,10 @@
 """Vehicle merge (WP-5 PR-6, FR-V-12) — one-way, audit-logged, no unmerge.
-Same shape as the customer merge, WITH the re-pointing: plates,
+Same shape as the contact merge, WITH the re-pointing: plates,
 accessories, odometer readings, custody events and Vehicle's own projection
 of the records a Betrieb holds in stock move to the survivor here; the party
-links (customer's `VehicleParty`) follow when customer consumes
-`vehicle.vehicle_mdm.merged` (KAN-634, ADR-131: customer sits above vehicle,
-so vehicle publishes the fact and never calls customer), and so do Stock's
+links (contact's `VehicleParty`) follow when contact consumes
+`vehicle.vehicle_mdm.merged` (KAN-634, ADR-131: contact sits above vehicle,
+so vehicle publishes the fact and never calls contact), and so do Stock's
 items (`inventory.stock_items_on_vehicle_merged`, KAN-524).
 
 `merge_vehicle_records` is the endpoint's entry (KAN-524; Anto, 2026-11-11,
@@ -155,8 +155,8 @@ def merge_vehicles(db: Session, *, survivor_id: uuid.UUID, duplicate_id: uuid.UU
     in that same transaction (rule 4: business row and outbox row
     together), and commits.
 
-    The party links are customer's rows: customer re-points them when it
-    consumes the event (`customer.vehicle_parties_on_vehicle_merged`,
+    The party links are contact's rows: contact re-points them when it
+    consumes the event (`contact.vehicle_parties_on_vehicle_merged`,
     KAN-634), in its own transaction — never in this one (ADR-047) and never
     by a call from here (ADR-131). Until the worker delivers it, the
     duplicate's holders still name the duplicate; nothing in this merge
@@ -201,7 +201,7 @@ def merge_vehicles(db: Session, *, survivor_id: uuid.UUID, duplicate_id: uuid.UU
         after={"mergedIntoVehicleId": str(survivor_id), "repointed": repointed},
     )
     # vehicle-mdm is global (ADR-022): no Betrieb owns the fact, so
-    # tenant_id is None and each consumer applies its own scope (customer
+    # tenant_id is None and each consumer applies its own scope (contact
     # re-points every dealer group's party rows naming the duplicate).
     publish(
         db,

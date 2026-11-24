@@ -420,8 +420,8 @@ def _seed_country_reference_list(engine):
 
     Autouse, which is a departure from the house pattern of per-test
     ``_seed_list`` / ``_seed_value`` helpers. It is justified here:
-    ``CustomerAddressCreate.address_country`` defaults to ``"CH"``, so *every*
-    test that creates a customer-with-address or writes an address now runs
+    ``ContactAddressCreate.address_country`` defaults to ``"CH"``, so *every*
+    test that creates a contact-with-address or writes an address now runs
     ``_validate_country_codes`` — and with the list absent that raises a
     500-class deployment fault (``get_active_reference_value_codes`` -> None),
     not a skippable 404. Seeding it once here keeps the whole suite honest

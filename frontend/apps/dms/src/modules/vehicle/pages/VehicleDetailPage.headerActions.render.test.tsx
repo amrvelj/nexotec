@@ -10,7 +10,7 @@ import { VehicleDetailPage } from './VehicleDetailPage'
 
 // KAN-468 (Anto, 2026-10-26; FR-V-16 amended, ADR-061): Vehicle 360 has no
 // «Edit» — the identity fields are inline. The primary «Allocate to
-// customer» opens the Identity tab's customer picker from any tab; the
+// contact» opens the Identity tab's contact picker from any tab; the
 // alternative «Request valuation» starts a new valuation of this car.
 
 const ID = 'veh-1'
@@ -58,7 +58,7 @@ function render(route = `/vehicles/${ID}`) {
   )
 }
 
-// The Identity tab's party card has its own «Allocate to customer» button;
+// The Identity tab's party card has its own «Allocate to contact» button;
 // the header's is the filled one.
 async function headerPrimary() {
   const buttons = await screen.findAllByRole('button', { name: i18n.t('vehicleDetail.header.allocate') })
@@ -70,7 +70,7 @@ async function headerPrimary() {
 afterEach(() => cleanup())
 
 describe('Vehicle 360 header (KAN-468)', () => {
-  it('has no «Edit»: «Allocate to customer» is the primary, «Request valuation» the alternative', async () => {
+  it('has no «Edit»: «Allocate to contact» is the primary, «Request valuation» the alternative', async () => {
     const user = userEvent.setup()
     install()
     render()
@@ -90,14 +90,14 @@ describe('Vehicle 360 header (KAN-468)', () => {
     }
   })
 
-  it('the primary opens the customer picker, from any tab — never a no-op tab switch', async () => {
+  it('the primary opens the contact picker, from any tab — never a no-op tab switch', async () => {
     const user = userEvent.setup()
     install()
     render(`/vehicles/${ID}?tab=odometer`)
 
     await user.click(await headerPrimary())
 
-    expect(await screen.findByPlaceholderText(i18n.t('vehicleDetail.parties.searchCustomer'))).toBeInTheDocument()
+    expect(await screen.findByPlaceholderText(i18n.t('vehicleDetail.parties.searchContact'))).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: new RegExp(i18n.t('vehicleDetail.tabs.identity')) })).toHaveAttribute(
       'aria-selected',
       'true',
@@ -105,9 +105,9 @@ describe('Vehicle 360 header (KAN-468)', () => {
 
     // On the Identity tab itself it opens the picker too.
     await user.click(screen.getByRole('button', { name: i18n.t('common.cancel') }))
-    expect(screen.queryByPlaceholderText(i18n.t('vehicleDetail.parties.searchCustomer'))).toBeNull()
+    expect(screen.queryByPlaceholderText(i18n.t('vehicleDetail.parties.searchContact'))).toBeNull()
     await user.click(await headerPrimary())
-    expect(await screen.findByPlaceholderText(i18n.t('vehicleDetail.parties.searchCustomer'))).toBeInTheDocument()
+    expect(await screen.findByPlaceholderText(i18n.t('vehicleDetail.parties.searchContact'))).toBeInTheDocument()
   })
 
   it('«Record odometer» and «Record accessory» focus their form, also on their own tab', async () => {
@@ -141,7 +141,7 @@ describe('Vehicle 360 header (KAN-468)', () => {
     expect(await screen.findByTestId('location')).toHaveTextContent(`/valuations/new?vehicle=${ID}`)
   })
 
-  it('a Betrieb without sales: «Allocate to customer» is the primary and there is no valuation', async () => {
+  it('a Betrieb without sales: «Allocate to contact» is the primary and there is no valuation', async () => {
     const user = userEvent.setup()
     install(['aftersales', 'parts'])
     render()

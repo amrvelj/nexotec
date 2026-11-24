@@ -11,7 +11,7 @@ import { CatalogueBrowseGrid } from '../modules/vehicle/components/catalogue/Cat
 // kit's `sortSpecFromQueryParam` / `sortSpecToQueryParam` (ADR-056), not a
 // copy of their own. A pasted link opens the same order it named: the grid
 // asks the API for exactly that sort, levels and directions included. The
-// Customers, Users, Stock, Vehicles and Account-recovery screens have their
+// Contacts, Users, Stock, Vehicles and Account-recovery screens have their
 // own `?sort=` render tests; these three had none.
 
 vi.mock('@tanstack/react-virtual', () => ({

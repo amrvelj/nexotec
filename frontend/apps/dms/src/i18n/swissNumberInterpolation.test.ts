@@ -18,8 +18,8 @@ describe('{{count, number}} interpolation', () => {
 
   it('still selects the plural form from the raw count', async () => {
     await i18n.changeLanguage('en')
-    expect(i18n.t('customerCreate.duplicates.heading', { count: 1 })).toBe('Possible existing customer')
-    expect(i18n.t('customerCreate.duplicates.heading', { count: 1200 })).toBe("1'200 possible existing customers")
+    expect(i18n.t('contactCreate.duplicates.heading', { count: 1 })).toBe('Possible existing contact')
+    expect(i18n.t('contactCreate.duplicates.heading', { count: 1200 })).toBe("1'200 possible existing contacts")
   })
 
   it('passes a non-numeric value through instead of rendering NaN', async () => {

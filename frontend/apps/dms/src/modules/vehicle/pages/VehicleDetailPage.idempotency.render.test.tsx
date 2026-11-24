@@ -7,7 +7,7 @@ import i18n from '../../../i18n'
 import { renderWithProviders } from '../../../test/renderWithProviders'
 import en from '../../../i18n/locales/en'
 import { installFakeBackend, status } from '../../../test/fakeBackend'
-import { customer } from '../../../test/fixtures'
+import { contact } from '../../../test/fixtures'
 import { VehicleDetailPage } from './VehicleDetailPage'
 
 // KAN-266 — the vehicle screen's creates (odometer reading, accessory,
@@ -44,7 +44,7 @@ function install({ failFirst }: { failFirst?: FailOn } = {}) {
     ? [{ id: 'acc-0', vehicleId: ID, accessoryType: 'towbar', description: null, validFrom: '2026-01-01', validTo: null }]
     : []
   const readings: Record<string, unknown>[] = []
-  const anna = customer({ id: 'cust-1', firstName: 'Anna', lastName: 'Muster', customerNumber: 'K-000001' })
+  const anna = contact({ id: 'cust-1', firstName: 'Anna', lastName: 'Muster', contactNumber: 'K-000001' })
   return installFakeBackend([
     { match: new RegExp(`^/vehicle-mdm/${ID}$`), handler: () => vehicle },
     { match: new RegExp(`^/vehicle-mdm/${ID}/plates$`), handler: () => [] },
@@ -62,7 +62,7 @@ function install({ failFirst }: { failFirst?: FailOn } = {}) {
         return { __status: 201, body: row }
       },
     },
-    { method: 'GET', match: /^\/customers$/, handler: () => ({ items: [anna], nextCursor: null }) },
+    { method: 'GET', match: /^\/contacts$/, handler: () => ({ items: [anna], nextCursor: null }) },
     {
       method: 'POST',
       match: new RegExp(`^/vehicle-mdm/${ID}/allocate$`),
@@ -104,7 +104,7 @@ function renderTab(tab: string) {
   )
 }
 
-// Since KAN-468 the header's primary is «Allocate to customer» too (the
+// Since KAN-468 the header's primary is «Allocate to contact» too (the
 // filled button); the party card's own button is the light one.
 async function partyCardAllocate() {
   const buttons = await screen.findAllByRole('button', { name: i18n.t('vehicleDetail.parties.allocate') })
@@ -165,14 +165,14 @@ describe('VehicleDetailPage — one Idempotency-Key per create (KAN-266)', () =>
     expect(second).not.toBe(first)
   })
 
-  it('allocating the same customer twice in a row is two submissions, each under its own key', async () => {
+  it('allocating the same contact twice in a row is two submissions, each under its own key', async () => {
     const user = userEvent.setup()
     const backend = install()
     renderTab('identity')
 
     const allocate = async () => {
       await user.click(await partyCardAllocate())
-      await user.type(screen.getByPlaceholderText(i18n.t('vehicleDetail.parties.searchCustomer')), 'Muster')
+      await user.type(screen.getByPlaceholderText(i18n.t('vehicleDetail.parties.searchContact')), 'Muster')
       await user.click(await screen.findByText('Anna Muster'))
     }
     await allocate()
@@ -180,7 +180,7 @@ describe('VehicleDetailPage — one Idempotency-Key per create (KAN-266)', () =>
     await allocate()
     await waitFor(() => expect(keysOf(backend, 'allocate')).toHaveLength(2))
 
-    expect(backend.callsTo(/\/allocate$/, 'POST')[0].body).toEqual({ customerId: 'cust-1', role: 'owner' })
+    expect(backend.callsTo(/\/allocate$/, 'POST')[0].body).toEqual({ contactId: 'cust-1', role: 'owner' })
     const [first, second] = keysOf(backend, 'allocate')
     expect(first).toBeTruthy()
     expect(second).toBeTruthy()
@@ -269,11 +269,11 @@ describe('VehicleDetailPage — a failed save says so and keeps its key (KAN-269
     renderTab('identity')
 
     await user.click(await partyCardAllocate())
-    await user.type(screen.getByPlaceholderText(i18n.t('vehicleDetail.parties.searchCustomer')), 'Muster')
+    await user.type(screen.getByPlaceholderText(i18n.t('vehicleDetail.parties.searchContact')), 'Muster')
     await user.click(await screen.findByText('Anna Muster'))
 
     expect((await screen.findByRole('alert')).textContent).toBe(i18n.t('vehicleDetail.parties.allocateError'))
-    // Not busy any more: the picker lists the customer again and can be retried.
+    // Not busy any more: the picker lists the contact again and can be retried.
     await user.click(await screen.findByText('Anna Muster'))
     await waitFor(() => expect(keysOf(backend, 'allocate')).toHaveLength(2))
     await waitFor(() => expect(screen.queryByRole('alert')).toBeNull())

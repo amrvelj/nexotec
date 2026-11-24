@@ -11,7 +11,7 @@
   "trade_in_valuation_names_no_car": "Diese Bewertung nennt kein Fahrzeug mit VIN, das als Eintausch übernommen werden kann.",
   "trade_in_chassis_number_requires_configuration": "Ein Fahrzeug mit Fahrgestellnummer statt VIN wird mit seiner Konfiguration eingetauscht: Bewerten Sie es über «Identifizieren und bewerten» – dort werden Fahrgestellnummer, Marke und Erstzulassung erfasst.",
   "vehicle_not_changed": "Das Lagerfahrzeug wurde seit der Preisberechnung nicht geändert.",
-  "document_has_no_customer": "Dieses Dokument nennt keinen Kunden, an den es gesendet werden kann.",
+  "document_has_no_contact": "Dieses Dokument nennt keinen Kontakt, an den es gesendet werden kann.",
   "whatsapp_text_fixed": "Auf WhatsApp wird die freigegebene Vorlage unverändert gesendet; ihr Text kann hier nicht geändert werden.",
   "message_text_missing": "Für diesen Kanal gibt es keinen Text zum Senden. Schreiben Sie einen Text oder legen Sie einen Standardtext an."
 }

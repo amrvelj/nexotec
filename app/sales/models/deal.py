@@ -79,10 +79,10 @@ class SalesDeal(PrimaryKeyMixin, TenantScopedMixin, TimestampMixin, Base):
     contract_id: Mapped[uuid.UUID | None] = mapped_column(GUID(), nullable=True, index=True)
     contract_number: Mapped[str | None] = mapped_column(String(16), nullable=True)
 
-    customer_id: Mapped[uuid.UUID | None] = mapped_column(GUID(), nullable=True, index=True)
-    customer_label: Mapped[str | None] = mapped_column(String(200), nullable=True)
-    customer_locality: Mapped[str | None] = mapped_column(String(100), nullable=True)
-    customer_denorm_refreshed_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)
+    contact_id: Mapped[uuid.UUID | None] = mapped_column(GUID(), nullable=True, index=True)
+    contact_label: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    contact_locality: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    contact_denorm_refreshed_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)
     vehicle_label: Mapped[str | None] = mapped_column(String(200), nullable=True)
     # KAN-570: the stock car's number, the live entity's rule-2 label
     # (`stock_item_label`, KAN-157 — copied once, never refreshed: a stock

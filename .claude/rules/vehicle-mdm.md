@@ -33,7 +33,7 @@ paths:
   - "tests/architecture/test_vin_resolution_is_vehicles.py"
   - "tests/vehicle/test_vehicle_history.py"
   - "tests/vehicle/test_vehicle_accessory_end_audited.py"
-  - "tests/customer/test_vehicle_party_label_on_summary_changed.py"
+  - "tests/contact/test_vehicle_party_label_on_summary_changed.py"
   - "tests/sales/test_sales_invoice_plate_handover.py"
   - "tests/vehicle/test_configuration_vin_repair.py"
   - "tests/architecture/test_plate_lookup_is_not_enumerable.py"
@@ -129,7 +129,7 @@ the invariants. Last verified against main@3b2bf69 (2026-11-18). -->
   registration in the same year, a refused write publish nothing); payload `vehicleId`, `version`,
   `changedFields` and the whole `summary`; `tenant_id` null (vehicle-mdm is global). Nothing writes a
   record's `catalogue_variant_id` after creation yet. Any new writer of a summary field calls `publish_summary_changed_if_changed` with the
-  summary read before its write. **Ruled exception:** a brand rename publishes nothing; customers'
+  summary read before its write. **Ruled exception:** a brand rename publishes nothing; contacts'
   Vehicles tabs catch up by the nightly label refresh (Anto;
   `test_a_brand_rename_reaches_the_vehicles_tab_the_next_morning`).
 - **A bought car's VIN is corrected from Stock** (KAN-557): `vehicle.public.correct_vehicle_vin`
@@ -140,9 +140,9 @@ the invariants. Last verified against main@3b2bf69 (2026-11-18). -->
 - **Any Betrieb may end a recorded accessory** (the car is shared; Anto): `validTo` = today in
   Switzerland, audited under the ending Betrieb and, when another recorded it, under that one too;
   the row is never deleted (FR-V-13).
-- **The FR-V-12 merge** (endpoint, refusals, what follows it in Customers and Stock): `vehicle-merge.md`.
+- **The FR-V-12 merge** (endpoint, refusals, what follows it in Contacts and Stock): `vehicle-merge.md`.
 - **Vehicle never reads or writes `VehicleParty`** (KAN-634, ADR-131 (5)): the Vehicle 360's
-  «Allocate to customer» (`POST /v1/vehicle-mdm/{id}/allocate`) and holders
+  «Allocate to contact» (`POST /v1/vehicle-mdm/{id}/allocate`) and holders
   (`GET /v1/vehicle-mdm/{id}/party-roles`) are served from the composition root
   `app/api/v1/vehicle_parties.py`, same paths and shapes; no `app/vehicle` module outside
-  `reconciliation.py` (ADR-107) imports `app.customer`.
+  `reconciliation.py` (ADR-107) imports `app.contact`.

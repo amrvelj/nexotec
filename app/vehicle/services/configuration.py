@@ -614,7 +614,7 @@ def copy_configuration(
     db: Session, *, source: VehicleConfiguration, actor_id: uuid.UUID | None
 ) -> VehicleConfiguration:
     """FR-C-11 — a new configuration with the same content and a new id
-    (what an advisor does when the customer asks about the same car in a
+    (what an advisor does when the contact asks about the same car in a
     different trim)."""
 
     copy = VehicleConfiguration(

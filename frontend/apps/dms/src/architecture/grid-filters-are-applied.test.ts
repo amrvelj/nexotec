@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url'
 import ts from 'typescript'
 import { conditionsForField, type FilterFieldDef, type FilterPredicate } from '@nexotec/ui-kit'
 import { applyGroupStockFilters, applyStockFilters, buildGroupStockFilterFields, buildStockFilterFields } from '../modules/stock/stockOptions'
-import { applyCustomerFilters } from '../modules/customer/customerOptions'
+import { applyContactFilters } from '../modules/contact/contactOptions'
 import { applyCatalogueFilters, buildCatalogueFilterFields, CATALOGUE_FILTER_SCOPE, FACET_LIST_CODE } from '../modules/vehicle/catalogueOptions'
 import type { CatalogueFacetsRead, GridSchemaRead } from '../api/types'
 import gridSchemas from '../api/gridSchemas.json'
@@ -23,7 +23,7 @@ import gridSchemas from '../api/gridSchemas.json'
 //    and must set a query parameter that its list endpoint declares (read
 //    from the generated `schema.d.ts` — FastAPI ignores an unknown one, which
 //    is how the original defect would hide one layer down). The mapper is
-//    executed, not read, so a comment cannot satisfy it. Customers' fields
+//    executed, not read, so a comment cannot satisfy it. Contacts' fields
 //    are its columns' `meta.filter` declarations, read from the page with the
 //    TypeScript compiler (they are built inside the component).
 // 2. Shape: no mapper contains a `continue` — the statement the original
@@ -44,7 +44,7 @@ type Mapper = (params: URLSearchParams, predicates: FilterPredicate[]) => void
 const COVERED_GRIDS: Record<string, string> = {
   'modules/stock/pages/StockListPage.tsx': 'applyStockFilters',
   'modules/stock/components/GroupStockGrid.tsx': 'applyGroupStockFilters',
-  'modules/customer/pages/CustomersListPage.tsx': 'applyCustomerFilters',
+  'modules/contact/pages/ContactsListPage.tsx': 'applyContactFilters',
   'modules/vehicle/components/catalogue/CatalogueBrowseGrid.tsx': 'applyCatalogueFilters',
 }
 
@@ -52,7 +52,7 @@ const COVERED_GRIDS: Record<string, string> = {
 const MAPPERS: Record<string, { module: string; endpoint: string }> = {
   applyStockFilters: { module: 'modules/stock/stockOptions.ts', endpoint: '/v1/inventory/stock-items' },
   applyGroupStockFilters: { module: 'modules/stock/stockOptions.ts', endpoint: '/v1/inventory/groups/mine/stock-items' },
-  applyCustomerFilters: { module: 'modules/customer/customerOptions.ts', endpoint: '/v1/customers' },
+  applyContactFilters: { module: 'modules/contact/contactOptions.ts', endpoint: '/v1/contacts' },
   applyCatalogueFilters: { module: 'modules/vehicle/catalogueOptions.ts', endpoint: '/v1/catalogue/variants' },
 }
 
@@ -274,15 +274,15 @@ describe('every offered filter is applied server-side (KAN-458)', () => {
     ).toEqual([])
   })
 
-  it('Customers: every column filter declares its param and conditions, and every one is sent', () => {
+  it('Contacts: every column filter declares its param and conditions, and every one is sent', () => {
     const { fields, problems } = columnFilterFields(
-      'modules/customer/pages/CustomersListPage.tsx',
-      readFileSync(join(SRC_ROOT, 'modules/customer/pages/CustomersListPage.tsx'), 'utf8'),
+      'modules/contact/pages/ContactsListPage.tsx',
+      readFileSync(join(SRC_ROOT, 'modules/contact/pages/ContactsListPage.tsx'), 'utf8'),
     )
     expect(problems).toEqual([])
     expect(fields.length).toBeGreaterThan(0)
-    const apply: Mapper = (params, predicates) => applyCustomerFilters(params, predicates, fields)
-    expect(unmapped(fields, apply, queryParamsOf(MAPPERS.applyCustomerFilters.endpoint))).toEqual([])
+    const apply: Mapper = (params, predicates) => applyContactFilters(params, predicates, fields)
+    expect(unmapped(fields, apply, queryParamsOf(MAPPERS.applyContactFilters.endpoint))).toEqual([])
   })
 
   it('Catalogue: every offered field and condition is sent, and the URL scope matches what is offered', () => {
@@ -305,8 +305,8 @@ describe('every offered filter is applied server-side (KAN-458)', () => {
       new Set(['q', 'filter', 'lifecycle_status', 'condition', 'lifecycle_status_not', 'condition_not', 'sort', 'limit', 'cursor']),
     )
     // KAN-476: the exclusions «ist nicht» is sent as.
-    expect(queryParamsOf('/v1/customers')).toContain('advisorUserIdNot')
-    expect(queryParamsOf('/v1/customers')).toContain('updated_more_than_days_ago')
+    expect(queryParamsOf('/v1/contacts')).toContain('advisorUserIdNot')
+    expect(queryParamsOf('/v1/contacts')).toContain('updated_more_than_days_ago')
     // KAN-548: the catalogue filters on the identAPI's filterable fields — kW, never PS or an exclusion.
     expect(queryParamsOf('/v1/catalogue/variants')).toContain('kwMin')
     expect(queryParamsOf('/v1/catalogue/variants')).not.toContain('psMin')
@@ -323,7 +323,7 @@ describe('every offered filter is applied server-side (KAN-458)', () => {
   it('every covered grid names a mapper whose behaviour this file runs above', () => {
     // A new grid is covered by adding its mapper to MAPPERS and a behaviour
     // case above — never by a COVERED_GRIDS entry alone.
-    const BEHAVIOUR_TESTED = ['applyStockFilters', 'applyGroupStockFilters', 'applyCustomerFilters', 'applyCatalogueFilters']
+    const BEHAVIOUR_TESTED = ['applyStockFilters', 'applyGroupStockFilters', 'applyContactFilters', 'applyCatalogueFilters']
     expect(Object.keys(MAPPERS).sort()).toEqual([...BEHAVIOUR_TESTED].sort())
     expect([...new Set(Object.values(COVERED_GRIDS))].sort()).toEqual([...BEHAVIOUR_TESTED].sort())
   })

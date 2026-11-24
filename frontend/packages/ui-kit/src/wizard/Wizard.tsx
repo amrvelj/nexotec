@@ -30,7 +30,7 @@ export interface WizardProps {
  * step-shell: it owns none of the domain logic or per-step validation —
  * the caller drives activeIndex and decides what onNext does (advance vs.
  * submit), which is what makes the same shell usable for any multi-step
- * flow, not just customer creation.
+ * flow, not just contact creation.
  */
 export function Wizard({
   steps,

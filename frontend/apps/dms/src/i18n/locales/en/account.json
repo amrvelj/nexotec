@@ -24,7 +24,7 @@
     "uiLanguage": "Application language",
     "uiLanguageHint": "Applies at once, on all your devices.",
     "correspondenceLanguage": "Language of my documents",
-    "correspondenceLanguageHint": "For documents you create that have no customer language.",
+    "correspondenceLanguageHint": "For documents you create whose contact has no correspondence language.",
     "betriebDefault": "Same as the business ({{language}})",
     "saved": "Saved.",
     "conflict": "Your account was changed elsewhere in the meantime. Cancel shows the new version; your entries are lost.",

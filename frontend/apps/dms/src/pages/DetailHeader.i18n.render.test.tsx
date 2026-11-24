@@ -14,7 +14,7 @@ import { ValuationDetailPage } from '../modules/valuation/pages/ValuationDetailP
 
 const VALUATION = {
   id: 'val-1', valuationNumber: 'B-000001', status: 'valid', source: 'manual', hasSignedContract: true,
-  customerId: null, vehicleId: null, vehicleMake: 'VW', vehicleModel: 'Golf', vehicleTrim: null, vehicleVin: null,
+  contactId: null, vehicleId: null, vehicleMake: 'VW', vehicleModel: 'Golf', vehicleTrim: null, vehicleVin: null,
   finalOffer: '12000.00', deductions: [], version: 2, validFrom: '2026-10-01', validUntil: '2026-10-31',
   vehicleFirstRegistration: null, createdAt: '2026-10-01T00:00:00Z', updatedAt: '2026-10-01T00:00:00Z',
 } as unknown as ValuationRead

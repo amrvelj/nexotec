@@ -1,0 +1,191 @@
+"""Owner/Keeper/Driver join table (Swiss addendum decision #7). Lives in the
+contact context — domain map: contact owns "the contact-to-vehicle party
+link" — not in vehicle, even though it also carries a `vehicle_id` column.
+
+PR-2 (ADR-015, CLAUDE.md rule 2): neither vehicle_id nor contact_id has a
+DB-level ForeignKey any more. vehicle_id was a genuine cross-context FK
+(contact -> vehicle); contact_id is intra-context after the PR-1 move but
+was named explicitly in the PR-2 scope, so it's dropped too rather than
+re-litigated. Existence is checked at the application layer (see
+app.contact.services.vehicle_party, app.vehicle.public.get_vehicle_mdm_or_404);
+drift is caught by the nightly reconciliation job (app.contact.reconciliation),
+not by Postgres.
+
+KAN-31: vehicle_id resolves against `vehicle_mdm` (WP-5's three-layer
+model), never the legacy `vehicle` table it replaced (retired by KAN-79,
+ADR-153). A row whose vehicle_id names no vehicle-mdm record is reported
+by contact's nightly reconciliation.
+
+KAN-84 (CLAUDE.md rule 2): the vehicle's display fields are denormalised
+onto this row — the three-column pattern, with six label columns in place
+of one — instead of the viewonly relationship() to VehicleMdm this used to
+join through. Written whenever a party row is opened or repointed (through
+app.vehicle.public.get_vehicle_summaries), re-read when vehicle-mdm
+publishes `vehicle.vehicle_mdm.summary_changed` (KAN-186,
+app.contact.consumers) and re-read nightly by
+app.contact.services.vehicle_party_labels.refresh_vehicle_party_labels, the backstop
+for a change that publishes nothing (a brand rename).
+tests/architecture/test_no_cross_context_mapping.py keeps it that way.
+"""
+
+import dataclasses
+import datetime as dt
+import enum
+import uuid
+
+from sqlalchemy import CheckConstraint, Integer, String, UniqueConstraint
+from sqlalchemy.orm import Mapped, mapped_column
+
+from app.core.base import PrimaryKeyMixin, TimestampMixin, utcnow
+from app.core.enum_type import StoredEnum
+from app.core.types import GUID, UTCDateTime
+from app.db import Base
+
+
+class VehiclePartyRole(str, enum.Enum):
+    OWNER = "owner"  # Eigentümer
+    KEEPER = "keeper"  # Halter
+    DRIVER = "driver"  # Fahrzeugführer — operational only, no registry standing
+
+
+class VehicleParty(PrimaryKeyMixin, TimestampMixin, Base):
+    """Owner/Keeper/Driver join table (Swiss addendum decision #7).
+
+    API endpoints live under /v1/contacts/{id}/vehicles (Contact PRD D-12,
+    FR-10) rather than under /vehicles — the 360 view's Vehicles tab is the
+    consumer, and the contact is always the anchor of the relationship
+    being edited. `role` is immutable once created (like Contact.
+    contact_type): a role changing hands is a new row with its own
+    effective_from, not an edit of the old one — that's what "without
+    losing history" (FR-10) means in practice.
+    """
+
+    __tablename__ = "vehicle_party"
+    __table_args__ = (
+        UniqueConstraint("vehicle_id", "contact_id", "role", "effective_from", name="uq_vehicle_party_scope"),
+        # KAN-643: a period never ends before it starts (ADR-064). A merge copy
+        # closed at its own start (effective_to = effective_from, KAN-177) is allowed.
+        CheckConstraint("effective_to IS NULL OR effective_to >= effective_from", name="ck_vehicle_party_period"),
+    )
+
+    vehicle_id: Mapped[uuid.UUID] = mapped_column(
+        GUID(),
+        nullable=False,
+        index=True,
+        comment="Owned by the vehicle context. No DB-level FK (PR-2, ADR-015) — reconciled nightly.",
+    )
+    contact_id: Mapped[uuid.UUID] = mapped_column(
+        GUID(),
+        nullable=False,
+        index=True,
+        comment="Same context (contact) as this table. No DB-level FK (PR-2, ADR-015) — named explicitly in scope.",
+    )
+    role: Mapped[VehiclePartyRole] = mapped_column(
+        StoredEnum(VehiclePartyRole, length=16), nullable=False
+    )
+    effective_from: Mapped[dt.datetime] = mapped_column(UTCDateTime(), nullable=False, default=utcnow)
+    effective_to: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)
+    # KAN-177 (ADR-064, Anto's ruling 2026-10-12, option A): a contact merge
+    # re-points the duplicate's rows at the survivor — except a row whose
+    # (vehicle, role, effective_from) the survivor already holds, which
+    # uq_vehicle_party_scope (it spans contact_id) would refuse. That row is
+    # never deleted: it stays on the duplicate's contact_id, closed at its
+    # own start, and this column names the survivor it was merged into. NULL
+    # on every row a merge did not keep this way.
+    merged_into_contact_id: Mapped[uuid.UUID | None] = mapped_column(
+        GUID(),
+        nullable=True,
+        comment=(
+            "Same context (contact): the survivor this row's contact was merged into, set only on a copy "
+            "the merge kept closed because the survivor already held its (vehicle, role, effective_from). KAN-177."
+        ),
+    )
+
+    # KAN-672 (Anto's ruling 2026-11-12, option C): a vehicle merge moves the
+    # duplicate vehicle's rows onto the survivor — except a row whose
+    # (contact, role, effective_from) the survivor already carries, which
+    # uq_vehicle_party_scope (it spans vehicle_id) would refuse. Like KAN-177's
+    # copy, that row is never deleted: it stays on the duplicate's vehicle_id,
+    # closed at its own start, and this column names the vehicle its car was
+    # merged into. NULL on every row a vehicle merge did not keep this way.
+    merged_into_vehicle_id: Mapped[uuid.UUID | None] = mapped_column(
+        GUID(),
+        nullable=True,
+        comment=(
+            "Owned by the vehicle context (vehicle_mdm.id, no DB-level FK): the vehicle this row's vehicle was "
+            "merged into, set only on a copy the vehicle merge kept closed because the survivor already carried "
+            "its (contact, role, effective_from). KAN-672."
+        ),
+    )
+
+    # KAN-644/KAN-583: a current holder recorded to end at a planned holder's
+    # start (closed «at the handover», not now) names that planned row here.
+    # Cancelling the planned handover gives the role back to exactly the rows
+    # it names, and moving the planned start moves their end with it; an end a
+    # user typed never carries it. NULL on every other row.
+    closed_for_party_id: Mapped[uuid.UUID | None] = mapped_column(
+        GUID(),
+        nullable=True,
+        comment=(
+            "Same context (contact): the planned vehicle_party row whose start this row was closed at "
+            "(KAN-644); cleared when that handover is cancelled. KAN-583."
+        ),
+    )
+
+    # KAN-84 — the vehicle's label, denormalised (rule 2). Owned by the
+    # vehicle context; copied from app.vehicle.public.get_vehicle_summaries.
+    # Nullable only because rows written before KAN-84 carry none until the
+    # nightly refresh reaches them; the read path fills those in memory.
+    vehicle_vin: Mapped[str | None] = mapped_column(
+        String(17), nullable=True, comment="Label from the vehicle context (vehicle_mdm.vin). KAN-84."
+    )
+    vehicle_number: Mapped[str | None] = mapped_column(
+        String(16), nullable=True, comment="Label from the vehicle context (vehicle_mdm.vehicle_number). KAN-84."
+    )
+    vehicle_make: Mapped[str | None] = mapped_column(
+        String(120), nullable=True, comment="Label from the vehicle context (catalogue brand). KAN-84."
+    )
+    vehicle_model: Mapped[str | None] = mapped_column(
+        String(120), nullable=True, comment="Label from the vehicle context (catalogue model group). KAN-84."
+    )
+    vehicle_model_year: Mapped[int | None] = mapped_column(
+        Integer, nullable=True, comment="Label from the vehicle context (first registration year). KAN-84."
+    )
+    vehicle_trim: Mapped[str | None] = mapped_column(
+        String(160), nullable=True, comment="Label from the vehicle context (catalogue variant name). KAN-84."
+    )
+    vehicle_label_refreshed_at: Mapped[dt.datetime | None] = mapped_column(
+        UTCDateTime(), nullable=True, comment="When the vehicle_* labels were last read from the vehicle context."
+    )
+
+    @property
+    def vehicle(self) -> "VehiclePartyVehicleLabel":
+        """The label columns in the shape VehiclePartySummary reads
+        (`ContactVehicleRead.vehicle`) — no join, no other context's row.
+        A row with no stored label yet may carry a read-only fill (see
+        app.contact.services.vehicle_party_labels._fill_unlabelled_vehicle_parties_for_read),
+        held in a plain instance attribute, never in ORM state."""
+
+        read_fill = self.__dict__.get("_vehicle_label_read_fill")
+        if read_fill is not None:
+            return read_fill
+        return VehiclePartyVehicleLabel(
+            id=self.vehicle_id,
+            vin=self.vehicle_vin,
+            vehicle_number=self.vehicle_number,
+            make=self.vehicle_make,
+            model=self.vehicle_model,
+            model_year=self.vehicle_model_year,
+            trim=self.vehicle_trim,
+        )
+
+
+@dataclasses.dataclass(frozen=True)
+class VehiclePartyVehicleLabel:
+    id: uuid.UUID
+    vin: str | None
+    vehicle_number: str | None
+    make: str | None
+    model: str | None
+    model_year: int | None
+    trim: str | None

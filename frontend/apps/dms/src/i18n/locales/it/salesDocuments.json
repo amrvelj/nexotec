@@ -40,13 +40,13 @@
       "message_text_missing_fixed": "Per questo canale non c’è un testo standard. Lo crei nell’amministrazione, in Testi standard, e lo faccia approvare come modello dal fornitore."
     },
     "refusal": {
-      "customer_merged": "Questo cliente è stato unito a un altro.",
-      "customer_do_not_contact": "Il cliente è contrassegnato come «Non contattare».",
-      "no_usable_contact": "Il cliente non ha un recapito utilizzabile su questo canale.",
-      "marketing_consent_missing": "Manca il consenso del cliente alla pubblicità.",
+      "contact_merged": "Questo contatto è stato unito a un altro.",
+      "contact_do_not_contact": "Il contatto è contrassegnato come «Non contattare».",
+      "no_usable_contact": "Il contatto non ha un recapito utilizzabile su questo canale.",
+      "marketing_consent_missing": "Manca il consenso del contatto alla pubblicità.",
       "channel_consent_missing": "Per questo recapito manca il consenso alla pubblicità.",
-      "newsletter_not_subscribed": "Il cliente non è iscritto alla newsletter.",
-      "generic": "Questo cliente non può ricevere questo messaggio su questo canale."
+      "newsletter_not_subscribed": "Il contatto non è iscritto alla newsletter.",
+      "generic": "Questo contatto non può ricevere questo messaggio su questo canale."
     },
     "status": {
       "sent": "Inviato",

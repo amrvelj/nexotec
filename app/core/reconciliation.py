@@ -1,7 +1,7 @@
 """Generic nightly-reconciliation framework (P-10) — the compensating
 control for PR-2 dropping the nine cross-context foreign keys. Each
 bounded context declares its own list of ReferenceChecks (see
-app.customer.reconciliation, app.vehicle.reconciliation,
+app.contact.reconciliation, app.vehicle.reconciliation,
 app.sales.reconciliation) describing its outbound cross-context
 references; this module runs them, persists every finding, and raises if
 any are found. It never deletes or repairs anything — detection only.

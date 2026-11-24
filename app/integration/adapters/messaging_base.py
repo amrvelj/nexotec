@@ -20,7 +20,7 @@ the call log).
 Nothing here decides *whether* a message may be sent: consent, the WhatsApp
 template rule and the delivery record are `deliver_message`'s (PR-5), which
 calls `services/messaging.py::send` with a verdict already taken from
-`customer.public`. No module outside integration reaches an adapter
+`contact.public`. No module outside integration reaches an adapter
 (A-RULE-10).
 """
 
@@ -53,7 +53,7 @@ CHANNEL_PROVIDER: dict[MessagingChannel, str] = {MessagingChannel.SMS: TWILIO, M
 
 def require_e164(number: str) -> str:
     """The recipient's number as the providers take it, or a ValueError — a
-    caller hands a number already normalised by Customers (ADR-067); anything
+    caller hands a number already normalised by Contacts (ADR-067); anything
     else is a programming error, never sent."""
 
     if not isinstance(number, str) or _E164.fullmatch(number) is None:

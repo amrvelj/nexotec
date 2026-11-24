@@ -6,21 +6,21 @@ import userEvent from '@testing-library/user-event'
 import i18n from '../../../i18n'
 import { renderWithProviders } from '../../../test/renderWithProviders'
 import { installFakeBackend } from '../../../test/fakeBackend'
-import { customer } from '../../../test/fixtures'
-import type { CustomerRead, SalesOfferRead } from '../../../api/types'
+import { contact } from '../../../test/fixtures'
+import type { ContactRead, SalesOfferRead } from '../../../api/types'
 import { OfferWorkspacePage } from './OfferWorkspacePage'
 
 // KAN-368 (ADR-061: a disabled action says why) — Continue was greyed out with
-// no explanation while an edit was unsaved or saving, or the customer was
+// no explanation while an edit was unsaved or saving, or the contact was
 // do-not-contact: the footer's missing label names only incomplete sections.
 
 const offerAt = (version: number, overrides: Partial<SalesOfferRead> = {}): SalesOfferRead => ({
   id: 'o1',
   offerNumber: 'ANG-2026-0327',
   status: 'draft',
-  customerId: 'cust-1',
-  customerLabel: 'Hans Muster',
-  customerLocality: null,
+  contactId: 'cust-1',
+  contactLabel: 'Hans Muster',
+  contactLocality: null,
   vehicleSource: 'stock',
   stockItemId: 'st-1',
   vehicleLabel: 'VW Golf 2024',
@@ -51,7 +51,7 @@ const offerAt = (version: number, overrides: Partial<SalesOfferRead> = {}): Sale
   cancelledReason: null,
   copiedFromOfferId: null,
   containers: [
-    { id: 'customer', requirement: 'required', status: 'complete' },
+    { id: 'contact', requirement: 'required', status: 'complete' },
     { id: 'vehicle', requirement: 'required', status: 'complete' },
     { id: 'pricing', requirement: 'required', status: 'complete' },
     { id: 'trade_in', requirement: 'optional', status: 'not_started' },
@@ -73,15 +73,15 @@ function renderWorkspace() {
   )
 }
 
-function installBackend(customerOverrides: Partial<CustomerRead>, patch: () => unknown = () => offerAt(2)) {
+function installBackend(contactOverrides: Partial<ContactRead>, patch: () => unknown = () => offerAt(2)) {
   return installFakeBackend([
     { method: 'PATCH', match: /^\/sales\/offers\/o1$/, handler: patch },
     { method: 'GET', match: /^\/sales\/offers\/o1$/, handler: () => offerAt(1) },
     { match: /^\/integrations\/capabilities\/packages$/, handler: () => ({ capabilityCode: 'packages', granted: true }) },
     { method: 'GET', match: /^\/sales\/offers\/o1\/line-items$/, handler: () => ({ items: [] }) },
     {
-      match: /^\/customers\/cust-1$/,
-      handler: () => customer({ id: 'cust-1', firstName: 'Hans', lastName: 'Muster', ...customerOverrides }),
+      match: /^\/contacts\/cust-1$/,
+      handler: () => contact({ id: 'cust-1', firstName: 'Hans', lastName: 'Muster', ...contactOverrides }),
     },
   ])
 }
@@ -99,7 +99,7 @@ afterEach(async () => {
 })
 
 describe('OfferWorkspace — a disabled Continue says why (KAN-368)', () => {
-  it('names a do-not-contact customer, in fr', async () => {
+  it('names a do-not-contact contact, in fr', async () => {
     await i18n.changeLanguage('fr')
     installBackend({ lifecycleStatus: 'do_not_contact' })
     renderWorkspace()

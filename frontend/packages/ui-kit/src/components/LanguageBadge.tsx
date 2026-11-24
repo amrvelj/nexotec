@@ -1,13 +1,13 @@
 import { slate } from "../tokens";
 
-export type CustomerLanguage = "de" | "fr" | "it" | "en";
+export type ContactLanguage = "de" | "fr" | "it" | "en";
 
 /**
  * "Language: Slate, 10px, +0.5px tracking — DE FR IT EN" — deliberately
  * not built on the shared Badge primitive: this is its own smaller, pill-
  * less variant per § Badges and Status, not a tone of the standard badge.
  */
-export function LanguageBadge({ language }: { language: CustomerLanguage }) {
+export function LanguageBadge({ language }: { language: ContactLanguage }) {
   return (
     <span
       style={{

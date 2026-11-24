@@ -23,12 +23,12 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.orm import sessionmaker
 
+from app.contact.schemas.contact import ContactAddressCreate, ContactCreate, ContactEmailCreate
+from app.contact.services.contact import create_contact
 from app.core.consumer import consume_once
 from app.core.errors import ConflictError
 from app.core.outbox import OutboxEvent, publish
 from app.core.outbox_model import OutboxMessage
-from app.customer.schemas.customer import CustomerAddressCreate, CustomerCreate, CustomerEmailCreate
-from app.customer.services.customer import create_customer
 from app.inventory.models.stock_item import StockItemCondition
 from app.inventory.schemas.purchase import RecordPurchaseRequest
 from app.inventory.schemas.stock_item import StockItemCreate
@@ -68,14 +68,14 @@ def _dealership(db_session) -> Dealership:
     return dealership
 
 
-def _customer(db_session, group_id):
-    return create_customer(
+def _contact(db_session, group_id):
+    return create_contact(
         db_session, group_id=group_id,
-        data=CustomerCreate(
-            customer_type="individual", language="de", first_name="Didier", last_name="Perrin",
-            emails=[CustomerEmailCreate(email_type="personal", email_address="didier@example.ch", is_primary=True)],
+        data=ContactCreate(
+            contact_type="individual", language="de", first_name="Didier", last_name="Perrin",
+            emails=[ContactEmailCreate(email_type="personal", email_address="didier@example.ch", is_primary=True)],
             addresses=[
-                CustomerAddressCreate(
+                ContactAddressCreate(
                     address_type="domicile", address_street="Bahnhofstrasse", address_house_number="1",
                     address_postal_code="8001", address_locality="Zürich", address_country="CH", is_primary=True,
                 )
@@ -94,13 +94,13 @@ def _stock_item(db_session, dealership_id):
     )
 
 
-def _contract_on(db_session, dealership_id, group_id, item, customer=None):
-    customer = customer or _customer(db_session, group_id)
+def _contract_on(db_session, dealership_id, group_id, item, contact=None):
+    contact = contact or _contact(db_session, group_id)
     offer = create_offer(db_session, tenant_id=dealership_id, actor_id=uuid.uuid4())
     offer = update_offer(
         db_session, offer=offer, group_id=group_id,
         data=OfferUpdate(
-            customer_id=customer.id, vehicle_source="stock", stock_item_id=item.id,
+            contact_id=contact.id, vehicle_source="stock", stock_item_id=item.id,
             vehicle_label=item.vehicle_label,
         ),
         actor_id=uuid.uuid4(),
@@ -177,10 +177,10 @@ def test_every_contract_on_the_stock_item_is_marked(db_session, engine):
     dealership = _dealership(db_session)
     group_id = uuid.uuid4()
     item = _stock_item(db_session, dealership.id)
-    customer = _customer(db_session, group_id)
-    first = _contract_on(db_session, dealership.id, group_id, item, customer)
+    contact = _contact(db_session, group_id)
+    first = _contract_on(db_session, dealership.id, group_id, item, contact)
     cancel_contract(db_session, contract=first, reason="Kunde storniert.", actor_id=uuid.uuid4(), session_factory=_session_factory(engine))
-    second = _contract_on(db_session, dealership.id, group_id, item, customer)
+    second = _contract_on(db_session, dealership.id, group_id, item, contact)
 
     _purchase(db_session, item)
     _deliver(db_session, _purchased_message(db_session, item))
@@ -422,12 +422,12 @@ def test_request_invoice_refuses_a_manual_configuration_until_sales_knows_it_is_
 
     dealership = _dealership(db_session)
     group_id = uuid.uuid4()
-    customer = _customer(db_session, group_id)
+    contact = _contact(db_session, group_id)
     offer = create_offer(db_session, tenant_id=dealership.id, actor_id=uuid.uuid4())
     offer = update_offer(
         db_session, offer=offer, group_id=group_id,
         data=OfferUpdate(
-            customer_id=customer.id, vehicle_source="manual", vehicle_label="Volkswagen ID.4 Pro",
+            contact_id=contact.id, vehicle_source="manual", vehicle_label="Volkswagen ID.4 Pro",
             manual_vehicle_condition="new", manual_base_price=Decimal("52000.00"),
         ),
         actor_id=uuid.uuid4(),

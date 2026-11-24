@@ -2,9 +2,9 @@
 `stock_item` table (rule 10; ADR-107), built here so the mapped `StockItem`
 class never leaves the inventory context (KAN-123 step 3, ADR-162).
 
-Sales, Customers and Vehicle hold references to a stock item (a deal's
+Sales, Contacts and Vehicle hold references to a stock item (a deal's
 `stock_item_id`, a contract's `reservation_id`, Sales' purchase replica,
-Customers' bookings, Vehicle's stock-holding projection). Their
+Contacts' bookings, Vehicle's stock-holding projection). Their
 `reconciliation.py` asks these questions of Stock's rows; each is a builder
 here that reads nothing itself — the reconciliation run executes it:
 

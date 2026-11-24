@@ -5,8 +5,8 @@ import i18n from '../i18n'
 import { Route, Routes } from 'react-router-dom'
 import { renderWithProviders } from '../test/renderWithProviders'
 import { installFakeBackend } from '../test/fakeBackend'
-import { customer } from '../test/fixtures'
-import { CustomerDetailPage } from '../modules/customer/pages/CustomerDetailPage'
+import { contact } from '../test/fixtures'
+import { ContactDetailPage } from '../modules/contact/pages/ContactDetailPage'
 import type { SalesContractRead, SalesDealRead, SalesOfferRead, ValuationRead } from '../api/types'
 import { SalesListPage } from '../modules/sales/pages/SalesListPage'
 import { ValuationsListPage } from '../modules/valuation/pages/ValuationsListPage'
@@ -40,8 +40,8 @@ describe('Kit status badges speak the UI language (KAN-334)', () => {
     await i18n.changeLanguage('fr')
     const valuation = (id: string, number: string, status: string) =>
       ({
-        id, valuationNumber: number, status, source: 'manual', hasSignedContract: false, customerId: null,
-        customerLabel: null, vehicleId: null, vehicleMake: 'VW', vehicleModel: 'Golf', vehicleTrim: null, vehicleVin: null,
+        id, valuationNumber: number, status, source: 'manual', hasSignedContract: false, contactId: null,
+        contactLabel: null, vehicleId: null, vehicleMake: 'VW', vehicleModel: 'Golf', vehicleTrim: null, vehicleVin: null,
         finalOffer: '12000.00', deductions: [], version: 1, validFrom: '2026-10-01', validUntil: '2026-10-31',
         createdAt: NOW, updatedAt: NOW,
       }) as unknown as ValuationRead
@@ -65,7 +65,7 @@ describe('Kit status badges speak the UI language (KAN-334)', () => {
     const deal = (id: string, number: string, entityType: 'offer' | 'contract', status: string) =>
       ({
         id, entityType, number, status, offerId: null, offerNumber: null, contractId: null, contractNumber: null,
-        customerId: null, customerLabel: 'Muster AG', customerLocality: 'Bern', vehicleLabel: 'VW Golf GTI',
+        contactId: null, contactLabel: 'Muster AG', contactLocality: 'Bern', vehicleLabel: 'VW Golf GTI',
         grossPrice: '42500.00', margin: null, documentsCount: 0, createdAt: NOW, updatedAt: NOW,
       }) as unknown as SalesDealRead
     installFakeBackend([
@@ -82,28 +82,28 @@ describe('Kit status badges speak the UI language (KAN-334)', () => {
     expect(screen.queryByText('Vertrag')).toBeNull()
   })
 
-  it("SalesTypeBadge on the customer's Offers & contracts tab: French entity type", async () => {
+  it("SalesTypeBadge on the contact's Offers & contracts tab: French entity type", async () => {
     await i18n.changeLanguage('fr')
     const offer = {
-      id: 'o1', offerNumber: 'O-000334', status: 'open', customerId: 'c1', customerLabel: 'Anna Muster',
+      id: 'o1', offerNumber: 'O-000334', status: 'open', contactId: 'c1', contactLabel: 'Anna Muster',
       vehicleLabel: 'VW Golf', grossPrice: null, createdAt: NOW, updatedAt: NOW,
     } as unknown as SalesOfferRead
     const contract = {
-      id: 'k1', contractNumber: 'V-000334', status: 'confirmed', offerId: null, customerId: 'c1',
-      customerLabel: 'Anna Muster', vehicleLabel: 'Audi A3', grossPrice: null, createdAt: NOW, updatedAt: NOW,
+      id: 'k1', contractNumber: 'V-000334', status: 'confirmed', offerId: null, contactId: 'c1',
+      contactLabel: 'Anna Muster', vehicleLabel: 'Audi A3', grossPrice: null, createdAt: NOW, updatedAt: NOW,
     } as unknown as SalesContractRead
     installFakeBackend([
-      { match: /^\/customers\/c1$/, handler: () => customer({ id: 'c1' }) },
-      { match: /^\/customers\/c1\/(phones|emails)$/, handler: () => ({ items: [] }) },
-      { match: /^\/customers\/c1\/(vehicles|external-ids|audit-log)$/, handler: () => ({ items: [], nextCursor: null }) },
+      { match: /^\/contacts\/c1$/, handler: () => contact({ id: 'c1' }) },
+      { match: /^\/contacts\/c1\/(phones|emails)$/, handler: () => ({ items: [] }) },
+      { match: /^\/contacts\/c1\/(vehicles|external-ids|audit-log)$/, handler: () => ({ items: [], nextCursor: null }) },
       { method: 'GET', match: /^\/sales\/offers$/, handler: () => page([offer]) },
       { method: 'GET', match: /^\/sales\/contracts$/, handler: () => page([contract]) },
     ])
     renderWithProviders(
       <Routes>
-        <Route path="/customers/:id" element={<CustomerDetailPage />} />
+        <Route path="/contacts/:id" element={<ContactDetailPage />} />
       </Routes>,
-      { route: '/customers/c1?tab=offersContracts' },
+      { route: '/contacts/c1?tab=offersContracts' },
     )
 
     expect(within(await screen.findByRole('row', { name: /O-000334/ })).getByText('Offre')).toBeInTheDocument()

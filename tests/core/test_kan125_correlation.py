@@ -55,19 +55,19 @@ def _manager_token(client) -> str:
     )
 
 
-def _create_customer(client, token: str, **headers: str):
+def _create_contact(client, token: str, **headers: str):
     payload = {"firstName": "Anna", "lastName": "Muster", "language": "de",
                "emails": [{"emailType": "personal", "emailAddress": f"anna-{uuid.uuid4().hex[:8]}@example.ch"}]}
-    response = client.post("/v1/customers", json=payload, headers=_headers(token, **headers))
+    response = client.post("/v1/contacts", json=payload, headers=_headers(token, **headers))
     assert response.status_code == 201, response.text
     return response
 
 
-def _customer_created(db_session, customer_id: str) -> OutboxMessage:
+def _contact_created(db_session, contact_id: str) -> OutboxMessage:
     db_session.expire_all()
     rows = db_session.scalars(
-        select(OutboxMessage).where(OutboxMessage.event_type == "customer.created",
-                                    OutboxMessage.aggregate_id == uuid.UUID(customer_id))
+        select(OutboxMessage).where(OutboxMessage.event_type == "contact.created",
+                                    OutboxMessage.aggregate_id == uuid.UUID(contact_id))
     ).all()
     assert len(rows) == 1
     return rows[0]
@@ -78,9 +78,9 @@ def _customer_created(db_session, customer_id: str) -> OutboxMessage:
 
 def test_an_http_writes_outbox_row_carries_the_responses_correlation_id(client, db_session):
     token = _manager_token(client)
-    response = _create_customer(client, token)
+    response = _create_contact(client, token)
     returned = response.headers[CORRELATION_ID_HEADER]
-    row = _customer_created(db_session, response.json()["id"])
+    row = _contact_created(db_session, response.json()["id"])
     assert row.correlation_id == uuid.UUID(returned)
     assert row.causation_id is None  # a request is no event
 
@@ -88,17 +88,17 @@ def test_an_http_writes_outbox_row_carries_the_responses_correlation_id(client, 
 def test_a_supplied_correlation_id_reaches_the_outbox(client, db_session):
     token = _manager_token(client)
     supplied = str(uuid.uuid4())
-    response = _create_customer(client, token, **{CORRELATION_ID_HEADER: supplied})
+    response = _create_contact(client, token, **{CORRELATION_ID_HEADER: supplied})
     assert response.headers[CORRELATION_ID_HEADER] == supplied
-    assert _customer_created(db_session, response.json()["id"]).correlation_id == uuid.UUID(supplied)
+    assert _contact_created(db_session, response.json()["id"]).correlation_id == uuid.UUID(supplied)
 
 
 def test_a_header_that_is_not_a_uuid_is_replaced_by_a_generated_id_never_stored(client, db_session):
     token = _manager_token(client)
-    response = _create_customer(client, token, **{CORRELATION_ID_HEADER: "kan-125 not a uuid"})
+    response = _create_contact(client, token, **{CORRELATION_ID_HEADER: "kan-125 not a uuid"})
     returned = response.headers[CORRELATION_ID_HEADER]
     assert returned != "kan-125 not a uuid"
-    assert _customer_created(db_session, response.json()["id"]).correlation_id == uuid.UUID(returned)
+    assert _contact_created(db_session, response.json()["id"]).correlation_id == uuid.UUID(returned)
 
 
 # --- exit criterion 2 and 3: an event a consumer emits -------------------------------------------------

@@ -17,7 +17,7 @@ def test_record_audit_event_persists_before_after(db_session):
         actor_id=actor_id,
         before={"email": "old@example.ch"},
         after={"email": "new@example.ch"},
-        reason="customer requested change",
+        reason="contact requested change",
     )
     db_session.commit()
 
@@ -27,7 +27,7 @@ def test_record_audit_event_persists_before_after(db_session):
     assert event.action == "update"
     assert event.before == {"email": "old@example.ch"}
     assert event.after == {"email": "new@example.ch"}
-    assert event.reason == "customer requested change"
+    assert event.reason == "contact requested change"
     assert event.actor_id == actor_id
 
 

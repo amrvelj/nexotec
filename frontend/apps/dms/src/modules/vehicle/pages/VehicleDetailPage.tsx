@@ -19,7 +19,7 @@ import { OdometerTab } from '../components/vehicle-detail/OdometerTab'
 import { AccessoriesTab } from '../components/vehicle-detail/AccessoriesTab'
 import { useIdempotencyKey } from '../../../hooks/useIdempotencyKey'
 import type {
-  CustomerPage,
+  ContactPage,
   OdometerSource,
   VehicleAccessoryRead,
   VehicleMdmDetailRead,
@@ -36,11 +36,11 @@ const DEFAULT_TAB = 'identity'
 
 /**
  * FR-V-16 Vehicle 360 — the same DetailHeader/DetailTabs shell
- * CustomerDetailPage already uses, with the vehicle's own field set and
+ * ContactDetailPage already uses, with the vehicle's own field set and
  * tabs (Identity/Plates/Odometer/Accessories, and C-F's read-only
  * Specification). The header renders from `buildVehicleRowMenu` (ADR-061;
- * FR-V-16 as amended by KAN-468): primary «Allocate to customer», which
- * opens the Identity tab's customer picker; alternative «Request
+ * FR-V-16 as amended by KAN-468): primary «Allocate to contact», which
+ * opens the Identity tab's contact picker; alternative «Request
  * valuation», a new valuation of this car (Sales only). There is no Edit:
  * the identity fields are inline.
  */
@@ -50,8 +50,8 @@ export function VehicleDetailPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const queryClient = useQueryClient()
   const activeTab = searchParams.get('tab') ?? DEFAULT_TAB
-  const [customerSearch, setCustomerSearch] = useState('')
-  // The Identity tab's customer picker, opened from the header's primary too.
+  const [contactSearch, setContactSearch] = useState('')
+  // The Identity tab's contact picker, opened from the header's primary too.
   const [allocating, setAllocating] = useState(false)
   // «Record odometer» / «Record accessory» open their tab with the form focused.
   const [formToFocus, setFormToFocus] = useState<'odometer' | 'accessories' | null>(null)
@@ -111,10 +111,10 @@ export function VehicleDetailPage() {
     queryFn: () => api.get<VehiclePartyAllocationRead[]>(`/vehicle-mdm/${id}/party-roles?include_closed=true`),
     enabled: Boolean(id),
   })
-  const customersQuery = useQuery({
-    queryKey: ['customers', 'picker', customerSearch],
-    queryFn: () => api.get<CustomerPage>(`/customers?q=${encodeURIComponent(customerSearch)}&limit=10`),
-    enabled: customerSearch.length > 0,
+  const contactsQuery = useQuery({
+    queryKey: ['contacts', 'picker', contactSearch],
+    queryFn: () => api.get<ContactPage>(`/contacts?q=${encodeURIComponent(contactSearch)}&limit=10`),
+    enabled: contactSearch.length > 0,
   })
 
   const vehicle = vehicleQuery.data
@@ -154,16 +154,16 @@ export function VehicleDetailPage() {
 
   const reload = () => void vehicleQuery.refetch()
 
-  const allocate = async (customerId: string, role: VehiclePartyRole) => {
+  const allocate = async (contactId: string, role: VehiclePartyRole) => {
     const path = `/vehicle-mdm/${id}/allocate`
-    const body = { customerId, role }
+    const body = { contactId, role }
     await api.post(path, body, allocateKey.headers([path, body]))
     invalidatePartyRoles()
   }
 
-  // KAN-583 (ruling 2A): «Eintrag beenden» — the customer's Disconnect,
+  // KAN-583 (ruling 2A): «Eintrag beenden» — the contact's Disconnect,
   // which ends a current entry now and cancels a planned one.
-  const canEndPartyEntry = useCanWrite('customer_vehicle_links')
+  const canEndPartyEntry = useCanWrite('contact_vehicle_links')
   // KAN-667: «VIN korrigieren» is the dealer manager's (KAN-557); a link anyone else could
   // only follow to a stock car that offers it nothing is not shown (KAN-430).
   const canCorrectVin = useCanWrite('stock_vin_correction')
@@ -176,7 +176,7 @@ export function VehicleDetailPage() {
     navigate(`/vehicles/${survivorId}`)
   }
   const endPartyEntry = async (party: VehiclePartyAllocationRead) => {
-    await api.delete(`/customers/${party.customerId}/vehicles/${party.id}`)
+    await api.delete(`/contacts/${party.contactId}/vehicles/${party.id}`)
     invalidatePartyRoles()
   }
 
@@ -216,14 +216,14 @@ export function VehicleDetailPage() {
     void queryClient.invalidateQueries({ queryKey: ['vehicle-mdm', id, 'accessories'] })
   }
 
-  const customerCandidates = useMemo(
+  const contactCandidates = useMemo(
     () =>
-      (customersQuery.data?.items ?? []).map((c) => ({
+      (contactsQuery.data?.items ?? []).map((c) => ({
         id: c.id,
-        label: c.customerType === 'business' ? (c.companyName ?? '') : `${c.firstName ?? ''} ${c.lastName ?? ''}`.trim(),
-        sublabel: c.customerNumber,
+        label: c.contactType === 'business' ? (c.companyName ?? '') : `${c.firstName ?? ''} ${c.lastName ?? ''}`.trim(),
+        sublabel: c.contactNumber,
       })),
-    [customersQuery.data],
+    [contactsQuery.data],
   )
 
   const tabs: DetailTab[] = useMemo(
@@ -354,10 +354,10 @@ export function VehicleDetailPage() {
           }
           allocating={allocating}
           onAllocatingChange={setAllocating}
-          customerCandidates={customerCandidates}
-          customerSearch={customerSearch}
-          onCustomerSearchChange={setCustomerSearch}
-          onCustomerOverlayClose={invalidatePartyRoles}
+          contactCandidates={contactCandidates}
+          contactSearch={contactSearch}
+          onContactSearchChange={setContactSearch}
+          onContactOverlayClose={invalidatePartyRoles}
         />
       )}
       {activeTab === 'plates' && <PlatesTab

@@ -22,7 +22,7 @@ export interface DocumentSendDialogProps {
  * connected is not offered at all (FR-A-52, «connected channels only»). */
 const FAILING_CONNECTION = new Set(['own_mailbox_in_error', 'business_mailbox_in_error'])
 
-/** Why a channel cannot send now, in the UI language: Customers' refusal by
+/** Why a channel cannot send now, in the UI language: Contacts' refusal by
  * its own reason, every other block by its code. A missing standard text is
  * no block where the author may write their own: it is said as a note. */
 function blockedMessage(t: TFunction, option: SalesSendChannelOption): string | null {
@@ -108,7 +108,7 @@ export function DocumentSendDialog({ documentId, opened, onClose, onSent }: Docu
     <SendMessageDialog
       opened={opened}
       onClose={close}
-      recipientName={options?.customerLabel ?? ''}
+      recipientName={options?.contactLabel ?? ''}
       channels={channels}
       preselectedChannel={options?.preselectedChannel ?? null}
       onSend={send}

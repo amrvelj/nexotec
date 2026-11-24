@@ -116,7 +116,7 @@ class CollatedSortColumn:
 
 
 # A text column that holds a code or an identifier, not words — a VIN, a Stammnummer, a stock,
-# deal, offer, contract, valuation, customer or employee number, a phone number. It keeps the
+# deal, offer, contract, valuation, contact or employee number, a phone number. It keeps the
 # database's byte order: «case ignored, Ä beside A» means nothing for `WVWZZZ…` or `S-00012`, and
 # its indexes keep serving the exact lookups they exist for (an index under another collation
 # serves no `=` in the default one). Declared on the model's column:

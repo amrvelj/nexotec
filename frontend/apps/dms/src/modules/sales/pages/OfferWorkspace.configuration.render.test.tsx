@@ -33,8 +33,8 @@ vi.mock('@tanstack/react-virtual', () => ({
 
 function draftOffer(overrides: Partial<SalesOfferRead> = {}): SalesOfferRead {
   return {
-    id: 'o1', offerNumber: 'ANG-2026-0001', status: 'draft', customerId: null, customerLabel: null,
-    customerLocality: null, vehicleSource: null, stockItemId: null, vehicleLabel: null, manualVehicleCondition: null,
+    id: 'o1', offerNumber: 'ANG-2026-0001', status: 'draft', contactId: null, contactLabel: null,
+    contactLocality: null, vehicleSource: null, stockItemId: null, vehicleLabel: null, manualVehicleCondition: null,
     manualBasePrice: null, leasingDownPayment: null, leasingTermMonths: null, leasingKmPerYear: null, basePrice: null,
     optionsTotal: null, listPrice: null, accessoriesTotal: null, totalBeforeDiscount: null, discountType: null,
     discountValue: null, discountAmount: null, grossPrice: null, costBasis: null, margin: null,
@@ -42,7 +42,7 @@ function draftOffer(overrides: Partial<SalesOfferRead> = {}): SalesOfferRead {
     tradeInValuationId: null, tradeInValue: null, tradeInPurchasePrice: null, payable: null, cancelledReason: null,
     copiedFromOfferId: null,
     containers: [
-      { id: 'customer', requirement: 'required', status: 'not_started' },
+      { id: 'contact', requirement: 'required', status: 'not_started' },
       { id: 'vehicle', requirement: 'required', status: 'not_started' },
       { id: 'pricing', requirement: 'required', status: 'not_started' },
       { id: 'trade_in', requirement: 'optional', status: 'not_started' },
@@ -202,7 +202,7 @@ describe('OfferWorkspace — the trade-in through the valuation path (FR-C-12 ca
 
     await user.click(await screen.findByRole('button', { name: i18n.t('offerWorkspace.tradeIn.valueWithConfigurator') }))
     const overlay = await screen.findByRole('dialog')
-    // Record only: the build mode is not reachable for the customer's car.
+    // Record only: the build mode is not reachable for the contact's car.
     expect(within(overlay).queryByText(i18n.t('configurator.mode.build'))).not.toBeInTheDocument()
     await user.click(within(overlay).getByRole('button', { name: i18n.t('configurator.find.manual') }))
     await pickCodedFields()

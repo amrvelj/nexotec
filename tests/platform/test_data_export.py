@@ -6,7 +6,7 @@ The manager requests an export at any time; the web service produces one ZIP —
 CSV and JSON per entity, `schema.json`, every issued document as PDF with its
 number and date, the Betrieb's audit log and its uploaded files — downloadable
 through the authenticated GET for seven days, then deleted by the daily job.
-Group-owned customers come for the requesting Betrieb's own relationship only
+Group-owned contacts come for the requesting Betrieb's own relationship only
 (ADR-014). Every step is audited.
 """
 
@@ -19,10 +19,10 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.orm import sessionmaker
 
+from app.contact.models.contact import Contact
 from app.core.audit_model import AuditEvent
 from app.core.auth import AccessRole
 from app.core.base import utcnow
-from app.customer.models.customer import Customer
 from app.platform.administration.models.export_job import ExportJob, ExportJobStatus
 from app.platform.administration.services import data_export
 from app.sales.models.document import DocumentOwnerType, SalesDocument
@@ -43,7 +43,7 @@ from tests.membership_support import bearer, token
 from tests.postgres_only import NEEDS_ITS_OWN_CONNECTION
 
 
-def _customer(client, headers, **fields) -> dict:
+def _contact(client, headers, **fields) -> dict:
     payload = {
         "firstName": "Anna",
         "lastName": "Muster",
@@ -51,7 +51,7 @@ def _customer(client, headers, **fields) -> dict:
         "emails": [{"emailType": "personal", "emailAddress": f"anna-{uuid.uuid4().hex[:8]}@example.ch"}],
         **fields,
     }
-    response = client.post("/v1/customers", json=payload, headers=idem(headers))
+    response = client.post("/v1/contacts", json=payload, headers=idem(headers))
     assert response.status_code == 201, response.text
     return response.json()
 
@@ -356,20 +356,20 @@ def test_secrets_never_leave_the_database(client, export_store, engine):
     assert excluded.get("credential")
 
 
-# --- ADR-014: a group-owned customer for the Betrieb's own relationship ------------------
+# --- ADR-014: a group-owned contact for the Betrieb's own relationship ------------------
 
 
-def test_customers_come_for_the_requesting_betriebs_relationship_only(client, export_store, engine, db_session):
+def test_contacts_come_for_the_requesting_betriebs_relationship_only(client, export_store, engine, db_session):
     home_id, _, home = betrieb_with_manager(client, "Garage Heim AG")
     _, _, sister = betrieb_with_manager(client, "Garage Schwester AG", group_of=home_id)
-    own = _customer(client, home, lastName="Eigen")
-    sisters = _customer(client, sister, lastName="Schwester")
-    sold_by_us = _customer(client, sister, lastName="Gekauft")
-    # The home Betrieb's history names a customer the sister created.
+    own = _contact(client, home, lastName="Eigen")
+    sisters = _contact(client, sister, lastName="Schwester")
+    sold_by_us = _contact(client, sister, lastName="Gekauft")
+    # The home Betrieb's history names a contact the sister created.
     session = sessionmaker(bind=engine, expire_on_commit=False)()
     try:
         offer = create_offer(session, tenant_id=uuid.UUID(home_id), actor_id=uuid.uuid4())
-        offer.customer_id = uuid.UUID(sold_by_us["id"])
+        offer.contact_id = uuid.UUID(sold_by_us["id"])
         session.commit()
     finally:
         session.close()
@@ -378,18 +378,18 @@ def test_customers_come_for_the_requesting_betriebs_relationship_only(client, ex
     produce(engine, job["id"])
     archive = download(client, home_id, job["id"], home)
 
-    exported = {row["id"] for row in rows_in(archive, "customer", "customer")}
+    exported = {row["id"] for row in rows_in(archive, "contact", "contact")}
     assert exported == {own["id"], sold_by_us["id"]}
     assert sisters["id"] not in exported
-    emails = {row["customer_id"] for row in rows_in(archive, "customer", "customer_email")}
+    emails = {row["contact_id"] for row in rows_in(archive, "contact", "contact_email")}
     assert emails == exported
 
 
-def test_a_group_of_one_exports_every_customer_of_its_group(client, export_store, engine, db_session):
+def test_a_group_of_one_exports_every_contact_of_its_group(client, export_store, engine, db_session):
     dealership_id, _, headers = betrieb_with_manager(client)
-    created = _customer(client, headers)
-    # A customer that predates provenance (no creating Betrieb recorded).
-    legacy = db_session.get(Customer, uuid.UUID(_customer(client, headers, lastName="Alt")["id"]))
+    created = _contact(client, headers)
+    # A contact that predates provenance (no creating Betrieb recorded).
+    legacy = db_session.get(Contact, uuid.UUID(_contact(client, headers, lastName="Alt")["id"]))
     legacy.dealership_id = None
     db_session.commit()
 
@@ -397,4 +397,4 @@ def test_a_group_of_one_exports_every_customer_of_its_group(client, export_store
     produce(engine, job["id"])
     archive = download(client, dealership_id, job["id"], headers)
 
-    assert {row["id"] for row in rows_in(archive, "customer", "customer")} == {created["id"], str(legacy.id)}
+    assert {row["id"] for row in rows_in(archive, "contact", "contact")} == {created["id"], str(legacy.id)}

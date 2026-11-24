@@ -71,7 +71,7 @@ afterEach(() => {
 
 describe('the activation gate in the SPA (KAN-214)', () => {
   it('lands the manager of a Betrieb being set up on the checklist', async () => {
-    app('/customers', session({ activeDealership: { id: 'dealership-1', legalName: 'G', status: 'pending_onboarding' } }))
+    app('/contacts', session({ activeDealership: { id: 'dealership-1', legalName: 'G', status: 'pending_onboarding' } }))
     await waitFor(() => expect(screen.getByTestId('where')).toHaveTextContent('/administration/setup'))
   })
 
@@ -92,24 +92,24 @@ describe('the activation gate in the SPA (KAN-214)', () => {
   })
 
   it('leaves an active Betrieb where it is', async () => {
-    app('/customers', session())
-    await waitFor(() => expect(screen.getByTestId('where')).toHaveTextContent('/customers'))
+    app('/contacts', session())
+    await waitFor(() => expect(screen.getByTestId('where')).toHaveTextContent('/contacts'))
   })
 })
 
 describe('the legal hold in the SPA (KAN-214, FR-A-39)', () => {
   it('prompts the manager during the grace, and «Später» closes it', async () => {
     const user = userEvent.setup()
-    app('/customers', session({ legalAcceptanceDue: due(false) }))
+    app('/contacts', session({ legalAcceptanceDue: due(false) }))
     const dialog = await screen.findByRole('dialog', { name: i18n.t('setup.acceptance.promptTitle') })
     expect(dialog).toHaveTextContent(i18n.t('setup.documentTypes.dpa'))
-    expect(screen.getByTestId('where')).toHaveTextContent('/customers')
+    expect(screen.getByTestId('where')).toHaveTextContent('/contacts')
     await user.click(screen.getByRole('button', { name: i18n.t('setup.acceptance.later') }))
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
   })
 
   it('after the grace leaves the manager only the acceptance screen', async () => {
-    app('/customers', session({ legalAcceptanceDue: due(true) }))
+    app('/contacts', session({ legalAcceptanceDue: due(true) }))
     await waitFor(() => expect(screen.getByTestId('where')).toHaveTextContent('/administration/legal-acceptance'))
   })
 })

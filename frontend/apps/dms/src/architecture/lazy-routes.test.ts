@@ -61,7 +61,7 @@ describe('route screens load on demand', () => {
     expect(staticPageImports("import { AccountLayout } from './pages/account/AccountLayout'")).toEqual([
       './pages/account/AccountLayout',
     ])
-    expect(staticPageImports("import { X } from '../../pages/CustomerDetailPage'")).toEqual(['../../pages/CustomerDetailPage'])
+    expect(staticPageImports("import { X } from '../../pages/ContactDetailPage'")).toEqual(['../../pages/ContactDetailPage'])
     expect(staticPageImports("import { ValuationsListPage } from './modules/valuation/pages/ValuationsListPage'")).toEqual([
       './modules/valuation/pages/ValuationsListPage',
     ])

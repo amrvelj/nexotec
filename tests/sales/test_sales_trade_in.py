@@ -18,9 +18,9 @@ from app.vehicle.services import vehicle_mdm as vehicle_mdm_service
 from tests.dealership_support import valid_uid
 
 
-def _offer_with_customer(db_session, tenant_id, customer_id):
+def _offer_with_contact(db_session, tenant_id, contact_id):
     offer = create_offer(db_session, tenant_id=tenant_id, actor_id=uuid.uuid4())
-    offer.customer_id = customer_id
+    offer.contact_id = contact_id
     db_session.commit()
     return offer
 
@@ -28,22 +28,22 @@ def _offer_with_customer(db_session, tenant_id, customer_id):
 def test_a_vin_trade_in_creates_no_vehicle_record_and_allocates_no_party(db_session):
     """KAN-189 (Anto, 2026-10-31 / 2026-11-01, options B then A; FR-S-08 and
     ADR-070 amended): the deal keeps the trade-in's VIN; the car enters the
-    register when it is bought (ADR-103), and shows on the customer's
+    register when it is bought (ADR-103), and shows on the contact's
     Vehicles tab only then — no owner or keeper is allocated before. The VIN
     is kept in its one spelling (FR-V-15)."""
 
-    from app.customer.models.customer import Customer, CustomerType, Language
-    from app.customer.models.vehicle_party import VehicleParty
+    from app.contact.models.contact import Contact, ContactType, Language
+    from app.contact.models.vehicle_party import VehicleParty
 
     tenant_id = uuid.uuid4()
     group_id = uuid.uuid4()
-    customer = Customer(
-        group_id=group_id, customer_number="K-300001", customer_type=CustomerType.INDIVIDUAL,
+    contact = Contact(
+        group_id=group_id, contact_number="K-300001", contact_type=ContactType.INDIVIDUAL,
         language=Language.EN, first_name="Trade", last_name="In",
     )
-    db_session.add(customer)
+    db_session.add(contact)
     db_session.flush()
-    offer = _offer_with_customer(db_session, tenant_id, customer.id)
+    offer = _offer_with_contact(db_session, tenant_id, contact.id)
 
     updated = set_trade_in(
         db_session,
@@ -53,7 +53,7 @@ def test_a_vin_trade_in_creates_no_vehicle_record_and_allocates_no_party(db_sess
         plate=None,
         canton=None,
         vehicle_label="Skoda Octavia Combi 1.5 TSI",
-        customer_id=customer.id,
+        contact_id=contact.id,
         actor_id=uuid.uuid4(),
     )
 
@@ -73,7 +73,7 @@ def test_a_vin_trade_in_links_the_record_vehicle_mdm_already_holds(db_session):
 
     updated = set_trade_in(
         db_session, deal=offer, group_id=uuid.uuid4(), vin="WVWZZZ1KZAW123457", plate=None, canton=None,
-        vehicle_label="Skoda Octavia", customer_id=None, actor_id=uuid.uuid4(),
+        vehicle_label="Skoda Octavia", contact_id=None, actor_id=uuid.uuid4(),
     )
 
     assert updated.trade_in_vehicle_id == existing.id
@@ -96,7 +96,7 @@ def test_set_trade_in_auto_attaches_an_existing_valid_valuation(db_session):
     offer = create_offer(db_session, tenant_id=tenant_id, actor_id=uuid.uuid4())
     updated = set_trade_in(
         db_session, deal=offer, group_id=uuid.uuid4(), vin=vin, plate=None, canton=None,
-        vehicle_label="Skoda Octavia", customer_id=None, actor_id=uuid.uuid4(),
+        vehicle_label="Skoda Octavia", contact_id=None, actor_id=uuid.uuid4(),
     )
 
     assert updated.trade_in_valuation_id is not None
@@ -129,7 +129,7 @@ def test_set_trade_in_does_not_auto_attach_a_valuation_without_a_vin(db_session)
     offer = create_offer(db_session, tenant_id=tenant_id, actor_id=uuid.uuid4())
     updated = set_trade_in(
         db_session, deal=offer, group_id=uuid.uuid4(), vin=vin, plate=None, canton=None,
-        vehicle_label="VW Golf", customer_id=None, actor_id=uuid.uuid4(),
+        vehicle_label="VW Golf", contact_id=None, actor_id=uuid.uuid4(),
     )
 
     assert updated.trade_in_vin == vin and updated.trade_in_vehicle_id == vehicle.id
@@ -147,7 +147,7 @@ def test_trade_in_purchase_price_is_seller_adjustable_independently(db_session):
     offer = create_offer(db_session, tenant_id=tenant_id, actor_id=uuid.uuid4())
     offer = set_trade_in(
         db_session, deal=offer, group_id=uuid.uuid4(), vin=vin, plate=None, canton=None,
-        vehicle_label="Fiat 500", customer_id=None, actor_id=uuid.uuid4(),
+        vehicle_label="Fiat 500", contact_id=None, actor_id=uuid.uuid4(),
     )
 
     offer.trade_in_purchase_price = Decimal(11500)  # a seller negotiation, distinct from the valuation's own figure
@@ -168,7 +168,7 @@ def test_attach_trade_in_valuation_explicit(db_session):
     offer = create_offer(db_session, tenant_id=tenant_id, actor_id=uuid.uuid4())
     offer = set_trade_in(
         db_session, deal=offer, group_id=uuid.uuid4(), vin=vin, plate=None, canton=None,
-        vehicle_label="Seat Leon", customer_id=None, actor_id=uuid.uuid4(),
+        vehicle_label="Seat Leon", contact_id=None, actor_id=uuid.uuid4(),
     )
     # A second, explicitly attached valuation overrides the auto-attached one.
     second = create_valuation(
@@ -210,7 +210,7 @@ def test_plate_only_without_a_decisive_match_is_refused(db_session):
     with pytest.raises(ConflictError):
         set_trade_in(
             db_session, deal=offer, group_id=uuid.uuid4(), vin=None, plate="ZH123456", canton="ZH",
-            vehicle_label="Unknown car", customer_id=None, actor_id=uuid.uuid4(),
+            vehicle_label="Unknown car", contact_id=None, actor_id=uuid.uuid4(),
         )
 
 
@@ -257,21 +257,21 @@ def test_payable_is_gross_price_minus_trade_in_value(db_session):
     )
     offer = set_trade_in(
         db_session, deal=offer, group_id=uuid.uuid4(), vin="WVWZZZ1KZAW333333", plate=None, canton=None,
-        vehicle_label="Skoda Octavia Combi 1.5 TSI", customer_id=None, actor_id=uuid.uuid4(),
+        vehicle_label="Skoda Octavia Combi 1.5 TSI", contact_id=None, actor_id=uuid.uuid4(),
     )
 
     assert offer.payable == Decimal("64310.00")
 
 
-def test_trade_in_for_another_groups_customer_is_a_404(db_session):
-    """KAN-99: body.customerId is resolved in the caller's group — 404, never
+def test_trade_in_for_another_groups_contact_is_a_404(db_session):
+    """KAN-99: body.contactId is resolved in the caller's group — 404, never
     a cross-group read. Since KAN-562 that check is all the field still does."""
 
-    from app.customer.models.customer import Customer, CustomerType, Language
+    from app.contact.models.contact import Contact, ContactType, Language
 
     other_group = uuid.uuid4()
-    stranger = Customer(
-        group_id=other_group, customer_number="K-300099", customer_type=CustomerType.INDIVIDUAL,
+    stranger = Contact(
+        group_id=other_group, contact_number="K-300099", contact_type=ContactType.INDIVIDUAL,
         language=Language.DE, first_name="Fremd", last_name="Kunde",
     )
     db_session.add(stranger)
@@ -281,20 +281,20 @@ def test_trade_in_for_another_groups_customer_is_a_404(db_session):
     with pytest.raises(NotFoundError):
         set_trade_in(
             db_session, deal=offer, group_id=uuid.uuid4(), vin="WVWZZZ1KZAW444444", plate=None, canton=None,
-            vehicle_label="VW Golf", customer_id=stranger.id, actor_id=uuid.uuid4(),
+            vehicle_label="VW Golf", contact_id=stranger.id, actor_id=uuid.uuid4(),
         )
     db_session.rollback()
     assert db_session.scalar(select(VehicleMdm).where(VehicleMdm.vin == "WVWZZZ1KZAW444444")) is None
 
 
-def test_trade_in_customer_id_is_deprecated_in_the_openapi_contract():
-    """KAN-562 (Anto, 2026-11-11, option A): customerId stays accepted — removing
+def test_trade_in_contact_id_is_deprecated_in_the_openapi_contract():
+    """KAN-562 (Anto, 2026-11-11, option A): contactId stays accepted — removing
     it is a breaking change — but the contract says it is deprecated and ignored."""
 
     from app.main import app
 
     schema = app.openapi()["components"]["schemas"]["TradeInRequest"]
-    customer_id = schema["properties"]["customerId"]
-    assert customer_id.get("deprecated") is True
-    assert "ignored" in customer_id["description"]
-    assert "customerId" not in schema.get("required", [])
+    contact_id = schema["properties"]["contactId"]
+    assert contact_id.get("deprecated") is True
+    assert "ignored" in contact_id["description"]
+    assert "contactId" not in schema.get("required", [])

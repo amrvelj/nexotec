@@ -1,7 +1,7 @@
 # dms-platform
 
 Backend for the Automotive DMS Master Data Management (MDM) shell —
-Dealership, User, Customer and Vehicle, built for the Swiss market (the
+Dealership, User, Contact and Vehicle, built for the Swiss market (the
 shell's Transaction went with the legacy table, KAN-555).
 
 Spec of record: `PLANS/DMS_MDM_V1_SPEC.md` + `PLANS/DMS_MDM_V1_SWISS_ADDENDUM.md`
@@ -192,7 +192,7 @@ with a suggested alert; consumer lag is a dashboard signal, KAN-286):
 | `dms.outbox.lag_seconds` | Age of the oldest still-pending outbox message | fires if > 300s |
 | `dms.outbox.dead_letter_count` | Messages that exhausted all retry attempts | fires if > 0 |
 | `dms.consumer.lag_seconds{consumer_name=...}` | Time since a consumer last processed anything | dashboard only, no alert — see the outbox rows (KAN-286) |
-| `dms.label.age_seconds{label=...}` | Age of the stalest denormalised cross-context label, per label (KAN-84: `vehicle_party.vehicle`, refreshed by the nightly `customer.vehicle_party_labels` job; KAN-403: `customer.advisor`, refreshed by `customer.advisor_labels` — an advisor id that names no user is never restamped and keeps this one firing: look for it in `customer.advisor_id` before suspecting the job; a customer a writer held when the job passed keeps it firing until the next night; KAN-404: `sales.owner`, the responsible seller on offers, contracts and deal rows, refreshed by `sales.owner_labels` — the same reading: look for an `owner_user_id` that names no user first; KAN-590: `sales.customer`, the customer's label on offers, contracts and deal rows, refreshed by `sales.customer_labels` (open work is relabelled, signed work keeps its name and is only restamped) — look for a `customer_id` naming no customer, or a merged one whose rows `sales.customer_merged` has not moved (a dead letter), first; a row a writer held when the job passed keeps it firing until the next night; KAN-534: `inventory.configuration`, a stock item's configuration label, refreshed by `inventory.configuration_labels` — look for a `stock_item.configuration_id` naming no configuration, or another Betrieb's, first; KAN-222: `integration.location`, a connection's copy of the name of the location it is bound to, refreshed by `integration.location_labels` — look for an `integration_connection.location_id` naming no location, or another Betrieb's, first; KAN-739: `inventory.location`, a stock item's copy of its location's name, refreshed by `inventory.location_labels` — look for a `stock_item.location_id` naming no location, or another Betrieb's, first; KAN-465: `inventory.supplier`, a booked stock item's copy of its supplier contact's name, refreshed by `inventory.supplier_labels` — look for a `stock_item.supplier_contact_id` naming no contact, or a merged one `inventory.customer_merged` has not moved (a dead letter), first) | fires if > 93600s (26h), per label |
+| `dms.label.age_seconds{label=...}` | Age of the stalest denormalised cross-context label, per label (KAN-84: `vehicle_party.vehicle`, refreshed by the nightly `contact.vehicle_party_labels` job; KAN-403: `contact.advisor`, refreshed by `contact.advisor_labels` — an advisor id that names no user is never restamped and keeps this one firing: look for it in `contact.advisor_id` before suspecting the job; a contact a writer held when the job passed keeps it firing until the next night; KAN-404: `sales.owner`, the responsible seller on offers, contracts and deal rows, refreshed by `sales.owner_labels` — the same reading: look for an `owner_user_id` that names no user first; KAN-590: `sales.contact`, the contact's label on offers, contracts and deal rows, refreshed by `sales.contact_labels` (open work is relabelled, signed work keeps its name and is only restamped) — look for a `contact_id` naming no contact, or a merged one whose rows `sales.contact_merged` has not moved (a dead letter), first; a row a writer held when the job passed keeps it firing until the next night; KAN-534: `inventory.configuration`, a stock item's configuration label, refreshed by `inventory.configuration_labels` — look for a `stock_item.configuration_id` naming no configuration, or another Betrieb's, first; KAN-222: `integration.location`, a connection's copy of the name of the location it is bound to, refreshed by `integration.location_labels` — look for an `integration_connection.location_id` naming no location, or another Betrieb's, first; KAN-739: `inventory.location`, a stock item's copy of its location's name, refreshed by `inventory.location_labels` — look for a `stock_item.location_id` naming no location, or another Betrieb's, first; KAN-465: `inventory.supplier`, a booked stock item's copy of its supplier contact's name, refreshed by `inventory.supplier_labels` — look for a `stock_item.supplier_contact_id` naming no contact, or a merged one `inventory.contact_merged` has not moved (a dead letter), first) | fires if > 93600s (26h), per label |
 | `dms.reconciliation.age_seconds` | Seconds since the nightly reconciliation (`reconciliation.run_all`) last completed a run; unset until it has run once | fires if > 93600s (26h), or if absent once the worker has run a day |
 
 Consumers are registered in `app/worker.py::register_handlers` — that
@@ -333,7 +333,7 @@ ships it (moved here from the rule files by KAN-615; the script's docstring is t
 - `scripts/backfill_sales_deal_projection.py` — re-projects deal rows (live entity, stock number).
 - `scripts/backfill_manual_configuration_reservations.py` — reserves a signed manual
   configuration's pipeline item and records cancellations (re-runnable).
-- `scripts/backfill_customer_stock_item_booking.py` — re-seeds the customer context's stock-item
+- `scripts/backfill_contact_stock_item_booking.py` — re-seeds the contact context's stock-item
   bookings from the outbox.
 - `scripts/backfill_valuation_contract_carry.py` — the valuation's carry rows for older contracts.
 - `scripts/backfill_vehicle_stock_holding.py` — Vehicle's projection of the records each Betrieb holds
@@ -373,7 +373,7 @@ ships it (moved here from the rule files by KAN-615; the script's docstring is t
 
 AUTO-i-DAT, Google Maps, Finance read-API, marketplace ingestion, MOFIS, and
 MediaAsset integrations — per the shell scope agreed in `#dms-mdm`.
-Customer/Vehicle/Transaction — issues #4 through #6, each an independent PR
+Contact/Vehicle/Transaction — issues #4 through #6, each an independent PR
 against this foundation. Real IdP integration is still unselected —
 `app.core.auth.create_access_token` remains a placeholder issuer for
 tests/local dev only, not exposed over HTTP; issue #2's `POST /v1/dealerships`

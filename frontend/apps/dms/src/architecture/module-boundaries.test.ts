@@ -47,7 +47,7 @@ const MOVES_DIR = join(APP_ROOT, 'scripts', 'module-moves')
 
 /** Each module folder → the words its file names carry (camelCase, capitalised). */
 const MODULE_WORDS: Record<string, string[]> = {
-  customer: ['Customer'],
+  contact: ['Contact'],
   // Not "Deal": admin's IntegrationDealerView and useDealershipPatch carry it
   // with another meaning; the deal-workspace files and the deal* tests move by
   // the mapping all the same (KAN-636 step 5).
@@ -59,6 +59,13 @@ const MODULE_WORDS: Record<string, string[]> = {
 
 /** Outside src/modules/, these folders may carry a module's word: shared API types, bundles, the guards. */
 const NAME_CHECK_EXEMPT_DIRS = ['api/', 'i18n/', 'architecture/']
+/**
+ * KAN-464 PR-3: the contact module's word is «Contact» since customers became
+ * contacts. Dealer Administration's contact-group list (platform reference
+ * data, A-RULE-0) carried the word before the rename, when the word was
+ * «Customer» and the scan did not see it either; it stays where it is.
+ */
+const NAME_CHECK_EXEMPT_FILES = ['hooks/useContactGroups.ts', 'pages/ContactGroupsPage.tsx', 'pages/ContactGroupsPage.render.test.tsx']
 
 const RESOLVE_SUFFIXES = ['', '.ts', '.tsx', '/index.ts', '/index.tsx']
 
@@ -146,7 +153,7 @@ export function carriesWord(fileName: string, word: string): boolean {
 /** Rule 3, by name: a file outside src/modules/ carrying a moved module's word. */
 export function leftBehind(paths: string[], moduleWords: Record<string, string[]>): string[] {
   return paths
-    .filter((path) => !path.startsWith('modules/') && !NAME_CHECK_EXEMPT_DIRS.some((dir) => path.startsWith(dir)))
+    .filter((path) => !path.startsWith('modules/') && !NAME_CHECK_EXEMPT_DIRS.some((dir) => path.startsWith(dir)) && !NAME_CHECK_EXEMPT_FILES.includes(path))
     .flatMap((path) => {
       const name = path.split('/').pop()!
       return Object.entries(moduleWords)
@@ -209,12 +216,12 @@ describe('frontend modules keep their boundary (KAN-636, ADR-161)', () => {
       'modules/sales/pages/ContractDetailPage.tsx',
       'modules/stock/components/stock-detail/EvaluationTab.tsx',
     ])
-    // And customer's: the Vehicle 360, the deal workspace, the contract page, the offer workspace, valuation and
+    // And contact's: the Vehicle 360, the deal workspace, the contract page, the offer workspace, valuation and
     // the purchase dialog's supplier (KAN-465).
-    const throughCustomersDoor = [...realFiles].filter(
-      ([path, source]) => moduleOf(path) !== 'customer' && !isTestCode(path) && importsOf(path, source).some(({ specifier }) => /(^|\/)(modules\/)?customer$/.test(specifier) && resolveImport(path, specifier, (p) => realFiles.has(p)) === 'modules/customer/index.ts'),
+    const throughContactsDoor = [...realFiles].filter(
+      ([path, source]) => moduleOf(path) !== 'contact' && !isTestCode(path) && importsOf(path, source).some(({ specifier }) => /(^|\/)(modules\/)?contact$/.test(specifier) && resolveImport(path, specifier, (p) => realFiles.has(p)) === 'modules/contact/index.ts'),
     )
-    expect(throughCustomersDoor.map(([path]) => path).sort()).toEqual([
+    expect(throughContactsDoor.map(([path]) => path).sort()).toEqual([
       'modules/sales/components/deal-workspace/DealWorkspaceContainers.tsx',
       'modules/sales/pages/ContractDetailPage.tsx',
       'modules/sales/pages/OfferWorkspacePage.tsx',
@@ -249,12 +256,12 @@ describe('frontend modules keep their boundary (KAN-636, ADR-161)', () => {
       'modules/valuation/pages/ValuationCreatePage.tsx',
       'modules/valuation/pages/ValuationDetailPage.tsx',
     ])
-    // And sales': the Customer 360's offers and contracts tab (the two status labels).
+    // And sales': the Contact 360's offers and contracts tab (the two status labels).
     const throughSalesDoor = [...realFiles].filter(
       ([path, source]) => moduleOf(path) !== 'sales' && !isTestCode(path) && importsOf(path, source).some(({ specifier }) => resolveImport(path, specifier, (p) => realFiles.has(p)) === 'modules/sales/index.ts'),
     )
     expect(throughSalesDoor.map(([path]) => path).sort()).toEqual([
-      'modules/customer/components/customer-detail/OffersContractsTab.tsx',
+      'modules/contact/components/contact-detail/OffersContractsTab.tsx',
     ])
   })
 

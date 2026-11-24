@@ -33,7 +33,7 @@
       "rights": "Your rights"
     },
     "places": {
-      "body": "When an address is entered in the DMS, the typed address text — and only that, never a name or any other customer data — is sent to Google Ireland Limited to show suggestions. Google processes it as a separate controller under the Google Maps Platform Terms of Service and the Google Controller-Controller Data Protection Terms (including the standard contractual clauses for transfers from Switzerland). Only the address the user picks is stored. A business can switch the feature off at any time under Administration › Business › Address entry.",
+      "body": "When an address is entered in the DMS, the typed address text — and only that, never a name or any other contact data — is sent to Google Ireland Limited to show suggestions. Google processes it as a separate controller under the Google Maps Platform Terms of Service and the Google Controller-Controller Data Protection Terms (including the standard contractual clauses for transfers from Switzerland). Only the address the user picks is stored. A business can switch the feature off at any time under Administration › Business › Address entry.",
       "google": "How Google processes this data is described in <privacy>Google's Privacy Policy</privacy>; <terms>Google's Terms of Service</terms> also apply to the address suggestions."
     }
   }

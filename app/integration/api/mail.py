@@ -1,4 +1,4 @@
-"""Customer mail's connection routes (KAN-215).
+"""Contact mail's connection routes (KAN-215).
 
 - The Betrieb's shared mailbox — Dealer Administration › Mail (A-RULE-0): read
   by the `sending_identities` readers, connected and disconnected by its
@@ -88,7 +88,7 @@ def _identity_for_update_or_404(
 
 
 def _refuse_platform_tenant(db: Session, dealership_id: uuid.UUID) -> None:
-    """404: the platform tenant «Nexotec» is no dealer and sends no customer mail
+    """404: the platform tenant «Nexotec» is no dealer and sends no contact mail
     (KAN-221, ADR-188) — to this route it is not a Betrieb."""
 
     if is_platform_dealership(db, dealership_id):

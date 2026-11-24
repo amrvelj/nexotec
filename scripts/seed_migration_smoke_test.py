@@ -47,6 +47,7 @@ classes directly, since there schema and code genuinely agree.
 Usage: DMS_DATABASE_URL=... DMS_TAX_ID_ENCRYPTION_KEY=... python scripts/seed_migration_smoke_test.py
 """
 
+import enum
 import uuid
 
 import sqlalchemy as sa
@@ -54,23 +55,23 @@ from migration_smoke_test_catalogue import seed_catalogue_type_approval
 from sqlalchemy import inspect
 from sqlalchemy.orm import Session
 
-from app.core.base import utcnow
-from app.core.types import GUID, EncryptedString
-from app.core.uuid7 import uuid7
-from app.customer.models.customer import (
+from app.contact.models.contact import (
+    Contact,
+    ContactEmail,
+    ContactExternalId,
+    ContactLifecycleStatus,
+    ContactNumberSequence,
+    ContactPhone,
     ContactRole,
-    Customer,
-    CustomerEmail,
-    CustomerExternalId,
-    CustomerLifecycleStatus,
-    CustomerNumberSequence,
-    CustomerPhone,
-    CustomerRole,
-    CustomerType,
+    ContactRoleAssignment,
+    ContactType,
     EmailType,
     Language,
     PhoneType,
 )
+from app.core.base import utcnow
+from app.core.types import GUID, EncryptedString
+from app.core.uuid7 import uuid7
 from app.db import SessionLocal
 from app.platform.organisation.models.dealership import DealerGroup, Dealership, DealershipStatus, FranchiseType
 
@@ -112,7 +113,64 @@ _SCHEMA_SENTINELS: dict[str, tuple[str, str]] = {
 
 def _has(db: Session, sentinel: str) -> bool:
     table, column = _SCHEMA_SENTINELS[sentinel]
-    return column in {col["name"] for col in inspect(db.get_bind()).get_columns(table)}
+    return column in {col["name"] for col in inspect(db.get_bind()).get_columns(_live_table_name(db, table))}
+
+
+# KAN-464 PR-3 (ADR-210): customers became contacts. A schema from before it
+# (main's heads, every older one) names the contact tables and columns as
+# they were; this PR's migrations rename them. The sentinels above and the
+# raw inserts of older shapes below use the old names on purpose.
+_RENAMED_TABLES = {
+    "customer": "contact",
+    "customer_phone": "contact_phone",
+    "customer_email": "contact_email",
+    "customer_external_id": "contact_external_id",
+    "customer_number_sequence": "contact_number_sequence",
+    "customer_role": "contact_role",
+}
+_COLUMN_BEFORE_THE_RENAME = {
+    "contact_number": "customer_number",
+    "contact_type": "customer_type",
+    "contact_since": "customer_since",
+    "contact_id": "customer_id",
+    "duplicate_of_contact_id": "duplicate_of_customer_id",
+}
+
+
+def _live_table_name(db: Session, name: str) -> str:
+    """`name` as the live schema has it: an old name once renamed, or a new
+    one not renamed yet."""
+
+    live = set(inspect(db.get_bind()).get_table_names())
+    if name in live:
+        return name
+    renamed = {**_RENAMED_TABLES, **{new: old for old, new in _RENAMED_TABLES.items()}}
+    return renamed.get(name, name)
+
+
+def _insert_live(db: Session, model: type, values: dict[str, object]) -> None:
+    """One `model` row on whichever schema is live: this PR's own (the ORM
+    class's names) or one from before the rename (main's heads). The live
+    table is reflected, so only its columns are named; a column `values`
+    leaves out takes the class's Python-side default; an enum is stored as
+    its `.value`, as main writes it since KAN-86 step 2."""
+
+    mapped = model.__table__  # type: ignore[attr-defined]
+    live = sa.Table(_live_table_name(db, mapped.name), sa.MetaData(), autoload_with=db.get_bind())
+    renamed = live.name != mapped.name
+    row: dict[str, object] = {}
+    for column in mapped.columns:
+        name = _COLUMN_BEFORE_THE_RENAME.get(column.name, column.name) if renamed else column.name
+        if name not in live.c:
+            continue
+        if column.name in values:
+            value = values[column.name]
+        elif column.default is not None and (column.default.is_scalar or column.default.is_callable):
+            value = column.default.arg(None) if column.default.is_callable else column.default.arg
+        else:
+            continue
+        row[name] = value.value if isinstance(value, enum.Enum) else value
+    db.execute(live.insert().values(row))
 
 
 def _live_columns_table(db: Session, model: type) -> sa.Table | None:
@@ -566,24 +624,27 @@ def _seed_customer_chain_new_schema(db: Session, *, group_id: uuid.UUID) -> uuid
     if _has(db, "customer_has_fr17_fields") and not _has(db, "customer_has_vat_status_confirmed"):
         customer_id = _seed_fr17_customer_raw(db, group_id=group_id)
     elif _has(db, "customer_has_fr17_fields"):
-        customer = Customer(
-            group_id=group_id,
-            customer_number="K-000001",
-            customer_type=CustomerType.INDIVIDUAL,
-            language=Language.DE,
-            first_name="Anna",
-            last_name="Muster",
-            lifecycle_status=CustomerLifecycleStatus.PROSPECT,
+        customer_id = uuid7()
+        _insert_live(
+            db,
+            Contact,
+            {
+                "id": customer_id,
+                "group_id": group_id,
+                "contact_number": "K-000001",
+                "contact_type": ContactType.INDIVIDUAL,
+                "language": Language.DE,
+                "first_name": "Anna",
+                "last_name": "Muster",
+                "lifecycle_status": ContactLifecycleStatus.PROSPECT,
+            },
         )
-        db.add(customer)
-        db.flush()
-        customer_id = customer.id
         # KAN-464: on a schema with roles, the seeded customer holds one, as
         # every create does; before it, the migration's backfill gives it one
         # (the verify step asserts both paths end the same).
-        if inspect(db.get_bind()).has_table("customer_role"):
-            db.add(CustomerRole(group_id=group_id, customer_id=customer.id, role=ContactRole.CUSTOMER))
-            db.flush()
+        if _live_table_name(db, "contact_role") in set(inspect(db.get_bind()).get_table_names()):
+            _insert_live(db, ContactRoleAssignment, {"group_id": group_id, "contact_id": customer_id, "role": ContactRole.CUSTOMER})
+        db.flush()
     elif _has(db, "customer_has_credit_block_column"):
         # credit_block is live but KAN-50's FR-17 columns are not — the ORM
         # Customer class above always sends gender/newsletter/vat_registered
@@ -664,27 +725,31 @@ def _seed_customer_chain_new_schema(db: Session, *, group_id: uuid.UUID) -> uuid
         )
         db.flush()
 
-    db.add(CustomerNumberSequence(group_id=group_id, next_value=2))
+    _insert_live(db, ContactNumberSequence, {"group_id": group_id, "next_value": 2})
 
     if _has(db, "contact_channel_has_consent_scope"):
-        db.add(
-            CustomerPhone(
-                group_id=group_id,
-                customer_id=customer_id,
-                phone_type=PhoneType.MOBILE,
-                phone_e164="+41791234567",
-                phone_normalised="41791234567",
-                is_primary=True,
-            )
+        _insert_live(
+            db,
+            ContactPhone,
+            {
+                "group_id": group_id,
+                "contact_id": customer_id,
+                "phone_type": PhoneType.MOBILE,
+                "phone_e164": "+41791234567",
+                "phone_normalised": "41791234567",
+                "is_primary": True,
+            },
         )
-        db.add(
-            CustomerEmail(
-                group_id=group_id,
-                customer_id=customer_id,
-                email_type=EmailType.PERSONAL,
-                email_address="anna@example.ch",
-                is_primary=True,
-            )
+        _insert_live(
+            db,
+            ContactEmail,
+            {
+                "group_id": group_id,
+                "contact_id": customer_id,
+                "email_type": EmailType.PERSONAL,
+                "email_address": "anna@example.ch",
+                "is_primary": True,
+            },
         )
     else:
         # KAN-52's consent_scope isn't live yet — the CustomerPhone /
@@ -756,8 +821,8 @@ def _seed_customer_chain_new_schema(db: Session, *, group_id: uuid.UUID) -> uuid
             )
         )
 
-    db.add(
-        CustomerExternalId(group_id=group_id, customer_id=customer_id, system_name="crm", external_id="CRM-1")
+    _insert_live(
+        db, ContactExternalId, {"group_id": group_id, "contact_id": customer_id, "system_name": "crm", "external_id": "CRM-1"}
     )
     db.flush()
     return customer_id

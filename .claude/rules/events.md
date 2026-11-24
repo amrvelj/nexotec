@@ -27,7 +27,7 @@ flows events-stock-sales.md (KAN-615). Last verified against main@3b2bf69 (2026-
   write. The harness (`app/core/outbox*.py`, `consumer.py`, `processed_event_model.py`) is
   preserved verbatim.
 - **Names are facts in the past tense.** New types are `<context>.<entity>.<verb>`; existing
-  two-part names (`customer.created`, `valuation.used`) stay. Subscribers and pending
+  two-part names (`contact.created`, `valuation.used`) stay. Subscribers and pending
   `outbox_message.event_type` rows carry the name, so a rename is a contract change: an ADR
   naming every subscriber and how pending rows migrate (ADR-126).
 - **Consumers are idempotent** by `eventId`; delivery is at-least-once and unordered. Every

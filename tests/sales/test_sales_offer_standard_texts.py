@@ -54,7 +54,7 @@ def _offer(db_session, dealership, **overrides) -> SalesOffer:
         "tenant_id": dealership.id,
         "offer_number": "O-000042",
         "status": OfferStatus.OPEN,
-        "customer_label": "Peter Beispiel",
+        "contact_label": "Peter Beispiel",
         "vehicle_label": "VW Golf GTI",
         "gross_price": Decimal("36000.00"),
     }
@@ -89,13 +89,13 @@ def _override(db_session, dealership, *, code, slot, language, body):
 
 
 @pytest.mark.parametrize("language", ["de", "fr", "it", "en"])
-def test_the_offer_prints_the_seeded_intro_and_footer_in_the_customers_language(
+def test_the_offer_prints_the_seeded_intro_and_footer_in_the_contacts_language(
     db_session, standard_text_seeds, language
 ):
     from app.core.i18n import SwissLanguage
 
     dealership = _dealership(db_session)
-    offer = _offer(db_session, dealership, customer_language=language)
+    offer = _offer(db_session, dealership, contact_language=language)
     document = generate_offer_document(db_session, offer=offer, actor_id=None)
 
     lang = SwissLanguage(language)
@@ -125,7 +125,7 @@ def test_the_betriebs_override_prints_and_an_earlier_document_stays_frozen(db_se
 def test_a_token_the_offer_cannot_fill_fails_the_generation_and_writes_nothing(db_session, standard_text_seeds):
     """An unassigned offer has no responsible seller: a footer naming
     {{user.full_name}} cannot render, so no document is generated — never a
-    blank, never the raw token on the customer's paper."""
+    blank, never the raw token on the contact's paper."""
 
     from app.core.i18n import SwissLanguage
 
@@ -165,7 +165,7 @@ def _contract(db_session, dealership, **overrides) -> SalesContract:
         "tenant_id": dealership.id,
         "contract_number": "C-000042",
         "status": ContractStatus.PENDING,
-        "customer_label": "Peter Beispiel",
+        "contact_label": "Peter Beispiel",
         "vehicle_source": "manual",
         "vehicle_label": "VW Golf GTI",
         "gross_price": Decimal("36000.00"),
@@ -230,7 +230,7 @@ def test_a_carried_over_footer_prints_on_the_offer_and_the_contract(db_session, 
     assert contract.content_definition["footer_text"] == "Danke für Ihren Einkauf."
 
     french = generate_offer_document(
-        db_session, offer=_offer(db_session, dealership, offer_number="O-000043", customer_language="fr"), actor_id=None
+        db_session, offer=_offer(db_session, dealership, offer_number="O-000043", contact_language="fr"), actor_id=None
     )
     assert french.content_definition["footer_text"].startswith("Cette offre est valable 30 jours")
 

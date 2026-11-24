@@ -50,7 +50,7 @@ def _sort_columns() -> dict[tuple[str, str], str]:
 
 def test_the_scan_finds_the_lists_it_guards():
     columns = _sort_columns()
-    for expected in (("customer", "last_name"), ("customer", "company_name"), ("sales_deal", "owner_label"), ("stock_item", "vehicle_label")):
+    for expected in (("contact", "last_name"), ("contact", "company_name"), ("sales_deal", "owner_label"), ("stock_item", "vehicle_label")):
         assert expected in columns, expected
 
 

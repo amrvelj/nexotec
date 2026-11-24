@@ -132,15 +132,15 @@ def enable_group_read(
     """ADR-030 (2): platform_admin may flip this ONLY once at least one
     legal_basis row has ever been recorded for the group. This is a
     fail-fast admin UX check, not the actual security boundary — the
-    group-read helper itself (app.customer.services.legal_basis.
-    get_customer_group_read_or_404) re-checks a LIVE basis per customer on
+    group-read helper itself (app.contact.services.legal_basis.
+    get_contact_group_read_or_404) re-checks a LIVE basis per contact on
     every call regardless of this flag, since a basis can be withdrawn
     later without this flag being touched again.
 
-    Whether a basis was ever recorded is customer's fact, and customer sits
+    Whether a basis was ever recorded is contact's fact, and contact sits
     above platform (ADR-131): platform never asks it. The caller that
     orchestrates the flip — the composition root's route,
-    `app/api/v1/dealer_groups.py` — asks `customer.public.
+    `app/api/v1/dealer_groups.py` — asks `contact.public.
     has_any_basis_for_group` and passes the answer in (KAN-629).
     """
 
@@ -193,12 +193,12 @@ def get_dealer_dealership_for_update_or_404(db: Session, dealership_id: uuid.UUI
 
 
 def get_dealership_default_correspondence_language(db: Session, dealership_id: uuid.UUID) -> SwissLanguage:
-    """WP-6b: the "dealership default" half of Customers FR-13's
-    correspondence-language rule (document -> customer's language where one
-    exists, else this). The "check the customer first" half is each calling
-    module's own job — app.platform can't import app.customer to do it
+    """WP-6b: the "dealership default" half of Contacts FR-13's
+    correspondence-language rule (document -> contact's language where one
+    exists, else this). The "check the contact first" half is each calling
+    module's own job — app.platform can't import app.contact to do it
     here, and this function's contract is deliberately narrow: it never
-    guesses at a customer, it only ever answers "what does THIS dealership
+    guesses at a contact, it only ever answers "what does THIS dealership
     fall back to."
     """
 

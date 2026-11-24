@@ -56,7 +56,7 @@ def _offer_document(db, dealership: Dealership, number: str = "O-2026/000001"):
         tenant_id=dealership.id,
         offer_number=number,
         status=OfferStatus.OPEN,
-        customer_label="Peter Beispiel",
+        contact_label="Peter Beispiel",
         vehicle_label="VW Golf GTI",
         base_price=Decimal("38000.00"),
         list_price=Decimal("38000.00"),
@@ -95,12 +95,12 @@ def test_only_the_tokens_sha256_is_stored(db_session):
     assert issued.token not in stored
     # The token rides in the fragment, which no browser sends to a server.
     assert issued.url.endswith("/d#" + issued.token)
-    # The page opens in the customer's language; that may be a query, the token never.
+    # The page opens in the contact's language; that may be a query, the token never.
     in_french = issue_document_link(
         db_session, tenant_id=dealership.id, message_type="offer", document_id=document.id, actor_id=None, language="fr"
     )
     assert in_french.url.endswith("/d?lang=fr#" + in_french.token)
-    # The customer's language arrives as a str enum; the URL carries its value, never its name.
+    # The contact's language arrives as a str enum; the URL carries its value, never its name.
     assert document_links.link_url("T" * 43, SwissLanguage.IT).endswith("/d?lang=it#" + "T" * 43)
     assert document_links.link_url("T" * 43, "xx").endswith("/d#" + "T" * 43)
     assert row.expires_at - utcnow() > dt.timedelta(days=LINK_VALID_DAYS) - dt.timedelta(minutes=1)
@@ -142,7 +142,7 @@ def test_a_link_serves_the_contract_pdf(client, db_session):
         tenant_id=dealership.id,
         contract_number="C-000007",
         status=ContractStatus.PENDING,
-        customer_label="Peter Beispiel",
+        contact_label="Peter Beispiel",
         vehicle_source="manual",
         vehicle_label="VW Golf GTI",
         base_price=Decimal("38000.00"),

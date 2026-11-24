@@ -63,7 +63,7 @@ def compute_ageing_bucket(item: StockItem) -> AgeingBucket | None:
 
 def allocate_stock_number(db: Session, tenant_id: uuid.UUID) -> str:
     """Row-lock-then-increment, one counter per tenant — same idiom as
-    app.customer's per-group CustomerNumberSequence and app.vehicle's
+    app.contact's per-group ContactNumberSequence and app.vehicle's
     global VehicleNumberSequence, scoped to the dealership here because a
     stock number is this dealership's own stock, not a group or global
     fact.
@@ -423,8 +423,8 @@ def mark_purchased_if_ready(db: Session, item: StockItem) -> bool:
             # KAN-189 (Anto, 2026-11-02, option A) — additive: the car's
             # vehicle-mdm record (promotion set it), the purchase date, who
             # booked it and, for an item a contract's confirmation created,
-            # that contract and its role. The customer context records a bought
-            # trade-in's customer as its former owner from these; a consumer that
+            # that contract and its role. The contact context records a bought
+            # trade-in's contact as its former owner from these; a consumer that
             # ignores unknown keys is unaffected. KAN-632 (additive): a
             # trade-in's seller and signature (`trade_in_seller_fields`).
             payload={
@@ -461,14 +461,14 @@ def pipeline_origin(pipeline_ref: str | None) -> dict[str, str]:
 _PIPELINE_ORIGIN_ROLES = {"manual": "manual_configuration", "trade_in": "trade_in"}
 
 
-def apply_trade_in_seller(item: StockItem, *, customer_id: str | None, signed_at: str | None) -> None:
+def apply_trade_in_seller(item: StockItem, *, contact_id: str | None, signed_at: str | None) -> None:
     """KAN-632: a trade-in's pipeline item keeps who traded the car in and
     when the contract was signed, as `sales.contract.confirmed` named them —
     both or neither (a confirmation published before KAN-632 names neither)."""
 
-    if not customer_id or not signed_at:
+    if not contact_id or not signed_at:
         return
-    item.trade_in_customer_id = uuid.UUID(customer_id)
+    item.trade_in_contact_id = uuid.UUID(contact_id)
     item.trade_in_signed_at = dt.datetime.fromisoformat(signed_at)
 
 
@@ -508,16 +508,16 @@ def trade_in_vin_differs_error() -> UnprocessableEntityError:
 
 def trade_in_seller_fields(item: StockItem) -> dict[str, str]:
     """KAN-632: the trade-in's seller as the item's purchase and storno events
-    carry it (`tradeInCustomerId`, `tradeInSignedAt`, the same keys on both)
-    — what the customer context records the former owner from. Empty for an
+    carry it (`tradeInContactId`, `tradeInSignedAt`, the same keys on both)
+    — what the contact context records the former owner from. Empty for an
     item that keeps none: anything but a trade-in, or one created before
     KAN-632 and not backfilled (its trade-in event then dead-letters in the
-    customer context, KAN-674)."""
+    contact context, KAN-674)."""
 
-    if item.trade_in_customer_id is None or item.trade_in_signed_at is None:
+    if item.trade_in_contact_id is None or item.trade_in_signed_at is None:
         return {}
     return {
-        "tradeInCustomerId": str(item.trade_in_customer_id),
+        "tradeInContactId": str(item.trade_in_contact_id),
         "tradeInSignedAt": item.trade_in_signed_at.isoformat(),
     }
 

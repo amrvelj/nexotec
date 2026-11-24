@@ -6,9 +6,9 @@ import userEvent from '@testing-library/user-event'
 import i18n from '../i18n'
 import { renderWithProviders } from '../test/renderWithProviders'
 import { installFakeBackend, status, type FakeRoute } from '../test/fakeBackend'
-import { customer } from '../test/fixtures'
-import { CustomerCreateFlow } from '../modules/customer/components/CustomerCreateFlow'
-import { CustomerDetailPage } from '../modules/customer/pages/CustomerDetailPage'
+import { contact } from '../test/fixtures'
+import { ContactCreateFlow } from '../modules/contact/components/ContactCreateFlow'
+import { ContactDetailPage } from '../modules/contact/pages/ContactDetailPage'
 import { BusinessPage } from '../pages/BusinessPage'
 
 // KAN-37 (ADR-101) — Google Places Autocomplete on the address forms. One
@@ -88,18 +88,18 @@ const googleRoutes = (): FakeRoute[] => [
   },
 ]
 const createRoutes = (): FakeRoute[] => [
-  { match: /^\/customers\/duplicate-check$/, handler: () => ({ items: [], nextCursor: null }) },
-  { method: 'POST', match: /^\/customers$/, handler: (req) => ({ ...customer({ id: 'new-1' }), ...(req.body as object) }) },
+  { match: /^\/contacts\/duplicate-check$/, handler: () => ({ items: [], nextCursor: null }) },
+  { method: 'POST', match: /^\/contacts$/, handler: (req) => ({ ...contact({ id: 'new-1' }), ...(req.body as object) }) },
 ]
 
 const searchLabel = () => i18n.t('addressSearch.label')
-const field = (key: string) => screen.getByLabelText(i18n.t(`customerCreate.fields.${key}`)) as HTMLInputElement
+const field = (key: string) => screen.getByLabelText(i18n.t(`contactCreate.fields.${key}`)) as HTMLInputElement
 
 async function openAddressBlock(user: ReturnType<typeof userEvent.setup>) {
-  renderWithProviders(<CustomerCreateFlow onSuccess={() => {}} onCancel={() => {}} />)
-  await user.click(screen.getByRole('button', { name: i18n.t('customerCreate.actions.next') }))
-  await screen.findByText(i18n.t('customerDetail.contactPoints.phoneNumbers'))
-  await user.click(screen.getByLabelText(i18n.t('customerCreate.fields.hasAddress')))
+  renderWithProviders(<ContactCreateFlow onSuccess={() => {}} onCancel={() => {}} />)
+  await user.click(screen.getByRole('button', { name: i18n.t('contactCreate.actions.next') }))
+  await screen.findByText(i18n.t('contactDetail.contactPoints.phoneNumbers'))
+  await user.click(screen.getByLabelText(i18n.t('contactCreate.fields.hasAddress')))
 }
 
 afterEach(async () => {
@@ -181,7 +181,7 @@ describe('address autocomplete — the create wizard (KAN-37)', () => {
     const user = userEvent.setup()
     await openAddressBlock(user)
 
-    expect(screen.getByLabelText(i18n.t('customerCreate.fields.street'))).toBeInTheDocument()
+    expect(screen.getByLabelText(i18n.t('contactCreate.fields.street'))).toBeInTheDocument()
     expect(screen.queryByRole('textbox', { name: (n) => n.startsWith(searchLabel()) })).toBeNull()
   })
 
@@ -217,35 +217,35 @@ describe('address autocomplete — the create wizard (KAN-37)', () => {
 })
 
 describe('address autocomplete — the detail screen and the Business screen (KAN-37)', () => {
-  it('the customer detail address editor offers the search field and a pick fills the draft', async () => {
+  it('the contact detail address editor offers the search field and a pick fills the draft', async () => {
     installFakeBackend([
       configOn,
       ...googleRoutes(),
-      { match: /^\/customers\/c1\/phones$/, handler: () => ({ items: [] }) },
-      { match: /^\/customers\/c1\/emails$/, handler: () => ({ items: [] }) },
-      { match: /^\/customers\/c1\/vehicles$/, handler: () => ({ items: [], nextCursor: null }) },
-      { match: /^\/customers\/c1\/external-ids$/, handler: () => ({ items: [], nextCursor: null }) },
-      { match: /^\/customers\/c1\/audit-log$/, handler: () => ({ items: [], nextCursor: null }) },
-      { match: /^\/customers\/c1$/, handler: () => customer({ id: 'c1', address: null }) },
+      { match: /^\/contacts\/c1\/phones$/, handler: () => ({ items: [] }) },
+      { match: /^\/contacts\/c1\/emails$/, handler: () => ({ items: [] }) },
+      { match: /^\/contacts\/c1\/vehicles$/, handler: () => ({ items: [], nextCursor: null }) },
+      { match: /^\/contacts\/c1\/external-ids$/, handler: () => ({ items: [], nextCursor: null }) },
+      { match: /^\/contacts\/c1\/audit-log$/, handler: () => ({ items: [], nextCursor: null }) },
+      { match: /^\/contacts\/c1$/, handler: () => contact({ id: 'c1', address: null }) },
     ])
     renderWithProviders(
       <Routes>
-        <Route path="/customers/:id" element={<CustomerDetailPage />} />
+        <Route path="/contacts/:id" element={<ContactDetailPage />} />
       </Routes>,
-      { route: '/customers/c1' },
+      { route: '/contacts/c1' },
     )
     const user = userEvent.setup()
-    await screen.findAllByText(i18n.t('customerDetail.overview.cards.address'))
-    const title = screen.getAllByText(i18n.t('customerDetail.overview.cards.address')).find((el) => el.tagName === 'DIV')!
+    await screen.findAllByText(i18n.t('contactDetail.overview.cards.address'))
+    const title = screen.getAllByText(i18n.t('contactDetail.overview.cards.address')).find((el) => el.tagName === 'DIV')!
     const card = title.parentElement!.parentElement as HTMLElement
-    await user.click(within(card).getAllByText(i18n.t('customerDetail.overview.notSet'))[0])
+    await user.click(within(card).getAllByText(i18n.t('contactDetail.overview.notSet'))[0])
 
     await user.type(await screen.findByRole('textbox', { name: (n) => n.startsWith(searchLabel()) }), 'Bahnhofstrasse 12')
     await user.click(await screen.findByRole('option', { name: /Bahnhofstrasse 12\b/ }))
-    const street = screen.getByLabelText(i18n.t('customerDetail.overview.addressForm.street')) as HTMLInputElement
+    const street = screen.getByLabelText(i18n.t('contactDetail.overview.addressForm.street')) as HTMLInputElement
     await waitFor(() => expect(street.value).toBe('Bahnhofstrasse'))
-    expect((screen.getByLabelText(i18n.t('customerDetail.overview.addressForm.postalCode')) as HTMLInputElement).value).toBe('8001')
-    expect((screen.getByLabelText(i18n.t('customerDetail.overview.addressForm.line2')) as HTMLInputElement).value).toBe('')
+    expect((screen.getByLabelText(i18n.t('contactDetail.overview.addressForm.postalCode')) as HTMLInputElement).value).toBe('8001')
+    expect((screen.getByLabelText(i18n.t('contactDetail.overview.addressForm.line2')) as HTMLInputElement).value).toBe('')
   })
 
   it("the Business screen's seat address offers the search field; a pick that moves the postal code clears the canton for the manager to re-pick", async () => {

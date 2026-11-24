@@ -23,7 +23,7 @@ for the pricing and document files. Last verified against main@3b2bf69 (2026-11-
 # Sales pricing and VAT (ADR-057)
 
 - **One price: gross, CHF incl. MwSt**, after all discounts; no net line, no VAT breakdown on
-  screen or on the customer document. **There is no `vatTreatment`**:
+  screen or on the contact document. **There is no `vatTreatment`**:
   `test_no_vat_treatment_field.py` scans `app/` and the frontend sources, not `alembic/` or locale JSON.
 - VAT is **one line on the printed document only**, at `Dealership.vat_rate` (Notion's
   `dealer_settings.vat_rate` does not exist), directly under «Verkaufspreis», before the trade-in

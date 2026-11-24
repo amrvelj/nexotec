@@ -50,7 +50,7 @@ export function VehiclesListPage() {
   // KAN-524: «Zusammenführen mit…» opens Vehicle 360's merge dialog for users who may edit vehicles.
   const canMerge = useCanWrite('vehicle_mdm')
 
-  // § ADR-056 — search and sort live in the URL, as on Customers and
+  // § ADR-056 — search and sort live in the URL, as on Contacts and
   // Stock, so a vehicle search can be bookmarked, shared and reloaded.
   const [searchParams, setSearchParams] = useSearchParams()
   const updateUrl = (patch: Record<string, string | null>) => {
@@ -79,10 +79,10 @@ export function VehiclesListPage() {
     updateUrl({ sort: sortSpecToQueryParam(next) ?? null })
   }
   const [createOpen, setCreateOpen] = useState(false)
-  // KAN-7 — every other list grid (Customers already shipped; Sales gets
+  // KAN-7 — every other list grid (Contacts already shipped; Sales gets
   // the same fix alongside this one) offers selection + a bulk action.
   // Vehicles had neither, which reads as an omission rather than a
-  // decision. Same minimal, honest "copy IDs" action as Customers' own
+  // decision. Same minimal, honest "copy IDs" action as Contacts' own
   // precedent — proving the contract, not a real export feature this
   // screen doesn't own.
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
@@ -260,7 +260,7 @@ export function VehiclesListPage() {
           // so the list and the detail cannot drift apart (FR-V-16: the
           // actions on a vehicle in the list are the actions on its own
           // screen). The ones that need the detail's own state — the
-          // customer picker, the odometer and accessory forms — open the
+          // contact picker, the odometer and accessory forms — open the
           // car right there.
           const openAt = (action: VehicleOpenAction) =>
             navigate(`/vehicles/${row.id}`, { state: vehicleOpenState(action) })

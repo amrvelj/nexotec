@@ -568,7 +568,7 @@ def switch_dealership(
     the TARGET dealership's own dealer_group_id, not assumed unchanged from
     the caller's current token: a membership may span two dealer groups
     (ADR-106, recorded by KAN-379 from Anto's KAN-423 pick), and while
-    switched the user reads the target group's customers, never the home
+    switched the user reads the target group's contacts, never the home
     group's.
 
     A fresh token is a renewed session, so it is minted like a login

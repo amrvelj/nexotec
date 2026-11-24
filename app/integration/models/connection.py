@@ -81,7 +81,7 @@ class IntegrationConnection(PrimaryKeyMixin, VersionedMixin, TimestampMixin, Bas
     environment: Mapped[ConnectionEnvironment] = mapped_column(
         StoredEnum(ConnectionEnvironment, length=16), nullable=False
     )
-    # Non-secret only — endpoint URLs, customer/branch/mandant numbers,
+    # Non-secret only — endpoint URLs, contact/branch/mandant numbers,
     # and (A-9) an optional "retentionMode" key, default "full_cache" when
     # absent, so a future reversal to lazy caching is a config value, not
     # a rebuild.

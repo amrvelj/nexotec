@@ -64,7 +64,7 @@
   "addressEntry": {
     "title": "Adresseingabe",
     "enabled": "Adressvorschläge von Google Places",
-    "enabledHint": "Beim Erfassen einer Adresse wird der eingetippte Adresstext an Google gesendet – nie der Name oder andere Kundendaten. Gespeichert wird nur die gewählte Adresse; jedes Feld bleibt änderbar.",
+    "enabledHint": "Beim Erfassen einer Adresse wird der eingetippte Adresstext an Google gesendet – nie der Name oder andere Kontaktdaten. Gespeichert wird nur die gewählte Adresse; jedes Feld bleibt änderbar.",
     "unavailable": "Auf dieser Installation ist kein Google-Schlüssel hinterlegt. Vorschläge erscheinen, sobald Nexotec ihn konfiguriert hat."
   },
   "banking": {

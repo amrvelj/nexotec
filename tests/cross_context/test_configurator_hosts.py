@@ -288,7 +288,7 @@ def test_choosing_stock_after_a_configuration_detaches_it(db_session):
 
 def test_editing_the_configuration_refreezes_a_draft_and_never_an_open_offer(db_session):
     """FR-C-16's failure case: a configuration changing under a live offer
-    must not silently change what the customer was quoted."""
+    must not silently change what the contact was quoted."""
 
     dealership = _dealership(db_session)
     config = _build_configuration(db_session, dealership.id)
@@ -574,7 +574,7 @@ def test_a_trade_in_identified_from_its_plate_reaches_the_offer_as_a_valuation_r
     assert db_session.query(VehicleMdm).count() == 0
 
 
-# --- FR-C-15: Vehicle 360, Customer 360 through the vehicle ---------------
+# --- FR-C-15: Vehicle 360, Contact 360 through the vehicle ---------------
 
 
 def test_vehicle_360_reads_this_tenants_configuration_of_the_vehicle(client, db_session):
@@ -593,36 +593,36 @@ def test_vehicle_360_reads_this_tenants_configuration_of_the_vehicle(client, db_
     assert theirs.status_code == 404
 
 
-def test_no_route_reaches_a_configuration_through_a_customer():
-    """A configuration has no customer; Customer 360 reaches it only through
-    the vehicle. A customer-keyed configuration route would be the second,
+def test_no_route_reaches_a_configuration_through_a_contact():
+    """A configuration has no contact; Contact 360 reaches it only through
+    the vehicle. A contact-keyed configuration route would be the second,
     competing ownership link beside VehicleParty."""
 
     from app.main import app
 
-    inspected, violations = _customer_keyed_configuration_routes(app.routes)
+    inspected, violations = _contact_keyed_configuration_routes(app.routes)
 
     # KAN-241: zero would mean the walk no longer reaches the API routes.
     assert inspected >= 1, "the guard inspected no configuration route — it is not reaching the API routes"
     assert not violations, violations
 
 
-def _customer_keyed_configuration_routes(routes) -> tuple[int, list[str]]:
-    """(configuration routes inspected, those reached through a customer)."""
+def _contact_keyed_configuration_routes(routes) -> tuple[int, list[str]]:
+    """(configuration routes inspected, those reached through a contact)."""
 
     configuration_paths = [path for path, _route in api_routes(routes) if "configuration" in path]
-    return len(configuration_paths), [path for path in configuration_paths if "customer" in path]
+    return len(configuration_paths), [path for path in configuration_paths if "contact" in path]
 
 
-def test_the_customer_configuration_guard_catches_a_customer_keyed_route():
+def test_the_contact_configuration_guard_catches_a_contact_keyed_route():
     """KAN-241, exit criterion 3: red on a violating route mounted through an
     included router, as the real routes are."""
 
     app = FastAPI()
     router = APIRouter(prefix="/v1")
 
-    @router.get("/customers/{customer_id}/configurations")
-    def configurations_of_a_customer(customer_id: str) -> list[str]:
+    @router.get("/contacts/{contact_id}/configurations")
+    def configurations_of_a_contact(contact_id: str) -> list[str]:
         return []
 
     @router.get("/configurations/{configuration_id}")
@@ -631,7 +631,7 @@ def test_the_customer_configuration_guard_catches_a_customer_keyed_route():
 
     app.include_router(router)
 
-    assert _customer_keyed_configuration_routes(app.routes) == (2, ["/v1/customers/{customer_id}/configurations"])
+    assert _contact_keyed_configuration_routes(app.routes) == (2, ["/v1/contacts/{contact_id}/configurations"])
 
 
 # --- FR-C-16: re-sync, never automatic, per field ------------------------
@@ -730,7 +730,7 @@ def test_nothing_resyncs_a_configuration_automatically():
 )
 def test_the_offer_document_itemises_the_configuration_with_one_vat_line(db_session, language, vat_label):
     """Exit criterion 9, re-verified on this code: the configuration's price
-    lines, in the customer's language, with exactly one VAT line."""
+    lines, in the contact's language, with exactly one VAT line."""
 
     dealership = _dealership(db_session)
     config = _build_configuration(db_session, dealership.id)

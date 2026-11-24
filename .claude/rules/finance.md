@@ -32,7 +32,7 @@ Last verified against main@3b2bf69 (2026-11-18); /drift-audit re-checks "not bui
   `inventory/services/invoicing_gate.py::apply_finance_invoice_issued` re-asserts it on
   `finance.invoice.issued` and has no production caller until WP-9.
 - When WP-9 issues invoices, the holder transfer on `finance.invoice.issued` goes through
-  `app.customer.public.allocate_vehicle_party`, which closes the previous party row (ADR-064). Not
+  `app.contact.public.allocate_vehicle_party`, which closes the previous party row (ADR-064). Not
   wired today.
 - Number ranges are **gapless per legal entity**, one sequence across all sites, `{location_code}`
   a label only (D-A-17, ADR-032); the **Saldosteuersatz** method is **not in v1** (D-A-27). Read the

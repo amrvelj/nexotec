@@ -94,38 +94,38 @@ def _token_with_group(group_id: uuid.UUID, is_dealer_manager: bool = True) -> st
     )
 
 
-def test_allocate_to_customer_via_vehicle_side(client, db_session):
+def test_allocate_to_contact_via_vehicle_side(client, db_session):
     group_id = uuid.uuid4()
     token = _token_with_group(group_id)
     created = client.post("/v1/vehicle-mdm", json={"vin": VALID_VIN}, headers=_bearer(token)).json()["vehicle"]
 
-    from app.customer.models.customer import Customer, CustomerType, Language
+    from app.contact.models.contact import Contact, ContactType, Language
 
-    customer = Customer(
-        group_id=group_id, customer_number="K-000001", customer_type=CustomerType.INDIVIDUAL,
+    contact = Contact(
+        group_id=group_id, contact_number="K-000001", contact_type=ContactType.INDIVIDUAL,
         language=Language.EN, first_name="Ada", last_name="Lovelace",
     )
-    db_session.add(customer)
+    db_session.add(contact)
     db_session.commit()
 
     response = client.post(
         f"/v1/vehicle-mdm/{created['id']}/allocate",
-        json={"customerId": str(customer.id), "role": "owner"},
+        json={"contactId": str(contact.id), "role": "owner"},
         headers=_bearer(token),
     )
     assert response.status_code == 201, response.text
-    assert response.json()["customerId"] == str(customer.id)
+    assert response.json()["contactId"] == str(contact.id)
     assert response.json()["displayName"] == "Ada Lovelace"  # KAN-140
 
 
-def test_allocate_to_customer_from_another_group_404s_not_403(client, db_session):
+def test_allocate_to_contact_from_another_group_404s_not_403(client, db_session):
     """VehicleParty carries no group_id column and vehicle_mdm is a
     deliberately global fact (ADR-022), so nothing but this endpoint's own
-    lookup stops a principal from group A naming a customer_id that
+    lookup stops a principal from group A naming a contact_id that
     belongs to group B. Confirming a real cross-group allocation would be
-    a silent write-side PII/authorization leak — the customer-side dialog
-    already prevents this by resolving `customer` through
-    get_customer_or_404(principal.group_id, ...) before it ever calls
+    a silent write-side PII/authorization leak — the contact-side dialog
+    already prevents this by resolving `contact` through
+    get_contact_or_404(principal.group_id, ...) before it ever calls
     allocate_vehicle_party; this route must reject the same way, per rule
     #7 (a cross-group reference looks like the record doesn't exist, not
     a 403).
@@ -136,18 +136,18 @@ def test_allocate_to_customer_from_another_group_404s_not_403(client, db_session
     token_a = _token_with_group(group_a)
     created = client.post("/v1/vehicle-mdm", json={"vin": VALID_VIN}, headers=_bearer(token_a)).json()["vehicle"]
 
-    from app.customer.models.customer import Customer, CustomerType, Language
+    from app.contact.models.contact import Contact, ContactType, Language
 
-    customer_b = Customer(
-        group_id=group_b, customer_number="K-000002", customer_type=CustomerType.INDIVIDUAL,
+    contact_b = Contact(
+        group_id=group_b, contact_number="K-000002", contact_type=ContactType.INDIVIDUAL,
         language=Language.EN, first_name="Bob", last_name="OtherGroup",
     )
-    db_session.add(customer_b)
+    db_session.add(contact_b)
     db_session.commit()
 
     response = client.post(
         f"/v1/vehicle-mdm/{created['id']}/allocate",
-        json={"customerId": str(customer_b.id), "role": "owner"},
+        json={"contactId": str(contact_b.id), "role": "owner"},
         headers=_bearer(token_a),
     )
     assert response.status_code == 404, response.text
@@ -156,7 +156,7 @@ def test_allocate_to_customer_from_another_group_404s_not_403(client, db_session
     # group-A-scoped read (list_vehicle_parties) would pass vacuously.
     from sqlalchemy import select
 
-    from app.customer.models.vehicle_party import VehicleParty
+    from app.contact.models.vehicle_party import VehicleParty
 
     rows = db_session.scalars(select(VehicleParty).where(VehicleParty.vehicle_id == uuid.UUID(created["id"]))).all()
     assert rows == []

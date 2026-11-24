@@ -7,15 +7,15 @@ import i18n from '../../../../i18n'
 import { renderWithProviders } from '../../../../test/renderWithProviders'
 import { installFakeBackend, status, type FakeRoute } from '../../../../test/fakeBackend'
 import { CODED_REFERENCE_ROUTES, configurationRead, pickCodedFields } from '../../test/configuratorFixtures'
-import type { CustomerVehicleRead } from '../../../../api/types'
+import type { ContactVehicleRead } from '../../../../api/types'
 import { ValuationCreatePage } from '../../../valuation/pages/ValuationCreatePage'
 import { ValuationsListPage } from '../../../valuation/pages/ValuationsListPage'
 import { SpecificationTab } from '../vehicle-detail/SpecificationTab'
-import { VehiclesTab } from '../../../customer/components/customer-detail/VehiclesTab'
+import { VehiclesTab } from '../../../contact/components/contact-detail/VehiclesTab'
 import { nameValuationCar } from '../../../valuation/test/nameValuationCar'
 
 // C-F (KAN-10) — the valuation host (FR-C-14, record only), Vehicle 360's
-// read-only Specification tab (FR-C-15), and Customer 360 reaching it only
+// read-only Specification tab (FR-C-15), and Contact 360 reaching it only
 // through the vehicle.
 
 vi.mock('@tanstack/react-virtual', () => ({
@@ -218,18 +218,18 @@ describe('Vehicle 360 → Specification (FR-C-15)', () => {
   })
 })
 
-describe('Customer 360 reaches a configuration only through the vehicle (FR-C-15)', () => {
-  it("links each of the customer's vehicles to that vehicle's Specification tab", async () => {
+describe('Contact 360 reaches a configuration only through the vehicle (FR-C-15)', () => {
+  it("links each of the contact's vehicles to that vehicle's Specification tab", async () => {
     installFakeBackend([])
     const row = {
-      id: 'party-1', customerId: 'cust-1', vehicleId: 'veh-1', role: 'owner', effectiveFrom: '2024-01-01',
+      id: 'party-1', contactId: 'cust-1', vehicleId: 'veh-1', role: 'owner', effectiveFrom: '2024-01-01',
       effectiveTo: null, createdAt: '2024-01-01T00:00:00Z', updatedAt: '2024-01-01T00:00:00Z', otherParties: [],
       stockItem: null,
       vehicle: { id: 'veh-1', vin: 'WVWZZZ1KZAW000001', vehicleNumber: 'F-000001', make: null, model: null, modelYear: null },
-    } as unknown as CustomerVehicleRead
+    } as unknown as ContactVehicleRead
     renderWithProviders(<VehiclesTab vehicles={[row]} loading={false} error={null} locale="de-CH" onAdd={vi.fn()} />)
 
-    const link = await screen.findByRole('link', { name: i18n.t('customerDetail.vehicles.specification') })
+    const link = await screen.findByRole('link', { name: i18n.t('contactDetail.vehicles.specification') })
     expect(link).toHaveAttribute('href', '/vehicles/veh-1?tab=specification')
   })
 })

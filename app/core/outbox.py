@@ -30,7 +30,7 @@ from app.core.uuid7 import uuid7
 class OutboxEvent:
     """The envelope, minus what the outbox itself assigns (id, status,
     attempts, timestamps). `event_type` should read `context.entity.
-    past_tense_verb` (e.g. `customer.merged`) once real events land in
+    past_tense_verb` (e.g. `contact.merged`) once real events land in
     PR-5 — this PR ships no real event types, only a test-only probe.
     """
 

@@ -2,7 +2,7 @@
 row of a group-owned record, as `app.core.audit_attribution` needs it — the
 Betriebe meant and the authors whose rows without an acting Betrieb are
 theirs. Two readers use it, so what a sister stops seeing is what the
-leaver's archive holds: the History tab of a group customer (the offboarded
+leaver's archive holds: the History tab of a group contact (the offboarded
 Betriebe of the reader's group) and platform's export scope (the exported
 Betrieb).
 
@@ -55,7 +55,7 @@ def get_audit_attribution(
 
 def get_offboarded_audit_attribution(db: Session, *, group_id: uuid.UUID) -> AuditAttribution:
     """`get_audit_attribution` for every offboarded Betrieb of `group_id` —
-    the rows the History tab of a group customer no longer shows (KAN-722;
+    the rows the History tab of a group contact no longer shows (KAN-722;
     KAN-218 Q2 A: an offboarded Betrieb leaves every group read)."""
 
     offboarded = frozenset(

@@ -33,7 +33,7 @@ paths:
   - "tests/platform/test_kan37_address_autocomplete.py"
   - "frontend/apps/dms/src/pages/ContactGroupsPage*"
   - "frontend/apps/dms/src/hooks/useContactGroups.ts"
-  - "tests/customer/test_contact_groups.py"
+  - "tests/contact/test_contact_groups.py"
   - "tests/architecture/test_contact_group_setting_is_administrations.py"
 ---
 <!-- Maintainer note (stripped before Claude sees it). Summarises the Dealer Administration PRD v1.2
@@ -47,7 +47,7 @@ Decided rulings live in the PRD; built only where a bullet says so — check the
 
 ## The rulings a session most often gets wrong
 - **One administration surface (A-RULE-0):** every setting a Betrieb owns is configured here; a
-  module reads configuration, never owns it. The same for mail (A-RULE-9) and customer messaging
+  module reads configuration, never owns it. The same for mail (A-RULE-9) and contact messaging
   (A-RULE-10): no module composes a sender or calls a messaging provider; it registers a document
   type with the platform.
 - **Access = entitlement × role (D-A-04) — built.** `module_entitlement` per Betrieb (`sales`,
@@ -65,13 +65,13 @@ Decided rulings live in the PRD; built only where a bullet says so — check the
 - **`status` is staff's, `active` ↔ `suspended` only** (KAN-712, ADR-165): a manager naming it is
   422 `status_not_patchable`; activation and offboarding are procedures (`use_*_procedure`).
 - **Mail (D-A-28):** platform mail is always Nexotec's sender (`platform-identity.md`);
-  customer mail leaves only through the dealer's own Microsoft 365 / Google Workspace mailbox
+  contact mail leaves only through the dealer's own Microsoft 365 / Google Workspace mailbox
   (Anto, 2026-11-14): the author's own, else the Betrieb's shared one, else a refusal — no
   Nexotec sender (`integration.public.resolve_sender`, KAN-215; Administration › Kundenmails).
-- **Customer messaging (D-A-41):** one platform send dialog for e-mail, SMS, WhatsApp; the Betrieb
-  brings its own SMS/WhatsApp provider; consent lives on the customer.
+- **Contact messaging (D-A-41):** one platform send dialog for e-mail, SMS, WhatsApp; the Betrieb
+  brings its own SMS/WhatsApp provider; consent lives on the contact.
 - **Not in v1, by ruling:** policy limits (D-A-18), external users (D-A-20), custom fields and tags
-  (D-A-29; one exception, the customer's free per-group tags `customer_tag`, built under KAN-50 —
+  (D-A-29; one exception, the contact's free per-group tags `contact_tag`, built under KAN-50 —
   Anto, 2026-10-26; the contact groups below are Nexotec's reference list, not tags), Saldosteuersatz (D-A-27), customer logins (D-A-13), API clients (D-A-14), Zefix
   auto-fill, AI translations, training mode.
 

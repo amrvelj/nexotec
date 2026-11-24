@@ -40,7 +40,7 @@ class AuditEvent(PrimaryKeyMixin, Base):
     actor_id: Mapped[uuid.UUID | None] = mapped_column(GUID(), nullable=True)
     # KAN-722: the Betrieb the write was made in — owner: platform
     # (dealership.id), a plain GUID as for tenant_id. `tenant_id` says whose
-    # record it is; for a group-owned customer that is the group, so this is
+    # record it is; for a group-owned contact that is the group, so this is
     # what attributes a History entry to one Betrieb
     # (`app.core.audit_attribution`). NULL on rows written before KAN-722
     # and on writes no Betrieb made (a consumer, a system job).

@@ -24,7 +24,7 @@ const QUOTE = {
 
 const valuation = (overrides: Record<string, unknown>) =>
   ({
-    id: 'val-1', valuationNumber: 'B-000001', status: 'valid', hasSignedContract: false, customerId: null,
+    id: 'val-1', valuationNumber: 'B-000001', status: 'valid', hasSignedContract: false, contactId: null,
     vehicleId: null, vehicleMake: 'Alfa Romeo', vehicleModel: 'Giulietta', vehicleTrim: null, vehicleVin: 'ZARFAMBN5L7552001',
     finalOffer: '17000.00', deductions: [], version: 1, validFrom: '2026-11-09', validUntil: '2026-12-09T08:00:00Z',
     vehicleFirstRegistration: '2020-03-02', mileage: 41000, configurationId: null, createdAt: '2026-11-09T08:00:00Z',

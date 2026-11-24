@@ -304,7 +304,7 @@ export function DetailsTab({
               <KeyValueRow label={t('stockDetail.purchase.fields.supplierName')}>
                 {/* KAN-465: the supplier contact's name, linking to it; a booking from before keeps its typed name. */}
                 {item.supplierContactId ? (
-                  <Anchor component={Link} to={`/customers/${item.supplierContactId}`} fz="sm">
+                  <Anchor component={Link} to={`/contacts/${item.supplierContactId}`} fz="sm">
                     {item.supplierLabel ?? '—'}
                   </Anchor>
                 ) : (
@@ -370,7 +370,7 @@ export function DetailsTab({
         requiresVin={item.lifecycleStatus === 'pipeline' && item.vin == null}
         configurationId={item.configurationId ?? null}
         tradeInVin={item.tradeInVin ?? null}
-        tradeInCustomerId={item.tradeInCustomerId ?? null}
+        tradeInContactId={item.tradeInContactId ?? null}
         onEditConfiguration={mayEditConfiguration ? editConfigurationFromPurchase : undefined}
         onSubmit={onRecordPurchase}
       />

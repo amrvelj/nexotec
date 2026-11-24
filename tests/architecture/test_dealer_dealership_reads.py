@@ -53,7 +53,7 @@ _ALLOWED: dict[str, str] = {
         "selects the platform tenant itself: a platform_admin homed anywhere else is the finding (KAN-764)"
     ),
     "app/platform/identity/services/user_reads.py::list_user_dealer_group_ids": (
-        "the groups of one user's own Betriebe, by id; the Nexotec group holds no customers or records"
+        "the groups of one user's own Betriebe, by id; the Nexotec group holds no contacts or records"
     ),
     "app/platform/identity/services/user_reads.py::_other_dealership_names": (
         "a user's active memberships; grant_membership refuses the platform tenant as a target"

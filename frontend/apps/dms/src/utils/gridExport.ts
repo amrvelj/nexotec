@@ -1,4 +1,4 @@
-// D-25 (PRD-Customers, ruled 2026-09-07) — Export and Print are the two
+// D-25 (PRD-Contacts, ruled 2026-09-07) — Export and Print are the two
 // bulk actions on an overview selection. Both take the SELECTED rows in the
 // CURRENTLY VISIBLE columns: what the reader is looking at is what they
 // get. This is the plain-browser primitive under those two actions; it is

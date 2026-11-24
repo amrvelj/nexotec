@@ -1,0 +1,67 @@
+{
+  "title": "New contact",
+  "steps": {
+    "type": "Type",
+    "details": "Details"
+  },
+  "actions": {
+    "next": "Next",
+    "back": "Back",
+    "cancel": "Cancel",
+    "submit": "Create contact"
+  },
+  "type": {
+    "individual": {
+      "label": "Individual",
+      "description": "A private person — name, date of birth, nationality."
+    },
+    "business": {
+      "label": "Business",
+      "description": "A company — legal name, legal form, UID."
+    }
+  },
+  "fields": {
+    "correspondenceLanguage": "Correspondence language",
+    "salutation": "Salutation",
+    "firstName": "First name",
+    "lastName": "Last name",
+    "birthDate": "Date of birth",
+    "nationality": "Nationality",
+    "companyName": "Company name",
+    "legalForm": "Legal form",
+    "uid": "UID",
+    "preferredChannel": "Preferred contact channel",
+    "lifecycleStatus": "Lifecycle status",
+    "source": "Source",
+    "hasAddress": "Add an address",
+    "street": "Street",
+    "houseNumber": "House number",
+    "line2": "Address line 2 (c/o, PO box, …)",
+    "postalCode": "Postal code",
+    "locality": "Locality",
+    "country": "Country",
+    "marketingConsent": "Marketing consent",
+    "roles": "Roles"
+  },
+  "descriptions": {
+    "correspondenceLanguage": "The language this contact's documents and letters are written in."
+  },
+  "placeholders": {
+    "uid": "CHE-123.456.789"
+  },
+  "duplicates": {
+    "heading_one": "Possible existing contact",
+    "heading_other": "{{count, number}} possible existing contacts",
+    "exactMatch": "Exact match",
+    "openInstead": "Open instead"
+  },
+  "validation": {
+    "individualNameRequired": "Enter a first name and a last name for an individual contact.",
+    "companyNameRequired": "Enter a company name for a business contact.",
+    "contactPointRequired": "Add at least one phone number or email address.",
+    "roleRequired": "Choose at least one role."
+  },
+  "errors": {
+    "createFailed": "The contact could not be created. Check the form and try again."
+  }
+}

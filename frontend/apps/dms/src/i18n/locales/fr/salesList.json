@@ -1,13 +1,13 @@
 {
   "title": "Offres & contrats",
   "newOffer": "Nouvelle offre",
-  "searchPlaceholder": "Plaque, VIN, client, offre …",
+  "searchPlaceholder": "Plaque, VIN, contact, offre …",
   "loadError": "Impossible de charger les offres et contrats.",
   "allDealsView": "Toutes les offres et contrats",
   "columns": {
     "number": "Numéro",
     "type": "Type",
-    "customer": "Client",
+    "contact": "Contact",
     "vehicle": "Véhicule",
     "grossPrice": "Prix de vente",
     "status": "Statut",

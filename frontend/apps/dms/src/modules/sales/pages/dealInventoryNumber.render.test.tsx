@@ -50,8 +50,8 @@ const CONTRACT = {
   offerNumber: 'O-000001',
   status: 'confirmed',
   version: 3,
-  customerId: 'cust-1',
-  customerLabel: 'Ursula Vogt',
+  contactId: 'cust-1',
+  contactLabel: 'Ursula Vogt',
   vehicleSource: 'stock',
   stockItemId: 's1',
   stockItemLabel: STOCK,
@@ -173,8 +173,8 @@ describe('the Sales grid offers the stock number as a column, hidden by default 
           items: [
             {
               id: 'd-1', entityType: 'contract', number: 'V-2026-0001', status: 'pending', offerId: null, offerNumber: null,
-              contractId: 'c-1', contractNumber: 'V-2026-0001', customerId: null, customerLabel: 'Ursula Vogt',
-              customerLocality: null, vehicleLabel: 'VW Golf', stockItemLabel: STOCK, ownerUserId: null, ownerLabel: null,
+              contractId: 'c-1', contractNumber: 'V-2026-0001', contactId: null, contactLabel: 'Ursula Vogt',
+              contactLocality: null, vehicleLabel: 'VW Golf', stockItemLabel: STOCK, ownerUserId: null, ownerLabel: null,
               grossPrice: '25000.00', margin: null, documentsCount: 0, createdAt: '2026-10-01T10:00:00Z',
               updatedAt: '2026-10-02T10:00:00Z',
             },

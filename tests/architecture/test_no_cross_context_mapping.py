@@ -26,7 +26,7 @@ pattern, never an FK or a relationship.
 
 An exact, per-attribute allowlist — file and attribute, never a directory —
 in the same spirit as test_no_ambient_group_read.py's `_ALLOWED_FILES`. It is
-empty: KAN-84 replaced the one crossing (`VehicleParty.vehicle`, customer ->
+empty: KAN-84 replaced the one crossing (`VehicleParty.vehicle`, contact ->
 vehicle) with denormalised label columns. A new entry needs an ADR, not a
 convenience.
 """
@@ -163,7 +163,7 @@ def test_the_gate_sees_every_mapped_model():
         )
         assert not defines_a_model or module.__name__ in walked_modules, module.__name__
     contexts = {_context_of(m.class_) for m in _app_mappers()}
-    assert {"core", "platform", "customer", "vehicle", "sales", "inventory", "valuation", "integration"} <= contexts
+    assert {"core", "platform", "contact", "vehicle", "sales", "inventory", "valuation", "integration"} <= contexts
 
 
 def test_allowlist_entries_point_at_real_files():
@@ -177,7 +177,7 @@ def test_allowlist_entries_point_at_real_files():
 def _synthetic_mappers(*, cross: bool) -> list[Mapper]:
     """Two throwaway classes on their own registry and MetaData (never Base's),
     module-tagged as if they lived in two contexts. `cross=True` gives the
-    customer-side class an FK and a relationship into the vehicle-side one."""
+    contact-side class an FK and a relationship into the vehicle-side one."""
 
     reg = registry(metadata=MetaData())
 
@@ -188,7 +188,7 @@ def _synthetic_mappers(*, cross: bool) -> list[Mapper]:
         pass
 
     SyntheticVehicle.__module__ = "app.vehicle.models.synthetic"
-    SyntheticParty.__module__ = "app.customer.models.synthetic"
+    SyntheticParty.__module__ = "app.contact.models.synthetic"
 
     vehicle_table = Table("synthetic_vehicle", reg.metadata, Column("id", app_guid(), primary_key=True))
     party_columns = [Column("id", app_guid(), primary_key=True)]
@@ -216,8 +216,8 @@ def app_guid():
 
 def test_negative_case_a_cross_context_fk_and_relationship_are_both_caught():
     violations = find_cross_context_mappings(_synthetic_mappers(cross=True))
-    assert any(v.startswith("FK synthetic_party.vehicle_id (customer) -> synthetic_vehicle.id (vehicle)") for v in violations)
-    assert any(v.startswith("relationship app.customer.models.synthetic") and ".vehicle (customer)" in v for v in violations)
+    assert any(v.startswith("FK synthetic_party.vehicle_id (contact) -> synthetic_vehicle.id (vehicle)") for v in violations)
+    assert any(v.startswith("relationship app.contact.models.synthetic") and ".vehicle (contact)" in v for v in violations)
     assert len(violations) == 2
 
 

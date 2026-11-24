@@ -1,7 +1,7 @@
 {
-  "title": "E-mail ai clienti",
-  "subtitle": "Offerte, contratti e altre e-mail ai clienti partono solo da una casella della sua azienda – Microsoft 365 o Google Workspace. Se una persona ha collegato la propria casella, le sue e-mail partono da lì; altrimenti dalla casella dell'azienda. Se nessuna è collegata, l'app non può inviare e-mail ai clienti.",
-  "loadError": "Non è stato possibile caricare le impostazioni delle e-mail ai clienti.",
+  "title": "E-mail ai contatti",
+  "subtitle": "Offerte, contratti e altre e-mail ai contatti partono solo da una casella della sua azienda – Microsoft 365 o Google Workspace. Se una persona ha collegato la propria casella, le sue e-mail partono da lì; altrimenti dalla casella dell'azienda. Se nessuna è collegata, l'app non può inviare e-mail ai contatti.",
+  "loadError": "Non è stato possibile caricare le impostazioni delle e-mail ai contatti.",
   "providers": {
     "microsoft_365_mail": "Microsoft 365",
     "google_workspace_mail": "Google Workspace"
@@ -39,12 +39,12 @@
   },
   "own": {
     "heading": "La mia casella",
-    "intro": "Colleghi la sua casella: i suoi clienti ricevono le e-mail da lei e le risposte arrivano a lei. Le e-mail inviate compaiono nella sua cartella «Posta inviata».",
+    "intro": "Colleghi la sua casella: i suoi contatti ricevono le e-mail da lei e le risposte arrivano a lei. Le e-mail inviate compaiono nella sua cartella «Posta inviata».",
     "none": "Non ha ancora collegato la sua casella.",
     "connect": "Collega con {{provider}}",
     "disconnect": "Scollega",
     "confirmDisconnect": "Sì, scollega",
-    "senderTitle": "Le sue e-mail ai clienti partono da",
+    "senderTitle": "Le sue e-mail ai contatti partono da",
     "sender": {
       "user_mailbox": "la sua casella: {{address}}",
       "business_mailbox": "la casella dell'azienda: {{address}}"
@@ -53,7 +53,7 @@
   },
   "links": {
     "ownScreen": "La mia casella",
-    "businessScreen": "Amministrazione › E-mail ai clienti"
+    "businessScreen": "Amministrazione › E-mail ai contatti"
   },
   "callback": {
     "working": "La sua casella viene collegata …",
@@ -75,7 +75,7 @@
     "business_mailbox_in_error": "La casella dell'azienda non può inviare al momento. Un manager la ricollega.",
     "no_recipient": "L'e-mail non ha destinatari.",
     "already_disconnected": "Questa casella è già scollegata.",
-    "mail_provider_platform_only": "Questo fornitore viene configurato da Nexotec. Colleghi la sua casella sotto Amministrazione › E-mail ai clienti.",
+    "mail_provider_platform_only": "Questo fornitore viene configurato da Nexotec. Colleghi la sua casella sotto Amministrazione › E-mail ai contatti.",
     "id_token_invalid": "Non è stato possibile confermare l'accesso presso il fornitore. Ricominci, per favore.",
     "not_a_business_account": "Acceda con l'account della sua azienda, non con un account privato.",
     "not_an_administrator": "Solo un amministratore della sua organizzazione può collegare la casella dell'azienda.",

@@ -1,6 +1,6 @@
 /**
  * KAN-644 / KAN-583 (Anto, 2026-11-12): one reading of a vehicle-party row's
- * period, shared by the customer's Vehicles tab and the vehicle's Identity
+ * period, shared by the contact's Vehicles tab and the vehicle's Identity
  * tab — the same test the server's `_holds_now_or_later` applies.
  *
  * - upcoming: its start is still to come (a planned handover). Never shown as

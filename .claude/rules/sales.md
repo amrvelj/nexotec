@@ -35,11 +35,11 @@ sales-reconciliation.md. Last verified against main@3b2bf69 (2026-11-18). -->
   KAN-555 (ADR-117). A legacy contract stays `CONFIRMED`; `request_invoice` and `cancel_contract`
   refuse it (`legacy_sale`: the old system invoiced it), so its offer never frees
   (`test_sales_contract_legacy_refusal.py`).
-- **A contract starts from exactly one of an offer, a customer or a stock car** — never empty.
+- **A contract starts from exactly one of an offer, a contact or a stock car** — never empty.
   From a car it is a pending contract with that car (Path A, in the creating transaction); the
-  buyer is picked inside it through the one `offer.apply_customer_change` both hosts use.
-- **No contract is signed without a buyer** (`missing_customer`, before the vehicle and price
-  gates). A pending contract priced without inputs takes a PATCH carrying `customerId` alone or
+  buyer is picked inside it through the one `offer.apply_contact_change` both hosts use.
+- **No contract is signed without a buyer** (`missing_contact`, before the vehicle and price
+  gates). A pending contract priced without inputs takes a PATCH carrying `contactId` alone or
   `ownerUserId` alone, price untouched, and can still be confirmed or cancelled; any other field is
   `contract_priced_without_inputs`.
 - **One live contract per offer** (`offer_already_contracted`, under the offer's row lock); a
@@ -50,18 +50,18 @@ sales-reconciliation.md. Last verified against main@3b2bf69 (2026-11-18). -->
 - **The deal row follows its deal's live entity** (`deal_projection.py`): the live contract while
   there is one, else the offer; a cancelled contract hands the row back to its offer, a contract
   without an offer keeps its own row. Generating a document re-projects it.
-- **Row locks offer → contract → deal**, after the customer's attach lock (ADR-135,
-  `customer_attach_lock.py`) that a buyer attach, an offer copy, `sales.customer_merged` and any
-  new write changing a deal's customer take (never a FOR SHARE read through `customer.public`,
+- **Row locks offer → contract → deal**, after the contact's attach lock (ADR-135,
+  `contact_attach_lock.py`) that a buyer attach, an offer copy, `sales.contact_merged` and any
+  new write changing a deal's contact take (never a FOR SHARE read through `contact.public`,
   ADR-047). `upsert_deal_projection`
-  flushes its caller's changes first, the customer merge's repointing flushes in the same order,
+  flushes its caller's changes first, the contact merge's repointing flushes in the same order,
   and an offer's or contract's row is written or locked (`priced_deal.lock_editable`) before its
   line items.
 
 ## The responsible seller (Anto)
 - `owner_user_id` + label on offer, contract and deal (rule 2): the creator by default when they
   act in the Betrieb (`platform.public.get_active_user_acting_in` — homed or an active member,
-  active or invited; the customer advisor's rule too), a colleague after a hand-over, nobody once a
+  active or invited; the contact advisor's rule too), a colleague after a hand-over, nobody once a
   leaver's deals went to the unassigned queue (open offers and pending contracts; drafts stay
   hidden). `created_by` stays who typed it (A-RULE-5). The PATCH takes `ownerUserId` (422 for
   someone who cannot act there); alone, also on an open offer without a live contract and on a
@@ -69,7 +69,7 @@ sales-reconciliation.md. Last verified against main@3b2bf69 (2026-11-18). -->
   seller is active or invited, else its creator. `services/ownership.py` is Sales' ownership
   provider (`platform-users.md`, D-A-35). The labels follow a rename overnight
   (`events-worker.md`); the buyer's name and language move on open work only, signed work keeps
-  its name, and an offer with a live contract of its own buyer mirrors it. `customer_locality`
+  its name, and an offer with a live contract of its own buyer mirrors it. `contact_locality`
   stays unfilled (ruled).
 
 ## Price and VAT (ADR-057)
@@ -101,17 +101,17 @@ and the discount cap: `sales-pricing.md`. **There is no `vatTreatment`.**
   again (`vehicle_left_stock`).
 - An edit publishes no event — except a deal starting to hold a configuration id, which publishes
   `sales.{offer,contract}.configuration_attached` in its own transaction (`vehicle-configurator.md`).
-- `TradeInRequest.customerId` is deprecated: ignored but for its 404 (Anto, KAN-562;
+- `TradeInRequest.contactId` is deprecated: ignored but for its 404 (Anto, KAN-562;
   `test_sales_trade_in.py`).
 - **ADR-065** — a credit block stops contract confirmation, not the offer; an address-less
-  customer is gated at confirmation (D-20). Do-not-contact refuses the offer, a contract straight
-  from the customer, an attach and every confirmation; a merged customer every attach.
+  contact is gated at confirmation (D-20). Do-not-contact refuses the offer, a contract straight
+  from the contact, an attach and every confirmation; a merged contact every attach.
 
 ## Documents
-- **ADR-063** — build, then review the rendered document in the **customer's correspondence
+- **ADR-063** — build, then review the rendered document in the **contact's correspondence
   language** with the seller-only margin panel beside it, never on it
-  (`test_margin_never_in_rendered_document.py`). No customer language: the Betrieb's own default
-  (Customers FR-13), never a silent German.
+  (`test_margin_never_in_rendered_document.py`). No contact language: the Betrieb's own default
+  (Contacts FR-13), never a silent German.
 - **The wording is the Betrieb's standard text**: offer intro and footer, contract footer, through
   `platform.public.render_standard_text` with Sales' facts; a token Sales cannot fill fails the
   generation before anything is written. Sales holds no text column (ADR-051,

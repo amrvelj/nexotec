@@ -70,14 +70,14 @@ def _audit(db: Session, job: ExportJob, action: str, *, actor_id: uuid.UUID | No
 
 def scope_for(db: Session, dealership: Dealership) -> ExportScope:
     """The Betrieb, its group, and whether the group holds it alone (a
-    customer that predates provenance is then its own too)."""
+    contact that predates provenance is then its own too)."""
 
     group = dealership_service.list_group_dealerships(db, dealer_group_id=dealership.dealer_group_id)
     return ExportScope(
         dealership_id=dealership.id,
         group_id=dealership.dealer_group_id,
         group_is_single=all(other.id == dealership.id for other in group),
-        # KAN-722: the rows it wrote in a group customer's History — the ones
+        # KAN-722: the rows it wrote in a group contact's History — the ones
         # its sisters stop seeing once it is offboarded.
         audit_attribution=get_audit_attribution(
             db, group_id=dealership.dealer_group_id, dealership_ids=frozenset({dealership.id})
@@ -87,7 +87,7 @@ def scope_for(db: Session, dealership: Dealership) -> ExportScope:
 
 def _with_references(db: Session, scope: ExportScope) -> ExportScope:
     """Every context names the records of others its rows carry, so a
-    group-owned customer comes for the Betrieb's own relationship."""
+    group-owned contact comes for the Betrieb's own relationship."""
 
     references: dict[str, set[uuid.UUID]] = {}
     for exporter in exporters():

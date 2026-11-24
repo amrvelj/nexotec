@@ -15,12 +15,12 @@ from decimal import Decimal
 import pytest
 from sqlalchemy import select
 
+from app.contact.models.contact import Contact, ContactType
+from app.contact.services.supplier_contact import vat_registered_prefill
 from app.core.audit_model import AuditEvent
 from app.core.consumer import consume_once
 from app.core.errors import UnprocessableEntityError
-from app.customer.models.customer import Customer, CustomerType
-from app.customer.services.supplier_contact import vat_registered_prefill
-from app.inventory.consumers import handle_customer_merged_message
+from app.inventory.consumers import handle_contact_merged_message
 from app.inventory.models.stock_item import StockItem, StockItemCondition
 from app.inventory.reconciliation import CHECKS
 from app.inventory.schemas.purchase import PurchaseStornoRequest, RecordPurchaseRequest
@@ -29,7 +29,7 @@ from app.inventory.services.purchase import record_purchase, storno_purchase
 from app.inventory.services.stock_item import create_stock_item
 from app.inventory.services.supplier_labels import refresh_supplier_labels
 from tests.inventory.test_inventory_purchase import _make_dealership
-from tests.sales.test_sales_customer_merged_consumer import _merge
+from tests.sales.test_sales_contact_merged_consumer import _merge
 from tests.stock_support import supplier_contact
 
 _VIN = "1HGCM82633A004352"
@@ -140,17 +140,17 @@ def test_a_merged_contact_is_refused(db_session):
 
 
 @pytest.mark.parametrize(
-    ("customer_type", "registered", "confirmed", "prefill"),
+    ("contact_type", "registered", "confirmed", "prefill"),
     [
-        (CustomerType.BUSINESS, True, True, True),
-        (CustomerType.BUSINESS, False, True, False),
-        (CustomerType.BUSINESS, False, False, None),
-        (CustomerType.INDIVIDUAL, False, False, False),
-        (CustomerType.INDIVIDUAL, True, True, True),
+        (ContactType.BUSINESS, True, True, True),
+        (ContactType.BUSINESS, False, True, False),
+        (ContactType.BUSINESS, False, False, None),
+        (ContactType.INDIVIDUAL, False, False, False),
+        (ContactType.INDIVIDUAL, True, True, True),
     ],
 )
-def test_the_prefill_reads_the_contacts_vat_status(customer_type, registered, confirmed, prefill):
-    assert vat_registered_prefill(customer_type=customer_type, vat_registered=registered, vat_status_confirmed=confirmed) is prefill
+def test_the_prefill_reads_the_contacts_vat_status(contact_type, registered, confirmed, prefill):
+    assert vat_registered_prefill(contact_type=contact_type, vat_registered=registered, vat_status_confirmed=confirmed) is prefill
 
 
 def test_a_booking_against_the_contacts_confirmed_vat_status_is_audited_as_an_override(db_session):
@@ -197,7 +197,7 @@ def test_a_renamed_contact_reaches_the_item_overnight_without_a_version_bump(db_
     item = _book(db_session, _item(db_session, dealership), contact_id)
     version = item.version
     legacy = _item_with_typed_label(db_session, dealership)
-    db_session.get(Customer, contact_id).last_name = "Meier"
+    db_session.get(Contact, contact_id).last_name = "Meier"
     db_session.commit()
 
     report = refresh_supplier_labels(db_session)
@@ -233,7 +233,7 @@ def test_a_contact_merge_moves_the_supplier_to_the_survivor_with_its_name(db_ses
     message = _merge(db_session, duplicate_id=duplicate, survivor_id=survivor, group_id=dealership.dealer_group_id)
     db_session.commit()
 
-    assert consume_once(db_session, message=message, consumer_name="inventory.customer_merged", handler=handle_customer_merged_message)
+    assert consume_once(db_session, message=message, consumer_name="inventory.contact_merged", handler=handle_contact_merged_message)
 
     db_session.expire_all()
     stored = db_session.get(StockItem, item.id)
@@ -241,4 +241,4 @@ def test_a_contact_merge_moves_the_supplier_to_the_survivor_with_its_name(db_ses
 
 
 def test_reconciliation_checks_the_supplier_reference():
-    assert "stock_item.supplier_contact_id -> customer.id" in {check.label for check in CHECKS}
+    assert "stock_item.supplier_contact_id -> contact.id" in {check.label for check in CHECKS}

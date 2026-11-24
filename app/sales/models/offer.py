@@ -1,25 +1,25 @@
-"""SalesOffer (WP-8 PR-1, S-D01): "a quote for one customer and one car,
+"""SalesOffer (WP-8 PR-1, S-D01): "a quote for one contact and one car,
 not yet a deal." An offer starts as a bare draft — the reference prototype
 allocates a number ("O-003347") before Kunde or Fahrzeug are chosen — and
 is filled in by the container-based generation workspace (PR-2 onward).
 
 `offer_number` is an immutable business key, never reused (same posture as
-app.customer's customer_number — see app/customer/services/customer.py's
+app.contact's contact_number — see app/contact/services/contact.py's
 own reasoning: a reused number would silently point at two different
 records over time).
 
-`customer_id`/`customer_label`/`customer_locality` follow the "split by
+`contact_id`/`contact_label`/`contact_locality` follow the "split by
 staleness class" rule established for this package: offer_number itself is
 an immutable business key and never refreshes; these three are genuinely
 mutable display fields and share ONE refresh timestamp. What keeps them
-current today: the buyer's attach (`offer.apply_customer_change`), the
-`sales.customer_merged` consumer, which writes the survivor's label onto
-every moved row (`services/customer_merge.py`, KAN-580), and the nightly
-`sales.customer_labels` job (`services/customer_label.py`, KAN-590), which
-re-reads the label and the correspondence language of a renamed customer on
+current today: the buyer's attach (`offer.apply_contact_change`), the
+`sales.contact_merged` consumer, which writes the survivor's label onto
+every moved row (`services/contact_merge.py`, KAN-580), and the nightly
+`sales.contact_labels` job (`services/contact_label.py`, KAN-590), which
+re-reads the label and the correspondence language of a renamed contact on
 open work — a draft or open offer no signed contract was made from, a pending
 contract and their deal rows — within a day; a signed contract and its offer
-keep the name the buyer signed under (Anto, 2026-11-10). `customer_locality` is written by no path at all and stays so
+keep the name the buyer signed under (Anto, 2026-11-10). `contact_locality` is written by no path at all and stays so
 (Anto, 2026-11-10: neither filled nor dropped).
 
 `vehicle_label` here is a plain mutable working field, distinct from the
@@ -57,18 +57,18 @@ class SalesOffer(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, TimestampMi
         StoredEnum(OfferStatus, length=16), nullable=False, default=OfferStatus.DRAFT
     )
 
-    customer_id: Mapped[uuid.UUID | None] = mapped_column(
-        GUID(), nullable=True, index=True, comment="Owned by the customer context. No DB-level FK."
+    contact_id: Mapped[uuid.UUID | None] = mapped_column(
+        GUID(), nullable=True, index=True, comment="Owned by the contact context. No DB-level FK."
     )
-    customer_label: Mapped[str | None] = mapped_column(String(200), nullable=True)
-    customer_locality: Mapped[str | None] = mapped_column(String(100), nullable=True)
-    customer_denorm_refreshed_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)
-    # WP-8 PR-7 — "the customer's correspondence language is not the
+    contact_label: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    contact_locality: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    contact_denorm_refreshed_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)
+    # WP-8 PR-7 — "the contact's correspondence language is not the
     # user's UI language" (CLAUDE.md's own rule). Denormalized alongside
-    # customer_label at the same moment, same refresh timestamp — a
+    # contact_label at the same moment, same refresh timestamp — a
     # generated document (services/document.py) reads THIS, never the
     # generating seller's own UI locale.
-    customer_language: Mapped[str | None] = mapped_column(String(2), nullable=True)
+    contact_language: Mapped[str | None] = mapped_column(String(2), nullable=True)
 
     # KAN-200 (FR-A-37, D-A-35; Anto, 2026-10-19): the responsible seller —
     # the person whose open offer this is, as distinct from `created_by`
@@ -180,8 +180,8 @@ class SalesOffer(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, TimestampMi
     # only LINKS an existing record (vehicle.public.match_vehicle) and creates
     # none, and allocates no owner/keeper; a VIN-only trade-in keeps
     # trade_in_vin, and the car enters the register at its purchase
-    # (ADR-103), when its customer is recorded as former owner and keeper
-    # (customer.trade_in_purchased). Sales never owns the vehicle.
+    # (ADR-103), when its contact is recorded as former owner and keeper
+    # (contact.trade_in_purchased). Sales never owns the vehicle.
     trade_in_vehicle_id: Mapped[uuid.UUID | None] = mapped_column(
         GUID(), nullable=True, comment="Owned by the vehicle context (VehicleMdm.id). No DB-level FK."
     )
@@ -205,13 +205,13 @@ class SalesOffer(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, TimestampMi
     trade_in_valuation_id: Mapped[uuid.UUID | None] = mapped_column(
         GUID(), nullable=True, comment="Owned by the valuation context (Valuation.id). No DB-level FK."
     )
-    # The FINAL OFFER (ADR-060's own tradeInValue) — what the customer
+    # The FINAL OFFER (ADR-060's own tradeInValue) — what the contact
     # sees on the document, never the valuation's raw net-after-deductions
     # figure and never the entity-private purchase price below.
     trade_in_value: Mapped[Decimal | None] = mapped_column(DECIMAL(12, 2), nullable=True)
     # S-D04: "deductibles + final-offer are separate" from what the
     # dealership will actually book on acquisition — entity-private
-    # (never on the customer document), seller-adjustable independently of
+    # (never on the contact document), seller-adjustable independently of
     # trade_in_value (the negotiated trade-in offer and the eventual
     # Wagenbuch acquisition entry are not required to be the same number).
     trade_in_purchase_price: Mapped[Decimal | None] = mapped_column(DECIMAL(12, 2), nullable=True)

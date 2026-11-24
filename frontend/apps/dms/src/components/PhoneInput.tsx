@@ -7,14 +7,14 @@ import { useTranslation } from 'react-i18next'
 // an exhaustive 200-country picker would be scope creep for what's asked.
 // Switzerland first and default, per product feedback (2026-08-07).
 const COUNTRY_CODES = [
-  { code: '+41', flag: '🇨🇭', nameKey: 'customerDetail.countries.switzerland' },
-  { code: '+49', flag: '🇩🇪', nameKey: 'customerDetail.countries.germany' },
-  { code: '+33', flag: '🇫🇷', nameKey: 'customerDetail.countries.france' },
-  { code: '+39', flag: '🇮🇹', nameKey: 'customerDetail.countries.italy' },
-  { code: '+43', flag: '🇦🇹', nameKey: 'customerDetail.countries.austria' },
-  { code: '+423', flag: '🇱🇮', nameKey: 'customerDetail.countries.liechtenstein' },
-  { code: '+44', flag: '🇬🇧', nameKey: 'customerDetail.countries.unitedKingdom' },
-  { code: '+1', flag: '🇺🇸', nameKey: 'customerDetail.countries.unitedStates' },
+  { code: '+41', flag: '🇨🇭', nameKey: 'contactDetail.countries.switzerland' },
+  { code: '+49', flag: '🇩🇪', nameKey: 'contactDetail.countries.germany' },
+  { code: '+33', flag: '🇫🇷', nameKey: 'contactDetail.countries.france' },
+  { code: '+39', flag: '🇮🇹', nameKey: 'contactDetail.countries.italy' },
+  { code: '+43', flag: '🇦🇹', nameKey: 'contactDetail.countries.austria' },
+  { code: '+423', flag: '🇱🇮', nameKey: 'contactDetail.countries.liechtenstein' },
+  { code: '+44', flag: '🇬🇧', nameKey: 'contactDetail.countries.unitedKingdom' },
+  { code: '+1', flag: '🇺🇸', nameKey: 'contactDetail.countries.unitedStates' },
 ] as const
 
 const DEFAULT_COUNTRY_CODE = '+41'
@@ -42,7 +42,7 @@ export const COMPACT_PHONE_INPUT_MIN_WIDTH = COMPACT_COUNTRY_SELECT_WIDTH + 10 +
 
 // Longest-prefix match so e.g. +423 (Liechtenstein) isn't mis-split as +41
 // followed by a stray leading "3". Re-adds the trunk 0 stripped by emit()
-// below, so editing an existing customer shows the number back in the same
+// below, so editing an existing contact shows the number back in the same
 // national format a person would recognize and re-type (Swiss "0764808404",
 // not the bare E.164 remainder "764808404").
 function splitE164(value: string): { countryCode: string; localNumber: string } {
@@ -86,7 +86,7 @@ export function PhoneInput({ label, value, onChange, compact = false }: PhoneInp
   const fullLabel = useMemo(() => new Map<string, string>(countryOptions.map((o) => [o.value, o.label])), [countryOptions])
 
   // Re-split whenever the external value changes (e.g. loading an existing
-  // customer for edit, or the value a keystroke just emitted coming back) —
+  // contact for edit, or the value a keystroke just emitted coming back) —
   // value is the source of truth, not local state. Adjusted during render,
   // not in an effect (KAN-167): React re-runs this function before it renders
   // the children, so a keystroke whose emitted value comes back re-split (a
@@ -136,7 +136,7 @@ export function PhoneInput({ label, value, onChange, compact = false }: PhoneInp
       />
       <TextInput
         size="xs"
-        aria-label={t('customerDetail.phoneInput.number')}
+        aria-label={t('contactDetail.phoneInput.number')}
         placeholder="791234567"
         style={{ flex: `1 1 ${NUMBER_INPUT_MIN_WIDTH}px`, minWidth: NUMBER_INPUT_MIN_WIDTH }}
         value={localNumber}

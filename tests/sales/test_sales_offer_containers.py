@@ -5,24 +5,24 @@ import uuid
 
 import pytest
 
+from app.contact.schemas.contact import ContactCreate, ContactEmailCreate
+from app.contact.services.contact import create_contact
 from app.core.errors import ConflictError
-from app.customer.schemas.customer import CustomerCreate, CustomerEmailCreate
-from app.customer.services.customer import create_customer
 from app.sales.schemas.offer import OfferUpdate
 from app.sales.services.offer import cancel_offer, create_offer, update_offer
 from app.sales.services.priced_deal import compute_containers
 
 
-def _customer(db_session, group_id):
-    return create_customer(
+def _contact(db_session, group_id):
+    return create_contact(
         db_session,
         group_id=group_id,
-        data=CustomerCreate(
-            customer_type="individual",
+        data=ContactCreate(
+            contact_type="individual",
             language="de",
             first_name="Ursula",
             last_name="Vogt",
-            emails=[CustomerEmailCreate(email_type="personal", email_address="ursula.vogt@example.ch", is_primary=True)],
+            emails=[ContactEmailCreate(email_type="personal", email_address="ursula.vogt@example.ch", is_primary=True)],
         ),
         actor_id=uuid.uuid4(), acting_dealership_id=None,
         dealership_id=uuid.uuid4(),
@@ -36,8 +36,8 @@ def test_containers_start_not_started_except_leasing(db_session):
     containers = compute_containers(offer)
     by_id = {c.id: c for c in containers}
 
-    assert by_id["customer"].requirement == "required"
-    assert by_id["customer"].status == "not_started"
+    assert by_id["contact"].requirement == "required"
+    assert by_id["contact"].status == "not_started"
     assert by_id["vehicle"].requirement == "required"
     assert by_id["vehicle"].status == "not_started"
     assert by_id["pricing"].status == "not_started"
@@ -48,19 +48,19 @@ def test_containers_start_not_started_except_leasing(db_session):
     assert by_id["leasing"].status == "placeholder"
 
 
-def test_update_offer_resolves_customer_label_server_side(db_session):
+def test_update_offer_resolves_contact_label_server_side(db_session):
     tenant_id = uuid.uuid4()
     group_id = uuid.uuid4()
     offer = create_offer(db_session, tenant_id=tenant_id, actor_id=uuid.uuid4())
-    customer = _customer(db_session, group_id)
+    contact = _contact(db_session, group_id)
 
     updated = update_offer(
-        db_session, offer=offer, group_id=group_id, data=OfferUpdate(customer_id=customer.id), actor_id=uuid.uuid4()
+        db_session, offer=offer, group_id=group_id, data=OfferUpdate(contact_id=contact.id), actor_id=uuid.uuid4()
     )
 
-    assert updated.customer_id == customer.id
-    assert updated.customer_label == "Ursula Vogt"
-    assert updated.customer_denorm_refreshed_at is not None
+    assert updated.contact_id == contact.id
+    assert updated.contact_label == "Ursula Vogt"
+    assert updated.contact_denorm_refreshed_at is not None
 
 
 def test_update_offer_manual_vehicle_marks_vehicle_container_complete(db_session):
@@ -93,20 +93,20 @@ def test_update_offer_refuses_once_no_longer_draft(db_session):
         )
 
 
-def test_update_offer_clears_customer_when_set_to_none(db_session):
+def test_update_offer_clears_contact_when_set_to_none(db_session):
     tenant_id = uuid.uuid4()
     group_id = uuid.uuid4()
     offer = create_offer(db_session, tenant_id=tenant_id, actor_id=uuid.uuid4())
-    customer = _customer(db_session, group_id)
+    contact = _contact(db_session, group_id)
     offer = update_offer(
-        db_session, offer=offer, group_id=group_id, data=OfferUpdate(customer_id=customer.id), actor_id=uuid.uuid4()
+        db_session, offer=offer, group_id=group_id, data=OfferUpdate(contact_id=contact.id), actor_id=uuid.uuid4()
     )
 
     offer = update_offer(
-        db_session, offer=offer, group_id=group_id, data=OfferUpdate(customer_id=None), actor_id=uuid.uuid4()
+        db_session, offer=offer, group_id=group_id, data=OfferUpdate(contact_id=None), actor_id=uuid.uuid4()
     )
-    assert offer.customer_id is None
-    assert offer.customer_label is None
+    assert offer.contact_id is None
+    assert offer.contact_label is None
 
 
 def test_leasing_inputs_are_never_computed(db_session):

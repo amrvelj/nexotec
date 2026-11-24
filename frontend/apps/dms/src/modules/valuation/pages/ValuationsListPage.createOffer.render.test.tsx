@@ -29,7 +29,7 @@ vi.mock('@tanstack/react-virtual', () => ({
 
 const VALUATION = {
   id: 'val-1', valuationNumber: 'B-000001', status: 'valid', source: 'manual', hasSignedContract: false,
-  customerId: null, customerLabel: null, vehicleId: null, vehicleMake: 'VW', vehicleModel: 'Golf', vehicleTrim: null,
+  contactId: null, contactLabel: null, vehicleId: null, vehicleMake: 'VW', vehicleModel: 'Golf', vehicleTrim: null,
   vehicleVin: 'WVWZZZ1KZAW569001', finalOffer: '12000.00', deductions: [], version: 2, validFrom: '2026-10-01',
   validUntil: '2026-12-31', createdAt: '2026-10-01T00:00:00Z', updatedAt: '2026-10-01T00:00:00Z',
 } as unknown as ValuationRead
@@ -41,11 +41,11 @@ function install(valuation: Partial<ValuationRead> = {}) {
       match: /^\/valuations$/,
       handler: () => ({ items: [{ ...VALUATION, ...valuation }], nextCursor: null, total: 1, totalIsEstimate: false }),
     },
-    { method: 'POST', match: /^\/sales\/offers$/, handler: () => ({ id: 'off-1', offerNumber: 'O-000017', version: 1, customerId: null, tradeInValuationId: null }) },
+    { method: 'POST', match: /^\/sales\/offers$/, handler: () => ({ id: 'off-1', offerNumber: 'O-000017', version: 1, contactId: null, tradeInValuationId: null }) },
     {
       method: 'POST',
       match: /^\/sales\/offers\/off-1\/trade-in\/valuation$/,
-      handler: () => ({ id: 'off-1', offerNumber: 'O-000017', version: 2, customerId: null, tradeInValuationId: 'val-1' }),
+      handler: () => ({ id: 'off-1', offerNumber: 'O-000017', version: 2, contactId: null, tradeInValuationId: 'val-1' }),
     },
   ])
 }

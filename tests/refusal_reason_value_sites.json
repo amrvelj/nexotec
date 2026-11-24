@@ -18,7 +18,7 @@
         "unknown_field"
       ]
     },
-    "app/customer/ownership.py::_transfer_customers::refusal.code": {
+    "app/contact/ownership.py::_transfer_contacts::refusal.code": {
       "kind": "refusal",
       "hints": {
         "refusal.code": {

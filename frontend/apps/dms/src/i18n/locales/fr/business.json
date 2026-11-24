@@ -64,7 +64,7 @@
   "addressEntry": {
     "title": "Saisie des adresses",
     "enabled": "Propositions d'adresses de Google Places",
-    "enabledHint": "Lors de la saisie d'une adresse, le texte tapé est envoyé à Google – jamais le nom ni d'autres données du client. Seule l'adresse choisie est enregistrée ; chaque champ reste modifiable.",
+    "enabledHint": "Lors de la saisie d'une adresse, le texte tapé est envoyé à Google – jamais le nom ni d'autres données du contact. Seule l'adresse choisie est enregistrée ; chaque champ reste modifiable.",
     "unavailable": "Aucune clé Google n'est configurée sur cette installation. Les propositions apparaîtront dès que Nexotec l'aura configurée."
   },
   "banking": {

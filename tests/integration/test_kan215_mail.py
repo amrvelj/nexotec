@@ -1,4 +1,4 @@
-"""KAN-215: customer mail through the dealer's own mailbox — the link flow, the
+"""KAN-215: contact mail through the dealer's own mailbox — the link flow, the
 sender resolution (Anto's D1 A), the send's delivery record, disconnecting and
 ending a grant, the Betrieb's export (D2 A), and the fixes F1–F5 of the
 2026-11-15 review.
@@ -30,7 +30,7 @@ from app.integration.models.provider import IntegrationProvider
 from app.integration.public import MailAttachment
 from app.integration.services import mail_link, mail_sending, resilience
 from app.integration.services.data_export import IntegrationExporter
-from app.integration.services.mail_sending import send_customer_mail
+from app.integration.services.mail_sending import send_contact_mail
 from app.platform.identity.models.connected_account import (
     ConnectedAccountProvider,
     ConnectedAccountStatus,
@@ -151,7 +151,7 @@ def _connect_business_ms(client, providers, manager, address="info@garage-muster
 # -- the user's own mailbox ----------------------------------------------------------
 
 
-def test_a_user_connects_their_own_microsoft_mailbox_and_customers_see_it(client, db_session, fakes, app_registrations, betrieb):
+def test_a_user_connects_their_own_microsoft_mailbox_and_contacts_see_it(client, db_session, fakes, app_registrations, betrieb):
     providers, secrets_store = fakes
     anna = make_user(db_session, tenant_id=betrieb.id, email="anna@garage-muster.ch")
 
@@ -391,7 +391,7 @@ def test_only_a_manager_starts_the_shared_mailbox_link_and_another_betrieb_is_40
     ).status_code == 404
 
 
-# -- D1 A: whose mailbox the customer sees ---------------------------------------------
+# -- D1 A: whose mailbox the contact sees ---------------------------------------------
 
 
 def test_the_author_sends_from_their_own_mailbox_else_the_shared_one_else_nothing(client, db_session, fakes, app_registrations, betrieb):
@@ -455,7 +455,7 @@ def test_a_send_writes_one_delivery_row_on_its_own_session_and_leaves_the_caller
     with Session(engine) as caller:
         pending = DealerGroup(name="never committed by the send")
         caller.add(pending)
-        record = send_customer_mail(
+        record = send_contact_mail(
             caller, dealership_id=betrieb.id, author_user_id=anna.id, document_type="offer", document_id=uuid.uuid4(),
             to=["kunde@example.test"], subject="Ihre Offerte", body_text="Guten Tag",
             attachments=[MailAttachment(filename="offerte.pdf", content_type="application/pdf", content=b"%PDF-1.7")],
@@ -481,7 +481,7 @@ def test_a_provider_failure_is_a_failed_row_and_a_refused_mailbox_goes_to_error_
     _connect_own_ms(client, providers, anna)
 
     def send():
-        return send_customer_mail(
+        return send_contact_mail(
             db_session, dealership_id=betrieb.id, author_user_id=anna.id, document_type="offer", document_id=None,
             to=["kunde@example.test"], subject="S", body_text="B",
         )
@@ -523,7 +523,7 @@ def test_a_shared_google_mailbox_sends_through_the_delegation(client, db_session
     db_session.commit()
     providers.google_delegated.add("info@garage-muster.ch")
 
-    record = send_customer_mail(
+    record = send_contact_mail(
         db_session, dealership_id=betrieb.id, author_user_id=anna.id, document_type="offer", document_id=None,
         to=["kunde@example.test"], subject="Ihre Offerte", body_text="Guten Tag",
     )
@@ -690,7 +690,7 @@ def test_the_export_holds_the_shared_mailbox_and_deliveries_but_no_colleagues_ma
     anna = make_user(db_session, tenant_id=betrieb.id, email="anna@garage-muster.ch")
     _connect_business_ms(client, providers, anna)
     _connect_own_ms(client, providers, anna)
-    send_customer_mail(
+    send_contact_mail(
         db_session, dealership_id=betrieb.id, author_user_id=anna.id, document_type="offer", document_id=None,
         to=["kunde@example.test"], subject="Ihre Offerte", body_text="B",
     )
@@ -703,7 +703,7 @@ def test_the_export_holds_the_shared_mailbox_and_deliveries_but_no_colleagues_ma
     assert deliveries.in_archive is not False
     (delivery,) = db_session.execute(select(deliveries.table).where(deliveries.scope(scope))).all()
     assert (delivery.subject, delivery.recipients, delivery.status) == ("Ihre Offerte", ["kunde@example.test"], "sent")
-    # What the customer saw as sender: here the author's own mailbox. Anto,
+    # What the contact saw as sender: here the author's own mailbox. Anto,
     # 2026-11-18 (D3): the delivery keeps it — the proof of who sent what; only
     # the list of connected mailboxes leaves a colleague's address out (D2 A).
     assert delivery.sender_address == "anna@garage-muster.ch"
@@ -793,7 +793,7 @@ def test_kan767_a_mail_providers_rows_carry_its_http_status_and_oauth_code(clien
     connection = app_registrations["microsoft_365_mail"]
 
     def send():
-        return send_customer_mail(
+        return send_contact_mail(
             db_session, dealership_id=betrieb.id, author_user_id=anna.id, document_type="offer", document_id=None,
             to=["kunde@example.test"], subject="S", body_text="B",
         )

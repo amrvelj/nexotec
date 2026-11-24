@@ -5,9 +5,9 @@ import i18n from './index'
 import en from './locales/en'
 import { renderWithProviders } from '../test/renderWithProviders'
 import { installFakeBackend } from '../test/fakeBackend'
-import { customer, customerPage } from '../test/fixtures'
-import { ContactPointsEditor } from '../modules/customer/components/customer-detail/ContactPointsEditor'
-import { CustomersListPage } from '../modules/customer/pages/CustomersListPage'
+import { contact, contactPage } from '../test/fixtures'
+import { ContactPointsEditor } from '../modules/contact/components/contact-detail/ContactPointsEditor'
+import { ContactsListPage } from '../modules/contact/pages/ContactsListPage'
 
 // KAN-291 — two accessible names the ui-kit used to hardcode in English: the
 // grid's selection header checkbox ("Select all") and a contact row's menu
@@ -33,8 +33,8 @@ afterEach(async () => {
 describe('ui-kit accessible names are translated (KAN-291)', () => {
   it('the grid\'s select-all checkbox is named in the UI language (fr)', async () => {
     await i18n.changeLanguage('fr')
-    installFakeBackend([{ method: 'GET', match: /^\/customers$/, handler: () => customerPage([customer({ id: 'c1' })]) }])
-    renderWithProviders(<CustomersListPage />, { route: '/customers' })
+    installFakeBackend([{ method: 'GET', match: /^\/contacts$/, handler: () => contactPage([contact({ id: 'c1' })]) }])
+    renderWithProviders(<ContactsListPage />, { route: '/contacts' })
 
     expect(await screen.findByRole('checkbox', { name: 'Tout sélectionner' })).toBeInTheDocument()
     expect(screen.queryByRole('checkbox', { name: en.common.selectAllLabel })).toBeNull()
@@ -48,11 +48,11 @@ describe('ui-kit accessible names are translated (KAN-291)', () => {
     installFakeBackend([
       {
         method: 'GET',
-        match: /^\/customers$/,
-        handler: () => customerPage([customer({ id: 'c1', firstName: 'Hans', lastName: 'Müller' })]),
+        match: /^\/contacts$/,
+        handler: () => contactPage([contact({ id: 'c1', firstName: 'Hans', lastName: 'Müller' })]),
       },
     ])
-    renderWithProviders(<CustomersListPage />, { route: '/customers' })
+    renderWithProviders(<ContactsListPage />, { route: '/contacts' })
 
     const rowCheckbox = await screen.findByRole('checkbox', { name: 'Sélectionner la ligne : Hans Müller' })
     const rowMenu = screen.getByRole('button', { name: 'Actions de la ligne' })
@@ -65,12 +65,12 @@ describe('ui-kit accessible names are translated (KAN-291)', () => {
   it('a contact row\'s menu trigger is named in the UI language (fr)', async () => {
     await i18n.changeLanguage('fr')
     installFakeBackend([])
-    const label = i18n.t('customerDetail.contactPoints.phoneNumbers')
+    const label = i18n.t('contactDetail.contactPoints.phoneNumbers')
     renderWithProviders(
       <ContactPointsEditor<'mobile'>
         label={label}
-        valueLabel={i18n.t('customerDetail.contactPoints.phoneValueColumn')}
-        addLabel={i18n.t('customerDetail.contactPoints.addPhone')}
+        valueLabel={i18n.t('contactDetail.contactPoints.phoneValueColumn')}
+        addLabel={i18n.t('contactDetail.contactPoints.addPhone')}
         typeOptions={[{ value: 'mobile', label: 'Mobile' }]}
         rows={[{ id: 'p1', type: 'mobile', value: '+41791112233', isPrimary: true, consentGranted: false }]}
         newRowType="mobile"

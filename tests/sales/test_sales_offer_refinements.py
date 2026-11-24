@@ -7,10 +7,10 @@ from decimal import Decimal
 
 import pytest
 
+from app.contact.schemas.contact import ContactCreate, ContactEmailCreate
+from app.contact.services.contact import create_contact
 from app.core.auth import AccessRole, create_access_token
 from app.core.errors import ConflictError, NotFoundError
-from app.customer.schemas.customer import CustomerCreate, CustomerEmailCreate
-from app.customer.services.customer import create_customer
 from app.inventory.models.stock_item import StockItemCondition
 from app.inventory.schemas.pricing import OptionInput
 from app.inventory.schemas.purchase import RecordPurchaseRequest
@@ -76,13 +76,13 @@ def _stock_item(db_session, tenant_id, *, condition=StockItemCondition.NEW, with
     return item
 
 
-def _customer(db_session, group_id):
-    return create_customer(
+def _contact(db_session, group_id):
+    return create_contact(
         db_session,
         group_id=group_id,
-        data=CustomerCreate(
-            customer_type="individual", language="de", first_name="Didier", last_name="Perrin",
-            emails=[CustomerEmailCreate(email_type="personal", email_address="didier@example.ch", is_primary=True)],
+        data=ContactCreate(
+            contact_type="individual", language="de", first_name="Didier", last_name="Perrin",
+            emails=[ContactEmailCreate(email_type="personal", email_address="didier@example.ch", is_primary=True)],
         ),
         actor_id=uuid.uuid4(), acting_dealership_id=None,
         dealership_id=uuid.uuid4(),
@@ -91,14 +91,14 @@ def _customer(db_session, group_id):
 
 def _offer_with_vehicle(db_session, tenant_id, item, *, group_id=None):
     group_id = group_id or uuid.uuid4()
-    customer = _customer(db_session, group_id)
+    contact = _contact(db_session, group_id)
     offer = create_offer(db_session, tenant_id=tenant_id, actor_id=uuid.uuid4())
     return update_offer(
         db_session,
         offer=offer,
         group_id=group_id,
         data=OfferUpdate(
-            customer_id=customer.id, vehicle_source="stock", stock_item_id=item.id, vehicle_label=item.vehicle_label
+            contact_id=contact.id, vehicle_source="stock", stock_item_id=item.id, vehicle_label=item.vehicle_label
         ),
         actor_id=uuid.uuid4(),
     )
@@ -347,7 +347,7 @@ def test_replace_line_items_refused_once_offer_is_no_longer_draft(db_session):
 # --- finalize (ADR-063: build, then review, then this) ------------------------
 
 
-def test_finalize_offer_requires_customer_and_vehicle(db_session):
+def test_finalize_offer_requires_contact_and_vehicle(db_session):
     dealership = _make_dealership(db_session)
     offer = create_offer(db_session, tenant_id=dealership.id, actor_id=uuid.uuid4())
 

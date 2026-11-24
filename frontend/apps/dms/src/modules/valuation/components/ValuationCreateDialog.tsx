@@ -7,15 +7,15 @@ import { useTranslation } from 'react-i18next'
 import { ChfInput, FormDialog, Picker, type PickerRow } from '@nexotec/ui-kit'
 import { ApiError, api } from '../../../api/client'
 import { useIdempotencyKey } from '../../../hooks/useIdempotencyKey'
-import { CustomerCreateDialog } from '../../customer'
+import { ContactCreateDialog } from '../../contact'
 import { ConfigurationSummaryCard } from '../../vehicle'
 import { ProviderQuoteCard } from './ProviderQuoteCard'
 import { ValuationSourceMarker } from './ValuationSourceMarker'
 import type {
   CapabilityCheckRead,
   ConfigurationRead,
-  CustomerPage,
-  CustomerRead,
+  ContactPage,
+  ContactRead,
   ProviderQuoteRead,
   ProviderQuoteRequest,
   ValuationCreate,
@@ -31,7 +31,7 @@ export interface ValuationCreateDialogProps {
   onClose: () => void
   onCreated: (valuation: ValuationRead) => void
   /** "Neu bewerten" prefill — the row this new valuation supersedes. Its
-   * vehicle/customer facts are copied across; its own value figures are
+   * vehicle/contact facts are copied across; its own value figures are
    * NOT (a revaluation is a fresh opinion, not a duplicate). */
   supersedes?: ValuationRead | null
   /** C-F (KAN-10, FR-C-14) — the `record`-mode configuration the car was
@@ -120,16 +120,16 @@ export function ValuationCreateDialog({
     c?.firstRegistrationDate ?? vehicle?.firstRegistrationDate ?? supersedes?.vehicleFirstRegistration ?? '',
   )
 
-  const [customerId, setCustomerId] = useState<string | null>(supersedes?.customerId ?? null)
-  const [customerLabel, setCustomerLabel] = useState<string | null>(supersedes?.customerLabel ?? null)
-  const [customerPickerOpen, setCustomerPickerOpen] = useState(false)
-  const [customerCreateOpen, setCustomerCreateOpen] = useState(false)
-  const [customerQuery, setCustomerQuery] = useState('')
-  const [debouncedCustomerQuery] = useDebouncedValue(customerQuery, 250)
-  const customerSearch = useQuery({
-    queryKey: ['customer-search', debouncedCustomerQuery],
-    queryFn: () => api.get<CustomerPage>(`/customers?q=${encodeURIComponent(debouncedCustomerQuery)}&limit=10`),
-    enabled: customerPickerOpen && debouncedCustomerQuery.length > 0,
+  const [contactId, setContactId] = useState<string | null>(supersedes?.contactId ?? null)
+  const [contactLabel, setContactLabel] = useState<string | null>(supersedes?.contactLabel ?? null)
+  const [contactPickerOpen, setContactPickerOpen] = useState(false)
+  const [contactCreateOpen, setContactCreateOpen] = useState(false)
+  const [contactQuery, setContactQuery] = useState('')
+  const [debouncedContactQuery] = useDebouncedValue(contactQuery, 250)
+  const contactSearch = useQuery({
+    queryKey: ['contact-search', debouncedContactQuery],
+    queryFn: () => api.get<ContactPage>(`/contacts?q=${encodeURIComponent(debouncedContactQuery)}&limit=10`),
+    enabled: contactPickerOpen && debouncedContactQuery.length > 0,
   })
 
   const [providerValue, setProviderValue] = useState<number | ''>('')
@@ -223,7 +223,7 @@ export function ValuationCreateDialog({
         vehicleTrim: trim || null,
         vehiclePlate: plate || null,
         mileage: mileage === '' ? null : mileage,
-        customerId,
+        contactId,
         // KAN-552: the server derives the source from the quote.
         providerQuoteId: activeQuote?.id ?? null,
         providerValue: providerValue === '' ? null : String(providerValue),
@@ -303,21 +303,21 @@ export function ValuationCreateDialog({
           </Stack>
 
           <Stack gap="xs">
-            <Text size="sm" fw={600}>{t('valuationCreate.customerSection')}</Text>
-            {customerId ? (
+            <Text size="sm" fw={600}>{t('valuationCreate.contactSection')}</Text>
+            {contactId ? (
               <Group justify="space-between">
-                <Text size="sm">{customerLabel}</Text>
-                <Button variant="subtle" size="xs" onClick={() => { setCustomerId(null); setCustomerLabel(null) }}>
+                <Text size="sm">{contactLabel}</Text>
+                <Button variant="subtle" size="xs" onClick={() => { setContactId(null); setContactLabel(null) }}>
                   {t('common.remove')}
                 </Button>
               </Group>
             ) : (
               <Group gap="xs">
-                <Button variant="default" size="xs" onClick={() => setCustomerPickerOpen(true)}>
-                  {t('valuationCreate.searchCustomer')}
+                <Button variant="default" size="xs" onClick={() => setContactPickerOpen(true)}>
+                  {t('valuationCreate.searchContact')}
                 </Button>
-                <Button variant="subtle" size="xs" onClick={() => setCustomerCreateOpen(true)}>
-                  {t('valuationCreate.createCustomer')}
+                <Button variant="subtle" size="xs" onClick={() => setContactCreateOpen(true)}>
+                  {t('valuationCreate.createContact')}
                 </Button>
               </Group>
             )}
@@ -400,35 +400,35 @@ export function ValuationCreateDialog({
         </Stack>
       </FormDialog>
 
-      <Modal opened={customerPickerOpen} onClose={() => setCustomerPickerOpen(false)} title={t('valuationCreate.searchCustomer')}>
+      <Modal opened={contactPickerOpen} onClose={() => setContactPickerOpen(false)} title={t('valuationCreate.searchContact')}>
         <Picker
-          rows={(customerSearch.data?.items ?? []).map(
-            (c: CustomerRead): PickerRow => ({
+          rows={(contactSearch.data?.items ?? []).map(
+            (c: ContactRead): PickerRow => ({
               id: c.id,
-              identifier: c.customerNumber,
+              identifier: c.contactNumber,
               label: c.companyName ?? [c.firstName, c.lastName].filter(Boolean).join(' '),
             })
           )}
-          query={customerQuery}
-          onQueryChange={setCustomerQuery}
+          query={contactQuery}
+          onQueryChange={setContactQuery}
           onSelect={(row) => {
-            setCustomerId(row.id)
-            setCustomerLabel(row.label)
-            setCustomerPickerOpen(false)
+            setContactId(row.id)
+            setContactLabel(row.label)
+            setContactPickerOpen(false)
           }}
-          loading={customerSearch.isFetching}
-          placeholder={t('valuationCreate.searchCustomer')}
+          loading={contactSearch.isFetching}
+          placeholder={t('valuationCreate.searchContact')}
           emptyLabel={t('common.noMatches')}
         />
       </Modal>
 
-      <CustomerCreateDialog
-        opened={customerCreateOpen}
-        onClose={() => setCustomerCreateOpen(false)}
-        onCreated={(customer) => {
-          setCustomerId(customer.id)
-          setCustomerLabel(customer.companyName ?? [customer.firstName, customer.lastName].filter(Boolean).join(' '))
-          setCustomerCreateOpen(false)
+      <ContactCreateDialog
+        opened={contactCreateOpen}
+        onClose={() => setContactCreateOpen(false)}
+        onCreated={(contact) => {
+          setContactId(contact.id)
+          setContactLabel(contact.companyName ?? [contact.firstName, contact.lastName].filter(Boolean).join(' '))
+          setContactCreateOpen(false)
         }}
       />
     </>

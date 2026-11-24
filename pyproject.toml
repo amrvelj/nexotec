@@ -175,7 +175,7 @@ type = "forbidden"
 source_modules = ["app.core"]
 forbidden_modules = [
     "app.platform",
-    "app.customer",
+    "app.contact",
     "app.vehicle",
     "app.sales",
     "app.inventory",
@@ -206,7 +206,7 @@ forbidden_modules = [
 name = "Only app.platform.public is reachable from outside platform"
 type = "forbidden"
 source_modules = [
-    "app.customer",
+    "app.contact",
     "app.vehicle",
     "app.sales",
     "app.inventory",
@@ -234,7 +234,7 @@ forbidden_modules = [
 allow_indirect_imports = true
 
 [[tool.importlinter.contracts]]
-name = "Only app.customer.public is reachable from outside customer"
+name = "Only app.contact.public is reachable from outside contact"
 type = "forbidden"
 source_modules = [
     "app.platform",
@@ -250,13 +250,13 @@ source_modules = [
     "app.compliance",
 ]
 forbidden_modules = [
-    "app.customer.api",
-    "app.customer.consumers",
-    "app.customer.models",
-    "app.customer.ownership",
-    "app.customer.reconciliation",
-    "app.customer.schemas",
-    "app.customer.services",
+    "app.contact.api",
+    "app.contact.consumers",
+    "app.contact.models",
+    "app.contact.ownership",
+    "app.contact.reconciliation",
+    "app.contact.schemas",
+    "app.contact.services",
 ]
 allow_indirect_imports = true
 
@@ -265,7 +265,7 @@ name = "Only app.vehicle.public is reachable from outside vehicle"
 type = "forbidden"
 source_modules = [
     "app.platform",
-    "app.customer",
+    "app.contact",
     "app.sales",
     "app.inventory",
     "app.valuation",
@@ -292,7 +292,7 @@ name = "Only app.sales.public is reachable from outside sales"
 type = "forbidden"
 source_modules = [
     "app.platform",
-    "app.customer",
+    "app.contact",
     "app.vehicle",
     "app.inventory",
     "app.valuation",
@@ -323,7 +323,7 @@ name = "Only app.inventory.public is reachable from outside inventory"
 type = "forbidden"
 source_modules = [
     "app.platform",
-    "app.customer",
+    "app.contact",
     "app.vehicle",
     "app.sales",
     "app.valuation",
@@ -356,7 +356,7 @@ name = "Only app.valuation.public is reachable from outside valuation"
 type = "forbidden"
 source_modules = [
     "app.platform",
-    "app.customer",
+    "app.contact",
     "app.vehicle",
     "app.sales",
     "app.inventory",
@@ -392,7 +392,7 @@ name = "Only app.integration.public is reachable from outside integration"
 type = "forbidden"
 source_modules = [
     "app.platform",
-    "app.customer",
+    "app.contact",
     "app.vehicle",
     "app.sales",
     "app.inventory",
@@ -424,7 +424,7 @@ name = "Only app.reporting.public is reachable from outside reporting"
 type = "forbidden"
 source_modules = [
     "app.platform",
-    "app.customer",
+    "app.contact",
     "app.vehicle",
     "app.sales",
     "app.inventory",
@@ -454,7 +454,7 @@ name = "Only app.aftersales.public is reachable from outside aftersales"
 type = "forbidden"
 source_modules = [
     "app.platform",
-    "app.customer",
+    "app.contact",
     "app.vehicle",
     "app.sales",
     "app.inventory",
@@ -475,7 +475,7 @@ name = "Only app.parts.public is reachable from outside parts"
 type = "forbidden"
 source_modules = [
     "app.platform",
-    "app.customer",
+    "app.contact",
     "app.vehicle",
     "app.sales",
     "app.inventory",

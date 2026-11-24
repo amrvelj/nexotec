@@ -90,7 +90,7 @@ def test_every_context_is_in_the_registry():
         "platform",
         "integration",
         "vehicle",
-        "customer",
+        "contact",
         "valuation",
         "inventory",
         "sales",
@@ -101,7 +101,7 @@ def test_every_context_is_in_the_registry():
 
 def _seed(client, engine, dealership_id, headers, manager):
     """A Betrieb with data in each built context: users and a membership, a
-    customer with contact channels, a stock item, an offer with a document,
+    contact with contact channels, a stock item, an offer with a document,
     a valuation, a vehicle configuration and an integration connection."""
 
     from sqlalchemy import select
@@ -122,8 +122,8 @@ def _seed(client, engine, dealership_id, headers, manager):
     from tests.configuration_test_support import MANUAL_CODED, seed_manual_coded_lists
     from tests.identapi_support import make_provider
 
-    customer = client.post(
-        "/v1/customers",
+    contact = client.post(
+        "/v1/contacts",
         json={
             "firstName": "Anna",
             "lastName": "Muster",
@@ -133,7 +133,7 @@ def _seed(client, engine, dealership_id, headers, manager):
         },
         headers=idem(headers),
     )
-    assert customer.status_code == 201, customer.text
+    assert contact.status_code == 201, contact.text
     session = sessionmaker(bind=engine, expire_on_commit=False)()
     try:
         tenant = uuid.UUID(dealership_id)
@@ -144,7 +144,7 @@ def _seed(client, engine, dealership_id, headers, manager):
             actor_id=uuid.UUID(manager["id"]),
         )
         offer = create_offer(session, tenant_id=tenant, actor_id=uuid.UUID(manager["id"]))
-        offer.customer_id = uuid.UUID(customer.json()["id"])
+        offer.contact_id = uuid.UUID(contact.json()["id"])
         session.add(
             SalesDocument(
                 tenant_id=tenant,
@@ -233,13 +233,13 @@ def test_a_seeded_betriebs_export_holds_exactly_its_rows(client, export_store, e
             if exported:
                 filled[exporter.context] += 1
     # The seed reached every built context's export.
-    assert {"core", "platform", "customer", "inventory", "sales", "valuation", "vehicle", "integration"} <= set(filled)
+    assert {"core", "platform", "contact", "inventory", "sales", "valuation", "vehicle", "integration"} <= set(filled)
     # What the seed made for this Betrieb, counted by hand — not through the
     # export's own scope functions, which `expected` above relies on.
     by_hand = {
-        ("customer", "customer"): 1,
-        ("customer", "customer_phone"): 1,
-        ("customer", "customer_email"): 1,
+        ("contact", "contact"): 1,
+        ("contact", "contact_phone"): 1,
+        ("contact", "contact_email"): 1,
         ("inventory", "stock_item"): 1,
         ("vehicle", "vehicle_configuration"): 1,
         ("integration", "integration_connection"): 1,
@@ -247,7 +247,7 @@ def test_a_seeded_betriebs_export_holds_exactly_its_rows(client, export_store, e
     }
     assert {key: len(rows_in(archive, *key)) for key in by_hand} == by_hand
     # No row of the other Betrieb (its own id never appears as an owner).
-    # KAN-722: an audit row of a group customer carries the group as its
+    # KAN-722: an audit row of a group contact carries the group as its
     # tenant; the archive holds it only as one this Betrieb wrote.
     group_id = str(scope.group_id)
     for name in archive.namelist():

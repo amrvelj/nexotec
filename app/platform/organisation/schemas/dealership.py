@@ -37,7 +37,7 @@ Website = Annotated[str, AfterValidator(_validate_website)]
 class DealershipAddress(CamelModel):
     """The registered seat (D-A-25). The postal code is validated for the
     country — four digits for CH, a plausible code of up to 12 characters
-    elsewhere (the same rule the customer address applies, D-11). No minimum
+    elsewhere (the same rule the contact address applies, D-11). No minimum
     lengths: the model is also the read shape, and a row the old API
     accepted must still read."""
 

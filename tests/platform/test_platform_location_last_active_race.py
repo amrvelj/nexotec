@@ -20,7 +20,7 @@ from app.core.errors import ConflictError
 from app.platform.organisation.models.dealership import Location
 from app.platform.organisation.schemas.location import LocationUpdate
 from app.platform.organisation.services import location as location_service
-from tests.customer.test_customer_vehicle_party_close_rule import (
+from tests.contact.test_contact_vehicle_party_close_rule import (
     _postgres_only,
     _run,
     _wait_until_a_backend_waits_on_a_lock,

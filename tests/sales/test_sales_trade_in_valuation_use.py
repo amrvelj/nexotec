@@ -39,7 +39,7 @@ from app.valuation.models.valuation import Valuation, ValuationSource
 from app.valuation.public import consume_valuation_for_contract
 from app.valuation.schemas.valuation import ValuationCreate
 from app.valuation.services.valuation import create_valuation, derive_status, get_valuation_or_404, mark_used
-from tests.sales.test_sales_lifecycle_reservation import _customer, _dealership, _session_factory
+from tests.sales.test_sales_lifecycle_reservation import _contact, _dealership, _session_factory
 
 _TRADE_IN_VIN = "WVWZZZ1KZAW654321"
 
@@ -73,16 +73,16 @@ def _trade_in_contract(db_session, dealership_id, group_id, valuation: Valuation
         data=StockItemCreate(vehicle_label="Skoda Octavia 2.0 TDI", condition=StockItemCondition.USED, vin=next(_STOCK_VINS)),
         actor_id=actor_id or uuid.uuid4(),
     )
-    customer = _customer(db_session, group_id)
+    contact = _contact(db_session, group_id)
     offer = create_offer(db_session, tenant_id=dealership_id, actor_id=actor_id or uuid.uuid4())
     offer = update_offer(
         db_session, offer=offer, group_id=group_id,
-        data=OfferUpdate(customer_id=customer.id, vehicle_source="stock", stock_item_id=item.id, vehicle_label=item.vehicle_label),
+        data=OfferUpdate(contact_id=contact.id, vehicle_source="stock", stock_item_id=item.id, vehicle_label=item.vehicle_label),
         actor_id=actor_id or uuid.uuid4(),
     )
     offer = set_trade_in(
         db_session, deal=offer, group_id=group_id, vin=_TRADE_IN_VIN, plate=None, canton=None,
-        vehicle_label="VW Golf 1.5 TSI", customer_id=None, actor_id=actor_id or uuid.uuid4(),
+        vehicle_label="VW Golf 1.5 TSI", contact_id=None, actor_id=actor_id or uuid.uuid4(),
     )
     offer = attach_trade_in_valuation(db_session, deal=offer, valuation_id=valuation.id, actor_id=actor_id or uuid.uuid4())
     contract = create_contract(db_session, tenant_id=dealership_id, offer=offer, actor_id=actor_id or uuid.uuid4())

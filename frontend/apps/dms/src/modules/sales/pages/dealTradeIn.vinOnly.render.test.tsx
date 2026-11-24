@@ -14,7 +14,7 @@ import { OfferWorkspacePage } from './OfferWorkspacePage'
 // still show it as recorded, not offer «add» again.
 
 const OFFER = {
-  id: 'o1', offerNumber: 'ANG-2026-0001', status: 'draft', customerId: null, customerLabel: null,
+  id: 'o1', offerNumber: 'ANG-2026-0001', status: 'draft', contactId: null, contactLabel: null,
   vehicleSource: null, stockItemId: null, vehicleLabel: null, tradeInVehicleId: null, tradeInConfigurationId: null,
   tradeInLabel: 'Seat Leon 1.5 TSI', tradeInVin: 'WVWZZZ1KZAW189004', tradeInValuationId: null, tradeInValue: null,
   containers: [], version: 4,

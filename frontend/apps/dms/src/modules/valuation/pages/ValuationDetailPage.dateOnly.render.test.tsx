@@ -12,7 +12,7 @@ import { ValuationDetailPage } from './ValuationDetailPage'
 
 const VALUATION = {
   id: 'val-1', valuationNumber: 'B-000001', status: 'valid', source: 'manual', hasSignedContract: false,
-  customerId: null, vehicleId: null, vehicleMake: 'Porsche', vehicleModel: '911', vehicleTrim: null, vehicleVin: null,
+  contactId: null, vehicleId: null, vehicleMake: 'Porsche', vehicleModel: '911', vehicleTrim: null, vehicleVin: null,
   finalOffer: '62000.00', deductions: [], version: 1, validFrom: '2026-10-01T08:00:00Z',
   validUntil: '2026-10-31T08:00:00Z', vehicleFirstRegistration: '1975-06-01', createdAt: '2026-10-01T08:00:00Z',
   updatedAt: '2026-10-01T08:00:00Z',

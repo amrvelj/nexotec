@@ -35,7 +35,7 @@ paths:
   navigation; losing a half-built offer is a defect. The naive version (set the hash, set it
   back) fires the router and destroys the screen underneath — the bug the kit's overlay prevents.
 - **ADR-063** — generating an offer is **two steps**: build, then review the rendered document in
-  the customer's correspondence language with the seller-only margin panel *beside* it, never on
+  the contact's correspondence language with the seller-only margin panel *beside* it, never on
   it.
 - **Breadcrumb:** a page's segment that names a screen is a `{ label, href }`
   (`BreadcrumbSegment`) and renders as a link — the list segment on every entity detail, the

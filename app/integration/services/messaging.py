@@ -9,7 +9,7 @@ or the text), a failing provider charges the breaker of that connection, and
 the usage view counts the request under its operation name.
 
 **What it does not do** — `deliver_message` (PR-5) does, before it calls this:
-read the recipient and the consent verdict from `customer.public`, apply the
+read the recipient and the consent verdict from `contact.public`, apply the
 WhatsApp template rule, and write `message_delivery`. This function is not in
 `integration.public`: no module above may send without that verdict.
 

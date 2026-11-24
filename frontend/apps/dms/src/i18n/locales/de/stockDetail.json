@@ -62,7 +62,7 @@
       "search": "Kontakt suchen",
       "create": "Neuen Kontakt anlegen",
       "change": "Ändern",
-      "useTradeInCustomer": "Eintauschkunde übernehmen: {{name}}",
+      "useTradeInContact": "Kontakt aus dem Eintausch übernehmen: {{name}}",
       "roleWillBeAdded": "Dieser Kontakt erhält beim Erfassen die Rolle «Lieferant».",
       "roleFailed": "Die Rolle «Lieferant» konnte dem Kontakt nicht gegeben werden. Bitte erneut versuchen.",
       "vatUnknown": "Der MWST-Status dieses Kontakts ist nicht bestätigt — bitte prüfen.",
@@ -88,8 +88,8 @@
       "cancel": "Abbrechen",
       "failed": "Der Einkauf konnte nicht storniert werden.",
       "leftStock": "Nicht möglich: Das Fahrzeug hat den Bestand verlassen.",
-      "returnedToCustomer": "Das Fahrzeug geht an den Kunden zurück",
-      "returnedToCustomerHint": "Der Kunde, der es eingetauscht hat, wird wieder als Eigentümer und Halter geführt. Ohne Haken bleibt seine Fahrzeughistorie, wie der Einkauf sie geschrieben hat."
+      "returnedToContact": "Das Fahrzeug geht an den Kontakt zurück",
+      "returnedToContactHint": "Der Kontakt, der es eingetauscht hat, wird wieder als Eigentümer und Halter geführt. Ohne Haken bleibt seine Fahrzeughistorie, wie der Einkauf sie geschrieben hat."
     }
   },
   "wagenbuch": {

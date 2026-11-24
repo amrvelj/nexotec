@@ -31,7 +31,7 @@ def load_country_seed() -> list[CountrySeedRow]:
     """The ISO 3166-1 alpha-2 country rows, ordered by English name.
 
     ``value_code`` is the uppercase alpha-2 code (``CH``, ``HR``), matching
-    the casing already used for ``customer_address.address_country`` and the
+    the casing already used for ``contact_address.address_country`` and the
     Swiss-canton alphabet.
     """
 

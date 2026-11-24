@@ -1,4 +1,4 @@
-"""KAN-217 PR-1 — the registry of customer message types (Dealer Administration
+"""KAN-217 PR-1 — the registry of contact message types (Dealer Administration
 FR-A-52, FR-A-53): Sales registers its offer, order confirmation and sales
 contract; every registered text ships as a platform seed in four languages and
 renders; the migration's literal rows equal the application's declaration; a
@@ -192,7 +192,7 @@ def test_registering_the_same_definition_twice_is_harmless_and_a_conflicting_one
         ({"text_codes": {}}, "no channel"),
         # An SMS channel pointing at an e-mail body.
         ({"text_codes": {MessageChannel.SMS: "email.offer_sent"}}, "is not a sms body"),
-        # No e-mail body exists for a customer note.
+        # No e-mail body exists for a contact note.
         ({"applies_to": StandardTextAppliesTo.CUSTOMER_NOTE}, "no email body exists"),
     ],
 )

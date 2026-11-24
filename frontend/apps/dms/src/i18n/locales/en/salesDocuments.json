@@ -40,13 +40,13 @@
       "message_text_missing_fixed": "There is no standard text for this channel. Create it in Administration under Standard texts and have the provider approve it as a template."
     },
     "refusal": {
-      "customer_merged": "This customer was merged into another.",
-      "customer_do_not_contact": "The customer is marked «Do not contact».",
-      "no_usable_contact": "The customer has no usable contact detail on this channel.",
-      "marketing_consent_missing": "The customer's consent to marketing is missing.",
+      "contact_merged": "This contact was merged into another.",
+      "contact_do_not_contact": "The contact is marked «Do not contact».",
+      "no_usable_contact": "The contact has no usable contact detail on this channel.",
+      "marketing_consent_missing": "The contact's consent to marketing is missing.",
       "channel_consent_missing": "The consent to marketing is missing for this contact detail.",
-      "newsletter_not_subscribed": "The customer has not subscribed to the newsletter.",
-      "generic": "This customer cannot receive this message on this channel."
+      "newsletter_not_subscribed": "The contact has not subscribed to the newsletter.",
+      "generic": "This contact cannot receive this message on this channel."
     },
     "status": {
       "sent": "Sent",

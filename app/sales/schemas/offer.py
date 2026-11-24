@@ -22,7 +22,7 @@ class OfferContainerState(CamelModel):
     and each container's own status badge always agree, by construction.
     """
 
-    id: str  # "customer" | "vehicle" | "pricing" | "trade_in" | "leasing"
+    id: str  # "contact" | "vehicle" | "pricing" | "trade_in" | "leasing"
     requirement: str  # "required" | "optional"
     status: str  # "not_started" | "in_progress" | "complete" | "placeholder"
 
@@ -55,12 +55,12 @@ class TradeInRequest(CamelModel):
     # Deprecated (KAN-562; Anto, 2026-11-11, option A): still accepted —
     # removing it would break the contract — and checked (404 outside the
     # caller's group), otherwise ignored: the former owner of a bought
-    # trade-in is the contract's customer (KAN-189). The SPA no longer sends it.
-    customer_id: uuid.UUID | None = Field(
+    # trade-in is the contract's contact (KAN-189). The SPA no longer sends it.
+    contact_id: uuid.UUID | None = Field(
         default=None,
         description=(
-            "Deprecated: ignored apart from a 404 when the customer is outside the caller's group. "
-            "The former owner of a bought trade-in is always the contract's customer."
+            "Deprecated: ignored apart from a 404 when the contact is outside the caller's group. "
+            "The former owner of a bought trade-in is always the contract's contact."
         ),
         json_schema_extra={"deprecated": True},
     )
@@ -77,7 +77,7 @@ class OfferUpdate(CamelModel):
     contract) except pricing which needs a vehicle first.
     """
 
-    customer_id: uuid.UUID | None = None
+    contact_id: uuid.UUID | None = None
     vehicle_source: str | None = None  # "stock" | "manual"
     stock_item_id: uuid.UUID | None = None
     vehicle_label: str | None = None
@@ -106,9 +106,9 @@ class OfferRead(CamelModel):
     id: uuid.UUID
     offer_number: str
     status: OfferStatus
-    customer_id: uuid.UUID | None
-    customer_label: str | None
-    customer_locality: str | None
+    contact_id: uuid.UUID | None
+    contact_label: str | None
+    contact_locality: str | None
     # KAN-200: the responsible seller (three-column pattern, label denormalised).
     owner_user_id: uuid.UUID | None = None
     owner_label: str | None = None

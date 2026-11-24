@@ -14,9 +14,9 @@ export interface DealOwnerSelectProps {
 /**
  * KAN-405 — the responsible seller of an offer or a pending contract
  * (KAN-200's `ownerUserId`). The choices are the acting Betrieb's active
- * users and members (`GET /customers/advisor-options`, the rule
+ * users and members (`GET /contacts/advisor-options`, the rule
  * `resolve_owner_change` applies on the server); a seller who is no longer
- * among them stays shown by name, as the customer's advisor does.
+ * among them stays shown by name, as the contact's advisor does.
  */
 export function DealOwnerSelect({ deal, onChange, disabled = false }: DealOwnerSelectProps) {
   const { t } = useTranslation()

@@ -9,18 +9,18 @@ import uuid
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.contact.public import ContactLifecycleStatus, ContactRef, get_contact_or_404, resolve_live_contact_id
 from app.core.base import utcnow
 from app.core.config import get_settings
 from app.core.errors import ConflictError, NotFoundError
 from app.core.outbox import OutboxEvent, publish
 from app.core.pagination import SortPageParams, count_capped, paginate_query_sorted
 from app.core.sorting import build_page_for_sort
-from app.customer.public import CustomerLifecycleStatus, CustomerRef, get_customer_or_404, resolve_live_customer_id
 from app.sales.models.offer import OfferStatus, SalesOffer
 from app.sales.schemas.offer import OfferUpdate
 from app.sales.services import ownership
 from app.sales.services.configuration_reference import publish_held_configurations
-from app.sales.services.customer_attach_lock import lock_customer_for_attach
+from app.sales.services.contact_attach_lock import lock_contact_for_attach
 from app.sales.services.deal_editing import apply_vehicle_and_pricing_changes
 from app.sales.services.deal_projection import upsert_deal_projection
 from app.sales.services.numbering import allocate_offer_number
@@ -34,23 +34,23 @@ _EVENT_PRODUCER = "sales"
 logger = logging.getLogger(__name__)
 
 
-def resolve_customer_label(customer: CustomerRef) -> str:
-    """Shared with contract.py's own customer_id-sourced denormalization
-    (KAN-58) — one label rule for both "attach a customer to an offer" and
-    "create a contract directly for a customer"."""
+def resolve_contact_label(contact: ContactRef) -> str:
+    """Shared with contract.py's own contact_id-sourced denormalization
+    (KAN-58) — one label rule for both "attach a contact to an offer" and
+    "create a contract directly for a contact"."""
 
-    if customer.company_name:
-        return customer.company_name
-    return " ".join(part for part in [customer.first_name, customer.last_name] if part) or customer.customer_number
+    if contact.company_name:
+        return contact.company_name
+    return " ".join(part for part in [contact.first_name, contact.last_name] if part) or contact.contact_number
 
 
-def refuse_unattachable_customer(db: Session, *, customer: CustomerRef, group_id: uuid.UUID, host: str) -> None:
+def refuse_unattachable_contact(db: Session, *, contact: ContactRef, group_id: uuid.UUID, host: str) -> None:
     """The buyer rules an offer and a contract share, on create and on every
-    change of buyer: a do-not-contact customer is refused (ADR-065/S-D19),
+    change of buyer: a do-not-contact contact is refused (ADR-065/S-D19),
     and so is a merged one (KAN-656) — its record no longer exists as a
-    working record, and an attach after `sales.customer_merged` moved the
+    working record, and an attach after `sales.contact_merged` moved the
     deals to the survivor would leave this deal behind on the duplicate.
-    The refusal names the live customer the merge chain ends at, as an
+    The refusal names the live contact the merge chain ends at, as an
     allocation's does (KAN-365), so the screen can offer it. `host` ends
     the sentence ("an offer", "a contract")."""
 
@@ -58,58 +58,58 @@ def refuse_unattachable_customer(db: Session, *, customer: CustomerRef, group_id
     # contract (it's about contact, not credit); a credit block is
     # the opposite case and deliberately does NOT stop here — it
     # only stops confirm_contract (S-D19: "quoting a blocked
-    # customer is often how the block gets resolved").
-    if customer.lifecycle_status == CustomerLifecycleStatus.DO_NOT_CONTACT:
+    # contact is often how the block gets resolved").
+    if contact.lifecycle_status == ContactLifecycleStatus.DO_NOT_CONTACT:
         raise ConflictError(
-            f"Customer {customer.customer_number} is do-not-contact — cannot be attached to {host}.",
-            details={"reason": "customer_do_not_contact", "customerNumber": customer.customer_number},
+            f"Contact {contact.contact_number} is do-not-contact — cannot be attached to {host}.",
+            details={"reason": "contact_do_not_contact", "contactNumber": contact.contact_number},
         )
-    if customer.lifecycle_status == CustomerLifecycleStatus.MERGED:
-        survivor_id = resolve_live_customer_id(db, group_id=group_id, customer_id=customer.id)
+    if contact.lifecycle_status == ContactLifecycleStatus.MERGED:
+        survivor_id = resolve_live_contact_id(db, group_id=group_id, contact_id=contact.id)
         raise ConflictError(
-            f"Customer {customer.customer_number} has been merged into another — cannot be attached to {host}; "
-            "attach the customer it was merged into.",
+            f"Contact {contact.contact_number} has been merged into another — cannot be attached to {host}; "
+            "attach the contact it was merged into.",
             details={
-                "reason": "customer_merged",
-                "mergedIntoCustomerId": str(survivor_id) if survivor_id else None,
+                "reason": "contact_merged",
+                "mergedIntoContactId": str(survivor_id) if survivor_id else None,
             },
         )
 
 
-def apply_customer_change(
-    db: Session, *, deal: PricedDeal, group_id: uuid.UUID, customer_id: uuid.UUID | None, host: str
+def apply_contact_change(
+    db: Session, *, deal: PricedDeal, group_id: uuid.UUID, contact_id: uuid.UUID | None, host: str
 ) -> None:
     """Sets or clears the buyer of an offer draft or a pending contract —
     one rule for both (the contract's since KAN-307, Anto 2026-10-12:
-    "the same as offer generation"; ADR-083 amended). `customer_id` is
+    "the same as offer generation"; ADR-083 amended). `contact_id` is
     resolved server-side into the denormalized label and correspondence
     language on every change (never trusted from the client). A
-    do-not-contact or merged customer is refused
-    (`refuse_unattachable_customer`); `host` ends its sentence. The caller has
+    do-not-contact or merged contact is refused
+    (`refuse_unattachable_contact`); `host` ends its sentence. The caller has
     checked the deal is editable and owns the transaction."""
 
-    if customer_id is None:
-        deal.customer_id = None
-        deal.customer_label = None
-        deal.customer_language = None
-        deal.customer_denorm_refreshed_at = None
+    if contact_id is None:
+        deal.contact_id = None
+        deal.contact_label = None
+        deal.contact_language = None
+        deal.contact_denorm_refreshed_at = None
         return
-    # KAN-657: serialised with `sales.customer_merged` on this customer, so a
+    # KAN-657: serialised with `sales.contact_merged` on this contact, so a
     # merge committing meanwhile either finds this deal or is read here. The
     # route took the lock before its row lock already (re-entrant).
-    lock_customer_for_attach(db, customer_id)
-    customer = get_customer_or_404(db, group_id, customer_id)
-    refuse_unattachable_customer(db, customer=customer, group_id=group_id, host=host)
-    deal.customer_id = customer.id
-    deal.customer_label = resolve_customer_label(customer)
-    # CLAUDE.md's own rule: "the customer's correspondence language
+    lock_contact_for_attach(db, contact_id)
+    contact = get_contact_or_404(db, group_id, contact_id)
+    refuse_unattachable_contact(db, contact=contact, group_id=group_id, host=host)
+    deal.contact_id = contact.id
+    deal.contact_label = resolve_contact_label(contact)
+    # CLAUDE.md's own rule: "the contact's correspondence language
     # is not the user's UI language" — denormalized here so
-    # services/document.py never has to reach back into customer
+    # services/document.py never has to reach back into contact
     # at generation time.
-    deal.customer_language = customer.language.value
-    # customer_locality is written by no path, here or anywhere else, and
+    deal.contact_language = contact.language.value
+    # contact_locality is written by no path, here or anywhere else, and
     # stays as it is (Anto, 2026-11-10, KAN-590: neither filled nor dropped).
-    deal.customer_denorm_refreshed_at = utcnow()
+    deal.contact_denorm_refreshed_at = utcnow()
 
 
 def get_offer_or_404(
@@ -167,7 +167,7 @@ def update_offer(
     db: Session, *, offer: SalesOffer, group_id: uuid.UUID, data: OfferUpdate, actor_id: uuid.UUID | None
 ) -> SalesOffer:
     """The autosave PATCH (FR-S-05) — applied incrementally, no field
-    required, any order. `customer_id` is resolved server-side into a
+    required, any order. `contact_id` is resolved server-side into a
     denormalized label/locality on every change (never trusted from the
     client) — see the module's "split by staleness class" rule.
 
@@ -183,8 +183,8 @@ def update_offer(
 
     require_editable(db, offer)
 
-    if "customer_id" in changes:
-        apply_customer_change(db, deal=offer, group_id=group_id, customer_id=changes.pop("customer_id"), host="an offer")
+    if "contact_id" in changes:
+        apply_contact_change(db, deal=offer, group_id=group_id, contact_id=changes.pop("contact_id"), host="an offer")
     if "owner_user_id" in changes:
         # KAN-200: the responsible seller, re-assignable from the workspace.
         ownership.apply_owner(
@@ -202,7 +202,7 @@ def update_offer(
 def _change_seller_only(
     db: Session, *, offer: SalesOffer, owner_user_id: uuid.UUID | None, actor_id: uuid.UUID | None
 ) -> SalesOffer:
-    """KAN-405 (Anto, 2026-10-28, option A): an offer sent to the customer is
+    """KAN-405 (Anto, 2026-10-28, option A): an offer sent to the contact is
     read-only, but its responsible seller may still change — a PATCH of
     `ownerUserId` alone, so a deal in the unassigned queue can be taken over.
     The seller is not on the sent document; no price figure is touched and
@@ -254,19 +254,19 @@ def _discard_configuration(
         )
 
 
-def _hold_source_customer(db: Session, source: SalesOffer) -> None:
-    """KAN-657: a copy names its source's customer, so it takes that
-    customer's attach lock before it reads it, then re-reads the source:
-    a `sales.customer_merged` that moved the source meanwhile has committed,
+def _hold_source_contact(db: Session, source: SalesOffer) -> None:
+    """KAN-657: a copy names its source's contact, so it takes that
+    contact's attach lock before it reads it, then re-reads the source:
+    a `sales.contact_merged` that moved the source meanwhile has committed,
     and the copy names the survivor; one that runs later waits for the copy
-    and moves it too. Repeated until the source's customer is the one held
+    and moves it too. Repeated until the source's contact is the one held
     (a chain of merges moves it more than once)."""
 
     while True:
-        held = source.customer_id
-        lock_customer_for_attach(db, held)
+        held = source.contact_id
+        lock_contact_for_attach(db, held)
         db.refresh(source)
-        if source.customer_id == held:
+        if source.contact_id == held:
             return
 
 
@@ -279,7 +279,7 @@ def copy_offer(db: Session, *, source: SalesOffer, actor_id: uuid.UUID | None) -
     never the source offer's own status, since the whole point is a new
     draft to edit. `copied_from_offer_id` records where it came from.
 
-    Copies the identifying/configuration fields only (customer, vehicle
+    Copies the identifying/configuration fields only (contact, vehicle
     reference, discount, trade-in reference, leasing) — never the
     source's own frozen `vehicle_snapshot`/computed pricing verbatim.
     Those are re-derived immediately below via the exact same
@@ -296,7 +296,7 @@ def copy_offer(db: Session, *, source: SalesOffer, actor_id: uuid.UUID | None) -
     again (the compensating action).
     """
 
-    _hold_source_customer(db, source)
+    _hold_source_contact(db, source)
     tenant_id, source_offer_id = source.tenant_id, source.id
     configuration = _copy_configuration(db, source=source, actor_id=actor_id)
     try:
@@ -304,11 +304,11 @@ def copy_offer(db: Session, *, source: SalesOffer, actor_id: uuid.UUID | None) -
             tenant_id=source.tenant_id,
             offer_number=allocate_offer_number(db, source.tenant_id),
             copied_from_offer_id=source.id,
-            customer_id=source.customer_id,
-            customer_label=source.customer_label,
-            customer_locality=source.customer_locality,
-            customer_language=source.customer_language,
-            customer_denorm_refreshed_at=source.customer_denorm_refreshed_at,
+            contact_id=source.contact_id,
+            contact_label=source.contact_label,
+            contact_locality=source.contact_locality,
+            contact_language=source.contact_language,
+            contact_denorm_refreshed_at=source.contact_denorm_refreshed_at,
             vehicle_source=source.vehicle_source,
             stock_item_id=source.stock_item_id,
             stock_item_label=source.stock_item_label,
@@ -444,11 +444,11 @@ def cancel_offer(db: Session, *, offer: SalesOffer, reason: str, actor_id: uuid.
 
 
 def list_offers(
-    db: Session, *, tenant_id: uuid.UUID, customer_id: uuid.UUID | None = None, params: SortPageParams
+    db: Session, *, tenant_id: uuid.UUID, contact_id: uuid.UUID | None = None, params: SortPageParams
 ) -> tuple[list[SalesOffer], str | None, int, bool]:
     stmt = select(SalesOffer).where(SalesOffer.tenant_id == tenant_id)
-    if customer_id is not None:
-        stmt = stmt.where(SalesOffer.customer_id == customer_id)
+    if contact_id is not None:
+        stmt = stmt.where(SalesOffer.contact_id == contact_id)
     total, total_is_estimate = count_capped(db, stmt, threshold=get_settings().count_exact_threshold)
     stmt = paginate_query_sorted(stmt, model=SalesOffer, params=params)
     rows = list(db.scalars(stmt).all())

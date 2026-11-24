@@ -321,7 +321,7 @@ export function StockListPage() {
           row.original.supplierContactId ? (
             <Anchor
               component={Link}
-              to={`/customers/${row.original.supplierContactId}`}
+              to={`/contacts/${row.original.supplierContactId}`}
               fz="sm"
               onClick={(event) => event.stopPropagation()}
             >

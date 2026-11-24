@@ -1,6 +1,6 @@
 """KAN-476 — «ist nicht» on the grids' select filters, applied server-side.
 
-Each list endpoint the Stock, Customers and Catalogue grids read takes an
+Each list endpoint the Stock, Contacts and Catalogue grids read takes an
 exclusion per select field (an additive, typed parameter: an unknown enum
 value is 422). A record with no value for the field is kept — it is not that
 value. Over HTTP, on Postgres.
@@ -69,10 +69,10 @@ def test_stock_excludes_a_condition_and_a_lifecycle_status(client, db_session):
     assert client.get("/v1/inventory/stock-items?condition_not=occasion", headers=headers).status_code == 422
 
 
-# --- Customers -----------------------------------------------------------------------------------
+# --- Contacts -----------------------------------------------------------------------------------
 
 
-def _customer(client, tenant_id: uuid.UUID, **overrides) -> dict:
+def _contact(client, tenant_id: uuid.UUID, **overrides) -> dict:
     payload = {
         "firstName": "Anna",
         "lastName": f"Muster {uuid.uuid4().hex[:4]}",
@@ -81,7 +81,7 @@ def _customer(client, tenant_id: uuid.UUID, **overrides) -> dict:
         **overrides,
     }
     payload = {key: value for key, value in payload.items() if value is not None or key == "advisorId"}
-    response = client.post("/v1/customers", json=payload, headers=_headers(tenant_id, manager=True))
+    response = client.post("/v1/contacts", json=payload, headers=_headers(tenant_id, manager=True))
     assert response.status_code == 201, response.text
     return response.json()
 
@@ -99,49 +99,49 @@ def _domicile(postal_code: str, locality: str) -> list[dict]:
     ]
 
 
-def test_customers_exclude_a_type_a_language_and_a_lifecycle_status(client):
+def test_contacts_exclude_a_type_a_language_and_a_lifecycle_status(client):
     tenant = _dealership(client)
     headers = _headers(tenant, manager=True)
-    anna = _customer(client, tenant, language="de")
-    marie = _customer(client, tenant, language="fr")
-    firma = _customer(
-        client, tenant, customerType="business", companyName="Garage Beispiel AG", language="it", firstName=None, lastName=None
+    anna = _contact(client, tenant, language="de")
+    marie = _contact(client, tenant, language="fr")
+    firma = _contact(
+        client, tenant, contactType="business", companyName="Garage Beispiel AG", language="it", firstName=None, lastName=None
     )
     activated = client.patch(
-        f"/v1/customers/{marie['id']}", json={"lifecycleStatus": "active"}, headers={**headers, "If-Match": "1"}
+        f"/v1/contacts/{marie['id']}", json={"lifecycleStatus": "active"}, headers={**headers, "If-Match": "1"}
     )
     assert activated.status_code == 200, activated.text
 
-    assert _ids(client.get("/v1/customers?customer_type_not=business", headers=headers)) == {anna["id"], marie["id"]}
-    assert _ids(client.get("/v1/customers?language_not=de", headers=headers)) == {marie["id"], firma["id"]}
-    assert _ids(client.get("/v1/customers?lifecycle_status_not=active", headers=headers)) == {anna["id"], firma["id"]}
-    assert client.get("/v1/customers?language_not=es", headers=headers).status_code == 422
+    assert _ids(client.get("/v1/contacts?contactTypeNot=business", headers=headers)) == {anna["id"], marie["id"]}
+    assert _ids(client.get("/v1/contacts?language_not=de", headers=headers)) == {marie["id"], firma["id"]}
+    assert _ids(client.get("/v1/contacts?lifecycle_status_not=active", headers=headers)) == {anna["id"], firma["id"]}
+    assert client.get("/v1/contacts?language_not=es", headers=headers).status_code == 422
 
 
-def test_customers_exclude_a_canton_keeping_those_without_a_domicile(client):
+def test_contacts_exclude_a_canton_keeping_those_without_a_domicile(client):
     tenant = _dealership(client)
     headers = _headers(tenant, manager=True)
-    zurich = _customer(client, tenant, addresses=_domicile("8001", "Zürich"))
-    bern = _customer(client, tenant, addresses=_domicile("3011", "Bern"))
-    nowhere = _customer(client, tenant)
+    zurich = _contact(client, tenant, addresses=_domicile("8001", "Zürich"))
+    bern = _contact(client, tenant, addresses=_domicile("3011", "Bern"))
+    nowhere = _contact(client, tenant)
 
-    assert _ids(client.get("/v1/customers?canton=ZH", headers=headers)) == {zurich["id"]}
-    assert _ids(client.get("/v1/customers?canton_not=ZH", headers=headers)) == {bern["id"], nowhere["id"]}
+    assert _ids(client.get("/v1/contacts?canton=ZH", headers=headers)) == {zurich["id"]}
+    assert _ids(client.get("/v1/contacts?canton_not=ZH", headers=headers)) == {bern["id"], nowhere["id"]}
 
 
-def test_customers_exclude_an_advisor_keeping_the_unassigned_and_assigned_keeps_only_those_with_one(client):
+def test_contacts_exclude_an_advisor_keeping_the_unassigned_and_assigned_keeps_only_those_with_one(client):
     tenant = _dealership(client)
     headers = _headers(tenant, manager=True)
     beat = create_user(client, str(tenant), is_dealer_manager=False)["id"]
     carla = create_user(client, str(tenant), is_dealer_manager=False)["id"]
-    unassigned = _customer(client, tenant, advisorId=None)
-    of_beat = _customer(client, tenant, advisorId=beat)
-    of_carla = _customer(client, tenant, advisorId=carla)
+    unassigned = _contact(client, tenant, advisorId=None)
+    of_beat = _contact(client, tenant, advisorId=beat)
+    of_carla = _contact(client, tenant, advisorId=carla)
     assert (unassigned["advisorId"], of_beat["advisorId"], of_carla["advisorId"]) == (None, beat, carla)
 
-    not_beat = _ids(client.get(f"/v1/customers?advisorUserIdNot={beat}", headers=headers))
+    not_beat = _ids(client.get(f"/v1/contacts?advisorUserIdNot={beat}", headers=headers))
     assert not_beat == {unassigned["id"], of_carla["id"]}
-    assert _ids(client.get("/v1/customers?assigned=true", headers=headers)) == {of_beat["id"], of_carla["id"]}
+    assert _ids(client.get("/v1/contacts?assigned=true", headers=headers)) == {of_beat["id"], of_carla["id"]}
 
 
 # --- Catalogue: no exclusion since KAN-548 --------------------------------------------------------
@@ -155,5 +155,5 @@ def test_customers_exclude_an_advisor_keeping_the_unassigned_and_assigned_keeps_
 
 def test_an_unknown_canton_to_exclude_is_422(client, db_session):
     tenant = _dealership(client)
-    assert client.get("/v1/customers?canton_not=XX", headers=_headers(tenant, manager=True)).status_code == 422
+    assert client.get("/v1/contacts?canton_not=XX", headers=_headers(tenant, manager=True)).status_code == 422
 

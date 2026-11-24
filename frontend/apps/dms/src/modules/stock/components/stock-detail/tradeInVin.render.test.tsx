@@ -36,7 +36,7 @@ const TRADE_IN_ITEM: StockItemRead = {
   landedCost: null, locationId: null, locationLabel: null, notionalInputTaxAmount: null, notionalInputTaxApplicable: null,
   notionalInputTaxOverridden: false, notionalInputTaxRate: null, orderDate: null, expectedDelivery: null,
   pipelineRef: 'contract:k-1:trade_in', purchaseDate: null, purchaseInvoiceRef: null, purchasePrice: null,
-  supplierIsVatRegistered: null, supplierContactId: null, supplierLabel: null, tradeInCustomerId: null, valuationRefAmount: null, valuationRefId: null,
+  supplierIsVatRegistered: null, supplierContactId: null, supplierLabel: null, tradeInContactId: null, valuationRefAmount: null, valuationRefId: null,
   valuationRefSource: null, valuationRefValuedAt: null, createdAt: NOW, updatedAt: NOW, version: 1,
   configurationId: null, tradeInVin: CONTRACT_VIN,
 }

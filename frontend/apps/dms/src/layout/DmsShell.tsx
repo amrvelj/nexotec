@@ -59,8 +59,8 @@ import { outboxWorkerAbsent } from '../config/deployment'
 import { LEGAL_PRIVACY_PATH, LEGAL_TERMS_PATH } from '../config/legalPages'
 import { UiPreferencesProvider, useUiPreferencesContext } from '../hooks/UiPreferencesContext'
 import { api, ApiError } from '../api/client'
-import { customerName } from '../shared/displayNames'
-import type { CustomerPage, StatusState, VehicleSearchResult } from '../api/types'
+import { contactName } from '../shared/displayNames'
+import type { ContactPage, StatusState, VehicleSearchResult } from '../api/types'
 import { filterNavGroupsByEntitlements } from './navEntitlements'
 import { useUnreadNotificationCount } from '../hooks/useNotifications'
 import { rebindPushToThisSession } from '../utils/webPush'
@@ -80,7 +80,7 @@ function buildNavGroups(t: (key: string) => string, statusIndicator?: NavItemInd
     {
       label: t('shell.nav.masterData'),
       items: [
-        { label: t('shell.nav.customers'), href: '/customers', icon: Users, status: 'active' },
+        { label: t('shell.nav.contacts'), href: '/contacts', icon: Users, status: 'active' },
         { label: t('shell.nav.vehicles'), href: '/vehicles', icon: Car, status: 'active' },
         // C-B (KAN-40 / FR-C-01) — catalogue browse + the mapping-gap queue,
         // matching the prototype's own `#/catalogue` Master-data entry.
@@ -167,10 +167,10 @@ function buildNavGroups(t: (key: string) => string, statusIndicator?: NavItemInd
         // provider in use and its prompts. Inventory and sales read, the manager
         // writes; never role-hidden (A-RULE-7).
         { label: t('shell.nav.aiTexts'), href: '/administration/ai', icon: Sparkles, status: 'active' },
-        // KAN-215 — Dealer Administration › Kundenmails (D-A-28 as re-cut 2026-11-14): the
+        // KAN-215 — Dealer Administration › Mails an Kontakte (D-A-28 as re-cut 2026-11-14): the
         // Betrieb's shared mailbox. Finance and the manager read, the manager connects;
         // never role-hidden (A-RULE-7).
-        { label: t('shell.nav.customerMail'), href: '/administration/mail', icon: Mail, status: 'active' },
+        { label: t('shell.nav.contactMail'), href: '/administration/mail', icon: Mail, status: 'active' },
         // KAN-207 — Dealer Administration › Number ranges. Any role reads; the
         // manager edits an open range, platform staff a frozen one (A-RULE-3).
         // Never role-hidden (A-RULE-7).
@@ -250,7 +250,7 @@ const GLOBAL_SEARCH_LIMIT_PER_ENTITY = 5
 
 /**
  * § FR-UI-08 — cross-entity search over the two entities that exist today
- * (customers, vehicles). Both `/customers?q=` and `/vehicle-mdm/search?q=`
+ * (contacts, vehicles). Both `/contacts?q=` and `/vehicle-mdm/search?q=`
  * already exist as ordinary read endpoints; this composes their existing
  * results for display and does not add any new backend behaviour — no
  * dedicated cross-entity search endpoint exists yet, and building one is
@@ -265,25 +265,25 @@ function buildGlobalSearch(t: (key: string) => string, navigate: (path: string) 
     noResultsLabel: t('shell.globalSearch.noResults'),
     errorLabel: t('shell.globalSearch.error'),
     onSearch: async (query) => {
-      const [customers, vehicles] = await Promise.all([
-        api.get<CustomerPage>(`/customers?q=${encodeURIComponent(query)}&limit=${GLOBAL_SEARCH_LIMIT_PER_ENTITY}`),
+      const [contacts, vehicles] = await Promise.all([
+        api.get<ContactPage>(`/contacts?q=${encodeURIComponent(query)}&limit=${GLOBAL_SEARCH_LIMIT_PER_ENTITY}`),
         api.get<VehicleSearchResult>(`/vehicle-mdm/search?q=${encodeURIComponent(query)}`),
       ])
-      const customerGroup: GlobalSearchGroup = {
-        key: 'customers',
-        label: t('shell.nav.customers'),
-        items: customers.items.map((c) => ({
+      const contactGroup: GlobalSearchGroup = {
+        key: 'contacts',
+        label: t('shell.nav.contacts'),
+        items: contacts.items.map((c) => ({
           id: c.id,
-          identifier: c.customerNumber,
-          label: customerName(c),
+          identifier: c.contactNumber,
+          label: contactName(c),
           sublabel: c.address ? `${c.address.addressPostalCode} ${c.address.addressLocality}` : undefined,
-          href: `/customers/${c.id}`,
+          href: `/contacts/${c.id}`,
         })),
       }
       const vehicleGroup = buildVehicleGroup(t, vehicles)
       // § FR-UI-08 — identifiers first, best group first: a plate or VIN
       // that resolved is the exact answer, so its group leads.
-      const groups = vehicleGroup.isIdentifierAnswer ? [vehicleGroup.group, customerGroup] : [customerGroup, vehicleGroup.group]
+      const groups = vehicleGroup.isIdentifierAnswer ? [vehicleGroup.group, contactGroup] : [contactGroup, vehicleGroup.group]
       return groups.filter((group) => group.items.length > 0)
     },
     onSelect: (item) => navigate(item.href),
@@ -378,7 +378,7 @@ function BrandMark() {
  *
  * Wraps in UiPreferencesProvider so the `ui` preference scope (sidebar
  * state, language, density) is fetched/held once and shared with whatever
- * page renders inside — e.g. the customer grid's density toggle reads
+ * page renders inside — e.g. the contact grid's density toggle reads
  * the same instance this shell's sidebar collapse does.
  */
 export function DmsShell({ children }: { children: ReactNode }) {
@@ -419,7 +419,7 @@ function DmsShellInner({ children }: { children: ReactNode }) {
   const navGroups = filterNavGroupsByEntitlements(buildNavGroups(t, statusIndicator), entitlements)
 
   // The sidebar matches `item.href` exactly. Most nav routes are a single
-  // segment (`/customers`, `/stock`), but a couple are two
+  // segment (`/contacts`, `/stock`), but a couple are two
   // (`/settings/reference`) — take the longest nav href that prefixes the
   // current path so those still light up.
   const activeHref =

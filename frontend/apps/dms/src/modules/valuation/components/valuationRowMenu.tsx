@@ -15,7 +15,7 @@ export interface ValuationRowMenuActions {
    * write `valuation_use_reversal` (the dealer manager); otherwise the
    * entry is hidden, never disabled (KAN-430). */
   onRevertUse?: () => void
-  onOpenCustomer?: () => void
+  onOpenContact?: () => void
   onOpenVehicle?: () => void
   /** KAN-569 (ADR-061; Anto's answer A on KAN-528) — «Offerte aus dieser
    * Bewertung erstellen». Passed only when the session may write offers
@@ -60,13 +60,13 @@ export interface ValuationRowMenu {
  * with this valuation as its trade-in. The API attaches an expired or used
  * valuation without complaint and refuses an expired one only at contract
  * confirmation (`trade_in_valuation_expired`), so the menu says so before the
- * click. A draft is allowed and a valuation without a customer gives an offer
+ * click. A draft is allowed and a valuation without a contact gives an offer
  * without a buyer (Anto, 2026-11-05, answers 1A and 2A): the action is no
  * stricter than the contract that will consume the valuation.
  */
 export function buildValuationRowMenu(
   t: (key: string, options?: Record<string, unknown>) => string,
-  valuation: Pick<ValuationRead, 'status' | 'customerId' | 'vehicleId' | 'hasSignedContract' | 'vehicleVin'> &
+  valuation: Pick<ValuationRead, 'status' | 'contactId' | 'vehicleId' | 'hasSignedContract' | 'vehicleVin'> &
     Partial<Pick<ValuationRead, 'usedAt' | 'configurationId'>>,
   actions: ValuationRowMenuActions
 ): ValuationRowMenu {
@@ -115,8 +115,8 @@ export function buildValuationRowMenu(
 
   const overflow: RowMenuGroups = {
     navigate: [
-      ...(valuation.customerId && actions.onOpenCustomer
-        ? [{ label: t('valuationDetail.actions.openCustomer'), icon: <User size={16} />, onClick: actions.onOpenCustomer }]
+      ...(valuation.contactId && actions.onOpenContact
+        ? [{ label: t('valuationDetail.actions.openContact'), icon: <User size={16} />, onClick: actions.onOpenContact }]
         : []),
       ...(valuation.vehicleId && actions.onOpenVehicle
         ? [{ label: t('valuationDetail.actions.openVehicle'), icon: <Car size={16} />, onClick: actions.onOpenVehicle }]

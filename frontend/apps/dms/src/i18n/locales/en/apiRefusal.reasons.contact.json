@@ -1,0 +1,19 @@
+{
+  "contact_tag_exists": "A tag in this change is already on the contact — the contact changed in the meantime. Reload it and try again.",
+  "email_already_on_contact": "This email address is already on this contact.",
+  "external_id_taken": "This system already has an external ID on this contact, or this external ID is already used for another contact under the same system.",
+  "last_usable_contact_point": "A contact keeps at least one usable phone number or email address. Add another one first.",
+  "merged_party_row": "This row is the copy a contact merge kept; it cannot hold its role again.",
+  "vehicle_merged_party_row": "This entry belongs to a merged vehicle and stays as history. Edit the entry on vehicle {{vin}}.",
+  "phone_already_on_contact": "This phone number is already on this contact.",
+  "primary_unset_directly": "The primary mark cannot be removed directly. Mark another entry as primary instead.",
+  "vehicle_merge_in_progress": "This vehicle is being merged with another record right now. Please try again in a moment.",
+  "contact_group_unknown": "This contact group does not exist.",
+  "contact_group_not_enabled": "This contact group is not switched on in your business. The management switches it on under Administration › Contact groups.",
+  "contact_group_read_only": "This contact group is not switched on in your business and cannot be removed here.",
+  "contact_group_assignment_exists": "A contact group in this change is already on the contact — the contact changed in the meantime. Reload it and try again.",
+  "customer_role_required": "This field belongs to the customer role, which this contact does not hold. Give it the customer role first.",
+  "customer_role_not_permitted": "The customer role and its fields (status, advisor, credit block) are changed by sales and aftersales. Your role gives contacts the supplier role.",
+  "customer_role_credit_blocked": "The customer role cannot be removed while a credit block stands. Lift the block first.",
+  "contact_role_exists": "The contact already holds a role in this change — it changed in the meantime. Reload it and try again."
+}

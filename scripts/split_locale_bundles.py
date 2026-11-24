@@ -1,7 +1,7 @@
 """The SPA's UI-string bundles, one file per namespace and language (KAN-616).
 
 Layout: `frontend/apps/dms/src/i18n/locales/<language>/<namespace>.json` holds one top-level
-namespace of the bundle (`apiRefusal`, `customerDetail`, ...). A namespace larger than
+namespace of the bundle (`apiRefusal`, `contactDetail`, ...). A namespace larger than
 `MAX_FILE_BYTES` is split by its second level: `<namespace>.<key>.json` holds that one child
 object and `<namespace>.json` keeps the rest. `locales/<language>.ts` is generated: it imports
 every file of the language (typed, as JSON modules) and assembles the bundle i18next is given,

@@ -11,8 +11,8 @@ from decimal import Decimal
 
 from sqlalchemy import func, select
 
+from app.contact.models.vehicle_party import VehicleParty, VehiclePartyRole
 from app.core.auth import AccessRole, create_access_token
-from app.customer.models.vehicle_party import VehicleParty, VehiclePartyRole
 from app.platform.reference.models.reference_data import ReferenceList, ReferenceValue
 from app.vehicle.models.catalogue import Brand, ModelGroup, ModelVariant
 from app.vehicle.models.configuration import VehicleConfiguration
@@ -172,14 +172,14 @@ def test_each_detail_create_with_a_reused_key_and_another_body_is_a_409(client, 
 # --- POST /v1/vehicle-mdm/{id}/allocate ------------------------------------------
 
 
-def _customer(client, token: str) -> dict:
+def _contact(client, token: str) -> dict:
     body = {
         "firstName": "Anna",
         "lastName": "Muster",
         "language": "de",
         "emails": [{"emailType": "personal", "emailAddress": f"anna-{uuid.uuid4().hex[:8]}@example.ch"}],
     }
-    response = client.post("/v1/customers", json=body, headers=_headers(token))
+    response = client.post("/v1/contacts", json=body, headers=_headers(token))
     assert response.status_code == 201, response.text
     return response.json()
 
@@ -188,7 +188,7 @@ def _open_owners(db_session, vehicle_id: str) -> list[uuid.UUID]:
     db_session.expire_all()
     return list(
         db_session.scalars(
-            select(VehicleParty.customer_id).where(
+            select(VehicleParty.contact_id).where(
                 VehicleParty.vehicle_id == uuid.UUID(vehicle_id),
                 VehicleParty.role == VehiclePartyRole.OWNER,
                 VehicleParty.effective_to.is_(None),
@@ -198,38 +198,38 @@ def _open_owners(db_session, vehicle_id: str) -> list[uuid.UUID]:
 
 
 def test_a_retried_allocation_replays_instead_of_taking_the_vehicle_back(client, db_session):
-    """Allocating the same customer and role again is a no-op, so a retry
+    """Allocating the same contact and role again is a no-op, so a retry
     straight after the first would pass without the key. A retry after
-    another customer has become the owner shows it: run again, it would
+    another contact has become the owner shows it: run again, it would
     close B's ownership and make A the owner once more."""
 
     token = _setup(client)
-    first_owner = _customer(client, token)
-    next_owner = _customer(client, token)
+    first_owner = _contact(client, token)
+    next_owner = _contact(client, token)
     vehicle = _vehicle_mdm(client, token)
     path = f"/v1/vehicle-mdm/{vehicle['id']}/allocate"
     key = str(uuid.uuid4())
 
-    first = client.post(path, json={"customerId": first_owner["id"], "role": "owner"}, headers=_headers(token, key))
+    first = client.post(path, json={"contactId": first_owner["id"], "role": "owner"}, headers=_headers(token, key))
     assert first.status_code == 201, first.text
-    taken = client.post(path, json={"customerId": next_owner["id"], "role": "owner"}, headers=_headers(token))
+    taken = client.post(path, json={"contactId": next_owner["id"], "role": "owner"}, headers=_headers(token))
     assert taken.status_code == 201, taken.text
-    retry = client.post(path, json={"customerId": first_owner["id"], "role": "owner"}, headers=_headers(token, key))
+    retry = client.post(path, json={"contactId": first_owner["id"], "role": "owner"}, headers=_headers(token, key))
 
     assert retry.status_code == first.status_code
     assert retry.json() == first.json()
     assert _open_owners(db_session, vehicle["id"]) == [uuid.UUID(next_owner["id"])]
 
 
-def test_allocate_with_a_reused_key_and_another_customer_is_a_409(client, db_session):
+def test_allocate_with_a_reused_key_and_another_contact_is_a_409(client, db_session):
     token = _setup(client)
-    first_owner = _customer(client, token)
-    other = _customer(client, token)
+    first_owner = _contact(client, token)
+    other = _contact(client, token)
     vehicle = _vehicle_mdm(client, token)
     path = f"/v1/vehicle-mdm/{vehicle['id']}/allocate"
-    key, _ = _twice(client, path, token, {"customerId": first_owner["id"], "role": "owner"})
+    key, _ = _twice(client, path, token, {"contactId": first_owner["id"], "role": "owner"})
 
-    response = client.post(path, json={"customerId": other["id"], "role": "owner"}, headers=_headers(token, key))
+    response = client.post(path, json={"contactId": other["id"], "role": "owner"}, headers=_headers(token, key))
 
     _assert_key_conflict(response, key)
     assert _open_owners(db_session, vehicle["id"]) == [uuid.UUID(first_owner["id"])]
