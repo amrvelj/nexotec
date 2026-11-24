@@ -1343,8 +1343,9 @@ export interface paths {
         };
         /**
          * List Bindings
-         * @description The Betrieb's bindings, each with its latest drift check and the
-         *     departments its last push could not show at Google (KAN-226 PR-4).
+         * @description The Betrieb's bindings, each with its latest drift check, the
+         *     departments its last push could not show at Google (KAN-226 PR-4) and
+         *     its photos (KAN-821).
          */
         get: operations["list_bindings_v1_dealerships__dealership_id__business_profile_bindings_get"];
         put?: never;
@@ -6582,6 +6583,7 @@ export interface components {
             locationId: string;
             /** Locationlabel */
             locationLabel: string;
+            photos?: components["schemas"]["BusinessProfilePhotosRead"] | null;
             status: components["schemas"]["GbpBindingStatus"];
             /** Unmappeddepartments */
             unmappedDepartments?: string[];
@@ -6696,6 +6698,21 @@ export interface components {
         BusinessProfileLinkStartRead: {
             /** Authorizeurl */
             authorizeUrl: string;
+        };
+        /**
+         * BusinessProfilePhotosRead
+         * @description KAN-821: what the photo upload did with the location's imagery, from
+         *     Nexotec's own records (`gbp_photo_summary`), never read from Google.
+         */
+        BusinessProfilePhotosRead: {
+            /** Refused */
+            refused: number;
+            /** Stopped */
+            stopped: boolean;
+            /** Uploaded */
+            uploaded: number;
+            /** Waiting */
+            waiting: number;
         };
         /**
          * CalendarPeriod
