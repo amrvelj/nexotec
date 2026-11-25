@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeAll, describe, expect, it } from 'vitest'
-import { cleanup, screen, within } from '@testing-library/react'
+import { cleanup, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import i18n from '../../i18n'
 import { renderWithProviders } from '../../test/renderWithProviders'
@@ -136,12 +136,15 @@ describe('SettingRows (KAN-805)', () => {
     expect(history.queryByRole('button', { name: /wiederherstellen/ })).toBeNull()
   })
 
-  it('offers a choice that needs another setting only where that one is in force (KAN-806, check 49)', async () => {
+  // KAN-806 (check 49): one render and one opened editor per column. The write right comes from
+  // /auth/me, which answers after the table renders: a click before it opens no editor, so wait
+  // until the cell is editable (InlineEditField's pointer cursor).
+  const unitArea = (): AreaSettingsRead => {
     i18n.addResource('de', 'translation', 'settings.keys.testarea.unit.label', 'Einheit')
     i18n.addResource('de', 'translation', 'settings.keys.testarea.unit.options.hours', 'Stunden')
     i18n.addResource('de', 'translation', 'settings.keys.testarea.unit.options.work_units', 'Arbeitswerte')
     i18n.addResource('de', 'translation', 'settings.keys.testarea.per_hour.label', 'Pro Stunde')
-    const data: AreaSettingsRead = {
+    return {
       area: 'testarea',
       showsLocations: true,
       locations: [{ id: 'loc-a', name: 'Hauptsitz', isActive: true }],
@@ -164,24 +167,25 @@ describe('SettingRows (KAN-805)', () => {
         },
       ],
     }
-    render(data, ['testarea.unit', 'testarea.per_hour'])
+  }
+  const workUnitsOptionIn = async (column: number) => {
+    render(unitArea(), ['testarea.unit', 'testarea.per_hour'])
     const table = within(await screen.findByRole('table', { name: 'Einstellungen' }))
     const unitRow = table.getAllByRole('row').find((row) => row.querySelector('td')?.textContent === 'Einheit')!
-    const betrieb = Array.from(unitRow.querySelectorAll('td'))[1]
-    const option = async (cell: Element) => {
-      await userEvent.click(cell.querySelector('span[style]') as HTMLElement)
-      return screen.findByRole('option', { name: 'Arbeitswerte' })
-    }
-    // The Betrieb's column: no value per hour in force there — work units offered disabled.
-    expect(await option(betrieb)).toHaveAttribute('data-combobox-disabled', 'true')
-    await userEvent.keyboard('{Escape}')
-    cleanup()
-    render(data, ['testarea.unit', 'testarea.per_hour'])
-    const again = within(await screen.findByRole('table', { name: 'Einstellungen' }))
-    const row = again.getAllByRole('row').find((r) => r.querySelector('td')?.textContent === 'Einheit')!
-    const atLocation = Array.from(row.querySelectorAll('td'))[2]
-    // The location holds its own value per hour — work units can be chosen there.
-    expect(await option(atLocation)).not.toHaveAttribute('data-combobox-disabled')
+    const cell = Array.from(unitRow.querySelectorAll('td'))[column]
+    await waitFor(() => expect(cell.querySelector('span[style]')).toHaveStyle({ cursor: 'pointer' }))
+    await userEvent.click(cell.querySelector('span[style]') as HTMLElement)
+    return screen.findByRole('option', { name: 'Arbeitswerte' })
+  }
+
+  it('offers a choice that needs another setting disabled where that one is not in force (KAN-806, check 49)', async () => {
+    // The Betrieb's column: no value per hour in force there.
+    expect(await workUnitsOptionIn(1)).toHaveAttribute('data-combobox-disabled', 'true')
+  })
+
+  it('offers that choice where the other setting is in force at the location (KAN-806, check 49)', async () => {
+    // The location holds its own value per hour.
+    expect(await workUnitsOptionIn(2)).not.toHaveAttribute('data-combobox-disabled')
   })
 
   it('counts a required setting whose «not set» acts as a value as in force, as the API does (check 49)', async () => {
@@ -216,6 +220,7 @@ describe('SettingRows (KAN-805)', () => {
     const table = within(await screen.findByRole('table', { name: 'Einstellungen' }))
     const unitRow = table.getAllByRole('row').find((row) => row.querySelector('td')?.textContent === 'Einheit')!
     const betrieb = Array.from(unitRow.querySelectorAll('td'))[1]
+    await waitFor(() => expect(betrieb.querySelector('span[style]')).toHaveStyle({ cursor: 'pointer' }))
     await userEvent.click(betrieb.querySelector('span[style]') as HTMLElement)
     expect(await screen.findByRole('option', { name: 'Arbeitswerte' })).not.toHaveAttribute('data-combobox-disabled')
   })
