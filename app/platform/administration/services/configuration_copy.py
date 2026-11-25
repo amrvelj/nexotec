@@ -50,8 +50,9 @@ groups since KAN-466; FR-A-01's "role presets" has nothing behind it, D-A-03):
 
 Every item goes through its entity's own write path (validation, audit row,
 version), with the commit left to this service. The dry run runs the very
-same path and rolls the transaction back, so it lists exactly what the commit
-would create, overwrite or skip.
+same path inside one savepoint of the copy's own and rolls it back with the
+transaction (KAN-834), so it lists exactly what the commit would create,
+overwrite or skip, and writes nothing on any driver.
 """
 
 import enum
@@ -564,6 +565,12 @@ def copy_configuration(
     source = require_source(db, principal, target=target, source_id=source_id)
     report = CopyReport(source_dealership_id=source.id, source_legal_name=source.legal_name, dry_run=dry_run)
     try:
+        # KAN-834: every write sits inside one savepoint of the copy's own, and
+        # the dry run rolls back to it. The copiers' own savepoints are then
+        # never the outermost transaction, which a driver that opens its
+        # transaction only at the first write (pysqlite) would commit on their
+        # RELEASE, so the dry run's preview would be written after all.
+        outer = db.begin_nested()
         for subset in CopySubset:
             if subset in subsets:
                 _COPIERS[subset](db, source=source, target=target, actor_id=principal.user_id, report=report)
@@ -587,7 +594,9 @@ def copy_configuration(
         db.rollback()
         raise
     if dry_run:
+        outer.rollback()
         db.rollback()
     else:
+        outer.commit()
         db.commit()
     return report
