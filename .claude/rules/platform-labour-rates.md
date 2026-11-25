@@ -1,0 +1,43 @@
+---
+paths:
+  - "app/platform/organisation/models/labour_rate.py"
+  - "app/platform/organisation/services/labour_rate*.py"
+  - "app/platform/identity/**/user_labour_category.py"
+  - "app/platform/administration/*/labour_rates.py"
+  - "app/api/v1/labour_rate_agreements.py"
+  - "tests/platform/test_kan806_*.py"
+---
+<!-- Maintainer note. KAN-806 (2026-11-25); D-A-19 of the Dealer Administration PRD; Aftersales slice 1
+sections 5, 7 (checks 11, 12, 15, 49), 9 (rulings 177, 178, 183), 10; Anto's answers on KAN-806 of
+2026-11-25 (in use from the start date; agreements follow O16; no starting categories; the checklist item
+counts a rate still to come). Binding text: the slice page and the ADR in the Target Architecture. -->
+
+# Labour rates (KAN-806, D-A-19) — backend built; screen and checklist item to come (PR-2)
+
+- **Platform master data, not Aftersales'** (A-RULE-0): `labour_rate_category` (dealer-defined, a name
+  with optional translations, ruling 176; deactivated, never deleted), `labour_rate` (category × location
+  from a date), `labour_rate_agreement` (a contact's fixed rate for a category, Betrieb-wide, from a date;
+  an `end` row stops it; the contact is the three-column pattern), `user_labour_category` (identity: a
+  user who may act in the Betrieb, in several categories). No starting categories (Anto, 2026-11-25).
+- **Ruling 178 — written once.** No PUT/PATCH on a rate or an agreement (a test walks the routes). A new
+  price is a new row from today or later (`labour_rate_starts_in_the_past`); a row still to come may be
+  withdrawn (`withdrawn_at`, If-Match), one whose date has come is in use from its first day
+  (`labour_rate_in_use`). A withdrawn row is kept: a priced position's rate id never dangles.
+- **Ruling 177 — `entered` net or gross,** checked against O16 `labour_rates.rates_entered` at the rate's
+  location (an agreement: the Betrieb's own). Not set → 409 `labour_rates_entry_basis_not_set`; the client's
+  `entered` differs → 409 `labour_rate_entry_basis_changed` — never relabelled. Platform carries no net
+  amount (`test_net_line_only_where_ruled.py`): the other figure follows in Aftersales with `app.core.money.Price`.
+- **Ruling 183 — always per hour.** O18 `labour_rates.time_unit` (hours | work units, not set = hours) and
+  O19 `labour_rates.work_units_per_hour` (1–100, whole); work units need O19 (the store's `choice_requires`,
+  check 49). Read through `platform.public.labour_time_unit`.
+- **The question:** `platform.public.labour_rate_for(…, category_id, location_id, on, invoice_recipient_contact_id)`
+  — agreement in force first, else the category rate at the location, else `found=False` (`no_rate` /
+  `unknown_category`), never an error or a default; it names the source and the row. GET
+  `…/labour-rate-answer` shows it. `labour_categories_of_user` for «the rate from who did the work».
+- **API** (`administration/api/labour_rates.py`, matrix row `labour_rates`): every route 404s without the
+  `aftersales` module (a service-level check: router gates are the sales routers' alone). The agreement
+  POST lives at the composition root (`app/api/v1/labour_rate_agreements.py`, it reads the contact; listed in
+  `session_guard`'s administration prefixes). No outbox event (nothing consumes one). Reconciliation checks
+  the agreement's contact (exists, not merged, in the group) and the rate's location.
+- **Open:** a `contact.merged` re-point and a nightly label refresh of agreements (follow-up ticket); copying
+  categories from a sister Betrieb (KAN-220's subset).

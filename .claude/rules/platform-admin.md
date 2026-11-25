@@ -84,6 +84,10 @@ Decided rulings live in the PRD; built only where a bullet says so — check the
 ## Settings store (KAN-805, ADR-214, ADR-216) — store and API built
 Declarations, the read, history and restore, the API: `platform-settings.md`.
 
+## Labour rates (KAN-806, D-A-19) — backend built
+Categories, rates per location from a date, agreed rates, allocations, «which rate applies here»:
+`platform-labour-rates.md`.
+
 ## Business master data (D-A-22, D-A-25, D-A-27, FR-A-25) — built
 - `/administration/business` is the one screen for the Betrieb's own data: legal identity,
   addresses (with the Betrieb's `email` and `website`, KAN-206, for the documents' footer), address
