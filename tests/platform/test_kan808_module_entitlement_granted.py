@@ -109,7 +109,10 @@ def test_the_fact_lands_with_the_change_or_not_at_all(client, db_session):
     db_session.rollback()
 
     assert _granted(db_session, dealership_id) == []
-    assert db_session.scalars(select(ModuleEntitlement).where(ModuleEntitlement.dealership_id == dealership_id)).all() == []
+    assert (
+        db_session.scalars(select(ModuleEntitlement).where(ModuleEntitlement.dealership_id == dealership_id)).all()
+        == []
+    )
 
 
 def _granted_in(db, dealership_id) -> list[OutboxMessage]:
@@ -190,7 +193,7 @@ def test_the_dry_run_lists_the_holders_and_writes_nothing(client, db_session, ho
 
 
 def test_a_committed_run_states_the_fact_for_each_holder_under_one_correlation(client, db_session, holders):
-    holding, withdrawn, offboarded, sales_only = holders
+    holding, *_others = holders
     before = {m.id for m in _all_granted(db_session)}
 
     correlation_id, restated = restate.run(db_session, module=ModuleCode.AFTERSALES, commit=True)
