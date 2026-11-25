@@ -129,6 +129,6 @@
     "setup_checklist_item_missing": "Un point de la mise en service manque : « {{item}} ». Réglez-le dans Administration › Mise en service."
   },
   "settingItem": {
-    "description": "Ce réglage n'est pas encore défini, pour l'entreprise ou pour chaque site actif."
+    "description": "Le réglage a une valeur pour l'entreprise. La valeur d'un site ne la remplace pas."
   }
 }

@@ -129,6 +129,6 @@
     "setup_checklist_item_missing": "A setup item is missing: “{{item}}”. Complete it under Administration › Setup."
   },
   "settingItem": {
-    "description": "This setting is not set yet, for the business or for every active location."
+    "description": "The setting has a value for the business. A location's value does not replace it."
   }
 }

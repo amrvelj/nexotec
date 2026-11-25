@@ -129,6 +129,6 @@
     "setup_checklist_item_missing": "Ein Punkt der Einrichtung fehlt: «{{item}}». Erledigen Sie ihn in der Verwaltung › Einrichtung."
   },
   "settingItem": {
-    "description": "Diese Einstellung ist noch nicht gesetzt – für den Betrieb oder für jeden aktiven Standort."
+    "description": "Die Einstellung hat einen Wert für den Betrieb. Ein Wert eines Standorts ersetzt ihn nicht."
   }
 }

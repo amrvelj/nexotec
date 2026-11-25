@@ -129,6 +129,6 @@
     "setup_checklist_item_missing": "Manca un punto della configurazione: «{{item}}». Lo completi in Amministrazione › Configurazione."
   },
   "settingItem": {
-    "description": "Questa impostazione non è ancora definita, per l'azienda o per ogni sede attiva."
+    "description": "L'impostazione ha un valore per l'azienda. Il valore di una sede non lo sostituisce."
   }
 }
