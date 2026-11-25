@@ -24,7 +24,7 @@ Last verified against KAN-808 PR-1c, cut from main@f30e9d4 (2026-11-25). -->
   (a name unique at its location), with qualifications and weekly working hours (a second interval).
   API `api/resources.py` under `…/planning/`, router-level `aftersales` gate (T3), matrix row
   `planner_resources` (aftersales and the manager read, the manager writes), Dealer Administration
-  for the activation gate. Deactivating sets `is_active` and marks the bookings to come (PR-1c).
+  for the activation gate. Deactivating or moving a resource marks its bookings to come (PR-1c).
   Every table carries `tenant_id` (T7); user and location are the three-column pattern, validated
   through `platform.public` (T5). A type copied from a starting set (ADR-222, not copied yet) is a
   sample until changed or confirmed; the database refuses a rank or factor on one. A deactivated
@@ -44,7 +44,8 @@ Last verified against KAN-808 PR-1c, cut from main@f30e9d4 (2026-11-25). -->
   resources' location, `booking_rules.judge`, the write, the marks, the events, the commit; a refused
   write rolls its own transaction back. **O6** `planning.grid_minutes` (5–60 and a divisor of 60 —
   the store's `SettingDeclaration.divides`, 422 `setting_value_not_a_divisor`) binds work and slots,
-  never a block; **O7** `planning.slot_minutes` (5–480); both «not set» refuses (409
+  never a block; **O7** `planning.slot_minutes` (5–480, a multiple of O6 wherever both are in force —
+  the store's `multiple_of`, `platform-settings.md`); both «not set» refuses (409
   `planning_setting_not_set`), Aftersales checklist items (`services/planner_settings.py`).
 - **The rules (`services/booking_rules.py`):** refused 409 with `bookingIds` —
   `planning_car_at_another_workplace`, `planning_workplace_taken` (check 16: the same car at the same
@@ -54,13 +55,16 @@ Last verified against KAN-808 PR-1c, cut from main@f30e9d4 (2026-11-25). -->
   slot ends), `after_pick_up` (ending after R's pick-up slot starts), `resource_blocked` (Anto,
   2026-11-25: warned, never refused) — 422 `planning_warnings_unconfirmed` until `confirmed_warnings`
   holds every warning shown (`ConfirmedWarning`: code, resource, booking against — per warning, never
-  per code, so one appearing between the two calls refuses again); an overruled warning is a `planning_overruled_warning` row (code, resource, the
-  booking against, time booked, who with the name frozen, when) and an audit row `warning_overruled`.
+  per code, so one appearing between the two calls refuses again); an overruled warning is a
+  `planning_overruled_warning` row (code, resource, the booking against, time booked, who with the name
+  frozen, when) and an audit row `warning_overruled`.
 - **«Neu einplanen»** (`replan_cause`): a block marks what it newly hits (`blocked`), a booked or
   moved slot the work of R it newly leaves outside (`outside_drop_off_pick_up`), deactivating a
-  resource (`resources.change_resource`, under the booking lock after the master-data lock) its
-  bookings not yet ended (`resource_deactivated`). What was already in the wrong place — booked
-  knowingly — is not marked; a block is never marked; a move clears the mark.
+  resource or moving it to another location (`resources.change_resource`, under the booking lock after
+  the master-data lock) its bookings not yet ended (`resource_deactivated`, `resource_moved`; Anto,
+  2026-11-25). What was already in the wrong place — booked knowingly — is not marked; a marked
+  booking keeps its first cause; a block is never marked; a move clears the mark; a released block
+  leaves its marks; booking in the past is allowed (Anto, 2026-11-25). `services/booking_marks.py`.
 - **`planning.public`:** `book`, `move`, `release`, `block` (each commits its own transaction, ADR-047
   pattern B, and takes an idempotency key; a replay returns the booking as it now stands),
   `bookings_of_reference` (a read), `register_settings`, the frozen records (`BookingRecord`,

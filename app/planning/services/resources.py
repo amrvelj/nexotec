@@ -20,7 +20,8 @@ each at one location.
   holds bookings to come (Anto, 2026-11-25): each is marked «neu einplanen»
   with cause `resource_deactivated` and raises
   `planning.booking.marked_for_replanning`, under the Betrieb's booking lock
-  (ADR-221 (1); taken after the master-data lock).
+  (ADR-221 (1); taken after the master-data lock). Moving a resource to
+  another location marks them too, cause `resource_moved` (Anto, 2026-11-25).
 
 The caller checks the role and the Betrieb and commits. Every write is
 audited and takes the Betrieb's master-data lock first.
@@ -41,9 +42,10 @@ from app.core.base import utcnow
 from app.core.concurrency import check_version
 from app.core.errors import ConflictError, NotFoundError, UnprocessableEntityError
 from app.core.text_collation import TextSortKey
+from app.planning.models.booking import ReplanCause
 from app.planning.models.resource import Resource, ResourceKind, ResourceQualification
 from app.planning.services import lists
-from app.planning.services.booking_marks import mark_bookings_of_deactivated_resource
+from app.planning.services.booking_marks import mark_bookings_of_resource
 from app.planning.services.locks import lock_master_data
 from app.planning.services.platform_refs import location_label_for, person_label_for
 
@@ -343,7 +345,9 @@ def change_resource(
     now = utcnow()
 
     location_id = changes.get("location_id")
+    moved = False
     if location_id is not None and location_id != resource.location_id:
+        moved = True
         resource.location_label = location_label_for(db, dealership_id=dealership_id, location_id=location_id)
         resource.location_label_refreshed_at = now
         resource.location_id = location_id
@@ -399,8 +403,11 @@ def change_resource(
         before=before,
         after=after,
     )
-    if deactivated:
-        mark_bookings_of_deactivated_resource(
-            db, dealership_id=dealership_id, resource_id=resource.id, actor_id=actor_id
-        )
+    # A resource's bookings to come are marked «neu einplanen» (Anto, 2026-11-25):
+    # deactivated first — a booking marked by it is not marked again for the move.
+    for happened, cause in ((deactivated, ReplanCause.RESOURCE_DEACTIVATED), (moved, ReplanCause.RESOURCE_MOVED)):
+        if happened:
+            mark_bookings_of_resource(
+                db, dealership_id=dealership_id, resource_id=resource.id, cause=cause, actor_id=actor_id
+            )
     return resource

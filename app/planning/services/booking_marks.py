@@ -5,8 +5,9 @@ change left in the wrong place, and what stood there before a write.
   (cause `blocked`, the block named).
 - A booked or moved drop-off or pick-up slot marks R's work it newly leaves
   outside it (cause `outside_drop_off_pick_up`, the slot named).
-- Deactivating a resource marks its bookings not yet ended
-  (`resource_deactivated`, the resource named).
+- Deactivating a resource, or moving it to another location, marks its
+  bookings not yet ended (`resource_deactivated`, `resource_moved`; Anto,
+  2026-11-25), the resource named.
 
 What was already in the wrong place before the write — booked knowingly
 against a warning — is not marked again (`wrong_place` before, compared
@@ -149,15 +150,25 @@ def publish_marked(db: Session, marked: Sequence[Booking]) -> tuple[BookingRecor
     return records
 
 
-def mark_bookings_of_deactivated_resource(
-    db: Session, *, dealership_id: uuid.UUID, resource_id: uuid.UUID, actor_id: uuid.UUID | None
-) -> list[Booking]:
-    """Deactivating a resource is allowed while it holds bookings to come
-    (Anto, 2026-11-25): each booked, not yet ended booking that holds it —
-    not a block, and not one already marked — is marked «neu einplanen»
-    (cause `resource_deactivated`), with its event. Takes the booking lock;
-    the caller commits."""
+RESOURCE_CAUSES = (ReplanCause.RESOURCE_DEACTIVATED, ReplanCause.RESOURCE_MOVED)
 
+
+def mark_bookings_of_resource(
+    db: Session,
+    *,
+    dealership_id: uuid.UUID,
+    resource_id: uuid.UUID,
+    cause: ReplanCause,
+    actor_id: uuid.UUID | None,
+) -> list[Booking]:
+    """A resource deactivated, or moved to another location, while it holds
+    bookings to come — both allowed (Anto, 2026-11-25): each booked, not yet
+    ended booking that holds it — not a block, and not one already marked — is
+    marked «neu einplanen» with `cause`, the resource named, with its event.
+    Takes the booking lock; the caller commits."""
+
+    if cause not in RESOURCE_CAUSES:
+        raise ValueError(f"{cause!r} is no cause a resource's change gives")
     lock_bookings(db, dealership_id)
     now = utcnow()
     holding = db.scalars(
@@ -179,7 +190,7 @@ def mark_bookings_of_deactivated_resource(
         mark(
             db,
             booking,
-            cause=ReplanCause.RESOURCE_DEACTIVATED,
+            cause=cause,
             actor_id=actor_id,
             now=now,
             caused_by_resource_id=resource_id,

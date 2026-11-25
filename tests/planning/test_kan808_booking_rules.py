@@ -486,6 +486,60 @@ def test_deactivating_a_resource_marks_its_bookings_to_come(db_session, shop):
     assert details == {"reason": "planning_resource_inactive", "resourceIds": [str(shop.lift_1)]}
 
 
+def test_moving_a_resource_to_another_location_marks_its_bookings_to_come(db_session, shop):
+    """Anto, 2026-11-25: allowed, and each booking to come that holds the
+    resource is marked «neu einplanen», cause `resource_moved`, with its event."""
+
+    branch = Location(tenant_id=shop.dealership_id, code="WIN", name="Filiale Winterthur", is_active=True)
+    db_session.add(branch)
+    db_session.commit()
+    past_monday = dt.date(2026, 1, 5)
+    past = p.work(
+        db_session, shop, starts_at=p.at(9, day=past_monday), ends_at=p.at(10, day=past_monday),
+        resources=[shop.lift_1, shop.max],
+    )
+    coming = p.work(db_session, shop, starts_at=p.at(9), ends_at=p.at(10), resources=[shop.lift_1, shop.max])
+    elsewhere = p.work(db_session, shop, starts_at=p.at(9), ends_at=p.at(10), resources=[shop.lift_2])
+    person = resource_service.get_resource_or_404(db_session, dealership_id=shop.dealership_id, resource_id=shop.max)
+
+    resource_service.change_resource(
+        db_session, dealership_id=shop.dealership_id, resource_id=shop.max, expected_version=person.version,
+        actor_id=shop.actor_id, changes={"location_id": branch.id},
+    )
+    db_session.commit()
+
+    marked = db_session.get(Booking, coming.booking.id)
+    assert (marked.replan_cause, marked.replan_caused_by_resource_id, marked.version) == (
+        planning.ReplanCause.RESOURCE_MOVED, shop.max, 2,
+    )
+    assert db_session.get(Booking, past.booking.id).replan_cause is None
+    assert db_session.get(Booking, elsewhere.booking.id).replan_cause is None
+    (event,) = _events(db_session, "planning.booking.marked_for_replanning")
+    assert (event.aggregate_id, event.payload["replan"]["cause"], event.payload["replan"]["causedByResourceId"]) == (
+        coming.booking.id, "resource_moved", str(shop.max),
+    )
+    audit = db_session.scalars(
+        select(AuditEvent).where(AuditEvent.entity_id == coming.booking.id, AuditEvent.action == "marked_for_replanning")
+    ).all()
+    assert [row.after["replanCause"] for row in audit] == ["resource_moved"]
+
+
+def test_a_resource_deactivated_and_moved_at_once_marks_each_booking_once(db_session, shop):
+    branch = Location(tenant_id=shop.dealership_id, code="WIN", name="Filiale Winterthur", is_active=True)
+    db_session.add(branch)
+    db_session.commit()
+    coming = p.work(db_session, shop, starts_at=p.at(9), ends_at=p.at(10), resources=[shop.lift_1])
+    lift = resource_service.get_resource_or_404(db_session, dealership_id=shop.dealership_id, resource_id=shop.lift_1)
+    resource_service.change_resource(
+        db_session, dealership_id=shop.dealership_id, resource_id=shop.lift_1, expected_version=lift.version,
+        actor_id=shop.actor_id, changes={"location_id": branch.id, "is_active": False},
+    )
+    db_session.commit()
+    marked = db_session.get(Booking, coming.booking.id)
+    assert (marked.replan_cause, marked.version) == (planning.ReplanCause.RESOURCE_DEACTIVATED, 2)
+    assert len(_events(db_session, "planning.booking.marked_for_replanning")) == 1
+
+
 # --- move, versions, idempotency ------------------------------------------------------------
 
 

@@ -16,8 +16,9 @@ for a time.
   marked with a cause: a block over it (`blocked`, the block named), work left
   outside its drop-off or pick-up slot when a slot was booked or moved
   (`outside_drop_off_pick_up`, the slot named), or one of its resources
-  deactivated (`resource_deactivated`, the resource named). A move clears the
-  mark; a block is never marked.
+  deactivated (`resource_deactivated`) or moved to another location
+  (`resource_moved`), the resource named. A move clears the mark; a block is
+  never marked.
 - **Released**, never deleted: a released booking holds nothing and is kept.
 
 `planning_booking_resource` holds a booking's resources. `planning_overruled_warning`
@@ -64,6 +65,7 @@ class ReplanCause(enum.StrEnum):
     BLOCKED = "blocked"
     OUTSIDE_DROP_OFF_PICK_UP = "outside_drop_off_pick_up"
     RESOURCE_DEACTIVATED = "resource_deactivated"
+    RESOURCE_MOVED = "resource_moved"
 
 
 class WarningCode(enum.StrEnum):
@@ -122,7 +124,7 @@ class Booking(PrimaryKeyMixin, PlanningTenantMixin, VersionedMixin, TimestampMix
             "(kind <> 'block' AND status = 'booked' AND replan_since IS NOT NULL AND ("
             "(replan_cause IN ('blocked', 'outside_drop_off_pick_up') AND replan_caused_by_booking_id IS NOT NULL "
             "AND replan_caused_by_resource_id IS NULL) OR "
-            "(replan_cause = 'resource_deactivated' AND replan_caused_by_resource_id IS NOT NULL "
+            "(replan_cause IN ('resource_deactivated', 'resource_moved') AND replan_caused_by_resource_id IS NOT NULL "
             "AND replan_caused_by_booking_id IS NULL)))",
             name="ck_planning_booking_replan",
         ),
