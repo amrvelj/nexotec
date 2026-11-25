@@ -1,3 +1,23 @@
 {
-  "keys": {}
+  "keys": {
+    "labour_rates": {
+      "rates_entered": {
+        "label": "Stundenansätze erfasst",
+        "options": {
+          "net": "netto",
+          "gross": "inkl. MwSt."
+        }
+      },
+      "time_unit": {
+        "label": "Arbeitszeit in",
+        "options": {
+          "hours": "Stunden",
+          "work_units": "Arbeitswerten (AW)"
+        }
+      },
+      "work_units_per_hour": {
+        "label": "Arbeitswerte pro Stunde"
+      }
+    }
+  }
 }

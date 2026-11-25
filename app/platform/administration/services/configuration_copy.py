@@ -85,7 +85,10 @@ from app.platform.organisation.services import number_range as number_range_serv
 from app.platform.organisation.services import setting_store
 from app.platform.organisation.services.dealer_dealerships import dealer_dealerships_only
 from app.platform.organisation.services.entitlement import list_active_modules
-from app.platform.organisation.services.setting_declarations import SettingValueError, declared_settings
+from app.platform.organisation.services.setting_declarations import (
+    SettingValueError,
+    declared_settings_in_write_order,
+)
 
 SUMMARY_ACTION = "configuration_copied"
 _HEADER_FIELDS = ("header_note_de", "header_note_fr", "header_note_it", "header_note_en")
@@ -493,7 +496,9 @@ def _copy_settings(
     # Locked before the first read, as the other subsets lock their rows: a
     # colleague's change waits for the copy instead of failing it (409).
     setting_store.lock_settings(db, dealership_id=target.id)
-    for declaration in declared_settings():
+    # A key a choice requires first (KAN-806: O19 before O18 «work units»), so a pair
+    # the source holds whole is never refused half-way (setting_rules).
+    for declaration in declared_settings_in_write_order():
         if declaration.module is not None and declaration.module not in held:
             continue
         key = declaration.key

@@ -3,6 +3,9 @@ contract allows `app.<other-context>` to import `app.platform.public`, never
 `app.platform.models` / `app.platform.services` / `app.platform.api` directly.
 """
 
+from app.platform.administration.api.labour_rates import create_labour_rate_agreement
+from app.platform.administration.api.labour_rates import guard as labour_rates_guard
+from app.platform.administration.schemas.labour_rates import LabourRateAgreementCreate, LabourRateAgreementRead
 from app.platform.administration.services.data_export_tables import PlatformExporter
 from app.platform.administration.services.location_channel_facts import (
     ChannelOpeningHours,
@@ -86,6 +89,7 @@ from app.platform.identity.services.identity_refs import (
 from app.platform.identity.services.notification_catalogue import NotificationEventCode
 from app.platform.identity.services.notifications import NotificationSubject, UnknownNotificationEvent, notify
 from app.platform.identity.services.reconciliation_targets import user_is_deactivated, user_reference_check
+from app.platform.identity.services.user_labour_category import labour_categories_of_user
 from app.platform.identity.services.user_location import get_primary_location_id
 from app.platform.identity.services.user_preference import ui_language_of
 from app.platform.identity.services.user_reads import (
@@ -101,6 +105,17 @@ from app.platform.organisation.services.contact_group import ContactGroupCodes, 
 from app.platform.organisation.services.dealer_dealerships import is_platform_dealership
 from app.platform.organisation.services.dealership import get_dealership_default_correspondence_language
 from app.platform.organisation.services.group_read_dealerships import DealershipRef, list_group_read_dealerships
+from app.platform.organisation.services.labour_rate_answer import (
+    LabourRateAnswer,
+    LabourRateMissing,
+    LabourRateSource,
+    labour_rate_for,
+)
+from app.platform.organisation.services.labour_rate_settings import (
+    LABOUR_RATE_SETTINGS,
+    LabourTimeUnit,
+    labour_time_unit,
+)
 from app.platform.organisation.services.location import LocationLabel, get_location_labels
 from app.platform.organisation.services.number_range import allocate_number
 from app.platform.organisation.services.organisation_refs import (
@@ -127,6 +142,7 @@ from app.platform.organisation.services.setting_declarations import (
     SettingKind,
     TextValue,
     WhenNotSet,
+    check_declaration_references,
 )
 from app.platform.organisation.services.setting_declarations import register_setting as _register_setting
 from app.platform.organisation.services.setting_store import SettingRead, read_setting
@@ -221,6 +237,20 @@ from app.platform.reference.services.reference_data import get_active_reference_
 # that acts as (SettingRead, plain values). The key is a literal so
 # tests/architecture/test_setting_keys_declared_and_read.py can pair every read
 # with its declaration. A plain read; it writes nothing.
+# check_declaration_references runs after every area registered: a choice's
+# `choice_requires` (KAN-806, O18 «work units» needs O19) names a declared key.
+#
+# KAN-806 (D-A-19): labour rates. labour_rate_for answers «the rate for
+# category C at location L on day D for invoice recipient R»: an agreed rate
+# first, else the category rate, else found=False — an answer, never an error
+# or a default (LabourRateAnswer: the source, the row, the amount per hour as
+# typed and whether it was typed net or with VAT). labour_categories_of_user
+# gives the categories a user is allocated to; labour_time_unit gives O18/O19
+# (hours, or work units with how many make an hour). The composition root
+# registers the three settings (LABOUR_RATE_SETTINGS) with register_setting. Plain reads.
+# The composition root's agreement POST (app/api/v1/labour_rate_agreements.py)
+# calls labour_rates_guard, resolves the contact, then create_labour_rate_agreement
+# (LabourRateAgreementCreate in, LabourRateAgreementRead out; it commits).
 
 
 # The settings store's door for declarations (see the paragraph above).
@@ -239,6 +269,7 @@ def register_setting(declaration: SettingDeclaration) -> None:
 
 
 __all__ = [
+    "LABOUR_RATE_SETTINGS",
     "PLACEHOLDER_UNRESOLVED",
     "ActingUser",
     "Addressee",
@@ -259,6 +290,12 @@ __all__ = [
     "IssuedDocumentLink",
     "KeyValueBlock",
     "KeyValueRow",
+    "LabourRateAgreementCreate",
+    "LabourRateAgreementRead",
+    "LabourRateAnswer",
+    "LabourRateMissing",
+    "LabourRateSource",
+    "LabourTimeUnit",
     "LineItemsBlock",
     "LineStyle",
     "LinkedGrant",
@@ -297,9 +334,11 @@ __all__ = [
     "WhenNotSet",
     "actor_reference_checks",
     "allocate_number",
+    "check_declaration_references",
     "closed_days_until",
     "connected_account_states",
     "contact_group_codes",
+    "create_labour_rate_agreement",
     "dealer_group_reference_check",
     "dealership_exists",
     "dealership_group_of",
@@ -324,6 +363,10 @@ __all__ = [
     "get_user_display_labels",
     "is_platform_dealership",
     "issue_document_link",
+    "labour_categories_of_user",
+    "labour_rate_for",
+    "labour_rates_guard",
+    "labour_time_unit",
     "link_connected_account",
     "list_active_users_acting_in",
     "list_dealer_manager_emails",

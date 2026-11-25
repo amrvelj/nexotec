@@ -35,6 +35,7 @@ from app.main import app
 from app.platform.identity.models.auth_session import AuthSession
 from app.platform.identity.models.mfa import MfaPasskey, MfaTotp
 from app.platform.identity.models.notification import Notification, PushSubscription
+from app.platform.identity.models.user_labour_category import UserLabourCategory
 from app.platform.identity.models.user_preference import UserPreference
 from app.platform.organisation.models.contact_group import DealershipContactGroup
 from app.vehicle.models.vehicle_history import VehicleAccessory
@@ -86,6 +87,12 @@ POST_WITHOUT_IF_MATCH = {
     "default is demoted under the dealership row lock — a row the caller did not name, audited as its own update, "
     "so no If-Match applies to it (D-A-27; Anto's ruling 2026-10-24: the default is chosen explicitly and moves)",
     "/v1/dealerships/{dealership_id}/locations": _NEW_ROW,
+    # KAN-806: labour rates. A rate and an agreement are new rows (ruling 178: never an edit);
+    # the category's version does not move when a rate or a member is added.
+    "/v1/dealerships/{dealership_id}/labour-rate-categories": _NEW_ROW,
+    "/v1/dealerships/{dealership_id}/labour-rate-categories/{category_id}/rates": _NEW_ROW,
+    "/v1/dealerships/{dealership_id}/labour-rate-categories/{category_id}/members": _CHILD_ROW,
+    "/v1/dealerships/{dealership_id}/labour-rate-agreements": _NEW_ROW,
     "/v1/dealerships/{dealership_id}/locations/{location_id}/closures": "a new closure row (KAN-204), versioned "
     "itself; the location's version does not move",
     "/v1/dealerships/{dealership_id}/standard-texts/{category}": "a new standard-text row (KAN-208); with isDefault "
@@ -175,6 +182,11 @@ UNVERSIONED = {
     # KAN-216: the reader's own read/unread stamp on an inbox entry, idempotent.
     ("PATCH", "/v1/me/notifications/{notification_id}"): (Notification, "one's own read/unread stamp"),
     ("DELETE", "/v1/me/push-subscriptions/{subscription_id}"): (PushSubscription, "switching push off on one's device"),
+    # KAN-806: a user's allocation to a labour category exists or it does not.
+    ("DELETE", "/v1/dealerships/{dealership_id}/labour-rate-categories/{category_id}/members/{user_id}"): (
+        UserLabourCategory,
+        "a user's allocation to a labour category: the row exists or it does not",
+    ),
 }
 
 

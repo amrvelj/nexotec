@@ -158,6 +158,8 @@ _ADMINISTRATION_MODULE_PREFIXES = (
     "app.platform.",
     "app.integration.api.connections",
     "app.integration.api.providers",
+    # KAN-806: an agreed labour rate, composed at the root because it reads the contact.
+    "app.api.v1.labour_rate_agreements",
 )
 _ACCEPT_FIRST = "Accept the current Terms of Service and Data Processing Agreement first."
 # What a manager held by the legal hold may still reach (FR-A-39, Q1 A).

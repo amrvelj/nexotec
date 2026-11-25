@@ -8,6 +8,7 @@ from fastapi import APIRouter
 
 from app.api.v1.contact_vehicles import router as contact_vehicles_router
 from app.api.v1.dealer_groups import router as dealer_groups_router
+from app.api.v1.labour_rate_agreements import router as labour_rate_agreements_router
 from app.api.v1.vehicle_parties import allocation_router as vehicle_party_allocation_router
 from app.api.v1.vehicle_parties import holders_router as vehicle_party_holders_router
 from app.contact.api.contacts import router as contacts_router
@@ -27,6 +28,7 @@ from app.inventory.api.stock_items import router as stock_items_router
 from app.platform.administration.api.area_settings import router as area_settings_router
 from app.platform.administration.api.configuration_copy import router as configuration_copy_router
 from app.platform.administration.api.data_exports import router as data_exports_router
+from app.platform.administration.api.labour_rates import router as labour_rates_router
 from app.platform.administration.api.publishing_profile import router as publishing_profile_router
 from app.platform.administration.api.setup import router as setup_router
 from app.platform.administration.api.status_page import router as status_page_router
@@ -89,6 +91,8 @@ api_v1_router.include_router(configuration_copy_router)
 api_v1_router.include_router(area_settings_router)
 api_v1_router.include_router(standard_texts_router)
 api_v1_router.include_router(number_ranges_router)
+api_v1_router.include_router(labour_rates_router)
+api_v1_router.include_router(labour_rate_agreements_router)
 api_v1_router.include_router(contact_groups_router)
 api_v1_router.include_router(dealer_groups_router)
 api_v1_router.include_router(platform_recovery_router)

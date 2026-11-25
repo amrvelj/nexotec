@@ -1,3 +1,23 @@
 {
-  "keys": {}
+  "keys": {
+    "labour_rates": {
+      "rates_entered": {
+        "label": "Tariffe orarie inserite",
+        "options": {
+          "net": "al netto",
+          "gross": "IVA inclusa"
+        }
+      },
+      "time_unit": {
+        "label": "Tempo di lavoro in",
+        "options": {
+          "hours": "ore",
+          "work_units": "unità di lavoro (UL)"
+        }
+      },
+      "work_units_per_hour": {
+        "label": "Unità di lavoro all'ora"
+      }
+    }
+  }
 }

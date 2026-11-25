@@ -16,8 +16,9 @@ import datetime as dt
 from zoneinfo import ZoneInfo
 
 from sqlalchemy import ColumnElement, String, and_, cast, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, aliased
 
+from app.contact.public import contact_exists, contact_in_group, contact_is_merged, contact_reference_check
 from app.core.auth import AccessRole
 from app.core.base import utcnow
 from app.core.config import get_settings
@@ -36,6 +37,7 @@ from app.platform.identity.models.dealership_membership import DealershipMembers
 from app.platform.identity.models.standard_text_delegation import StandardTextDelegation
 from app.platform.identity.models.support_session import SupportSession
 from app.platform.identity.models.user import User
+from app.platform.identity.models.user_labour_category import UserLabourCategory
 from app.platform.identity.services.actor_reference import actor_reference_checks
 from app.platform.organisation.models.branding_asset import BrandingAsset
 from app.platform.organisation.models.contact_group import DealershipContactGroup
@@ -49,11 +51,14 @@ from app.platform.organisation.models.dealership import (
 from app.platform.organisation.models.dealership_bank_account import DealershipBankAccount
 from app.platform.organisation.models.dealership_settings import DealershipSettings
 from app.platform.organisation.models.holiday_calendar import Holiday, HolidayCalendar
+from app.platform.organisation.models.labour_rate import LabourRate, LabourRateAgreement, LabourRateCategory
 from app.platform.organisation.models.location_schedule import LocationClosure
 from app.platform.organisation.models.module_entitlement import ModuleEntitlement
 from app.platform.organisation.models.number_range import NumberRange
 from app.platform.organisation.models.publishing_profile import LocationLeadRouting, PublishingProfile
-from app.platform.organisation.models.setting_value import SettingValue, SettingValueChange
+from app.platform.organisation.models.setting_value import SettingState, SettingValue, SettingValueChange
+from app.platform.organisation.services.labour_rate_settings import TIME_UNIT_KEY, WORK_UNITS, WORK_UNITS_PER_HOUR_KEY
+from app.platform.organisation.services.reconciliation_targets import dealership_group_of
 from app.platform.reference.models.reference_data import ReferenceList, ReferenceValue
 from app.platform.reference.models.ui_translation import UiTranslation
 
@@ -98,6 +103,10 @@ ACTOR_TABLES = (
     DocumentLink,  # created_by / updated_by: the user whose send issued the link (KAN-217)
     SettingValue,  # created_by / updated_by: the manager who wrote the slot (KAN-805)
     SettingValueChange,  # created_by: who made the change (KAN-805)
+    LabourRateCategory,  # created_by / updated_by (KAN-806)
+    LabourRate,  # created_by / updated_by: who typed it, who withdrew it (KAN-806)
+    LabourRateAgreement,  # created_by / updated_by (KAN-806)
+    UserLabourCategory,  # created_by / updated_by: who allocated the user (KAN-806)
 )
 
 # KAN-412 (FR-AU-24, rule 10): a revoked grant's provider end is recorded by
@@ -172,6 +181,72 @@ def _platform_admin_homed_outside_the_platform_tenant() -> ColumnElement[bool]:
     )
 
 
+
+# KAN-806: an agreement whose contact was merged keeps the duplicate's id until the
+# follow-up re-points it; reported a day after the merged contact's last write.
+_AGREEMENT_MERGE_GRACE = dt.timedelta(days=1)
+
+
+def _agreement_names_a_merged_contact() -> ColumnElement[bool]:
+    return LabourRateAgreement.withdrawn_at.is_(None) & contact_is_merged(
+        LabourRateAgreement.contact_id, merged_before=utcnow() - _AGREEMENT_MERGE_GRACE
+    ).correlate(LabourRateAgreement)
+
+
+def _agreement_contact_outside_group() -> ColumnElement[bool]:
+    group = dealership_group_of(LabourRateAgreement.dealership_id, correlate=LabourRateAgreement)
+    named = contact_exists(LabourRateAgreement.contact_id).correlate(LabourRateAgreement)
+    return named & ~contact_in_group(LabourRateAgreement.contact_id, group).correlate(LabourRateAgreement)
+
+
+def _work_units_without_units_per_hour() -> ColumnElement[bool]:
+    """KAN-806 (check 49): an O18 slot on «work units» where no O19 is in
+    force — the slot's own location's, else the Betrieb's. Writes refuse it
+    (`setting_rules`), but a location deactivated while it relied on the
+    Betrieb's O19, which was then cleared, comes back so when reactivated;
+    `labour_time_unit` then answers hours. Only active locations count."""
+
+    per_hour = aliased(SettingValue)
+    own_location = (
+        select(per_hour.id)
+        .where(
+            per_hour.dealership_id == SettingValue.dealership_id,
+            per_hour.key == WORK_UNITS_PER_HOUR_KEY,
+            per_hour.state == SettingState.SET,
+            per_hour.location_id == SettingValue.location_id,
+        )
+        .exists()
+    )
+    betriebs = (
+        select(per_hour.id)
+        .where(
+            per_hour.dealership_id == SettingValue.dealership_id,
+            per_hour.key == WORK_UNITS_PER_HOUR_KEY,
+            per_hour.state == SettingState.SET,
+            per_hour.location_id.is_(None),
+        )
+        .exists()
+    )
+    location_active = select(Location.id).where(Location.id == SettingValue.location_id, Location.is_active.is_(True)).exists()
+    return (
+        (SettingValue.key == TIME_UNIT_KEY)
+        & (SettingValue.state == SettingState.SET)
+        & (SettingValue.value_choice == WORK_UNITS)
+        & (SettingValue.location_id.is_(None) | location_active)
+        & ~own_location.correlate(SettingValue)
+        & ~betriebs.correlate(SettingValue)
+    )
+
+
+def _rate_location_elsewhere() -> ColumnElement[bool]:
+    return (
+        select(Location.id)
+        .where(Location.id == LabourRate.location_id, Location.tenant_id != LabourRate.dealership_id)
+        .correlate(LabourRate)
+        .exists()
+    )
+
+
 CHECKS: list[ReferenceCheck | StateCheck] = [
     *actor_reference_checks(*ACTOR_TABLES),
     StateCheck(
@@ -203,6 +278,39 @@ CHECKS: list[ReferenceCheck | StateCheck] = [
         source_model=User,
         source_row_id_column=User.id,
         where=_platform_admin_homed_outside_the_platform_tenant,
+    ),
+    # KAN-806: an agreed labour rate names a contact, which contact owns (rule 2). It is
+    # read here only, through contact.public; a merge's re-point and the label refresh are
+    # a follow-up (the agreement keeps the label it was given until then).
+    contact_reference_check(
+        label="labour_rate_agreement.contact_id -> contact.id",
+        source_model=LabourRateAgreement,
+        source_row_id_column=LabourRateAgreement.id,
+        source_fk_column=LabourRateAgreement.contact_id,
+    ),
+    StateCheck(
+        label="labour_rate_agreement.contact_id names a merged contact",
+        source_model=LabourRateAgreement,
+        source_row_id_column=LabourRateAgreement.id,
+        where=_agreement_names_a_merged_contact,
+    ),
+    StateCheck(
+        label="labour_rate_agreement.contact_id names a contact outside the business's group",
+        source_model=LabourRateAgreement,
+        source_row_id_column=LabourRateAgreement.id,
+        where=_agreement_contact_outside_group,
+    ),
+    StateCheck(
+        label="setting_value labour_rates.time_unit on work units without work units per hour",
+        source_model=SettingValue,
+        source_row_id_column=SettingValue.id,
+        where=_work_units_without_units_per_hour,
+    ),
+    StateCheck(
+        label="labour_rate.location_id names another business's location",
+        source_model=LabourRate,
+        source_row_id_column=LabourRate.id,
+        where=_rate_location_elsewhere,
     ),
 ]
 
