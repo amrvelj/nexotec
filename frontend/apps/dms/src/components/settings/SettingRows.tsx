@@ -108,7 +108,7 @@ export function SettingRows({ dealershipId, data, keys, onReload }: SettingRowsP
               <Fragment key={declaration.key}>
                 <Table.Tr>
                   <Table.Td>
-                    <Stack gap={2}>
+                    <Stack gap={2} align="flex-start">
                       <Text size="sm" fw={500}>
                         {label}
                       </Text>
