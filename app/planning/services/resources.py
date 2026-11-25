@@ -15,8 +15,12 @@ each at one location.
   (422 `unknown_location`, `planning_location_inactive`); the user must work
   in the Betrieb when the person is created or reactivated (422
   `planning_person_not_in_dealership`). Each label is copied then (ADR-221 T5).
-- Deactivating sets `is_active` false and nothing else: the resource leaves
-  the planner and stays for every booking that names it.
+- Deactivating sets `is_active` false: the resource leaves the planner and
+  stays for every booking that names it. It is allowed while the resource
+  holds bookings to come (Anto, 2026-11-25): each is marked «neu einplanen»
+  with cause `resource_deactivated` and raises
+  `planning.booking.marked_for_replanning`, under the Betrieb's booking lock
+  (ADR-221 (1); taken after the master-data lock).
 
 The caller checks the role and the Betrieb and commits. Every write is
 audited and takes the Betrieb's master-data lock first.
@@ -39,6 +43,7 @@ from app.core.errors import ConflictError, NotFoundError, UnprocessableEntityErr
 from app.core.text_collation import TextSortKey
 from app.planning.models.resource import Resource, ResourceKind, ResourceQualification
 from app.planning.services import lists
+from app.planning.services.bookings import mark_bookings_of_deactivated_resource
 from app.planning.services.locks import lock_master_data
 from app.planning.services.platform_refs import location_label_for, person_label_for
 
@@ -359,7 +364,9 @@ def change_resource(
             resource.technician_type_id = changes["technician_type_id"]
         if changes.get("qualification_ids") is not None:
             held = _check_qualifications(db, dealership_id, changes["qualification_ids"])
+    deactivated = False
     if changes.get("is_active") is not None and changes["is_active"] != resource.is_active:
+        deactivated = not changes["is_active"]
         if changes["is_active"]:
             # Back in the planner only at an active location of the Betrieb (422
             # `planning_location_inactive`), and a person only while they still work here.
@@ -392,4 +399,8 @@ def change_resource(
         before=before,
         after=after,
     )
+    if deactivated:
+        mark_bookings_of_deactivated_resource(
+            db, dealership_id=dealership_id, resource_id=resource.id, actor_id=actor_id
+        )
     return resource

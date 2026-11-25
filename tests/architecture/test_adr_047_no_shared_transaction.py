@@ -382,6 +382,11 @@ _READS = {
     "app.platform.public.read_location_channel_image",
     # KAN-403: users' names for the nightly advisor-label refresh; a SELECT only.
     "app.platform.public.get_user_display_labels",
+    # KAN-808 (ADR-214): the planner reads O6/O7 — the location's slot, else the Betrieb's;
+    # a SELECT only. register_setting adds a declaration to platform's in-process registry
+    # at start-up (planning.public.register_settings, from app/setting_registry.py); no session.
+    "app.platform.public.read_setting",
+    "app.platform.public.register_setting",
     # KAN-410: the advisor picker — users homed in the Betrieb or members of it; a SELECT only.
     "app.platform.public.list_active_users_acting_in",
     "app.platform.public.list_dealer_manager_emails",

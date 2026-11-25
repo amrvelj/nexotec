@@ -80,6 +80,9 @@ class SettingDeclaration:
     minimum: Decimal | None = None
     maximum: Decimal | None = None
     decimals: int = 0
+    # A whole number that must divide this one without remainder (KAN-808, O6: the
+    # planner's grid is a divisor of 60, so every hour starts on it — Anto, 2026-11-25).
+    divides: Decimal | None = None
     # The unit a number is shown in (`minutes`, `per_hour` …), a translation key's last part.
     unit: str | None = None
     choices: tuple[str, ...] = ()
@@ -128,6 +131,14 @@ def _check(declaration: SettingDeclaration) -> None:
         raise SettingDeclarationError(f"Setting {key!r}: a number has 0 to 4 decimals.")
     if kind != SettingKind.NUMBER and declaration.decimals:
         raise SettingDeclarationError(f"Setting {key!r}: only a number declares its decimals.")
+    if declaration.divides is not None:
+        divides = declaration.divides
+        if kind != SettingKind.NUMBER or declaration.decimals:
+            raise SettingDeclarationError(f"Setting {key!r}: only a whole number divides another.")
+        if not divides.is_finite() or divides <= 0 or divides != divides.to_integral_value():
+            raise SettingDeclarationError(f"Setting {key!r}: what it divides is a whole number above zero.")
+        if declaration.minimum is None or declaration.minimum <= 0:
+            raise SettingDeclarationError(f"Setting {key!r}: a divisor needs a minimum above zero.")
     if declaration.checklist_blocks is not None and not declaration.checklist_item:
         raise SettingDeclarationError(f"Setting {key!r} blocks an action but is no checklist item.")
     for choice, required in declaration.choice_requires:
@@ -196,6 +207,13 @@ def validate_value(declaration: SettingDeclaration, value: object) -> bool | Dec
             raise SettingValueError(f"{key} is at least {declaration.minimum}.", reason="setting_value_below_minimum")
         if declaration.maximum is not None and value > declaration.maximum:
             raise SettingValueError(f"{key} is at most {declaration.maximum}.", reason="setting_value_above_maximum")
+        if declaration.divides is not None and declaration.divides % value != 0:
+            # The minimum above zero (`_check`) keeps the division defined.
+            raise SettingValueError(
+                f"{key} divides {declaration.divides} without remainder.",
+                reason="setting_value_not_a_divisor",
+                details={"divides": str(declaration.divides)},
+            )
         return value
     if kind == SettingKind.CHOICE:
         if value not in declaration.choices:

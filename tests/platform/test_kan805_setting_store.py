@@ -71,10 +71,13 @@ def _read(db, dealership_id, key, location_id=None):
 
 def test_the_shipped_app_declares_only_what_a_ticket_brought_with_its_reader():
     # KAN-806: the labour-rate settings O16, O18, O19 (labour_rate_settings.py reads them).
+    # KAN-808: the planner's grid O6 and slot length O7 (planning's planner_settings.py reads them).
     assert [d.key for d in declared_settings() if not d.key.startswith("testarea.")] == [
         "labour_rates.rates_entered",
         "labour_rates.time_unit",
         "labour_rates.work_units_per_hour",
+        "planning.grid_minutes",
+        "planning.slot_minutes",
     ]
 
 

@@ -146,13 +146,13 @@ def test_an_undeclared_read_and_an_unread_declaration_would_fail(monkeypatch):
         raise AssertionError("an undeclared read passed")
 
     unread = declarations.SettingDeclaration(
-        key="planning.grid_minutes", module=None, kind=s.WAIT.kind, when_not_set=s.WAIT.when_not_set
+        key="planning.unread_ghost", module=None, kind=s.WAIT.kind, when_not_set=s.WAIT.when_not_set
     )
     monkeypatch.setattr(sys.modules[__name__], "_app_sources", dict)
     with s.declared(unread):
         try:
             test_every_read_key_is_declared_and_every_declared_key_is_read()
         except AssertionError as failure:
-            assert "planning.grid_minutes" in str(failure)
+            assert "planning.unread_ghost" in str(failure)
         else:
             raise AssertionError("an unread declaration passed")

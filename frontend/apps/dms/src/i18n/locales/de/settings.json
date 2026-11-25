@@ -18,13 +18,23 @@
       "work_units_per_hour": {
         "label": "Arbeitswerte pro Stunde"
       }
+    },
+    "planning": {
+      "grid_minutes": {
+        "label": "Raster des Planers"
+      },
+      "slot_minutes": {
+        "label": "Dauer eines Annahme- oder Abholtermins"
+      }
     }
   },
   "areas": {
-    "labour_rates": "Stundensätze"
+    "labour_rates": "Stundensätze",
+    "planning": "Planer"
   },
   "units": {
-    "work_units_per_hour": "AW pro Stunde"
+    "work_units_per_hour": "AW pro Stunde",
+    "minutes": "Minuten"
   },
   "title": "Einstellungen",
   "subtitle": "Die Einstellungen der Bereiche, die dieser Betrieb nutzt. Jeder Wert gilt für den Betrieb und kann je Standort abweichen.",
