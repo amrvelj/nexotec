@@ -336,6 +336,16 @@ def _lock_dealership(db: Session, dealership_id: uuid.UUID) -> None:
     db.execute(text("SELECT pg_advisory_xact_lock(:key)"), {"key": int.from_bytes(digest[:8], "big", signed=True)})
 
 
+def lock_settings(db: Session, *, dealership_id: uuid.UUID) -> None:
+    """Holds the Betrieb's settings lock until the transaction ends, for a
+    caller that reads slots before it writes them (the configuration copy):
+    a colleague's change waits and then meets the moved version, instead of
+    slipping in between the read and the write. `change_setting` takes the
+    same lock again; it is reentrant."""
+
+    _lock_dealership(db, dealership_id)
+
+
 def change_setting(
     db: Session,
     *,

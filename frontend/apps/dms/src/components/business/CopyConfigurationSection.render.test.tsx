@@ -5,6 +5,7 @@ import userEvent from '@testing-library/user-event'
 import { renderWithProviders } from '../../test/renderWithProviders'
 import { installFakeBackend, ALL_ENTITLEMENTS, ALL_GATED_CAPABILITIES, type FakeRoute } from '../../test/fakeBackend'
 import { CopyConfigurationSection } from './CopyConfigurationSection'
+import i18n from '../../i18n'
 
 // KAN-220 — Business › «Konfiguration übernehmen von …»: only the active
 // Betrieb's manager sees it, and only with a sister Betrieb to copy from; the
@@ -74,17 +75,56 @@ describe('CopyConfigurationSection (KAN-220)', () => {
     expect(table.getByText('Wird überschrieben')).toBeInTheDocument()
     expect(table.getByText('Dieser Nummernkreis hat schon eine Nummer vergeben und ist gesperrt.')).toBeInTheDocument()
     const posts = () => backend.callsTo(/\/copy-configuration$/, 'POST')
-    expect(posts()[0].body).toEqual({ sourceDealershipId: 'dealership-2', subsets: ['standard_texts', 'document_template', 'contact_groups'], dryRun: true })
+    expect(posts()[0].body).toEqual({ sourceDealershipId: 'dealership-2', subsets: ['standard_texts', 'document_template', 'contact_groups', 'settings'], dryRun: true })
 
     await user.click(section.getByRole('button', { name: '2 Änderungen übernehmen' }))
     await waitFor(() => expect(posts()).toHaveLength(2))
-    expect(posts()[1].body).toEqual({ sourceDealershipId: 'dealership-2', subsets: ['standard_texts', 'document_template', 'contact_groups'], dryRun: false })
+    expect(posts()[1].body).toEqual({ sourceDealershipId: 'dealership-2', subsets: ['standard_texts', 'document_template', 'contact_groups', 'settings'], dryRun: false })
     expect(await section.findByText(/übernommen: 1 neu/)).toHaveTextContent(
       'Aus Garage Quelle AG übernommen: 1 neu, 1 überschrieben, 1 übersprungen.',
     )
     const done = within(await section.findByRole('table', { name: 'Was übernommen wird' }))
     expect(done.getByText('Überschrieben')).toBeInTheDocument()
     expect(done.queryByText('Wird überschrieben')).toBeNull()
+  })
+
+  it('lists a setting by its label, and a stale source value as skipped (KAN-805)', async () => {
+    i18n.addResource('de', 'translation', 'settings.keys.testarea.wait_minutes.label', 'Wartezeit')
+    i18n.addResource('de', 'translation', 'settings.keys.testarea.desk_note.label', 'Hinweis am Empfang')
+    installFakeBackend([
+      ME(true),
+      SOURCES,
+      {
+        method: 'POST',
+        match: /\/dealerships\/dealership-1\/copy-configuration$/,
+        handler: () => ({
+          sourceDealershipId: 'dealership-2',
+          sourceLegalName: 'Garage Quelle AG',
+          dryRun: true,
+          items: [
+            { subset: 'settings', key: 'testarea.desk_note', outcome: 'created', label: null, language: null, reason: null },
+            { subset: 'settings', key: 'testarea.wait_minutes', outcome: 'skipped', label: null, language: null, reason: 'setting_value_stale' },
+          ],
+          counts: { created: 1, overwritten: 0, unchanged: 0, skipped: 1 },
+        }),
+      },
+    ])
+    const user = userEvent.setup()
+    renderWithProviders(<CopyConfigurationSection dealershipId="dealership-1" />, { route: '/administration/business' })
+
+    const section = within(await screen.findByRole('region', { name: 'Konfiguration übernehmen von …' }))
+    expect(section.getByRole('checkbox', { name: (n) => n.startsWith('Einstellungen') })).toBeChecked()
+    await user.click(section.getByRole('textbox', { name: 'Betrieb, aus dem übernommen wird' }))
+    await user.click(await screen.findByRole('option', { name: 'Garage Quelle AG' }))
+    await user.click(section.getByRole('button', { name: 'Vorschau anzeigen' }))
+
+    const table = within(await section.findByRole('table', { name: 'Was übernommen wird' }))
+    expect(table.getByText('Hinweis am Empfang')).toBeInTheDocument()
+    expect(table.getByText('Wartezeit')).toBeInTheDocument()
+    expect(
+      table.getByText('Der Wert passt nicht mehr zu dieser Einstellung und gilt dort als nicht gesetzt.'),
+    ).toBeInTheDocument()
+    expect(table.getAllByText('Einstellungen')).toHaveLength(2)
   })
 
   it('is absent for a user who is not the active Betrieb’s manager', async () => {
