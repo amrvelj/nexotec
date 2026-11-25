@@ -51,8 +51,11 @@ export function SettingRows({ dealershipId, data, keys, onReload }: SettingRowsP
     : data.settings
   // A location's column: active ones, and a deactivated one still holding a
   // value of its own (read-only — the API refuses writes to it).
+  // As the API's `showsLocations` counts: a value in force, or a stored one that no longer fits.
   const holdsValue = (locationId: string) =>
-    data.settings.some((setting) => setting.locations.some((slot) => slot.locationId === locationId))
+    data.settings.some((setting) =>
+      setting.locations.some((slot) => slot.locationId === locationId && (slot.isSet || !slot.fitsDeclaration)),
+    )
   const locations = data.showsLocations
     ? data.locations.filter((location) => location.isActive || holdsValue(location.id))
     : []
@@ -92,8 +95,14 @@ export function SettingRows({ dealershipId, data, keys, onReload }: SettingRowsP
             const label = settingLabel(t, declaration.key)
             const historyOpen = openHistory === declaration.key
             const scopes: HistoryScope[] = [
-              { locationId: null, name: t('settings.columns.dealership'), slot: setting.dealership },
-              ...locations.map((location) => ({ locationId: location.id, name: location.name, slot: slotAt(setting, location.id) })),
+              { locationId: null, name: t('settings.columns.dealership'), slot: setting.dealership, writable: true },
+              ...locations.map((location) => ({
+                locationId: location.id,
+                name: location.name,
+                slot: slotAt(setting, location.id),
+                // A deactivated location's settings are not changed (the API's 409).
+                writable: location.isActive,
+              })),
             ]
             return (
               <Fragment key={declaration.key}>
@@ -128,7 +137,7 @@ export function SettingRows({ dealershipId, data, keys, onReload }: SettingRowsP
                       />
                     </Table.Td>
                   ))}
-                  <Table.Td style={{ width: 48 }}>
+                  <Table.Td>
                     <Tooltip label={t('settings.history.title')} withArrow>
                       <ActionIcon
                         variant={historyOpen ? 'light' : 'subtle'}

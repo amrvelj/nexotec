@@ -15,6 +15,8 @@ export interface HistoryScope {
   locationId: string | null
   name: string
   slot: SettingSlotRead
+  /** False for a deactivated location: its history is read, nothing restored. */
+  writable: boolean
 }
 
 const ORIGINS = new Set(['edit', 'restore', 'copy'])
@@ -89,6 +91,12 @@ function ScopeHistory({
   const shown = (isSet: boolean, value: SettingChangeRead['value']) =>
     isSet && value ? formatSettingValue(t, i18n.language, declaration, value) : t('settings.notSet.label')
 
+  // Restoring the value in force changes nothing (the store records no entry
+  // for it), so it is not offered — every restore offered adds an entry.
+  const sameAsNow = (change: SettingChangeRead) =>
+    change.isSet === scope.slot.isSet &&
+    JSON.stringify(change.isSet ? change.value : null) === JSON.stringify(scope.slot.isSet ? scope.slot.value : null)
+
   const restore = async (change: SettingChangeRead) => {
     setRestoring(change.id)
     setError(null)
@@ -159,7 +167,7 @@ function ScopeHistory({
               <Text size="sm">
                 {shown(change.isSetBefore ?? false, change.valueBefore ?? null)} → {shown(change.isSet, change.value)}
               </Text>
-              {canWrite && !current && (
+              {canWrite && scope.writable && !current && !sameAsNow(change) && (
                 <Button
                   variant="subtle"
                   size="xs"

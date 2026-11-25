@@ -55,6 +55,7 @@ export function SettingCell({ declaration, slot, inherited, locationName, canWri
           ? t('settings.notSet.refuses')
           : null
       : null
+  const initialDraft = toDraft(declaration, slot.isSet ? slot.value : null)
   const stale = !slot.fitsDeclaration ? (
     <Badge tone="warning">{t('settings.stale')}</Badge>
   ) : null
@@ -87,17 +88,20 @@ export function SettingCell({ declaration, slot, inherited, locationName, canWri
         value={own ?? ''}
         isEmpty={own === null}
         emptyLabel={emptyLabel}
-        editValue={toDraft(declaration, slot.isSet ? slot.value : null)}
+        editValue={initialDraft}
         describeError={describeError}
         isConflict={isStaleVersion}
         onReload={onReload}
         reloadLabel={reloadLabel}
         renderEditor={editorFor(declaration, {
           t,
+          placeholder: emptyLabel,
           ariaLabel: `${label} · ${ariaScope}`,
           clearLabel: isLocation ? t('settings.clear.location') : t('settings.clear.dealership'),
         })}
-        onSave={(raw) => onSave(fromDraft(declaration, raw), slot.version)}
+        // A click and blur with nothing typed writes nothing — above all not a
+        // clear of a stored value that no longer fits (its draft is empty).
+        onSave={(raw) => (raw === initialDraft ? Promise.resolve() : onSave(fromDraft(declaration, raw), slot.version))}
       />
     )
   }
@@ -117,7 +121,12 @@ export function SettingCell({ declaration, slot, inherited, locationName, canWri
 
 function editorFor(
   declaration: SettingDeclarationRead,
-  { t, ariaLabel, clearLabel }: { t: (key: string) => string; ariaLabel: string; clearLabel: string },
+  {
+    t,
+    placeholder,
+    ariaLabel,
+    clearLabel,
+  }: { t: (key: string) => string; placeholder: string; ariaLabel: string; clearLabel: string },
 ): ((editor: EditorRenderProps) => React.ReactNode) | undefined {
   const kind = declaration.kind as SettingKind
   if (kind === 'amount') return chfInlineEditor({ 'aria-label': ariaLabel })
@@ -134,6 +143,7 @@ function editorFor(
         <Select
           size="xs"
           aria-label={ariaLabel}
+          placeholder={placeholder}
           data={[...options, { value: CLEAR, label: clearLabel }]}
           value={value === '' ? null : value}
           autoFocus
@@ -154,6 +164,7 @@ function editorFor(
         <NumberInput
           size="xs"
           aria-label={settingNumberLabel}
+          placeholder={placeholder}
           value={value}
           autoFocus
           decimalScale={declaration.decimals}

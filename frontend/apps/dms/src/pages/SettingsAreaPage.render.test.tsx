@@ -66,6 +66,7 @@ const UNIT = declaration({
   choices: ['hours', 'work_units'],
 })
 const FEE = declaration({ key: 'testarea.small_parts_fee', kind: 'amount' })
+const SURCHARGE = declaration({ key: 'testarea.surcharge', kind: 'amount' })
 const NOTE = declaration({ key: 'testarea.desk_note', module: null, kind: 'text' })
 
 const AREA: AreaSettingsRead = {
@@ -82,8 +83,13 @@ const AREA: AreaSettingsRead = {
       locations: [slot({ locationId: 'loc-nord', isSet: true, value: { number: '30' }, version: 1 })],
     },
     { declaration: SWITCH, dealership: slot(), locations: [] },
-    { declaration: UNIT, dealership: slot(), locations: [] },
+    {
+      declaration: UNIT,
+      dealership: slot(),
+      locations: [slot({ locationId: 'loc-nord', isSet: true, value: { choice: 'work_units' }, version: 3 })],
+    },
     { declaration: FEE, dealership: slot({ version: 2, fitsDeclaration: false }), locations: [] },
+    { declaration: SURCHARGE, dealership: slot({ isSet: true, value: { number: '12.50' }, version: 5 }), locations: [] },
     { declaration: NOTE, dealership: slot({ isSet: true, value: { text: { name: 'Bitte klingeln', translations: {} } }, version: 3 }), locations: [] },
   ],
 }
@@ -116,6 +122,7 @@ beforeAll(() => {
   add('keys.testarea.time_unit.options.work_units', 'Arbeitswerte')
   add('keys.testarea.small_parts_fee.label', 'Kleinteilepauschale')
   add('keys.testarea.desk_note.label', 'Hinweis am Empfang')
+  add('keys.testarea.surcharge.label', 'Zuschlag')
 })
 
 afterEach(() => cleanup())
@@ -196,12 +203,13 @@ describe('SettingsAreaPage (KAN-805)', () => {
     ])
     const user = userEvent.setup()
     const unit = await rowOf('Zeiteinheit')
-    await user.click(unit.getAllByText('Vom Betrieb: Nicht gesetzt')[1])
+    expect(unit.getByText('Vom Betrieb: Nicht gesetzt')).toBeInTheDocument() // Hauptsitz inherits
+    await user.click(unit.getByText('Arbeitswerte')) // Nord's own, version 3 (the Betrieb's slot is at 0)
     await user.click(await screen.findByRole('option', { name: 'Wert des Betriebs übernehmen' }))
     await waitFor(() => expect(backend.callsTo(/time_unit\/locations\/loc-nord$/, 'PUT')).toHaveLength(1))
     const call = backend.callsTo(/time_unit\/locations\/loc-nord$/, 'PUT')[0]
     expect(call.body).toEqual({ value: null })
-    expect(call.headers.get('If-Match')).toBe('0')
+    expect(call.headers.get('If-Match')).toBe('3')
   })
 
   it('a text is edited in a dialog: the name, and a translation only where one is given', async () => {
@@ -237,6 +245,7 @@ describe('SettingsAreaPage (KAN-805)', () => {
           items: [
             change({ id: 'c-2', value: { number: '15' }, versionAfter: 2, createdBy: 'user-1', createdByName: 'Anna Muster', isSetBefore: true, valueBefore: { number: '10' } }),
             change({ id: 'c-1', value: { number: '10' }, versionAfter: 1 }),
+            change({ id: 'c-0', value: { number: '15' }, versionAfter: 0 }),
           ],
           nextCursor: null,
         }),
@@ -256,11 +265,68 @@ describe('SettingsAreaPage (KAN-805)', () => {
     expect(within(entries[0]).getByText('Aktuell')).toBeInTheDocument()
     expect(within(entries[1]).getByText('Beat Keller')).toBeInTheDocument()
     expect(within(entries[1]).getByText('Nicht gesetzt → 10 Minuten')).toBeInTheDocument()
-    // The current value is not offered for restore; an earlier one is.
+    // The current value is not offered for restore, nor an earlier entry
+    // holding the same value (it would add nothing); a different one is.
     expect(within(entries[0]).queryByRole('button', { name: /wiederherstellen/ })).toBeNull()
+    expect(within(entries[2]).queryByRole('button', { name: /wiederherstellen/ })).toBeNull()
     await user.click(within(entries[1]).getByRole('button', { name: '«10 Minuten» wiederherstellen' }))
     await waitFor(() => expect(backend.callsTo(/setting-changes\/c-1\/restore$/, 'POST')).toHaveLength(1))
     expect(backend.callsTo(/setting-changes\/c-1\/restore$/, 'POST')[0].headers.get('If-Match')).toBe('1')
+  })
+
+  it('a location’s history restores under that location’s own version', async () => {
+    const backend = renderArea([
+      {
+        method: 'GET',
+        match: /\/setting-values\/testarea\.time_unit\/history/,
+        handler: (req) =>
+          req.params.get('locationId') === 'loc-nord'
+            ? {
+                items: [
+                  change({ id: 'n-2', key: UNIT.key, locationId: 'loc-nord', value: { choice: 'work_units' }, versionAfter: 3 }),
+                  change({ id: 'n-1', key: UNIT.key, locationId: 'loc-nord', value: { choice: 'hours' }, versionAfter: 2 }),
+                ],
+                nextCursor: null,
+              }
+            : { items: [], nextCursor: null },
+      },
+      { method: 'POST', match: /\/setting-changes\/n-1\/restore$/, handler: () => slot({ locationId: 'loc-nord', version: 4 }) },
+    ])
+    const user = userEvent.setup()
+    await user.click(await screen.findByRole('button', { name: 'Verlauf: Zeiteinheit' }))
+    expect(await screen.findByText('Noch keine Änderung')).toBeInTheDocument() // the Betrieb's own slot
+    await user.click(screen.getByRole('radio', { name: 'Nord' }))
+    const history = within(await screen.findByRole('list', { name: 'Verlauf' }))
+    await user.click(history.getByRole('button', { name: '«Stunden» wiederherstellen' }))
+    await waitFor(() => expect(backend.callsTo(/setting-changes\/n-1\/restore$/, 'POST')).toHaveLength(1))
+    expect(backend.callsTo(/setting-changes\/n-1\/restore$/, 'POST')[0].headers.get('If-Match')).toBe('3')
+  })
+
+  it('an amount is typed through the kit’s CHF editor', async () => {
+    const backend = renderArea([
+      { method: 'PUT', match: /\/setting-values\/testarea\.surcharge$/, handler: () => slot({ isSet: true, value: { number: '15' }, version: 6 }) },
+    ])
+    const user = userEvent.setup()
+    const surcharge = await rowOf('Zuschlag')
+    await user.click(surcharge.getByText("CHF 12.50"))
+    const input = await screen.findByRole('textbox', { name: 'Zuschlag · Betrieb' })
+    expect(input).toHaveValue("CHF 12.5") // the kit's editor drops the fixed decimals while editing
+    await user.clear(input)
+    await user.type(input, '15{Enter}')
+    await waitFor(() => expect(backend.callsTo(/surcharge$/, 'PUT')).toHaveLength(1))
+    expect(backend.callsTo(/surcharge$/, 'PUT')[0].body).toEqual({ value: { number: '15' } })
+  })
+
+  it('a click and blur on a value that no longer fits writes nothing', async () => {
+    const backend = renderArea([])
+    const user = userEvent.setup()
+    const fee = await rowOf('Kleinteilepauschale')
+    await user.click(fee.getByText('Nicht gesetzt'))
+    await screen.findByRole('textbox', { name: 'Kleinteilepauschale · Betrieb' })
+    await user.click(document.body)
+    await user.keyboard('{Tab}')
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    expect(backend.callsTo(/small_parts_fee/, 'PUT')).toHaveLength(0)
   })
 
   it('every other role reads the values and the history, and changes nothing', async () => {

@@ -5,11 +5,16 @@ after; a restore adds an entry»). Plus PR-2's review leftover: too many
 decimals is refused as such, not as «not a number»."""
 
 import uuid
+from decimal import Decimal
 
 import pytest
 
 from app.platform.organisation.services import setting_store as store
 from tests import setting_store_support as samples
+from tests import setup_checklist_support as s
+from tests.identity_support import create_dealership
+from tests.membership_support import create_dealership as create_sister
+from tests.membership_support import grant
 from tests.platform.test_kan805_area_settings_api import _base, _betrieb, _put
 
 KEY = samples.WAIT.key
@@ -70,7 +75,7 @@ def test_a_restore_is_an_entry_with_its_own_before_and_after(client, db_session,
 def test_the_history_names_who_changed_it_and_every_role_reads_it(client, db_session, declared):
     dealership_id, boss, clerk = _betrieb(client, db_session)
     assert _put(client, boss, dealership_id, KEY, {"number": "10"}, 0).status_code == 200
-    # A user this Betrieb does not know (platform staff, another Betrieb's user).
+    # An id no user of this Betrieb has (see the next test for a real stranger).
     store.change_setting(
         db_session, dealership_id=dealership_id, location_id=None, key=KEY, value=store.NOT_SET,
         expected_version=1, actor_id=uuid.uuid4(),
@@ -81,6 +86,35 @@ def test_the_history_names_who_changed_it_and_every_role_reads_it(client, db_ses
     me = client.get("/v1/auth/me", headers=boss).json()["user"]
     assert items[0]["createdByName"] is None
     assert items[1]["createdByName"] == f"{me['firstName']} {me['lastName']}"
+
+
+def _write_as(db_session, dealership_id, actor_id, value, version):
+    store.change_setting(
+        db_session, dealership_id=dealership_id, location_id=None, key=KEY, value=value,
+        expected_version=version, actor_id=actor_id,
+    )
+    db_session.commit()
+
+
+def test_a_name_is_given_only_for_a_user_the_betrieb_knows(client, db_session, declared):
+    """Another Betrieb's user stays unnamed, even with a change row naming
+    them; a sister's user holding a membership here is named."""
+
+    dealership_id, boss, _ = _betrieb(client, db_session)
+    other = uuid.UUID(create_dealership(client))
+    stranger = s.manager(client, db_session, other)
+    sister = uuid.UUID(create_sister(client, "Garage Schwester AG", group_of=str(dealership_id)))
+    member = s.manager(client, db_session, sister)
+    granted = grant(client, str(sister), member, str(dealership_id), is_dealer_manager=True)
+    assert granted.status_code == 201, granted.text
+
+    _write_as(db_session, dealership_id, uuid.UUID(stranger["id"]), Decimal(10), 0)
+    _write_as(db_session, dealership_id, uuid.UUID(member["id"]), Decimal(20), 1)
+    items = _history(client, boss, dealership_id)["items"]
+    assert [(item["createdBy"], item["createdByName"]) for item in items] == [
+        (member["id"], f"{member['firstName']} {member['lastName']}"),
+        (stranger["id"], None),
+    ]
 
 
 def test_too_many_decimals_is_refused_as_such(client, db_session, declared):

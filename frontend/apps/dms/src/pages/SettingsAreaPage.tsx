@@ -15,9 +15,10 @@ import { useSettingArea } from '../components/settings/useSettings'
  * reads; the manager writes (`dealership_settings`).
  */
 export function SettingsAreaPage() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const { area = '' } = useParams()
-  const title = t(`settings.areas.${area}`)
+  // An area no bundle names (an unknown path) is titled «Einstellungen», never by a missing key.
+  const title = i18n.exists(`settings.areas.${area}`) ? t(`settings.areas.${area}`) : t('settings.title')
   useSetBreadcrumb([t('shell.nav.administration'), { label: t('settings.title'), href: '/administration/settings' }, title])
   const { activeDealership } = useAuth()
   const dealershipId = activeDealership?.id ?? ''

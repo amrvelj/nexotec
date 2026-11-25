@@ -38,7 +38,8 @@ const NOT_MONEY_LABELS = new Set([
   "t('publishing.fields.financingNominalRatePct')", // a percentage (KAN-225)
   "t('publishing.fields.financingEffectiveRatePct')", // a percentage (KAN-225)
   // The settings screen's `number` kind (KAN-805: minutes, a count, a factor);
-  // its `amount` kind renders `chfInlineEditor` — pinned in the last test below.
+  // its `amount` kind renders `chfInlineEditor` — SettingCell is on the CHF
+  // file list below, and its render test types an amount through it.
   'settingNumberLabel',
   // PriceBuildUp: the discount value as a percentage (or disabled with no
   // discount type); an amount discount renders a ChfInput instead — the label
