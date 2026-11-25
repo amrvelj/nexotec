@@ -5,19 +5,16 @@ its API and its events in one breaking change. These guards keep it whole:
 
 - the API: no path, parameter, schema or field names «customer». Enum values
   may, but only the ones listed below, each with its reason;
-- the events: no code in `app/` names a `customer.*` event except the old
-  names kept until PR-5 (and the `{{customer.salutation}}` placeholder Anto
-  kept). Every consumer of an old name has its twin on the new name, with the
-  same handler — so an event published under the new name reaches everyone
-  the old one did;
+- the events: no code in `app/` names a `customer.*` event except the
+  reconciliation's old-name map (it reports an old-name row still in flight)
+  and the `{{customer.salutation}}` placeholder Anto kept. No consumer
+  subscribes to an old name or carries one in its name (KAN-464 PR-5 retired
+  `sales.`/`inventory.customer_merged`);
 - every renamed event the contact context publishes is in the
-  reconciliation's old-name map, and the old-name consumers are exactly the
-  ones that map's names still feed.
+  reconciliation's old-name map.
 
 The SPA's half (translated strings, routes) is
-`frontend/apps/dms/src/architecture/no-customer-wording.test.ts`. KAN-464 PR-5
-removes the old event names; that change empties `OLD_NAME_CONSUMERS` and the
-reconciliation's entries below.
+`frontend/apps/dms/src/architecture/no-customer-wording.test.ts`.
 """
 
 from __future__ import annotations
@@ -44,18 +41,12 @@ ALLOWED_ENUM_VALUES = {
     ("StandardTextAppliesTo", "customer_note"): "a stored standard-text type code, not the register",
 }
 
-# (event type, consumer name) — the old-name subscriptions kept until PR-5.
-OLD_NAME_CONSUMERS = frozenset(
-    {
-        ("customer.merged", "sales.customer_merged"),
-        ("customer.merged", "inventory.customer_merged"),
-    }
-)
+# (event type, consumer name) — the old-name subscriptions: none since KAN-464 PR-5.
+OLD_NAME_CONSUMERS: frozenset[tuple[str, str]] = frozenset()
 
 # (file relative to app/, value) — `customer.*` string constants that may stay.
 ALLOWED_OLD_EVENT_LITERALS = frozenset(
     {
-        ("worker.py", "customer.merged"),  # the two subscriptions above
         *(("contact/reconciliation.py", old) for old in _BEFORE_THE_RENAME.values()),
         # Anto kept the placeholder's name (KAN-464 PR-3).
         ("platform/documents/services/standard_text_placeholders.py", "customer.salutation"),

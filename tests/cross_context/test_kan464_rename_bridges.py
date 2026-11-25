@@ -5,12 +5,11 @@ contacts across the rename — each proven by a run, not by reading.
   an event the old name processed is never processed again under the new one.
 - The platform migration moves `ui_translation` rows with their keys (a
   platform edit keeps applying) and the stored grid layouts and saved views.
-- The contact reconciliation reports an event published under its old name
-  still pending or dead (KAN-464 PR-5's precondition for retiring the names).
-- Every consumer reading a renamed payload key still reads an event published
-  before the rename (the two `customer.merged` consumers kept under their
-  old names, `sales.customer_merged` and `inventory.customer_merged`, are
-  proven in test_consumer_redelivery_idempotency.py).
+- The contact reconciliation reports an event published under its old name,
+  or a Stock or Sales fact naming the contact by its old key, still pending
+  or dead.
+- KAN-464 PR-5 retired the old names and keys: no consumer reads an old key
+  any more, so such an event is refused or does nothing, never half-read.
 """
 
 import datetime as dt
@@ -31,7 +30,7 @@ from app.contact.models.vehicle_party import VehicleParty, VehiclePartyRole
 from app.contact.reconciliation import CHECKS
 from app.core.base import utcnow
 from app.core.outbox_model import OutboxMessage, OutboxStatus
-from app.core.outbox_transport import InProcessTransport
+from app.core.outbox_transport import DeliveryError, InProcessTransport
 from app.core.reconciliation import StateCheck, find_rows_in_state
 from app.inventory.models.stock_item import StockItem
 from app.sales.services.contract import confirm_contract, create_contract
@@ -208,10 +207,10 @@ def _old_name_check() -> StateCheck:
     return next(c for c in CHECKS if isinstance(c, StateCheck) and "before the rename to contacts" in c.label)
 
 
-def _outbox(db: Session, event_type: str, status: OutboxStatus, age: dt.timedelta) -> uuid.UUID:
+def _outbox(db: Session, event_type: str, status: OutboxStatus, age: dt.timedelta, payload: dict | None = None) -> uuid.UUID:
     message = OutboxMessage(
         event_type=event_type, event_version=1, occurred_at=utcnow() - age, tenant_id=uuid.uuid4(), producer="customer",
-        aggregate_type="customer", aggregate_id=uuid.uuid4(), correlation_id=uuid.uuid4(), payload={}, status=status,
+        aggregate_type="customer", aggregate_id=uuid.uuid4(), correlation_id=uuid.uuid4(), payload=payload or {}, status=status,
         created_at=utcnow() - age,
     )
     db.add(message)
@@ -232,6 +231,30 @@ def test_an_event_under_its_old_name_still_waiting_an_hour_on_is_reported(db_ses
 
     assert found == {waiting, dead}
     assert not found & {delivered, fresh, renamed}
+
+
+def _old_key_check() -> StateCheck:
+    return next(c for c in CHECKS if isinstance(c, StateCheck) and "by its key before the rename" in c.label)
+
+
+def test_a_stock_or_sales_fact_naming_the_contact_by_its_old_key_still_waiting_is_reported(db_session):
+    """KAN-464 PR-5 retired the consumers' fallbacks to the old keys; one such fact in flight is a finding."""
+
+    hour = dt.timedelta(hours=2)
+    seller = {"tradeInCustomerId": str(uuid.uuid4()), "tradeInSignedAt": _SIGNED_AT.isoformat()}
+    purchased = _outbox(db_session, "inventory.stock_item.purchased", OutboxStatus.PENDING, hour, seller)
+    returned = _outbox(db_session, "inventory.stock_item.storno", OutboxStatus.DEAD, hour, {"returnedToCustomer": True})
+    confirmed = _outbox(db_session, "sales.contract.confirmed", OutboxStatus.PENDING, hour, {"customerId": str(uuid.uuid4())})
+    delivered = _outbox(db_session, "sales.contract.confirmed", OutboxStatus.PUBLISHED, hour, {"customerId": str(uuid.uuid4())})
+    fresh = _outbox(db_session, "inventory.stock_item.purchased", OutboxStatus.PENDING, dt.timedelta(minutes=5), seller)
+    new_key = _outbox(db_session, "sales.contract.confirmed", OutboxStatus.PENDING, hour, {"contactId": str(uuid.uuid4())})
+    other_event = _outbox(db_session, "sales.offer.created", OutboxStatus.PENDING, hour, {"customerId": str(uuid.uuid4())})
+    db_session.commit()
+
+    found = {row_id for row_id, _ in find_rows_in_state(db_session, _old_key_check())}
+
+    assert found == {purchased, returned, confirmed}
+    assert not found & {delivered, fresh, new_key, other_event}
 
 
 # --- payloads published before the rename -----------------------------------------------------------------
@@ -256,18 +279,22 @@ def _as_before_the_rename(db: Session, message: OutboxMessage, new_key: str, old
     return message
 
 
-def test_a_trade_in_purchase_naming_the_customer_records_the_former_owner(db_session, engine, monkeypatch):
+def test_a_trade_in_purchase_naming_the_customer_is_refused_since_pr5(db_session, engine, monkeypatch):
+    """KAN-464 PR-5: the old key is no longer read. The purchase names no seller, so the consumer
+    refuses it (redelivered, then dead-lettered with its alert) and records nobody."""
+
     message, owners = _trade_in_purchased(db_session, engine, monkeypatch)
     _as_before_the_rename(db_session, message, "tradeInContactId", "tradeInCustomerId")
     before = owners(db_session)
 
-    _deliver_once(engine, "contact.trade_in_purchased", message)
+    with pytest.raises(DeliveryError):
+        _deliver_once(engine, "contact.trade_in_purchased", message)
     db_session.expire_all()
 
-    assert owners(db_session) - before == 1
+    assert owners(db_session) == before
 
 
-def test_a_returned_storno_saying_returned_to_customer_reopens_the_owner(db_session, engine, monkeypatch):
+def test_a_storno_saying_returned_to_customer_reopens_nobody_since_pr5(db_session, engine, monkeypatch):
     message, reopened = _trade_in_storno(db_session, engine, monkeypatch)
     _as_before_the_rename(db_session, message, "returnedToContact", "returnedToCustomer")
     before = reopened(db_session)
@@ -275,10 +302,10 @@ def test_a_returned_storno_saying_returned_to_customer_reopens_the_owner(db_sess
     _deliver_once(engine, "contact.trade_in_storno", message)
     db_session.expire_all()
 
-    assert reopened(db_session) - before == 1
+    assert reopened(db_session) == before
 
 
-def test_a_confirmation_naming_the_customer_gives_stock_the_trade_in_seller(db_session, engine):
+def test_a_confirmation_naming_the_customer_gives_stock_no_trade_in_seller_since_pr5(db_session, engine):
     dealership = _dealership(db_session)
     group_id = dealership.dealer_group_id
     offer = _with_buyer(db_session, create_offer(db_session, tenant_id=dealership.id, actor_id=uuid.uuid4()), group_id)
@@ -299,5 +326,5 @@ def test_a_confirmation_naming_the_customer_gives_stock_the_trade_in_seller(db_s
     _stock_consumes_the_confirmation(db_session, contract)
 
     item = db_session.scalars(select(StockItem).where(StockItem.pipeline_ref == f"contract:{contract.id}:trade_in")).one()
-    assert item.trade_in_contact_id == contract.contact_id
+    assert item.trade_in_contact_id is None  # the old key is no longer read (KAN-464 PR-5)
     assert db_session.scalar(select(func.count()).select_from(VehicleParty).where(VehicleParty.role == VehiclePartyRole.OWNER)) == 0

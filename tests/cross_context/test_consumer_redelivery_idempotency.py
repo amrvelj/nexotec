@@ -391,24 +391,6 @@ def _contact_merged(db_session, engine, monkeypatch):
     return message, offers_on_survivor
 
 
-def _before_the_rename(fixture):
-    """KAN-464 PR-3 — the same merge as published before customers became
-    contacts: the real producer's row, turned back into the name and payload
-    keys it carried then (`customer.merged`, `customerId`,
-    `duplicateOfCustomerId`), for the consumer that stays subscribed to it."""
-
-    def build(db_session, engine, monkeypatch):
-        message, measure = fixture(db_session, engine, monkeypatch)
-        payload = dict(message.payload)
-        payload["customerId"] = payload.pop("contactId")
-        payload["duplicateOfCustomerId"] = payload.pop("duplicateOfContactId")
-        message.event_type, message.payload = "customer.merged", payload
-        db_session.flush()
-        return message, measure
-
-    return build
-
-
 def _stock_suppliers_on_contact_merged(db_session, engine, monkeypatch):
     """KAN-465 — a contact merge: Stock moves the item whose supplier is the
     duplicate to the survivor once (the measure counts items on the survivor)."""
@@ -1140,9 +1122,7 @@ _FIXTURES: dict[str, Fixture] = {
     "contact.trade_in_purchased": _trade_in_purchased,
     "contact.trade_in_storno": _trade_in_storno,
     "sales.contact_merged": _contact_merged,
-    "sales.customer_merged": _before_the_rename(_contact_merged),
     "inventory.contact_merged": _stock_suppliers_on_contact_merged,
-    "inventory.customer_merged": _before_the_rename(_stock_suppliers_on_contact_merged),
     "sales.stock_item_reassigned": _stock_item_reassigned,
     "inventory.marketplace_transmission_on_publish": _stock_item_published,
     "reporting.public_stock_listing": _website_listing_changed,

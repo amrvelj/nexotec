@@ -281,8 +281,7 @@ def _handle_sales_contract_confirmed(
             # carries neither; the item then keeps none.
             apply_trade_in_seller(
                 item,
-                # KAN-464 PR-3: a contract confirmed before the rename names the customer (PR-5 drops it)
-                contact_id=payload.get("contactId", payload.get("customerId")),
+                contact_id=payload.get("contactId"),
                 signed_at=payload.get("signedAt"),
             )
             # KAN-536 — the VIN the contract holds for the car, kept as the
