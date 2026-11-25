@@ -106,6 +106,8 @@
         }
       },
       "values": [
+        "setting_choice_requires_setting",
+        "setting_required_by_choice",
         "setting_value_above_maximum",
         "setting_value_below_minimum",
         "setting_value_language",

@@ -43,6 +43,10 @@ def _put(client, headers, dealership_id, key, value, version, location_id=None):
     return client.put(path, json={"value": value}, headers={**headers, "If-Match": str(version)})
 
 
+def _sample_areas(items: list[dict]) -> list[dict]:
+    return [item for item in items if item["area"] == "testarea"]
+
+
 def _seat(db, dealership_id) -> uuid.UUID:
     return db.scalar(select(Location.id).where(Location.tenant_id == dealership_id))
 
@@ -53,8 +57,10 @@ def test_the_areas_a_betrieb_sees_follow_its_modules(client, db_session, declare
 
     seen = client.get(f"{_base(with_aftersales)}/setting-areas", headers=boss)
     assert seen.status_code == 200, seen.text
-    assert seen.json()["items"] == [{"area": "testarea", "settingCount": 5}]
-    # Only the setting of no module: the desk note.
+    # The shipped areas beside the samples (KAN-806: labour_rates, an aftersales area).
+    assert _sample_areas(seen.json()["items"]) == [{"area": "testarea", "settingCount": 5}]
+    assert {"area": "labour_rates", "settingCount": 3} in seen.json()["items"]
+    # Only the setting of no module: the desk note; no aftersales area.
     assert client.get(f"{_base(without)}/setting-areas", headers=boss_without).json()["items"] == [
         {"area": "testarea", "settingCount": 1}
     ]

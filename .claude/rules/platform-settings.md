@@ -34,6 +34,14 @@ per-location column while any location holds a value). Split out of platform-adm
   `GET …/{key}/history` (newest first, cursor), `POST …/setting-changes/{id}/restore` (If-Match). A
   setting of a module the Betrieb does not hold is 404 (a non-manager's write is 403 first, the role check runs first); a value that does not fit is 422 with its
   reason, a deactivated location's 409 `setting_location_inactive`.
+- **A rule across two keys** (KAN-806, check 49): `SettingDeclaration.choice_requires = ((choice, key),)` —
+  choosing the choice needs `key` in force; enforced in `change_setting` (restore too) under the Betrieb's lock
+  for the Betrieb and every active location holding a slot of either key (`setting_rules.py`): 422
+  `setting_choice_requires_setting` / `setting_required_by_choice`, with the keys and location in `details`.
+  `check_declaration_references()` (start-up) refuses a rule naming an undeclared key; the area API shows
+  `choiceRequires`. The copy from a sister writes a required key before the choice that needs it
+  (`declared_settings_in_write_order`; a test copies O19 + O18 «work units» whole). Shipped declarations: O16, O18, O19
+  (`platform-labour-rates.md`).
 - **Setup checklist** (`administration/services/setup_checklist.py`): a declaration with
   `checklist_item` is an item, code = its key (a contributed code never has a dot), applying with
   its module, linked to `/administration/settings/<area>`, complete while **the Betrieb's own value**

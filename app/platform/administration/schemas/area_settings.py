@@ -40,6 +40,13 @@ class SettingWrite(CamelModel):
     value: SettingValueBody | None
 
 
+class ChoiceRequirementRead(CamelModel):
+    """Choosing `choice` needs the setting `key` in force (KAN-806, check 49)."""
+
+    choice: str
+    key: str
+
+
 class SettingDeclarationRead(CamelModel):
     key: str
     area: str
@@ -54,6 +61,7 @@ class SettingDeclarationRead(CamelModel):
     choices: list[str]
     checklist_item: bool
     checklist_blocks: str | None
+    choice_requires: list[ChoiceRequirementRead]
 
 
 class SettingSlotRead(CamelModel):

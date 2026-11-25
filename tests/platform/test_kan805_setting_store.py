@@ -69,8 +69,13 @@ def _read(db, dealership_id, key, location_id=None):
 # --- declarations ------------------------------------------------------------------
 
 
-def test_nothing_is_declared_in_the_shipped_app():
-    assert [d.key for d in declared_settings() if not d.key.startswith("testarea.")] == []
+def test_the_shipped_app_declares_only_what_a_ticket_brought_with_its_reader():
+    # KAN-806: the labour-rate settings O16, O18, O19 (labour_rate_settings.py reads them).
+    assert [d.key for d in declared_settings() if not d.key.startswith("testarea.")] == [
+        "labour_rates.rates_entered",
+        "labour_rates.time_unit",
+        "labour_rates.work_units_per_hour",
+    ]
 
 
 @pytest.mark.parametrize(
