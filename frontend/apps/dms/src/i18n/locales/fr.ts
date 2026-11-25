@@ -10,6 +10,7 @@ import ns_apiRefusal__reasons__common from './fr/apiRefusal.reasons.common.json'
 import ns_apiRefusal__reasons__contact from './fr/apiRefusal.reasons.contact.json'
 import ns_apiRefusal__reasons__integration from './fr/apiRefusal.reasons.integration.json'
 import ns_apiRefusal__reasons__inventory from './fr/apiRefusal.reasons.inventory.json'
+import ns_apiRefusal__reasons__planning from './fr/apiRefusal.reasons.planning.json'
 import ns_apiRefusal__reasons__platform from './fr/apiRefusal.reasons.platform.json'
 import ns_apiRefusal__reasons__sales from './fr/apiRefusal.reasons.sales.json'
 import ns_apiRefusal__reasons__valuation from './fr/apiRefusal.reasons.valuation.json'
@@ -82,7 +83,7 @@ const bundle = {
   account: ns_account,
   addressSearch: ns_addressSearch,
   aiPrompts: ns_aiPrompts,
-  apiRefusal: { ...ns_apiRefusal, accessWindow: ns_apiRefusal__accessWindow, reasons: { ...ns_apiRefusal__reasons__common, ...ns_apiRefusal__reasons__contact, ...ns_apiRefusal__reasons__integration, ...ns_apiRefusal__reasons__inventory, ...ns_apiRefusal__reasons__platform, ...ns_apiRefusal__reasons__sales, ...ns_apiRefusal__reasons__valuation, ...ns_apiRefusal__reasons__vehicle } },
+  apiRefusal: { ...ns_apiRefusal, accessWindow: ns_apiRefusal__accessWindow, reasons: { ...ns_apiRefusal__reasons__common, ...ns_apiRefusal__reasons__contact, ...ns_apiRefusal__reasons__integration, ...ns_apiRefusal__reasons__inventory, ...ns_apiRefusal__reasons__planning, ...ns_apiRefusal__reasons__platform, ...ns_apiRefusal__reasons__sales, ...ns_apiRefusal__reasons__valuation, ...ns_apiRefusal__reasons__vehicle } },
   auth: ns_auth,
   branding: ns_branding,
   brandsAdmin: ns_brandsAdmin,

@@ -155,6 +155,8 @@ CAPABILITY_MATRIX: dict[str, Capability] = {
     # the delegation hook is KAN-199's.
     "standard_texts": Capability(read_roles=_ANY, write_roles=_MANAGER_ONLY),
     "labour_rates": Capability(read_roles=frozenset({_AS, _P, _F}), write_roles=_MANAGER_ONLY),
+    # KAN-808 (Anto, 2026-11-25): the planner's resources and lists (S7) — aftersales and the manager read.
+    "planner_resources": Capability(read_roles=frozenset({_AS}), write_roles=_MANAGER_ONLY),
     # Connected accounts: the user himself links (a self check in the
     # endpoint); the manager sees provider/scopes/status and may revoke.
     "connected_accounts": Capability(read_roles=_MANAGER_ONLY, write_roles=_MANAGER_ONLY),

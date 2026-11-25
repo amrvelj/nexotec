@@ -524,8 +524,10 @@ source_modules = [
     "app.compliance",
 ]
 forbidden_modules = [
+    "app.planning.api",
     "app.planning.models",
     "app.planning.reconciliation",
+    "app.planning.schemas",
     "app.planning.services",
 ]
 allow_indirect_imports = true
