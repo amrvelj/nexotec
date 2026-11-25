@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeAll, describe, expect, it } from 'vitest'
-import { cleanup, screen, within } from '@testing-library/react'
+import { cleanup, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import i18n from '../../i18n'
 import { renderWithProviders } from '../../test/renderWithProviders'
@@ -134,5 +134,94 @@ describe('SettingRows (KAN-805)', () => {
     const history = within(await screen.findByRole('list', { name: 'Verlauf' }))
     expect(history.getAllByRole('listitem')).toHaveLength(2)
     expect(history.queryByRole('button', { name: /wiederherstellen/ })).toBeNull()
+  })
+
+  // KAN-806 (check 49): one render and one opened editor per column. The write right comes from
+  // /auth/me, which answers after the table renders: a click before it opens no editor, so wait
+  // until the cell is editable (InlineEditField's pointer cursor).
+  const unitArea = (): AreaSettingsRead => {
+    i18n.addResource('de', 'translation', 'settings.keys.testarea.unit.label', 'Einheit')
+    i18n.addResource('de', 'translation', 'settings.keys.testarea.unit.options.hours', 'Stunden')
+    i18n.addResource('de', 'translation', 'settings.keys.testarea.unit.options.work_units', 'Arbeitswerte')
+    i18n.addResource('de', 'translation', 'settings.keys.testarea.per_hour.label', 'Pro Stunde')
+    return {
+      area: 'testarea',
+      showsLocations: true,
+      locations: [{ id: 'loc-a', name: 'Hauptsitz', isActive: true }],
+      settings: [
+        {
+          declaration: {
+            ...declaration('testarea.unit'),
+            kind: 'choice',
+            choices: ['hours', 'work_units'],
+            choiceRequires: [{ choice: 'work_units', key: 'testarea.per_hour' }],
+          },
+          dealership: slot(),
+          locations: [],
+        },
+        {
+          declaration: declaration('testarea.per_hour'),
+          dealership: slot(),
+          // Only the location holds a value per hour.
+          locations: [slot({ locationId: 'loc-a', isSet: true, value: { number: '12' }, version: 1 })],
+        },
+      ],
+    }
+  }
+  const workUnitsOptionIn = async (column: number) => {
+    render(unitArea(), ['testarea.unit', 'testarea.per_hour'])
+    const table = within(await screen.findByRole('table', { name: 'Einstellungen' }))
+    const unitRow = table.getAllByRole('row').find((row) => row.querySelector('td')?.textContent === 'Einheit')!
+    const cell = Array.from(unitRow.querySelectorAll('td'))[column]
+    await waitFor(() => expect(cell.querySelector('span[style]')).toHaveStyle({ cursor: 'pointer' }))
+    await userEvent.click(cell.querySelector('span[style]') as HTMLElement)
+    return screen.findByRole('option', { name: 'Arbeitswerte' })
+  }
+
+  it('offers a choice that needs another setting disabled where that one is not in force (KAN-806, check 49)', async () => {
+    // The Betrieb's column: no value per hour in force there.
+    expect(await workUnitsOptionIn(1)).toHaveAttribute('data-combobox-disabled', 'true')
+  })
+
+  it('offers that choice where the other setting is in force at the location (KAN-806, check 49)', async () => {
+    // The location holds its own value per hour.
+    expect(await workUnitsOptionIn(2)).not.toHaveAttribute('data-combobox-disabled')
+  })
+
+  it('counts a required setting whose «not set» acts as a value as in force, as the API does (check 49)', async () => {
+    i18n.addResource('de', 'translation', 'settings.keys.testarea.unit.label', 'Einheit')
+    i18n.addResource('de', 'translation', 'settings.keys.testarea.unit.options.hours', 'Stunden')
+    i18n.addResource('de', 'translation', 'settings.keys.testarea.unit.options.work_units', 'Arbeitswerte')
+    i18n.addResource('de', 'translation', 'settings.keys.testarea.per_hour.label', 'Pro Stunde')
+    const data: AreaSettingsRead = {
+      area: 'testarea',
+      showsLocations: false,
+      locations: [],
+      settings: [
+        {
+          declaration: {
+            ...declaration('testarea.unit'),
+            kind: 'choice',
+            choices: ['hours', 'work_units'],
+            choiceRequires: [{ choice: 'work_units', key: 'testarea.per_hour' }],
+          },
+          dealership: slot(),
+          locations: [],
+        },
+        {
+          // Never written, but «not set» acts as 10 — the store counts that as in force.
+          declaration: { ...declaration('testarea.per_hour'), whenNotSet: 'acts_as', actsAs: { number: '10' } },
+          dealership: slot(),
+          locations: [],
+        },
+      ],
+    }
+    render(data, ['testarea.unit', 'testarea.per_hour'])
+    const table = within(await screen.findByRole('table', { name: 'Einstellungen' }))
+    const unitRow = table.getAllByRole('row').find((row) => row.querySelector('td')?.textContent === 'Einheit')!
+    const betrieb = Array.from(unitRow.querySelectorAll('td'))[1]
+    await waitFor(() => expect(betrieb.querySelector('span[style]')).toHaveStyle({ cursor: 'pointer' }))
+    await userEvent.click(betrieb.querySelector('span[style]') as HTMLElement)
+    expect(await screen.findByRole('option', { name: 'Arbeitswerte' })).not.toHaveAttribute('data-combobox-disabled')
   })
 })

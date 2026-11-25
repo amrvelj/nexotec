@@ -33,6 +33,8 @@ from app.core.sorting import build_page_for_sort, decode_cursor_for_sort, parse_
 from app.core.tenancy import require_tenant_match
 from app.db import get_db
 from app.platform.administration.schemas.labour_rates import (
+    LabourCategoryCandidateList,
+    LabourCategoryCandidateRead,
     LabourCategoryMemberCreate,
     LabourCategoryMemberRead,
     LabourRateAgreementCreate,
@@ -47,6 +49,7 @@ from app.platform.administration.schemas.labour_rates import (
     LabourRateRead,
 )
 from app.platform.identity.services import user_labour_category as members_service
+from app.platform.identity.services.user_reads import list_active_users_acting_in
 from app.platform.organisation.models.labour_rate import LabourRate, LabourRateAgreement, LabourRateCategory
 from app.platform.organisation.services import labour_rates as service
 from app.platform.organisation.services.dealership import get_dealer_dealership_or_404
@@ -265,6 +268,25 @@ def add_labour_category_member(
     )
     db.commit()
     return _one_category(db, dealership_id, category_id)
+
+
+@router.get("/dealerships/{dealership_id}/labour-category-candidates", response_model=LabourCategoryCandidateList)
+def list_labour_category_candidates(
+    dealership_id: uuid.UUID,
+    principal: Principal = Depends(require_write("labour_rates")),
+    db: Session = Depends(get_db),
+):
+    """The people the manager may put into a category: who works in the
+    business (`list_active_users_acting_in`), by name. Read under the write
+    row: only the one who allocates needs the list."""
+
+    guard(db, dealership_id, principal)
+    return LabourCategoryCandidateList(
+        items=[
+            LabourCategoryCandidateRead(user_id=user.id, display_name=f"{user.first_name} {user.last_name}".strip())
+            for user in list_active_users_acting_in(db, dealership_id=dealership_id)
+        ]
+    )
 
 
 @router.delete(

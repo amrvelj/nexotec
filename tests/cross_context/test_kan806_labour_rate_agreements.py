@@ -168,3 +168,19 @@ def test_reconciliation_reports_an_agreement_naming_another_groups_contact(clien
     insurer.group_id = dealer_group_of(other)  # what the composition root refuses (404)
     db_session.commit()
     assert [str(row) for row, _ in find_rows_in_state(db_session, outside)] == [created["id"]]
+
+
+def test_the_agreements_page_gives_each_row_its_own_status_across_contacts_and_categories(client, db_session, betrieb):
+    dealership_id, headers, mechanics = betrieb
+    paint = client.post(f"/v1/dealerships/{dealership_id}/labour-rate-categories", json={"name": "Lack"},
+                        headers=headers).json()["id"]
+    fleet = _contact(db_session, dealership_id, company="Fleet AG")
+    insurer = _contact(db_session, dealership_id, company="Versicherung AG")
+    old = _agree(client, headers, dealership_id, mechanics, fleet.id).json()
+    newer = _agree(client, headers, dealership_id, mechanics, fleet.id, amount="110.00",
+                   validFrom=(_today() + dt.timedelta(days=5)).isoformat()).json()
+    other = _agree(client, headers, dealership_id, paint, fleet.id, amount="130.00").json()
+    third = _agree(client, headers, dealership_id, mechanics, insurer.id, amount="125.00").json()
+    items = client.get(f"/v1/dealerships/{dealership_id}/labour-rate-agreements", headers=headers).json()["items"]
+    status = {item["id"]: item["status"] for item in items}
+    assert status == {old["id"]: "in_force", newer["id"]: "scheduled", other["id"]: "in_force", third["id"]: "in_force"}

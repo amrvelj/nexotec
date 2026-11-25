@@ -57,8 +57,10 @@ Last verified against main@32ad509 (2026-11-25). -->
   item blocking one — the SPA then says the action is blocked (`body_blocked`; Anto, 2026-11-24).
   The SPA names it by the setting's label (`settings.keys.<area>.<name>.label`,
   `utils/checklistItem.ts`); `test_declared_settings_have_labels.py` fails on a declared setting
-  without its label in the four languages, and on a shipped checklist setting before the SPA serves
-  `/administration/settings/:area` (PR-5).
+  without its label in the four languages, on a shipped checklist setting while the SPA does not
+  serve `/administration/settings/:area`, and on a static `/administration/settings/<area>` route
+  that would hide an area from the generic screen (criterion 6; KAN-806's topic screen lives at its
+  own path and embeds the rows).
 - **Copy from a sister Betrieb** (`administration/services/configuration_copy.py`, subset `settings`):
   the source's own value of each setting the target configures (module held, or none), written by
   `change_setting` as origin `copy` (history, restore); «not set» in the source keeps the target's
@@ -69,7 +71,9 @@ Last verified against main@32ad509 (2026-11-25). -->
   criterion 6, 2026-11-25). «Not set» is a slate badge (never empty, zero, «off» or the empty-field
   italic; ADR-220, Anto 2026-11-25), with what it acts as or refuses; a location without its own
   value shows the Betrieb's, readable, with a «vom Betrieb» badge; a stale value is removed by its
-  own button, never by an untouched blur; the
+  own button, never by an untouched blur; a choice whose `choiceRequires` key is not in force in that
+  column (the location's own value, else the Betrieb's, else its `acts_as`) is offered disabled (KAN-806,
+  check 49; a required key of another area is not in the area's data, so there the API's refusal shows); the
   history opens under its row: who, when, before → after, restore (manager) as a new entry. No design
   is drawn for it (ticket, «Design»). An area needs `areas.<area>` and a unit `units.<unit>` in the
   `settings` bundles (`test_declared_settings_have_labels.py`).

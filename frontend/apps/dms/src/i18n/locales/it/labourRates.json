@@ -1,0 +1,95 @@
+{
+  "title": "Tariffe orarie",
+  "subtitle": "Le categorie di manodopera dell'azienda, le loro tariffe orarie per sede a partire da una data, le persone di ogni categoria e le tariffe concordate con i contatti.",
+  "loadError": "Non è stato possibile caricare le tariffe orarie.",
+  "saveError": "Non è stato possibile salvare la modifica.",
+  "readOnly": "Potete consultare le tariffe orarie; le modifica il direttore.",
+  "settings": {
+    "title": "Impostazioni",
+    "enteredNotSet": "Stabilite prima se l'azienda inserisce le tariffe al netto o IVA inclusa. Senza questa indicazione non è possibile inserire alcuna tariffa.",
+    "perHourNote": "Una tariffa è sempre oraria. Le unità di lavoro sono solo un modo di mostrare il tempo; l'importo è ore per tariffa oraria.",
+    "enteredAtLocationsOnly": "L'azienda non ha stabilito se le tariffe si inseriscono al netto o IVA inclusa; solo alcune sedi hanno un proprio valore. Le tariffe si possono inserire solo in quelle sedi, gli accordi solo con il valore dell'azienda."
+  },
+  "categories": {
+    "title": "Categorie di manodopera",
+    "add": "Aggiungi categoria",
+    "empty": "Ancora nessuna categoria. Aggiungetene una, ad esempio Meccanica, Carrozzeria o Verniciatura.",
+    "inactive": "Disattivata",
+    "edit": "Modifica",
+    "deactivate": "Disattiva",
+    "reactivate": "Riattiva"
+  },
+  "rates": {
+    "empty": "Ancora nessuna tariffa oraria.",
+    "title": "Tariffe orarie {{name}}",
+    "add": "Inserisci tariffa"
+  },
+  "members": {
+    "title": "Persone",
+    "empty": "Nessuno assegnato.",
+    "remove": "Rimuovi {{name}}",
+    "add": "Assegna una persona"
+  },
+  "agreements": {
+    "title": "Tariffe concordate",
+    "subtitle": "Una tariffa concordata con un contatto vale prima della tariffa della categoria quando quel contatto riceve la fattura.",
+    "add": "Inserisci accordo",
+    "empty": "Nessuna tariffa concordata.",
+    "ends": "Fine dell'accordo",
+    "columns": {
+      "contact": "Contatto",
+      "category": "Categoria"
+    },
+    "more": "Carica altro"
+  },
+  "columns": {
+    "location": "Sede",
+    "validFrom": "Valida dal",
+    "amount": "Tariffa oraria",
+    "status": "Stato"
+  },
+  "entered": {
+    "net": "al netto",
+    "gross": "IVA inclusa"
+  },
+  "status": {
+    "in_force": "In vigore",
+    "scheduled": "Prevista",
+    "superseded": "Sostituita",
+    "withdrawn": "Ritirata"
+  },
+  "withdraw": {
+    "action": "Ritira",
+    "rateTitle": "Ritira la tariffa",
+    "agreementTitle": "Ritira l'accordo",
+    "rateBody": "Non è ancora iniziata e non varrà. Resta nell'elenco, indicata come ritirata.",
+    "agreementBody": "Non è ancora iniziato e non varrà. Resta nell'elenco, indicato come ritirato."
+  },
+  "categoryDialog": {
+    "createTitle": "Aggiungi categoria di manodopera",
+    "editTitle": "Modifica categoria di manodopera",
+    "name": "Nome",
+    "translationsHint": "Le traduzioni sono facoltative; senza traduzione il nome appare come inserito.",
+    "translation": "Nome in {{language}}"
+  },
+  "languages": {
+    "de": "tedesco",
+    "fr": "francese",
+    "it": "italiano",
+    "en": "inglese"
+  },
+  "rateDialog": {
+    "title": "Tariffa oraria per {{name}}",
+    "writtenOnce": "Una tariffa in vigore non viene mai modificata. Un nuovo prezzo è una nuova tariffa a partire da oggi o più tardi.",
+    "amount": "Tariffa oraria ({{entered}})"
+  },
+  "agreementDialog": {
+    "title": "Inserisci tariffa concordata",
+    "noContact": "Nessun contatto scelto",
+    "chooseContact": "Scegli contatto",
+    "searchContact": "Cerca contatto",
+    "kind": "Tipo",
+    "kindRate": "Tariffa fissa",
+    "kindEnd": "Fine dell'accordo"
+  }
+}

@@ -41,7 +41,8 @@
     "aiTexts": "KI-Texte",
     "contactMail": "Mails an Kontakte",
     "supportSessions": "Support-Sitzungen",
-    "platformUsers": "Plattform-Benutzer"
+    "platformUsers": "Plattform-Benutzer",
+    "labourRates": "Stundenansätze"
   },
   "signOut": "Abmelden",
   "environmentNotice": {

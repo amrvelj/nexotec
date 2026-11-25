@@ -3,9 +3,9 @@ settings» 8.2, O16, O18, O19; rulings 177 and 183) and their readers.
 
 - **O16** `labour_rates.rates_entered`: the Betrieb types its labour rates
   net or with VAT (ruling 177). Nexotec cannot choose it for the Betrieb, so
-  «not set» refuses: no rate or agreement can be entered without it. It becomes
-  an item of the Aftersales setup checklist with the labour-rates screen
-  (KAN-806 PR-2; a setting item links to a screen the SPA must serve).
+  «not set» refuses: no rate or agreement can be entered without it, and it is
+  an item of the Aftersales setup checklist (linked to the generic settings
+  screen of the area, /administration/settings/labour_rates).
 - **O18** `labour_rates.time_unit`: labour time is entered and shown in hours
   or in work units (AW). «Not set» acts as hours.
 - **O19** `labour_rates.work_units_per_hour`: how many work units make an
@@ -52,10 +52,9 @@ RATES_ENTERED = SettingDeclaration(
     kind=SettingKind.CHOICE,
     when_not_set=WhenNotSet.REFUSES,
     choices=(PriceEntry.NET.value, PriceEntry.GROSS.value),
-    # O16 is an item of the Aftersales setup checklist (slice 1, section 5). A setting item
-    # links to the settings screen, which the SPA does not serve yet
-    # (test_declared_settings_have_labels.py): KAN-806 PR-2 turns it on with the screen.
-    checklist_item=False,
+    # An item of the Aftersales setup checklist (slice 1, section 5), linked to the
+    # generic settings screen /administration/settings/labour_rates (KAN-805 PR-5).
+    checklist_item=True,
 )
 TIME_UNIT = SettingDeclaration(
     key=TIME_UNIT_KEY,

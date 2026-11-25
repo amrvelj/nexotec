@@ -36,6 +36,10 @@
     "publishing_profile": {
       "title": "Veröffentlichungsprofil",
       "description": "Beschreibung, Impressum und Lead-Weiterleitung."
+    },
+    "labour_rates": {
+      "title": "Arbeitskategorie mit Stundenansatz",
+      "description": "Mindestens eine aktive Arbeitskategorie hat einen Stundenansatz an einem aktiven Standort – auch einer, der erst später beginnt."
     }
   },
   "blocks": {

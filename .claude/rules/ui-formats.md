@@ -37,3 +37,6 @@ main@32ad509 (2026-11-25). -->
 - **Today's date as a pre-fill is `todayLocalIsoDate()`** (`utils/format.ts`), the user's calendar
   day — never `toISOString().slice(0, 10)`, the UTC day, which is yesterday between midnight and
   01:00/02:00 Swiss time (`src/architecture/no-utc-calendar-day.test.ts`).
+  One exception: where the server judges «today or later» against the business's day, the form
+  pre-fills that day from the API (KAN-806's labour rates read `today` from their list), so a user
+  in another zone is not refused for a day the server does not count.

@@ -11,6 +11,7 @@ import {
   Car,
   CarFront,
   ChartColumn,
+  Clock,
   Cog,
   Database,
   Globe,
@@ -174,6 +175,9 @@ function buildNavGroups(t: (key: string) => string, statusIndicator?: NavItemInd
         // manager edits an open range, platform staff a frozen one (A-RULE-3).
         // Never role-hidden (A-RULE-7).
         { label: t('shell.nav.numberRanges'), href: '/administration/number-ranges', icon: Hash, status: 'active' },
+        // KAN-806 — Dealer Administration › Labour rates (D-A-19). Aftersales, parts, finance
+        // and the manager read; the manager writes. Shown with the aftersales module.
+        { label: t('shell.nav.labourRates'), href: '/administration/labour-rates', icon: Clock, status: 'active' },
         // KAN-466 — Dealer Administration › Contact groups. Any role reads; the
         // manager switches a group on or off (A-RULE-0). Never role-hidden (A-RULE-7).
         { label: t('shell.nav.contactGroups'), href: '/administration/contact-groups', icon: Tags, status: 'active' },

@@ -20,6 +20,9 @@ export interface SettingCellProps {
   /** The location's name, for a location's cell. */
   locationName?: string
   canWrite: boolean
+  /** Choices that need another setting not in force here (`choiceRequires`, KAN-806 check 49):
+   * offered disabled, as the API would refuse them. */
+  unavailableChoices?: readonly string[]
   onSave: (value: SettingValueBody | null, version: number) => Promise<void>
   onReload: () => void
 }
@@ -31,7 +34,16 @@ export interface SettingCellProps {
  * inherited. The manager edits inline (a text, with its translations, in a
  * dialog); every other role reads.
  */
-export function SettingCell({ declaration, slot, inherited, locationName, canWrite, onSave, onReload }: SettingCellProps) {
+export function SettingCell({
+  declaration,
+  slot,
+  inherited,
+  locationName,
+  canWrite,
+  unavailableChoices = [],
+  onSave,
+  onReload,
+}: SettingCellProps) {
   const { t, i18n } = useTranslation()
   const { describeError, reloadLabel } = useInlineEditRefusal('settings.saveError')
   const kind = declaration.kind as SettingKind
@@ -135,6 +147,7 @@ export function SettingCell({ declaration, slot, inherited, locationName, canWri
           placeholder: emptyLabel,
           ariaLabel: `${label} · ${ariaScope}`,
           clearLabel: isLocation ? t('settings.clear.location') : t('settings.clear.dealership'),
+          unavailableChoices,
         })}
         // A click and blur with nothing changed writes nothing. A clear is the
         // choice's explicit option (CLEAR) or an emptied number, never an
@@ -179,7 +192,14 @@ function editorFor(
     placeholder,
     ariaLabel,
     clearLabel,
-  }: { t: (key: string) => string; placeholder: string; ariaLabel: string; clearLabel: string },
+    unavailableChoices = [],
+  }: {
+    t: (key: string) => string
+    placeholder: string
+    ariaLabel: string
+    clearLabel: string
+    unavailableChoices?: readonly string[]
+  },
 ): ((editor: EditorRenderProps) => React.ReactNode) | undefined {
   const kind = declaration.kind as SettingKind
   if (kind === 'amount') return chfInlineEditor({ 'aria-label': ariaLabel })
@@ -190,7 +210,11 @@ function editorFor(
             { value: SWITCH_ON, label: t('settings.value.on') },
             { value: SWITCH_OFF, label: t('settings.value.off') },
           ]
-        : declaration.choices.map((code) => ({ value: code, label: t(`settings.keys.${declaration.key}.options.${code}`) }))
+        : declaration.choices.map((code) => ({
+            value: code,
+            label: t(`settings.keys.${declaration.key}.options.${code}`),
+            disabled: unavailableChoices.includes(code),
+          }))
     return function ChoiceEditor({ value, onKeyDown, onBlur, onCommit }: EditorRenderProps) {
       return (
         <Select

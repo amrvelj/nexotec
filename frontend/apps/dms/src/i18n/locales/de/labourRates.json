@@ -1,0 +1,95 @@
+{
+  "title": "Stundenansätze",
+  "subtitle": "Arbeitskategorien des Betriebs, ihre Stundenansätze je Standort ab einem Datum, die Personen in jeder Kategorie und mit Kontakten vereinbarte Ansätze.",
+  "loadError": "Die Stundenansätze konnten nicht geladen werden.",
+  "saveError": "Die Änderung konnte nicht gespeichert werden.",
+  "readOnly": "Sie können die Stundenansätze ansehen; ändern kann sie der Geschäftsführer.",
+  "settings": {
+    "title": "Einstellungen",
+    "enteredNotSet": "Legen Sie zuerst fest, ob der Betrieb Stundenansätze netto oder inkl. MwSt. erfasst. Ohne diese Angabe kann kein Ansatz erfasst werden.",
+    "perHourNote": "Ein Ansatz gilt immer pro Stunde. Arbeitswerte sind nur eine Art, die Zeit anzuzeigen; der Betrag ist Stunden mal Stundenansatz.",
+    "enteredAtLocationsOnly": "Für den Betrieb ist nicht festgelegt, ob Stundenansätze netto oder inkl. MwSt. erfasst werden; nur einzelne Standorte haben einen eigenen Wert. Ansätze lassen sich nur an diesen Standorten erfassen, Vereinbarungen erst mit dem Wert des Betriebs."
+  },
+  "categories": {
+    "title": "Arbeitskategorien",
+    "add": "Kategorie hinzufügen",
+    "empty": "Noch keine Arbeitskategorie. Legen Sie zum Beispiel Mechanik, Karosserie oder Lack an.",
+    "inactive": "Deaktiviert",
+    "edit": "Bearbeiten",
+    "deactivate": "Deaktivieren",
+    "reactivate": "Wieder aktivieren"
+  },
+  "rates": {
+    "empty": "Noch kein Stundenansatz.",
+    "title": "Stundenansätze {{name}}",
+    "add": "Ansatz erfassen"
+  },
+  "members": {
+    "title": "Personen",
+    "empty": "Niemand zugeteilt.",
+    "remove": "{{name}} entfernen",
+    "add": "Person zuteilen"
+  },
+  "agreements": {
+    "title": "Vereinbarte Ansätze",
+    "subtitle": "Ein mit einem Kontakt vereinbarter Ansatz gilt vor dem Kategorieansatz, wenn dieser Kontakt die Rechnung erhält.",
+    "add": "Vereinbarung erfassen",
+    "empty": "Keine vereinbarten Ansätze.",
+    "ends": "Vereinbarung endet",
+    "columns": {
+      "contact": "Kontakt",
+      "category": "Kategorie"
+    },
+    "more": "Weitere laden"
+  },
+  "columns": {
+    "location": "Standort",
+    "validFrom": "Gültig ab",
+    "amount": "Ansatz pro Stunde",
+    "status": "Status"
+  },
+  "entered": {
+    "net": "netto",
+    "gross": "inkl. MwSt."
+  },
+  "status": {
+    "in_force": "Gilt",
+    "scheduled": "Geplant",
+    "superseded": "Abgelöst",
+    "withdrawn": "Zurückgezogen"
+  },
+  "withdraw": {
+    "action": "Zurückziehen",
+    "rateTitle": "Ansatz zurückziehen",
+    "agreementTitle": "Vereinbarung zurückziehen",
+    "rateBody": "Er hat noch nicht begonnen und wird nicht gelten. Er bleibt in der Liste als zurückgezogen sichtbar.",
+    "agreementBody": "Sie hat noch nicht begonnen und wird nicht gelten. Sie bleibt in der Liste als zurückgezogen sichtbar."
+  },
+  "categoryDialog": {
+    "createTitle": "Arbeitskategorie hinzufügen",
+    "editTitle": "Arbeitskategorie bearbeiten",
+    "name": "Name",
+    "translationsHint": "Übersetzungen sind freiwillig; ohne Übersetzung erscheint der Name wie erfasst.",
+    "translation": "Name auf {{language}}"
+  },
+  "languages": {
+    "de": "Deutsch",
+    "fr": "Französisch",
+    "it": "Italienisch",
+    "en": "Englisch"
+  },
+  "rateDialog": {
+    "title": "Stundenansatz für {{name}}",
+    "writtenOnce": "Ein Ansatz, der gilt, wird nie geändert. Ein neuer Preis ist ein neuer Ansatz ab heute oder später.",
+    "amount": "Ansatz pro Stunde ({{entered}})"
+  },
+  "agreementDialog": {
+    "title": "Vereinbarten Ansatz erfassen",
+    "noContact": "Kein Kontakt gewählt",
+    "chooseContact": "Kontakt wählen",
+    "searchContact": "Kontakt suchen",
+    "kind": "Art",
+    "kindRate": "Fester Ansatz",
+    "kindEnd": "Ende der Vereinbarung"
+  }
+}

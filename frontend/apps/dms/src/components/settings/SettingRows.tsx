@@ -14,7 +14,7 @@ export interface SettingRowsProps {
   dealershipId: string
   /** The area's settings as `GET …/setting-areas/{area}` returns them. */
   data: AreaSettingsRead
-  /** Only these keys, in this order — a topic screen (e.g. «Stundensätze»)
+  /** Only these keys, in this order — a topic screen (e.g. «Stundenansätze»)
    * embedding the settings it holds (ticket criterion 6, 2026-11-25). All
    * of the area's when omitted. */
   keys?: string[]
@@ -61,6 +61,21 @@ export function SettingRows({ dealershipId, data, keys, onReload }: SettingRowsP
     : []
   const slotAt = (setting: AreaSettingRead, locationId: string) =>
     setting.locations.find((slot) => slot.locationId === locationId) ?? neverWritten(locationId)
+  // KAN-806 (check 49): a choice that needs another setting is unavailable where that one is
+  // not in force — the location's own value, else the Betrieb's, else what «not set» acts as —
+  // as the API would refuse it (`setting_rules._effective`). A required key of another area is
+  // not in this area's data: the choice stays offered and the API's refusal is shown.
+  const inForceAt = (key: string, locationId: string | null): boolean => {
+    const other = data.settings.find((setting) => setting.declaration.key === key)
+    if (!other) return true
+    if (other.declaration.whenNotSet === 'acts_as' && other.declaration.actsAs != null) return true
+    const own = locationId === null ? null : other.locations.find((slot) => slot.locationId === locationId)
+    return Boolean(own?.isSet) || other.dealership.isSet
+  }
+  const unavailableAt = (setting: AreaSettingRead, locationId: string | null): string[] =>
+    (setting.declaration.choiceRequires ?? [])
+      .filter((rule) => !inForceAt(rule.key, locationId))
+      .map((rule) => rule.choice)
 
   const save = (setting: AreaSettingRead, locationId: string | null) => async (value: Parameters<typeof writeSetting>[3], version: number) => {
     await writeSetting(dealershipId, setting.declaration.key, locationId, value, version)
@@ -120,6 +135,7 @@ export function SettingRows({ dealershipId, data, keys, onReload }: SettingRowsP
                       declaration={declaration}
                       slot={setting.dealership}
                       canWrite={canWrite}
+                      unavailableChoices={unavailableAt(setting, null)}
                       onSave={save(setting, null)}
                       onReload={onReload}
                     />
@@ -132,6 +148,7 @@ export function SettingRows({ dealershipId, data, keys, onReload }: SettingRowsP
                         inherited={setting.dealership}
                         locationName={location.name}
                         canWrite={canWrite && location.isActive}
+                        unavailableChoices={unavailableAt(setting, location.id)}
                         onSave={save(setting, location.id)}
                         onReload={onReload}
                       />

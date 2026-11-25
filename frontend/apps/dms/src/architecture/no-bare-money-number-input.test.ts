@@ -109,6 +109,8 @@ describe('a CHF amount is never typed into a bare NumberInput (KAN-168)', () => 
     const chfUses = files.filter((file) => /<ChfInput\b|chfInlineEditor\(/.test(readFileSync(file, 'utf8')))
     expect(chfUses.map((file) => relative(APP_ROOT, file)).sort()).toEqual(
       [
+        // KAN-806: a labour rate and an agreed rate, per hour.
+        'components/labourRates/LabourRateDialogs.tsx',
         'components/settings/SettingCell.tsx',
         'modules/sales/components/OfferAccessoriesAndOptions.tsx',
         'modules/sales/components/PriceBuildUp.tsx',

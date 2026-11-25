@@ -36,6 +36,7 @@ import ns_dealOwner from './en/dealOwner.json'
 import ns_documentLink from './en/documentLink.json'
 import ns_integrationEnums from './en/integrationEnums.json'
 import ns_integrationsList from './en/integrationsList.json'
+import ns_labourRates from './en/labourRates.json'
 import ns_legal from './en/legal.json'
 import ns_letterhead from './en/letterhead.json'
 import ns_locations from './en/locations.json'
@@ -104,6 +105,7 @@ const bundle = {
   documentLink: ns_documentLink,
   integrationEnums: ns_integrationEnums,
   integrationsList: ns_integrationsList,
+  labourRates: ns_labourRates,
   legal: ns_legal,
   letterhead: ns_letterhead,
   locations: ns_locations,

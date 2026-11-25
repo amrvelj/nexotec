@@ -51,6 +51,7 @@ const BusinessProfileLinkCallbackPage = lazyPage(
   'BusinessProfileLinkCallbackPage'
 )
 const NumberRangesPage = lazyPage(() => import('./pages/NumberRangesPage'), 'NumberRangesPage')
+const LabourRatesPage = lazyPage(() => import('./pages/LabourRatesPage'), 'LabourRatesPage')
 const SetupChecklistPage = lazyPage(() => import('./pages/SetupChecklistPage'), 'SetupChecklistPage')
 const LegalAcceptancePage = lazyPage(() => import('./pages/LegalAcceptancePage'), 'LegalAcceptancePage')
 const SetupInProgressPage = lazyPage(() => import('./pages/SetupInProgressPage'), 'SetupInProgressPage')
@@ -158,6 +159,9 @@ export default function App() {
               <Route path="/mail-link/callback" element={<MailLinkCallbackPage />} />
               <Route path="/business-profile-link/callback" element={<BusinessProfileLinkCallbackPage />} />
               <Route path="/administration/number-ranges" element={<NumberRangesPage />} />
+              {/* KAN-806: the labour-rates screen embeds the settings rows of O16, O18 and O19; the area
+                  itself is /administration/settings/labour_rates (KAN-805 criterion 6). */}
+              <Route path="/administration/labour-rates" element={<LabourRatesPage />} />
               {/* KAN-214 — the setup checklist and «Betrieb aktivieren» (D-A-21, FR-A-34),
                   the re-acceptance of a new ToS / DPA version (FR-A-39), and what a
                   colleague sees while the Betrieb is being set up. */}

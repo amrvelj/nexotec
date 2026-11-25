@@ -23,6 +23,7 @@ The items (Q2 A — the PRD's table, read per entitlement):
 | `number_ranges` | every Betrieb | the manager confirmed the number ranges once (`number_range_confirmation`) | issuing a numbered document — never in practice: a confirmation is a fact and activation freezes every range |
 | `location_opening_hours` | `sales` | an active location has opening hours | marketplace publishing |
 | `users` | every Betrieb | an active manager exists — the manager alone meets it in a one-person Betrieb | nothing (activation only) |
+| `labour_rates` | `aftersales` | an active category has a rate, not withdrawn, at an active location — one starting later counts (KAN-806; Anto, 2026-11-25) | nothing yet (activation only; an order prices with it from KAN-810) |
 
 «Integrations connected» is never an item: an integration blocks only the
 feature it entitles (Q2 A).
@@ -62,6 +63,7 @@ from app.platform.organisation.models.location_schedule import LocationOpeningHo
 from app.platform.organisation.models.number_range import NumberRangeConfirmation
 from app.platform.organisation.services import setting_store
 from app.platform.organisation.services.entitlement import list_active_modules
+from app.platform.organisation.services.labour_rates import has_rate_ready
 from app.platform.organisation.services.setting_declarations import declared_settings
 
 
@@ -80,6 +82,7 @@ class ChecklistItemCode(str, enum.Enum):
     NUMBER_RANGES = "number_ranges"
     LOCATION_OPENING_HOURS = "location_opening_hours"
     USERS = "users"
+    LABOUR_RATES = "labour_rates"
 
 
 @dataclasses.dataclass(frozen=True)
@@ -232,6 +235,14 @@ ITEMS: tuple[_ItemDefinition, ...] = (
         _opening_hours_complete,
     ),
     _ItemDefinition(ChecklistItemCode.USERS.value, _ALL, None, "/administration/users", _users_complete),
+    # KAN-806 (slice 1, section 5): at least one category with a rate.
+    _ItemDefinition(
+        ChecklistItemCode.LABOUR_RATES.value,
+        frozenset({ModuleCode.AFTERSALES.value}),
+        None,
+        "/administration/labour-rates",
+        lambda db, dealership: has_rate_ready(db, dealership_id=dealership.id),
+    ),
 )
 
 

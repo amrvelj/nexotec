@@ -63,11 +63,22 @@ def test_the_rule_on_a_sample():
 
 
 def test_a_checklist_setting_links_to_a_screen_the_spa_serves():
-    """A setting item links to `/administration/settings/<area>` (KAN-805 PR-3);
-    the screen comes with PR-5. Until the SPA serves the route, no shipped
-    declaration may be a checklist item — its link would lead nowhere."""
+    """A setting item links to `/administration/settings/<area>` (KAN-805 PR-3),
+    which the generic settings screen serves (PR-5)."""
 
     items = [d for d in declared_settings() if d.checklist_item and not d.key.startswith("testarea.")]
     routes = set(re.findall(r'path="([^"]+)"', (_DMS / "App.tsx").read_text(encoding="utf-8")))
-    served = {"/administration/settings/:area"} & routes
-    assert not items or served, f"{[d.key for d in items]} link to /administration/settings/<area>, which App.tsx does not serve"
+    assert not items or "/administration/settings/:area" in routes, (
+        f"{[d.key for d in items]} link to /administration/settings/<area>, which App.tsx does not serve"
+    )
+
+
+def test_no_static_route_hides_an_area_from_the_generic_settings_screen():
+    """KAN-805 criterion 6: the generic settings screen shows every area; a topic
+    screen (KAN-806's «Stundenansätze») embeds the same rows under its own path. A
+    static /administration/settings/<area> route would outrank `:area` and hide
+    that area from the generic screen (ADR-219 addendum)."""
+
+    routes = set(re.findall(r'path="([^"]+)"', (_DMS / "App.tsx").read_text(encoding="utf-8")))
+    shadowing = sorted(r for r in routes if r.startswith("/administration/settings/") and ":" not in r)
+    assert shadowing == [], f"{shadowing} hide their area from the generic settings screen: remove them"

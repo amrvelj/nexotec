@@ -86,7 +86,7 @@ Decided rulings live in the PRD; built only where a bullet says so — check the
 ## Settings store (KAN-805, ADR-214, ADR-216) — built, the screen included
 Declarations, the read, history and restore, the API, the checklist, the copy, the screen: `platform-settings.md`.
 
-## Labour rates (KAN-806, D-A-19) — backend built
+## Labour rates (KAN-806, D-A-19) — backend and screen built
 Categories, rates per location from a date, agreed rates, allocations, «which rate applies here»:
 `platform-labour-rates.md`.
 

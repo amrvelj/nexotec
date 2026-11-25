@@ -1630,6 +1630,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/dealerships/{dealership_id}/labour-category-candidates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Labour Category Candidates
+         * @description The people the manager may put into a category: who works in the
+         *     business (`list_active_users_acting_in`), by name. Read under the write
+         *     row: only the one who allocates needs the list.
+         */
+        get: operations["list_labour_category_candidates_v1_dealerships__dealership_id__labour_category_candidates_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/dealerships/{dealership_id}/labour-rate-agreements": {
         parameters: {
             query?: never;
@@ -10363,6 +10385,25 @@ export interface components {
             password: string;
             /** Token */
             token: string;
+        };
+        /**
+         * LabourCategoryCandidateList
+         * @description Who may be allocated: the users who work in the business (homed or an
+         *     active member, active or invited).
+         */
+        LabourCategoryCandidateList: {
+            /** Items */
+            items: components["schemas"]["LabourCategoryCandidateRead"][];
+        };
+        /** LabourCategoryCandidateRead */
+        LabourCategoryCandidateRead: {
+            /** Displayname */
+            displayName: string;
+            /**
+             * Userid
+             * Format: uuid
+             */
+            userId: string;
         };
         /** LabourCategoryMemberCreate */
         LabourCategoryMemberCreate: {
@@ -20531,6 +20572,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_labour_category_candidates_v1_dealerships__dealership_id__labour_category_candidates_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LabourCategoryCandidateList"];
                 };
             };
             /** @description Validation Error */

@@ -101,8 +101,8 @@ def test_the_three_labour_rate_settings_are_declared_for_aftersales():
     declared = {d.key: d for d in declared_settings()}
     assert {RATES_ENTERED_KEY, TIME_UNIT_KEY, WORK_UNITS_PER_HOUR_KEY} <= set(declared)
     o16 = declared[RATES_ENTERED_KEY]
-    # Not a checklist item until the SPA serves the settings screen (KAN-806 PR-2).
-    assert (o16.module, o16.choices, o16.when_not_set, o16.checklist_item) == ("aftersales", ("net", "gross"), "refuses", False)
+    # A checklist item: the SPA serves its link, /administration/settings/labour_rates (KAN-806 PR-2).
+    assert (o16.module, o16.choices, o16.when_not_set, o16.checklist_item) == ("aftersales", ("net", "gross"), "refuses", True)
     o18 = declared[TIME_UNIT_KEY]
     assert (o18.acts_as, o18.choice_requires) == ("hours", (("work_units", WORK_UNITS_PER_HOUR_KEY),))
 

@@ -21,6 +21,7 @@ from app.platform.organisation.models.dealership_bank_account import DealershipB
 from app.platform.organisation.models.location_schedule import LocationDepartment, LocationOpeningHours
 from app.platform.organisation.models.module_entitlement import ModuleEntitlement
 from app.platform.organisation.models.number_range import NumberRangeConfirmation
+from app.platform.organisation.services.entitlement import list_active_modules
 from tests.identity_support import create_dealership, create_user
 from tests.token_support import dealer_group_of
 
@@ -126,6 +127,30 @@ def complete_checklist(db: Session, dealership_id: uuid.UUID, manager_user: dict
     complete_bank_account(db, dealership_id)
     complete_number_ranges(db, dealership_id, uuid.UUID(manager_user["id"]))
     complete_opening_hours(db, dealership_id)
+    if ModuleCode.AFTERSALES.value in list_active_modules(db, dealership_id):
+        complete_labour_rates(db, dealership_id)
+
+
+def complete_labour_rates(db: Session, dealership_id: uuid.UUID) -> None:
+    """KAN-806: the Aftersales items — O16 set (net) and a category with a rate."""
+
+    from app.core.money import PriceEntry
+    from app.platform.organisation.services import labour_rates, setting_store
+
+    key = "labour_rates.rates_entered"
+    version = setting_store.get_slot(db, dealership_id=dealership_id, location_id=None, key=key).version
+    setting_store.change_setting(
+        db, dealership_id=dealership_id, location_id=None, key=key, value="net", expected_version=version, actor_id=None
+    )
+    category = labour_rates.create_category(
+        db, dealership_id=dealership_id, name="Mechanik", name_translations=None, actor_id=None
+    )
+    location_id = db.scalar(select(Location.id).where(Location.tenant_id == dealership_id, Location.is_active.is_(True)))
+    labour_rates.create_rate(
+        db, dealership_id=dealership_id, category_id=category.id, location_id=location_id,
+        valid_from=labour_rates.today(), amount=Decimal("150.00"), entered=PriceEntry.NET, actor_id=None,
+    )
+    db.commit()
 
 
 def publish_document(
