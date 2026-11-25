@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import type { TFunction } from 'i18next'
 import { api } from '../api/client'
 import type { NotificationRead, UnreadCountRead } from '../api/types'
+import { checklistItemTitle } from '../utils/checklistItem'
 
 /** Staff notifications (KAN-216; D-A-40, FR-A-47…50): query keys and the
  * one way an inbox entry becomes text in the UI language. */
@@ -33,7 +34,10 @@ function interpolation(t: TFunction, notification: NotificationRead): Record<str
   const params: Record<string, string | number | boolean> = { ...notification.params }
   if (typeof params.action === 'string') params.action = t(`notifications.recoveryActions.${params.action}`)
   // KAN-214: a regressed checklist item names the item by its checklist title.
-  if (typeof params.item === 'string') params.item = t(`setup.items.${params.item}.title`)
+  if (typeof params.item === 'string') params.item = checklistItemTitle(t, params.item)
+  // KAN-805: a checklist item blocking an action says so (`body_blocked`);
+  // one blocking nothing only tells (Anto, 2026-11-24).
+  if (typeof params.blocks === 'string') params.context = 'blocked'
   return params
 }
 

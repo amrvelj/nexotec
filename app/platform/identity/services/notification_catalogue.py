@@ -240,10 +240,10 @@ CATALOGUE: tuple[NotificationEventSpec, ...] = (
         NotificationEventCode.CHECKLIST_ITEM_REGRESSED,
         "checklistItemRegressed",
         {
-            "de": "Ein Punkt der Einrichtung fehlt wieder",
-            "fr": "Un point de la configuration manque à nouveau",
-            "it": "Un punto della configurazione manca di nuovo",
-            "en": "A setup item is missing again",
+            "de": "Ein Punkt der Einrichtung ist offen",
+            "fr": "Un point de la configuration est ouvert",
+            "it": "Un punto della configurazione è aperto",
+            "en": "A setup item is open",
         },
     ),
     _administration(

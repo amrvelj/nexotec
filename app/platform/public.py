@@ -127,8 +127,8 @@ from app.platform.organisation.services.setting_declarations import (
     SettingKind,
     TextValue,
     WhenNotSet,
-    register_setting,
 )
+from app.platform.organisation.services.setting_declarations import register_setting as _register_setting
 from app.platform.organisation.services.setting_store import SettingRead, read_setting
 from app.platform.reference.services.reference_data import get_active_reference_value_codes
 
@@ -221,6 +221,23 @@ from app.platform.reference.services.reference_data import get_active_reference_
 # that acts as (SettingRead, plain values). The key is a literal so
 # tests/architecture/test_setting_keys_declared_and_read.py can pair every read
 # with its declaration. A plain read; it writes nothing.
+
+
+# The settings store's door for declarations (see the paragraph above).
+def register_setting(declaration: SettingDeclaration) -> None:
+    """Declares a setting (KAN-805, ADR-214). Also refuses, at start-up, a
+    checklist item blocking an action the setup checklist does not know: the
+    store sits below the checklist and cannot judge it, and a wrong one found
+    only when the checklist is derived would fail it for every Betrieb."""
+
+    blocks = declaration.checklist_blocks
+    if blocks is not None and blocks not in {action.value for action in SetupBlockedAction}:
+        raise SettingDeclarationError(
+            f"Setting {declaration.key!r} blocks {blocks!r}, no action of the setup checklist."
+        )
+    _register_setting(declaration)
+
+
 __all__ = [
     "PLACEHOLDER_UNRESOLVED",
     "ActingUser",

@@ -81,7 +81,7 @@ Decided rulings live in the PRD; built only where a bullet says so — check the
   `dealership_settings`); copied from a sister by the `contact_groups` subset (switches on, never off).
   A group staff withdrew cannot be switched on. Guard: `test_contact_group_setting_is_administrations.py`.
 
-## Settings store (KAN-805, ADR-214, ADR-216) — store and API built
+## Settings store (KAN-805, ADR-214, ADR-216) — store, API and checklist built
 Declarations, the read, history and restore, the API: `platform-settings.md`.
 
 ## Business master data (D-A-22, D-A-25, D-A-27, FR-A-25) — built

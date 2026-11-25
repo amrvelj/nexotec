@@ -247,6 +247,25 @@ def read_setting(db: Session, *, dealership_id: uuid.UUID, location_id: uuid.UUI
     )
 
 
+def is_set_for_dealership(db: Session, *, dealership_id: uuid.UUID, key: str) -> bool:
+    """Whether the Betrieb's own value of `key` is in force: set, and still
+    fitting its declaration (`_still_fits`). The setup checklist's test for a
+    setting item (KAN-805 PR-3, ADR-216): a read without a location reads the
+    Betrieb's own value only, so values at every location do not complete the
+    item while that read would answer «not set». A location's value overrides
+    the Betrieb's; it never stands in for it."""
+
+    declaration = _declaration(key)
+    row = db.scalar(
+        select(SettingValue).where(
+            SettingValue.dealership_id == dealership_id,
+            SettingValue.location_id.is_(None),
+            SettingValue.key == key,
+        )
+    )
+    return row is not None and row.state == SettingState.SET and _still_fits(declaration, row)
+
+
 def _location(db: Session, *, dealership_id: uuid.UUID, location_id: uuid.UUID) -> Location:
     location = db.scalar(select(Location).where(Location.id == location_id, Location.tenant_id == dealership_id))
     if location is None:
