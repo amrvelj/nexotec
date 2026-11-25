@@ -1,0 +1,21 @@
+{
+  "service_order_cancel_reason_required": "Indicate il motivo dell'annullamento.",
+  "service_order_clock_has_run": "Su questo ordine è già stato timbrato del tempo; non può essere annullato. Rifiutate invece i suoi lavori.",
+  "service_order_contact_blocked": "Questo contatto è bloccato ({{reason}}). Non è possibile aprire un ordine d'officina per lui.",
+  "service_order_frozen": "Questo ordine è chiuso (pronto per la fattura o annullato) e non può più essere modificato.",
+  "service_order_job_accepted": "Questo lavoro è accettato e non può essere eliminato. Registrate invece la risposta.",
+  "service_order_job_already_answered": "La risposta per questo lavoro è già registrata.",
+  "service_order_job_name_required": "Un lavoro ha bisogno di una descrizione.",
+  "service_order_job_time_clocked": "Su questo lavoro è stato timbrato del tempo; non può essere eliminato. Rifiutatelo invece.",
+  "service_order_labour_category_unknown": "Questa categoria di manodopera non appartiene a questa azienda.",
+  "service_order_labour_rate_missing": "Nessuna tariffa oraria si applica a questa categoria in questa sede alla data dell'ordine. Inserite il prezzo.",
+  "service_order_position_incomplete": "La posizione è incompleta: la manodopera richiede una categoria, a tempo un tempo, un prezzo fisso il suo prezzo, un prezzo l'indicazione netto o IVA inclusa; un testo non ha prezzo.",
+  "service_order_position_time_clocked": "Su questa posizione è stato timbrato del tempo; non può essere eliminata.",
+  "service_order_price_negative": "Un prezzo non è inferiore a zero.",
+  "service_order_price_too_many_decimals": "Un prezzo ha al massimo quattro decimali.",
+  "service_order_time_not_positive": "Un tempo di lavoro è superiore a zero.",
+  "service_order_time_too_many_decimals": "Un tempo di lavoro ha al massimo due decimali.",
+  "service_order_time_unit_changed": "Il tempo di lavoro viene ora registrato qui in un'altra unità. Verificate il tempo e registratelo di nuovo.",
+  "service_order_vat_rate_not_set": "Per questa azienda non è ancora definita un'aliquota IVA; non è ancora possibile inserire un prezzo.",
+  "service_order_vehicle_not_identified": "Il veicolo non è identificato. Sceglietelo tra i veicoli o registratelo prima."
+}

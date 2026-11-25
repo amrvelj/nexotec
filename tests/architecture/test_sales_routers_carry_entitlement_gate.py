@@ -7,6 +7,10 @@ one of those packages without the gate fails here; a route of another context
 that gains the gate by mistake fails too, because a gate on master data would
 hide contacts or vehicles from a service-only Betrieb (D-A-10).
 
+KAN-810 (D-A-04; Aftersales slice 1, check 42): the workshop order's
+routers (`app.aftersales.api`) carry the `aftersales` gate the same way —
+router-level, every route, and no other module.
+
 The walk uses tests.route_walk (KAN-241): under FastAPI 0.141 `app.routes`
 and `api_v1_router.routes` hold `_IncludedRouter` objects, not APIRoutes, so a
 naive loop sees nothing and passes vacuously. The counts below pin that the
@@ -26,10 +30,16 @@ from tests.route_walk import api_routes
 _GATED_PACKAGES = ("app.sales.api.", "app.inventory.api.", "app.valuation.api.")
 _GATED_MODULES = {"app.vehicle.api.configuration", "app.vehicle.api.identification"}
 _GATED_ROUTERS = 13  # KAN-555: the legacy transactions router is gone
+_AFTERSALES_PACKAGES = ("app.aftersales.api.",)
+_AFTERSALES_ROUTERS = 1  # KAN-810: the service orders
 
 
 def _is_gated_module(module: str) -> bool:
     return module.startswith(_GATED_PACKAGES) or module in _GATED_MODULES
+
+
+def _is_aftersales_module(module: str) -> bool:
+    return module.startswith(_AFTERSALES_PACKAGES)
 
 
 def _entitlement_of(dependency) -> ModuleCode | None:
@@ -66,8 +76,23 @@ def test_every_route_of_a_sales_module_router_is_gated_with_sales():
     assert ungated == [], ungated
 
 
+def test_every_route_of_an_aftersales_router_is_gated_with_aftersales():
+    gated_routes = [(path, route) for path, route in _walk() if _is_aftersales_module(route.endpoint.__module__)]
+    assert len(gated_routes) >= 12, len(gated_routes)
+    ungated = [
+        f"{sorted(route.methods)} {path}"
+        for path, route in gated_routes
+        if _gate_of(route) is not ModuleCode.AFTERSALES
+    ]
+    assert ungated == [], ungated
+
+
 def test_no_other_route_carries_an_entitlement_gate():
-    other_routes = [(path, route) for path, route in _walk() if not _is_gated_module(route.endpoint.__module__)]
+    other_routes = [
+        (path, route)
+        for path, route in _walk()
+        if not _is_gated_module(route.endpoint.__module__) and not _is_aftersales_module(route.endpoint.__module__)
+    ]
     assert len(other_routes) >= 70, len(other_routes)
     gated = [f"{sorted(route.methods)} {path}" for path, route in other_routes if _gate_of(route) is not None]
     assert gated == [], gated
@@ -77,7 +102,7 @@ def test_the_gate_is_a_router_level_dependency():
     """Router-level, not per route: `APIRouter(dependencies=[...])` places the
     gate on every route of the router, ahead of the route's own dependencies."""
 
-    checked = 0
+    checked = aftersales = 0
     for name in dir(v1):
         router = getattr(v1, name)
         if not isinstance(router, APIRouter) or router is v1.api_v1_router:
@@ -86,4 +111,8 @@ def test_the_gate_is_a_router_level_dependency():
         if _is_gated_module(module):
             assert any(_entitlement_of(d) is ModuleCode.SALES for d in router.dependencies), name
             checked += 1
+        if _is_aftersales_module(module):
+            assert any(_entitlement_of(d) is ModuleCode.AFTERSALES for d in router.dependencies), name
+            aftersales += 1
     assert checked == _GATED_ROUTERS, checked
+    assert aftersales == _AFTERSALES_ROUTERS, aftersales

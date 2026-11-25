@@ -39,6 +39,9 @@ ALLOWED_ENUM_VALUES = {
     ("ContactRole", "customer"): "the role «Kunde» keeps its name (ADR-210)",
     ("NewPriceSource", "customer"): "a Neupreis the buyer supplied (FR-C-02), not the register",
     ("StandardTextAppliesTo", "customer_note"): "a stored standard-text type code, not the register",
+    # KAN-810 (Aftersales slice 1, section 10): who pays a job — the payer category «Kunde»,
+    # beside warranty, goodwill and internal in later slices; not the register.
+    ("BillingCategory", "customer"): "the payer category «Kunde» of a workshop job, not the register",
 }
 
 # (event type, consumer name) — the old-name subscriptions: none since KAN-464 PR-5.
