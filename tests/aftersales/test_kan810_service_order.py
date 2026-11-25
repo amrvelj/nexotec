@@ -110,7 +110,7 @@ def test_do_not_contact_does_not_stop_service(client, db_session, betrieb):
 def test_a_merged_contact_is_refused(client, db_session, betrieb):
     contact = make_contact(db_session, betrieb, status=ContactLifecycleStatus.MERGED)
     response = create_order(client, betrieb, contact.id, make_vehicle(db_session))
-    assert (response.status_code, _reason(response)) == (409, "contact_merged")
+    assert (response.status_code, _reason(response)) == (409, "service_order_contact_merged")
 
 
 def test_the_car_must_be_identified(client, db_session, betrieb):
@@ -143,10 +143,11 @@ def test_another_betriebs_order_is_not_found(client, db_session, betrieb):
 
 def test_check_42_a_betrieb_without_the_module_gets_not_found(client, db_session, betrieb):
     order = new_order(client, db_session, betrieb)
-    without = headers(betrieb, entitlements=frozenset({"sales"}))
-    manager_without = headers(betrieb, AccessRole.AFTERSALES, entitlements=frozenset())
+    advisor_sales_only = headers(betrieb, entitlements=frozenset({"sales"}))
+    advisor_no_module = headers(betrieb, AccessRole.AFTERSALES, entitlements=frozenset())
+    manager_no_module = headers(betrieb, manager=True, entitlements=frozenset({"sales"}))
 
-    for auth in (without, manager_without):
+    for auth in (advisor_sales_only, advisor_no_module, manager_no_module):
         assert client.get("/v1/service-orders", headers=auth).status_code == 404
         assert client.get(f"/v1/service-orders/{order['id']}", headers=auth).status_code == 404
         created = client.post("/v1/service-orders", json={"locationId": str(betrieb.location_id),
@@ -296,6 +297,9 @@ def test_the_list_pages_by_cursor_and_filters_by_chip(client, db_session, betrie
     assert client.get("/v1/service-orders?chip=nonsense", headers=headers(betrieb)).status_code == 400
     found = client.get(f"/v1/service-orders?q={orders[1]['orderNumber']}", headers=headers(betrieb)).json()
     assert [i["id"] for i in found["items"]] == [orders[1]["id"]]
+    # `%` and `_` are letters in the search, never wildcards.
+    for wildcard in ("%25", "_"):
+        assert client.get(f"/v1/service-orders?q={wildcard}", headers=headers(betrieb)).json()["total"] == 0
 
 
 def test_the_history_is_the_audit_trail_of_every_change(client, db_session, betrieb):
@@ -313,3 +317,12 @@ def test_the_history_is_the_audit_trail_of_every_change(client, db_session, betr
         "service_order_created", "service_order_job_added", "service_order_position_added",
     ]
     assert {e["actorId"] for e in history} == {str(betrieb.user_id)}
+
+
+def test_the_manager_reads_and_writes_the_orders(client, db_session, betrieb):
+    """Ruling 180: the manager has everything, the module switch still first."""
+
+    order = new_order(client, db_session, betrieb)
+    manager = headers(betrieb, manager=True, if_match=order["version"])
+    assert client.get("/v1/service-orders", headers=manager).status_code == 200
+    assert client.post(f"/v1/service-orders/{order['id']}/jobs", json={"name": "Service"}, headers=manager).status_code == 201

@@ -7,27 +7,85 @@ category (platform); every row names the users who wrote it. Each must name
 a row that exists — an orphan is reported, never repaired. Read-only; see
 app.core.reconciliation for the mechanism.
 
+Beyond existence (slice 1, section 6; KAN-810 review): an order that is not
+cancelled must not name a merged contact (contact, invoice recipient or
+driver), a contact outside its Betrieb's dealer group (ADR-014), or a merged
+vehicle record. Nothing re-points an order on a merge yet (the consumer and
+the label refresh are a follow-up), so these StateChecks are what makes a
+merge visible meanwhile. A cancelled order is history and is left as it is;
+a ready-for-billing order is reported, since its invoice still names them.
+A merge is judged after a day's grace, as the labour-rate agreements' check
+does (KAN-806): a consumer's re-point in flight is not a finding.
+
 Not checked here: a position's `labour_rate_id`, which names a platform rate
 or agreement row by `rate_source` and is provenance, never read back (a rate
 row is never deleted, ruling 178).
 """
 
-from sqlalchemy.orm import Session
+import datetime as dt
+from typing import Any
 
-from app.aftersales.models.service_order import ServiceOrder, ServiceOrderJob, ServiceOrderPosition
-from app.contact.public import contact_reference_check
+from sqlalchemy import ColumnElement
+from sqlalchemy.orm import InstrumentedAttribute, Session
+
+from app.aftersales.models.service_order import (
+    ServiceOrder,
+    ServiceOrderJob,
+    ServiceOrderPosition,
+    ServiceOrderState,
+)
+from app.contact.public import contact_exists, contact_in_group, contact_is_merged, contact_reference_check
+from app.core.base import utcnow
 from app.core.reconciliation import ReconciliationRun, ReferenceCheck, StateCheck, run_reconciliation
 from app.platform.public import (
     actor_reference_checks,
+    dealership_group_of,
     dealership_reference_check,
     labour_rate_category_reference_check,
     location_reference_check,
 )
-from app.vehicle.public import vehicle_reference_check
+from app.vehicle.public import vehicle_is_merged, vehicle_reference_check
 
 CONTEXT = "aftersales"
 
 ACTOR_TABLES = (ServiceOrder, ServiceOrderJob, ServiceOrderPosition)
+
+_MERGE_GRACE = dt.timedelta(days=1)
+
+# The order's contacts: the customer, the invoice recipient and the driver.
+_CONTACT_COLUMNS: tuple[InstrumentedAttribute[Any], ...] = (
+    ServiceOrder.contact_id,
+    ServiceOrder.invoice_recipient_contact_id,
+    ServiceOrder.driver_contact_id,
+)
+
+
+def _live() -> ColumnElement[bool]:
+    return ServiceOrder.state != ServiceOrderState.CANCELLED
+
+
+def _names_a_merged_contact(column: InstrumentedAttribute[Any]) -> StateCheck:
+    return StateCheck(
+        label=f"service_order.{column.key} names a merged contact",
+        source_model=ServiceOrder,
+        source_row_id_column=ServiceOrder.id,
+        where=lambda: _live()
+        & contact_is_merged(column, merged_before=utcnow() - _MERGE_GRACE).correlate(ServiceOrder),
+    )
+
+
+def _names_a_contact_outside_the_group(column: InstrumentedAttribute[Any]) -> StateCheck:
+    def where() -> ColumnElement[bool]:
+        group = dealership_group_of(ServiceOrder.tenant_id, correlate=ServiceOrder)
+        named = contact_exists(column).correlate(ServiceOrder)
+        return _live() & named & ~contact_in_group(column, group).correlate(ServiceOrder)
+
+    return StateCheck(
+        label=f"service_order.{column.key} names a contact outside the business's group",
+        source_model=ServiceOrder,
+        source_row_id_column=ServiceOrder.id,
+        where=where,
+    )
 
 CHECKS: list[ReferenceCheck | StateCheck] = [
     *(
@@ -76,6 +134,15 @@ CHECKS: list[ReferenceCheck | StateCheck] = [
         source_row_id_column=ServiceOrderPosition.id,
         source_fk_column=ServiceOrderPosition.labour_category_id,
         nullable=True,  # a text position names none
+    ),
+    *(_names_a_merged_contact(column) for column in _CONTACT_COLUMNS),
+    *(_names_a_contact_outside_the_group(column) for column in _CONTACT_COLUMNS),
+    StateCheck(
+        label="service_order.vehicle_id names a merged vehicle record",
+        source_model=ServiceOrder,
+        source_row_id_column=ServiceOrder.id,
+        where=lambda: _live()
+        & vehicle_is_merged(ServiceOrder.vehicle_id, updated_before=utcnow() - _MERGE_GRACE, correlate=ServiceOrder),
     ),
     *actor_reference_checks(*ACTOR_TABLES),
 ]

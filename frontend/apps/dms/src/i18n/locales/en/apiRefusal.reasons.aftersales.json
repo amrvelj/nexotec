@@ -2,6 +2,7 @@
   "service_order_cancel_reason_required": "Give the reason for the cancellation.",
   "service_order_clock_has_run": "Time has already been clocked on this order, so it cannot be cancelled. Decline its jobs instead.",
   "service_order_contact_blocked": "This contact is blocked ({{reason}}). No workshop order can be opened for them.",
+  "service_order_contact_merged": "This contact has been merged into another. Choose the contact it was merged into for the order.",
   "service_order_frozen": "This order is closed (ready for billing or cancelled) and can no longer be changed.",
   "service_order_job_accepted": "This job has been accepted and cannot be deleted. Record the answer instead.",
   "service_order_job_already_answered": "The answer for this job has already been recorded.",

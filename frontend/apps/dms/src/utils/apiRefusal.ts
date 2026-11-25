@@ -474,6 +474,7 @@ const REASON_KEYS: Record<string, string> = {
       'service_order_cancel_reason_required',
       'service_order_clock_has_run',
       'service_order_contact_blocked',
+      'service_order_contact_merged',
       'service_order_frozen',
       'service_order_job_accepted',
       'service_order_job_already_answered',

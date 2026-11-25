@@ -2,6 +2,7 @@
   "service_order_cancel_reason_required": "Indiquez le motif de l'annulation.",
   "service_order_clock_has_run": "Du temps a déjà été pointé sur cet ordre ; il ne peut pas être annulé. Refusez plutôt ses travaux.",
   "service_order_contact_blocked": "Ce contact est bloqué ({{reason}}). Aucun ordre d'atelier ne peut être ouvert pour lui.",
+  "service_order_contact_merged": "Ce contact a été fusionné avec un autre. Choisissez pour l'ordre le contact dans lequel il a été fusionné.",
   "service_order_frozen": "Cet ordre est clos (prêt à facturer ou annulé) et ne peut plus être modifié.",
   "service_order_job_accepted": "Ce travail est accepté et ne peut pas être supprimé. Enregistrez plutôt la réponse.",
   "service_order_job_already_answered": "La réponse pour ce travail est déjà enregistrée.",

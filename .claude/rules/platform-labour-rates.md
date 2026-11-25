@@ -37,7 +37,8 @@ counts a rate still to come). Binding text: the slice page and the ADR in the Ta
   `unknown_category`), never an error or a default; it names the source and the row. GET
   `…/labour-rate-answer` shows it. `labour_categories_of_user` for «the rate from who did the work».
 - **API** (`administration/api/labour_rates.py`, matrix row `labour_rates`): every route 404s without the
-  `aftersales` module (a service-level check: router gates are the sales routers' alone); the role check runs
+  `aftersales` module (a service-level check, not a router gate: router gates belong to the module's own routers, sales' and
+  aftersales'); the role check runs
   first, so a role outside the row gets 403 first, as on the settings API. The agreement
   POST lives at the composition root (`app/api/v1/labour_rate_agreements.py`, it reads the contact; listed in
   `session_guard`'s administration prefixes). No outbox event (nothing consumes one). Reconciliation checks

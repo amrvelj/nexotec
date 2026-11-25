@@ -270,6 +270,7 @@ class PositionInput:
     category_set: bool = False
     time_set: bool = False
     price_set: bool = False
+    entered_set: bool = False
 
 
 def get_position_or_404(db: Session, *, order: ServiceOrder, position_id: uuid.UUID) -> ServiceOrderPosition:
@@ -440,14 +441,40 @@ def add_position(
     return position
 
 
+def _price_facts(position: ServiceOrderPosition) -> tuple[Any, ...]:
+    return (position.unit_price, position.price_entered, position.rate_source, position.labour_rate_id)
+
+
+def _refuse_change_shape(position: ServiceOrderPosition, data: PositionInput) -> None:
+    """A change sends only what the position's kind holds, as a new position does."""
+
+    def refuse(field: str, message: str) -> None:
+        raise UnprocessableEntityError(message, details={"reason": "service_order_position_incomplete", "field": field})
+
+    if position.kind is PositionKind.TEXT and (data.category_set or data.time_set or data.price_set or data.entered_set):
+        refuse("kind", "A text position carries no labour category, time or price.")
+    if data.entered_set and not data.price_set:
+        refuse("unitPrice", "Whether a price is net or with VAT is sent with the price.")
+
+
 def change_position(
     db: Session, *, order: ServiceOrder, position: ServiceOrderPosition, actor_id: uuid.UUID, data: PositionInput
 ) -> ServiceOrderPosition:
-    """A change keeps what was not sent. A time sent again is read in the unit in
-    force now; a time not sent keeps the unit it was typed in (check 48). The price is
-    taken again only when a price, the category or the time was sent."""
+    """A change keeps what was not sent.
+
+    - A time sent again is read in the unit in force now; a time not sent keeps the unit
+      it was typed in (check 48). A time change keeps the position's hourly price and
+      its source: the amount is the new hours × the kept rate. A rate proposed once is
+      never asked again behind the advisor's back (ruling 178) — after a change of the
+      invoice recipient too.
+    - A price sent leads (check 12); `unitPrice: null` on labour by time takes the rate
+      which applies now. A category changed takes that category's rate for a proposed
+      price and keeps a typed one.
+    - `pricedAt`/`pricedBy` move only when the price itself changes (section 3.2).
+    """
 
     refuse_frozen(order)
+    _refuse_change_shape(position, data)
     before = _snapshot(position)
     if data.text is not None:
         text = data.text.strip()
@@ -459,7 +486,7 @@ def change_position(
     if position.kind is not PositionKind.TEXT:
         category_id = data.labour_category_id if data.category_set else position.labour_category_id
         time = data.time if data.time_set else position.time_quantity
-        reprice = data.price_set or data.category_set or (data.time_set and position.kind is PositionKind.LABOUR_TIME)
+        category_changed = data.category_set and category_id != position.labour_category_id
         if data.price_set:
             price, entered = data.unit_price, data.price_entered
         elif position.rate_source is RateSource.TYPED:
@@ -467,15 +494,19 @@ def change_position(
         else:
             price, entered = None, None
         _refuse_shape(position.kind, category_id=category_id, time=time, price=price, entered=entered)
-        if data.category_set and category_id != position.labour_category_id:
+        if category_changed:
             assert category_id is not None
             position.labour_category_id = category_id
             position.labour_category_label = _category_label(db, order, category_id)
             position.labour_category_label_refreshed_at = utcnow()
         if data.time_set:
             _apply_time(db, order, position, PositionInput(time=data.time, time_unit=data.time_unit))
-        if reprice:
+        if data.price_set or (category_changed and position.rate_source is not RateSource.TYPED):
+            priced = (_price_facts(position), position.priced_at, position.priced_by, position.vat_rate)
             _apply_price(db, order, position, PositionInput(unit_price=price, price_entered=entered), actor_id=actor_id)
+            if _price_facts(position) == priced[0]:
+                # The same price sent again is no new price: who priced it, and when, stay.
+                position.priced_at, position.priced_by, position.vat_rate = priced[1], priced[2], priced[3]
     position.updated_by = actor_id
     after = _snapshot(position)
     if after != before:
