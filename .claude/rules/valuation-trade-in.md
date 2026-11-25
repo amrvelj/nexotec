@@ -25,15 +25,18 @@ paths:
   - "frontend/apps/dms/src/modules/sales/pages/OfferWorkspace.tradeIn*"
 ---
 <!-- Maintainer note. ADR-047, ADR-066, ADR-070, ADR-074; FR-S-08. Moved out of valuation.md by
-KAN-615. Last verified against main@3b2bf69 (2026-11-18). -->
+KAN-615. Last verified against main@32ad509 (2026-11-25). -->
 
 # A valuation as a trade-in
 
-- **A trade-in is a car** (Anto, KAN-574): a valuation without a VIN is refused as a trade-in —
-  422 `trade_in_valuation_names_no_car` at attach, nothing written, whatever the deal names and
-  configured or not — and never offered by `set_trade_in`'s FR-S-08 auto-attach.
-- **A pre-1981 chassis number** (Anto, KAN-746 A) is taken only where the deal's trade-in
-  configuration carries it (Stock buys it so), else 422 `trade_in_chassis_number_requires_configuration`.
+- **A trade-in is a car** (Anto, KAN-574): a valuation naming neither a VIN nor a chassis number is
+  refused — 422 `trade_in_valuation_names_no_car` at attach, nothing written — and never
+  offered by `set_trade_in`'s FR-S-08 auto-attach.
+- **A pre-1981 chassis number** (Anto, KAN-746 A) is taken only with a configuration carrying that
+  number and a first registration before 1981 (Stock buys it so): at attach the valuation's own, in
+  `set_trade_in` the offered valuation's else the deal's — else 422
+  `trade_in_chassis_number_requires_configuration`, nothing written. The auto-attach offers such a
+  valuation only with its configuration; a chassis number never finds a vehicle-mdm record.
 - A valuation made **without a configuration** brings its car to a deal that names no trade-in car
   yet — its VIN, linked record and «Make Model Trim», or the VIN as the label without make or model
   (`sales/services/trade_in.py::_attach`); the confirmation publishes the label and Stock names the

@@ -12,7 +12,7 @@ paths:
   - "frontend/apps/dms/src/architecture/lazy-routes*"
 ---
 <!-- Maintainer note. UI/UX Specification (Application Shell), FR-UI-07, ADR-084, ADR-108. Split out
-of ui.md by KAN-615 (2026-11-13). Last verified against main@3b2bf69 (2026-11-18). -->
+of ui.md by KAN-615 (2026-11-13). Last verified against main@32ad509 (2026-11-25). -->
 
 # The application shell
 
@@ -41,8 +41,9 @@ of ui.md by KAN-615 (2026-11-13). Last verified against main@3b2bf69 (2026-11-18
   and a translated reload screen when a chunk cannot be fetched (a tab older than the deploy). On
   in-app navigation the previous screen stays up until the next chunk arrives — never blank, no
   loader (React Router 7's `startTransition`; no render test pins it).
-- **Public legal pages** (ADR-108): `/legal/terms` and `/legal/privacy` are the only routes besides
-  the sign-in screens reachable without a session — lazy routes outside the signed-in layout, text
+- **Public legal pages** (ADR-108): `/legal/terms` and `/legal/privacy` are, with the sign-in
+  screens and a contact's secure document link (`/d`, KAN-217, `platform-documents.md`), the only
+  routes reachable without a session — lazy routes outside the signed-in layout, text
   from `legal.*` in all four bundles, `?lang=` picks the language. The sign-in screens link them
   below the card; signed in, they sit at the foot of the sidebar's account menu
   (`Sidebar.footerLinks`, labels from the app, new tab). Every section is a marked draft until

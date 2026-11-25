@@ -37,7 +37,7 @@ paths:
 <!-- Maintainer note (stripped before Claude sees it). Summarises the Dealer Administration PRD's
 notifications (D-A-40, FR-AU-26) and UI translations (FR-A-30…32), ADR-047. Cut from platform.md by
 KAN-614 (2026-11-10); the status page moved to platform-administration.md (KAN-751). Last verified
-against main@3b2bf69 (2026-11-18). -->
+against main@32ad509 (2026-11-25). -->
 
 # Notifications and UI translations
 
@@ -74,8 +74,9 @@ against main@3b2bf69 (2026-11-18). -->
   login, factor enrolled or removed, recovery code used, lockout, password reset or replaced, a
   session ended by someone else, connected account revoked, and staff recovery (the action as a
   closed code, never the reason). Impersonation start and end (`security.impersonation_started`/`_ended`) are raised by
-  `services/support_sessions.py` to the supported user (KAN-221 PR-4); connected-account linking is in
-  the catalogue only — nothing raises it yet.
+  `services/support_sessions.py` to the supported user (KAN-221 PR-4); connected-account linking ships
+  (KAN-215 records `connected_account_linked`) but raises no notice — `security.connected_account_linked`
+  is in the catalogue only (KAN-799).
 - **Web Push is a port with no working adapter**: no VAPID key is configured — its home is
   `app/core/config.py`, a preserved file, so adding it is Anto's decision — so
   `GET /v1/me/push/config` says unavailable and nothing is pushed. Pushes carry title + link only,

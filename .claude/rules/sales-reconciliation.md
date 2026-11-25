@@ -10,7 +10,7 @@ paths:
   - "tests/architecture/test_actor_columns_reconciled.py"
 ---
 <!-- Maintainer note. Rule 10; ADR-052, ADR-107. Moved out of sales.md by KAN-615 (2026-11-13).
-Last verified against main@3b2bf69 (2026-11-18). Reconciliation reports; it never repairs. -->
+Last verified against main@32ad509 (2026-11-25). Reconciliation reports; it never repairs. -->
 
 # Sales' nightly reconciliation
 

@@ -28,7 +28,7 @@ paths:
   - "frontend/apps/dms/src/modules/sales/pages/SalesListPage.inventoryChanged.render.test.tsx"
 ---
 <!-- Maintainer note. ADR-115, ADR-131, ADR-145. Moved out of events.md by KAN-615 (2026-11-13).
-Last verified against main@3b2bf69 (2026-11-18). -->
+Last verified against main@32ad509 (2026-11-25). -->
 
 # Stock ↔ Sales fact flows
 

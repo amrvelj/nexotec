@@ -36,8 +36,8 @@ paths:
 ---
 <!-- Maintainer note. UI/UX Specification (forms, component contracts), ADR-101, ADR-164. Split out
 of ui.md by KAN-615 (2026-11-13); forms are listed by file pattern, inside the module folders too
-(ADR-161, KAN-636), since a module holds more than its forms. Last verified against main@3b2bf69
-(2026-11-18). -->
+(ADR-161, KAN-636), since a module holds more than its forms. Last verified against main@32ad509
+(2026-11-25). -->
 
 # Forms and inline edit
 

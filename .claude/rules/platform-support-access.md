@@ -17,17 +17,21 @@ paths:
   - "frontend/apps/dms/src/pages/SupportSessionScreens*"
   - "frontend/apps/dms/src/layout/DmsShell.supportSession*"
 ---
-<!-- Maintainer note. Dealer Administration D-A-05, D-A-24, FR-A-15, FR-A-17, FR-A-18; ADR-188. Cut from
-platform-users.md by KAN-221 PR-6 (2026-11-21), its budget being full. -->
+<!-- Maintainer note. Dealer Administration D-A-05, D-A-24, FR-A-15, FR-A-17, FR-A-18; ADR-188, ADR-194, ADR-200.
+Cut from platform-users.md by KAN-221 PR-6 (2026-11-21), its budget being full. Last verified against
+main@32ad509 (2026-11-25). -->
 
 # Support access and platform staff (KAN-221)
 
 - **The record:** `support_session` — `POST /v1/platform/support-sessions` (staff with a second
-  factor, never under `acting_for`; not a platform_admin, oneself or an inactive user; one running
+  factor, never under `acting_for`; not a platform_admin, a user of the platform tenant, oneself or an inactive user — 422
+  `support_target_*`; one running
   session per staff member; a reason is mandatory; 60 minutes), `…/{id}/end` (the staff member or
   the user; anyone else 404). Past `expires_at` every read says `timeout`; the nightly
-  `platform.support_sessions.close_expired` writes it into the row. **Grants nothing before PR 3**
-  (the `acting_for` token, preserved `auth.py`/`audit.py`: attended session only).
+  `platform.support_sessions.close_expired` writes it into the row. **Grants nothing yet: PR 3
+  (the `acting_for` token) is not merged** — nothing sets `Principal.acting_for` (`auth.py`), so the
+  staff side of the banner read and FR-A-17's refusals below are wired but never fire until it lands
+  (preserved `auth.py`/`audit.py`: attended session only).
 - **Logs:** `GET /v1/dealerships/{id}/support-sessions` (the manager, own Betrieb; another is 404)
   and `GET /v1/platform/support-sessions` (staff; `dealershipId`, `staffUserId`); `sort` over the
   session's own columns (`startedAt:desc` = newest first, the screens' order); `endedAt` sorts the end the log
@@ -39,12 +43,12 @@ platform-users.md by KAN-221 PR-6 (2026-11-21), its budget being full. -->
   (ADR-084, `ui-shell.md`): staff, reason, end time, «Sitzung beenden»; no dismiss; the user ends it.
   The read and the ending pass the confining gates (`session_guard._support_session_path`): a
   session that owes a factor and a manager under the legal hold still see and end it.
-- **Platform users** (`/v1/platform/staff`, ADR-188): grant = a staff account in the platform
+- **Platform users** (`/v1/platform/staff`, ADR-188, ADR-200): grant = a staff account in the platform
   tenant, invited; revoke (reason, If-Match) = its deactivation, or the role taken off a legacy holder
   (`staff_role_is_the_only_role` when it is their only one); never oneself
   (`platform_admin_self_revoke`), never the last active holder (`last_platform_admin`). Both need a
   second factor and are refused under a support session.
-- **FR-A-17:** `core/impersonation.py` answers 403 `impersonation_excluded` on the routes
+- **FR-A-17** (ADR-194): `core/impersonation.py` answers 403 `impersonation_excluded` on the routes
   `test_kan221_impersonation_exclusions.py` names (a new credential, MFA, manager-flag, secret,
   staff-role or impersonation route joins it), on a PATCH of `isDealerManager`/`email`, a new
   manager and a connection's `config`. The user gets `security.impersonation_started`/`_ended`, the

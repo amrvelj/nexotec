@@ -27,9 +27,16 @@ removed; this guard keeps them out:
      name holding `catalogmutations`, `cataloguemutations` or `mutationssince`
      once lower-cased with its underscores removed; on an adapter, any name
      holding `mutations` at all, `fetch_mutations` included).
-  3. No daily job reaches an integration provider through the gateway (the
-     step every catalogue and vehicle-data call takes). A connected-account
-     grant's revoker (KAN-559's daily repair) is not a gateway provider.
+  3. No daily job reaches a vehicle-data or catalogue provider through the
+     gateway (the step every catalogue and vehicle-data call takes), and no
+     daily job reaches any provider at all, except **two ruled exceptions**
+     (KAN-798, amending ADR-205), both Google Business Profile and both per
+     binding over the push's own fields, never a catalogue: the drift check
+     (`integration.business_profile.drift_check`) reads each bound location
+     back, and the horizon push (`integration.business_profile.horizon_push`,
+     KAN-793) sends a closed day that entered the one-year horizon. A
+     connected-account grant's revoker (KAN-559's daily repair) is not a
+     gateway provider.
   4. **The identAPI's pages are never walked** (ADR-112 (4), KAN-548): the
      provider page parameter (`page[number]`) is written in the identAPI
      adapter alone, and no catalogue query (`search_catalogue_variants`,
@@ -50,6 +57,7 @@ import uuid
 from pathlib import Path
 
 import pytest
+from sqlalchemy import select
 
 from app import worker
 from app.core import daily_scheduler
@@ -61,6 +69,16 @@ from app.integration.models.provider import IntegrationProvider
 from app.integration.schemas.connection import ConnectionCreate
 from app.integration.services import connections as connection_service
 from app.integration.services import gateway
+from app.integration.services.gbp_link import GBP_PROVIDER_CODE
+from tests.integration import test_kan226_business_profile as gbp_link_tests
+from tests.integration import test_kan226_business_profile_drift as gbp_drift_tests
+from tests.integration import test_kan226_business_profile_push as gbp_push_tests
+
+# The Business Profile fixtures (fake Google, Nexotec's client connection, a Betrieb with a site).
+google = gbp_link_tests.google
+client_connection = gbp_link_tests.client_connection
+betrieb = gbp_drift_tests.betrieb
+_gbp_bind = gbp_push_tests._bind
 
 _REPO = Path(__file__).resolve().parent.parent.parent
 _SCANNED_ROOTS = (_REPO / "app", _REPO / "scripts")
@@ -307,11 +325,38 @@ def test_nothing_in_app_or_scripts_retrieves_the_whole_catalogue():
     )
 
 
-def test_no_daily_job_reaches_a_provider(db_session, monkeypatch):
-    """Every registered daily job, run against a tenant with an enabled demo
-    connection, never resolves a provider adapter — the step every provider
-    call goes through (`gateway._adapter_factory`). The daily catalogue delta
+# The daily jobs that may resolve a provider adapter, and the only provider each may resolve
+# (KAN-798, ADR-205 as amended 2026-11-25): Google Business Profile, per binding, the push's own
+# fields — the drift check reads them back, the horizon push (KAN-793) sends a closed day that
+# entered the one-year horizon. Neither touches a catalogue.
+_DAILY_PROVIDER_EXCEPTIONS = {
+    "integration.business_profile.horizon_push": {GBP_PROVIDER_CODE},
+    "integration.business_profile.drift_check": {GBP_PROVIDER_CODE},
+}
+# Provider categories a daily job may never resolve, exception or not (KAN-485).
+_NEVER_DAILY_CATEGORIES = {"vehicle_data"}
+
+
+class _ReachedProvider(Exception):
+    """Raised by the recording factory: the job got as far as a provider, which is all we ask."""
+
+
+def test_no_daily_job_reaches_a_provider(db_session, monkeypatch, google, client_connection, betrieb):
+    """Every registered daily job runs against a tenant with an enabled demo
+    vehicle-data connection AND an active Business Profile binding, and the
+    gateway's `_adapter_factory` — the step every provider call goes through
+    — records which job resolved which provider. No job resolves the
+    vehicle-data adapter; no job outside the exceptions resolves any adapter;
+    and each ruled exception (the drift check, the horizon push) does
+    resolve the Business Profile adapter, so it is exercised, not assumed
+    (KAN-798). The daily catalogue delta
     used to be the first thing `integration.daily_jobs` did.
+
+    The recorder raises on each resolution, so a job sees only its first
+    provider per unit of work (per binding for the drift check, which goes on
+    to the next binding); a second provider resolved later in the same unit
+    would not be reached. Returning a working stub instead would run the
+    jobs' provider code against nothing, so the bound is accepted and named.
     """
 
     provider = IntegrationProvider(
@@ -332,28 +377,41 @@ def test_no_daily_job_reaches_a_provider(db_session, monkeypatch):
         ),
         actor_id=uuid.uuid4(),
     )
+    dealership, location = betrieb
+    _gbp_bind(db_session, google, dealership.id, location.id)
 
-    resolved: list[uuid.UUID] = []
+    providers = {row.id: row for row in db_session.scalars(select(IntegrationProvider)).all()}
+    current: list[str] = []
+    resolved: list[tuple[str, str, str]] = []
 
     def _record(db, connection):
-        resolved.append(connection.id)
-        raise AssertionError("a daily job reached a provider")
+        row = providers[connection.provider_id]
+        resolved.append((current[-1], row.provider_code, row.category))
+        raise _ReachedProvider(row.provider_code)
 
     monkeypatch.setattr(gateway, "_adapter_factory", _record)
     monkeypatch.setattr(daily_scheduler, "_REGISTRY", {})
     worker.register_daily_jobs()
     jobs = dict(daily_scheduler._REGISTRY)
-    assert "integration.daily_jobs" in jobs, (
-        "the integration daily job is not registered — the guard would pass vacuously"
-    )
+    for name in ("integration.daily_jobs", *_DAILY_PROVIDER_EXCEPTIONS):
+        assert name in jobs, f"the daily job {name!r} is not registered — the guard would pass vacuously"
     for name, job in jobs.items():
+        current.append(name)
         try:
             job(db_session)
-        except AssertionError:
-            raise
         except Exception:  # noqa: BLE001 - a job failing for another reason is not this guard's question
             db_session.rollback()
-        assert not resolved, f"daily job {name!r} reached a provider: single lookups only (KAN-485)"
+
+    never = [(job, code) for job, code, category in resolved if category in _NEVER_DAILY_CATEGORIES]
+    assert not never, f"a daily job reached a vehicle-data provider: single lookups only (KAN-485): {never}"
+    outside = [(job, code) for job, code, _ in resolved if code not in _DAILY_PROVIDER_EXCEPTIONS.get(job, set())]
+    assert not outside, f"a daily job reached a provider outside its ruled exception (KAN-798, ADR-205): {outside}"
+    for job, codes in _DAILY_PROVIDER_EXCEPTIONS.items():
+        reached = {code for name, code, _ in resolved if name == job}
+        assert reached == codes, (
+            f"{job!r} resolved {sorted(reached)}, not {sorted(codes)}: the fixture no longer exercises the "
+            "exception, so the guard would pass vacuously for it"
+        )
 
 
 def test_the_identapi_page_parameter_is_written_in_the_adapter_alone():

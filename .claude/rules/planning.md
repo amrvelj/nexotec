@@ -6,7 +6,8 @@ paths:
 <!-- Maintainer note. ADR-211 (KAN-804, 2026-11-24), amending ADR-131. Summarises Decision A of
 «Architecture decisions of slice 1» https://app.notion.com/p/4223e79334dd816e941bf780af822854 and
 section 3.8 of «Build slice 1 - the order backbone» https://app.notion.com/p/4223e79334dd81d8b83bc1fbf4376c74
-(binding; read the section before building against a line). Built by KAN-808 (backend) and KAN-809 (page). -->
+(binding; read the section before building against a line). Built by KAN-808 (backend) and KAN-809 (page).
+Last verified against main@32ad509 (2026-11-25). -->
 
 # Planning — the planner every context books through
 

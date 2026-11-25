@@ -13,7 +13,7 @@ paths:
   - "frontend/apps/dms/src/architecture/no-locale-number-format*"
 ---
 <!-- Maintainer note. ADR-076. Split out of ui.md by KAN-615 (2026-11-13). Last verified against
-main@3b2bf69 (2026-11-18). -->
+main@32ad509 (2026-11-25). -->
 
 # Money, numbers and dates on screen
 
@@ -21,7 +21,7 @@ main@3b2bf69 (2026-11-18). -->
   `ChfInput` (or `chfInlineEditor()` inside an `InlineEditField`), never a bare `NumberInput` or
   `<input type="number">`; `no-bare-money-number-input.test.ts` names every NumberInput that is
   not money. A number filter's saved text formats its value through the field's `numberFormat`
-  (`ui-grid.md`).
+  (`ui-grid-filters.md`).
 - **A date-only value** (a backend `dt.date`: birth date, purchase date, first registration, a
   plate's validity …) names a calendar day and renders through `formatDateOnly`; `formatDate` and
   `formatDateTime` are for timestamps, rendered in the browser's zone.

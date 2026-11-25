@@ -46,7 +46,7 @@ paths:
   - "WORKSHOP_TERMINAL_AUTH_DESIGN.md"
 ---
 <!-- Maintainer note. Auth & Identity PRD v1.1; D-A-07…D-A-37; ADR-028/099/110/118. Cut from platform.md
-by KAN-614, 2026-11-10. Last verified against main@3b2bf69 (2026-11-18). -->
+by KAN-614, 2026-11-10. Last verified against main@32ad509 (2026-11-25). -->
 
 # Identity and sign-in (Authentication & Identity; D-A-07…D-A-16, D-A-36)
 
