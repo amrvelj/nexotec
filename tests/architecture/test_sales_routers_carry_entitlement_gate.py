@@ -21,6 +21,7 @@ walk saw the routes it claims to guard.
 
 import inspect
 
+import pytest
 from fastapi import APIRouter
 from fastapi.routing import APIRoute
 
@@ -33,8 +34,12 @@ _GATED_PACKAGES = ("app.sales.api.", "app.inventory.api.", "app.valuation.api.")
 _GATED_MODULES = {"app.vehicle.api.configuration", "app.vehicle.api.identification"}
 _GATED_ROUTERS = 13  # KAN-555: the legacy transactions router is gone
 # KAN-810: the service orders; KAN-808: the planning context's routers — both behind `aftersales`.
-_AFTERSALES_PACKAGES = ("app.aftersales.api.", "app.planning.api.")
-_AFTERSALES_ROUTERS = 2
+# Each package keeps its own floor of routes and its own router count, as each side had alone.
+_AFTERSALES_GATED = {
+    "app.aftersales.api.": (12, 1),  # (at least this many routes, exactly this many routers)
+    "app.planning.api.": (15, 1),
+}
+_AFTERSALES_PACKAGES = tuple(_AFTERSALES_GATED)
 
 
 def _is_gated_module(module: str) -> bool:
@@ -79,9 +84,10 @@ def test_every_route_of_a_sales_module_router_is_gated_with_sales():
     assert ungated == [], ungated
 
 
-def test_every_route_of_an_aftersales_or_planning_router_is_gated_with_aftersales():
-    gated_routes = [(path, route) for path, route in _walk() if _is_aftersales_module(route.endpoint.__module__)]
-    assert len(gated_routes) >= 27, len(gated_routes)
+@pytest.mark.parametrize("package", sorted(_AFTERSALES_GATED))
+def test_every_route_of_an_aftersales_or_planning_router_is_gated_with_aftersales(package):
+    gated_routes = [(path, route) for path, route in _walk() if route.endpoint.__module__.startswith(package)]
+    assert len(gated_routes) >= _AFTERSALES_GATED[package][0], len(gated_routes)
     ungated = [
         f"{sorted(route.methods)} {path}"
         for path, route in gated_routes
@@ -105,7 +111,8 @@ def test_the_gate_is_a_router_level_dependency():
     """Router-level, not per route: `APIRouter(dependencies=[...])` places the
     gate on every route of the router, ahead of the route's own dependencies."""
 
-    checked = aftersales = 0
+    checked = 0
+    aftersales = dict.fromkeys(_AFTERSALES_GATED, 0)
     for name in dir(v1):
         router = getattr(v1, name)
         if not isinstance(router, APIRouter) or router is v1.api_v1_router:
@@ -114,8 +121,9 @@ def test_the_gate_is_a_router_level_dependency():
         if _is_gated_module(module):
             assert any(_entitlement_of(d) is ModuleCode.SALES for d in router.dependencies), name
             checked += 1
-        if _is_aftersales_module(module):
-            assert any(_entitlement_of(d) is ModuleCode.AFTERSALES for d in router.dependencies), name
-            aftersales += 1
+        for package in _AFTERSALES_GATED:
+            if module.startswith(package):
+                assert any(_entitlement_of(d) is ModuleCode.AFTERSALES for d in router.dependencies), name
+                aftersales[package] += 1
     assert checked == _GATED_ROUTERS, checked
-    assert aftersales == _AFTERSALES_ROUTERS, aftersales
+    assert aftersales == {package: routers for package, (_, routers) in _AFTERSALES_GATED.items()}, aftersales
