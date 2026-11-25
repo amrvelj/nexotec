@@ -24,7 +24,7 @@ def location_label_for(db: Session, *, dealership_id: uuid.UUID, location_id: uu
         )
     if not current.is_active:
         raise UnprocessableEntityError(
-            "A deactivated location gets no new planner resource.",
+            "A deactivated location cannot hold an active planner resource.",
             details={"reason": "planning_location_inactive", "locationId": str(location_id)},
         )
     return current.label[:LABEL_LENGTH]

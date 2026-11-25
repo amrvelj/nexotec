@@ -635,7 +635,7 @@ def test_a_change_of_working_hours_is_in_the_resources_history(client, db_sessio
     events = db_session.scalars(
         select(AuditEvent).where(
             AuditEvent.entity_type == "planning_resource", AuditEvent.entity_id == uuid.UUID(person["id"])
-        )
+        ).order_by(AuditEvent.id)
     ).all()
     assert [event.action for event in events] == ["create", "working_hours_replaced"]
     assert events[-1].after["workingHours"][0]["weekday"] == 1
