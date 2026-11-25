@@ -192,7 +192,7 @@ export function StockDetailContent({ stockItemId: id, embedded = false }: StockD
   const recordPurchase = async (data: {
     supplierContactId: string
     supplierIsVatRegistered: boolean
-    purchasePrice: number
+    purchasePrice: string
     purchaseDate: string
     purchaseInvoiceRef?: string
     vin?: string
@@ -217,7 +217,7 @@ export function StockDetailContent({ stockItemId: id, embedded = false }: StockD
     void queryClient.invalidateQueries({ queryKey: ['stock-item', id, 'ledger-entries'] })
   }
 
-  const recordCost = async (data: { category: LedgerCategory; amount: number; occurredAt: string; sourceRef: string }) => {
+  const recordCost = async (data: { category: LedgerCategory; amount: string; occurredAt: string; sourceRef: string }) => {
     const path = `/inventory/stock-items/${id}/ledger-entries`
     await api.post(path, data, costKey.headers([path, data]))
     costKey.renew()

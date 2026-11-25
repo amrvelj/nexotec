@@ -137,7 +137,8 @@ export function OfferWorkspaceContent({ offerId: id }: { offerId: string }) {
   const [leasingDownPayment, setLeasingDownPayment, leasingDownPaymentUnsaved, leasingDownPaymentInvalid, onLeasingDownPaymentBlur] = useDebouncedNumberField(
     offerQuery.data?.leasingDownPayment != null ? Number(offerQuery.data.leasingDownPayment) : null,
     offerQuery.data?.id,
-    (value) => commitLeasing({ leasingDownPayment: value }),
+    // A decimal string, never a JSON number (KAN-827).
+    (value) => commitLeasing({ leasingDownPayment: value == null ? null : String(value) }),
     undefined,
     offerQuery.data?.version,
     true // KAN-493: never negative (the API's ge=0, KAN-482)

@@ -12,8 +12,10 @@ export interface PriceBuildUpProps {
   /** Each returns its save, if it has one, refusal included (a rejected
    * promise): a field shows a newer server copy only once its own saves have
    * settled, and the server's copy when one is refused (KAN-442). */
-  onDiscountChange: (patch: { discountType: string | null; discountValue: number | null }) => void | Promise<unknown>
-  onManualBasePriceChange?: (value: number | null) => void | Promise<unknown>
+  /** Figures go out as decimal strings, never JSON numbers: a number passes
+   * through a float and the API refuses it (KAN-827). */
+  onDiscountChange: (patch: { discountType: string | null; discountValue: string | null }) => void | Promise<unknown>
+  onManualBasePriceChange?: (value: string | null) => void | Promise<unknown>
   /** KAN-288 — told whether a typed figure is still waiting to be saved, so a
    * host that ends the edit (signing a contract) can wait for it. */
   onUnsavedChange?: (unsaved: boolean) => void
@@ -46,6 +48,11 @@ function row(label: string, value: string, opts?: { bold?: boolean; negative?: b
  * that never includes these fields at all (see
  * tests/architecture/test_margin_never_in_rendered_document.py).
  */
+/** The API's decimal string for a figure the input holds as a number (KAN-827). */
+function asDecimalString(value: number | null): string | null {
+  return value == null ? null : String(value)
+}
+
 export function PriceBuildUp({ deal, onDiscountChange, onManualBasePriceChange, onUnsavedChange, disabled = false }: PriceBuildUpProps) {
   const { t } = useTranslation()
 
@@ -55,7 +62,7 @@ export function PriceBuildUp({ deal, onDiscountChange, onManualBasePriceChange, 
   const [manualBasePrice, setManualBasePrice, manualBasePriceUnsaved, manualBasePriceInvalid, onManualBasePriceBlur] = useDebouncedNumberField(
     deal.manualBasePrice != null ? Number(deal.manualBasePrice) : null,
     deal.id,
-    (value) => onManualBasePriceChange?.(value),
+    (value) => onManualBasePriceChange?.(asDecimalString(value)),
     undefined,
     deal.version,
     true // KAN-493: never negative (the API's ge=0, KAN-482)
@@ -63,7 +70,7 @@ export function PriceBuildUp({ deal, onDiscountChange, onManualBasePriceChange, 
   const [discountValue, setDiscountValue, discountValueUnsaved, discountValueInvalid, onDiscountValueBlur] = useDebouncedNumberField(
     deal.discountValue != null ? Number(deal.discountValue) : null,
     deal.id,
-    (value) => onDiscountChange({ discountType: deal.discountType, discountValue: value }),
+    (value) => onDiscountChange({ discountType: deal.discountType, discountValue: asDecimalString(value) }),
     undefined,
     // KAN-478: an older copy never replaces a newer figure.
     deal.version,
@@ -125,8 +132,8 @@ export function PriceBuildUp({ deal, onDiscountChange, onManualBasePriceChange, 
               onDiscountChange({
                 discountType: v || null,
                 discountValue: discountValueInvalid
-                  ? deal.discountValue != null ? Number(deal.discountValue) : null
-                  : discountFigure === '' ? null : discountFigure,
+                  ? deal.discountValue ?? null
+                  : discountFigure === '' ? null : asDecimalString(discountFigure),
               })
             ).catch(() => undefined)
           }

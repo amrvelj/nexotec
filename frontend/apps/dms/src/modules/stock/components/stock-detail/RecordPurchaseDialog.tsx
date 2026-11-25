@@ -38,7 +38,7 @@ interface RecordPurchaseDialogProps {
   onSubmit: (data: {
     supplierContactId: string
     supplierIsVatRegistered: boolean
-    purchasePrice: number
+    purchasePrice: string
     purchaseDate: string
     purchaseInvoiceRef?: string
     vin?: string
@@ -185,7 +185,8 @@ export function RecordPurchaseDialog({
       await onSubmit({
         supplierContactId: contact.id,
         supplierIsVatRegistered,
-        purchasePrice: Number(purchasePrice),
+        // A decimal string, never a JSON number: a number passes through a float (KAN-827).
+        purchasePrice: String(purchasePrice),
         purchaseDate,
         purchaseInvoiceRef: purchaseInvoiceRef || undefined,
         ...(requiresVin ? { vin: vin.trim() } : {}),

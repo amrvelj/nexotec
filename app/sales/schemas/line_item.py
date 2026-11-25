@@ -11,6 +11,7 @@ from decimal import Decimal
 from pydantic import Field
 
 from app.core.schemas import CamelModel
+from app.core.validators import DecimalStr
 from app.sales.models.line_item import LineItemKind
 
 
@@ -21,10 +22,10 @@ class LineItemAccessoryInput(CamelModel):
     id: uuid.UUID | None = None
     code: str
     label: str
-    unit_price: Decimal
+    unit_price: DecimalStr
     quantity: int = 1
     discount_type: str | None = None  # "percent" | "amount"
-    discount_value: Decimal | None = None
+    discount_value: DecimalStr | None = None
     # Required to set a discount on this line when the vehicle is used
     # (see module docstring on services/line_items.py) — optional
     # otherwise.
@@ -40,7 +41,7 @@ class LineItemFactoryOptionPatch(CamelModel):
     id: uuid.UUID
     included: bool
     discount_type: str | None = None
-    discount_value: Decimal | None = None
+    discount_value: DecimalStr | None = None
     discount_suppressed_reason: str | None = None
 
 

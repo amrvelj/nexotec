@@ -8,9 +8,9 @@ API all share. It is kept in lockstep with the mixin by
 asserts its field set (by alias) equals `SPEC_BLOCK_FIELDS`.
 """
 
-from decimal import Decimal
 
 from app.core.schemas import CamelModel
+from app.core.validators import DecimalStr
 
 
 class VehicleSpecBlockRead(CamelModel):
@@ -41,13 +41,13 @@ class VehicleSpecBlockRead(CamelModel):
     towing_capacity_kg: int | None = None
     wheelbase_mm: int | None = None
     # consumption / energy
-    consumption_mixed: Decimal | None = None
-    consumption_urban: Decimal | None = None
-    consumption_extra_urban: Decimal | None = None
+    consumption_mixed: DecimalStr | None = None
+    consumption_urban: DecimalStr | None = None
+    consumption_extra_urban: DecimalStr | None = None
     consumption_norm: str | None = None
     co2_gkm: int | None = None
-    energy_consumption_kwh: Decimal | None = None
-    battery_capacity_kwh: Decimal | None = None
+    energy_consumption_kwh: DecimalStr | None = None
+    battery_capacity_kwh: DecimalStr | None = None
     range_km: int | None = None
     tank_capacity_l: int | None = None
     # homologation codes
@@ -57,7 +57,7 @@ class VehicleSpecBlockRead(CamelModel):
     model_year: int | None = None
     production_from: int | None = None
     production_to: int | None = None
-    base_price: Decimal | None = None
+    base_price: DecimalStr | None = None
     base_price_year: int | None = None
     price_is_net: bool | None = None
 

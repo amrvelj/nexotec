@@ -12,7 +12,7 @@ from typing import Literal
 from pydantic import Field
 
 from app.core.schemas import CamelModel
-from app.core.validators import NormalisedVinOrChassisNumber
+from app.core.validators import DecimalStr, NormalisedVinOrChassisNumber
 from app.sales.models.offer import OfferStatus
 
 
@@ -86,17 +86,17 @@ class OfferUpdate(CamelModel):
     # contract shares with the offer takes the contract's bounds
     # (ContractUpdate) — one pricing code, one rule (ADR-083); the
     # leasing figures, offer only, are never negative either.
-    manual_base_price: Decimal | None = Field(default=None, ge=0, max_digits=12, decimal_places=2)
+    manual_base_price: DecimalStr | None = Field(default=None, ge=0, max_digits=12, decimal_places=2)
     # C-F (KAN-10, FR-C-12): Path B's configuration, `build` mode only.
     # Setting it makes the container a configuration; null detaches it.
     configuration_id: uuid.UUID | None = None
-    leasing_down_payment: Decimal | None = Field(default=None, ge=0, max_digits=12, decimal_places=2)
+    leasing_down_payment: DecimalStr | None = Field(default=None, ge=0, max_digits=12, decimal_places=2)
     leasing_term_months: int | None = Field(default=None, ge=0)
     leasing_km_per_year: int | None = Field(default=None, ge=0)
     # WP-8 PR-3 — the seller's own input into pricing.build_up(); every
     # other pricing field is derived and not client-settable.
     discount_type: Literal["percent", "amount"] | None = None
-    discount_value: Decimal | None = Field(default=None, ge=0, max_digits=12, decimal_places=2)
+    discount_value: DecimalStr | None = Field(default=None, ge=0, max_digits=12, decimal_places=2)
     # KAN-200 (FR-A-37): the responsible seller — a user of the dealership,
     # or null for "unassigned" (the sales list's own queue).
     owner_user_id: uuid.UUID | None = None

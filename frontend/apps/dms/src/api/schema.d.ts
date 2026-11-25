@@ -7193,7 +7193,7 @@ export interface components {
             /** Exteriorcolour */
             exteriorColour?: string | null;
             /** Exteriorcoloursurcharge */
-            exteriorColourSurcharge?: number | string | null;
+            exteriorColourSurcharge?: string | null;
             /** Exteriorcolourtype */
             exteriorColourType?: string | null;
             /** Firstregistrationdate */
@@ -7206,7 +7206,7 @@ export interface components {
             /** Interiorcolour */
             interiorColour?: string | null;
             /** Interiorcoloursurcharge */
-            interiorColourSurcharge?: number | string | null;
+            interiorColourSurcharge?: string | null;
             /** Interiorcolourtype */
             interiorColourType?: string | null;
             /** Licenceplate */
@@ -7242,7 +7242,7 @@ export interface components {
             /** Wheels */
             wheels?: string | null;
             /** Wheelssurcharge */
-            wheelsSurcharge?: number | string | null;
+            wheelsSurcharge?: string | null;
         };
         /**
          * ConfigurationEnergyLabelRead
@@ -7327,7 +7327,7 @@ export interface components {
             /** Optiongroup */
             optionGroup?: string | null;
             /** Price */
-            price?: number | string | null;
+            price?: string | null;
             /**
              * Selected
              * @default true
@@ -7522,7 +7522,7 @@ export interface components {
             /** Exteriorcolour */
             exteriorColour?: string | null;
             /** Exteriorcoloursurcharge */
-            exteriorColourSurcharge?: number | string | null;
+            exteriorColourSurcharge?: string | null;
             /** Exteriorcolourtype */
             exteriorColourType?: string | null;
             /** Firstregistrationdate */
@@ -7535,7 +7535,7 @@ export interface components {
             /** Interiorcolour */
             interiorColour?: string | null;
             /** Interiorcoloursurcharge */
-            interiorColourSurcharge?: number | string | null;
+            interiorColourSurcharge?: string | null;
             /** Interiorcolourtype */
             interiorColourType?: string | null;
             /** Licenceplate */
@@ -7570,7 +7570,7 @@ export interface components {
             /** Wheels */
             wheels?: string | null;
             /** Wheelssurcharge */
-            wheelsSurcharge?: number | string | null;
+            wheelsSurcharge?: string | null;
         };
         /** ConnectedAccountListRead */
         ConnectedAccountListRead: {
@@ -7962,7 +7962,7 @@ export interface components {
             /** @default individual */
             contactType?: components["schemas"]["ContactType"];
             /** Creditlimit */
-            creditLimit?: number | string | null;
+            creditLimit?: string | null;
             /** Emails */
             emails?: components["schemas"]["ContactEmailCreate"][];
             /** Firstname */
@@ -8539,7 +8539,7 @@ export interface components {
             /** Contactsince */
             contactSince?: string | null;
             /** Creditlimit */
-            creditLimit?: number | string | null;
+            creditLimit?: string | null;
             /** Firstname */
             firstName?: string | null;
             gender?: components["schemas"]["Gender"] | null;
@@ -8855,9 +8855,9 @@ export interface components {
             /** Discounttype */
             discountType?: ("percent" | "amount") | null;
             /** Discountvalue */
-            discountValue?: number | string | null;
+            discountValue?: string | null;
             /** Manualbaseprice */
-            manualBasePrice?: number | string | null;
+            manualBasePrice?: string | null;
             /** Manualvehiclecondition */
             manualVehicleCondition?: string | null;
             /** Owneruserid */
@@ -9270,7 +9270,7 @@ export interface components {
             /** Addressautocompleteenabled */
             addressAutocompleteEnabled?: boolean | null;
             /** Cashrounding */
-            cashRounding?: number | string | null;
+            cashRounding?: string | null;
             chartOfAccountsVariant?: components["schemas"]["ChartOfAccountsVariant"] | null;
             /** Currency */
             currency?: string | null;
@@ -9335,14 +9335,17 @@ export interface components {
             /** Vatnumber */
             vatNumber?: string | null;
             /** Vatrate */
-            vatRate?: number | string | null;
+            vatRate?: string | null;
             /** Website */
             website?: string | null;
         };
         /** DeductionInput */
         DeductionInput: {
-            /** Amount */
-            amount: number | string;
+            /**
+             * Amount
+             * Format: decimal
+             */
+            amount: string;
             /** Label */
             label: string;
         };
@@ -10328,7 +10331,7 @@ export interface components {
             /** Discounttype */
             discountType?: string | null;
             /** Discountvalue */
-            discountValue?: number | string | null;
+            discountValue?: string | null;
             /** Id */
             id?: string | null;
             /** Label */
@@ -10338,8 +10341,11 @@ export interface components {
              * @default 1
              */
             quantity?: number;
-            /** Unitprice */
-            unitPrice: number | string;
+            /**
+             * Unitprice
+             * Format: decimal
+             */
+            unitPrice: string;
         };
         /**
          * LineItemFactoryOptionPatch
@@ -10354,7 +10360,7 @@ export interface components {
             /** Discounttype */
             discountType?: string | null;
             /** Discountvalue */
-            discountValue?: number | string | null;
+            discountValue?: string | null;
             /**
              * Id
              * Format: uuid
@@ -10630,17 +10636,17 @@ export interface components {
          */
         LocationOverrideUpdate: {
             /** Deliveryfeechf */
-            deliveryFeeChf?: number | string | null;
+            deliveryFeeChf?: string | null;
             /** Financingdownpaymentchf */
-            financingDownPaymentChf?: number | string | null;
+            financingDownPaymentChf?: string | null;
             /** Financingeffectiveratepct */
-            financingEffectiveRatePct?: number | string | null;
+            financingEffectiveRatePct?: string | null;
             /** Financingnominalratepct */
-            financingNominalRatePct?: number | string | null;
+            financingNominalRatePct?: string | null;
             /** Financingprovider */
             financingProvider?: string | null;
             /** Financingresidualvaluechf */
-            financingResidualValueChf?: number | string | null;
+            financingResidualValueChf?: string | null;
             /** Financingtermmonths */
             financingTermMonths?: number | null;
             /** Longdescription */
@@ -11365,7 +11371,7 @@ export interface components {
             /** Applicable */
             applicable: boolean;
             /** Rate */
-            rate?: number | string | null;
+            rate?: string | null;
             /** Reason */
             reason: string;
         };
@@ -11675,15 +11681,15 @@ export interface components {
             /** Discounttype */
             discountType?: ("percent" | "amount") | null;
             /** Discountvalue */
-            discountValue?: number | string | null;
+            discountValue?: string | null;
             /** Leasingdownpayment */
-            leasingDownPayment?: number | string | null;
+            leasingDownPayment?: string | null;
             /** Leasingkmperyear */
             leasingKmPerYear?: number | null;
             /** Leasingtermmonths */
             leasingTermMonths?: number | null;
             /** Manualbaseprice */
-            manualBasePrice?: number | string | null;
+            manualBasePrice?: string | null;
             /** Manualvehiclecondition */
             manualVehicleCondition?: string | null;
             /** Owneruserid */
@@ -11872,8 +11878,11 @@ export interface components {
             equipmentCode?: string | null;
             /** Label */
             label: string;
-            /** Price */
-            price: number | string;
+            /**
+             * Price
+             * Format: decimal
+             */
+            price: string;
         };
         /** OptionRead */
         OptionRead: {
@@ -12613,17 +12622,17 @@ export interface components {
             /** Agburl */
             agbUrl?: string | null;
             /** Deliveryfeechf */
-            deliveryFeeChf?: number | string | null;
+            deliveryFeeChf?: string | null;
             /** Financingdownpaymentchf */
-            financingDownPaymentChf?: number | string | null;
+            financingDownPaymentChf?: string | null;
             /** Financingeffectiveratepct */
-            financingEffectiveRatePct?: number | string | null;
+            financingEffectiveRatePct?: string | null;
             /** Financingnominalratepct */
-            financingNominalRatePct?: number | string | null;
+            financingNominalRatePct?: string | null;
             /** Financingprovider */
             financingProvider?: string | null;
             /** Financingresidualvaluechf */
-            financingResidualValueChf?: number | string | null;
+            financingResidualValueChf?: string | null;
             /** Financingtermmonths */
             financingTermMonths?: number | null;
             /** Impressum */
@@ -12791,8 +12800,11 @@ export interface components {
         QrReferenceType: "qrr" | "scor" | "non";
         /** RecordCostRequest */
         RecordCostRequest: {
-            /** Amount */
-            amount: number | string;
+            /**
+             * Amount
+             * Format: decimal
+             */
+            amount: string;
             category: components["schemas"]["LedgerCategory"];
             /**
              * Occurredat
@@ -12805,7 +12817,7 @@ export interface components {
         /** RecordPurchaseRequest */
         RecordPurchaseRequest: {
             /** Landedcost */
-            landedCost?: number | string | null;
+            landedCost?: string | null;
             /**
              * Purchasedate
              * Format: date
@@ -12813,8 +12825,11 @@ export interface components {
             purchaseDate: string;
             /** Purchaseinvoiceref */
             purchaseInvoiceRef?: string | null;
-            /** Purchaseprice */
-            purchasePrice: number | string;
+            /**
+             * Purchaseprice
+             * Format: decimal
+             */
+            purchasePrice: string;
             /**
              * Suppliercontactid
              * Format: uuid
@@ -13248,8 +13263,11 @@ export interface components {
         };
         /** SetOptionsRequest */
         SetOptionsRequest: {
-            /** Baseprice */
-            basePrice: number | string;
+            /**
+             * Baseprice
+             * Format: decimal
+             */
+            basePrice: string;
             /** Options */
             options: components["schemas"]["OptionInput"][];
         };
@@ -13732,11 +13750,11 @@ export interface components {
              */
             configurationId: string;
             /** Effectiveprice */
-            effectivePrice?: number | string | null;
+            effectivePrice?: string | null;
             /** Firstregistrationdate */
             firstRegistrationDate?: string | null;
             /** Listprice */
-            listPrice?: number | string | null;
+            listPrice?: string | null;
             /** Locationid */
             locationId?: string | null;
             /** Odometerkm */
@@ -13940,13 +13958,13 @@ export interface components {
             bodyStyle?: string | null;
             condition?: components["schemas"]["StockItemCondition"] | null;
             /** Effectiveprice */
-            effectivePrice?: number | string | null;
+            effectivePrice?: string | null;
             /** Exteriorcolour */
             exteriorColour?: string | null;
             /** Firstregistrationdate */
             firstRegistrationDate?: string | null;
             /** Listprice */
-            listPrice?: number | string | null;
+            listPrice?: string | null;
             /** Locationid */
             locationId?: string | null;
             /** Odometerkm */
@@ -14740,8 +14758,11 @@ export interface components {
             contactId?: string | null;
             /** Deductions */
             deductions?: components["schemas"]["DeductionInput"][];
-            /** Finaloffer */
-            finalOffer: number | string;
+            /**
+             * Finaloffer
+             * Format: decimal
+             */
+            finalOffer: string;
             /**
              * Isdraft
              * @default false
@@ -14754,7 +14775,7 @@ export interface components {
             /** Providerquoteid */
             providerQuoteId?: string | null;
             /** Providervalue */
-            providerValue?: number | string | null;
+            providerValue?: string | null;
             /**
              * @deprecated
              * @description Deprecated (KAN-552): derived from `providerQuoteId` and `providerValue`; a sent value is not stored. `auto_i_dat` without `providerQuoteId` is refused (422 provider_quote_required).
@@ -15384,21 +15405,21 @@ export interface components {
          */
         VehicleSpecBlockInput: {
             /** Baseprice */
-            basePrice?: number | string | null;
+            basePrice?: string | null;
             /** Basepriceyear */
             basePriceYear?: number | null;
             /** Batterycapacitykwh */
-            batteryCapacityKwh?: number | string | null;
+            batteryCapacityKwh?: string | null;
             /** Co2Gkm */
             co2Gkm?: number | null;
             /** Consumptionextraurban */
-            consumptionExtraUrban?: number | string | null;
+            consumptionExtraUrban?: string | null;
             /** Consumptionmixed */
-            consumptionMixed?: number | string | null;
+            consumptionMixed?: string | null;
             /** Consumptionnorm */
             consumptionNorm?: string | null;
             /** Consumptionurban */
-            consumptionUrban?: number | string | null;
+            consumptionUrban?: string | null;
             /** Cylinders */
             cylinders?: number | null;
             /** Displacementccm */
@@ -15408,7 +15429,7 @@ export interface components {
             /** Emissionstandard */
             emissionStandard?: string | null;
             /** Energyconsumptionkwh */
-            energyConsumptionKwh?: number | string | null;
+            energyConsumptionKwh?: string | null;
             /** Enginecycle */
             engineCycle?: string | null;
             /** Gears */

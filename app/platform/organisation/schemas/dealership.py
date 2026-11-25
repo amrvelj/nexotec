@@ -9,6 +9,7 @@ from pydantic import AfterValidator, EmailStr, Field, model_validator
 from app.core.schemas import CamelModel
 from app.core.validators import (
     CantonCode,
+    DecimalStr,
     E164Phone,
     SwissUid,
     SwissVatNumber,
@@ -148,7 +149,7 @@ class DealershipUpdate(CamelModel):
     )
     # WP-7 PR-3 (ADR-057) — "dealer-configurable dealer_settings.vat_rate,"
     # the one VAT figure in the whole system.
-    vat_rate: Decimal | None = None
+    vat_rate: DecimalStr | None = None
     # WP-7 PR-7 (FR-I-14) — a notification-only consumer, never the grid's
     # own fixed ageingBucket colour cue.
     ageing_alert_thresholds: list[int] | None = None

@@ -58,7 +58,7 @@ interface DetailsTabProps {
   onRecordPurchase: (data: {
     supplierContactId: string
     supplierIsVatRegistered: boolean
-    purchasePrice: number
+    purchasePrice: string
     purchaseDate: string
     purchaseInvoiceRef?: string
     vin?: string
