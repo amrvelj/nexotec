@@ -40,8 +40,9 @@ from sqlalchemy.orm import Session
 from app.core.base import utcnow
 from app.core.outbox import OutboxEvent, publish
 from app.core.permissions import ModuleCode
-from app.platform.organisation.models.dealership import Dealership, DealershipKind, DealershipStatus
+from app.platform.organisation.models.dealership import Dealership, DealershipStatus
 from app.platform.organisation.models.module_entitlement import ModuleEntitlement
+from app.platform.organisation.services.dealer_dealerships import dealer_dealerships_only
 
 MODULE_ENTITLEMENT_GRANTED_EVENT = "platform.module_entitlement.granted"
 _PRODUCER = "platform"
@@ -96,7 +97,7 @@ def restate_module_granted(db: Session, *, module: ModuleCode) -> list[RestatedG
         .join(Dealership, Dealership.id == ModuleEntitlement.dealership_id)
         .where(
             ModuleEntitlement.module == module,
-            Dealership.kind == DealershipKind.DEALER,
+            dealer_dealerships_only(),
             Dealership.status != DealershipStatus.OFFBOARDED,
         )
         .order_by(Dealership.id)

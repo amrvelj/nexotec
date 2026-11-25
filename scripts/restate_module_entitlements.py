@@ -1,21 +1,21 @@
-"""Restate `platform.module_entitlement.granted` for every Betrieb that holds a
+"""Restate `platform.module_entitlement.granted` for every business that holds a
 module now (KAN-808 PR-1d; ADR-222 (4)).
 
 Platform states the fact when a module becomes active (`set_entitlements`,
-`app/platform/organisation/services/entitlement_facts.py`). A Betrieb that held
+`app/platform/organisation/services/entitlement_facts.py`). A business that held
 the module before the fact existed never got one, so what a context above
 platform keeps per module never arrived — for `aftersales`, the planner's
-starting sets. This script states the fact again for each such Betrieb, with
+starting sets. This script states the fact again for each such business, with
 the same payload shape; every consumer of it is harmless on a repeat (rule 6;
-for the starting sets, planning's marker row copies a Betrieb's sets once,
+for the starting sets, planning's marker row copies a business's sets once,
 whatever arrives later). It writes platform's outbox only: no other context.
 
-An offboarded Betrieb is left out (it uses nothing any more), and so is the
+An offboarded business is left out (it uses nothing any more), and so is the
 platform tenant (it holds no entitlements). One correlation id spans the run,
 so every event it states is traceable to it.
 
 MANDATORY DRY RUN. The default writes nothing: the events are added in one
-transaction that is rolled back, and the report lists each Betrieb a real run
+transaction that is rolled back, and the report lists each business a real run
 would restate the fact for. Re-run with --commit after reading it, the
 convention of the data-migration scripts (`.claude/rules/migrations-scripts.md`).
 
@@ -67,7 +67,7 @@ def render(module: ModuleCode, correlation_id: uuid.UUID, restated: list[Restate
         f"KAN-808 restate {MODULE_ENTITLEMENT_GRANTED_EVENT} for module {module.value} ({mode})",
         f"correlation id: {correlation_id}",
         "",
-        f"Betriebe: {len(restated)}",
+        f"businesses: {len(restated)}",
     ]
     for grant in restated:
         lines.append(f"  {grant.dealership_id} ({grant.legal_name}) — entitlement {grant.entitlement_id}")
