@@ -36,6 +36,7 @@ from app.platform.identity.models.dealership_membership import DealershipMembers
 from app.platform.identity.models.standard_text_delegation import StandardTextDelegation
 from app.platform.identity.models.support_session import SupportSession
 from app.platform.identity.models.user import User
+from app.platform.identity.models.user_labour_category import UserLabourCategory
 from app.platform.identity.services.actor_reference import actor_reference_checks
 from app.platform.organisation.models.branding_asset import BrandingAsset
 from app.platform.organisation.models.contact_group import DealershipContactGroup
@@ -49,6 +50,7 @@ from app.platform.organisation.models.dealership import (
 from app.platform.organisation.models.dealership_bank_account import DealershipBankAccount
 from app.platform.organisation.models.dealership_settings import DealershipSettings
 from app.platform.organisation.models.holiday_calendar import Holiday, HolidayCalendar
+from app.platform.organisation.models.labour_rate import LabourRate, LabourRateAgreement, LabourRateCategory
 from app.platform.organisation.models.location_schedule import LocationClosure
 from app.platform.organisation.models.module_entitlement import ModuleEntitlement
 from app.platform.organisation.models.number_range import NumberRange
@@ -98,6 +100,10 @@ ACTOR_TABLES = (
     DocumentLink,  # created_by / updated_by: the user whose send issued the link (KAN-217)
     SettingValue,  # created_by / updated_by: the manager who wrote the slot (KAN-805)
     SettingValueChange,  # created_by: who made the change (KAN-805)
+    LabourRateCategory,  # created_by / updated_by (KAN-806)
+    LabourRate,  # created_by / updated_by: who typed it, who withdrew it (KAN-806)
+    LabourRateAgreement,  # created_by / updated_by (KAN-806)
+    UserLabourCategory,  # created_by / updated_by: who allocated the user (KAN-806)
 )
 
 # KAN-412 (FR-AU-24, rule 10): a revoked grant's provider end is recorded by
