@@ -130,13 +130,13 @@ def list_orders(
     if state is not None:
         stmt = stmt.where(ServiceOrder.state == state)
     if q:
-        like = f"%{q}%"
+        # `%` and `_` typed into the search are letters, not wildcards.
         stmt = stmt.where(
             or_(
-                ServiceOrder.order_number.ilike(like),
-                ServiceOrder.contact_label.ilike(like),
-                ServiceOrder.invoice_recipient_label.ilike(like),
-                ServiceOrder.vehicle_label.ilike(like),
+                ServiceOrder.order_number.icontains(q, autoescape=True),
+                ServiceOrder.contact_label.icontains(q, autoescape=True),
+                ServiceOrder.invoice_recipient_label.icontains(q, autoescape=True),
+                ServiceOrder.vehicle_label.icontains(q, autoescape=True),
             )
         )
     total, total_is_estimate = count_capped(db, stmt, threshold=get_settings().count_exact_threshold)
@@ -179,7 +179,10 @@ def _refuse_merged(db: Session, *, group_id: uuid.UUID, contact: ContactRef) -> 
         survivor_id = resolve_live_contact_id(db, group_id=group_id, contact_id=contact.id)
         raise ConflictError(
             f"Contact {contact.contact_number} has been merged into another — choose the contact it was merged into.",
-            details={"reason": "contact_merged", "mergedIntoContactId": str(survivor_id) if survivor_id else None},
+            details={
+                "reason": "service_order_contact_merged",
+                "mergedIntoContactId": str(survivor_id) if survivor_id else None,
+            },
         )
 
 

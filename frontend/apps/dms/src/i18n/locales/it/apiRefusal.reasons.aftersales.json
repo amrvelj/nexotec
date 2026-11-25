@@ -2,6 +2,7 @@
   "service_order_cancel_reason_required": "Indicate il motivo dell'annullamento.",
   "service_order_clock_has_run": "Su questo ordine è già stato timbrato del tempo; non può essere annullato. Rifiutate invece i suoi lavori.",
   "service_order_contact_blocked": "Questo contatto è bloccato ({{reason}}). Non è possibile aprire un ordine d'officina per lui.",
+  "service_order_contact_merged": "Questo contatto è stato unito a un altro. Scegliete per l'ordine il contatto in cui è stato unito.",
   "service_order_frozen": "Questo ordine è chiuso (pronto per la fattura o annullato) e non può più essere modificato.",
   "service_order_job_accepted": "Questo lavoro è accettato e non può essere eliminato. Registrate invece la risposta.",
   "service_order_job_already_answered": "La risposta per questo lavoro è già registrata.",

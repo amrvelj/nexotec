@@ -278,6 +278,7 @@ def change_position(
             category_set="labour_category_id" in sent,
             time_set="time" in sent,
             price_set="unit_price" in sent,
+            entered_set="price_entered" in sent,
         ),
     )
     return _read(db, principal, order_id)

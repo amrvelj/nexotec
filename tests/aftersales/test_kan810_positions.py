@@ -342,3 +342,95 @@ def test_a_job_has_the_billing_category_customer(client, db_session, betrieb):
     order, _ = _with_job(client, db_session, betrieb)
     assert order["jobs"][0]["billingCategory"] == "customer"
     assert order["jobs"][0]["answerState"] == "draft"
+
+
+# --- a change keeps the rate it was priced with (ruling 178, section 3.2) ----------------------------
+
+
+def test_a_time_change_keeps_the_proposed_rate_after_the_invoice_recipient_changed(client, db_session, betrieb):
+    order, job_id = _with_job(client, db_session, betrieb)
+    order = add_position(client, betrieb, order, job_id, **labour_by_time(betrieb, "1")).json()
+    position = _only_position(order)
+    assert (position["rateSource"], position["unitPrice"]["amount"]) == ("category_rate", "150.0000")
+    insurer = make_contact(db_session, betrieb, name="Helvetia Versicherungen AG")
+    rates.create_agreement(
+        db_session, dealership_id=betrieb.id, contact=rates.AgreementContact(id=insurer.id, label="Helvetia"),
+        category_id=betrieb.category_id, kind=LabourRateAgreementKind.RATE, valid_from=rates.today(),
+        amount=Decimal("120.00"), entered=PriceEntry.NET, actor_id=None, on=rates.today(),
+    )
+    db_session.commit()
+    order = client.patch(f"/v1/service-orders/{order['id']}", json={"invoiceRecipientContactId": str(insurer.id)},
+                         headers=headers(betrieb, if_match=order["version"])).json()
+
+    changed = client.patch(f"/v1/service-orders/{order['id']}/positions/{position['id']}", json={"time": "2"},
+                           headers=headers(betrieb, if_match=order["version"]))
+
+    assert changed.status_code == 200, changed.text
+    after = _only_position(changed.json())
+    assert (after["rateSource"], after["labourRateId"], after["unitPrice"]["amount"]) == (
+        "category_rate", position["labourRateId"], "150.0000",
+    )
+    assert after["lineNet"] == "300.00"  # the new hours × the kept rate
+    assert (after["pricedAt"], after["pricedBy"]) == (position["pricedAt"], position["pricedBy"])
+
+
+def test_a_time_change_on_a_typed_price_keeps_who_priced_it_and_when(client, db_session, betrieb):
+    order, job_id = _with_job(client, db_session, betrieb)
+    order = add_position(client, betrieb, order, job_id,
+                         **labour_by_time(betrieb, "1", unitPrice="99.00", priceEntered="net")).json()
+    position = _only_position(order)
+    colleague = headers(betrieb, if_match=order["version"], user_id=uuid.uuid4())
+
+    changed = client.patch(f"/v1/service-orders/{order['id']}/positions/{position['id']}", json={"time": "1.5"},
+                           headers=colleague)
+
+    assert changed.status_code == 200, changed.text
+    after = _only_position(changed.json())
+    assert (after["rateSource"], after["unitPrice"]["amount"], after["lineNet"]) == ("typed", "99.0000", "148.50")
+    assert (after["pricedAt"], after["pricedBy"]) == (position["pricedAt"], position["pricedBy"])
+    # A new price is a new «who priced it».
+    repriced = client.patch(f"/v1/service-orders/{order['id']}/positions/{position['id']}",
+                            json={"unitPrice": "110.00", "priceEntered": "net"},
+                            headers=headers(betrieb, if_match=changed.json()["version"], user_id=uuid.uuid4()))
+    assert repriced.status_code == 200, repriced.text
+    assert _only_position(repriced.json())["pricedBy"] != position["pricedBy"]
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        {"labourCategoryId": "CAT"},
+        {"time": "1"},
+        {"unitPrice": "10.00", "priceEntered": "net"},
+        {"priceEntered": "net"},
+    ],
+)
+def test_a_change_to_a_text_position_sends_only_what_a_text_holds(client, db_session, betrieb, body):
+    order, job_id = _with_job(client, db_session, betrieb)
+    order = add_position(client, betrieb, order, job_id, kind="text", text="Hinweis").json()
+    position = _only_position(order)
+    if body.get("labourCategoryId") == "CAT":
+        body = body | {"labourCategoryId": str(betrieb.category_id)}
+
+    response = client.patch(f"/v1/service-orders/{order['id']}/positions/{position['id']}", json=body,
+                            headers=headers(betrieb, if_match=order["version"]))
+
+    assert (response.status_code, _reason(response), response.json()["error"]["details"]["field"]) == (
+        422, "service_order_position_incomplete", "kind",
+    )
+
+
+def test_a_change_sends_net_or_gross_only_with_the_price(client, db_session, betrieb):
+    order, job_id = _with_job(client, db_session, betrieb)
+    order = add_position(client, betrieb, order, job_id,
+                         **labour_by_time(betrieb, "1", unitPrice="99.00", priceEntered="net")).json()
+    position = _only_position(order)
+
+    response = client.patch(f"/v1/service-orders/{order['id']}/positions/{position['id']}",
+                            json={"priceEntered": "gross"}, headers=headers(betrieb, if_match=order["version"]))
+
+    assert (response.status_code, _reason(response), response.json()["error"]["details"]["field"]) == (
+        422, "service_order_position_incomplete", "unitPrice",
+    )
+    unchanged = client.get(f"/v1/service-orders/{order['id']}", headers=headers(betrieb)).json()
+    assert _only_position(unchanged)["unitPrice"]["entered"] == "net"

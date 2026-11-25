@@ -42,12 +42,13 @@ class Betrieb:
 
 
 def headers(betrieb: Betrieb, *roles: AccessRole, entitlements: frozenset[str] | None = None,
-            if_match: int | None = None, user_id: uuid.UUID | None = None) -> dict[str, str]:
+            if_match: int | None = None, user_id: uuid.UUID | None = None, manager: bool = False) -> dict[str, str]:
     token = create_access_token(
         user_id=user_id or betrieb.user_id,
         tenant_id=betrieb.id,
         group_id=betrieb.group_id,
-        roles=frozenset(roles or {AccessRole.AFTERSALES}),
+        roles=frozenset(roles) if roles or manager else frozenset({AccessRole.AFTERSALES}),
+        is_dealer_manager=manager,
         entitlements=entitlements,
     )
     out = {"Authorization": f"Bearer {token}"}

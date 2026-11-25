@@ -2,6 +2,7 @@
   "service_order_cancel_reason_required": "Geben Sie den Grund der Stornierung an.",
   "service_order_clock_has_run": "Auf diesem Auftrag wurde schon Zeit gestempelt; er kann nicht storniert werden. Lehnen Sie stattdessen seine Arbeiten ab.",
   "service_order_contact_blocked": "Dieser Kontakt ist gesperrt ({{reason}}). Für ihn kann kein Werkstattauftrag eröffnet werden.",
+  "service_order_contact_merged": "Dieser Kontakt wurde mit einem anderen zusammengeführt. Wählen Sie für den Auftrag den Kontakt, in den er zusammengeführt wurde.",
   "service_order_frozen": "Dieser Auftrag ist abgeschlossen (rechnungsbereit oder storniert) und kann nicht mehr geändert werden.",
   "service_order_job_accepted": "Diese Arbeit ist angenommen und kann nicht gelöscht werden. Erfassen Sie stattdessen die Antwort.",
   "service_order_job_already_answered": "Für diese Arbeit ist die Antwort schon erfasst.",
