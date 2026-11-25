@@ -7,7 +7,7 @@ from decimal import Decimal
 from pydantic import ConfigDict, Field, field_validator
 
 from app.core.schemas import CamelModel
-from app.core.validators import NormalisedVinOrChassisNumber
+from app.core.validators import DecimalStr, NormalisedVinOrChassisNumber
 from app.valuation.models.valuation import ResidualTableState, ValuationSource
 
 # Q-11 (default validity) — confirmed live on the reference prototype's
@@ -19,7 +19,7 @@ DEFAULT_VALIDITY_DAYS = 30
 
 class DeductionInput(CamelModel):
     label: str
-    amount: Decimal
+    amount: DecimalStr
 
 
 class ValuationCreate(CamelModel):
@@ -71,8 +71,8 @@ class ValuationCreate(CamelModel):
         ),
     )
     provider_quote_id: uuid.UUID | None = None
-    provider_value: Decimal | None = None
-    final_offer: Decimal
+    provider_value: DecimalStr | None = None
+    final_offer: DecimalStr
     deductions: list[DeductionInput] = Field(default_factory=list)
     note: str | None = None
 

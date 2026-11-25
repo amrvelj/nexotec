@@ -17,6 +17,7 @@ from pydantic.alias_generators import to_camel
 
 from app.core.auth import AccessRole
 from app.core.schemas import CamelModel
+from app.core.validators import DecimalStr
 from app.platform.organisation.models.branding_asset import PublishingImageKind
 from app.platform.organisation.models.publishing_profile import PROFILE_LANGUAGES, SOCIAL_NETWORKS
 
@@ -80,12 +81,12 @@ class _OverridableFields(CamelModel):
     price_display_wording: LocalisedText | None = None
     standard_equipment_blurb: LocalisedText | None = None
     trade_in_promotion_text: LocalisedText | None = None
-    delivery_fee_chf: Decimal | None = Field(default=None, ge=0, le=100000, decimal_places=2)
+    delivery_fee_chf: DecimalStr | None = Field(default=None, ge=0, le=100000, decimal_places=2)
     financing_term_months: int | None = Field(default=None, ge=1, le=120)
-    financing_down_payment_chf: Decimal | None = Field(default=None, ge=0, le=10000000, decimal_places=2)
-    financing_residual_value_chf: Decimal | None = Field(default=None, ge=0, le=10000000, decimal_places=2)
-    financing_nominal_rate_pct: Decimal | None = Field(default=None, ge=0, le=30, decimal_places=3)
-    financing_effective_rate_pct: Decimal | None = Field(default=None, ge=0, le=30, decimal_places=3)
+    financing_down_payment_chf: DecimalStr | None = Field(default=None, ge=0, le=10000000, decimal_places=2)
+    financing_residual_value_chf: DecimalStr | None = Field(default=None, ge=0, le=10000000, decimal_places=2)
+    financing_nominal_rate_pct: DecimalStr | None = Field(default=None, ge=0, le=30, decimal_places=3)
+    financing_effective_rate_pct: DecimalStr | None = Field(default=None, ge=0, le=30, decimal_places=3)
     financing_provider: str | None = Field(default=None, max_length=200)
 
     @field_validator(

@@ -403,7 +403,7 @@ describe('ContractDetailPage — a pending contract can be completed (KAN-67)', 
     fireEvent.click(screen.getByRole('button', { name: i18n.t('contractDetail.actions.confirm') }))
 
     await waitFor(() => expect(backend.callsTo(/\/confirm$/, 'POST')).toHaveLength(1))
-    expect(backend.callsTo(/^\/sales\/contracts\/k1$/, 'PATCH')[0].body).toMatchObject({ discountValue: 1000 })
+    expect(backend.callsTo(/^\/sales\/contracts\/k1$/, 'PATCH')[0].body).toMatchObject({ discountValue: '1000' })
     expect(backend.callsTo(/\/confirm$/, 'POST')[0].headers.get('If-Match')).toBe(String(PRICED.version + 1))
   })
 

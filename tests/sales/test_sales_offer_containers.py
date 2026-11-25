@@ -2,6 +2,7 @@
 computed container completeness (FR-S-05, S-D03)."""
 
 import uuid
+from decimal import Decimal
 
 import pytest
 
@@ -120,7 +121,7 @@ def test_leasing_inputs_are_never_computed(db_session):
         db_session,
         offer=offer,
         group_id=uuid.uuid4(),
-        data=OfferUpdate(leasing_down_payment=5000, leasing_term_months=36, leasing_km_per_year=10000),
+        data=OfferUpdate(leasing_down_payment=Decimal(5000), leasing_term_months=36, leasing_km_per_year=10000),
         actor_id=uuid.uuid4(),
     )
 

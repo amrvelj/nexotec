@@ -137,7 +137,7 @@ describe('a debounced number field shows a newer server copy (KAN-442)', () => {
     fireEvent.change(field, { target: { value: '900' } })
     await waitFor(() => expect(patches(backend)).toHaveLength(1), { timeout: 2000 })
     const [patch] = patches(backend)
-    expect(patch.body).toMatchObject({ discountValue: 900 })
+    expect(patch.body).toMatchObject({ discountValue: '900' })
     expect(patch.headers.get('If-Match')).toBe('2')
   })
 
@@ -151,7 +151,7 @@ describe('a debounced number field shows a newer server copy (KAN-442)', () => {
     expect(field).toHaveValue("CHF 950")
 
     await waitFor(() => expect(patches(backend)).toHaveLength(1), { timeout: 2000 })
-    expect(patches(backend)[0].body).toMatchObject({ discountValue: 950 })
+    expect(patches(backend)[0].body).toMatchObject({ discountValue: '950' })
     expect(field).not.toHaveValue("CHF 800.00")
   })
 
@@ -177,7 +177,7 @@ describe('a debounced number field shows a newer server copy (KAN-442)', () => {
     fireEvent.change(field, { target: { value: '950' } })
     await waitFor(() => expect(patches(backend)).toHaveLength(2), { timeout: 2000 })
     expect(patches(backend)[1].headers.get('If-Match')).toBe('2')
-    expect(patches(backend)[1].body).toMatchObject({ discountValue: 950 })
+    expect(patches(backend)[1].body).toMatchObject({ discountValue: '950' })
   })
 
   // Review of 7decc88: the old hook committed only when its debounced copy
@@ -192,7 +192,7 @@ describe('a debounced number field shows a newer server copy (KAN-442)', () => {
     fireEvent.change(field, { target: { value: '500' } })
 
     await waitFor(() => expect(patches(backend)).toHaveLength(1), { timeout: 2000 })
-    expect(patches(backend)[0].body).toMatchObject({ discountValue: 500 })
+    expect(patches(backend)[0].body).toMatchObject({ discountValue: '500' })
     expect(patches(backend)[0].headers.get('If-Match')).toBe('2')
   })
 })

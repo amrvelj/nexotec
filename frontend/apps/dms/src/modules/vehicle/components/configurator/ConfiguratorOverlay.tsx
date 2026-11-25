@@ -863,7 +863,8 @@ const SpecFieldGroup = memo(function SpecFieldGroup({
                 key={f.key as string}
                 label={withMark}
                 value={value === '' ? '' : Number(value)}
-                onChange={(v) => onSpecChange(f.key, v === '' ? null : Number(v))}
+                // A decimal string, never a JSON number: a number passes through a float (KAN-827).
+                onChange={(v) => onSpecChange(f.key, v === '' ? null : String(v))}
                 w={200}
               />
             )
@@ -873,7 +874,8 @@ const SpecFieldGroup = memo(function SpecFieldGroup({
               key={f.key as string}
               label={withMark}
               value={value === '' ? '' : Number(value)}
-              onChange={(v) => onSpecChange(f.key, v === '' ? null : Number(v))}
+              // A decimal field goes out as a decimal string (KAN-827); a whole number as a number.
+              onChange={(v) => onSpecChange(f.key, v === '' ? null : f.kind === 'decimal' ? String(v) : Number(v))}
               decimalScale={f.kind === 'decimal' ? 1 : 0}
               w={200}
             />

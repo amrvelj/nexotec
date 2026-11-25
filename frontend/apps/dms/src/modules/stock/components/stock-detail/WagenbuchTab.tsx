@@ -10,7 +10,7 @@ import type { LedgerCategory, LedgerEntryRead } from '../../../../api/types'
 interface WagenbuchTabProps {
   entries: LedgerEntryRead[]
   locale: string
-  onRecordCost: (data: { category: LedgerCategory; amount: number; occurredAt: string; sourceRef: string }) => Promise<void>
+  onRecordCost: (data: { category: LedgerCategory; amount: string; occurredAt: string; sourceRef: string }) => Promise<void>
   /** KAN-306 — the date the car left stock, formatted; set, the Wagenbuch
    * is closed to new entries (FR-I-12, refused server-side with a 422), so
    * "record cost" is shown disabled with that reason (ADR-061). */

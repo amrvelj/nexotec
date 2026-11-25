@@ -8,6 +8,7 @@ from typing import Literal
 from pydantic import Field, model_validator
 
 from app.core.schemas import CamelModel
+from app.core.validators import DecimalStr
 from app.sales.models.contract import ContractStatus, FinancingKind
 from app.sales.schemas.offer import OfferContainerState
 
@@ -76,12 +77,12 @@ class ContractUpdate(CamelModel):
     stock_item_id: uuid.UUID | None = None
     vehicle_label: str | None = Field(default=None, max_length=200)
     manual_vehicle_condition: str | None = Field(default=None, max_length=16)
-    manual_base_price: Decimal | None = Field(default=None, ge=0, max_digits=12, decimal_places=2)
+    manual_base_price: DecimalStr | None = Field(default=None, ge=0, max_digits=12, decimal_places=2)
     # FR-C-12, `build` mode only. Setting it makes the vehicle a
     # configuration; null detaches it.
     configuration_id: uuid.UUID | None = None
     discount_type: Literal["percent", "amount"] | None = None
-    discount_value: Decimal | None = Field(default=None, ge=0, max_digits=12, decimal_places=2)
+    discount_value: DecimalStr | None = Field(default=None, ge=0, max_digits=12, decimal_places=2)
     # KAN-200 (FR-A-37): the responsible seller, as on the offer.
     owner_user_id: uuid.UUID | None = None
 

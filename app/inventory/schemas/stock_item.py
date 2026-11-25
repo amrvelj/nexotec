@@ -25,7 +25,7 @@ from pydantic.alias_generators import to_camel
 from pydantic_core import PydanticCustomError
 
 from app.core.schemas import CamelModel
-from app.core.validators import NormalisedVin, NormalisedVinOrChassisNumber
+from app.core.validators import DecimalStr, NormalisedVin, NormalisedVinOrChassisNumber
 from app.inventory.models.stock_item import AgeingBucket, LifecycleStatus, ReservationState, StockItemCondition
 
 
@@ -34,8 +34,8 @@ class StockItemCreate(CamelModel):
     condition: StockItemCondition
     location_id: uuid.UUID | None = None
     odometer_km: int | None = None
-    list_price: Decimal | None = None
-    effective_price: Decimal | None = None
+    list_price: DecimalStr | None = None
+    effective_price: DecimalStr | None = None
     first_registration_date: dt.date | None = None
     # KAN-244 (Anto, option C): with a VIN, a vehicleId the client sends is
     # ignored, not refused, so a client that sends one today keeps working;
@@ -140,8 +140,8 @@ class StockItemUpdate(CamelModel):
     odometer_km: int | None = None
     exterior_colour: str | None = None
     body_style: str | None = None
-    list_price: Decimal | None = None
-    effective_price: Decimal | None = None
+    list_price: DecimalStr | None = None
+    effective_price: DecimalStr | None = None
     first_registration_date: dt.date | None = None
 
     @field_validator("vehicle_label", "condition")

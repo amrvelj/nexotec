@@ -128,7 +128,7 @@ describe('OfferWorkspace — a value that is not a number is never saved (KAN-48
     expect(backend.callsTo(/^\/sales\/offers\/o1$/, 'PATCH')).toHaveLength(0)
     fireEvent.change(discount, { target: { value: '200' } })
     await waitFor(() => expect(backend.callsTo(/^\/sales\/offers\/o1$/, 'PATCH')).toHaveLength(1), { timeout: 2000 })
-    expect(backend.callsTo(/^\/sales\/offers\/o1$/, 'PATCH')[0].body).toMatchObject({ discountValue: 200 })
+    expect(backend.callsTo(/^\/sales\/offers\/o1$/, 'PATCH')[0].body).toMatchObject({ discountValue: '200' })
     expect(discount).not.toHaveAttribute('aria-invalid', 'true')
   })
 
@@ -169,7 +169,7 @@ describe('OfferWorkspace — a value that is not a number is never saved (KAN-48
     await user.click(await screen.findByRole('option', { name: i18n.t('offerWorkspace.pricing.discountPercent') }))
 
     await waitFor(() => expect(backend.callsTo(/^\/sales\/offers\/o1$/, 'PATCH')).toHaveLength(1))
-    expect(backend.callsTo(/^\/sales\/offers\/o1$/, 'PATCH')[0].body).toEqual({ discountType: 'percent', discountValue: 500 })
+    expect(backend.callsTo(/^\/sales\/offers\/o1$/, 'PATCH')[0].body).toEqual({ discountType: 'percent', discountValue: '500.00' })
   })
 
   it('the leasing down payment keeps a lone «-» too', async () => {

@@ -75,7 +75,7 @@ function renderWorkspace() {
 }
 
 const LEASING_FIELDS = [
-  { label: 'offerWorkspace.leasing.downPayment', typed: '5000', patch: { leasingDownPayment: 5000 } },
+  { label: 'offerWorkspace.leasing.downPayment', typed: '5000', patch: { leasingDownPayment: '5000' } },
   { label: 'offerWorkspace.leasing.termMonths', typed: '48', patch: { leasingTermMonths: 48 } },
   { label: 'offerWorkspace.leasing.kmPerYear', typed: '15000', patch: { leasingKmPerYear: 15000 } },
 ] as const

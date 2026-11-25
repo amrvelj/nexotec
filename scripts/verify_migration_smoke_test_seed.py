@@ -34,6 +34,7 @@ from app.contact.models.contact import (
     ContactPhone,
     ContactRoleAssignment,
 )
+from app.core.blind_index import uid_search_key
 from app.db import SessionLocal
 from app.platform.identity.models.user import User
 from app.platform.organisation.models.dealership import Dealership, DealershipKind
@@ -167,6 +168,13 @@ def main() -> None:
         ).all()
         if [role.value for role in open_roles] != ["customer"]:
             fail(f"seeded contact should hold the customer role once, holds {[r.value for r in open_roles]}")
+        # KAN-819: the encrypted UID survived, and its search key was
+        # backfilled (from main's schema) or seeded (on the branch's) equal to
+        # the application's. The UID is a fixture, not a real one.
+        if contact.tax_id != smoke_seed.SMOKE_TEST_CONTACT_UID:
+            fail("seeded contact's tax_id did not round-trip")
+        if contact.tax_id_search_key != uid_search_key(smoke_seed.SMOKE_TEST_CONTACT_UID):
+            fail(f"contact.tax_id_search_key not backfilled: {contact.tax_id_search_key!r}")
 
         approval = db.scalar(
             select(TypeApproval).where(TypeApproval.type_approval_number == _CATALOGUE_TYPE_APPROVAL_NUMBER)

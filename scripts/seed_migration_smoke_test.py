@@ -52,6 +52,7 @@ import uuid
 
 import sqlalchemy as sa
 from migration_smoke_test_catalogue import seed_catalogue_type_approval
+from migration_smoke_test_contact_uid import SMOKE_TEST_CONTACT_UID, seed_contact_uid  # noqa: F401 (verify reads it)
 from sqlalchemy import inspect
 from sqlalchemy.orm import Session
 
@@ -983,6 +984,7 @@ def main() -> None:
         else:
             customer_id = _seed_customer_chain_old_schema(db, dealer_id=dealer_id)
 
+        seed_contact_uid(db, contact_id=customer_id)
         seed_catalogue_type_approval(db)
 
         db.commit()

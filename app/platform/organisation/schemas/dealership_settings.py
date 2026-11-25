@@ -11,6 +11,7 @@ from decimal import Decimal
 from pydantic import Field, field_validator, model_validator
 
 from app.core.schemas import CamelModel
+from app.core.validators import DecimalStr
 from app.platform.organisation.models.dealership_settings import ChartOfAccountsVariant, PeriodLockPolicy
 from app.platform.reference.schemas.patch import refuse_null_on_not_null_fields
 
@@ -37,7 +38,7 @@ def _validate_fiscal_year_start(value: str) -> str:
 
 class DealershipSettingsUpdate(CamelModel):
     currency: str | None = Field(default=None, pattern=_CURRENCY_RE.pattern)
-    cash_rounding: Decimal | None = None
+    cash_rounding: DecimalStr | None = None
     default_payment_terms_days: int | None = Field(default=None, ge=0, le=365)
     fiscal_year_start: str | None = None
     accounting_system: str | None = Field(default=None, max_length=50)

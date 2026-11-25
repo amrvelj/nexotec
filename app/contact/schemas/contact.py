@@ -45,6 +45,7 @@ from app.contact.models.vehicle_party import VehiclePartyRole
 from app.core.audit_schemas import AuditEventPage
 from app.core.schemas import CamelModel
 from app.core.validators import (
+    DecimalStr,
     E164Phone,
     HouseNumber,
     Iban,
@@ -416,7 +417,7 @@ class ContactCreate(CamelModel):
     newsletter: bool = False
     payment_terms: PaymentTerms | None = None
     # Advisory only in v1 — surfaced, never enforced (FR-18 region 4).
-    credit_limit: Decimal | None = Field(default=None, ge=0, max_digits=12, decimal_places=2)
+    credit_limit: DecimalStr | None = Field(default=None, ge=0, max_digits=12, decimal_places=2)
     iban: Iban | None = None  # mod-97 validated; a payout destination, never a payment instrument
     vat_registered: bool = False
     # KAN-295 — someone has checked vat_registered (its false is also the default).
@@ -571,7 +572,7 @@ class ContactUpdate(CamelModel):
     website: str | None = Field(default=None, max_length=500)
     newsletter: bool | None = None
     payment_terms: PaymentTerms | None = None
-    credit_limit: Decimal | None = Field(default=None, ge=0, max_digits=12, decimal_places=2)
+    credit_limit: DecimalStr | None = Field(default=None, ge=0, max_digits=12, decimal_places=2)
     iban: Iban | None = None
     vat_registered: bool | None = None
     vat_status_confirmed: bool | None = None

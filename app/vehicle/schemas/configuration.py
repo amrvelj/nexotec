@@ -5,7 +5,7 @@ from decimal import Decimal
 from pydantic import Field
 
 from app.core.schemas import CamelModel
-from app.core.validators import NormalisedVinOrChassisNumber
+from app.core.validators import DecimalStr, NormalisedVinOrChassisNumber
 from app.vehicle.models.configuration import (
     ConfigurationMatchMethod,
     ConfigurationMatchStatus,
@@ -21,7 +21,7 @@ class ConfigurationOptionInput(CamelModel):
     variant_option_id: uuid.UUID | None = None
     option_code: str | None = Field(default=None, max_length=64)
     option_group: str | None = Field(default=None, max_length=64)
-    price: Decimal | None = None
+    price: DecimalStr | None = None
     is_included: bool = False
     is_package: bool = False
     selected: bool = True
@@ -68,15 +68,15 @@ class _ConfigurationObserved(CamelModel):
     mileage_km: int | None = Field(default=None, ge=0)
     exterior_colour: str | None = Field(default=None, max_length=120)
     interior_colour: str | None = Field(default=None, max_length=120)
-    exterior_colour_surcharge: Decimal | None = None
-    interior_colour_surcharge: Decimal | None = None
+    exterior_colour_surcharge: DecimalStr | None = None
+    interior_colour_surcharge: DecimalStr | None = None
     # KAN-211: the colour's type, chosen by the advisor — an active value of the
     # `colour_type` list for the paint finish, of `interior_colour_type` for the
     # upholstery (the identAPI delivers neither).
     exterior_colour_type: str | None = Field(default=None, max_length=64)
     interior_colour_type: str | None = Field(default=None, max_length=64)
     wheels: str | None = Field(default=None, max_length=120)
-    wheels_surcharge: Decimal | None = None
+    wheels_surcharge: DecimalStr | None = None
     notes: str | None = None
     # The five coded spec fields (canonical value_code strings) — declared
     # directly on the carrier, not inside the `spec` block payload, exactly

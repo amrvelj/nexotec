@@ -4,9 +4,12 @@ Contact/Vehicle reuse the same Swiss address/phone shape per the addendum).
 
 import datetime as dt
 import re
+from decimal import Decimal
 from typing import Annotated, Any
 
-from pydantic import AfterValidator, BeforeValidator
+from pydantic import AfterValidator, BeforeValidator, GetJsonSchemaHandler
+from pydantic.json_schema import JsonSchemaValue
+from pydantic_core import PydanticCustomError
 
 from app.core.constants import CANTON_CODES
 from app.core.errors import UnprocessableEntityError
@@ -334,3 +337,52 @@ def require_vin_or_pre_1981_chassis_number(vin: str | None, first_registration: 
         "registered before 1981 - enter that first registration.",
         details={"field": "vin", "reason": "chassis_number_requires_pre_1981_registration"},
     )
+
+
+# KAN-827: a decimal request field takes a decimal string, never a JSON
+# number. The JSON decoder reads a number as a float before pydantic makes a
+# `Decimal` of it, so `99999999999999.99` arrives as `99999999999999.98`: a
+# Rappen lost without an error (ADR-215). A string reaches `Decimal(str)`
+# exactly. A JSON integer is refused as well, so a client meets one rule for
+# every amount instead of learning which numbers happen to survive.
+# `Field` constraints (`ge`, `max_digits`, `decimal_places`) still apply: the
+# refusal runs before pydantic's own Decimal validation.
+# A point may end or begin the figure ("12.", ".5"): an input mid-entry hands
+# those over, and Decimal reads them exactly.
+_DECIMAL_STRING_PATTERN = r"^-?([0-9]+(\.[0-9]*)?|\.[0-9]+)$"
+
+
+_DECIMAL_STRING_RE = re.compile(_DECIMAL_STRING_PATTERN)
+
+
+def _refuse_json_number(value: Any) -> Any:
+    if isinstance(value, Decimal):
+        return value
+    if isinstance(value, str):
+        # The pattern the schema advertises, enforced: no exponent, no
+        # surrounding spaces, no thousands separator, one decimal point.
+        if not _DECIMAL_STRING_RE.fullmatch(value):
+            raise PydanticCustomError(
+                "decimal_string_format",
+                'A decimal amount is written as digits with an optional minus and one decimal point, e.g. "1234.50".',
+            )
+        return value
+    raise PydanticCustomError(
+        "decimal_string_type",
+        'A decimal amount is sent as a string, e.g. "1234.50" - a JSON number passes through a float '
+        "and can lose a Rappen.",
+    )
+
+
+class _DecimalStringSchema:
+    """The OpenAPI shape of a `DecimalStr`: a string only, so `schema.d.ts`
+    types it `string`. Pydantic's own Decimal schema is `anyOf: [number,
+    string]`; its number branch (which carries `minimum` and the like) is
+    dropped, and the string branch gets the decimal pattern."""
+
+    def __get_pydantic_json_schema__(self, core_schema: Any, handler: GetJsonSchemaHandler) -> JsonSchemaValue:
+        handler(core_schema)
+        return {"type": "string", "format": "decimal", "pattern": _DECIMAL_STRING_PATTERN}
+
+
+DecimalStr = Annotated[Decimal, BeforeValidator(_refuse_json_number), _DecimalStringSchema()]
