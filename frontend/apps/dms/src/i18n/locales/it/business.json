@@ -201,7 +201,7 @@
       "document_template": "L'intestazione dei documenti, per lingua. Se l'altra azienda non ne ha una in una lingua, quella di qui resta invariata.",
       "number_ranges": "Modello, valore iniziale e ripartenza annuale dei moduli che questa azienda usa. I contatori non vengono mai ripresi; un intervallo che ha già assegnato un numero resta invariato.",
       "contact_groups": "I gruppi di contatti che l’altra azienda usa vengono attivati qui. Nessun gruppo viene disattivato.",
-      "settings": "I valori che l'altra azienda ha definito per sé, per i moduli che questa azienda utilizza e per quelle che non appartengono ad alcun modulo. I valori delle singole sedi non vengono mai ripresi; un'impostazione che lì non è definita resta invariata qui."
+      "settings": "I valori che l'altra azienda ha definito per sé, per i moduli che questa azienda utilizza e per le impostazioni che non appartengono ad alcun modulo. I valori delle singole sedi non vengono mai ripresi; un'impostazione che lì non è definita resta invariata qui."
     },
     "preview": "Mostra anteprima",
     "previewTitle": "Anteprima: ripresa da {{source}}",
