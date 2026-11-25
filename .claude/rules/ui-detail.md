@@ -20,7 +20,7 @@ paths:
   - "frontend/apps/dms/src/architecture/detail-header*"
 ---
 <!-- Maintainer note. ADR-059, ADR-061 (as amended 2026-10-30), ADR-063, ADR-104; FR-UI-07
-(breadcrumb). Split out of ui.md by KAN-615 (2026-11-13). Last verified against main@3b2bf69 (2026-11-18). -->
+(breadcrumb). Split out of ui.md by KAN-615 (2026-11-13). Last verified against main@32ad509 (2026-11-25). -->
 
 # Detail screens, overlays and actions
 

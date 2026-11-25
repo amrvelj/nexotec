@@ -10,6 +10,7 @@ paths:
   - "tests/architecture/test_provider_adapter_is_the_identapi.py"
   - "tests/architecture/test_no_mcp_server.py"
   - "tests/architecture/test_no_real_provider_account_values.py"
+  - "tests/architecture/test_provider_http_answers_are_noted.py"
   - "tests/architecture/test_capability_codes_are_in_the_vocabulary.py"
   - "tests/integration/test_kan588_*.py"
   - "tests/core/test_kan499_deployment_environment.py"
@@ -20,15 +21,17 @@ paths:
 <!-- Maintainer note (stripped before Claude sees it). Summarises the Integrations & API Credentials
 PRD, ADR-013/ADR-075, ADR-111 as amended, ADR-113, and the identAPI test agreement (§1-§12; it is
 confidential and never quoted). Cut from vehicle.md by KAN-614 (2026-11-10) to the invariants.
-Last verified against main@3b2bf69 (2026-11-18). -->
+Last verified against main@32ad509 (2026-11-25). -->
 
 # The provider gateway and the integration registry
 
 ## One registry, many gateways
 - `integration` owns connections, write-only secret refs (`integration_secret_ref`, one row per
-  slot; values live in the secrets manager, never in the app database), entitlements, the call log
+  slot — a mailbox grant's and a Business Profile binding's token aside; values live in the secrets manager, never in the
+  app database), entitlements, the call log
   and retention. The adapters live beside the registry; the catalogue mirror is `vehicle`'s job,
-  calling `integration.public.call_capability`.
+  calling `integration.public.call_capability`. Mail, messaging and the Business Profile:
+  `integration-channels.md`; AI: `integration-ai.md`.
 - **Every auto-i-dat call goes through the gateway** (`test_auto_i_dat_calls_go_through_the_gateway.py`).
   Licensed data never travels through the cross-tenant shared identity response (FR-V-14).
 - **`ProviderAdapter` is exactly the identAPI's operations** (`test_provider_adapter_is_the_identapi.py`):
@@ -93,7 +96,8 @@ to show a provider's wording beside an unmapped code, **never to fill a referenc
   each in `services/metering.py::provider_request`; the breaker stays per `call_capability` block.
   Each row also holds the attempt's `http_status`, the caller's `purpose` and `provider_error` — an
   **identifier only** (json:api `title`, OAuth `error` code; never `detail`/`error_description`, a URL
-  or a token), noted by the method that touches the HTTP client, bounded in `gateway.record_call` (KAN-767).
+  or a token), noted by the method that touches the HTTP client (`note_response`, `test_provider_http_answers_are_noted.py`,
+  ADR-191), bounded in `gateway.record_call` (KAN-767).
   **Nexotec enforces no quota and sends no usage warning** (Anto: auto-i-dat limits its own access).
 - **The test access never runs in production** (§1): it is a `sandbox` connection, and on any
   `DMS_ENVIRONMENT` but `development`, `test` or `staging` the gateway refuses every sandbox
@@ -103,7 +107,8 @@ to show a provider's wording beside an unmapped code, **never to fill a referenc
   (a `.env` in the working directory), where it reads as `development`; a name that does not parse
   reads as production in every reader (gateway, object store, mailer). The Connect dialog
   says: a service account only, never the personal token, test environments only. A provider
-  without test access (`supports_sandbox` false: AutoScout24, every AI provider) holds no sandbox
+  without test access (`supports_sandbox` false: AutoScout24, every AI provider, `microsoft_365_mail`,
+  `google_workspace_mail`, `twilio`, `meta_whatsapp` and `google_business_profile`) holds no sandbox
   connection (422 `provider_has_no_sandbox`; clearing the flag while one exists is 409
   `provider_sandbox_connections_exist`, KAN-741). There are no
   licence types or end dates: a switched-off connection shows as failing.

@@ -6,7 +6,7 @@ paths:
 ---
 <!-- Maintainer note. PRD-Stock FR-I-07; ADR-055, ADR-061. Moved out of inventory.md by KAN-615
 (2026-11-13); its screens in src/modules/stock/ since KAN-636 step 3. Last verified
-against main@3b2bf69 (2026-11-18). The backend rules are inventory.md. -->
+against main@32ad509 (2026-11-25). The backend rules are inventory.md. -->
 
 # Stock screens
 

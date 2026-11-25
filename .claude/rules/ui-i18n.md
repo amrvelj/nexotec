@@ -21,7 +21,7 @@ paths:
 ---
 <!-- Maintainer note. UI/UX Specification (i18n row), ADR-044; Anto's rulings on KAN-104, KAN-171,
 KAN-343, KAN-398, KAN-750. Split out of ui.md by KAN-615 (2026-11-13). Last verified against
-main@3b2bf69 (2026-11-18). -->
+main@32ad509 (2026-11-25). -->
 
 # Translations (i18n)
 

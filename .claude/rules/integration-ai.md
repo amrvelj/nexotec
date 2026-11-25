@@ -17,8 +17,8 @@ paths:
   - "frontend/apps/dms/src/pages/TranslationsPage.aiPrompts.render.test.tsx"
   - "frontend/apps/dms/src/pages/IntegrationDealerView.ai.render.test.tsx"
 ---
-<!-- Maintainer note. ADR-181; KAN-227, D-A-33, FR-A-38. Last verified against main@3b2bf69
-(2026-11-18). -->
+<!-- Maintainer note. ADR-181; KAN-227, D-A-33, FR-A-38. Last verified against main@32ad509
+(2026-11-25). -->
 
 # The Betrieb's own AI provider (KAN-227, D-A-33)
 

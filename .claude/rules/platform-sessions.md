@@ -17,7 +17,7 @@ paths:
   - "frontend/apps/dms/src/components/ProtectedRoute.tsx"
 ---
 <!-- Maintainer note. Auth & Identity PRD v1.1 (sessions), D-A-36. Moved out of platform-identity.md by
-KAN-615 so that app/main.py loads only this. Last verified against main@3b2bf69 (2026-11-18). -->
+KAN-615 so that app/main.py loads only this. Last verified against main@32ad509 (2026-11-25). -->
 
 # Sessions and the request guards
 

@@ -12,7 +12,7 @@ paths:
 ---
 <!-- Maintainer note. PRD-Vehicles (FR-V-09, FR-V-17); ADR-029, ADR-048 as amended, ADR-066, ADR-070.
 KAN-615 (2026-11-13) cut it to the invariants; what the confirmation, Sales and Stock do with a
-valuation is valuation-trade-in.md. Last verified against main@3b2bf69 (2026-11-18). -->
+valuation is valuation-trade-in.md. Last verified against main@32ad509 (2026-11-25). -->
 
 # Valuations
 
@@ -77,7 +77,7 @@ valuation is valuation-trade-in.md. Last verified against main@3b2bf69 (2026-11-
   grid's row menu (`valuationRowMenu.tsx`, ADR-061), is «Offerte aus dieser Bewertung erstellen»
   (Anto, KAN-569): a draft offer with the valuation's contact (none otherwise) and the valuation
   as trade-in, then the workspace — a draft valuation allowed; an expired or used one, or one
-  naming no car, disabled with the reason; hidden without the `sales_offers` write; a refused
+  naming no car, or a chassis number without its configuration, disabled with the reason; hidden without the `sales_offers` write; a refused
   later step keeps the screen, names the offer made, and a retry continues it.
   `ValuationCreateDialog` marks VIN, make and model required and holds its submit until they are
   filled.

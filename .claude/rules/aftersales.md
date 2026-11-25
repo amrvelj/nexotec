@@ -7,7 +7,8 @@ paths:
 «Build slice 1 - the order backbone» (version 0.4, approved by Anto 2026-11-24)
 https://app.notion.com/p/4223e79334dd81d8b83bc1fbf4376c74 and «Architecture decisions of slice 1»
 https://app.notion.com/p/4223e79334dd816e941bf780af822854. The slice page is binding; read the section
-behind a line before building against it. Its tickets: KAN-804 to KAN-818. -->
+behind a line before building against it. Its tickets: KAN-804 to KAN-818.
+Last verified against main@32ad509 (2026-11-25). -->
 
 # Aftersales (workshop orders) and Parts
 

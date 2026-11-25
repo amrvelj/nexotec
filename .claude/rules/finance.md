@@ -9,7 +9,7 @@ paths:
 ---
 <!-- Maintainer note. ADR-032, ADR-037, ADR-052, ADR-064, ADR-109, the ADR-050 addendum and the WP-9
 page of the Build Sequence; D-A-17, D-A-27. KAN-615 (2026-11-13) removed restatements of sales.md.
-Last verified against main@3b2bf69 (2026-11-18); /drift-audit re-checks "not built". -->
+Last verified against main@32ad509 (2026-11-25); /drift-audit re-checks "not built". -->
 
 # Finance, numbering and invoicing
 

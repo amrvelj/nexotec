@@ -35,7 +35,7 @@ paths:
 <!-- Maintainer note. ADR-060, ADR-092; UI/UX Core Principles (grids).
 Split out of ui.md by KAN-615 (2026-11-13); filters, views and URL state split out to
 ui-grid-filters.md by KAN-743 (2026-11-17), so a plain grid (a Contact 360 tab) loads only this.
-Last verified against main@3b2bf69 (2026-11-18). -->
+Last verified against main@32ad509 (2026-11-25). -->
 
 # Data grids
 

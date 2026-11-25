@@ -36,11 +36,15 @@ paths:
   - "frontend/apps/dms/src/components/letterhead/**"
   - "tests/sales/test_sales_document_letterhead.py"
   - "tests/sales/test_kan717_sales_document_location.py"
+  - "app/platform/documents/api/document_links.py"
+  - "app/platform/documents/models/document_link.py"
+  - "frontend/apps/dms/src/pages/DocumentLinkPage*"
+  - "tests/cross_context/test_kan217_document_links.py"
 ---
 <!-- Maintainer note (stripped before Claude sees it). Summarises ADR-047, ADR-051, ADR-109, ADR-159 and
 the Dealer Administration PRD's standard texts (FR-A-28, D-A-23, A-RULE-4) and number ranges (D-A-17,
-A-RULE-3). Cut from platform.md by KAN-614 (2026-11-10). Last verified against main@3b2bf69
-(2026-11-18). -->
+A-RULE-3). Cut from platform.md by KAN-614 (2026-11-10). Last verified against main@32ad509
+(2026-11-25). -->
 
 # Documents, standard texts and number ranges
 
@@ -102,7 +106,7 @@ A-RULE-3). Cut from platform.md by KAN-614 (2026-11-10). Last verified against m
   registers each document or reminder type it sends (purpose transactional | marketing, its text
   code per channel) through `platform.public.register_message_type`, from the composition root
   `app/message_type_registry.py`; a wrong or conflicting one fails at start-up. E-mail attaches the
-  document, SMS and WhatsApp send a secure link the send service appends — no text names it.
+  document, SMS and WhatsApp send a secure link the send service appends (ADR-192) — no text names it.
   Sales registers `offer`, `order_confirmation`, `sales_contract`; it sends the first and last (ADR-204).
 - **Secure links (KAN-217 PR-4, ADR-193):** `document_link` holds a link's SHA-256, never the token;
   14 days; issued on platform's own session (ADR-204). The URL is `{app}/d?lang=<lang>#<token>`: the fragment never reaches a server, so no proxy or access

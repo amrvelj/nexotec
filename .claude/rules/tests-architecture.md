@@ -5,7 +5,7 @@ paths:
 ---
 <!-- Maintainer note. Moved out of tests.md by KAN-615 (2026-11-13): the enumeration of what the
 architecture tests guard became the directory itself; kept here is only what a test's name does
-not say. Last verified against main@3b2bf69 (2026-11-18). -->
+not say. Last verified against main@32ad509 (2026-11-25). -->
 
 # Architecture tests
 

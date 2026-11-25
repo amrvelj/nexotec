@@ -22,7 +22,7 @@ paths:
   - "tests/cross_context/test_reconciliation*.py"
 ---
 <!-- Maintainer note. Moved out of events.md by KAN-615 (2026-11-13) so the broad file stays
-small; ADR-047 addendum, ADR-081, ADR-105, ADR-107. Last verified against main@3b2bf69 (2026-11-18). -->
+small; ADR-047 addendum, ADR-081, ADR-105, ADR-107. Last verified against main@32ad509 (2026-11-25). -->
 
 # The worker, daily jobs and label refreshes
 

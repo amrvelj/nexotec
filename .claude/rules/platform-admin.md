@@ -19,6 +19,7 @@ paths:
   - "scripts/migrate_logo_urls_to_branding_assets.py"
   - "frontend/apps/dms/src/pages/BusinessPage*"
   - "frontend/apps/dms/src/pages/BrandingPage*"
+  - "frontend/apps/dms/src/pages/MailAdministrationPage*"
   - "frontend/apps/dms/src/pages/Location*"
   - "frontend/apps/dms/src/components/business/**"
   - "frontend/apps/dms/src/components/branding/**"
@@ -39,7 +40,7 @@ paths:
 <!-- Maintainer note (stripped before Claude sees it). Summarises the Dealer Administration PRD v1.2
 (D-A-01…D-A-41, A-RULE-0…10) and ADR-100, ADR-101, ADR-165. Cut from platform.md by KAN-614
 (2026-11-10); the lifecycle moved to platform-administration.md (KAN-751). Last verified against
-main@3b2bf69 (2026-11-18). -->
+main@32ad509 (2026-11-25). -->
 
 # Dealer Administration (PRD v1.2; rulings D-A-01…D-A-41)
 
@@ -67,9 +68,10 @@ Decided rulings live in the PRD; built only where a bullet says so — check the
 - **Mail (D-A-28):** platform mail is always Nexotec's sender (`platform-identity.md`);
   contact mail leaves only through the dealer's own Microsoft 365 / Google Workspace mailbox
   (Anto, 2026-11-14): the author's own, else the Betrieb's shared one, else a refusal — no
-  Nexotec sender (`integration.public.resolve_sender`, KAN-215; Administration › Kundenmails).
+  Nexotec sender (`integration.public.resolve_sender`, KAN-215, ADR-187; Administration › Kundenmails).
 - **Contact messaging (D-A-41):** one platform send dialog for e-mail, SMS, WhatsApp; the Betrieb
-  brings its own SMS/WhatsApp provider; consent lives on the contact.
+  brings its own SMS/WhatsApp provider; consent lives on the contact (ADR-198; the send: ADR-204,
+  `integration-channels.md`).
 - **Not in v1, by ruling:** policy limits (D-A-18), external users (D-A-20), custom fields and tags
   (D-A-29; one exception, the contact's free per-group tags `contact_tag`, built under KAN-50 —
   Anto, 2026-10-26; the contact groups below are Nexotec's reference list, not tags), Saldosteuersatz (D-A-27), customer logins (D-A-13), API clients (D-A-14), Zefix
@@ -127,6 +129,12 @@ Declarations, the read, history and restore, the API, the checklist, the copy: `
   canton plus one per sub-cantonal region SECO lists; Aargau and Fribourg have region calendars
   only, so a new location there starts with none and the dealer picks the region; a holiday is a
   rule computed per year (`organisation/services/holidays.py`).
+- **A published change is a fact** (KAN-226, ADR-189, FR-A-35): a location write changing a published
+  field states `platform.location.updated`, an hours/closure/calendar change
+  `platform.location.schedule_changed`, in the write's transaction (`organisation/services/location_facts.py`);
+  the Betrieb's `website` states `platform.dealership.updated` (`dealership_facts.py`, KAN-785, ADR-201;
+  one payload shape for every `platform.dealership.*`, ADR-202). A location's creation publishes
+  nothing. A channel reads current state through `platform.public.location_channel_facts`.
 
 ## Branding (PRD Logo and brand assets) — built
 - `/administration/branding`: one `branding_asset` row per variant (`primary`, `mono_dark`,
