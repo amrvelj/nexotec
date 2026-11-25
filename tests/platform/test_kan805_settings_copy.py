@@ -6,12 +6,13 @@ location's value is never copied; a source value that no longer fits its
 declaration is skipped."""
 
 import dataclasses
+import hashlib
 import uuid
 from contextlib import contextmanager
 from decimal import Decimal
 
 import pytest
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.orm import sessionmaker
 
 from app.core.permissions import ModuleCode
@@ -20,6 +21,7 @@ from app.platform.organisation.services import setting_store as store
 from app.platform.organisation.services.setting_declarations import TextValue
 from tests import setting_store_support as samples
 from tests.platform.test_configuration_copy import _copy, _entitle, _pair
+from tests.postgres_only import ROW_LOCKS
 
 SETTINGS = ("settings",)
 
@@ -158,3 +160,47 @@ def test_a_copied_value_can_be_restored_from_the_targets_history(client, engine,
         )
         db.commit()
     assert _value(engine, target, samples.WAIT.key) == Decimal(30)
+
+
+def test_a_stale_target_value_is_reported_as_overwritten(client, engine):
+    source, target, _, headers = _aftersales_pair(client, engine)
+    with samples.declared(samples.WAIT):
+        _set(engine, target, samples.WAIT.key, Decimal(200))
+        _set(engine, source, samples.WAIT.key, Decimal(100))
+    tight = dataclasses.replace(samples.WAIT, maximum=Decimal(120))
+    with samples.declared(tight):
+        items = _items(_copy(client, target, headers, source, dry_run=False, subsets=SETTINGS))
+        assert items == {samples.WAIT.key: ("overwritten", None)}
+        assert _value(engine, target, samples.WAIT.key) == Decimal(100)
+
+
+@ROW_LOCKS
+def test_the_targets_settings_are_locked_from_the_first_read(client, engine, declared, monkeypatch):
+    """A colleague's change waits for the copy and then meets the moved
+    version, as for the other subsets — it never slips in between the copy's
+    read and its write, which would fail the whole copy with 409. Probed from
+    a second session when the copy reads the target's first slot."""
+
+    source, target, _, headers = _aftersales_pair(client, engine)
+    _set(engine, source, samples.WAIT.key, Decimal(15))
+    probes: list[bool] = []
+    original = store.get_slot
+
+    def probing_get_slot(db, *, dealership_id, location_id, key):
+        if dealership_id == uuid.UUID(target) and not probes:
+            colleague = sessionmaker(bind=engine)()
+            try:
+                digest = hashlib.sha256(f"platform.setting_store:{dealership_id}".encode()).digest()
+                got = colleague.execute(
+                    text("SELECT pg_try_advisory_xact_lock(:key)"),
+                    {"key": int.from_bytes(digest[:8], "big", signed=True)},
+                ).scalar_one()
+                probes.append(not got)
+            finally:
+                colleague.rollback()
+                colleague.close()
+        return original(db, dealership_id=dealership_id, location_id=location_id, key=key)
+
+    monkeypatch.setattr(store, "get_slot", probing_get_slot)
+    assert _copy(client, target, headers, source, dry_run=False, subsets=SETTINGS).status_code == 200
+    assert probes == [True]

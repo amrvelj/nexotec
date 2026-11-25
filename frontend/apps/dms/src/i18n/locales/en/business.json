@@ -201,7 +201,7 @@
       "document_template": "The documents' header note, per language. Where the other business has none in a language, this one's stays as it is.",
       "number_ranges": "Pattern, start value and yearly reset of the modules this business uses. Counters are never copied; a range that has already issued a number stays as it is.",
       "contact_groups": "The contact groups the other business uses are switched on here. No group is switched off.",
-      "settings": "The values the other business has set for itself, for the modules this business uses. A location's values are never copied; a setting not set there stays as it is here."
+      "settings": "The values the other business has set for itself, for the modules this business uses, and for those that belong to no module. A location's values are never copied; a setting not set there stays as it is here."
     },
     "preview": "Show preview",
     "previewTitle": "Preview: copy from {{source}}",

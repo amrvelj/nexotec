@@ -44,7 +44,9 @@ groups since KAN-466; FR-A-01's "role presets" has nothing behind it, D-A-03):
   «not set» leaves the target's value as it is (absent = kept); a location's
   value is never copied (sites differ per Betrieb, as settled (b) for texts);
   a source value that no longer fits today's declaration is skipped
-  (`setting_value_stale`), as the store reads it as «not set».
+  (`setting_value_stale`), as the store reads it as «not set»; a target value
+  that no longer fits is overwritten. The target's settings are locked from
+  the first read to the commit.
 
 Every item goes through its entity's own write path (validation, audit row,
 version), with the commit left to this service. The dry run runs the very
@@ -488,6 +490,9 @@ def _copy_settings(
     db: Session, *, source: Dealership, target: Dealership, actor_id: uuid.UUID, report: CopyReport
 ) -> None:
     held = {module.value for module in _target_modules(db, target)}
+    # Locked before the first read, as the other subsets lock their rows: a
+    # colleague's change waits for the copy instead of failing it (409).
+    setting_store.lock_settings(db, dealership_id=target.id)
     for declaration in declared_settings():
         if declaration.module is not None and declaration.module not in held:
             continue
@@ -519,7 +524,10 @@ def _copy_settings(
                     actor_id=actor_id,
                     origin=SettingChangeOrigin.COPY,
                 )
-            item.outcome = CopyOutcome.OVERWRITTEN if current.is_set else CopyOutcome.CREATED
+            # A stored value that no longer fits reads «not set», but it is
+            # still replaced: the history shows an overwrite, and so does this.
+            replaced = current.is_set or not current.fits_declaration
+            item.outcome = CopyOutcome.OVERWRITTEN if replaced else CopyOutcome.CREATED
         except SettingValueError as refused:
             item.outcome = CopyOutcome.SKIPPED
             item.reason = refused.reason
