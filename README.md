@@ -345,6 +345,9 @@ ships it (moved here from the rule files by KAN-615; the script's docstring is t
   object store as its primary branding asset (KAN-205); on production once the real object store exists.
 - `scripts/backfill_stock_item_location_labels.py` — the location's name beside a stock item's
   location id, on items written before KAN-739 (the nightly `inventory.location_labels` run once).
+- `scripts/restate_module_entitlements.py --module aftersales` — restates
+  `platform.module_entitlement.granted` for every Betrieb holding Aftersales before the fact existed,
+  so the worker copies the planner's starting sets (KAN-808, ADR-222); a repeat copies nothing.
 
 ## Conventions for entities built on this foundation (issues #2+)
 

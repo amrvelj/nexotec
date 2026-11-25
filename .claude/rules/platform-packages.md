@@ -20,7 +20,8 @@ main@32ad509 (2026-11-25). -->
   reference — reference data, UI translations, the mail and Web Push ports; organisation — dealer
   groups, Betriebe, locations, schedules, holidays, bank accounts, branding, settings,
   entitlements, number ranges, contact groups, the dealer-only Betrieb reads (`dealer_dealerships`),
-  the location and Betrieb facts (`location_facts`, `dealership_facts`); identity — users, memberships, roles, delegations,
+  the location, Betrieb and entitlement facts (`location_facts`, `dealership_facts`,
+  `entitlement_facts`); identity — users, memberships, roles, delegations,
   credentials, sessions, tokens, MFA, recovery, connected accounts, preferences, onboarding,
   notifications, support sessions, platform staff; documents — templates and rendering,
   letterhead, standard texts, message types and their texts, secure document links; administration — the setup checklist and activation, the publishing profile,
