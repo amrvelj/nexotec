@@ -52,7 +52,7 @@ Last verified against main@32ad509 (2026-11-25). -->
 - No full seed, no daily delta, no `FzKeyChanged` nor the identAPI's own changed-keys list
   `GET /vehiclecatalog/mutations/{sinceDate}` (refused by path and by method name, KAN-589),
   **no daily job reaching a vehicle-data or catalogue provider through the gateway (KAN-485)** — the demo
-  provider too; the only daily provider reads are Google Business Profile's per-binding drift check and
+  provider too; the only daily provider calls are Google Business Profile's per-binding drift check and
   horizon push (KAN-798, ADR-205 amended); a connected-account grant revoker (KAN-559) is not a gateway provider. A variant enters only through identification or a browsed page;
   every variant either returns is stored through `upsert_model_variant` / `store_seen_variants`.
   `test_no_bulk_catalogue_retrieval.py` refuses `page[number]` outside the adapter and any

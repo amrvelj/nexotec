@@ -351,6 +351,12 @@ def test_no_daily_job_reaches_a_provider(db_session, monkeypatch, google, client
     resolve the Business Profile adapter, so it is exercised, not assumed
     (KAN-798). The daily catalogue delta
     used to be the first thing `integration.daily_jobs` did.
+
+    The recorder raises on each resolution, so a job sees only its first
+    provider per unit of work (per binding for the drift check, which goes on
+    to the next binding); a second provider resolved later in the same unit
+    would not be reached. Returning a working stub instead would run the
+    jobs' provider code against nothing, so the bound is accepted and named.
     """
 
     provider = IntegrationProvider(

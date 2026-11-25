@@ -12,6 +12,7 @@ paths:
   - "app/integration/services/mail_*.py"
   - "app/integration/services/messag*.py"
   - "app/integration/services/gbp_*.py"
+  - "app/integration/services/send_readiness.py"
   - "alembic/versions/integration/*_kan215_*.py"
   - "alembic/versions/integration/*_kan217_*.py"
   - "alembic/versions/integration/*_kan226_*.py"
@@ -41,7 +42,7 @@ audit 2026-11-23, N2). Last verified against main@32ad509 (2026-11-25). -->
 # Integration: contact mail, messaging, Google Business Profile
 
 The registry, the call log and the sandbox rule are `vehicle-gateway.md`; the send route is Sales'
-(`sales.md`). Every provider request here goes through `call_capability`: a call-log row, the breaker.
+(`sales-documents.md`). Every provider request here goes through `call_capability`: a call-log row, the breaker.
 
 ## Contact mail (KAN-215, ADR-187)
 - **Only the dealer's own mailbox, never a Nexotec sender** (A-RULE-9): `resolve_sender` takes the
@@ -70,7 +71,7 @@ The registry, the call log and the sandbox rule are `vehicle-gateway.md`; the se
   not sent on (422 `channel_not_offered`), and WhatsApp without an approved template (409
   `whatsapp_template_not_approved`; free text never sent). It writes **exactly one
   `integration_message_delivery` row per send** on its own session (ADR-047), failure included, and
-  never raises after its refusals. Delivery reports are a later PR (KAN-217 PR-7).
+  never raises after its refusals.
 
 ## Google Business Profile (KAN-226)
 - **One platform-only provider** (`google_business_profile`): Nexotec's own OAuth client is the one

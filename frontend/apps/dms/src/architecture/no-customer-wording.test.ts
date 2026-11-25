@@ -61,11 +61,12 @@ const ALLOWED_STRINGS: Record<string, [string, Language[]]> = {
   'statusPage:platform.businessProfile.outcome.refused': ["Nexotec's Google OAuth client", ['fr']],
 }
 
-// Source files that may still name the /customers route: why, and the one shape each match of
-// OLD_ROUTE_LITERAL in that file may take (KAN-825: a file is never allowed whole).
+// Source files that may still name the /customers route: why, and the exact texts each match of
+// OLD_ROUTE_LITERAL in that file may read, up to the end of its literal (KAN-825: a file is never
+// allowed whole).
 const ALLOWED_ROUTE_FILES: Record<string, [string, RegExp]> = {
   // Old links redirect to /contacts until KAN-464 PR-5 retires the old names.
-  'App.tsx': ['the /customers → /contacts redirect', /^"\/customers$/],
+  'App.tsx': ['the /customers → /contacts redirect', /^"\/customers(\/\*)?$/],
 }
 
 type LocaleTree = { [key: string]: string | LocaleTree }
@@ -170,7 +171,8 @@ function stale(hits: Map<string, string[]>, allowed: Record<string, [string, Reg
     .map(([file]) => file)
 }
 
-const OLD_ROUTE_MATCHES = new RegExp(OLD_ROUTE_LITERAL.source, 'g')
+// Each match, extended to the end of its literal, so an allowed prefix cannot hide a new route.
+const OLD_ROUTE_MATCHES = new RegExp(`(?:${OLD_ROUTE_LITERAL.source})[^'"\`\n]*`, 'g')
 
 function routeHits(): Map<string, string[]> {
   const hits = new Map<string, string[]>()
@@ -212,7 +214,8 @@ describe('no half-rename: customers are contacts (KAN-464, ADR-210)', () => {
     expect(unallowed(app, ALLOWED_LITERALS)).toEqual(['App.tsx: Neuer Kunde'])
     const status = new Map([['pages/PlatformStatusPage.tsx', ['client-status', 'Nouveau client']]])
     expect(unallowed(status, ALLOWED_LITERALS)).toEqual(['pages/PlatformStatusPage.tsx: Nouveau client'])
-    expect(unallowed(new Map([['App.tsx', ["'/customers"]]]), ALLOWED_ROUTE_FILES)).toEqual(["App.tsx: '/customers"])
+    expect(unallowed(new Map([['App.tsx', ['"/customers/new']]]), ALLOWED_ROUTE_FILES)).toEqual(['App.tsx: "/customers/new'])
+    expect([...'<a href="/customers/new">'.matchAll(OLD_ROUTE_MATCHES)].map((m) => m[0])).toEqual(['"/customers/new'])
     expect(stale(new Map([['App.tsx', ['Kunde']]]), ALLOWED_LITERALS)).toEqual(['pages/PlatformStatusPage.tsx', 'App.tsx'])
   })
 

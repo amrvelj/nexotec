@@ -29,8 +29,8 @@ KAN-615. Last verified against main@32ad509 (2026-11-25). -->
 
 # A valuation as a trade-in
 
-- **A trade-in is a car** (Anto, KAN-574): a valuation naming neither a VIN nor a pre-1981 chassis
-  number is refused — 422 `trade_in_valuation_names_no_car` at attach, nothing written — and never
+- **A trade-in is a car** (Anto, KAN-574): a valuation naming neither a VIN nor a chassis number is
+  refused — 422 `trade_in_valuation_names_no_car` at attach, nothing written — and never
   offered by `set_trade_in`'s FR-S-08 auto-attach.
 - **A pre-1981 chassis number** (Anto, KAN-746 A) is taken only with a configuration carrying that
   number and a first registration before 1981 (Stock buys it so): at attach the valuation's own, in

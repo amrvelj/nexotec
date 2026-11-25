@@ -71,7 +71,7 @@ verified against main@32ad509 (2026-11-25). -->
 - **An index behind a word sort** is over `text_sort_index_key` (`app/core/text_collation.py`, KAN-740,
   ADR-190): `alembic/env.py`'s `include_object` keeps it out of autogenerate and `alembic check`, so
   its migration is hand-written and it is compared by `pg_get_indexdef`
-  (`test_text_sort_indexes_use_the_collation.py`).
+  (`schema_diff_support.py`, run by `test_migrated_schema_matches_models.py`).
 - `Settings.legacy_vehicle_write_frozen` is read by nothing since the legacy `vehicle` table went
   (ADR-021 amended); its removal waits on a preserved-file edit (`config.py`).
 - `scripts/dev/check` mirrors both CI migration jobs when migrations, models or what a migration
