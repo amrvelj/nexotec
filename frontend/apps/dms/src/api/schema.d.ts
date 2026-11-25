@@ -9042,7 +9042,7 @@ export interface components {
          * CopySubset
          * @enum {string}
          */
-        CopySubset: "standard_texts" | "document_template" | "number_ranges" | "contact_groups";
+        CopySubset: "standard_texts" | "document_template" | "number_ranges" | "contact_groups" | "settings";
         /** CurrentLegalDocuments */
         CurrentLegalDocuments: {
             /** Items */

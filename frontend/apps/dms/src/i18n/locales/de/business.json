@@ -185,7 +185,7 @@
   },
   "copyConfiguration": {
     "title": "Konfiguration übernehmen von …",
-    "intro": "Übernehmen Sie Standardtexte, Kopfzeilen der Dokumentvorlage, Nummernkreis-Muster und Kontaktgruppen einmalig aus einem anderen Betrieb, den Sie ebenfalls verwalten. Die Kopien gehören danach diesem Betrieb; spätere Änderungen im anderen Betrieb wirken hier nicht.",
+    "intro": "Übernehmen Sie Standardtexte, Kopfzeilen der Dokumentvorlage, Nummernkreis-Muster, Kontaktgruppen und Einstellungen einmalig aus einem anderen Betrieb, den Sie ebenfalls verwalten. Die Kopien gehören danach diesem Betrieb; spätere Änderungen im anderen Betrieb wirken hier nicht.",
     "source": "Betrieb, aus dem übernommen wird",
     "sourcePlaceholder": "Betrieb wählen",
     "subsets": "Was übernommen wird",
@@ -193,13 +193,15 @@
       "standard_texts": "Standardtexte",
       "document_template": "Dokumentvorlage (Kopfzeilen)",
       "number_ranges": "Nummernkreis-Muster",
-      "contact_groups": "Kontaktgruppen"
+      "contact_groups": "Kontaktgruppen",
+      "settings": "Einstellungen"
     },
     "subsetHint": {
       "standard_texts": "Die eigenen und die angepassten Texte des Betriebs, ohne Standort-Varianten. Ein Text, den dieser Betrieb schon hat, wird überschrieben. Eine Freigabe von WhatsApp-Vorlagen wird nie übernommen; eine überschriebene Vorlage muss erneut eingereicht werden.",
       "document_template": "Die Kopfzeile der Dokumente, je Sprache. Hat der andere Betrieb in einer Sprache keine, bleibt die hiesige unverändert.",
       "number_ranges": "Muster, Startwert und jährlicher Neubeginn der Module, die dieser Betrieb nutzt. Zählerstände werden nie übernommen; ein Nummernkreis, der schon eine Nummer vergeben hat, bleibt unverändert.",
-      "contact_groups": "Die Kontaktgruppen, die der andere Betrieb verwendet, werden hier eingeschaltet. Keine Gruppe wird ausgeschaltet."
+      "contact_groups": "Die Kontaktgruppen, die der andere Betrieb verwendet, werden hier eingeschaltet. Keine Gruppe wird ausgeschaltet.",
+      "settings": "Die Werte, die der andere Betrieb für sich selbst gesetzt hat, für die Module, die dieser Betrieb nutzt. Werte einzelner Standorte werden nie übernommen; eine Einstellung, die dort nicht gesetzt ist, bleibt hier unverändert."
     },
     "preview": "Vorschau anzeigen",
     "previewTitle": "Vorschau: Übernahme aus {{source}}",
@@ -233,7 +235,8 @@
       "standard_text_seed_language_missing": "Die Vorlage dieses Texts gibt es in dieser Sprache nicht mehr.",
       "whatsapp_approval_reset": "Die WhatsApp-Vorlage muss erneut zur Freigabe eingereicht werden.",
       "other": "Dieser Eintrag kann nicht übernommen werden.",
-      "contact_group_inactive": "Diese Kontaktgruppe hat Nexotec eingestellt."
+      "contact_group_inactive": "Diese Kontaktgruppe hat Nexotec eingestellt.",
+      "setting_value_stale": "Der Wert passt nicht mehr zu dieser Einstellung und gilt dort als nicht gesetzt."
     }
   },
   "statusRefusals": {

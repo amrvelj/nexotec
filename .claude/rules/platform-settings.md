@@ -12,7 +12,7 @@ paths:
 only, history read by every role, checklist settings declared after activation only notify, the
 per-location column while any location holds a value). Split out of platform-admin.md by KAN-805 PR-2. -->
 
-# The settings store (KAN-805) — store, API and checklist built; copy and screen to come
+# The settings store (KAN-805) — store, API, checklist and copy built; the screen to come
 
 - An area **declares** each setting it reads (`SettingDeclaration`: key `<area>.<name>`, kind switch ·
   number · amount · choice · text, what «not set» does — `quiet`, `refuses`, `acts_as`, never for an
@@ -47,3 +47,8 @@ per-location column while any location holds a value). Split out of platform-adm
   `utils/checklistItem.ts`); `test_declared_settings_have_labels.py` fails on a declared setting
   without its label in the four languages, and on a shipped checklist setting before the SPA serves
   `/administration/settings/:area` (PR-5).
+- **Copy from a sister Betrieb** (`administration/services/configuration_copy.py`, subset `settings`):
+  the source's own value of each setting the target configures (module held, or none), written by
+  `change_setting` as origin `copy` (history, restore); «not set» in the source keeps the target's
+  value; a location's value is never copied; a source value that no longer fits is skipped
+  (`setting_value_stale`).

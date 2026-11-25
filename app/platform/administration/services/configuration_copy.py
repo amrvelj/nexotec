@@ -37,6 +37,14 @@ groups since KAN-466; FR-A-01's "role presets" has nothing behind it, D-A-03):
   switched on in the target; one the target has on already is unchanged,
   and none is ever switched off (absent = kept, as for texts). A group
   platform staff have deactivated is skipped (`contact_group_inactive`).
+- **settings** (KAN-805 PR-4, ADR-214) — the source's own value of each
+  declared setting the target configures (its module held, or none), written
+  through the store's own path as a change of origin `copy`, so the target's
+  history shows it and it can be restored from. A setting the source has
+  «not set» leaves the target's value as it is (absent = kept); a location's
+  value is never copied (sites differ per Betrieb, as settled (b) for texts);
+  a source value that no longer fits today's declaration is skipped
+  (`setting_value_stale`), as the store reads it as «not set».
 
 Every item goes through its entity's own write path (validation, audit row,
 version), with the commit left to this service. The dry run runs the very
@@ -69,10 +77,13 @@ from app.platform.identity.services.user import is_dealer_manager_in
 from app.platform.identity.services.user_common import membership_is_active
 from app.platform.organisation.models.dealership import Dealership
 from app.platform.organisation.models.number_range import NumberRange, NumberRangeDocumentType
+from app.platform.organisation.models.setting_value import SettingChangeOrigin
 from app.platform.organisation.services import contact_group as contact_group_service
 from app.platform.organisation.services import number_range as number_range_service
+from app.platform.organisation.services import setting_store
 from app.platform.organisation.services.dealer_dealerships import dealer_dealerships_only
 from app.platform.organisation.services.entitlement import list_active_modules
+from app.platform.organisation.services.setting_declarations import SettingValueError, declared_settings
 
 SUMMARY_ACTION = "configuration_copied"
 _HEADER_FIELDS = ("header_note_de", "header_note_fr", "header_note_it", "header_note_en")
@@ -88,6 +99,7 @@ class CopySubset(str, enum.Enum):
     DOCUMENT_TEMPLATE = "document_template"
     NUMBER_RANGES = "number_ranges"
     CONTACT_GROUPS = "contact_groups"
+    SETTINGS = "settings"
 
 
 class CopyOutcome(str, enum.Enum):
@@ -469,11 +481,57 @@ def _copy_contact_groups(
         report.items.append(item)
 
 
+# --- settings ---------------------------------------------------------------------------
+
+
+def _copy_settings(
+    db: Session, *, source: Dealership, target: Dealership, actor_id: uuid.UUID, report: CopyReport
+) -> None:
+    held = {module.value for module in _target_modules(db, target)}
+    for declaration in declared_settings():
+        if declaration.module is not None and declaration.module not in held:
+            continue
+        key = declaration.key
+        wanted = setting_store.get_slot(db, dealership_id=source.id, location_id=None, key=key)
+        if not wanted.is_set:
+            if not wanted.fits_declaration:
+                report.items.append(
+                    CopyItem(
+                        subset=CopySubset.SETTINGS, key=key, outcome=CopyOutcome.SKIPPED, reason="setting_value_stale"
+                    )
+                )
+            # «Not set» in the source: the target's value is kept.
+            continue
+        current = setting_store.get_slot(db, dealership_id=target.id, location_id=None, key=key)
+        item = CopyItem(subset=CopySubset.SETTINGS, key=key, outcome=CopyOutcome.UNCHANGED)
+        if current.is_set and current.value == wanted.value:
+            report.items.append(item)
+            continue
+        try:
+            with db.begin_nested():
+                setting_store.change_setting(
+                    db,
+                    dealership_id=target.id,
+                    location_id=None,
+                    key=key,
+                    value=wanted.value,
+                    expected_version=current.version,
+                    actor_id=actor_id,
+                    origin=SettingChangeOrigin.COPY,
+                )
+            item.outcome = CopyOutcome.OVERWRITTEN if current.is_set else CopyOutcome.CREATED
+        except SettingValueError as refused:
+            item.outcome = CopyOutcome.SKIPPED
+            item.reason = refused.reason
+        report.items.append(item)
+
+
 _COPIERS = {
     CopySubset.STANDARD_TEXTS: _copy_standard_texts,
     CopySubset.DOCUMENT_TEMPLATE: _copy_document_template,
     CopySubset.NUMBER_RANGES: _copy_number_ranges,
     CopySubset.CONTACT_GROUPS: _copy_contact_groups,
+    CopySubset.SETTINGS: _copy_settings,
 }
 
 
