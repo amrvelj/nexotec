@@ -28,7 +28,9 @@
     "refuses": "Without a value, what needs this setting is refused."
   },
   "inherited": "From the business: {{value}}",
+  "inheritedMarker": "from the business",
   "stale": "The stored value no longer fits – it counts as not set",
+  "staleClear": "Remove the stored value",
   "clear": {
     "dealership": "Not set",
     "location": "Take the business's value"

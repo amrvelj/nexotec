@@ -28,7 +28,9 @@
     "refuses": "Senza valore, ciò che richiede questa impostazione viene rifiutato."
   },
   "inherited": "Dall'azienda: {{value}}",
+  "inheritedMarker": "dall'azienda",
   "stale": "Il valore salvato non è più valido – vale come non definito",
+  "staleClear": "Rimuovere il valore salvato",
   "clear": {
     "dealership": "Non definito",
     "location": "Riprendere il valore dell'azienda"

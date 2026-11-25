@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { ActionIcon, Button, Group, NumberInput, Select, Stack, Text, TextInput, Tooltip } from '@mantine/core'
 import { Pencil } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { Badge, FormDialog, InlineEditField, chfInlineEditor, slate, type EditorRenderProps } from '@nexotec/ui-kit'
+import { Badge, FormDialog, InlineEditField, chfInlineEditor, type EditorRenderProps } from '@nexotec/ui-kit'
 import type { SettingDeclarationRead, SettingSlotRead, SettingValueBody } from '../../api/types'
 import { useInlineEditRefusal } from '../../hooks/useInlineEditRefusal'
 import { LANGUAGE_ENDONYMS, LANGUAGE_ORDER } from '../../i18n/languageEndonyms'
@@ -56,16 +56,52 @@ export function SettingCell({ declaration, slot, inherited, locationName, canWri
           : null
       : null
   const initialDraft = toDraft(declaration, slot.isSet ? slot.value : null)
-  const stale = !slot.fitsDeclaration ? (
-    <Badge tone="warning">{t('settings.stale')}</Badge>
-  ) : null
   const ariaScope = locationName ?? t('settings.columns.dealership')
+  const [clearing, setClearing] = useState(false)
+  const [clearError, setClearError] = useState<string | null>(null)
+  // A stored value that no longer fits reads as «not set»; the manager removes
+  // it explicitly (an empty draft is never taken as a clear — it is also what a
+  // click and blur leave behind).
+  const clearStale = async () => {
+    setClearing(true)
+    setClearError(null)
+    try {
+      await onSave(null, slot.version)
+    } catch (err) {
+      setClearError(describeError(err))
+    } finally {
+      setClearing(false)
+    }
+  }
+  const stale = !slot.fitsDeclaration ? (
+    <Group gap="xs">
+      <Badge tone="warning">{t('settings.stale')}</Badge>
+      {canWrite && (
+        <Button variant="subtle" size="compact-xs" loading={clearing} onClick={() => void clearStale()}>
+          {t('settings.staleClear')}
+        </Button>
+      )}
+    </Group>
+  ) : null
 
-  const display = (
-    <Text span size="sm" fs={own === null ? 'italic' : undefined} c={own === null ? slate[3] : undefined}>
-      {own ?? emptyLabel}
-    </Text>
+  // ADR-220 (Anto, 2026-11-25): «not set» is a badge of its own, never the
+  // empty-field italic; an inherited value is readable, marked «vom Betrieb».
+  const notSetBadge = <Badge tone="slate">{t('settings.notSet.label')}</Badge>
+  const emptyDisplay = isLocation ? (
+    <Group gap={6} wrap="nowrap">
+      {betriebShown !== null ? (
+        <Text span size="sm" c="dimmed">
+          {betriebShown}
+        </Text>
+      ) : (
+        notSetBadge
+      )}
+      <Badge tone="informational">{t('settings.inheritedMarker')}</Badge>
+    </Group>
+  ) : (
+    notSetBadge
   )
+  const display = own !== null ? <Text span size="sm">{own}</Text> : emptyDisplay
 
   let field: React.ReactNode
   if (!canWrite) {
@@ -88,6 +124,7 @@ export function SettingCell({ declaration, slot, inherited, locationName, canWri
         value={own ?? ''}
         isEmpty={own === null}
         emptyLabel={emptyLabel}
+        emptyDisplay={emptyDisplay}
         editValue={initialDraft}
         describeError={describeError}
         isConflict={isStaleVersion}
@@ -99,9 +136,12 @@ export function SettingCell({ declaration, slot, inherited, locationName, canWri
           ariaLabel: `${label} · ${ariaScope}`,
           clearLabel: isLocation ? t('settings.clear.location') : t('settings.clear.dealership'),
         })}
-        // A click and blur with nothing typed writes nothing — above all not a
-        // clear of a stored value that no longer fits (its draft is empty).
-        onSave={(raw) => (raw === initialDraft ? Promise.resolve() : onSave(fromDraft(declaration, raw), slot.version))}
+        // A click and blur with nothing changed writes nothing. A clear is the
+        // choice's explicit option (CLEAR) or an emptied number, never an
+        // untouched empty draft.
+        onSave={(raw) =>
+          raw === initialDraft ? Promise.resolve() : onSave(raw === CLEAR ? null : fromDraft(declaration, raw), slot.version)
+        }
       />
     )
   }
@@ -110,6 +150,11 @@ export function SettingCell({ declaration, slot, inherited, locationName, canWri
     <Stack gap={2} align="flex-start">
       {field}
       {stale}
+      {clearError && (
+        <Text size="xs" c="red" role="alert">
+          {clearError}
+        </Text>
+      )}
       {notSetNote && (
         <Text size="xs" c="dimmed">
           {notSetNote}
@@ -151,7 +196,7 @@ function editorFor(
           allowDeselect={false}
           onKeyDown={onKeyDown}
           onBlur={onBlur}
-          onChange={(next) => onCommit(next === CLEAR || next === null ? '' : next)}
+          onChange={(next) => onCommit(next === null ? '' : next)}
         />
       )
     }

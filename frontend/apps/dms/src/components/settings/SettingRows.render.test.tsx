@@ -115,6 +115,12 @@ describe('SettingRows (KAN-805)', () => {
     expect(table.queryByRole('columnheader', { name: /Alte Filiale/ })).toBeNull()
   })
 
+  it('a deactivated location holding only a value that no longer fits keeps its column', async () => {
+    render(area(slot({ locationId: 'loc-old', version: 2, fitsDeclaration: false })))
+    const table = within(await screen.findByRole('table', { name: 'Einstellungen' }))
+    expect(table.getByRole('columnheader', { name: /^Alte Filiale/ })).toBeInTheDocument()
+  })
+
   it('a deactivated location still holding a value is shown read-only, its history without restore', async () => {
     render(area(slot({ locationId: 'loc-old', isSet: true, value: { number: '9' }, version: 2 })))
     const table = within(await screen.findByRole('table', { name: 'Einstellungen' }))

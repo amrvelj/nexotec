@@ -59,5 +59,7 @@ of ui.md by KAN-615 (2026-11-13); forms are listed by file pattern, inside the m
   (`isStaleVersion`) offers the reload. `RepeatableRowGroup` without a `describeError` shows its
   `genericError` label. A refusal's text follows `ui-i18n.md`. Inside a kit `DataGrid` cell the
   refusal and reload open in a popover outside the clipping cell (ADR-164, KAN-710) — no caller code.
+  Empty reads as the italic empty-field label; a caller whose empty state carries meaning passes
+  `emptyDisplay` instead (ADR-220: the settings screen's «not set» badge and inherited value).
 - A CHF input is the kit's `ChfInput` (or `chfInlineEditor()` inside an `InlineEditField`), never a
   bare `NumberInput` (`ui-formats.md`).

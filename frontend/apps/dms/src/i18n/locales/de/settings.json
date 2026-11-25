@@ -28,7 +28,9 @@
     "refuses": "Ohne Wert wird abgelehnt, was diese Einstellung braucht."
   },
   "inherited": "Vom Betrieb: {{value}}",
+  "inheritedMarker": "vom Betrieb",
   "stale": "Gespeicherter Wert passt nicht mehr – gilt als nicht gesetzt",
+  "staleClear": "Gespeicherten Wert entfernen",
   "clear": {
     "dealership": "Nicht gesetzt",
     "location": "Wert des Betriebs übernehmen"

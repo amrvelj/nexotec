@@ -57,8 +57,10 @@ per-location column while any location holds a value). Split out of platform-adm
   (`setting_value_stale`).
 - **Screen** (`/administration/settings`, the areas; `/administration/settings/:area`): one row
   component, `components/settings/SettingRows.tsx`, which a topic screen embeds with `keys` (ticket
-  criterion 6, 2026-11-25). «Not set» is a state of its own (never empty, zero or «off»), with what
-  it acts as or refuses; a location without its own value shows the Betrieb's, marked inherited; the
+  criterion 6, 2026-11-25). «Not set» is a slate badge (never empty, zero, «off» or the empty-field
+  italic; ADR-220, Anto 2026-11-25), with what it acts as or refuses; a location without its own
+  value shows the Betrieb's, readable, with a «vom Betrieb» badge; a stale value is removed by its
+  own button, never by an untouched blur; the
   history opens under its row: who, when, before → after, restore (manager) as a new entry. No design
   is drawn for it (ticket, «Design»). An area needs `areas.<area>` and a unit `units.<unit>` in the
   `settings` bundles (`test_declared_settings_have_labels.py`).

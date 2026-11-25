@@ -28,7 +28,9 @@
     "refuses": "Sans valeur, ce qui a besoin de ce réglage est refusé."
   },
   "inherited": "De l'entreprise : {{value}}",
+  "inheritedMarker": "de l'entreprise",
   "stale": "La valeur enregistrée ne convient plus – elle est considérée comme non définie",
+  "staleClear": "Supprimer la valeur enregistrée",
   "clear": {
     "dealership": "Non défini",
     "location": "Reprendre la valeur de l'entreprise"

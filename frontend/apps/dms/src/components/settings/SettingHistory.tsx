@@ -93,7 +93,10 @@ function ScopeHistory({
 
   // Restoring the value in force changes nothing (the store records no entry
   // for it), so it is not offered — every restore offered adds an entry.
+  // A stored value that no longer fits is not «not set»: restoring «not set»
+  // over it removes it, so it is offered.
   const sameAsNow = (change: SettingChangeRead) =>
+    scope.slot.fitsDeclaration &&
     change.isSet === scope.slot.isSet &&
     JSON.stringify(change.isSet ? change.value : null) === JSON.stringify(scope.slot.isSet ? scope.slot.value : null)
 

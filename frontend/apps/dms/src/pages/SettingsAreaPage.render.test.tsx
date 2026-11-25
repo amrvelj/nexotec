@@ -147,12 +147,20 @@ const rowOf = async (label: string) => {
   return within(table.getByText(label).closest('tr') as HTMLElement)
 }
 
+// A setting's cell by column: Betrieb, then Hauptsitz, then Nord.
+const COLUMNS = { Betrieb: 1, Hauptsitz: 2, Nord: 3 } as const
+const cellOf = async (label: string, column: keyof typeof COLUMNS) => {
+  const table = within(await screen.findByRole('table', { name: 'Einstellungen' }))
+  const row = table.getByText(label).closest('tr') as HTMLElement
+  return within(row.querySelectorAll('td')[COLUMNS[column]] as HTMLElement)
+}
+
 describe('SettingsAreaPage (KAN-805)', () => {
   it('shows «not set» as a state of its own, with what it does', async () => {
     renderArea([])
     expect(await screen.findByRole('heading', { name: 'Werkstatt (Test)' })).toBeInTheDocument()
-    const unit = await rowOf('Zeiteinheit')
-    expect(unit.getAllByText('Nicht gesetzt')[0]).toBeInTheDocument()
+    const unit = await cellOf('Zeiteinheit', 'Betrieb')
+    expect(unit.getByText('Nicht gesetzt')).toBeInTheDocument()
     expect(unit.getByText('Ohne Wert gilt: Stunden')).toBeInTheDocument()
     const vat = await rowOf('Preise inkl. MwSt. erfasst')
     expect(vat.getByText('Ohne Wert wird abgelehnt, was diese Einstellung braucht.')).toBeInTheDocument()
@@ -164,13 +172,21 @@ describe('SettingsAreaPage (KAN-805)', () => {
 
   it('shows a location without a value of its own with the Betrieb’s value, marked as inherited', async () => {
     renderArea([])
-    const wait = await rowOf('Wartezeit')
-    expect(wait.getByText('15 Minuten')).toBeInTheDocument() // the Betrieb's own
-    expect(wait.getByText('Vom Betrieb: 15 Minuten')).toBeInTheDocument() // Hauptsitz inherits
-    expect(wait.getByText('30 Minuten')).toBeInTheDocument() // Nord's own
-    const vat = await rowOf('Preise inkl. MwSt. erfasst')
-    expect(vat.getAllByText('Vom Betrieb: Nicht gesetzt')).toHaveLength(2)
-    expect(wait.getByText('Einrichtung')).toBeInTheDocument() // a setup-checklist item
+    const own = await cellOf('Wartezeit', 'Betrieb')
+    expect(own.getByText('15 Minuten')).toBeInTheDocument()
+    expect(own.queryByText('vom Betrieb')).toBeNull()
+    const inheriting = await cellOf('Wartezeit', 'Hauptsitz')
+    expect(inheriting.getByText('15 Minuten')).toBeInTheDocument() // the value in force there, readable
+    expect(inheriting.getByText('vom Betrieb')).toBeInTheDocument() // marked as inherited
+    const nord = await cellOf('Wartezeit', 'Nord')
+    expect(nord.getByText('30 Minuten')).toBeInTheDocument()
+    expect(nord.queryByText('vom Betrieb')).toBeNull()
+    for (const column of ['Hauptsitz', 'Nord'] as const) {
+      const vat = await cellOf('Preise inkl. MwSt. erfasst', column)
+      expect(vat.getByText('Nicht gesetzt')).toBeInTheDocument()
+      expect(vat.getByText('vom Betrieb')).toBeInTheDocument()
+    }
+    expect((await rowOf('Wartezeit')).getByText('Einrichtung')).toBeInTheDocument() // a setup-checklist item
   })
 
   it('the manager edits a value inline under If-Match on its slot', async () => {
@@ -182,8 +198,7 @@ describe('SettingsAreaPage (KAN-805)', () => {
       },
     ])
     const user = userEvent.setup()
-    const wait = await rowOf('Wartezeit')
-    await user.click(wait.getByText('15 Minuten'))
+    await user.click((await cellOf('Wartezeit', 'Betrieb')).getByText('15 Minuten'))
     const input = await screen.findByRole('textbox', { name: 'Wartezeit · Betrieb' })
     await user.clear(input)
     await user.type(input, '20{Enter}')
@@ -202,9 +217,9 @@ describe('SettingsAreaPage (KAN-805)', () => {
       },
     ])
     const user = userEvent.setup()
-    const unit = await rowOf('Zeiteinheit')
-    expect(unit.getByText('Vom Betrieb: Nicht gesetzt')).toBeInTheDocument() // Hauptsitz inherits
-    await user.click(unit.getByText('Arbeitswerte')) // Nord's own, version 3 (the Betrieb's slot is at 0)
+    expect((await cellOf('Zeiteinheit', 'Hauptsitz')).getByText('vom Betrieb')).toBeInTheDocument()
+    // Nord's own, version 3 (the Betrieb's slot is at 0).
+    await user.click((await cellOf('Zeiteinheit', 'Nord')).getByText('Arbeitswerte'))
     await user.click(await screen.findByRole('option', { name: 'Wert des Betriebs übernehmen' }))
     await waitFor(() => expect(backend.callsTo(/time_unit\/locations\/loc-nord$/, 'PUT')).toHaveLength(1))
     const call = backend.callsTo(/time_unit\/locations\/loc-nord$/, 'PUT')[0]
@@ -222,7 +237,7 @@ describe('SettingsAreaPage (KAN-805)', () => {
     ])
     const user = userEvent.setup()
     const note = await rowOf('Hinweis am Empfang')
-    expect(note.getByText('Bitte klingeln')).toBeInTheDocument()
+    expect((await cellOf('Hinweis am Empfang', 'Betrieb')).getByText('Bitte klingeln')).toBeInTheDocument()
     await user.click(note.getByRole('button', { name: 'Bearbeiten: Hinweis am Empfang · Betrieb' }))
     const dialog = within(await screen.findByRole('dialog'))
     const name = dialog.getByRole('textbox', { name: /^Text/ })
@@ -307,8 +322,7 @@ describe('SettingsAreaPage (KAN-805)', () => {
       { method: 'PUT', match: /\/setting-values\/testarea\.surcharge$/, handler: () => slot({ isSet: true, value: { number: '15' }, version: 6 }) },
     ])
     const user = userEvent.setup()
-    const surcharge = await rowOf('Zuschlag')
-    await user.click(surcharge.getByText("CHF 12.50"))
+    await user.click((await cellOf('Zuschlag', 'Betrieb')).getByText('CHF 12.50'))
     const input = await screen.findByRole('textbox', { name: 'Zuschlag · Betrieb' })
     expect(input).toHaveValue("CHF 12.5") // the kit's editor drops the fixed decimals while editing
     await user.clear(input)
@@ -320,13 +334,86 @@ describe('SettingsAreaPage (KAN-805)', () => {
   it('a click and blur on a value that no longer fits writes nothing', async () => {
     const backend = renderArea([])
     const user = userEvent.setup()
-    const fee = await rowOf('Kleinteilepauschale')
-    await user.click(fee.getByText('Nicht gesetzt'))
+    await user.click((await cellOf('Kleinteilepauschale', 'Betrieb')).getByText('Nicht gesetzt'))
     await screen.findByRole('textbox', { name: 'Kleinteilepauschale · Betrieb' })
     await user.click(document.body)
     await user.keyboard('{Tab}')
     await new Promise((resolve) => setTimeout(resolve, 50))
     expect(backend.callsTo(/small_parts_fee/, 'PUT')).toHaveLength(0)
+  })
+
+  it('a stored value that no longer fits is removed explicitly, and the choice’s clear option clears it too', async () => {
+    const backend = renderArea([
+      { method: 'PUT', match: /\/setting-values\/testarea\.small_parts_fee$/, handler: () => slot({ version: 3 }) },
+    ])
+    const user = userEvent.setup()
+    await user.click(await screen.findByRole('button', { name: 'Gespeicherten Wert entfernen' }))
+    await waitFor(() => expect(backend.callsTo(/small_parts_fee$/, 'PUT')).toHaveLength(1))
+    const call = backend.callsTo(/small_parts_fee$/, 'PUT')[0]
+    expect(call.body).toEqual({ value: null })
+    expect(call.headers.get('If-Match')).toBe('2')
+  })
+
+  it('choosing «Nicht gesetzt» clears a stale choice (never mistaken for an untouched blur)', async () => {
+    const staleUnit: AreaSettingsRead = {
+      ...AREA,
+      settings: AREA.settings.map((setting) =>
+        setting.declaration.key === UNIT.key ? { ...setting, dealership: slot({ version: 4, fitsDeclaration: false }) } : setting,
+      ),
+    }
+    const backend = installFakeBackend([
+      ME(true),
+      { method: 'GET', match: /\/dealerships\/d-1\/setting-areas\/testarea$/, handler: () => staleUnit },
+      { method: 'PUT', match: /\/setting-values\/testarea\.time_unit$/, handler: () => slot({ version: 5 }) },
+    ])
+    renderWithProviders(
+      <Routes>
+        <Route path="/administration/settings/:area" element={<SettingsAreaPage />} />
+      </Routes>,
+      { route: '/administration/settings/testarea' },
+    )
+    const user = userEvent.setup()
+    await user.click((await cellOf('Zeiteinheit', 'Betrieb')).getByText('Nicht gesetzt'))
+    await user.click(await screen.findByRole('option', { name: 'Nicht gesetzt' }))
+    await waitFor(() => expect(backend.callsTo(/time_unit$/, 'PUT')).toHaveLength(1))
+    const call = backend.callsTo(/time_unit$/, 'PUT')[0]
+    expect(call.body).toEqual({ value: null })
+    expect(call.headers.get('If-Match')).toBe('4')
+  })
+
+  it('over a stale value, restoring an earlier «not set» is offered', async () => {
+    renderArea([
+      {
+        method: 'GET',
+        match: /\/setting-values\/testarea\.small_parts_fee\/history/,
+        handler: () => ({
+          items: [
+            change({ id: 'f-2', key: FEE.key, value: { number: '200' }, versionAfter: 2, isSetBefore: false }),
+            change({ id: 'f-1', key: FEE.key, isSet: false, value: null, versionAfter: 1 }),
+          ],
+          nextCursor: null,
+        }),
+      },
+    ])
+    const user = userEvent.setup()
+    await user.click(await screen.findByRole('button', { name: 'Verlauf: Kleinteilepauschale' }))
+    const history = within(await screen.findByRole('list', { name: 'Verlauf' }))
+    expect(history.getByRole('button', { name: '«Nicht gesetzt» wiederherstellen' })).toBeInTheDocument()
+  })
+
+  it('an unknown area is titled «Einstellungen», never by a missing key', async () => {
+    installFakeBackend([
+      ME(true),
+      { method: 'GET', match: /\/setting-areas\/nowhere$/, handler: () => ({ __status: 404, body: { error: { code: 'not_found', message: 'x', details: null } } }) },
+    ])
+    renderWithProviders(
+      <Routes>
+        <Route path="/administration/settings/:area" element={<SettingsAreaPage />} />
+      </Routes>,
+      { route: '/administration/settings/nowhere' },
+    )
+    expect(await screen.findByRole('heading', { name: 'Einstellungen' })).toBeInTheDocument()
+    expect(await screen.findByText('Diesen Bereich gibt es für diesen Betrieb nicht.')).toBeInTheDocument()
   })
 
   it('every other role reads the values and the history, and changes nothing', async () => {
@@ -342,9 +429,9 @@ describe('SettingsAreaPage (KAN-805)', () => {
     )
     const user = userEvent.setup()
     expect(await screen.findByText('Nur die Geschäftsführung ändert Einstellungen. Sie sehen die Werte und ihren Verlauf.')).toBeInTheDocument()
-    const wait = await rowOf('Wartezeit')
-    await user.click(wait.getByText('15 Minuten'))
+    await user.click((await cellOf('Wartezeit', 'Betrieb')).getByText('15 Minuten'))
     expect(screen.queryByRole('textbox', { name: 'Wartezeit · Betrieb' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Gespeicherten Wert entfernen' })).toBeNull()
     await user.click(screen.getByRole('button', { name: 'Verlauf: Wartezeit' }))
     const history = within(await screen.findByRole('list', { name: 'Verlauf' }))
     expect(history.getAllByRole('listitem')).toHaveLength(2)
