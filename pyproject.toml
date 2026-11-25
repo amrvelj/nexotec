@@ -525,6 +525,7 @@ source_modules = [
 ]
 forbidden_modules = [
     "app.planning.api",
+    "app.planning.consumers",
     "app.planning.models",
     "app.planning.reconciliation",
     "app.planning.schemas",
