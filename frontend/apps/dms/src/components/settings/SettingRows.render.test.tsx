@@ -26,6 +26,7 @@ const declaration = (key: string): SettingDeclarationRead => ({
   choices: [],
   checklistItem: false,
   checklistBlocks: null,
+  choiceRequires: [],
 })
 
 const slot = (overrides: Partial<SettingSlotRead> = {}): SettingSlotRead => ({
