@@ -13883,6 +13883,8 @@ export interface components {
             createdAt: string;
             /** Createdby */
             createdBy: string | null;
+            /** Createdbyname */
+            createdByName?: string | null;
             /**
              * Id
              * Format: uuid
@@ -13890,6 +13892,11 @@ export interface components {
             id: string;
             /** Isset */
             isSet: boolean;
+            /**
+             * Issetbefore
+             * @default false
+             */
+            isSetBefore?: boolean;
             /** Key */
             key: string;
             /** Locationid */
@@ -13899,6 +13906,7 @@ export interface components {
             /** Restoredfromid */
             restoredFromId: string | null;
             value: components["schemas"]["SettingValueBody"] | null;
+            valueBefore?: components["schemas"]["SettingValueBody"] | null;
             /** Versionafter */
             versionAfter: number;
         };
@@ -13970,7 +13978,10 @@ export interface components {
         SettingValueBody: {
             /** Choice */
             choice?: string | null;
-            /** Number */
+            /**
+             * Number
+             * @description A number or an amount as a plain decimal string: ASCII digits, an optional point and decimals, an optional leading minus ("12.5", "-3"); never a JSON number, which passes through a float.
+             */
             number?: string | null;
             /** Switch */
             switch?: boolean | null;

@@ -60,6 +60,8 @@ const PlatformStatusPage = lazyPage(() => import('./pages/PlatformStatusPage'), 
 const SupportSessionLogPage = lazyPage(() => import('./pages/SupportSessionLogPage'), 'SupportSessionLogPage')
 const PlatformUsersPage = lazyPage(() => import('./pages/PlatformUsersPage'), 'PlatformUsersPage')
 const ContactGroupsPage = lazyPage(() => import('./pages/ContactGroupsPage'), 'ContactGroupsPage')
+const SettingsIndexPage = lazyPage(() => import('./pages/SettingsIndexPage'), 'SettingsIndexPage')
+const SettingsAreaPage = lazyPage(() => import('./pages/SettingsAreaPage'), 'SettingsAreaPage')
 const DataExportPage = lazyPage(() => import('./pages/DataExportPage'), 'DataExportPage')
 const PlatformOffboardingPage = lazyPage(() => import('./pages/PlatformOffboardingPage'), 'PlatformOffboardingPage')
 const AdministrationIntegrationsPage = lazyPage(() => import('./pages/IntegrationsPage'), 'AdministrationIntegrationsPage')
@@ -163,6 +165,8 @@ export default function App() {
               <Route path="/administration/legal-acceptance" element={<LegalAcceptancePage />} />
               <Route path="/setup-in-progress" element={<SetupInProgressPage />} />
               <Route path="/administration/contact-groups" element={<ContactGroupsPage />} />
+              <Route path="/administration/settings" element={<SettingsIndexPage />} />
+              <Route path="/administration/settings/:area" element={<SettingsAreaPage />} />
               <Route path="/administration/export" element={<DataExportPage />} />
               <Route path="/administration/account-recovery" element={<AccountRecoveryPage />} />
               {/* KAN-209 — Platform Administration › Translations (D-A-23). */}

@@ -19,5 +19,75 @@
         "label": "Arbeitswerte pro Stunde"
       }
     }
+  },
+  "areas": {
+    "labour_rates": "Stundensätze"
+  },
+  "units": {
+    "work_units_per_hour": "AW pro Stunde"
+  },
+  "title": "Einstellungen",
+  "subtitle": "Die Einstellungen der Bereiche, die dieser Betrieb nutzt. Jeder Wert gilt für den Betrieb und kann je Standort abweichen.",
+  "areaSubtitle": "Eine Änderung gilt ab sofort. Ein Standort ohne eigenen Wert übernimmt den Wert des Betriebs.",
+  "areaNotFound": "Diesen Bereich gibt es für diesen Betrieb nicht.",
+  "loadError": "Die Einstellungen konnten nicht geladen werden.",
+  "readOnly": "Nur die Geschäftsführung ändert Einstellungen. Sie sehen die Werte und ihren Verlauf.",
+  "saveError": "Die Einstellung konnte nicht gespeichert werden.",
+  "tableLabel": "Einstellungen",
+  "areasLabel": "Bereiche",
+  "empty": {
+    "title": "Noch keine Einstellungen",
+    "description": "Sobald ein Bereich, den dieser Betrieb nutzt, Einstellungen mitbringt, erscheinen sie hier."
+  },
+  "columns": {
+    "area": "Bereich",
+    "count": "Einstellungen",
+    "setting": "Einstellung",
+    "dealership": "Betrieb",
+    "inactive": "(inaktiv)"
+  },
+  "notSet": {
+    "label": "Nicht gesetzt",
+    "actsAs": "Ohne Wert gilt: {{value}}",
+    "refuses": "Ohne Wert wird abgelehnt, was diese Einstellung braucht."
+  },
+  "inherited": "Vom Betrieb: {{value}}",
+  "inheritedMarker": "vom Betrieb",
+  "stale": "Gespeicherter Wert passt nicht mehr – gilt als nicht gesetzt",
+  "staleClear": "Gespeicherten Wert entfernen",
+  "clear": {
+    "dealership": "Nicht gesetzt",
+    "location": "Wert des Betriebs übernehmen"
+  },
+  "value": {
+    "on": "Ein",
+    "off": "Aus",
+    "withUnit": "{{number}} {{unit}}"
+  },
+  "edit": "Bearbeiten",
+  "checklistItem": "Einrichtung",
+  "text": {
+    "name": "Text",
+    "translationsNote": "Übersetzungen sind freiwillig; ohne Übersetzung erscheint der Text wie eingegeben."
+  },
+  "history": {
+    "title": "Verlauf",
+    "scope": "Verlauf für",
+    "you": "Sie",
+    "unknownUser": "Unbekannt",
+    "current": "Aktuell",
+    "more": "Weitere laden",
+    "restore": "«{{value}}» wiederherstellen",
+    "restoreError": "Der Wert konnte nicht wiederhergestellt werden.",
+    "loadError": "Der Verlauf konnte nicht geladen werden.",
+    "origin": {
+      "edit": "Geändert",
+      "restore": "Wiederhergestellt",
+      "copy": "Übernommen"
+    },
+    "empty": {
+      "title": "Noch keine Änderung",
+      "description": "Diese Einstellung wurde hier noch nie geändert."
+    }
   }
 }
