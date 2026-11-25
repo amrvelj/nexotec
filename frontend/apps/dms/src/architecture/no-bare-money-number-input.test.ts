@@ -37,6 +37,10 @@ const NOT_MONEY_LABELS = new Set([
   "t('publishing.fields.financingTermMonths')", // months (KAN-225)
   "t('publishing.fields.financingNominalRatePct')", // a percentage (KAN-225)
   "t('publishing.fields.financingEffectiveRatePct')", // a percentage (KAN-225)
+  // The settings screen's `number` kind (KAN-805: minutes, a count, a factor);
+  // its `amount` kind renders `chfInlineEditor` — SettingCell is on the CHF
+  // file list below, and its render test types an amount through it.
+  'settingNumberLabel',
   // PriceBuildUp: the discount value as a percentage (or disabled with no
   // discount type); an amount discount renders a ChfInput instead — the label
   // is shared, so the last test below pins the ChfInput branch.
@@ -105,6 +109,7 @@ describe('a CHF amount is never typed into a bare NumberInput (KAN-168)', () => 
     const chfUses = files.filter((file) => /<ChfInput\b|chfInlineEditor\(/.test(readFileSync(file, 'utf8')))
     expect(chfUses.map((file) => relative(APP_ROOT, file)).sort()).toEqual(
       [
+        'components/settings/SettingCell.tsx',
         'modules/sales/components/OfferAccessoriesAndOptions.tsx',
         'modules/sales/components/PriceBuildUp.tsx',
         'modules/vehicle/components/configurator/ColourWheelsTab.tsx',

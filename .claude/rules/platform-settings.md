@@ -7,13 +7,15 @@ paths:
   - "tests/platform/test_kan805_*.py"
   - "tests/setting_store_support.py"
   - "tests/architecture/test_setting_keys_declared_and_read.py"
+  - "frontend/apps/dms/src/components/settings/**"
+  - "frontend/apps/dms/src/pages/Settings*Page*.tsx"
 ---
 <!-- Maintainer note. ADR-214, ADR-216; Anto's rulings of 2026-11-24 on KAN-805 (restore for the store
 only, history read by every role, checklist settings declared after activation only notify, the
 per-location column while any location holds a value). Split out of platform-admin.md by KAN-805 PR-2.
 Last verified against main@32ad509 (2026-11-25). -->
 
-# The settings store (KAN-805) — store, API, checklist and copy built; the screen to come
+# The settings store (KAN-805) — built: store, API, checklist, copy, screen
 
 - An area **declares** each setting it reads (`SettingDeclaration`: key `<area>.<name>`, kind switch ·
   number · amount · choice · text, what «not set» does — `quiet`, `refuses`, `acts_as`, never for an
@@ -32,7 +34,8 @@ Last verified against main@32ad509 (2026-11-25). -->
   active location, or any location value — Anto; `fitsDeclaration: false`: a stored value that no
   longer fits reads as not set), `PUT …/setting-values/{key}` and
   `…/{key}/locations/{location_id}` (If-Match on the slot, 0 never written; `{"value": null}` clears; a number travels as a decimal string),
-  `GET …/{key}/history` (newest first, cursor), `POST …/setting-changes/{id}/restore` (If-Match). A
+  `GET …/{key}/history` (newest first, cursor; each change with `valueBefore`/`isSetBefore` and
+  `createdByName` for a user the Betrieb knows — its own or a member), `POST …/setting-changes/{id}/restore` (If-Match). A
   setting of a module the Betrieb does not hold is 404 (a non-manager's write is 403 first, the role check runs first); a value that does not fit is 422 with its
   reason, a deactivated location's 409 `setting_location_inactive`.
 - **A rule across two keys** (KAN-806, check 49): `SettingDeclaration.choice_requires = ((choice, key),)` —
@@ -61,3 +64,12 @@ Last verified against main@32ad509 (2026-11-25). -->
   `change_setting` as origin `copy` (history, restore); «not set» in the source keeps the target's
   value; a location's value is never copied; a source value that no longer fits is skipped
   (`setting_value_stale`).
+- **Screen** (`/administration/settings`, the areas; `/administration/settings/:area`): one row
+  component, `components/settings/SettingRows.tsx`, which a topic screen embeds with `keys` (ticket
+  criterion 6, 2026-11-25). «Not set» is a slate badge (never empty, zero, «off» or the empty-field
+  italic; ADR-220, Anto 2026-11-25), with what it acts as or refuses; a location without its own
+  value shows the Betrieb's, readable, with a «vom Betrieb» badge; a stale value is removed by its
+  own button, never by an untouched blur; the
+  history opens under its row: who, when, before → after, restore (manager) as a new entry. No design
+  is drawn for it (ticket, «Design»). An area needs `areas.<area>` and a unit `units.<unit>` in the
+  `settings` bundles (`test_declared_settings_have_labels.py`).
