@@ -20,8 +20,11 @@ Every write, in this order:
 6. judges (`booking_rules.judge`) — not a block: a block is always possible;
 7. raises the first refusal (409, with the bookings in the way);
 8. refuses a warning not confirmed (422 `planning_warnings_unconfirmed`,
-   listing each), until the caller re-sends naming every code (T2) — a
-   warning that appears between the two calls is never overruled silently;
+   listing every warning and the unconfirmed ones), until the caller re-sends
+   each warning it was shown (`ConfirmedWarning`: code, resource, the booking
+   it is against). Confirmation is per warning, not per code (T2): a warning
+   that appears between the two calls — of a code already confirmed too — is
+   never overruled silently;
 9. writes the booking, its resources, each overruled warning twice (a row on
    the booking and an audit row; ADR-221 (6)) and the booking's audit row;
 10. marks what the write left in the wrong place «neu einplanen»: the
@@ -90,6 +93,7 @@ from app.planning.services.booking_facts import (
 from app.planning.services.booking_records import (
     BookingOutcome,
     BookingRecord,
+    ConfirmedWarning,
     LabelledId,
     Reference,
     bookings_by_id,
@@ -142,16 +146,34 @@ def _warning_body(warning: rules.BookingWarning) -> dict[str, str | None]:
     }
 
 
-def _refuse_unconfirmed(verdict: rules.Verdict, confirmed: Collection[WarningCode]) -> None:
-    unconfirmed = verdict.warning_codes - {WarningCode(code) for code in confirmed}
+def _warning_key(warning: rules.BookingWarning | ConfirmedWarning) -> tuple[WarningCode, uuid.UUID | None, uuid.UUID | None]:
+    return (WarningCode(warning.code), warning.resource_id, warning.against_booking_id)
+
+
+def _refuse_unconfirmed(verdict: rules.Verdict, confirmed: Collection[ConfirmedWarning]) -> None:
+    shown = {_warning_key(warning) for warning in confirmed}
+    unconfirmed = [warning for warning in dict.fromkeys(verdict.warnings) if _warning_key(warning) not in shown]
     if unconfirmed:
         raise _refuse(
             "planning_warnings_unconfirmed",
             "The booking warns; book it anyway by confirming every warning.",
             codes=sorted(code.value for code in verdict.warning_codes),
-            unconfirmed=sorted(code.value for code in unconfirmed),
+            unconfirmed=[_warning_body(warning) for warning in unconfirmed],
             warnings=[_warning_body(warning) for warning in verdict.warnings],
         )
+
+
+def _confirmed_body(confirmed: Collection[ConfirmedWarning]) -> list[list[str | None]]:
+    """The confirmations as the idempotency record compares them, in one order."""
+
+    return sorted(
+        [
+            WarningCode(warning.code).value,
+            str(warning.resource_id) if warning.resource_id else None,
+            str(warning.against_booking_id) if warning.against_booking_id else None,
+        ]
+        for warning in dict.fromkeys(confirmed)
+    )
 
 
 # --- reads ----------------------------------------------------------------------------------
@@ -613,7 +635,7 @@ def book(
     reference: Reference | None,
     job: LabelledId | None = None,
     vehicle: LabelledId | None = None,
-    confirmed_warnings: Collection[WarningCode] = (),
+    confirmed_warnings: Collection[ConfirmedWarning] = (),
     idempotency_key: str | None,
 ) -> BookingOutcome:
     """Books work or a drop-off or pick-up slot (a block: `block`). A slot's
@@ -633,7 +655,7 @@ def book(
         "reference": {"type": reference.type, "id": str(reference.id), "label": reference.label} if reference else None,
         "job": {"id": str(job.id), "label": job.label} if job else None,
         "vehicle": {"id": str(vehicle.id), "label": vehicle.label} if vehicle else None,
-        "confirmedWarnings": sorted(WarningCode(code).value for code in confirmed_warnings),
+        "confirmedWarnings": _confirmed_body(confirmed_warnings),
     }
     lock_bookings(db, dealership_id)
     replayed = _replay(db, dealership_id=dealership_id, idempotency_key=idempotency_key, path=path, body=body)
@@ -798,7 +820,7 @@ def move(
     starts_at: dt.datetime,
     ends_at: dt.datetime | None = None,
     resource_ids: Sequence[uuid.UUID] | None = None,
-    confirmed_warnings: Collection[WarningCode] = (),
+    confirmed_warnings: Collection[ConfirmedWarning] = (),
     idempotency_key: str | None,
 ) -> BookingOutcome:
     """Moves a booking in time, onto other resources, or both. Judged as a
@@ -811,7 +833,7 @@ def move(
         "startsAt": _iso(starts_at),
         "endsAt": _iso(ends_at),
         "resourceIds": _ids(resource_ids),
-        "confirmedWarnings": sorted(WarningCode(code).value for code in confirmed_warnings),
+        "confirmedWarnings": _confirmed_body(confirmed_warnings),
     }
     lock_bookings(db, dealership_id)
     replayed = _replay(db, dealership_id=dealership_id, idempotency_key=idempotency_key, path=path, body=body)

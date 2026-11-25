@@ -43,6 +43,19 @@ class LabelledId:
 
 
 @dataclass(frozen=True)
+class ConfirmedWarning:
+    """One warning the caller was shown and books against, exactly as the
+    refusal listed it: its code, the resource and the booking it was raised
+    against. Confirmation is per warning, never per code (ADR-221 (2)): a
+    warning of a confirmed code that appears between the two calls — another
+    resource, another block, another slot — refuses again."""
+
+    code: WarningCode
+    resource_id: uuid.UUID | None = None
+    against_booking_id: uuid.UUID | None = None
+
+
+@dataclass(frozen=True)
 class BookedResource:
     resource_id: uuid.UUID
     kind: ResourceKind

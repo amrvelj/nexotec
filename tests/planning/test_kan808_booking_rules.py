@@ -159,7 +159,7 @@ def test_outside_working_hours_warns_and_writes_nothing(db_session, shop):
     assert details == {
         "reason": "planning_warnings_unconfirmed",
         "codes": ["outside_working_hours"],
-        "unconfirmed": ["outside_working_hours"],
+        "unconfirmed": [{"code": "outside_working_hours", "resourceId": str(shop.lea), "againstBookingId": None}],
         "warnings": [{"code": "outside_working_hours", "resourceId": str(shop.lea), "againstBookingId": None}],
     }
     assert (_count(db_session, Booking), _count(db_session, OverruledWarning), _events(db_session)) == (0, 0, [])
@@ -168,7 +168,7 @@ def test_outside_working_hours_warns_and_writes_nothing(db_session, shop):
 def test_a_booking_made_against_the_warning_keeps_the_code_the_name_and_the_time(db_session, shop):
     outcome = p.work(
         db_session, shop, starts_at=p.at(6, 30), ends_at=p.at(7, 30), resources=[shop.lift_1, shop.lea],
-        confirmed=[W.OUTSIDE_WORKING_HOURS],
+        confirmed=[planning.ConfirmedWarning(code=W.OUTSIDE_WORKING_HOURS, resource_id=shop.lea)],
     )
     (kept,) = outcome.booking.overruled_warnings
     assert (kept.code, kept.resource_id, kept.change, kept.overruled_by, kept.overruled_by_name) == (
@@ -216,16 +216,52 @@ def test_a_weekday_without_hours_is_outside_them(db_session, shop):
     assert details["codes"] == ["outside_working_hours"]
 
 
-def test_confirming_another_code_does_not_overrule(db_session, shop):
-    details = _refused(
-        lambda: p.work(
-            db_session, shop, starts_at=p.at(6, 30), ends_at=p.at(7, 30), resources=[shop.lift_1, shop.lea],
-            confirmed=[W.RESOURCE_BLOCKED],
-        ),
-        UnprocessableEntityError,
-    )
-    assert details["unconfirmed"] == ["outside_working_hours"]
+def test_confirming_another_warning_does_not_overrule(db_session, shop):
+    for other in (
+        planning.ConfirmedWarning(code=W.RESOURCE_BLOCKED, resource_id=shop.lea),  # another code
+        planning.ConfirmedWarning(code=W.OUTSIDE_WORKING_HOURS, resource_id=shop.max),  # the code, another person
+    ):
+        details = _refused(
+            lambda: p.work(
+                db_session, shop, starts_at=p.at(6, 30), ends_at=p.at(7, 30), resources=[shop.lift_1, shop.lea],
+                confirmed=[other],
+            ),
+            UnprocessableEntityError,
+        )
+        assert details["unconfirmed"] == [
+            {"code": "outside_working_hours", "resourceId": str(shop.lea), "againstBookingId": None}
+        ]
     assert _count(db_session, Booking) == 0
+
+
+def test_a_warning_of_a_confirmed_code_that_appears_between_the_two_calls_refuses_again(db_session, shop):
+    """ADR-221 (2): confirmation is per warning. Block X holds lift 1; the caller is
+    shown (resource_blocked, lift 1, X). Before it re-sends, block Y takes Max:
+    re-sending with X's warning alone is refused, naming (resource_blocked, Max, Y)."""
+
+    x = p.block(db_session, shop, starts_at=p.at(9), ends_at=p.at(10), resources=[shop.lift_1])
+
+    def book(confirmed):
+        return p.work(
+            db_session, shop, starts_at=p.at(9), ends_at=p.at(10), resources=[shop.lift_1, shop.max],
+            confirmed=confirmed,
+        )
+
+    first = _refused(lambda: book(()), UnprocessableEntityError)
+    assert first["warnings"] == [
+        {"code": "resource_blocked", "resourceId": str(shop.lift_1), "againstBookingId": str(x.booking.id)}
+    ]
+    y = p.block(db_session, shop, starts_at=p.at(9), ends_at=p.at(10), resources=[shop.max])
+    again = _refused(lambda: book(p.shown(first)), UnprocessableEntityError)
+    assert again["unconfirmed"] == [
+        {"code": "resource_blocked", "resourceId": str(shop.max), "againstBookingId": str(y.booking.id)}
+    ]
+    assert again["codes"] == ["resource_blocked"]
+    assert _count(db_session, Booking) == 2  # the two blocks only
+    booked = book(p.shown(again))
+    assert {(w.resource_id, w.against_booking_id) for w in booked.booking.overruled_warnings} == {
+        (shop.lift_1, x.booking.id), (shop.max, y.booking.id),
+    }
 
 
 def test_working_hours_are_split_per_local_day_on_a_daylight_saving_day():
@@ -265,7 +301,7 @@ def test_work_before_the_drop_off_and_after_the_pick_up_warns(db_session, shop):
     }
     booked = p.work(
         db_session, shop, starts_at=p.at(8, 15), ends_at=p.at(16, 15), resources=[shop.lift_2], reference=order,
-        confirmed=[W.BEFORE_DROP_OFF, W.AFTER_PICK_UP],
+        confirmed=p.shown(details),
     )
     assert sorted(w.code.value for w in booked.booking.overruled_warnings) == ["after_pick_up", "before_drop_off"]
 
@@ -344,7 +380,7 @@ def test_booking_onto_a_blocked_resource_warns_and_is_kept_when_confirmed(db_ses
     }
     outcome = p.work(
         db_session, shop, starts_at=p.at(9, 30), ends_at=p.at(10, 30), resources=[shop.lift_1, shop.max],
-        confirmed=[W.RESOURCE_BLOCKED],
+        confirmed=p.shown(details),
     )
     assert sorted((w.code, w.resource_id, w.against_booking_id) for w in outcome.booking.overruled_warnings) == sorted(
         [(W.RESOURCE_BLOCKED, shop.lift_1, blocked.booking.id), (W.RESOURCE_BLOCKED, shop.max, blocked.booking.id)]

@@ -131,6 +131,19 @@ def job(label: str = "Service") -> planning.LabelledId:
     return planning.LabelledId(id=uuid.uuid4(), label=label)
 
 
+def shown(details: dict) -> list[planning.ConfirmedWarning]:
+    """The warnings a `planning_warnings_unconfirmed` refusal listed, as the caller confirms them."""
+
+    return [
+        planning.ConfirmedWarning(
+            code=planning.WarningCode(warning["code"]),
+            resource_id=uuid.UUID(warning["resourceId"]) if warning["resourceId"] else None,
+            against_booking_id=uuid.UUID(warning["againstBookingId"]) if warning["againstBookingId"] else None,
+        )
+        for warning in details["warnings"]
+    ]
+
+
 def work(
     db: Session,
     shop: Workshop,

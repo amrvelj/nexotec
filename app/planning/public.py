@@ -17,8 +17,11 @@ booking with the one rule service (ADR-221 (1), (2)):
 - refused, 409 with `bookingIds`: `planning_car_at_another_workplace`,
   `planning_workplace_taken` (check 16), `planning_person_twice_on_job`
   (check 17);
-- warned, 422 `planning_warnings_unconfirmed` listing each warning, until the
-  caller re-sends with `confirmed_warnings` naming every code:
+- warned, 422 `planning_warnings_unconfirmed` listing each warning
+  (`{code, resourceId, againstBookingId}`), until the caller re-sends with
+  `confirmed_warnings` holding each of them as a `ConfirmedWarning` —
+  confirmation is per warning, never per code, so a warning that appears
+  between the two calls refuses again, whatever its code:
   `outside_working_hours` (check 18), `before_drop_off`, `after_pick_up`,
   `resource_blocked`. A booking made against a warning keeps it, with the
   name and the time (`BookingRecord.overruled_warnings`) and an audit row.
@@ -51,6 +54,7 @@ from app.planning.services.booking_records import (
     BookedResource,
     BookingOutcome,
     BookingRecord,
+    ConfirmedWarning,
     LabelledId,
     OverruledWarningRecord,
     Reference,
@@ -78,7 +82,7 @@ def book(
     reference: Reference,
     job: LabelledId | None = None,
     vehicle: LabelledId | None = None,
-    confirmed_warnings: Collection[WarningCode] = (),
+    confirmed_warnings: Collection[ConfirmedWarning] = (),
     idempotency_key: str,
 ) -> BookingOutcome:
     """Books work (one workplace and any people, for `job` on `vehicle`) or a
@@ -111,7 +115,7 @@ def move(
     starts_at: dt.datetime,
     ends_at: dt.datetime | None = None,
     resource_ids: Sequence[uuid.UUID] | None = None,
-    confirmed_warnings: Collection[WarningCode] = (),
+    confirmed_warnings: Collection[ConfirmedWarning] = (),
     idempotency_key: str,
 ) -> BookingOutcome:
     """Moves a booking in time and/or onto other resources (None: the same
@@ -207,6 +211,7 @@ __all__ = [
     "BookingOutcome",
     "BookingRecord",
     "BookingStatus",
+    "ConfirmedWarning",
     "LabelledId",
     "OverruledWarningRecord",
     "PlanningExporter",

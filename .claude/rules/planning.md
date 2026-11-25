@@ -53,7 +53,8 @@ Last verified against KAN-808 PR-1c, cut from main@f30e9d4 (2026-11-25). -->
   local day; a person without hours gets none), `before_drop_off` (work starting before R's drop-off
   slot ends), `after_pick_up` (ending after R's pick-up slot starts), `resource_blocked` (Anto,
   2026-11-25: warned, never refused) — 422 `planning_warnings_unconfirmed` until `confirmed_warnings`
-  names every code; an overruled warning is a `planning_overruled_warning` row (code, resource, the
+  holds every warning shown (`ConfirmedWarning`: code, resource, booking against — per warning, never
+  per code, so one appearing between the two calls refuses again); an overruled warning is a `planning_overruled_warning` row (code, resource, the
   booking against, time booked, who with the name frozen, when) and an audit row `warning_overruled`.
 - **«Neu einplanen»** (`replan_cause`): a block marks what it newly hits (`blocked`), a booked or
   moved slot the work of R it newly leaves outside (`outside_drop_off_pick_up`), deactivating a
