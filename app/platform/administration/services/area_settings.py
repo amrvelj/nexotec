@@ -17,9 +17,12 @@ from __future__ import annotations
 import uuid
 from dataclasses import dataclass
 
+from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from app.core.errors import NotFoundError
+from app.platform.identity.models.dealership_membership import DealershipMembership
+from app.platform.identity.models.user import User
 from app.platform.organisation.models.dealership import Location
 from app.platform.organisation.services.entitlement import list_active_modules
 from app.platform.organisation.services.location import list_locations
@@ -108,3 +111,25 @@ def area_view(db: Session, *, dealership_id: uuid.UUID, area: str) -> AreaView:
         shows_locations=active > 1 or any_location_value,
         settings=tuple(settings),
     )
+
+
+def actor_names(db: Session, *, dealership_id: uuid.UUID, user_ids: set[uuid.UUID]) -> dict[uuid.UUID, str]:
+    """The names of the users who changed a setting (KAN-805 PR-5: the history
+    shows who) — only of users this Betrieb knows: its own, and those holding a
+    membership in it (a sister's manager who copied). Anyone else, platform
+    staff among them, is left out; the screen names them as unknown."""
+
+    if not user_ids:
+        return {}
+    known = or_(
+        User.tenant_id == dealership_id,
+        User.id.in_(
+            select(DealershipMembership.user_id).where(DealershipMembership.dealership_id == dealership_id)
+        ),
+    )
+    return {
+        user_id: f"{first_name} {last_name}".strip()
+        for user_id, first_name, last_name in db.execute(
+            select(User.id, User.first_name, User.last_name).where(User.id.in_(user_ids), known)
+        )
+    }

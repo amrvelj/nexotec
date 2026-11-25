@@ -29,7 +29,11 @@ class SettingValueBody(CamelModel):
 
     switch: StrictBool | None = None
     # A decimal string ("15", "4.50"); the declaration checks its decimals and bounds.
-    number: StrictStr | None = None
+    number: StrictStr | None = Field(
+        default=None,
+        description="A number or an amount as a plain decimal string: ASCII digits, an optional point and "
+        "decimals, an optional leading minus (\"12.5\", \"-3\"); never a JSON number, which passes through a float.",
+    )
     choice: StrictStr | None = None
     text: TextValueBody | None = None
 
@@ -110,6 +114,12 @@ class SettingChangeRead(CamelModel):
     restored_from_id: uuid.UUID | None
     created_at: dt.datetime
     created_by: uuid.UUID | None
+    # The changing user's name, resolved on read; null for a user this
+    # Betrieb does not know (platform staff, a deleted user).
+    created_by_name: str | None = None
+    # The slot before this change: a first change follows «not set».
+    is_set_before: bool = False
+    value_before: SettingValueBody | None = None
 
 
 class SettingChangePage(CamelModel):

@@ -64,7 +64,9 @@ from app.platform.organisation.services.setting_declarations import (
 router = APIRouter(tags=["settings-store"], route_class=IdempotentRoute)
 settings = get_settings()
 
-_PLAIN_DECIMAL = re.compile(r"-?[0-9]{1,30}(\.[0-9]{1,10})?", re.ASCII)
+# The decimals are not bounded here: the declaration refuses too many with its
+# own reason (setting_value_too_many_decimals), not as «not a number».
+_PLAIN_DECIMAL = re.compile(r"-?[0-9]{1,30}(\.[0-9]{1,30})?", re.ASCII)
 
 _KIND_FIELD = {
     SettingKind.SWITCH: "switch",
@@ -141,7 +143,7 @@ def _slot_read(slot: store.SettingSlot) -> SettingSlotRead:
     )
 
 
-def _change_read(change: store.SettingChange) -> SettingChangeRead:
+def _change_read(change: store.SettingChange, created_by_name: str | None = None) -> SettingChangeRead:
     return SettingChangeRead(
         id=change.id,
         key=change.key,
@@ -153,6 +155,9 @@ def _change_read(change: store.SettingChange) -> SettingChangeRead:
         restored_from_id=change.restored_from_id,
         created_at=change.created_at,
         created_by=change.created_by,
+        created_by_name=created_by_name,
+        is_set_before=change.is_set_before,
+        value_before=_body_of(change.value_before),
     )
 
 
@@ -285,7 +290,13 @@ def get_setting_history(
     changes, next_cursor = store.setting_history_page(
         db, dealership_id=dealership_id, location_id=location_id, key=key, params=params
     )
-    return SettingChangePage(items=[_change_read(change) for change in changes], next_cursor=next_cursor)
+    names = area_service.actor_names(
+        db, dealership_id=dealership_id, user_ids={change.created_by for change in changes if change.created_by}
+    )
+    return SettingChangePage(
+        items=[_change_read(change, names.get(change.created_by) if change.created_by else None) for change in changes],
+        next_cursor=next_cursor,
+    )
 
 
 @router.post("/dealerships/{dealership_id}/setting-changes/{change_id}/restore", response_model=SettingSlotRead)
