@@ -39,9 +39,10 @@ import uuid
 from decimal import Decimal
 
 from sqlalchemy import DECIMAL, Boolean, Date, ForeignKey, Index, Integer, String, Text, UniqueConstraint, false, text
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, validates
 
 from app.core.base import PrimaryKeyMixin, TimestampMixin, VersionedMixin, utcnow
+from app.core.blind_index import uid_search_key
 from app.core.enum_type import StoredEnum
 from app.core.text_collation import IDENTIFIER_TEXT, text_sort_index_key
 from app.core.types import GUID, EncryptedString, UTCDateTime
@@ -316,6 +317,17 @@ class Contact(PrimaryKeyMixin, VersionedMixin, TimestampMixin, Base):
     # ruling, 2026-08-07: consistency, cheap to apply. Format + mod-11 check
     # digit validated at the schema boundary since Phase B (D-16).
     tax_id: Mapped[str | None] = mapped_column(EncryptedString(), nullable=True)
+    # KAN-819: the keyed blind index of `tax_id` (app/core/blind_index.py), so
+    # the contact search finds a business contact by its UID without
+    # decrypting a row. Written by `_keep_tax_id_search_key` below on every
+    # assignment of `tax_id` — create, PATCH, merge and erasure alike — never
+    # by hand. Says nothing without the application's key.
+    tax_id_search_key: Mapped[str | None] = mapped_column(
+        String(64),
+        nullable=True,
+        index=True,
+        comment="KAN-819: HMAC-SHA256 of the canonical UID in tax_id (app/core/blind_index.py); kept by the model.",
+    )
     preferred_channel: Mapped[PreferredChannel | None] = mapped_column(
         StoredEnum(PreferredChannel, length=16), nullable=True
     )
@@ -435,6 +447,14 @@ class Contact(PrimaryKeyMixin, VersionedMixin, TimestampMixin, Base):
     dealership_id: Mapped[uuid.UUID | None] = mapped_column(
         GUID(), nullable=True, index=True, comment="Owned by the platform context (Dealership). No DB-level FK."
     )
+
+    @validates("tax_id")
+    def _keep_tax_id_search_key(self, _key: str, value: str | None) -> str | None:
+        """KAN-819: the search key follows every write of `tax_id`, so no
+        writer can leave the two apart."""
+
+        self.tax_id_search_key = uid_search_key(value)
+        return value
 
     @property
     def legacy_address_mirror(self) -> dict[str, str | None] | None:

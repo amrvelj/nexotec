@@ -26,6 +26,7 @@ from app.contact.schemas.contact import (
 )
 from app.contact.services.contact_common import _DUPLICATE_CHECK_LIMIT, _MIN_PHONE_SEARCH_DIGITS, logger
 from app.contact.services.roles import CUSTOMER_LIFECYCLE_STATUSES, holds_role
+from app.core.blind_index import uid_search_key
 from app.core.config import get_settings
 from app.core.pagination import SortPageParams, count_capped, paginate_query_sorted
 from app.core.relative_dates import start_of_current_period, start_of_day_days_ago
@@ -43,7 +44,8 @@ def _search_predicate(group_id: uuid.UUID, q: str):
     did not: a business contact could not be found by its own name, and no
     search reached the number staff actually quote (D-06). Phone matching
     goes through the normalised column so '079 123 45 67' finds a number
-    stored as '+41791234567'.
+    stored as '+41791234567'. A whole UID finds its business contact through
+    the blind index (KAN-819).
     """
 
     pattern = f"%{q}%"
@@ -59,6 +61,13 @@ def _search_predicate(group_id: uuid.UUID, q: str):
             )
         ),
     ]
+    # KAN-819: a whole UID in any common spelling (CHE-123.456.789,
+    # CHE123456789, with or without MWST/TVA/IVA) finds the business contact
+    # holding it — one indexed equality on the keyed blind index, since
+    # `tax_id` itself is encrypted. A part of a UID finds nothing by it.
+    uid_key = uid_search_key(q)
+    if uid_key is not None:
+        conditions.append(Contact.tax_id_search_key == uid_key)
     phone_digits = normalise_phone(q)
     if len(phone_digits) >= _MIN_PHONE_SEARCH_DIGITS:
         conditions.append(
@@ -321,6 +330,7 @@ def duplicate_check(db: Session, *, group_id: uuid.UUID, q: str) -> list[dict[st
     phones, emails = _primary_contact_maps(db, [c.id for c in candidates])
     needle = q.strip().lower()
     needle_digits = normalise_phone(q)
+    needle_uid_key = uid_search_key(q)
 
     exact_email_ids = {
         row.contact_id
@@ -345,7 +355,12 @@ def duplicate_check(db: Session, *, group_id: uuid.UUID, q: str) -> list[dict[st
 
     results = []
     for contact in candidates:
-        is_exact = contact.id in exact_email_ids or contact.id in exact_phone_ids
+        is_exact = (
+            contact.id in exact_email_ids
+            or contact.id in exact_phone_ids
+            # KAN-819: the same UID is the same company.
+            or (needle_uid_key is not None and contact.tax_id_search_key == needle_uid_key)
+        )
         results.append(
             {
                 "id": contact.id,
