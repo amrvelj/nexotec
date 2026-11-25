@@ -162,7 +162,8 @@ function ScopeHistory({
                 <Badge tone="slate">
                   {t(`settings.history.origin.${ORIGINS.has(change.origin) ? change.origin : 'edit'}`)}
                 </Badge>
-                {current && <Badge tone="informational">{t('settings.history.current')}</Badge>}
+                {/* A stored value that no longer fits is not the value in force. */}
+                {current && scope.slot.fitsDeclaration && <Badge tone="informational">{t('settings.history.current')}</Badge>}
               </Group>
               <Text size="xs" c="dimmed">
                 {formatDateTime(change.createdAt, locale)}

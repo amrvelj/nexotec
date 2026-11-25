@@ -58,7 +58,7 @@ export function SettingCell({ declaration, slot, inherited, locationName, canWri
   const initialDraft = toDraft(declaration, slot.isSet ? slot.value : null)
   const ariaScope = locationName ?? t('settings.columns.dealership')
   const [clearing, setClearing] = useState(false)
-  const [clearError, setClearError] = useState<string | null>(null)
+  const [clearError, setClearError] = useState<{ text: string; stale: boolean } | null>(null)
   // A stored value that no longer fits reads as «not set»; the manager removes
   // it explicitly (an empty draft is never taken as a clear — it is also what a
   // click and blur leave behind).
@@ -68,7 +68,7 @@ export function SettingCell({ declaration, slot, inherited, locationName, canWri
     try {
       await onSave(null, slot.version)
     } catch (err) {
-      setClearError(describeError(err))
+      setClearError({ text: describeError(err), stale: isStaleVersion(err) })
     } finally {
       setClearing(false)
     }
@@ -151,9 +151,17 @@ export function SettingCell({ declaration, slot, inherited, locationName, canWri
       {field}
       {stale}
       {clearError && (
-        <Text size="xs" c="red" role="alert">
-          {clearError}
-        </Text>
+        <Group gap={6} role="alert">
+          <Text size="xs" c="red">
+            {clearError.text}
+          </Text>
+          {/* As the inline field offers it: only a stale If-Match reloads (ui-forms.md). */}
+          {clearError.stale && (
+            <Button variant="subtle" size="compact-xs" onClick={onReload}>
+              {reloadLabel}
+            </Button>
+          )}
+        </Group>
       )}
       {notSetNote && (
         <Text size="xs" c="dimmed">

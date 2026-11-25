@@ -160,7 +160,10 @@ describe('SettingsAreaPage (KAN-805)', () => {
     renderArea([])
     expect(await screen.findByRole('heading', { name: 'Werkstatt (Test)' })).toBeInTheDocument()
     const unit = await cellOf('Zeiteinheit', 'Betrieb')
-    expect(unit.getByText('Nicht gesetzt')).toBeInTheDocument()
+    // A badge of its own (Anto, 2026-11-25; ADR-220), never the empty-field italic.
+    const notSet = unit.getByText('Nicht gesetzt')
+    expect(notSet.style.border).not.toBe('') // the kit Badge's outline
+    expect(notSet.style.fontStyle).not.toBe('italic')
     expect(unit.getByText('Ohne Wert gilt: Stunden')).toBeInTheDocument()
     const vat = await rowOf('Preise inkl. MwSt. erfasst')
     expect(vat.getByText('Ohne Wert wird abgelehnt, was diese Einstellung braucht.')).toBeInTheDocument()
@@ -342,7 +345,7 @@ describe('SettingsAreaPage (KAN-805)', () => {
     expect(backend.callsTo(/small_parts_fee/, 'PUT')).toHaveLength(0)
   })
 
-  it('a stored value that no longer fits is removed explicitly, and the choice’s clear option clears it too', async () => {
+  it('a stored value that no longer fits is removed by its own button', async () => {
     const backend = renderArea([
       { method: 'PUT', match: /\/setting-values\/testarea\.small_parts_fee$/, handler: () => slot({ version: 3 }) },
     ])
@@ -414,6 +417,28 @@ describe('SettingsAreaPage (KAN-805)', () => {
     )
     expect(await screen.findByRole('heading', { name: 'Einstellungen' })).toBeInTheDocument()
     expect(await screen.findByText('Diesen Bereich gibt es für diesen Betrieb nicht.')).toBeInTheDocument()
+  })
+
+  it('with one location and no location value, no location column is shown (criterion 6)', async () => {
+    const single: AreaSettingsRead = { ...AREA, showsLocations: false }
+    installFakeBackend([
+      ME(true),
+      { method: 'GET', match: /\/dealerships\/d-1\/setting-areas\/testarea$/, handler: () => single },
+      { method: 'GET', match: /\/setting-values\/testarea\.wait_minutes\/history/, handler: () => ({ items: [], nextCursor: null }) },
+    ])
+    renderWithProviders(
+      <Routes>
+        <Route path="/administration/settings/:area" element={<SettingsAreaPage />} />
+      </Routes>,
+      { route: '/administration/settings/testarea' },
+    )
+    const table = within(await screen.findByRole('table', { name: 'Einstellungen' }))
+    expect(table.queryByRole('columnheader', { name: 'Hauptsitz' })).toBeNull()
+    expect(table.queryByRole('columnheader', { name: 'Nord' })).toBeNull()
+    const user = userEvent.setup()
+    await user.click(table.getByRole('button', { name: 'Verlauf: Wartezeit' }))
+    await screen.findByText('Noch keine Änderung')
+    expect(screen.queryByRole('radio', { name: 'Nord' })).toBeNull() // no location scope either
   })
 
   it('every other role reads the values and the history, and changes nothing', async () => {
