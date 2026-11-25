@@ -347,7 +347,9 @@ def require_vin_or_pre_1981_chassis_number(vin: str | None, first_registration: 
 # every amount instead of learning which numbers happen to survive.
 # `Field` constraints (`ge`, `max_digits`, `decimal_places`) still apply: the
 # refusal runs before pydantic's own Decimal validation.
-_DECIMAL_STRING_PATTERN = r"^-?[0-9]+(\.[0-9]+)?$"
+# A point may end or begin the figure ("12.", ".5"): an input mid-entry hands
+# those over, and Decimal reads them exactly.
+_DECIMAL_STRING_PATTERN = r"^-?([0-9]+(\.[0-9]*)?|\.[0-9]+)$"
 
 
 _DECIMAL_STRING_RE = re.compile(_DECIMAL_STRING_PATTERN)

@@ -123,7 +123,7 @@ def test_the_schema_shows_a_string_only() -> None:
     assert string["format"] == "decimal"
 
 
-@pytest.mark.parametrize("text", ["1e3", " 12 ", "12,5", ".5", "1'250.00", "+5", "12.", "NaN", "Infinity"])
+@pytest.mark.parametrize("text", ["1e3", " 12 ", "12,5", "1'250.00", "+5", ".", "-", "NaN", "Infinity", "１２"])
 def test_a_string_outside_the_advertised_pattern_is_refused(text: str) -> None:
     from pydantic import ValidationError
 
@@ -141,7 +141,7 @@ def test_the_schema_pattern_is_the_one_enforced() -> None:
         if branch.get("type") == "string"
     )
     pattern = re.compile(string["pattern"])
-    for accepted in ("0", "12", "12.5", "99999999999999.99"):
+    for accepted in ("0", "12", "12.5", "12.", ".5", "99999999999999.99"):
         assert pattern.fullmatch(accepted)
         _Body.model_validate({"amount": accepted})
     assert not pattern.fullmatch("1e3")
