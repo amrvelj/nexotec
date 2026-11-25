@@ -13,7 +13,7 @@ paths:
 <!-- Maintainer note. ADR-214, ADR-216; Anto's rulings of 2026-11-24 on KAN-805 (restore for the store
 only, history read by every role, checklist settings declared after activation only notify, the
 per-location column while any location holds a value). Split out of platform-admin.md by KAN-805 PR-2.
-Last verified against main@32ad509 (2026-11-25). -->
+Last verified against main@32ad509 (2026-11-25); O6/O7 and `divides` added by KAN-808 PR-1c. -->
 
 # The settings store (KAN-805) — built: store, API, checklist, copy, screen
 
@@ -45,7 +45,10 @@ Last verified against main@32ad509 (2026-11-25). -->
   `check_declaration_references()` (start-up) refuses a rule naming an undeclared key; the area API shows
   `choiceRequires`. The copy from a sister writes a required key before the choice that needs it
   (`declared_settings_in_write_order`; a test copies O19 + O18 «work units» whole). Shipped declarations: O16, O18, O19
-  (`platform-labour-rates.md`).
+  (`platform-labour-rates.md`); O6 `planning.grid_minutes` and O7 `planning.slot_minutes` (KAN-808, `planning.md`).
+- **A divisor rule** (KAN-808): `SettingDeclaration.divides = Decimal(n)` — a whole number with a minimum above
+  zero whose value must divide `n` (O6: a divisor of 60); else 422 `setting_value_not_a_divisor` (`details.divides`).
+  Not shown in the area API yet: the screen learns it from the refusal.
 - **Setup checklist** (`administration/services/setup_checklist.py`): a declaration with
   `checklist_item` is an item, code = its key (a contributed code never has a dot), applying with
   its module, linked to `/administration/settings/<area>`, complete while **the Betrieb's own value**
