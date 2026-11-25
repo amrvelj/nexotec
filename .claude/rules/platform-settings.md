@@ -48,7 +48,13 @@ Last verified against main@32ad509 (2026-11-25); O6/O7 and `divides` added by KA
   (`platform-labour-rates.md`); O6 `planning.grid_minutes` and O7 `planning.slot_minutes` (KAN-808, `planning.md`).
 - **A divisor rule** (KAN-808): `SettingDeclaration.divides = Decimal(n)` — a whole number with a minimum above
   zero whose value must divide `n` (O6: a divisor of 60); else 422 `setting_value_not_a_divisor` (`details.divides`).
-  Not shown in the area API yet: the screen learns it from the refusal.
+- **A multiple** (KAN-808; Anto, 2026-11-25): `SettingDeclaration.multiple_of = "<key>"` — a whole number that is a
+  multiple of that key's value wherever both are in force (O7 of O6), checked like check 49 (same lock, scopes, «never
+  worse»): 422 `setting_not_a_multiple_of_setting` writing the multiple, `setting_no_longer_divides_setting` writing the
+  other (`details`: `setting`, `multipleOf`, `locationId`); «not set» on either side breaks nothing.
+  `check_declaration_references()` refuses an undeclared key, another module's, or one that is no whole number above
+  zero; the copy writes the other key first; platform's reconciliation reports a scope a reactivated location left
+  broken. Neither rule is in the area API yet: the screen learns them from the refusal.
 - **Setup checklist** (`administration/services/setup_checklist.py`): a declaration with
   `checklist_item` is an item, code = its key (a contributed code never has a dot), applying with
   its module, linked to `/administration/settings/<area>`, complete while **the Betrieb's own value**

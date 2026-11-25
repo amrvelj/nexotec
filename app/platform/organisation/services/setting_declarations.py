@@ -96,6 +96,10 @@ class SettingDeclaration:
     # cleared while the choice stands (`setting_rules`). Pairs (choice, key), so
     # the declaration stays hashable. O18 «work_units» needs O19.
     choice_requires: tuple[tuple[str, str], ...] = ()
+    # A rule across two numbers (KAN-808; Anto, 2026-11-25): this setting's value is a
+    # whole multiple of the named setting's wherever both are in force, and neither may be
+    # written to break it (`setting_rules`). O7, the slot length, is a multiple of O6, the grid.
+    multiple_of: str | None = None
 
     @property
     def area(self) -> str:
@@ -141,6 +145,12 @@ def _check(declaration: SettingDeclaration) -> None:
             raise SettingDeclarationError(f"Setting {key!r}: a divisor needs a minimum above zero.")
     if declaration.checklist_blocks is not None and not declaration.checklist_item:
         raise SettingDeclarationError(f"Setting {key!r} blocks an action but is no checklist item.")
+    if declaration.multiple_of is not None:
+        other = declaration.multiple_of
+        if kind != SettingKind.NUMBER or declaration.decimals:
+            raise SettingDeclarationError(f"Setting {key!r}: only a whole number is a multiple of another.")
+        if other == key or not _KEY.fullmatch(other):
+            raise SettingDeclarationError(f"Setting {key!r} is a multiple of {other!r}, no other key.")
     for choice, required in declaration.choice_requires:
         if kind != SettingKind.CHOICE or choice not in declaration.choices:
             raise SettingDeclarationError(f"Setting {key!r}: {choice!r} is no choice of it, so it requires nothing.")
@@ -258,8 +268,10 @@ def register_setting(declaration: SettingDeclaration) -> None:
 
 def check_declaration_references() -> None:
     """Start-up check, after every area registered: a key a choice requires is
-    declared, belongs to the same module (or to none), and is no text. Raised
-    at start-up so a rule never names a key nobody can set."""
+    declared, belongs to the same module (or to none), and is no text; a key a
+    number is a multiple of is declared, of the same module (or none), and a
+    whole number above zero. Raised at start-up so a rule never names a key
+    nobody can set."""
 
     for declaration in _REGISTRY.values():
         for choice, required in declaration.choice_requires:
@@ -274,13 +286,28 @@ def check_declaration_references() -> None:
                 )
             if SettingKind(other.kind) == SettingKind.TEXT:
                 raise SettingDeclarationError(f"Setting {declaration.key!r} requires the text {required!r}.")
+        if declaration.multiple_of is not None:
+            other = _REGISTRY.get(declaration.multiple_of)
+            if other is None:
+                raise SettingDeclarationError(
+                    f"Setting {declaration.key!r} is a multiple of {declaration.multiple_of!r}, which nobody declared."
+                )
+            if other.module not in (None, declaration.module):
+                raise SettingDeclarationError(
+                    f"Setting {declaration.key!r} is a multiple of {other.key!r} of another module ({other.module!r})."
+                )
+            if SettingKind(other.kind) != SettingKind.NUMBER or other.decimals or other.minimum is None or other.minimum <= 0:
+                raise SettingDeclarationError(
+                    f"Setting {declaration.key!r} is a multiple of {other.key!r}, which is no whole number above zero."
+                )
 
 
 def declared_settings_in_write_order() -> tuple[SettingDeclaration, ...]:
     """Every declaration, a key that a choice requires before the choice
-    (KAN-806): a writer of several settings at once — the copy from a sister
-    Betrieb — then never meets `setting_choice_requires_setting` for a pair it
-    brings whole. Otherwise by key."""
+    (KAN-806), and a key a number is a multiple of before the number (KAN-808:
+    O6 before O7): a writer of several settings at once — the copy from a
+    sister Betrieb — then never meets `setting_choice_requires_setting` for a
+    pair it brings whole. Otherwise by key."""
 
     ordered: list[SettingDeclaration] = []
     seen: set[str] = set()
@@ -293,11 +320,25 @@ def declared_settings_in_write_order() -> tuple[SettingDeclaration, ...]:
             other = _REGISTRY.get(required)
             if other is not None:
                 visit(other)
+        if declaration.multiple_of is not None:
+            divisor = _REGISTRY.get(declaration.multiple_of)
+            if divisor is not None:
+                visit(divisor)
         ordered.append(declaration)
 
     for declaration in declared_settings():
         visit(declaration)
     return tuple(ordered)
+
+
+def multiple_rules() -> tuple[tuple[SettingDeclaration, str], ...]:
+    """Every rule across two numbers: (the multiple's declaration, the key it is a multiple of)."""
+
+    return tuple(
+        (declaration, declaration.multiple_of)
+        for declaration in declared_settings()
+        if declaration.multiple_of is not None
+    )
 
 
 def choice_rules() -> tuple[tuple[SettingDeclaration, str, str], ...]:

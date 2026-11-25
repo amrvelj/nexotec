@@ -15,7 +15,7 @@ Everything here is read-only — see app.core.reconciliation for the mechanism.
 import datetime as dt
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import ColumnElement, String, and_, cast, select
+from sqlalchemy import ColumnElement, String, and_, cast, false, func, or_, select
 from sqlalchemy.orm import Session, aliased
 
 from app.contact.public import contact_exists, contact_in_group, contact_is_merged, contact_reference_check
@@ -59,6 +59,7 @@ from app.platform.organisation.models.publishing_profile import LocationLeadRout
 from app.platform.organisation.models.setting_value import SettingState, SettingValue, SettingValueChange
 from app.platform.organisation.services.labour_rate_settings import TIME_UNIT_KEY, WORK_UNITS, WORK_UNITS_PER_HOUR_KEY
 from app.platform.organisation.services.reconciliation_targets import dealership_group_of
+from app.platform.organisation.services.setting_declarations import multiple_rules
 from app.platform.reference.models.reference_data import ReferenceList, ReferenceValue
 from app.platform.reference.models.ui_translation import UiTranslation
 
@@ -238,6 +239,56 @@ def _work_units_without_units_per_hour() -> ColumnElement[bool]:
     )
 
 
+def _decimal_in_force(key: str, *, at_the_rows_location: bool) -> ColumnElement:
+    """The value of `key` set in the row's Betrieb — at the row's own location,
+    or the Betrieb's own — as a scalar subquery (NULL when not set)."""
+
+    other = aliased(SettingValue)
+    where = [other.dealership_id == SettingValue.dealership_id, other.key == key, other.state == SettingState.SET]
+    where.append(other.location_id == SettingValue.location_id if at_the_rows_location else other.location_id.is_(None))
+    return select(other.value_decimal).where(*where).correlate(SettingValue).scalar_subquery()
+
+
+def _multiples_broken() -> ColumnElement[bool]:
+    """KAN-808: a number declared `multiple_of` another (O7 of O6) that is no
+    multiple of it in a scope where both are in force — the Betrieb, or an
+    active location (its own value, else the Betrieb's). Writes refuse it
+    (`setting_rules`), but a location deactivated while it relied on the
+    Betrieb's values, which were then changed, comes back so when reactivated.
+
+    Reported on the multiple's slot when the scope has one of its own (or is
+    the Betrieb), else on the location's slot of the other key. Built from the
+    registered declarations when the check runs."""
+
+    location_active = (
+        select(Location.id).where(Location.id == SettingValue.location_id, Location.is_active.is_(True)).exists()
+    )
+    conditions: list[ColumnElement[bool]] = []
+    for multiple, of_key in multiple_rules():
+        own_divisor = _decimal_in_force(of_key, at_the_rows_location=True)
+        betriebs_divisor = _decimal_in_force(of_key, at_the_rows_location=False)
+        divisor = func.coalesce(own_divisor, betriebs_divisor)
+        conditions.append(
+            (SettingValue.key == multiple.key)
+            & (SettingValue.state == SettingState.SET)
+            & (SettingValue.location_id.is_(None) | location_active)
+            & (divisor > 0)
+            & (SettingValue.value_decimal % divisor != 0)
+        )
+        own_multiple = _decimal_in_force(multiple.key, at_the_rows_location=True)
+        betriebs_multiple = _decimal_in_force(multiple.key, at_the_rows_location=False)
+        conditions.append(
+            (SettingValue.key == of_key)
+            & (SettingValue.state == SettingState.SET)
+            & SettingValue.location_id.is_not(None)
+            & location_active
+            & own_multiple.is_(None)
+            & (SettingValue.value_decimal > 0)
+            & (betriebs_multiple % SettingValue.value_decimal != 0)
+        )
+    return or_(*conditions) if conditions else false()
+
+
 def _rate_location_elsewhere() -> ColumnElement[bool]:
     return (
         select(Location.id)
@@ -305,6 +356,12 @@ CHECKS: list[ReferenceCheck | StateCheck] = [
         source_model=SettingValue,
         source_row_id_column=SettingValue.id,
         where=_work_units_without_units_per_hour,
+    ),
+    StateCheck(
+        label="setting_value a number declared a multiple of another setting that is no multiple of it",
+        source_model=SettingValue,
+        source_row_id_column=SettingValue.id,
+        where=_multiples_broken,
     ),
     StateCheck(
         label="labour_rate.location_id names another business's location",

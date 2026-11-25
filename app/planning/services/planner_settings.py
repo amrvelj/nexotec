@@ -8,7 +8,10 @@
   value (`SettingDeclaration.divides`), and a stored value that no longer
   fits reads as «not set».
 - **O7** `planning.slot_minutes`: the one length of a drop-off and of a
-  pick-up slot, 5 to 480 minutes.
+  pick-up slot, 5 to 480 minutes, and a multiple of O6 wherever both are in
+  force (Anto, 2026-11-25): the store refuses writing either to break it
+  (`SettingDeclaration.multiple_of`, `setting_rules`), so a slot starting on
+  the grid also ends on it.
 
 Nexotec cannot choose either for the Betrieb, so «not set» refuses what
 needs it (409 `planning_setting_not_set`, naming the setting): no work or
@@ -53,6 +56,8 @@ SLOT_MINUTES = SettingDeclaration(
     when_not_set=WhenNotSet.REFUSES,
     minimum=Decimal(5),
     maximum=Decimal(480),
+    # A slot starts and ends on the grid: O7 is a multiple of O6 (Anto, 2026-11-25).
+    multiple_of=GRID_MINUTES_KEY,
     unit="minutes",
     checklist_item=True,
 )

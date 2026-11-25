@@ -86,6 +86,8 @@
   "setting_value_wrong_field": "Il valore non corrisponde al tipo di questa impostazione.",
   "setting_choice_requires_setting": "Questa scelta richiede prima un'altra impostazione, ad esempio le unità di lavoro all'ora. Impostatela, poi scegliete di nuovo.",
   "setting_required_by_choice": "Un'altra impostazione ne ha bisogno, ad esempio il tempo in unità di lavoro. Non può essere svuotata finché quella vale.",
+  "setting_not_a_multiple_of_setting": "«{{setting}}» deve essere un multiplo di «{{multipleOf}}».",
+  "setting_no_longer_divides_setting": "«{{multipleOf}}» deve dividere «{{setting}}» senza resto. Adeguate prima «{{setting}}».",
   "labour_category_member_exists": "Questa persona fa già parte di questa categoria di manodopera.",
   "labour_category_user_cannot_act_here": "Solo chi lavora in questa azienda può essere assegnato a una delle sue categorie di manodopera.",
   "labour_rate_agreement_already_withdrawn": "Questo accordo è già stato ritirato.",

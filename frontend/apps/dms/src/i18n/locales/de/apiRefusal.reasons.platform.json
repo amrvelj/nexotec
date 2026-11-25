@@ -86,6 +86,8 @@
   "setting_value_wrong_field": "Der Wert passt nicht zur Art dieser Einstellung.",
   "setting_choice_requires_setting": "Diese Auswahl braucht zuerst eine andere Einstellung, zum Beispiel die Arbeitswerte pro Stunde. Setzen Sie diese, dann wählen Sie erneut.",
   "setting_required_by_choice": "Eine andere Einstellung braucht diese, zum Beispiel die Zeit in Arbeitswerten. Sie kann nicht geleert werden, solange jene gilt.",
+  "setting_not_a_multiple_of_setting": "«{{setting}}» muss ein Vielfaches von «{{multipleOf}}» sein.",
+  "setting_no_longer_divides_setting": "«{{multipleOf}}» muss «{{setting}}» ohne Rest teilen. Passen Sie zuerst «{{setting}}» an.",
   "labour_category_member_exists": "Diese Person ist bereits in dieser Arbeitskategorie.",
   "labour_category_user_cannot_act_here": "Nur wer in diesem Betrieb arbeitet, kann einer seiner Arbeitskategorien zugeteilt werden.",
   "labour_rate_agreement_already_withdrawn": "Diese Vereinbarung ist bereits zurückgezogen.",

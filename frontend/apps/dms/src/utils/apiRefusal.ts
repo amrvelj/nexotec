@@ -379,6 +379,9 @@ const REASON_KEYS: Record<string, string> = {
       // KAN-806 — a rule across two settings; labour rates.
       'setting_choice_requires_setting',
       'setting_required_by_choice',
+      // KAN-808 — a number that is a multiple of another (O7 of O6).
+      'setting_not_a_multiple_of_setting',
+      'setting_no_longer_divides_setting',
       'labour_category_member_exists',
       'labour_category_user_cannot_act_here',
       'labour_rate_agreement_already_withdrawn',
@@ -515,6 +518,15 @@ const REASON_PARAMS: Record<string, (details: Details, t: TFunction) => Record<s
   planning_note_too_long: (d) => ({ maxLength: String(d.maxLength ?? '—') }),
   planning_setting_not_set: (d, t) => ({ setting: checklistItemTitle(t, String(d.setting ?? '')) }),
   setting_value_not_a_divisor: (d) => ({ divides: String(d.divides ?? '—') }),
+  // KAN-808: the two settings of a multiple, by their labels.
+  setting_not_a_multiple_of_setting: (d, t) => ({
+    setting: checklistItemTitle(t, String(d.setting ?? '')),
+    multipleOf: checklistItemTitle(t, String(d.multipleOf ?? '')),
+  }),
+  setting_no_longer_divides_setting: (d, t) => ({
+    setting: checklistItemTitle(t, String(d.setting ?? '')),
+    multipleOf: checklistItemTitle(t, String(d.multipleOf ?? '')),
+  }),
   // KAN-214 (FR-A-26): the checklist item that blocks the action, by its name.
   setup_checklist_item_missing: (d, t) => ({ item: checklistItemTitle(t, String(d.item ?? '')) }),
   credit_block: (d) => ({ reason: String(d.creditBlockReason ?? '—') }),
