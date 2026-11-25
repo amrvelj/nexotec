@@ -103,6 +103,12 @@ from app.inventory.public import (
 from app.inventory.public import referenced_configuration_ids as referenced_by_stock_items
 from app.message_type_registry import register_message_types
 from app.ownership_registry import register_ownership_providers
+from app.planning.public import oldest_location_label_age_seconds as oldest_planning_location_label_age_seconds
+from app.planning.public import (
+    oldest_person_label_age_seconds,
+    refresh_person_labels,
+)
+from app.planning.public import refresh_location_labels as refresh_planning_location_labels
 from app.platform.consumers import (
     handle_connected_account_revoked_message,
     handle_connection_expiry_approaching_message,
@@ -494,6 +500,10 @@ def _heartbeat(db, transport: InProcessTransport) -> None:
     record_label_age_seconds("inventory.supplier", supplier_label_age)
     location_label_age = oldest_location_label_age_seconds(db)
     record_label_age_seconds("integration.location", location_label_age)
+    planning_person_label_age = oldest_person_label_age_seconds(db)
+    record_label_age_seconds("planning.person", planning_person_label_age)
+    planning_location_label_age = oldest_planning_location_label_age_seconds(db)
+    record_label_age_seconds("planning.location", planning_location_label_age)
 
     logger.info(
         "outbox heartbeat",
@@ -508,6 +518,8 @@ def _heartbeat(db, transport: InProcessTransport) -> None:
             "salesContactLabelAgeSeconds": contact_label_age,
             "configurationLabelAgeSeconds": configuration_label_age,
             "connectionLocationLabelAgeSeconds": location_label_age,
+            "planningPersonLabelAgeSeconds": planning_person_label_age,
+            "planningLocationLabelAgeSeconds": planning_location_label_age,
         },
     )
 
@@ -574,6 +586,25 @@ def _refresh_supplier_labels(db: Session) -> None:
 def _refresh_location_labels(db: Session) -> None:
     changed = refresh_location_labels(db)
     logger.info("integration.location_labels: %d connection(s) relabelled", changed)
+
+
+def _refresh_planning_person_labels(db: Session) -> None:
+    report = refresh_person_labels(db)
+    logger.info(
+        "planning.person_labels: %d planner resource(s) relabelled, %d left alone (no such user)",
+        len(report.changed),
+        len(report.unresolved),
+    )
+
+
+def _refresh_planning_location_labels(db: Session) -> None:
+    report = refresh_planning_location_labels(db)
+    logger.info(
+        "planning.location_labels: %d planner resource(s) relabelled, %d left alone "
+        "(no location of the resource's business)",
+        len(report.changed),
+        len(report.unresolved),
+    )
 
 
 def register_exports() -> None:
@@ -655,6 +686,12 @@ def register_daily_jobs() -> None:
        connection's copy of the name of the location it is bound to
        (FR-A-21), through app.platform.public, so a renamed site shows on
        the integration cards within a day.
+    7b. ``planning.person_labels`` — KAN-808 PR-1b (ADR-221): the same for
+       a person resource's copy of its user's name, through
+       app.platform.public, so a renamed colleague shows in the planner
+       within a day. A deactivated user's label is kept as it was.
+    7c. ``planning.location_labels`` — KAN-808 PR-1b: the same for every
+       planner resource's copy of its location's name.
     8. ``reconciliation.run_all`` — the nightly cross-context reconciliation
        (P-10, CLAUDE.md rule 10). There are no cross-context foreign keys
        anywhere in this codebase, so the database cannot detect a dangling
@@ -749,6 +786,8 @@ def register_daily_jobs() -> None:
     register_daily_job("inventory.location_labels", _refresh_stock_location_labels)
     register_daily_job("inventory.supplier_labels", _refresh_supplier_labels)
     register_daily_job("integration.location_labels", _refresh_location_labels)
+    register_daily_job("planning.person_labels", _refresh_planning_person_labels)
+    register_daily_job("planning.location_labels", _refresh_planning_location_labels)
     register_daily_job("reconciliation.run_all", run_all_daily)
     register_daily_job("inventory.orphaned_reservations.release", run_daily_reservation_sweep)
     # 9b. KAN-724: a stock item a vehicle merge had to leave on the duplicate follows once nothing blocks it.
