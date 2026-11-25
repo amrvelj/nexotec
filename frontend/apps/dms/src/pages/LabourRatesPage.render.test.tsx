@@ -425,12 +425,38 @@ describe('LabourRatesPage (KAN-806)', () => {
   })
 
   it('an agreement cannot be saved without the Betrieb\'s O16 and the dialog says why', async () => {
-    install({ entered: null, locationEntered: 'gross' })
+    install({
+      entered: null,
+      locationEntered: 'gross',
+      extra: [
+        {
+          method: 'GET',
+          match: /^\/contacts$/,
+          handler: () => ({
+            items: [{ id: 'contact-7', contactNumber: 'K-1007', companyName: 'Helvetia Versicherungen AG' }],
+            nextCursor: null,
+          }),
+        },
+      ],
+    })
     renderWithProviders(<LabourRatesPage />, { route: '/administration/labour-rates' })
     await ratesTable()
     await userEvent.click(screen.getByRole('button', { name: i18n.t('labourRates.agreements.add') }))
     const dialog = await screen.findByRole('dialog', { name: i18n.t('labourRates.agreementDialog.title') })
     expect(within(dialog).getByText(i18n.t('labourRates.settings.enteredNotSet'))).toBeInTheDocument()
-    expect(within(dialog).getByRole('button', { name: i18n.t('common.save') })).toBeDisabled()
+    // Everything else filled in — a contact, the category, a date, an amount — so only O16 holds Save back.
+    await userEvent.click(within(dialog).getByRole('button', { name: i18n.t('labourRates.agreementDialog.chooseContact') }))
+    await userEvent.type(await screen.findByPlaceholderText(i18n.t('labourRates.agreementDialog.searchContact')), 'Helv')
+    await userEvent.click(await screen.findByText('Helvetia Versicherungen AG'))
+    const form = await screen.findByRole('dialog', { name: i18n.t('labourRates.agreementDialog.title') })
+    expect(within(form).getByText('Helvetia Versicherungen AG')).toBeInTheDocument()
+    await userEvent.type(
+      within(form).getByRole('textbox', { name: (n) => n.startsWith(i18n.t('labourRates.columns.amount')) }),
+      '128',
+    )
+    expect(within(form).getByRole('button', { name: i18n.t('common.save') })).toBeDisabled()
+    // The end of an agreement needs no amount and no O16: then it can be saved.
+    await userEvent.click(within(form).getByText(i18n.t('labourRates.agreementDialog.kindEnd')))
+    expect(within(form).getByRole('button', { name: i18n.t('common.save') })).toBeEnabled()
   })
 })

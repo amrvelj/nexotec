@@ -21,6 +21,7 @@ from app.platform.organisation.models.dealership_bank_account import DealershipB
 from app.platform.organisation.models.location_schedule import LocationDepartment, LocationOpeningHours
 from app.platform.organisation.models.module_entitlement import ModuleEntitlement
 from app.platform.organisation.models.number_range import NumberRangeConfirmation
+from app.platform.organisation.services.entitlement import list_active_modules
 from tests.identity_support import create_dealership, create_user
 from tests.token_support import dealer_group_of
 
@@ -126,8 +127,6 @@ def complete_checklist(db: Session, dealership_id: uuid.UUID, manager_user: dict
     complete_bank_account(db, dealership_id)
     complete_number_ranges(db, dealership_id, uuid.UUID(manager_user["id"]))
     complete_opening_hours(db, dealership_id)
-    from app.platform.organisation.services.entitlement import list_active_modules
-
     if ModuleCode.AFTERSALES.value in list_active_modules(db, dealership_id):
         complete_labour_rates(db, dealership_id)
 
