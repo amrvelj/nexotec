@@ -1,7 +1,7 @@
 """KAN-805 test support: sample setting declarations for the settings store.
 
-Nothing here ships: `app/setting_registry.py` declares no setting until an
-area's ticket brings one with its reader. The tests declare samples of each
+Nothing here ships: `app/setting_registry.py` declares only what an area's
+ticket brought with its reader (KAN-806: the labour-rate settings). The tests declare samples of each
 kind in a test-only area, `testarea`, register them for one test and remove
 them again (`declared` fixture), so the registry the app sees is unchanged.
 """

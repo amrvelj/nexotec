@@ -86,6 +86,7 @@ from app.platform.identity.services.identity_refs import (
 from app.platform.identity.services.notification_catalogue import NotificationEventCode
 from app.platform.identity.services.notifications import NotificationSubject, UnknownNotificationEvent, notify
 from app.platform.identity.services.reconciliation_targets import user_is_deactivated, user_reference_check
+from app.platform.identity.services.user_labour_category import labour_categories_of_user
 from app.platform.identity.services.user_location import get_primary_location_id
 from app.platform.identity.services.user_preference import ui_language_of
 from app.platform.identity.services.user_reads import (
@@ -101,6 +102,17 @@ from app.platform.organisation.services.contact_group import ContactGroupCodes, 
 from app.platform.organisation.services.dealer_dealerships import is_platform_dealership
 from app.platform.organisation.services.dealership import get_dealership_default_correspondence_language
 from app.platform.organisation.services.group_read_dealerships import DealershipRef, list_group_read_dealerships
+from app.platform.organisation.services.labour_rate_answer import (
+    LabourRateAnswer,
+    LabourRateMissing,
+    LabourRateSource,
+    labour_rate_for,
+)
+from app.platform.organisation.services.labour_rate_settings import (
+    LabourTimeUnit,
+    labour_time_unit,
+    register_labour_rate_settings,
+)
 from app.platform.organisation.services.location import LocationLabel, get_location_labels
 from app.platform.organisation.services.number_range import allocate_number
 from app.platform.organisation.services.organisation_refs import (
@@ -224,6 +236,15 @@ from app.platform.reference.services.reference_data import get_active_reference_
 # with its declaration. A plain read; it writes nothing.
 # check_declaration_references runs after every area registered: a choice's
 # `choice_requires` (KAN-806, O18 «work units» needs O19) names a declared key.
+#
+# KAN-806 (D-A-19): labour rates. labour_rate_for answers «the rate for
+# category C at location L on day D for invoice recipient R»: an agreed rate
+# first, else the category rate, else found=False — an answer, never an error
+# or a default (LabourRateAnswer: the source, the row, the amount per hour as
+# typed and whether it was typed net or with VAT). labour_categories_of_user
+# gives the categories a user is allocated to; labour_time_unit gives O18/O19
+# (hours, or work units with how many make an hour). The composition root
+# registers the three settings with register_labour_rate_settings. Plain reads.
 __all__ = [
     "PLACEHOLDER_UNRESOLVED",
     "ActingUser",
@@ -245,6 +266,10 @@ __all__ = [
     "IssuedDocumentLink",
     "KeyValueBlock",
     "KeyValueRow",
+    "LabourRateAnswer",
+    "LabourRateMissing",
+    "LabourRateSource",
+    "LabourTimeUnit",
     "LineItemsBlock",
     "LineStyle",
     "LinkedGrant",
@@ -311,6 +336,9 @@ __all__ = [
     "get_user_display_labels",
     "is_platform_dealership",
     "issue_document_link",
+    "labour_categories_of_user",
+    "labour_rate_for",
+    "labour_time_unit",
     "link_connected_account",
     "list_active_users_acting_in",
     "list_dealer_manager_emails",
@@ -328,6 +356,7 @@ __all__ = [
     "read_setting",
     "register_document_source",
     "register_grant_revoker",
+    "register_labour_rate_settings",
     "register_message_type",
     "register_setting",
     "render_document",

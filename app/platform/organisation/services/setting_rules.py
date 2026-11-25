@@ -59,8 +59,13 @@ def _effective(slots: _Slots, declaration: SettingDeclaration, location_id: uuid
     return value
 
 
-def _broken(slots: _Slots, choice_of: SettingDeclaration, choice: str, required: SettingDeclaration,
-            location_id: uuid.UUID | None) -> bool:
+def _broken(
+    slots: _Slots,
+    choice_of: SettingDeclaration,
+    choice: str,
+    required: SettingDeclaration,
+    location_id: uuid.UUID | None,
+) -> bool:
     return _effective(slots, choice_of, location_id) == choice and _effective(slots, required, location_id) is None
 
 
@@ -108,7 +113,9 @@ def check_choice_rules(
         if required is None:  # refused at start-up by check_declaration_references
             continue
         for scope in scopes:
-            if _broken(after, choice_of, choice, required, scope) and not _broken(before, choice_of, choice, required, scope):
+            if _broken(after, choice_of, choice, required, scope) and not _broken(
+                before, choice_of, choice, required, scope
+            ):
                 details: dict[str, object] = {
                     "setting": choice_of.key,
                     "choice": choice,

@@ -4,9 +4,10 @@ app.message_type_registry: the one place that names each area's
 registration, so platform's store imports no area (ADR-131) and nothing is
 declared by an import's side effect.
 
-Today: none. Aftersales (labour rates net or with VAT, hours or work units,
-KAN-806), Planning (the planner's grid and slot lengths, KAN-808) and the rest
-join here with the ticket that builds their reader — a declaration nobody reads
+Today: the labour-rate settings O16, O18 and O19 (KAN-806; read by platform's
+labour rates and by Aftersales through `platform.public`). Planning (the
+planner's grid and slot lengths, KAN-808) and the rest join here with the
+ticket that builds their reader — a declaration nobody reads
 fails tests/architecture/test_setting_keys_declared_and_read.py.
 
 Imported by app.main (the administration's API) and app.worker (the setup
@@ -16,7 +17,11 @@ same declaration again.
 
 
 def register_settings() -> None:
-    return None
+    from app.platform import public as platform
+
+    platform.register_labour_rate_settings()
+    # Last: every key a rule across two settings names is declared.
+    platform.check_declaration_references()
 
 
 register_settings()
