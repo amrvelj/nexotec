@@ -110,7 +110,7 @@ def test_a_number_inside_a_list_is_refused_too() -> None:
 def test_the_field_constraints_still_apply() -> None:
     from pydantic import ValidationError
 
-    for bad in ("-1", "1.234", "abc"):
+    for bad in ("-1", "1.234"):
         with pytest.raises(ValidationError):
             _Body.model_validate({"amount": bad})
 
@@ -121,3 +121,27 @@ def test_the_schema_shows_a_string_only() -> None:
     assert {branch.get("type") for branch in branches} == {"string", "null"}
     (string,) = [branch for branch in branches if branch.get("type") == "string"]
     assert string["format"] == "decimal"
+
+
+@pytest.mark.parametrize("text", ["1e3", " 12 ", "12,5", ".5", "1'250.00", "+5", "12.", "NaN", "Infinity"])
+def test_a_string_outside_the_advertised_pattern_is_refused(text: str) -> None:
+    from pydantic import ValidationError
+
+    with pytest.raises(ValidationError) as caught:
+        _Body.model_validate({"amount": text})
+    assert caught.value.errors()[0]["type"] == "decimal_string_format"
+
+
+def test_the_schema_pattern_is_the_one_enforced() -> None:
+    import re
+
+    string = next(
+        branch
+        for branch in _Body.model_json_schema(mode="validation")["properties"]["amount"]["anyOf"]
+        if branch.get("type") == "string"
+    )
+    pattern = re.compile(string["pattern"])
+    for accepted in ("0", "12", "12.5", "99999999999999.99"):
+        assert pattern.fullmatch(accepted)
+        _Body.model_validate({"amount": accepted})
+    assert not pattern.fullmatch("1e3")

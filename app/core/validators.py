@@ -126,7 +126,9 @@ def _validate_house_number(value: str) -> str:
 
 def _validate_vin(value: str) -> str:
     if not _VIN_RE.fullmatch(value):
-        raise ValueError("VIN must be exactly 17 uppercase alphanumeric characters (excluding I, O, Q), no whitespace.")
+        raise ValueError(
+            "VIN must be exactly 17 uppercase alphanumeric characters (excluding I, O, Q), no whitespace."
+        )
     return value
 
 
@@ -348,8 +350,20 @@ def require_vin_or_pre_1981_chassis_number(vin: str | None, first_registration: 
 _DECIMAL_STRING_PATTERN = r"^-?[0-9]+(\.[0-9]+)?$"
 
 
+_DECIMAL_STRING_RE = re.compile(_DECIMAL_STRING_PATTERN)
+
+
 def _refuse_json_number(value: Any) -> Any:
-    if isinstance(value, (str, Decimal)):
+    if isinstance(value, Decimal):
+        return value
+    if isinstance(value, str):
+        # The pattern the schema advertises, enforced: no exponent, no
+        # surrounding spaces, no thousands separator, one decimal point.
+        if not _DECIMAL_STRING_RE.fullmatch(value):
+            raise PydanticCustomError(
+                "decimal_string_format",
+                'A decimal amount is written as digits with an optional minus and one decimal point, e.g. "1234.50".',
+            )
         return value
     raise PydanticCustomError(
         "decimal_string_type",

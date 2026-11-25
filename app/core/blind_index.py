@@ -11,9 +11,9 @@ why a plain hash would not do.
 
 **The key** is derived from `Settings.tax_id_encryption_key`, the key that
 already protects the column, with HMAC under a fixed label: one secret to hold,
-and the derived key is used for nothing else. Rotating that key re-encrypts
-every `tax_id`; the same job recomputes the search keys (`uid_search_key` on
-each decrypted value).
+and the derived key is used for nothing else. A rotation of that key must
+recompute every search key (`uid_search_key` on each decrypted value) along
+with re-encrypting every `tax_id`; no rotation job exists yet (KAN-828).
 
 **The canonical spelling** is `CHE` and the nine digits: `CHE-123.456.789`,
 `CHE123456789`, `che 123 456 789` and `CHE-123.456.789 MWST` (TVA, IVA) are one
@@ -66,9 +66,7 @@ def canonical_uid(text: str | None) -> str | None:
 
 @lru_cache
 def _search_key_secret() -> bytes:
-    return hmac.new(
-        get_settings().tax_id_encryption_key.encode("ascii"), _KEY_LABEL, hashlib.sha256
-    ).digest()
+    return hmac.new(get_settings().tax_id_encryption_key.encode("ascii"), _KEY_LABEL, hashlib.sha256).digest()
 
 
 def uid_search_key(text: str | None) -> str | None:

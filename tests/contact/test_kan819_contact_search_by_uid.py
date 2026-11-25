@@ -196,18 +196,34 @@ def test_the_duplicate_check_names_the_same_uid_an_exact_match(client):
 
 
 def test_neither_the_create_nor_the_search_logs_the_uid(client, caplog):
+    """No log line the application writes carries the UID in any spelling,
+    its canonical form or its search key — message or structured extras.
+    The test client's own request line (`httpx`) names the URL it was
+    given and is not the application's."""
+
     dealer_id = _dealer(client)
     uid = valid_uid()
-    digits = uid[4:].replace(".", "")
     with caplog.at_level(logging.DEBUG):
         _business(client, dealer_id, company="Still AG", tax_id=uid)
-        assert _search(client, dealer_id, uid) == ["Still AG"]
-    logged = "\n".join(record.getMessage() for record in caplog.records)
-    assert digits not in logged
-    assert uid_search_key(uid) not in logged
+        for typed in _spellings(uid):
+            assert _search(client, dealer_id, typed) == ["Still AG"]
+    standard = set(vars(logging.LogRecord("", 0, "", 0, "", None, None)))
+    texts = []
+    for record in caplog.records:
+        if record.name.startswith("httpx"):
+            continue
+        texts.append(record.getMessage())
+        texts.extend(repr(value) for key, value in vars(record).items() if key not in standard)
+    logged = "\n".join(texts).upper()
+    assert texts, "the create and the search wrote no log line at all: the test would prove nothing"
+    needles = {s.strip().upper() for s in _spellings(uid)} | {canonical_uid(uid), uid_search_key(uid).upper()}
+    for needle in needles:
+        assert needle not in logged, needle
 
 
-@pytest.mark.parametrize("text_", ["", "Keller", "CHE-123.456", "CHE-123.456.7890", "CHE-１２３.456.789", "079 123 45 67"])
+@pytest.mark.parametrize(
+    "text_", ["", "Keller", "CHE-123.456", "CHE-123.456.7890", "CHE-１２３.456.789", "079 123 45 67"]
+)
 def test_text_that_is_no_whole_uid_has_no_search_key(text_):
     assert canonical_uid(text_) is None
     assert uid_search_key(text_) is None

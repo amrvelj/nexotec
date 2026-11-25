@@ -15402,6 +15402,10 @@ export interface components {
          *     configuration create/update use this; every read keeps
          *     `VehicleSpecBlockRead`. Inherits `model_fields`, so the drift test
          *     covers it for free.
+         *
+         *     KAN-827: its decimal fields are redeclared as `DecimalStr`, so a request
+         *     takes them as decimal strings only; the read model keeps `Decimal` and
+         *     every response its shape.
          */
         VehicleSpecBlockInput: {
             /** Baseprice */

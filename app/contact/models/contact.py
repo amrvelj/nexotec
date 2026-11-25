@@ -320,8 +320,9 @@ class Contact(PrimaryKeyMixin, VersionedMixin, TimestampMixin, Base):
     # KAN-819: the keyed blind index of `tax_id` (app/core/blind_index.py), so
     # the contact search finds a business contact by its UID without
     # decrypting a row. Written by `_keep_tax_id_search_key` below on every
-    # assignment of `tax_id` — create, PATCH, merge and erasure alike — never
-    # by hand. Says nothing without the application's key.
+    # ORM assignment of `tax_id` (create and PATCH today; any later writer
+    # that sets the attribute), never by hand. A bulk `update(Contact)` that
+    # sets tax_id would bypass it. Says nothing without the application's key.
     tax_id_search_key: Mapped[str | None] = mapped_column(
         String(64),
         nullable=True,

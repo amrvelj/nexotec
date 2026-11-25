@@ -6,7 +6,7 @@ import datetime as dt
 import uuid
 from typing import Any
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import ColumnElement, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.contact.models.contact import (
@@ -49,7 +49,7 @@ def _search_predicate(group_id: uuid.UUID, q: str):
     """
 
     pattern = f"%{q}%"
-    conditions = [
+    conditions: list[ColumnElement[bool]] = [
         Contact.first_name.ilike(pattern),
         Contact.last_name.ilike(pattern),
         Contact.company_name.ilike(pattern),

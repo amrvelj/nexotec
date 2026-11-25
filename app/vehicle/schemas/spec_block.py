@@ -8,6 +8,7 @@ API all share. It is kept in lockstep with the mixin by
 asserts its field set (by alias) equals `SPEC_BLOCK_FIELDS`.
 """
 
+from decimal import Decimal
 
 from app.core.schemas import CamelModel
 from app.core.validators import DecimalStr
@@ -41,13 +42,13 @@ class VehicleSpecBlockRead(CamelModel):
     towing_capacity_kg: int | None = None
     wheelbase_mm: int | None = None
     # consumption / energy
-    consumption_mixed: DecimalStr | None = None
-    consumption_urban: DecimalStr | None = None
-    consumption_extra_urban: DecimalStr | None = None
+    consumption_mixed: Decimal | None = None
+    consumption_urban: Decimal | None = None
+    consumption_extra_urban: Decimal | None = None
     consumption_norm: str | None = None
     co2_gkm: int | None = None
-    energy_consumption_kwh: DecimalStr | None = None
-    battery_capacity_kwh: DecimalStr | None = None
+    energy_consumption_kwh: Decimal | None = None
+    battery_capacity_kwh: Decimal | None = None
     range_km: int | None = None
     tank_capacity_l: int | None = None
     # homologation codes
@@ -57,7 +58,7 @@ class VehicleSpecBlockRead(CamelModel):
     model_year: int | None = None
     production_from: int | None = None
     production_to: int | None = None
-    base_price: DecimalStr | None = None
+    base_price: Decimal | None = None
     base_price_year: int | None = None
     price_is_net: bool | None = None
 
@@ -68,5 +69,16 @@ class VehicleSpecBlockInput(VehicleSpecBlockRead):
     moment the read model is also used as a request body). C-C's
     configuration create/update use this; every read keeps
     `VehicleSpecBlockRead`. Inherits `model_fields`, so the drift test
-    covers it for free."""
+    covers it for free.
+
+    KAN-827: its decimal fields are redeclared as `DecimalStr`, so a request
+    takes them as decimal strings only; the read model keeps `Decimal` and
+    every response its shape."""
+
+    consumption_mixed: DecimalStr | None = None
+    consumption_urban: DecimalStr | None = None
+    consumption_extra_urban: DecimalStr | None = None
+    energy_consumption_kwh: DecimalStr | None = None
+    battery_capacity_kwh: DecimalStr | None = None
+    base_price: DecimalStr | None = None
 
