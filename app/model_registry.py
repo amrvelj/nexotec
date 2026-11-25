@@ -48,6 +48,7 @@ from app.inventory.models.website_listing import StockItemWebsiteListing
 from app.planning.models.booking import Booking, BookingResource, OverruledWarning
 from app.planning.models.lists import Qualification, TechnicianType, WorkplaceType
 from app.planning.models.resource import Resource, ResourceQualification, WorkingHours
+from app.planning.models.starting_set import StartingSet
 from app.platform.administration.models.export_job import ExportJob
 from app.platform.administration.models.setup_checklist import SetupChecklistRegression
 from app.platform.administration.models.status_page import PlatformStatusIncident, StatusItemState
@@ -242,6 +243,7 @@ __all__ = [
     "SetupChecklistRegression",
     "StandardText",
     "StandardTextDelegation",
+    "StartingSet",
     "StatusItemState",
     "StockItem",
     "StockItemBooking",

@@ -20,6 +20,7 @@ from app.core.reconciliation import ReconciliationRun, ReferenceCheck, StateChec
 from app.planning.models.booking import Booking, BookingResource, OverruledWarning
 from app.planning.models.lists import Qualification, TechnicianType, WorkplaceType
 from app.planning.models.resource import Resource, ResourceKind, ResourceQualification, WorkingHours
+from app.planning.models.starting_set import StartingSet
 from app.platform.public import (
     actor_reference_checks,
     dealership_reference_check,
@@ -52,6 +53,7 @@ def _tenant_checks() -> list[ReferenceCheck | StateCheck]:
             Booking,
             BookingResource,
             OverruledWarning,
+            StartingSet,
         )
     ]
 
