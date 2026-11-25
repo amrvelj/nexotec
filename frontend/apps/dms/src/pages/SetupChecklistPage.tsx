@@ -9,6 +9,7 @@ import type { ActivationRead, CurrentLegalDocuments, LegalDocumentRead, SetupChe
 import { useAuth } from '../auth/AuthContext'
 import { LegalDocumentsToAccept } from '../components/setup/LegalDocumentsToAccept'
 import { apiRefusalText } from '../utils/apiRefusal'
+import { checklistItemDescription, checklistItemTitle } from '../utils/checklistItem'
 
 export const setupChecklistKey = (dealershipId: string) => ['setup-checklist', dealershipId]
 
@@ -62,9 +63,9 @@ export function SetupChecklistPage() {
                 {data.items.map((item) => (
                   <Table.Tr key={item.code}>
                     <Table.Td>
-                      <Text fw={600}>{t(`setup.items.${item.code}.title`)}</Text>
+                      <Text fw={600}>{checklistItemTitle(t, item.code)}</Text>
                       <Text fz="sm" c="dimmed">
-                        {t(`setup.items.${item.code}.description`)}
+                        {checklistItemDescription(t, item.code)}
                       </Text>
                       <Text fz="xs" c="dimmed">
                         {pending ? t('setup.blocks.activation') : item.blocks ? t(`setup.blocks.${item.blocks}`) : null}

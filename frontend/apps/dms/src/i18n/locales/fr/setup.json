@@ -127,5 +127,8 @@
     "manager_only": "C'est à un gérant de cette entreprise de le faire.",
     "setup_checklist_incomplete": "La liste de contrôle n'est pas encore complète.",
     "setup_checklist_item_missing": "Un point de la mise en service manque : « {{item}} ». Réglez-le dans Administration › Mise en service."
+  },
+  "settingItem": {
+    "description": "Ce réglage n'est pas encore défini, pour l'entreprise ou pour chaque site actif."
   }
 }

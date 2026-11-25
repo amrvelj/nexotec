@@ -247,6 +247,28 @@ def read_setting(db: Session, *, dealership_id: uuid.UUID, location_id: uuid.UUI
     )
 
 
+def is_set_everywhere(db: Session, *, dealership_id: uuid.UUID, key: str) -> bool:
+    """Whether `key` has a value in force wherever the Betrieb works: its own
+    value, or else a value of its own at every active location (and at least
+    one is active). A value that no longer fits its declaration does not count
+    (`_still_fits`). The setup checklist's test for a setting item (KAN-805
+    PR-3): open while some active location would read «not set»."""
+
+    declaration = _declaration(key)
+    rows = list(db.scalars(select(SettingValue).where(SettingValue.dealership_id == dealership_id, SettingValue.key == key)))
+
+    def in_force(row: SettingValue) -> bool:
+        return row.state == SettingState.SET and _still_fits(declaration, row)
+
+    if any(row.location_id is None and in_force(row) for row in rows):
+        return True
+    active = set(
+        db.scalars(select(Location.id).where(Location.tenant_id == dealership_id, Location.is_active.is_(True)))
+    )
+    covered = {row.location_id for row in rows if row.location_id is not None and in_force(row)}
+    return bool(active) and active <= covered
+
+
 def _location(db: Session, *, dealership_id: uuid.UUID, location_id: uuid.UUID) -> Location:
     location = db.scalar(select(Location).where(Location.id == location_id, Location.tenant_id == dealership_id))
     if location is None:
