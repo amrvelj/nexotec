@@ -629,10 +629,13 @@ def agreements_query(
     contact_id: uuid.UUID | None = None,
     category_id: uuid.UUID | None = None,
     include_withdrawn: bool = False,
+    contact_ids: list[uuid.UUID] | None = None,
 ):
     stmt = select(LabourRateAgreement).where(LabourRateAgreement.dealership_id == dealership_id)
     if contact_id is not None:
         stmt = stmt.where(LabourRateAgreement.contact_id == contact_id)
+    if contact_ids is not None:
+        stmt = stmt.where(LabourRateAgreement.contact_id.in_(contact_ids))
     if category_id is not None:
         stmt = stmt.where(LabourRateAgreement.category_id == category_id)
     if not include_withdrawn:

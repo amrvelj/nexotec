@@ -39,7 +39,8 @@ per-location column while any location holds a value). Split out of platform-adm
   for the Betrieb and every active location holding a slot of either key (`setting_rules.py`): 422
   `setting_choice_requires_setting` / `setting_required_by_choice`, with the keys and location in `details`.
   `check_declaration_references()` (start-up) refuses a rule naming an undeclared key; the area API shows
-  `choiceRequires`. A copy (KAN-805 PR-4) writes the required key first. Shipped declarations: O16, O18, O19
+  `choiceRequires`. The copy from a sister writes a required key before the choice that needs it
+  (`declared_settings_in_write_order`; a test copies O19 + O18 «work units» whole). Shipped declarations: O16, O18, O19
   (`platform-labour-rates.md`).
 - **Setup checklist** (`administration/services/setup_checklist.py`): a declaration with
   `checklist_item` is an item, code = its key (a contributed code never has a dot), applying with

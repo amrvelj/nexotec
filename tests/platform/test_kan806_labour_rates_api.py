@@ -80,10 +80,11 @@ def _category(client, headers, dealership_id, name="Mechanik"):
     return response.json()
 
 
-def _rate(client, headers, dealership_id, category_id, location_id, *, amount="150.00", valid_from=_today()):
+def _rate(client, headers, dealership_id, category_id, location_id, *, amount="150.00", valid_from=None):
     return client.post(
         f"{_base(dealership_id)}/labour-rate-categories/{category_id}/rates",
-        json={"locationId": str(location_id), "validFrom": valid_from.isoformat(), "amount": amount, "entered": "net"},
+        json={"locationId": str(location_id), "validFrom": (valid_from or _today()).isoformat(), "amount": amount,
+              "entered": "net"},
         headers=headers,
     )
 

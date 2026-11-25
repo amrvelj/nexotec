@@ -3,8 +3,9 @@ settings» 8.2, O16, O18, O19; rulings 177 and 183) and their readers.
 
 - **O16** `labour_rates.rates_entered`: the Betrieb types its labour rates
   net or with VAT (ruling 177). Nexotec cannot choose it for the Betrieb, so
-  «not set» refuses: no rate or agreement can be entered without it, and it is
-  an item of the Aftersales setup checklist.
+  «not set» refuses: no rate or agreement can be entered without it. It becomes
+  an item of the Aftersales setup checklist with the labour-rates screen
+  (KAN-806 PR-2; a setting item links to a screen the SPA must serve).
 - **O18** `labour_rates.time_unit`: labour time is entered and shown in hours
   or in work units (AW). «Not set» acts as hours.
 - **O19** `labour_rates.work_units_per_hour`: how many work units make an
@@ -102,9 +103,10 @@ class LabourTimeUnit:
 def labour_time_unit(db: Session, *, dealership_id: uuid.UUID, location_id: uuid.UUID | None) -> LabourTimeUnit:
     """O18 and O19 at this location: hours, or work units with how many make
     an hour. «Not set» is hours. Work units without work units per hour cannot
-    be written (check 49); should a stored pair ever say so (a value that no
-    longer fits its declaration), this answers hours and logs it, and
-    platform's reconciliation reports it."""
+    be written (check 49); should a stored pair ever say so — a location
+    deactivated while it relied on the Betrieb's O19, that cleared, the
+    location reactivated — this answers hours and logs it, and platform's
+    reconciliation reports it."""
 
     unit = read_setting(db, dealership_id=dealership_id, location_id=location_id, key="labour_rates.time_unit")
     if unit.effective != WORK_UNITS:

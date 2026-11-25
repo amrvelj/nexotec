@@ -311,14 +311,20 @@ def list_labour_rate_agreements(
     )
     rows = list(db.scalars(paginate_query_sorted(stmt, model=LabourRateAgreement, params=params)).all())
     page, next_cursor = build_page_for_sort(rows, params)
-    pairs = {(row.contact_id, row.category_id) for row in page}
-    statuses: dict = {}
+    # One read for every contact and category on the page: a row's status depends on its siblings.
     on = service.today()
-    for contact, category in pairs:
-        siblings = service.agreements_of(
-            db, dealership_id=dealership_id, contact_id=contact, category_id=category, include_withdrawn=True
+    pairs = {(row.contact_id, row.category_id) for row in page}
+    siblings = [
+        row
+        for row in service.agreements_of(
+            db,
+            dealership_id=dealership_id,
+            contact_ids=[contact for contact, _ in pairs],
+            include_withdrawn=True,
         )
-        statuses.update(service.agreement_statuses(siblings, on))
+        if (row.contact_id, row.category_id) in pairs
+    ]
+    statuses = service.agreement_statuses(siblings, on)
     return LabourRateAgreementPage(
         today=on, items=[agreement_read(row, statuses[row.id]) for row in page], next_cursor=next_cursor
     )

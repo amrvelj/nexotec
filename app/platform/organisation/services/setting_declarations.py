@@ -258,6 +258,30 @@ def check_declaration_references() -> None:
                 raise SettingDeclarationError(f"Setting {declaration.key!r} requires the text {required!r}.")
 
 
+def declared_settings_in_write_order() -> tuple[SettingDeclaration, ...]:
+    """Every declaration, a key that a choice requires before the choice
+    (KAN-806): a writer of several settings at once — the copy from a sister
+    Betrieb — then never meets `setting_choice_requires_setting` for a pair it
+    brings whole. Otherwise by key."""
+
+    ordered: list[SettingDeclaration] = []
+    seen: set[str] = set()
+
+    def visit(declaration: SettingDeclaration) -> None:
+        if declaration.key in seen:
+            return
+        seen.add(declaration.key)
+        for _, required in declaration.choice_requires:
+            other = _REGISTRY.get(required)
+            if other is not None:
+                visit(other)
+        ordered.append(declaration)
+
+    for declaration in declared_settings():
+        visit(declaration)
+    return tuple(ordered)
+
+
 def choice_rules() -> tuple[tuple[SettingDeclaration, str, str], ...]:
     """Every cross-key rule: (the choice's declaration, the choice, the key it requires)."""
 
