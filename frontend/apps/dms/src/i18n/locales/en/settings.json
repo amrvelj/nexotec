@@ -1,7 +1,31 @@
 {
-  "keys": {},
-  "areas": {},
-  "units": {},
+  "keys": {
+    "labour_rates": {
+      "rates_entered": {
+        "label": "Labour rates entered",
+        "options": {
+          "net": "net",
+          "gross": "with VAT"
+        }
+      },
+      "time_unit": {
+        "label": "Labour time in",
+        "options": {
+          "hours": "hours",
+          "work_units": "work units (AW)"
+        }
+      },
+      "work_units_per_hour": {
+        "label": "Work units per hour"
+      }
+    }
+  },
+  "areas": {
+    "labour_rates": "Labour rates"
+  },
+  "units": {
+    "work_units_per_hour": "AW per hour"
+  },
   "title": "Settings",
   "subtitle": "The settings of the areas this business uses. Each value applies to the business and can differ per location.",
   "areaSubtitle": "A change applies from now on. A location without a value of its own takes the business's value.",

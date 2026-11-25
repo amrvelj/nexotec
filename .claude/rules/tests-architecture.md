@@ -5,7 +5,7 @@ paths:
 ---
 <!-- Maintainer note. Moved out of tests.md by KAN-615 (2026-11-13): the enumeration of what the
 architecture tests guard became the directory itself; kept here is only what a test's name does
-not say. Last verified against main@3b2bf69 (2026-11-18). -->
+not say. Last verified against main@32ad509 (2026-11-25). -->
 
 # Architecture tests
 
@@ -32,8 +32,10 @@ the names do not say:
   `require_write`; the delegation-aware gate only on a route whose path carries `{category}`.
 - `test_catalogue_browse_is_a_bounded_live_query.py`: one provider request per page and per
   facet field, `page[number]` only in the adapter, no catalogue query in a loop (ADR-112).
-- `test_no_bulk_catalogue_retrieval.py` also refuses a daily job reaching an integration provider
-  through the gateway (a connected-account revoker is not one).
+- `test_no_bulk_catalogue_retrieval.py` also refuses a daily job reaching a vehicle-data provider
+  through the gateway, and any other provider outside two ruled exceptions — the Business Profile
+  `drift_check` and `horizon_push`, per binding, never a catalogue (KAN-798, ADR-205 amended); each
+  exception must resolve Google in its fixture (a connected-account revoker is no gateway provider).
 - `test_no_real_provider_account_values.py` names the values it refuses by hash only — never
   put a value in the guard.
 - `test_context_dependency_direction.py`: calls go only down the layers (ADR-131); its debt list

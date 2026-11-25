@@ -204,3 +204,21 @@ def test_the_targets_settings_are_locked_from_the_first_read(client, engine, dec
     monkeypatch.setattr(store, "get_slot", probing_get_slot)
     assert _copy(client, target, headers, source, dry_run=False, subsets=SETTINGS).status_code == 200
     assert probes == [True]
+
+
+def test_a_pair_bound_by_a_rule_is_copied_whole_the_required_key_first(client, engine):
+    """KAN-806 (check 49): O18 «work units» needs O19. Keys sort O18 first, so a
+    copy in key order would refuse O18 and leave the target on hours; the copy
+    writes the required key first (`declared_settings_in_write_order`)."""
+
+    source, target, _, headers = _aftersales_pair(client, engine)
+    _set(engine, source, "labour_rates.work_units_per_hour", Decimal(12))
+    _set(engine, source, "labour_rates.time_unit", "work_units")
+    expected = {
+        "labour_rates.work_units_per_hour": ("created", None),
+        "labour_rates.time_unit": ("created", None),
+    }
+    assert _items(_copy(client, target, headers, source, dry_run=True, subsets=SETTINGS)) == expected
+    assert _items(_copy(client, target, headers, source, dry_run=False, subsets=SETTINGS)) == expected
+    assert _value(engine, target, "labour_rates.time_unit") == "work_units"
+    assert _value(engine, target, "labour_rates.work_units_per_hour") == Decimal(12)

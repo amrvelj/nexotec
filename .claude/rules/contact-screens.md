@@ -19,7 +19,7 @@ paths:
 <!-- Maintainer note. PRD-Contacts v2.2 (FR-22 as amended by KAN-468); ADR-061 (as amended
 2026-10-30), ADR-101. Split out of contact.md by KAN-751 (2026-11-18) to keep it within its
 budget; the backend rules stay in contact.md, vehicle parties in contact-vehicle-party.md. Last
-verified against main@3b2bf69 (2026-11-18). -->
+verified against main@32ad509 (2026-11-25). -->
 
 # Contact screens
 

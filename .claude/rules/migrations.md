@@ -6,6 +6,7 @@ paths:
   - "app/core/*_model.py"
   - "app/model_registry.py"
   - "app/core/enum_type.py"
+  - "app/core/text_collation.py"
   - "app/db.py"
   - "tests/**/test_migrated_*.py"
   - "tests/test_migration_*.py"
@@ -16,7 +17,7 @@ paths:
 ---
 <!-- Maintainer note. ADR-015 (PR-3 chains), ADR-011, ADR-021, ADR-088, ADR-133, ADR-134, rule 2. KAN-615
 (2026-11-13) cut it to the invariants; data-migration scripts are migrations-scripts.md. Last
-verified against main@3b2bf69 (2026-11-18). -->
+verified against main@32ad509 (2026-11-25). -->
 
 # Schema and migrations
 
@@ -67,6 +68,10 @@ verified against main@3b2bf69 (2026-11-18). -->
   constraint only one side has by name. Declare every index and constraint on the model with the
   migration's exact name and shape; a missing column comment is fixed by a comment-only migration
   in that context's chain.
+- **An index behind a word sort** is over `text_sort_index_key` (`app/core/text_collation.py`, KAN-740,
+  ADR-190): `alembic/env.py`'s `include_object` keeps it out of autogenerate and `alembic check`, so
+  its migration is hand-written and it is compared by `pg_get_indexdef`
+  (`schema_diff_support.py`, run by `test_migrated_schema_matches_models.py`).
 - `Settings.legacy_vehicle_write_frozen` is read by nothing since the legacy `vehicle` table went
   (ADR-021 amended); its removal waits on a preserved-file edit (`config.py`).
 - `scripts/dev/check` mirrors both CI migration jobs when migrations, models or what a migration

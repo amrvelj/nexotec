@@ -33,6 +33,7 @@ from app.platform.identity.models.notification import (
 from app.platform.identity.models.standard_text_delegation import StandardTextDelegation
 from app.platform.identity.models.support_session import SupportSession
 from app.platform.identity.models.user import User
+from app.platform.identity.models.user_labour_category import UserLabourCategory
 from app.platform.identity.models.user_location import UserLocation
 from app.platform.identity.models.user_preference import UserPreference
 from app.platform.identity.services import connected_account
@@ -41,6 +42,7 @@ from app.platform.organisation.models.dealership import DealerGroup, Dealership,
 from app.platform.organisation.models.dealership_bank_account import DealershipBankAccount
 from app.platform.organisation.models.dealership_settings import DealershipSettings
 from app.platform.organisation.models.holiday_calendar import Holiday, HolidayCalendar
+from app.platform.organisation.models.labour_rate import LabourRate, LabourRateAgreement, LabourRateCategory
 from app.platform.organisation.models.location_schedule import LocationClosure, LocationOpeningHours
 from app.platform.organisation.models.module_entitlement import ModuleEntitlement
 from app.platform.organisation.models.number_range import NumberRange, NumberRangeConfirmation
@@ -119,6 +121,11 @@ class PlatformExporter(TableExporter):
             # KAN-805 (ADR-214): the settings store's values and every change of them.
             ExportedTable(table=table_of(SettingValue), scope=_by_dealership(table_of(SettingValue))),
             ExportedTable(table=table_of(SettingValueChange), scope=_by_dealership(table_of(SettingValueChange))),
+            # KAN-806: the labour rates (D-A-19), the Betrieb's own master data.
+            ExportedTable(table=table_of(LabourRateCategory), scope=_by_dealership(table_of(LabourRateCategory))),
+            ExportedTable(table=table_of(LabourRate), scope=_by_dealership(table_of(LabourRate))),
+            ExportedTable(table=table_of(LabourRateAgreement), scope=_by_dealership(table_of(LabourRateAgreement))),
+            ExportedTable(table=table_of(UserLabourCategory), scope=_by_dealership(table_of(UserLabourCategory))),
             ExportedTable(table=table_of(DealershipAuthConfig), scope=_by_dealership(table_of(DealershipAuthConfig))),
             ExportedTable(table=table_of(DealershipBankAccount), scope=_by_dealership(table_of(DealershipBankAccount))),
             contact_group.export_table(),

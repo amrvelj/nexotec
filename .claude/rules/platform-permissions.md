@@ -13,7 +13,7 @@ paths:
   - "tests/platform/test_user*.py"
   - "tests/platform/test_memberships.py"
   - "tests/platform/test_report_platform_admins_homed_in_dealerships.py"
-  - "scripts/report_platform_admins_homed_in_dealerships.py"
+  - "scripts/*_platform_admins_*.py"
   - "frontend/apps/dms/src/auth/gatedCapabilities.ts"
   - "frontend/apps/dms/src/**/useCanWrite*"
   - "frontend/apps/dms/src/pages/UsersListPage*"
@@ -21,7 +21,7 @@ paths:
 ---
 <!-- Maintainer note. D-A-03, D-A-18, the PRD's permission matrix; ADR-061, ADR-104. Moved out of
 platform-users.md by KAN-615 so that app/core/permissions.py loads only this. Last verified against
-main@3b2bf69 (2026-11-18). -->
+main@32ad509 (2026-11-25). -->
 
 # Roles and permissions (D-A-03)
 

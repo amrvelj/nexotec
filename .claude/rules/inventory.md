@@ -17,7 +17,7 @@ paths:
 <!-- Maintainer note. PRD-Stock; ADR-045/049/052/054/055/057/062/070/074/087/103/116/117/174/179.
 KAN-615 (2026-11-13) cut it to the invariants: purchase and storno are inventory-purchase.md,
 reservations inventory-reservation.md, VINs inventory-vin-correction.md, screens
-inventory-screens.md. Last verified against main@3b2bf69 (2026-11-18). -->
+inventory-screens.md. Last verified against main@32ad509 (2026-11-25). -->
 
 # Stock and inventory
 

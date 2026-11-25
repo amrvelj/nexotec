@@ -11,9 +11,9 @@ catches it before it runs.
 **Changing** (`change_setting`, `restore_change`): the manager's write
 (capability `dealership_settings`, checked by the caller). One transaction
 writes the slot, its history row and the audit row. Writes for one Betrieb
-are serialised by an advisory transaction lock, so a later rule across two
-keys (KAN-806: «work units» only with work units per hour) reads a value no
-concurrent write can change under it; the slot's `version` is checked
+are serialised by an advisory transaction lock, so a rule across two keys
+(KAN-806: «work units» only with work units per hour, `setting_rules`) reads
+a value no concurrent write can change under it; the slot's `version` is checked
 against the caller's (If-Match). A slot never written has version 0: the
 first write expects 0 and makes 1. A write that changes nothing writes
 nothing.
@@ -65,6 +65,7 @@ from app.platform.organisation.services.setting_declarations import (
     get_declaration,
     validate_value,
 )
+from app.platform.organisation.services.setting_rules import check_choice_rules
 
 Value = bool | Decimal | str | TextValue
 
@@ -211,6 +212,12 @@ def _slots(db: Session, *, dealership_id: uuid.UUID, location_id: uuid.UUID | No
         stmt = stmt.where((SettingValue.location_id == location_id) | SettingValue.location_id.is_(None))
     rows = list(db.scalars(stmt))
     return sorted(rows, key=lambda row: row.location_id is None)
+
+
+def _in_force(declaration: SettingDeclaration, row: SettingValue) -> Value | None:
+    """A stored slot's value as reads count it: None when not set or no longer fitting."""
+
+    return _value_of(row) if row.state == SettingState.SET and _still_fits(declaration, row) else None
 
 
 def _still_fits(declaration: SettingDeclaration, row: SettingValue) -> bool:
@@ -381,6 +388,7 @@ def change_setting(
 
     row = _slot_row(db, dealership_id=dealership_id, location_id=location_id, key=key, for_update=True)
     check_version(row.version if row is not None else 0, expected_version, entity_name="setting")
+    check_choice_rules(db, dealership_id=dealership_id, location_id=location_id, key=key, proposed=checked, in_force=_in_force)
     before = _value_of(row) if row is not None else None
     if row is None and checked is None:
         # Clearing a slot never written changes nothing.

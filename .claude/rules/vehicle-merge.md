@@ -25,7 +25,7 @@ paths:
 <!-- Maintainer note. FR-V-12; split out of vehicle-mdm.md by KAN-524 (rule budget). Rulings:
 KAN-524 (Anto, 2026-11-11 option A; 2026-11-13 Q1 B, Q2 A; 2026-11-14 Q3 A, Q4 A), KAN-634, KAN-644,
 KAN-672, KAN-673, KAN-680, KAN-706, KAN-724, KAN-733; ADR-131, ADR-160, ADR-182. Last verified against
-main@3b2bf69 (2026-11-18). -->
+main@32ad509 (2026-11-25). -->
 
 # Merging two vehicle records (FR-V-12)
 
@@ -45,7 +45,7 @@ main@3b2bf69 (2026-11-18). -->
   live record; one in stock takes its VIN, its configuration first on Vehicle's session
   (`follow_vehicle_merge_on_configuration`, audited `vin_corrected_by_merge`) — unless its Betrieb
   already holds the survivor live: it keeps its VIN and inventory reports «two live stock items of one
-  Betrieb name one vehicle_mdm record» (a chassis-number car stays on the duplicate: one per record
+  business name one vehicle_mdm record» (a chassis-number car stays on the duplicate: one per record
   and Betrieb is an index; KAN-706's check names it, and Stock's daily `inventory.merged_record_items.repair`
   moves it once nothing blocks it, KAN-724); one that took a VIN publishes
   `inventory.stock_item.vin_corrected`. No Händlerschild assignment is written (removed until specified). Contact's

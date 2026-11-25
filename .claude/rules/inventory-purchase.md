@@ -16,7 +16,7 @@ paths:
   - "frontend/apps/dms/src/modules/stock/components/stock-detail/WagenbuchTab.tsx"
 ---
 <!-- Maintainer note. PRD-Stock FR-I-05; ADR-052, ADR-103; Anto's rulings on KAN-146 and KAN-572.
-Moved out of inventory.md by KAN-615 (2026-11-13). Last verified against main@3b2bf69 (2026-11-18). -->
+Moved out of inventory.md by KAN-615 (2026-11-13). Last verified against main@32ad509 (2026-11-25). -->
 
 # The purchase booking and «Einkauf stornieren»
 

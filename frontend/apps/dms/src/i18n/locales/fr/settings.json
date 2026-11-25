@@ -1,7 +1,31 @@
 {
-  "keys": {},
-  "areas": {},
-  "units": {},
+  "keys": {
+    "labour_rates": {
+      "rates_entered": {
+        "label": "Taux horaires saisis",
+        "options": {
+          "net": "nets",
+          "gross": "TVA incluse"
+        }
+      },
+      "time_unit": {
+        "label": "Temps de travail en",
+        "options": {
+          "hours": "heures",
+          "work_units": "unités de travail (UT)"
+        }
+      },
+      "work_units_per_hour": {
+        "label": "Unités de travail par heure"
+      }
+    }
+  },
+  "areas": {
+    "labour_rates": "Taux horaires"
+  },
+  "units": {
+    "work_units_per_hour": "UT par heure"
+  },
   "title": "Réglages",
   "subtitle": "Les réglages des domaines que cette entreprise utilise. Chaque valeur vaut pour l'entreprise et peut différer selon le site.",
   "areaSubtitle": "Une modification s'applique immédiatement. Un site sans valeur propre reprend la valeur de l'entreprise.",

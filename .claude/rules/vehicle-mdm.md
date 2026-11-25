@@ -48,7 +48,7 @@ paths:
 ---
 <!-- Maintainer note (stripped before Claude sees it). Summarises PRD-Vehicles, ADR-039 and ADR-043
 as amended, ADR-045, ADR-075, ADR-085, ADR-103, ADR-107, ADR-112, ADR-114, ADR-119, ADR-121, ADR-131, ADR-160. Cut from vehicle.md by KAN-614 (2026-11-10) to
-the invariants. Last verified against main@3b2bf69 (2026-11-18). -->
+the invariants. Last verified against main@32ad509 (2026-11-25). -->
 
 # Vehicle master data (PRD-Vehicles)
 

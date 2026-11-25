@@ -1,7 +1,31 @@
 {
-  "keys": {},
-  "areas": {},
-  "units": {},
+  "keys": {
+    "labour_rates": {
+      "rates_entered": {
+        "label": "Stundenansätze erfasst",
+        "options": {
+          "net": "netto",
+          "gross": "inkl. MwSt."
+        }
+      },
+      "time_unit": {
+        "label": "Arbeitszeit in",
+        "options": {
+          "hours": "Stunden",
+          "work_units": "Arbeitswerten (AW)"
+        }
+      },
+      "work_units_per_hour": {
+        "label": "Arbeitswerte pro Stunde"
+      }
+    }
+  },
+  "areas": {
+    "labour_rates": "Stundensätze"
+  },
+  "units": {
+    "work_units_per_hour": "AW pro Stunde"
+  },
   "title": "Einstellungen",
   "subtitle": "Die Einstellungen der Bereiche, die dieser Betrieb nutzt. Jeder Wert gilt für den Betrieb und kann je Standort abweichen.",
   "areaSubtitle": "Eine Änderung gilt ab sofort. Ein Standort ohne eigenen Wert übernimmt den Wert des Betriebs.",

@@ -1025,6 +1025,9 @@ def test_no_hard_delete_endpoint_exists_for_fk_target_entities(client):
         # removed sister-Betrieb access keeps its record (Anto, 2026-10-17).
         "/v1/dealerships/{dealership_id}/users/{user_id}/memberships/{member_dealership_id}",
         "/v1/dealerships/{dealership_id}/users/{user_id}/text-delegations",
+        # KAN-806: a user's allocation to a labour category (an unversioned row that
+        # exists or not); nothing references it.
+        "/v1/dealerships/{dealership_id}/labour-rate-categories/{category_id}/members/{user_id}",
         # KAN-196: sessions are revoked (`revoked_at`), never deleted — the
         # user's own revoke (platform staff's revoke-all and MFA reset are
         # POSTs at the recovery door since KAN-202). The second

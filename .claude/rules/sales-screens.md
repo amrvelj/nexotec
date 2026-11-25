@@ -15,7 +15,7 @@ paths:
 ---
 <!-- Maintainer note. PRD-Sales v2, ADR-059, ADR-061, ADR-063, ADR-083. Moved out of sales.md by
 KAN-615 (2026-11-13); screens outside src/modules/sales/ listed by file. Last verified against
-main@3b2bf69 (2026-11-18). The backend rules are sales.md. -->
+main@32ad509 (2026-11-25). The backend rules are sales.md. -->
 
 # Sales screens: the offer workspace, the contract page, the Sales list
 

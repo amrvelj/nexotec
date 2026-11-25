@@ -19,7 +19,7 @@ paths:
 ---
 <!-- Maintainer note. Rules 4-6, 10, 12; ADR-006/046/047/081/084/107/126. Loads for every service
 file, so it holds the invariants only: worker and job detail is events-worker.md, Stock/Sales fact
-flows events-stock-sales.md (KAN-615). Last verified against main@3b2bf69 (2026-11-18). -->
+flows events-stock-sales.md (KAN-615). Last verified against main@32ad509 (2026-11-25). -->
 
 # Events, outbox, consumers and reconciliation
 

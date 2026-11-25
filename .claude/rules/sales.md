@@ -2,13 +2,12 @@
 paths:
   - "app/sales/**"
   - "tests/sales/test_sales_*.py"
-  - "tests/architecture/test_margin_never_in_rendered_document.py"
   - "tests/architecture/test_adr_047_no_shared_transaction.py"
   - "alembic/versions/sales/**"
 ---
 <!-- Maintainer note. PRD-Sales v2 (S-D10); ADR-041/046/047/049/050/051/052/057/063/065/083/086/088/098/109/135.
 KAN-615 (2026-11-13) cut it to the invariants: screens in sales-screens.md, reconciliation in
-sales-reconciliation.md. Last verified against main@3b2bf69 (2026-11-18). -->
+sales-reconciliation.md. Last verified against main@32ad509 (2026-11-25). -->
 
 # Sales: offers, contracts, pricing, documents
 
@@ -108,14 +107,7 @@ and the discount cap: `sales-pricing.md`. **There is no `vatTreatment`.**
   from the contact, an attach and every confirmation; a merged contact every attach.
 
 ## Documents
-- **ADR-063** — build, then review the rendered document in the **contact's correspondence
-  language** with the seller-only margin panel beside it, never on it
-  (`test_margin_never_in_rendered_document.py`). No contact language: the Betrieb's own default
-  (Contacts FR-13), never a silent German.
-- **The wording is the Betrieb's standard text**: offer intro and footer, contract footer, through
-  `platform.public.render_standard_text` with Sales' facts; a token Sales cannot fill fails the
-  generation before anything is written. Sales holds no text column (ADR-051,
-  `platform-documents.md`).
+Rendering, wording and sending: `sales-documents.md`.
 - **ADR-041** — an offer, and a pending contract through the same function, freeze a
   `vehicle_snapshot`. **Path B** (FR-C-12) is the configurator, `build` only: `configurationId` prefills the
   base price, freezes the spec block and turns its price lines into factory-option lines,

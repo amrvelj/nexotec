@@ -1,7 +1,31 @@
 {
-  "keys": {},
-  "areas": {},
-  "units": {},
+  "keys": {
+    "labour_rates": {
+      "rates_entered": {
+        "label": "Tariffe orarie inserite",
+        "options": {
+          "net": "al netto",
+          "gross": "IVA inclusa"
+        }
+      },
+      "time_unit": {
+        "label": "Tempo di lavoro in",
+        "options": {
+          "hours": "ore",
+          "work_units": "unità di lavoro (UL)"
+        }
+      },
+      "work_units_per_hour": {
+        "label": "Unità di lavoro all'ora"
+      }
+    }
+  },
+  "areas": {
+    "labour_rates": "Tariffe orarie"
+  },
+  "units": {
+    "work_units_per_hour": "UL all'ora"
+  },
   "title": "Impostazioni",
   "subtitle": "Le impostazioni degli ambiti che questa azienda utilizza. Ogni valore vale per l'azienda e può differire per sede.",
   "areaSubtitle": "Una modifica vale da subito. Una sede senza valore proprio riprende il valore dell'azienda.",

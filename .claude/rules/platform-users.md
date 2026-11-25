@@ -64,7 +64,7 @@ paths:
   - "frontend/apps/dms/src/components/account/**"
 ---
 <!-- Maintainer note. ADR-014/081/094/106/113; Dealer Administration D-A-01…05, D-A-24, D-A-35, FR-A-02…17. Cut
-from platform.md by KAN-614, 2026-11-10. Last verified against main@3b2bf69 (2026-11-18). -->
+from platform.md by KAN-614, 2026-11-10. Last verified against main@32ad509 (2026-11-25). -->
 
 # Users, roles and the organisation (ADR-014; Dealer Administration)
 
@@ -159,7 +159,8 @@ Roles, capabilities, the permission matrix and what the SPA may offer: `platform
 Support sessions, their logs and banner, the Platform users panel, FR-A-17: `platform-support-access.md`.
 
 ## My account
-- `/account/{profile,security,connected-accounts,signature,notifications}` for every user. Sessions
+- `/account/{profile,security,mailbox,connected-accounts,signature,notifications}` for every user
+  (mailbox, KAN-215: the user's own mailbox for contact mail, `/v1/integrations/mail/own-mailbox`). Sessions
   and MFA stay under `/v1/auth/*` (one MFA surface); `/v1/me` holds the rest. The user may change
   their own names, phones, `correspondence_language` (null = the home Betrieb's default; never the
   UI language) and signature block; the e-mail address is a 422 there.

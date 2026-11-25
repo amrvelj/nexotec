@@ -27,7 +27,7 @@ paths:
 ---
 <!-- Maintainer note. ADR-056, ADR-058, ADR-102, ADR-179. Split out of ui-grid.md by KAN-743
 (2026-11-17): what a grid with filters, views or URL state needs; every grid's rules stay there.
-Last verified against main@3b2bf69 (2026-11-18). -->
+Last verified against main@32ad509 (2026-11-25). -->
 
 # Grid filters, views and URL state
 

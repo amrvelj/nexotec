@@ -38,7 +38,7 @@ paths:
 <!-- Maintainer note. Dealer Administration D-A-01, D-A-06, D-A-21, D-A-34, D-A-38; ADR-156, ADR-165,
 ADR-174, ADR-175, ADR-180. Split out of platform-admin.md (and the status page out of
 platform-notifications.md) by KAN-751, 2026-11-18, for platform's `administration` sub-package
-(ADR-163) plus onboarding and the legal documents. Last verified against main@3b2bf69 (2026-11-18). -->
+(ADR-163) plus onboarding and the legal documents. Last verified against main@32ad509 (2026-11-25). -->
 
 # A Betrieb's lifecycle: onboarding, activation, copy, export, offboarding, status
 
