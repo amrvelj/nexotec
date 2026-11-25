@@ -46,9 +46,9 @@ booking's «neu einplanen» mark. Without a new end, a slot is O7 long again
 and work or a block keeps its length. A release frees what the booking
 holds; nothing is unmarked by it.
 
-`mark_bookings_of_deactivated_resource` is the one write here that does not
-commit: a resource's deactivation (`resources.change_resource`) calls it in
-its own transaction, under the same booking lock.
+The marking itself — what stood in the wrong place before a write, what it
+newly put there, and a resource's bookings when it is deactivated — lives in
+`booking_marks.py`, which never commits.
 """
 
 from __future__ import annotations
@@ -78,18 +78,18 @@ from app.planning.models.booking import (
     BookingResource,
     BookingStatus,
     OverruledWarning,
-    ReplanCause,
     WarningCode,
 )
 from app.planning.models.resource import LABEL_LENGTH, Resource, ResourceKind
+from app.planning.services import booking_marks as marks
 from app.planning.services import booking_rules as rules
 from app.planning.services.booking_facts import (
     BOOKING_BOOKED_EVENT,
-    BOOKING_MARKED_FOR_REPLANNING_EVENT,
     BOOKING_MOVED_EVENT,
     BOOKING_RELEASED_EVENT,
     publish_booking_fact,
 )
+from app.planning.services.booking_marks import ENTITY_TYPE, SLOTS
 from app.planning.services.booking_records import (
     BookingOutcome,
     BookingRecord,
@@ -99,13 +99,12 @@ from app.planning.services.booking_records import (
     bookings_by_id,
     record_of,
     records_of,
+    resource_ids_of,
 )
 from app.planning.services.locks import lock_bookings
 from app.planning.services.planner_settings import grid_minutes, slot_minutes
 from app.planning.services.platform_refs import actor_name_for, require_active_location
 
-ENTITY_TYPE = "planning_booking"
-SLOTS = (BookingKind.DROP_OFF, BookingKind.PICK_UP)
 _REFERENCE_TYPE = re.compile(r"[a-z][a-z0-9_]*\.[a-z][a-z0-9_]*")
 
 _REFUSAL_MESSAGES = {
@@ -205,14 +204,6 @@ def _booking_or_404(db: Session, dealership_id: uuid.UUID, booking_id: uuid.UUID
     if booking is None:
         raise NotFoundError("The booking was not found.")
     return booking
-
-
-def _resource_ids_of(db: Session, booking_id: uuid.UUID) -> list[uuid.UUID]:
-    return list(
-        db.scalars(
-            select(BookingResource.resource_id).where(BookingResource.booking_id == booking_id).order_by(BookingResource.id)
-        )
-    )
 
 
 def bookings_of_reference(
@@ -439,117 +430,6 @@ def _keep_overruled(
     return verdict.warning_codes
 
 
-def _mark(
-    db: Session,
-    booking: Booking,
-    *,
-    cause: ReplanCause,
-    actor_id: uuid.UUID | None,
-    now: dt.datetime,
-    caused_by_booking_id: uuid.UUID | None = None,
-    caused_by_resource_id: uuid.UUID | None = None,
-) -> None:
-    before = booking.replan_cause.value if booking.replan_cause else None
-    booking.replan_cause = cause
-    booking.replan_since = now
-    booking.replan_caused_by_booking_id = caused_by_booking_id
-    booking.replan_caused_by_resource_id = caused_by_resource_id
-    booking.version += 1
-    booking.updated_by = actor_id
-    record_audit_event(
-        db,
-        entity_type=ENTITY_TYPE,
-        entity_id=booking.id,
-        tenant_id=booking.tenant_id,
-        action="marked_for_replanning",
-        actor_id=actor_id,
-        before={"replanCause": before},
-        after={
-            "replanCause": cause.value,
-            "causedByBookingId": str(caused_by_booking_id) if caused_by_booking_id else None,
-            "causedByResourceId": str(caused_by_resource_id) if caused_by_resource_id else None,
-        },
-    )
-
-
-def _clear_mark(booking: Booking) -> None:
-    booking.replan_cause = None
-    booking.replan_since = None
-    booking.replan_caused_by_booking_id = None
-    booking.replan_caused_by_resource_id = None
-
-
-@dataclass(frozen=True)
-class _WrongPlace:
-    """What stood in the wrong place before the write, to mark only what the write newly put there."""
-
-    hit_by_block: frozenset[uuid.UUID] = frozenset()
-    outside_slots: frozenset[uuid.UUID] = frozenset()
-
-
-def _wrong_place(db: Session, booking: Booking | None, resource_ids: Collection[uuid.UUID]) -> _WrongPlace:
-    if booking is None or booking.status is not BookingStatus.BOOKED:
-        return _WrongPlace()
-    if booking.kind is BookingKind.BLOCK:
-        hit = rules.bookings_hit_by_block(
-            db,
-            dealership_id=booking.tenant_id,
-            resource_ids=resource_ids,
-            starts_at=booking.starts_at,
-            ends_at=booking.ends_at,
-            block_id=booking.id,
-        )
-        return _WrongPlace(hit_by_block=frozenset(other.id for other in hit))
-    if booking.kind in SLOTS and booking.reference_id is not None:
-        outside = rules.work_outside_slots(db, dealership_id=booking.tenant_id, reference_id=booking.reference_id)
-        return _WrongPlace(outside_slots=frozenset(outside))
-    return _WrongPlace()
-
-
-def _mark_wrong_place(
-    db: Session, booking: Booking, before: _WrongPlace, *, actor_id: uuid.UUID, now: dt.datetime
-) -> list[Booking]:
-    """Marks what the write newly put in the wrong place; returns those bookings."""
-
-    db.flush()
-    marked: list[Booking] = []
-    if booking.kind is BookingKind.BLOCK:
-        hit = rules.bookings_hit_by_block(
-            db,
-            dealership_id=booking.tenant_id,
-            resource_ids=_resource_ids_of(db, booking.id),
-            starts_at=booking.starts_at,
-            ends_at=booking.ends_at,
-            block_id=booking.id,
-        )
-        for other in hit:
-            if other.id not in before.hit_by_block and other.replan_cause is None:
-                _mark(db, other, cause=ReplanCause.BLOCKED, actor_id=actor_id, now=now, caused_by_booking_id=booking.id)
-                marked.append(other)
-    elif booking.kind in SLOTS and booking.reference_id is not None:
-        outside = rules.work_outside_slots(db, dealership_id=booking.tenant_id, reference_id=booking.reference_id)
-        for work in bookings_by_id(db, dealership_id=booking.tenant_id, ids=outside):
-            if work.id not in before.outside_slots and work.replan_cause is None:
-                _mark(
-                    db,
-                    work,
-                    cause=ReplanCause.OUTSIDE_DROP_OFF_PICK_UP,
-                    actor_id=actor_id,
-                    now=now,
-                    caused_by_booking_id=outside[work.id],
-                )
-                marked.append(work)
-    db.flush()
-    return marked
-
-
-def _publish_marked(db: Session, marked: Sequence[Booking]) -> tuple[BookingRecord, ...]:
-    records = tuple(records_of(db, marked))
-    for record in records:
-        publish_booking_fact(db, event_type=BOOKING_MARKED_FOR_REPLANNING_EVENT, record=record)
-    return records
-
-
 # --- idempotency ----------------------------------------------------------------------------
 
 
@@ -736,10 +616,10 @@ def book(
         actor_id=actor_id,
         after=_audit(booking, [r.id for r in shape.resources]),
     )
-    marked = _mark_wrong_place(db, booking, _WrongPlace(), actor_id=actor_id, now=now)
+    marked = marks.mark_wrong_place(db, booking, marks.WrongPlace(), actor_id=actor_id, now=now)
     record = record_of(db, booking)
     publish_booking_fact(db, event_type=BOOKING_BOOKED_EVENT, record=record, overruled=overruled)
-    outcome = BookingOutcome(booking=record, marked_for_replanning=_publish_marked(db, marked))
+    outcome = BookingOutcome(booking=record, marked_for_replanning=marks.publish_marked(db, marked))
     return _finish(db, dealership_id=dealership_id, idempotency_key=idempotency_key, path=path, body=body, outcome=outcome)
 
 
@@ -809,10 +689,10 @@ def block(
         actor_id=actor_id,
         after=_audit(booking, [r.id for r in shape.resources]),
     )
-    marked = _mark_wrong_place(db, booking, _WrongPlace(), actor_id=actor_id, now=now)
+    marked = marks.mark_wrong_place(db, booking, marks.WrongPlace(), actor_id=actor_id, now=now)
     record = record_of(db, booking)
     publish_booking_fact(db, event_type=BOOKING_BOOKED_EVENT, record=record)
-    outcome = BookingOutcome(booking=record, marked_for_replanning=_publish_marked(db, marked))
+    outcome = BookingOutcome(booking=record, marked_for_replanning=marks.publish_marked(db, marked))
     return _finish(db, dealership_id=dealership_id, idempotency_key=idempotency_key, path=path, body=body, outcome=outcome)
 
 
@@ -855,7 +735,7 @@ def move(
     booking = _booking_or_404(db, dealership_id, booking_id)
     _refuse_released(booking)
     check_version(booking.version, expected_version, entity_name="Booking")
-    held = _resource_ids_of(db, booking.id)
+    held = resource_ids_of(db, booking.id)
     resources = _load_resources(db, dealership_id, resource_ids if resource_ids is not None else held)
     shape = _shape(
         db,
@@ -896,12 +776,12 @@ def move(
     _raise_refusal(verdict)
     _refuse_unconfirmed(verdict, confirmed_warnings)
 
-    before_wrong = _wrong_place(db, booking, held)
+    before_wrong = marks.wrong_place(db, booking, held)
     before = _audit(booking, held)
     now = utcnow()
     booking.starts_at = start
     booking.ends_at = end
-    _clear_mark(booking)
+    marks.clear_mark(booking)
     booking.version += 1
     booking.updated_by = actor_id
     db.flush()
@@ -918,10 +798,10 @@ def move(
         before=before,
         after=_audit(booking, [r.id for r in shape.resources]),
     )
-    marked = _mark_wrong_place(db, booking, before_wrong, actor_id=actor_id, now=now)
+    marked = marks.mark_wrong_place(db, booking, before_wrong, actor_id=actor_id, now=now)
     record = record_of(db, booking)
     publish_booking_fact(db, event_type=BOOKING_MOVED_EVENT, record=record, overruled=overruled)
-    outcome = BookingOutcome(booking=record, marked_for_replanning=_publish_marked(db, marked))
+    outcome = BookingOutcome(booking=record, marked_for_replanning=marks.publish_marked(db, marked))
     return _finish(db, dealership_id=dealership_id, idempotency_key=idempotency_key, path=path, body=body, outcome=outcome)
 
 
@@ -947,12 +827,12 @@ def release(
     booking = _booking_or_404(db, dealership_id, booking_id)
     _refuse_released(booking)
     check_version(booking.version, expected_version, entity_name="Booking")
-    held = _resource_ids_of(db, booking.id)
+    held = resource_ids_of(db, booking.id)
     before = _audit(booking, held)
     booking.status = BookingStatus.RELEASED
     booking.released_at = utcnow()
     booking.released_by = actor_id
-    _clear_mark(booking)
+    marks.clear_mark(booking)
     booking.version += 1
     booking.updated_by = actor_id
     db.flush()
@@ -970,43 +850,3 @@ def release(
     publish_booking_fact(db, event_type=BOOKING_RELEASED_EVENT, record=record)
     outcome = BookingOutcome(booking=record, marked_for_replanning=())
     return _finish(db, dealership_id=dealership_id, idempotency_key=idempotency_key, path=path, body=body, outcome=outcome).booking
-
-
-def mark_bookings_of_deactivated_resource(
-    db: Session, *, dealership_id: uuid.UUID, resource_id: uuid.UUID, actor_id: uuid.UUID | None
-) -> list[Booking]:
-    """Deactivating a resource is allowed while it holds bookings to come
-    (Anto, 2026-11-25): each booked, not yet ended booking that holds it —
-    not a block, and not one already marked — is marked «neu einplanen»
-    (cause `resource_deactivated`), with its event. Takes the booking lock;
-    the caller commits."""
-
-    lock_bookings(db, dealership_id)
-    now = utcnow()
-    holding = db.scalars(
-        select(Booking)
-        .join(BookingResource, BookingResource.booking_id == Booking.id)
-        .where(
-            Booking.tenant_id == dealership_id,
-            BookingResource.resource_id == resource_id,
-            Booking.status == BookingStatus.BOOKED,
-            Booking.kind != BookingKind.BLOCK,
-            Booking.ends_at > now,
-            Booking.replan_cause.is_(None),
-        )
-        .order_by(Booking.starts_at, Booking.id)
-        .execution_options(populate_existing=True)
-    )
-    marked = list(holding)
-    for booking in marked:
-        _mark(
-            db,
-            booking,
-            cause=ReplanCause.RESOURCE_DEACTIVATED,
-            actor_id=actor_id,
-            now=now,
-            caused_by_resource_id=resource_id,
-        )
-    db.flush()
-    _publish_marked(db, marked)
-    return marked

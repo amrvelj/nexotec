@@ -43,7 +43,7 @@ from app.core.errors import ConflictError, NotFoundError, UnprocessableEntityErr
 from app.core.text_collation import TextSortKey
 from app.planning.models.resource import Resource, ResourceKind, ResourceQualification
 from app.planning.services import lists
-from app.planning.services.bookings import mark_bookings_of_deactivated_resource
+from app.planning.services.booking_marks import mark_bookings_of_deactivated_resource
 from app.planning.services.locks import lock_master_data
 from app.planning.services.platform_refs import location_label_for, person_label_for
 

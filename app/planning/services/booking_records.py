@@ -202,3 +202,11 @@ def bookings_by_id(db: Session, *, dealership_id: uuid.UUID, ids: Iterable[uuid.
         )
     }
     return [found[booking_id] for booking_id in wanted if booking_id in found]
+
+
+def resource_ids_of(db: Session, booking_id: uuid.UUID) -> list[uuid.UUID]:
+    return list(
+        db.scalars(
+            select(BookingResource.resource_id).where(BookingResource.booking_id == booking_id).order_by(BookingResource.id)
+        )
+    )
