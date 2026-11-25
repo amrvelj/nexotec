@@ -52,7 +52,8 @@ RATES_ENTERED = SettingDeclaration(
     when_not_set=WhenNotSet.REFUSES,
     choices=(PriceEntry.NET.value, PriceEntry.GROSS.value),
     # An item of the Aftersales setup checklist (slice 1, section 5), linked to
-    # /administration/settings/labour_rates — the SPA serves it as the labour-rates screen.
+    # /administration/settings/labour_rates — until KAN-805 PR-5's generic screen, an
+    # interim route to the labour-rates screen (ADR-219 addendum).
     checklist_item=True,
 )
 TIME_UNIT = SettingDeclaration(

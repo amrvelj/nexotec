@@ -126,8 +126,9 @@ def complete_checklist(db: Session, dealership_id: uuid.UUID, manager_user: dict
     complete_bank_account(db, dealership_id)
     complete_number_ranges(db, dealership_id, uuid.UUID(manager_user["id"]))
     complete_opening_hours(db, dealership_id)
-    held = set(db.scalars(select(ModuleEntitlement.module).where(ModuleEntitlement.dealership_id == dealership_id)))
-    if ModuleCode.AFTERSALES in held:
+    from app.platform.organisation.services.entitlement import list_active_modules
+
+    if ModuleCode.AFTERSALES.value in list_active_modules(db, dealership_id):
         complete_labour_rates(db, dealership_id)
 
 

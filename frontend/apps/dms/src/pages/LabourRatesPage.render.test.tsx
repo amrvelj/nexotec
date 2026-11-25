@@ -43,6 +43,7 @@ function settings({
   entered = null as string | null,
   perHour = null as string | null,
   locationEntered = null as string | null,
+  staleUnit = false,
 } = {}) {
   return {
     area: 'labour_rates',
@@ -60,7 +61,7 @@ function settings({
           choices: ['hours', 'work_units'],
           choiceRequires: [{ choice: 'work_units', key: 'labour_rates.work_units_per_hour' }],
         }),
-        dealership: slot(null),
+        dealership: { ...slot(null), fitsDeclaration: !staleUnit },
         locations: [],
       },
       {
@@ -97,7 +98,13 @@ const CATEGORY = {
 }
 
 function install(
-  options: { entered?: string | null; perHour?: string | null; locationEntered?: string | null; extra?: FakeRoute[] } = {},
+  options: {
+    entered?: string | null
+    perHour?: string | null
+    locationEntered?: string | null
+    staleUnit?: boolean
+    extra?: FakeRoute[]
+  } = {},
 ) {
   return installFakeBackend([
     ...(options.extra ?? []),
@@ -114,6 +121,7 @@ function install(
           entered: options.entered ?? null,
           perHour: options.perHour ?? null,
           locationEntered: options.locationEntered ?? null,
+          staleUnit: options.staleUnit ?? false,
         }),
     },
     {
@@ -249,6 +257,9 @@ describe('LabourRatesPage (KAN-806)', () => {
     })
     renderWithProviders(<LabourRatesPage />, { route: '/administration/labour-rates' })
     await ratesTable()
+    // Only a location has O16: the page says rates go at those locations only.
+    expect(screen.getByText(i18n.t('labourRates.settings.enteredAtLocationsOnly'))).toBeInTheDocument()
+    expect(screen.queryByText(i18n.t('labourRates.settings.enteredNotSet'))).toBeNull()
     await userEvent.click(screen.getByRole('button', { name: i18n.t('labourRates.rates.add') }))
     const dialog = await screen.findByRole('dialog', { name: i18n.t('labourRates.rateDialog.title', { name: 'Mechanik' }) })
     await userEvent.type(
@@ -405,5 +416,21 @@ describe('LabourRatesPage (KAN-806)', () => {
     expect(await screen.findByText('Zweite AG')).toBeInTheDocument()
     const first = backend.calls.find((call: RecordedCall) => call.pathname.endsWith('/labour-rate-agreements'))!
     expect(first.params.get('includeWithdrawn')).toBe('true')
+  })
+
+  it('says when a stored value no longer fits its setting', async () => {
+    install({ entered: 'net', staleUnit: true })
+    renderWithProviders(<LabourRatesPage />, { route: '/administration/labour-rates' })
+    expect(await screen.findByText(i18n.t('labourRates.settings.staleValue'))).toBeInTheDocument()
+  })
+
+  it('an agreement cannot be saved without the Betrieb\'s O16 and the dialog says why', async () => {
+    install({ entered: null, locationEntered: 'gross' })
+    renderWithProviders(<LabourRatesPage />, { route: '/administration/labour-rates' })
+    await ratesTable()
+    await userEvent.click(screen.getByRole('button', { name: i18n.t('labourRates.agreements.add') }))
+    const dialog = await screen.findByRole('dialog', { name: i18n.t('labourRates.agreementDialog.title') })
+    expect(within(dialog).getByText(i18n.t('labourRates.settings.enteredNotSet'))).toBeInTheDocument()
+    expect(within(dialog).getByRole('button', { name: i18n.t('common.save') })).toBeDisabled()
   })
 })

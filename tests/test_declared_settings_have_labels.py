@@ -57,9 +57,22 @@ def test_a_checklist_setting_links_to_a_screen_the_spa_serves():
 
     items = [d for d in declared_settings() if d.checklist_item and not d.key.startswith("testarea.")]
     routes = set(re.findall(r'path="([^"]+)"', (_DMS / "App.tsx").read_text(encoding="utf-8")))
-    # The generic screen (PR-5), or an area's own route (KAN-806: labour_rates is the labour-rates screen).
+    # The generic screen (PR-5), or an area's interim route (KAN-806: labour_rates opens the
+    # labour-rates screen until PR-5; the next test makes PR-5 remove it).
     unserved = [
         d.key for d in items
         if "/administration/settings/:area" not in routes and f"/administration/settings/{d.area}" not in routes
     ]
     assert unserved == [], f"{unserved} link to /administration/settings/<area>, which App.tsx does not serve"
+
+
+def test_an_interim_area_route_goes_once_the_generic_screen_serves_every_area():
+    """KAN-805 criterion 6: the generic settings screen shows every area, a topic
+    screen embeds the same rows. KAN-806's /administration/settings/labour_rates
+    is interim; a static route would outrank `:area` and hide the area from the
+    generic screen, so the two may not stand together (ADR-219 addendum)."""
+
+    routes = set(re.findall(r'path="([^"]+)"', (_DMS / "App.tsx").read_text(encoding="utf-8")))
+    if "/administration/settings/:area" in routes:
+        shadowing = sorted(r for r in routes if r.startswith("/administration/settings/") and ":" not in r)
+        assert shadowing == [], f"{shadowing} hide their area from the generic settings screen: remove them"

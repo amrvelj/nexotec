@@ -60,9 +60,10 @@ const STATUS_TONE: Record<string, BadgeTone> = {
  * per category and location from a date, who works in which category, and
  * the fixed rates agreed with contacts — plus the three settings that belong
  * to them (Aftersales PRD 8.3): O16 net or with VAT, O18 hours or work units,
- * O19 work units per hour. It is also the settings area `labour_rates`
- * (`/administration/settings/labour_rates`), where the setup checklist links
- * O16.
+ * O19 work units per hour. Until KAN-805 PR-5's generic settings screen
+ * exists it is also served at `/administration/settings/labour_rates`, an
+ * interim route that opens O16's checklist link; PR-5 removes it and its rows
+ * then replace this page's settings block (KAN-805 criterion 6, ADR-219).
  *
  * A rate is written once (ruling 178): no edit; a new price is a new rate
  * from today or later; one still to come may be withdrawn. Aftersales,
