@@ -76,6 +76,7 @@
   "setting_value_language": "Una traduzione è possibile solo in tedesco, francese, italiano o inglese.",
   "setting_value_no_longer_valid": "Questo valore precedente non corrisponde più all'impostazione e non può essere ripristinato.",
   "setting_value_not_a_choice": "Scegliete uno dei valori proposti.",
+  "setting_value_not_a_divisor": "Il valore deve dividere {{divides}} senza resto.",
   "setting_value_not_a_number": "Inserite un numero.",
   "setting_value_not_a_switch": "Questa impostazione è un interruttore: attivo o disattivo.",
   "setting_value_not_a_text": "Questa impostazione richiede un testo.",

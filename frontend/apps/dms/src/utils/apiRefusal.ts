@@ -368,6 +368,7 @@ const REASON_KEYS: Record<string, string> = {
       'setting_value_language',
       'setting_value_no_longer_valid',
       'setting_value_not_a_choice',
+      'setting_value_not_a_divisor',
       'setting_value_not_a_number',
       'setting_value_not_a_switch',
       'setting_value_not_a_text',
@@ -409,6 +410,23 @@ const REASON_KEYS: Record<string, string> = {
       'planning_workplace_name_taken',
       'planning_workplace_only',
       'planning_working_hours_invalid',
+      // KAN-808 PR-1c — the planner's bookings and rules (section 3.8; ADR-221).
+      'planning_booking_needs_a_resource',
+      'planning_booking_needs_reference',
+      'planning_booking_released',
+      'planning_car_at_another_workplace',
+      'planning_interval_invalid',
+      'planning_note_too_long',
+      'planning_person_twice_on_job',
+      'planning_resource_inactive',
+      'planning_resources_at_several_locations',
+      'planning_setting_not_set',
+      'planning_slot_length_fixed',
+      'planning_time_off_grid',
+      'planning_warnings_unconfirmed',
+      'planning_work_needs_job_and_vehicle',
+      'planning_work_needs_one_workplace',
+      'planning_workplace_taken',
       // KAN-523 — the plate a sold car leaves with, at «Rechnung anfordern».
       'invoice_plate_vehicle_unknown',
       // KAN-539 — «Rechnung anfordern» once per contract.
@@ -490,6 +508,13 @@ const REASON_KEYS: Record<string, string> = {
 const REASON_PARAMS: Record<string, (details: Details, t: TFunction) => Record<string, unknown>> = {
   access_window_closed: (d, t) => ({ window: accessWindowText(d, t) }),
   configuration_held_by_stock_item: (d) => ({ stockNumber: String(d.stockNumber ?? '—') }),
+  // KAN-808: the planner's grid, a slot's length and a block note's limit, as the API names them;
+  // a setting not set, by its label.
+  planning_time_off_grid: (d) => ({ minutes: String(d.gridMinutes ?? '—') }),
+  planning_slot_length_fixed: (d) => ({ minutes: String(d.slotMinutes ?? '—') }),
+  planning_note_too_long: (d) => ({ maxLength: String(d.maxLength ?? '—') }),
+  planning_setting_not_set: (d, t) => ({ setting: checklistItemTitle(t, String(d.setting ?? '')) }),
+  setting_value_not_a_divisor: (d) => ({ divides: String(d.divides ?? '—') }),
   // KAN-214 (FR-A-26): the checklist item that blocks the action, by its name.
   setup_checklist_item_missing: (d, t) => ({ item: checklistItemTitle(t, String(d.item ?? '')) }),
   credit_block: (d) => ({ reason: String(d.creditBlockReason ?? '—') }),

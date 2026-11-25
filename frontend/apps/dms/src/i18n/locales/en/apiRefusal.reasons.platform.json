@@ -76,6 +76,7 @@
   "setting_value_language": "A translation can only be in German, French, Italian or English.",
   "setting_value_no_longer_valid": "This earlier value no longer fits the setting and cannot be restored.",
   "setting_value_not_a_choice": "Choose one of the values offered.",
+  "setting_value_not_a_divisor": "The value must divide {{divides}} without remainder.",
   "setting_value_not_a_number": "Enter a number.",
   "setting_value_not_a_switch": "This setting is a switch: on or off.",
   "setting_value_not_a_text": "This setting takes a text.",
