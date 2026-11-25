@@ -61,10 +61,11 @@ const ALLOWED_STRINGS: Record<string, [string, Language[]]> = {
   'statusPage:platform.businessProfile.outcome.refused': ["Nexotec's Google OAuth client", ['fr']],
 }
 
-// Source files that may still name the /customers route, and why.
-const ALLOWED_ROUTE_FILES: Record<string, string> = {
+// Source files that may still name the /customers route: why, and the one shape each match of
+// OLD_ROUTE_LITERAL in that file may take (KAN-825: a file is never allowed whole).
+const ALLOWED_ROUTE_FILES: Record<string, [string, RegExp]> = {
   // Old links redirect to /contacts until KAN-464 PR-5 retires the old names.
-  'App.tsx': 'the /customers → /contacts redirect',
+  'App.tsx': ['the /customers → /contacts redirect', /^"\/customers$/],
 }
 
 type LocaleTree = { [key: string]: string | LocaleTree }
@@ -114,10 +115,14 @@ const OLD_ROUTE_LITERAL = /['"`][^'"`\n]*\/customers\b|path=["'{`]+customers\b/
 // `/*` inside a string or a `//` comment hides nothing. Module specifiers are not text, and the
 // bare role code 'customer' is a value, not a word on screen.
 const ROLE_CODE = 'customer'
-// Source file → why it may hold such a literal.
-const ALLOWED_LITERAL_FILES: Record<string, string> = {
-  'pages/PlatformStatusPage.tsx': "the route /integrations/business-profile/client-status (Nexotec's OAuth client)",
-  'App.tsx': 'the /customers → /contacts redirect, kept until KAN-464 PR-5',
+// Source file → why it may hold such a literal, and the exact texts it may hold (KAN-825): any
+// other literal in that file naming the old register fails, as it would anywhere else.
+const ALLOWED_LITERALS: Record<string, [string, RegExp]> = {
+  'pages/PlatformStatusPage.tsx': [
+    "the route /integrations/business-profile/client-status (Nexotec's OAuth client)",
+    /^(\/integrations\/business-profile\/)?client-status(\/check)?$/,
+  ],
+  'App.tsx': ['the /customers → /contacts redirect, kept until KAN-464 PR-5', /^\/customers(\/\*)?$/],
 }
 
 function literalTexts(file: string): string[] {
@@ -141,11 +146,39 @@ function literalTexts(file: string): string[] {
   return texts.filter((text) => text.trim() !== ROLE_CODE)
 }
 
-function literalHits(): string[] {
-  const hits = collectSources(SRC_ROOT).filter((file) =>
-    literalTexts(file).some((text) => LANGUAGES.some((language) => OLD_NAME[language].test(text))),
-  )
-  return hits.map((file) => relative(SRC_ROOT, file)).sort()
+// Source file (relative to src/) → its literals that name the old register.
+function literalHits(): Map<string, string[]> {
+  const hits = new Map<string, string[]>()
+  for (const file of collectSources(SRC_ROOT)) {
+    const texts = literalTexts(file).filter((text) => LANGUAGES.some((language) => OLD_NAME[language].test(text)))
+    if (texts.length) hits.set(relative(SRC_ROOT, file), texts)
+  }
+  return hits
+}
+
+// Each hit outside its file's allowed texts, as `<file>: <text>`; and each allow-list entry that
+// no longer matches anything (so the list cannot go stale).
+function unallowed(hits: Map<string, string[]>, allowed: Record<string, [string, RegExp]>): string[] {
+  return [...hits]
+    .flatMap(([file, texts]) => texts.filter((text) => !allowed[file]?.[1].test(text)).map((text) => `${file}: ${text}`))
+    .sort()
+}
+
+function stale(hits: Map<string, string[]>, allowed: Record<string, [string, RegExp]>): string[] {
+  return Object.entries(allowed)
+    .filter(([file, [, texts]]) => !(hits.get(file) ?? []).some((text) => texts.test(text)))
+    .map(([file]) => file)
+}
+
+const OLD_ROUTE_MATCHES = new RegExp(OLD_ROUTE_LITERAL.source, 'g')
+
+function routeHits(): Map<string, string[]> {
+  const hits = new Map<string, string[]>()
+  for (const file of collectSources(SRC_ROOT)) {
+    const matches = [...readFileSync(file, 'utf8').matchAll(OLD_ROUTE_MATCHES)].map((match) => match[0])
+    if (matches.length) hits.set(relative(SRC_ROOT, file), matches)
+  }
+  return hits
 }
 
 describe('no half-rename: customers are contacts (KAN-464, ADR-210)', () => {
@@ -163,17 +196,24 @@ describe('no half-rename: customers are contacts (KAN-464, ADR-210)', () => {
   })
 
   it('no route or link is under /customers outside the allow-list', () => {
-    const files = collectSources(SRC_ROOT)
-      .filter((file) => OLD_ROUTE_LITERAL.test(readFileSync(file, 'utf8')))
-      .map((file) => relative(SRC_ROOT, file))
-    expect(files.filter((file) => !(file in ALLOWED_ROUTE_FILES))).toEqual([])
-    expect(Object.keys(ALLOWED_ROUTE_FILES).filter((file) => !files.includes(file))).toEqual([])
+    const hits = routeHits()
+    expect(unallowed(hits, ALLOWED_ROUTE_FILES)).toEqual([])
+    expect(stale(hits, ALLOWED_ROUTE_FILES)).toEqual([])
   })
 
   it('no hardcoded literal in the SPA uses the old name', () => {
-    const files = literalHits()
-    expect(files.filter((file) => !(file in ALLOWED_LITERAL_FILES))).toEqual([])
-    expect(Object.keys(ALLOWED_LITERAL_FILES).filter((file) => !files.includes(file))).toEqual([])
+    const hits = literalHits()
+    expect(unallowed(hits, ALLOWED_LITERALS)).toEqual([])
+    expect(stale(hits, ALLOWED_LITERALS)).toEqual([])
+  })
+
+  it('an allowed file is pinned to its texts, never allowed whole (KAN-825)', () => {
+    const app: Map<string, string[]> = new Map([['App.tsx', ['/customers/*', 'Neuer Kunde']]])
+    expect(unallowed(app, ALLOWED_LITERALS)).toEqual(['App.tsx: Neuer Kunde'])
+    const status = new Map([['pages/PlatformStatusPage.tsx', ['client-status', 'Nouveau client']]])
+    expect(unallowed(status, ALLOWED_LITERALS)).toEqual(['pages/PlatformStatusPage.tsx: Nouveau client'])
+    expect(unallowed(new Map([['App.tsx', ["'/customers"]]]), ALLOWED_ROUTE_FILES)).toEqual(["App.tsx: '/customers"])
+    expect(stale(new Map([['App.tsx', ['Kunde']]]), ALLOWED_LITERALS)).toEqual(['pages/PlatformStatusPage.tsx', 'App.tsx'])
   })
 
   it('the patterns find the old name and spare the words that only look like it', () => {
