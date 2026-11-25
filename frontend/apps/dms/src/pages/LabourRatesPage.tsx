@@ -129,7 +129,9 @@ export function LabourRatesPage() {
   const anyEntered =
     entered !== null ||
     (settings.data?.settings.find((s) => s.declaration.key === RATES_ENTERED)?.locations ?? []).some((l) => l.isSet)
-  const timeUnit = slot(TIME_UNIT)?.value?.choice ?? 'hours'
+  // «Not set» is a state of its own, never an empty field, a zero or «off» (KAN-805, design):
+  // O18 not set selects nothing and says it acts as hours; O19 not set says so.
+  const timeUnit = slot(TIME_UNIT)?.value?.choice ?? null
   const perHour = slot(WORK_UNITS_PER_HOUR)?.value?.number ?? null
   const locationName = (id: string) => locations.data?.items.find((location) => location.id === id)?.name ?? '—'
   const categoryName = (id: string) => categories.data?.items.find((category) => category.id === id)?.name ?? '—'
@@ -189,9 +191,12 @@ export function LabourRatesPage() {
           </Title>
           <Stack gap="sm">
             <div>
-              <Text fz="sm" fw={500}>
-                {t('settings.keys.labour_rates.rates_entered.label')}
-              </Text>
+              <Group gap="xs">
+                <Text fz="sm" fw={500}>
+                  {t('settings.keys.labour_rates.rates_entered.label')}
+                </Text>
+                {entered === null && <Badge tone="warning">{t('labourRates.settings.notSet')}</Badge>}
+              </Group>
               <SegmentedControl
                 aria-label={t('settings.keys.labour_rates.rates_entered.label')}
                 disabled={!canWrite}
@@ -204,19 +209,22 @@ export function LabourRatesPage() {
               />
               {entered === null && (
                 <Alert color="yellow" variant="light" mt="xs">
-                  {t('labourRates.settings.enteredNotSet')}
+                  {anyEntered ? t('labourRates.settings.enteredAtLocationsOnly') : t('labourRates.settings.enteredNotSet')}
                 </Alert>
               )}
             </div>
             <Group align="flex-end" gap="lg">
               <div>
-                <Text fz="sm" fw={500}>
-                  {t('settings.keys.labour_rates.time_unit.label')}
-                </Text>
+                <Group gap="xs">
+                  <Text fz="sm" fw={500}>
+                    {t('settings.keys.labour_rates.time_unit.label')}
+                  </Text>
+                  {timeUnit === null && <Badge tone="slate">{t('labourRates.settings.notSetActsAsHours')}</Badge>}
+                </Group>
                 <SegmentedControl
                   aria-label={t('settings.keys.labour_rates.time_unit.label')}
                   disabled={!canWrite}
-                  value={timeUnit}
+                  value={timeUnit ?? ''}
                   onChange={(value) => void writeSetting(TIME_UNIT, { choice: value })}
                   data={[
                     { value: 'hours', label: t('settings.keys.labour_rates.time_unit.options.hours') },
@@ -235,6 +243,11 @@ export function LabourRatesPage() {
                 onSave={(value) => void writeSetting(WORK_UNITS_PER_HOUR, value === null ? null : { number: value })}
               />
             </Group>
+            {settings.data.settings.some((setting) => !setting.dealership.fitsDeclaration) && (
+              <Alert color="yellow" variant="light">
+                {t('labourRates.settings.staleValue')}
+              </Alert>
+            )}
             <Text c="dimmed" fz="xs">
               {t('labourRates.settings.perHourNote')}
             </Text>
@@ -456,7 +469,18 @@ function WorkUnitsPerHourField({
   }
   return (
     <TextInput
-      label={t('settings.keys.labour_rates.work_units_per_hour.label')}
+      label={
+        value === null ? (
+          <Group gap="xs" component="span">
+            <span>{t('settings.keys.labour_rates.work_units_per_hour.label')}</span>
+            <Badge tone="slate">{t('labourRates.settings.notSet')}</Badge>
+          </Group>
+        ) : (
+          t('settings.keys.labour_rates.work_units_per_hour.label')
+        )
+      }
+      aria-label={t('settings.keys.labour_rates.work_units_per_hour.label')}
+      placeholder={t('labourRates.settings.notSet')}
       inputMode="numeric"
       w={200}
       disabled={disabled}

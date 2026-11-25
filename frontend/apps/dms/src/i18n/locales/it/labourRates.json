@@ -7,7 +7,11 @@
   "settings": {
     "title": "Impostazioni",
     "enteredNotSet": "Stabilite prima se l'azienda inserisce le tariffe al netto o IVA inclusa. Senza questa indicazione non è possibile inserire alcuna tariffa.",
-    "perHourNote": "Una tariffa è sempre oraria. Le unità di lavoro sono solo un modo di mostrare il tempo; l'importo è ore per tariffa oraria."
+    "perHourNote": "Una tariffa è sempre oraria. Le unità di lavoro sono solo un modo di mostrare il tempo; l'importo è ore per tariffa oraria.",
+    "notSet": "Non impostato",
+    "notSetActsAsHours": "Non impostato – vale come ore",
+    "enteredAtLocationsOnly": "L'azienda non ha stabilito se le tariffe si inseriscono al netto o IVA inclusa; solo alcune sedi hanno un proprio valore. Le tariffe si possono inserire solo in quelle sedi, gli accordi solo con il valore dell'azienda.",
+    "staleValue": "Un valore salvato non corrisponde più all'impostazione e vale come non impostato. Impostatelo di nuovo."
   },
   "categories": {
     "title": "Categorie di manodopera",

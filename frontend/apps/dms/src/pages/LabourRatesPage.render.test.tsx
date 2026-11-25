@@ -358,4 +358,52 @@ describe('LabourRatesPage (KAN-806)', () => {
       entered: 'net',
     })
   })
+
+  it('shows «not set» as a state of its own, never an empty field or a chosen value', async () => {
+    install({ entered: null, perHour: null })
+    renderWithProviders(<LabourRatesPage />, { route: '/administration/labour-rates' })
+    expect(await screen.findByText(i18n.t('labourRates.settings.notSetActsAsHours'))).toBeInTheDocument()
+    // O16 and O19 each say «not set».
+    expect(screen.getAllByText(i18n.t('labourRates.settings.notSet')).length).toBeGreaterThanOrEqual(2)
+    // Neither «Stunden» nor «netto» is shown as chosen.
+    expect(screen.getByLabelText(i18n.t('settings.keys.labour_rates.time_unit.options.hours'))).not.toBeChecked()
+    expect(screen.getByLabelText(i18n.t('settings.keys.labour_rates.rates_entered.options.net'))).not.toBeChecked()
+  })
+
+  it('pages the agreements by cursor and asks for withdrawn ones too', async () => {
+    const agreement = (id: string, contactLabel: string) => ({
+      id,
+      contactId: `contact-${id}`,
+      contactLabel,
+      categoryId: 'cat-1',
+      kind: 'rate',
+      validFrom: '2026-11-25',
+      amount: '120.0000',
+      entered: 'net',
+      status: 'in_force',
+      withdrawnAt: null,
+      version: 1,
+      createdAt: '2026-11-25T08:00:00Z',
+    })
+    const backend = install({
+      entered: 'net',
+      extra: [
+        {
+          method: 'GET',
+          match: new RegExp(`${BASE.source}/labour-rate-agreements$`),
+          handler: (request) =>
+            request.params.get('cursor') === 'page-2'
+              ? { today: '2026-11-25', items: [agreement('a2', 'Zweite AG')], nextCursor: null }
+              : { today: '2026-11-25', items: [agreement('a1', 'Erste AG')], nextCursor: 'page-2' },
+        },
+      ],
+    })
+    renderWithProviders(<LabourRatesPage />, { route: '/administration/labour-rates' })
+    expect(await screen.findByText('Erste AG')).toBeInTheDocument()
+    expect(screen.queryByText('Zweite AG')).toBeNull()
+    await userEvent.click(screen.getByRole('button', { name: i18n.t('labourRates.agreements.more') }))
+    expect(await screen.findByText('Zweite AG')).toBeInTheDocument()
+    const first = backend.calls.find((call: RecordedCall) => call.pathname.endsWith('/labour-rate-agreements'))!
+    expect(first.params.get('includeWithdrawn')).toBe('true')
+  })
 })

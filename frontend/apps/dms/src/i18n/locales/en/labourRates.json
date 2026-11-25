@@ -7,7 +7,11 @@
   "settings": {
     "title": "Settings",
     "enteredNotSet": "First set whether the business enters labour rates net or with VAT. Without it no rate can be entered.",
-    "perHourNote": "A rate is always per hour. Work units are only a way of showing time; the amount is hours times the hourly rate."
+    "perHourNote": "A rate is always per hour. Work units are only a way of showing time; the amount is hours times the hourly rate.",
+    "notSet": "Not set",
+    "notSetActsAsHours": "Not set – counts as hours",
+    "enteredAtLocationsOnly": "The business has not set whether labour rates are entered net or with VAT; only some locations have their own value. Rates can be entered at those locations only, agreements once the business has its value.",
+    "staleValue": "A stored value no longer fits the setting and counts as not set. Set it again."
   },
   "categories": {
     "title": "Labour categories",

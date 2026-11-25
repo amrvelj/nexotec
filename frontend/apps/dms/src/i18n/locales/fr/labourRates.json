@@ -7,7 +7,11 @@
   "settings": {
     "title": "Réglages",
     "enteredNotSet": "Définissez d'abord si l'entreprise saisit les taux nets ou TVA incluse. Sans cela, aucun taux ne peut être saisi.",
-    "perHourNote": "Un taux est toujours horaire. Les unités de travail ne sont qu'une façon d'afficher le temps ; le montant est le nombre d'heures fois le taux horaire."
+    "perHourNote": "Un taux est toujours horaire. Les unités de travail ne sont qu'une façon d'afficher le temps ; le montant est le nombre d'heures fois le taux horaire.",
+    "notSet": "Non défini",
+    "notSetActsAsHours": "Non défini – compte comme heures",
+    "enteredAtLocationsOnly": "L'entreprise n'a pas défini si les taux sont saisis nets ou TVA incluse ; seuls certains sites ont leur propre valeur. Les taux ne peuvent être saisis que sur ces sites, les accords seulement avec la valeur de l'entreprise.",
+    "staleValue": "Une valeur enregistrée ne correspond plus au réglage et compte comme non définie. Définissez-la à nouveau."
   },
   "categories": {
     "title": "Catégories de main-d'œuvre",

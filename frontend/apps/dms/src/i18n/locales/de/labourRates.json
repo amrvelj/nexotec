@@ -7,7 +7,11 @@
   "settings": {
     "title": "Einstellungen",
     "enteredNotSet": "Legen Sie zuerst fest, ob der Betrieb Stundenansätze netto oder inkl. MwSt. erfasst. Ohne diese Angabe kann kein Ansatz erfasst werden.",
-    "perHourNote": "Ein Ansatz gilt immer pro Stunde. Arbeitswerte sind nur eine Art, die Zeit anzuzeigen; der Betrag ist Stunden mal Stundenansatz."
+    "perHourNote": "Ein Ansatz gilt immer pro Stunde. Arbeitswerte sind nur eine Art, die Zeit anzuzeigen; der Betrag ist Stunden mal Stundenansatz.",
+    "notSet": "Nicht festgelegt",
+    "notSetActsAsHours": "Nicht festgelegt – gilt als Stunden",
+    "enteredAtLocationsOnly": "Für den Betrieb ist nicht festgelegt, ob Stundenansätze netto oder inkl. MwSt. erfasst werden; nur einzelne Standorte haben einen eigenen Wert. Ansätze lassen sich nur an diesen Standorten erfassen, Vereinbarungen erst mit dem Wert des Betriebs.",
+    "staleValue": "Ein gespeicherter Wert passt nicht mehr zur Einstellung und gilt als nicht festgelegt. Legen Sie ihn neu fest."
   },
   "categories": {
     "title": "Arbeitskategorien",

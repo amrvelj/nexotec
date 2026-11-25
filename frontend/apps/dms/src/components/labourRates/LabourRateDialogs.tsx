@@ -263,6 +263,11 @@ export function AgreementDialog({
               {error}
             </Alert>
           )}
+          {entered === null && kind === 'rate' && (
+            <Alert color="yellow" variant="light">
+              {t('labourRates.settings.enteredNotSet')}
+            </Alert>
+          )}
           <div>
             <Text fz="sm" fw={500}>
               {t('labourRates.agreements.columns.contact')}

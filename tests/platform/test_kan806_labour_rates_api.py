@@ -329,3 +329,13 @@ def test_the_manager_reads_who_may_be_allocated(client, db_session, betrieb):
     assert {"userId": colleague["id"], "displayName": "Lea Meier"} in listing.json()["items"]
     reader = _headers(client, db_session, dealership_id, roles={AccessRole.AFTERSALES})
     assert client.get(f"{_base(dealership_id)}/labour-category-candidates", headers=reader).status_code == 403
+
+
+def test_the_candidates_are_the_betriebs_own_and_need_aftersales(client, db_session, betrieb):
+    dealership_id, _ = betrieb
+    other = _betrieb(client, db_session)
+    other_boss = _headers(client, db_session, other, manager=True)
+    assert client.get(f"{_base(dealership_id)}/labour-category-candidates", headers=other_boss).status_code == 404
+    without = _betrieb(client, db_session, aftersales=False)
+    boss_without = _headers(client, db_session, without, manager=True)
+    assert client.get(f"{_base(without)}/labour-category-candidates", headers=boss_without).status_code == 404

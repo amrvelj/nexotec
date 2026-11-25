@@ -43,12 +43,13 @@ counts a rate still to come). Binding text: the slice page and the ADR in the Ta
   `session_guard`'s administration prefixes). No outbox event (nothing consumes one). Reconciliation checks
   the agreement's contact (exists, not merged, in the group), the rate's location, and an O18 slot on work units
   with no O19 in force (a location deactivated, the Betrieb's O19 cleared, the location reactivated).
-- **Screen** `/administration/labour-rates` (`LabourRatesPage`, nav entry shown with `aftersales`), also served
-  at `/administration/settings/labour_rates` — the settings area of O16/O18/O19, where the checklist links O16.
-  It holds the three settings (the Betrieb's values; their per-location values are this screen's to offer,
-  with KAN-805 PR-5's component — the static route outranks PR-5's `:area` route, ADR-219 addendum; until then
-  a location's own value goes through the settings API, and the rate dialog enters a rate as the location's own
-  O16 says), each category with its rates (status today, withdraw only when scheduled) and people, and the
+- **Screen** `/administration/labour-rates` (`LabourRatesPage`, nav entry shown with `aftersales`). Until
+  KAN-805 PR-5 ships, it is also served at `/administration/settings/labour_rates` — an **interim** route so
+  O16's checklist link opens a screen; PR-5 removes it, its generic screen shows this area too, and this screen
+  embeds PR-5's rows for O16/O18/O19 (KAN-805 criterion 6: a setting appears in both places; ADR-219
+  addendum). Until then it holds the Betrieb's own values, «not set» shown as a state of its own (never an
+  empty field or a chosen value); a location's own value goes through the settings API, and the rate dialog
+  enters a rate as the location's own O16 says. Then each category with its rates (status today, withdraw only when scheduled) and people, and the
   agreed rates (cursor-paged, withdrawn ones shown). Rates are typed to the Rappen (`ChfInput`); the API takes
   four decimals. The dialogs pre-fill the business's `today` from the API, the day the server checks against.
 - **Checklist (Aftersales):** O16 (`labour_rates.rates_entered`, a setting item) and `labour_rates` — an active

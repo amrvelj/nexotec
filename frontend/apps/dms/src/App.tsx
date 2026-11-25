@@ -157,8 +157,9 @@ export default function App() {
               <Route path="/mail-link/callback" element={<MailLinkCallbackPage />} />
               <Route path="/business-profile-link/callback" element={<BusinessProfileLinkCallbackPage />} />
               <Route path="/administration/number-ranges" element={<NumberRangesPage />} />
-              {/* KAN-806: the labour-rates screen is also the settings area labour_rates (O16, O18, O19),
-                  where the setup checklist links O16 (KAN-805 PR-3). */}
+              {/* KAN-806: the labour-rates screen holds O16, O18 and O19. The second route is interim:
+                  it opens O16's checklist link (KAN-805 PR-3) until KAN-805 PR-5's generic
+                  /administration/settings/:area exists, which removes it (ADR-219 addendum). */}
               <Route path="/administration/labour-rates" element={<LabourRatesPage />} />
               <Route path="/administration/settings/labour_rates" element={<LabourRatesPage />} />
               {/* KAN-214 — the setup checklist and «Betrieb aktivieren» (D-A-21, FR-A-34),
