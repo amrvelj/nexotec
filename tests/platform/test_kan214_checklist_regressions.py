@@ -84,7 +84,8 @@ def test_one_notification_per_regression_and_a_fixed_item_is_closed(client, db_s
     assert len(notices) == 1
     assert notices[0].user_id == uuid.UUID(boss["id"])
     assert notices[0].link == "/administration/locations"
-    assert notices[0].params == {"item": "location_opening_hours"}
+    # It blocks an action, so the notice says which (KAN-805: one blocking nothing only tells).
+    assert notices[0].params == {"item": "location_opening_hours", "blocks": "marketplace_publishing"}
 
     # Still broken the next night: no second notification.
     assert setup_checklist_regressions.run(db_session).opened == 0

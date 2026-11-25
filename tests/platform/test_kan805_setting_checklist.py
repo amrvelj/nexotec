@@ -4,6 +4,7 @@ works, its own action blocked only when its declaration names one, and
 notified once by the daily regression job (Anto, 2026-11-24: a setting
 declared after activation only notifies)."""
 
+import dataclasses
 import datetime as dt
 import uuid
 from decimal import Decimal
@@ -13,14 +14,22 @@ from sqlalchemy import select
 
 from app.core.errors import ConflictError
 from app.core.permissions import ModuleCode
+from app.core.setup_checklist import ChecklistContribution, register_checklist_contribution
 from app.platform.administration.models.setup_checklist import SetupChecklistRegression
 from app.platform.administration.services import setup_checklist, setup_checklist_regressions
 from app.platform.identity.models.notification import Notification
 from app.platform.identity.services.notification_catalogue import NotificationEventCode
 from app.platform.organisation.models.dealership import Dealership, DealershipStatus, Location
 from app.platform.organisation.services import setting_store as store
-from app.platform.organisation.services.setting_declarations import SettingDeclaration, SettingKind, WhenNotSet
-from app.platform.public import require_setup_item_for
+from app.platform.organisation.services.setting_declarations import (
+    SettingDeclaration,
+    SettingDeclarationError,
+    SettingKind,
+    WhenNotSet,
+    get_declaration,
+    unregister_setting,
+)
+from app.platform.public import register_setting, require_setup_item_for
 from tests import setting_store_support as samples
 from tests import setup_checklist_support as s
 
@@ -85,15 +94,18 @@ def test_the_betriebs_own_value_completes_it(client, db_session, declared):
     assert _item(db_session, dealership_id).complete is False
 
 
-def test_without_the_betriebs_value_every_active_location_needs_its_own(client, db_session, declared):
+def test_values_at_every_location_do_not_stand_in_for_the_betriebs_own(client, db_session, declared):
+    """ADR-216: a read without a location reads the Betrieb's own value only,
+    so the item stays open until that value is set; a location's value
+    overrides it, never stands in for it."""
+
     dealership_id, _ = _active_and_complete(client, db_session)
     seat = _seat(db_session, dealership_id)
     nord = samples.add_location(db_session, dealership_id, name="Nord")
-    samples.add_location(db_session, dealership_id, name="Geschlossen", active=False)  # inactive: never needed
-
     _set(db_session, dealership_id, Decimal(10), location_id=seat)
-    assert _item(db_session, dealership_id).complete is False  # Nord would read «not set»
     _set(db_session, dealership_id, Decimal(20), location_id=nord)
+    assert _item(db_session, dealership_id).complete is False
+    _set(db_session, dealership_id, Decimal(15))
     assert _item(db_session, dealership_id).complete is True
 
 
@@ -145,19 +157,45 @@ def test_an_item_naming_an_action_blocks_that_action(client, db_session):
         with pytest.raises(ConflictError) as refused:
             require_setup_item_for(db_session, dealership_id, setup_checklist.BlockedAction.INVOICE_ISSUE)
         assert (refused.value.details["item"], refused.value.details["link"]) == (KEY, LINK)
+        # The daily job's notice names the action (the SPA's «gesperrt» body).
+        assert setup_checklist_regressions.run(db_session).opened == 1
+        notice = db_session.scalars(select(Notification)).one()
+        assert notice.params == {"item": KEY, "blocks": "invoice_issue"}
         _set(db_session, dealership_id, Decimal(5))
         require_setup_item_for(db_session, dealership_id, setup_checklist.BlockedAction.INVOICE_ISSUE)
 
 
-def test_an_action_the_checklist_does_not_know_is_refused(client, db_session):
+def test_an_action_the_checklist_does_not_know_is_refused_at_start_up():
+    """platform.public.register_setting — what the composition root calls —
+    refuses it when declared, not when the checklist is derived for every
+    Betrieb."""
+
     unknown = SettingDeclaration(
         key=KEY, module=None, kind=SettingKind.SWITCH, when_not_set=WhenNotSet.REFUSES,
         checklist_item=True, checklist_blocks="launch_rockets",
     )
-    with samples.declared(unknown):
-        dealership_id, _ = _active_and_complete(client, db_session)
-        with pytest.raises(ValueError, match="launch_rockets"):
-            _item(db_session, dealership_id)
+    known = dataclasses.replace(unknown, checklist_blocks="invoice_issue")
+    with samples.declared():
+        try:
+            with pytest.raises(SettingDeclarationError, match="launch_rockets"):
+                register_setting(unknown)
+            assert get_declaration(KEY) is None
+            register_setting(known)
+            assert get_declaration(KEY) == known
+        finally:
+            unregister_setting(KEY)
+
+
+def test_a_contributed_item_code_never_has_a_dot():
+    """A code with a dot is a setting's key; the SPA titles it by the label."""
+
+    with pytest.raises(ValueError, match="dot"):
+        register_checklist_contribution(
+            ChecklistContribution(
+                code="publishing.profile", applies_to_modules=frozenset(), blocks=None, link="/x",
+                is_complete=lambda db, dealership_id: True,
+            )
+        )
 
 
 def test_a_pending_betrieb_needs_the_item_for_activation(client, db_session, declared):

@@ -7,6 +7,7 @@ does for the status page. A choice's codes need their labels too
 (`…<name>.options.<code>`)."""
 
 import json
+import re
 from pathlib import Path
 
 import pytest
@@ -14,7 +15,8 @@ import pytest
 import app.setting_registry  # noqa: F401 — registers every area's declarations
 from app.platform.organisation.services.setting_declarations import SettingKind, declared_settings
 
-_LOCALES = Path(__file__).resolve().parents[1] / "frontend" / "apps" / "dms" / "src" / "i18n" / "locales"
+_DMS = Path(__file__).resolve().parents[1] / "frontend" / "apps" / "dms" / "src"
+_LOCALES = _DMS / "i18n" / "locales"
 
 
 def missing_labels(bundle: dict, declarations) -> list[str]:
@@ -46,3 +48,14 @@ def test_the_rule_on_a_sample():
         "testarea.time_unit.options.work_units",
         "testarea.wait_minutes.label",
     ]
+
+
+def test_a_checklist_setting_links_to_a_screen_the_spa_serves():
+    """A setting item links to `/administration/settings/<area>` (KAN-805 PR-3);
+    the screen comes with PR-5. Until the SPA serves the route, no shipped
+    declaration may be a checklist item — its link would lead nowhere."""
+
+    items = [d for d in declared_settings() if d.checklist_item and not d.key.startswith("testarea.")]
+    routes = set(re.findall(r'path="([^"]+)"', (_DMS / "App.tsx").read_text(encoding="utf-8")))
+    served = {"/administration/settings/:area"} & routes
+    assert not items or served, f"{[d.key for d in items]} link to /administration/settings/<area>, which App.tsx does not serve"

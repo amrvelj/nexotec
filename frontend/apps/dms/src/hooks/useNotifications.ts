@@ -35,6 +35,9 @@ function interpolation(t: TFunction, notification: NotificationRead): Record<str
   if (typeof params.action === 'string') params.action = t(`notifications.recoveryActions.${params.action}`)
   // KAN-214: a regressed checklist item names the item by its checklist title.
   if (typeof params.item === 'string') params.item = checklistItemTitle(t, params.item)
+  // KAN-805: a checklist item blocking an action says so (`body_blocked`);
+  // one blocking nothing only tells (Anto, 2026-11-24).
+  if (typeof params.blocks === 'string') params.context = 'blocked'
   return params
 }
 

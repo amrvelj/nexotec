@@ -158,4 +158,25 @@ describe('SetupChecklistPage (KAN-214)', () => {
     expect(screen.getByText(i18n.t('setup.activeNotice'))).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: i18n.t('setup.activate.button') })).not.toBeInTheDocument()
   })
+
+  it('names a setting item by the setting\'s label and links to its area (KAN-805)', async () => {
+    i18n.addResource('de', 'translation', 'settings.keys.testarea.wait_minutes.label', 'Wartezeit')
+    install(
+      checklist(
+        {
+          items: [{ code: 'testarea.wait_minutes', complete: false, blocks: null, link: '/administration/settings/testarea' }],
+        },
+        ['testarea.wait_minutes'],
+      ),
+    )
+    renderWithProviders(<SetupChecklistPage />, { route: '/administration/setup' })
+    const table = await screen.findByRole('table', { name: i18n.t('setup.itemsTitle') })
+    const row = within(table).getByRole('row', { name: (n) => n.startsWith('Wartezeit') })
+    expect(within(row).getByText(i18n.t('setup.settingItem.description'))).toBeInTheDocument()
+    expect(within(row).getByText(i18n.t('setup.missing'))).toBeInTheDocument()
+    expect(within(row).getByRole('link', { name: i18n.t('setup.open') })).toHaveAttribute(
+      'href',
+      '/administration/settings/testarea',
+    )
+  })
 })

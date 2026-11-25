@@ -53,6 +53,10 @@ def register_checklist_contribution(contribution: ChecklistContribution) -> None
     """Registers an item another context owns. Registering the same code twice
     replaces it (a reload in tests); two contexts may not share a code."""
 
+    if "." in contribution.code:
+        # A code with a dot is a setting's key (`<area>.<name>`, KAN-805): the
+        # SPA titles it by the setting's label.
+        raise ValueError(f"Checklist item code {contribution.code!r} has a dot; that is a setting's key.")
     _contributions[contribution.code] = contribution
 
 

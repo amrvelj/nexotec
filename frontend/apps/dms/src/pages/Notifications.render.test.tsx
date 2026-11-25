@@ -10,6 +10,7 @@ import { NotificationsPage } from './NotificationsPage'
 import { AccountLayout } from './account/AccountLayout'
 import { AccountNotificationsPage } from './account/AccountNotificationsPage'
 import { useUnreadNotificationCount } from '../hooks/useNotifications'
+import i18n from '../i18n'
 
 // KAN-216 — the inbox (FR-A-50: every notification, read/unread, a link to
 // its subject) and the preferences in My account (FR-A-48: the user decides,
@@ -102,9 +103,42 @@ describe('the inbox (KAN-216)', () => {
       { method: 'GET', match: /\/me\/notifications$/, handler: () => ({ items: [regressed, expiring], nextCursor: null }) },
     ])
     expect(
-      await screen.findByText(/Der Punkt «Bankkonto» der Einrichtungs-Checkliste ist nicht mehr erfüllt\./),
+      await screen.findByText('Der Punkt «Bankkonto» der Einrichtungs-Checkliste ist nicht erfüllt.'),
     ).toBeInTheDocument()
     expect(screen.getByText(/Der Zugang für AutoScout24 läuft in 14 Tagen ab\./)).toBeInTheDocument()
+  })
+
+  it('says an action is blocked only when the item blocks one, and names a setting by its label (KAN-805)', async () => {
+    i18n.addResource('de', 'translation', 'settings.keys.testarea.wait_minutes.label', 'Wartezeit')
+    const blocked = notification({
+      id: 'n-5',
+      eventCode: 'administration.checklist_item_regressed',
+      family: 'administration',
+      titleKey: 'notifications.events.checklistItemRegressed.title',
+      bodyKey: 'notifications.events.checklistItemRegressed.body',
+      params: { item: 'bank_account', blocks: 'invoice_issue' },
+      link: '/administration/bank-accounts',
+    })
+    const setting = notification({
+      id: 'n-6',
+      eventCode: 'administration.checklist_item_regressed',
+      family: 'administration',
+      titleKey: 'notifications.events.checklistItemRegressed.title',
+      bodyKey: 'notifications.events.checklistItemRegressed.body',
+      params: { item: 'testarea.wait_minutes' },
+      link: '/administration/settings/testarea',
+    })
+    renderInbox([
+      { method: 'GET', match: /\/me\/notifications$/, handler: () => ({ items: [blocked, setting], nextCursor: null }) },
+    ])
+    expect(
+      await screen.findByText(
+        'Der Punkt «Bankkonto» der Einrichtungs-Checkliste ist nicht erfüllt. Bis er erledigt ist, ist die Aktion gesperrt, die ihn braucht.',
+      ),
+    ).toBeInTheDocument()
+    // Anto, 2026-11-24: a setting item blocking nothing only tells.
+    expect(screen.getByText('Der Punkt «Wartezeit» der Einrichtungs-Checkliste ist nicht erfüllt.')).toBeInTheDocument()
+    expect(screen.getAllByText('Ein Punkt der Einrichtung ist offen')).toHaveLength(2)
   })
 
   it('marks one read, one unread again, and all read', async () => {

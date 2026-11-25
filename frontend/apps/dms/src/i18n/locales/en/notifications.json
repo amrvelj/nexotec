@@ -112,8 +112,9 @@
       "body": "Access for {{provider}} expires in {{days, number}} days. Renew it under Administration › Integrations so the connection is not interrupted."
     },
     "checklistItemRegressed": {
-      "title": "A setup item is missing again",
-      "body": "The setup checklist item «{{item}}» is no longer met. Until it is, the action that needs it is blocked."
+      "title": "A setup item is open",
+      "body": "The setup checklist item «{{item}}» is not met.",
+      "body_blocked": "The setup checklist item «{{item}}» is not met. Until it is, the action that needs it is blocked."
     },
     "statusItemDegraded": {
       "title": "The status page is no longer green",

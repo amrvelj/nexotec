@@ -30,10 +30,10 @@ feature it entitles (Q2 A).
 **A setting of the settings store** (KAN-805 PR-3, ADR-214) is an item when its
 declaration says so: its code is the setting's key (`aftersales.time_unit`),
 it applies with the setting's module, its link is the area's settings screen,
-and it is complete while the setting has a value in force wherever the Betrieb
-works — the Betrieb's own, or one at every active location
-(`setting_store.is_set_everywhere`). It blocks the action its declaration
-names, or none: a setting declared after a Betrieb's activation only notifies
+and it is complete while the Betrieb's own value is in force
+(`setting_store.is_set_for_dealership`; a location's value overrides it, never
+stands in for it — a read without a location would still answer «not set»).
+It blocks the action its declaration names, or none: a setting declared after a Betrieb's activation only notifies
 (the daily regression job) unless its declaration names an action (Anto,
 2026-11-24). The publishing profile joins when it ships, as a
 contribution through `app.core.setup_checklist` (Q5 A) — items owned above
@@ -244,7 +244,7 @@ def _contributed_rule(contribution: ChecklistContribution) -> Callable[[Session,
 
 def _setting_rule(key: str) -> Callable[[Session, Dealership], bool]:
     def rule(db: Session, dealership: Dealership) -> bool:
-        return setting_store.is_set_everywhere(db, dealership_id=dealership.id, key=key)
+        return setting_store.is_set_for_dealership(db, dealership_id=dealership.id, key=key)
 
     return rule
 
