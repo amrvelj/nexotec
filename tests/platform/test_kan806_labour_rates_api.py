@@ -19,7 +19,10 @@ from tests.identity_support import create_dealership
 from tests.platform_tenant_support import ensure_platform_tenant
 from tests.token_support import dealer_group_of
 
-TODAY = rates_service.today()
+
+def _today():
+    # Asked per use, so a run across midnight in Zurich still agrees with the server.
+    return rates_service.today()
 
 
 def _betrieb(client, db, *, aftersales: bool = True, pending: bool = False) -> uuid.UUID:
@@ -77,7 +80,7 @@ def _category(client, headers, dealership_id, name="Mechanik"):
     return response.json()
 
 
-def _rate(client, headers, dealership_id, category_id, location_id, *, amount="150.00", valid_from=TODAY):
+def _rate(client, headers, dealership_id, category_id, location_id, *, amount="150.00", valid_from=_today()):
     return client.post(
         f"{_base(dealership_id)}/labour-rate-categories/{category_id}/rates",
         json={"locationId": str(location_id), "validFrom": valid_from.isoformat(), "amount": amount, "entered": "net"},
@@ -106,7 +109,7 @@ def test_the_manager_builds_categories_rates_and_members(client, db_session, bet
 
     listing = client.get(f"{_base(dealership_id)}/labour-rate-categories", headers=boss)
     assert listing.status_code == 200, listing.text
-    assert listing.json()["today"] == TODAY.isoformat()
+    assert listing.json()["today"] == _today().isoformat()
     assert [item["name"] for item in listing.json()["items"]] == ["Mechanik"]
 
     removed = client.delete(
@@ -183,7 +186,7 @@ def test_a_rate_amount_travels_as_a_decimal_string(client, db_session, betrieb):
     category = _category(client, boss, dealership_id)
     refused = client.post(
         f"{_base(dealership_id)}/labour-rate-categories/{category['id']}/rates",
-        json={"locationId": str(_seat(db_session, dealership_id)), "validFrom": TODAY.isoformat(), "amount": 150,
+        json={"locationId": str(_seat(db_session, dealership_id)), "validFrom": _today().isoformat(), "amount": 150,
               "entered": "net"},
         headers=boss,
     )
@@ -195,13 +198,13 @@ def test_check_15_through_the_api_a_rate_in_use_stays_one_to_come_is_withdrawn(c
     category = _category(client, boss, dealership_id)
     seat = _seat(db_session, dealership_id)
     in_use = _rate(client, boss, dealership_id, category["id"], seat).json()["rates"][0]
-    past = _rate(client, boss, dealership_id, category["id"], seat, valid_from=TODAY - dt.timedelta(days=1))
+    past = _rate(client, boss, dealership_id, category["id"], seat, valid_from=_today() - dt.timedelta(days=1))
     assert (past.status_code, past.json()["error"]["details"]["reason"]) == (422, "labour_rate_starts_in_the_past")
     refused = client.post(
         f"{_base(dealership_id)}/labour-rates/{in_use['id']}/withdraw", headers={**boss, "If-Match": "1"}
     )
     assert (refused.status_code, refused.json()["error"]["details"]["reason"]) == (409, "labour_rate_in_use")
-    later = _rate(client, boss, dealership_id, category["id"], seat, valid_from=TODAY + dt.timedelta(days=7))
+    later = _rate(client, boss, dealership_id, category["id"], seat, valid_from=_today() + dt.timedelta(days=7))
     scheduled = next(rate for rate in later.json()["rates"] if rate["status"] == "scheduled")
     withdrawn = client.post(
         f"{_base(dealership_id)}/labour-rates/{scheduled['id']}/withdraw", headers={**boss, "If-Match": "1"}
@@ -242,7 +245,7 @@ def test_the_answer_route_names_its_source(client, db_session, betrieb):
     _rate(client, boss, dealership_id, category["id"], seat)
     found = client.get(
         f"{_base(dealership_id)}/labour-rate-answer",
-        params={"categoryId": category["id"], "locationId": str(seat), "on": TODAY.isoformat()},
+        params={"categoryId": category["id"], "locationId": str(seat), "on": _today().isoformat()},
         headers=boss,
     )
     assert (found.json()["source"], found.json()["amount"], found.json()["entered"]) == (

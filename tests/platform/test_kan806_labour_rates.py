@@ -381,3 +381,82 @@ def test_the_rate_stays_per_hour_whatever_the_unit(db_session, net_betrieb):
     _rate(db_session, net_betrieb, category, amount="100.00")
     answer = _answer(db_session, net_betrieb, category)
     assert answer.amount == Decimal("100.00")  # per hour; 9 AW are CHF 75.00 in app.core.money (check 47)
+
+
+# --- reconciliation and the remaining public reads (review of 894e91b) ----------------------
+
+
+def _findings(db, label):
+    from app.core.reconciliation import find_rows_in_state
+    from app.platform import reconciliation
+
+    check = next(c for c in reconciliation.CHECKS if c.label == label)
+    return [row for row, _ in find_rows_in_state(db, check)]
+
+
+_WORK_UNITS_CHECK = "setting_value labour_rates.time_unit on work units without work units per hour"
+
+
+def test_reconciliation_reports_work_units_a_reactivated_location_left_without_units_per_hour(db_session, betrieb):
+    north = s.add_location(db_session, betrieb)
+    _set(db_session, betrieb, WORK_UNITS_PER_HOUR_KEY, Decimal(12))
+    _set(db_session, betrieb, TIME_UNIT_KEY, "work_units", location_id=north)
+    assert _findings(db_session, _WORK_UNITS_CHECK) == []
+    location = db_session.get(Location, north)
+    location.is_active = False
+    db_session.commit()
+    _set(db_session, betrieb, WORK_UNITS_PER_HOUR_KEY, store.NOT_SET)  # allowed: the location is inactive
+    assert _findings(db_session, _WORK_UNITS_CHECK) == []  # an inactive location is not read
+    location.is_active = True
+    db_session.commit()
+    slot = store.get_slot(db_session, dealership_id=betrieb, location_id=north, key=TIME_UNIT_KEY)
+    found = _findings(db_session, _WORK_UNITS_CHECK)
+    assert len(found) == 1
+    assert platform.labour_time_unit(db_session, dealership_id=betrieb, location_id=north).unit == "hours"
+    assert slot.is_set
+
+
+def test_reconciliation_reports_a_rate_at_another_betriebs_location(client, db_session, net_betrieb):
+    category = _category(db_session, net_betrieb)
+    rate = _rate(db_session, net_betrieb, category)
+    assert _findings(db_session, "labour_rate.location_id names another business's location") == []
+    elsewhere = uuid.UUID(create_dealership(client))
+    db_session.get(LabourRate, rate.id).location_id = _seat(db_session, elsewhere)  # what the service refuses
+    db_session.commit()
+    assert _findings(db_session, "labour_rate.location_id names another business's location") == [rate.id]
+
+
+def test_has_rate_ready_counts_a_rate_still_to_come_and_not_a_withdrawn_one(db_session, net_betrieb):
+    assert rates.has_rate_ready(db_session, dealership_id=net_betrieb) is False
+    category = _category(db_session, net_betrieb)
+    rate = _rate(db_session, net_betrieb, category, valid_from=NEXT_MONTH)
+    assert rates.has_rate_ready(db_session, dealership_id=net_betrieb) is True
+    rates.withdraw_rate(db_session, dealership_id=net_betrieb, rate_id=rate.id, expected_version=1, actor_id=None, on=TODAY)
+    db_session.commit()
+    assert rates.has_rate_ready(db_session, dealership_id=net_betrieb) is False
+    _rate(db_session, net_betrieb, category, valid_from=NEXT_MONTH, amount="151.00")
+    rates.change_category(db_session, dealership_id=net_betrieb, category_id=category.id,
+                          expected_version=category.version, actor_id=None, is_active=False)
+    db_session.commit()
+    assert rates.has_rate_ready(db_session, dealership_id=net_betrieb) is False
+
+
+def test_labour_categories_of_user_lists_the_active_categories_by_name(client, db_session, net_betrieb):
+    from app.platform.identity.services import user_labour_category as members
+    from tests import setup_checklist_support as checklist
+
+    technician = uuid.UUID(checklist.manager(client, db_session, net_betrieb, isDealerManager=False)["id"])
+    paint = _category(db_session, net_betrieb, "Lack")
+    mechanics = _category(db_session, net_betrieb, "Mechanik")
+    body = _category(db_session, net_betrieb, "Karosserie")
+    for category in (paint, mechanics, body):
+        members.allocate_user(db_session, dealership_id=net_betrieb, category_id=category.id, user_id=technician,
+                              actor_id=None)
+    db_session.commit()
+    rates.change_category(db_session, dealership_id=net_betrieb, category_id=body.id, expected_version=body.version,
+                          actor_id=None, is_active=False)
+    db_session.commit()
+    assert platform.labour_categories_of_user(db_session, dealership_id=net_betrieb, user_id=technician) == (
+        paint.id, mechanics.id,
+    )
+    assert platform.labour_categories_of_user(db_session, dealership_id=net_betrieb, user_id=uuid.uuid4()) == ()

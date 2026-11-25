@@ -29,7 +29,7 @@ from app.core.errors import ConflictError, NotFoundError, UnprocessableEntityErr
 from app.core.text_collation import TextSortKey
 from app.platform.identity.models.user import User
 from app.platform.identity.models.user_labour_category import UserLabourCategory
-from app.platform.identity.services.user_reads import get_active_user_acting_in
+from app.platform.identity.services.user_reads import get_active_user_acting_in, list_active_users_acting_in
 from app.platform.organisation.models.labour_rate import LabourRateCategory
 from app.platform.organisation.services.labour_rates import get_category_or_404
 
@@ -129,8 +129,9 @@ def members_of(
         .where(UserLabourCategory.dealership_id == dealership_id, UserLabourCategory.category_id.in_(category_ids))
         .order_by(TextSortKey(User.last_name), TextSortKey(User.first_name), User.id)
     )
+    acting_ids = {user.id for user in list_active_users_acting_in(db, dealership_id=dealership_id)}
     for category_id, user in rows:
-        acting = get_active_user_acting_in(db, dealership_id=dealership_id, user_id=user.id) is not None
+        acting = user.id in acting_ids
         result[category_id].append(
             LabourCategoryMember(
                 user_id=user.id, display_name=f"{user.first_name} {user.last_name}".strip(), is_active=acting

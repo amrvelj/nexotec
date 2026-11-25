@@ -24,7 +24,10 @@ from tests import setup_checklist_support as s
 from tests.identity_support import create_dealership
 from tests.token_support import dealer_group_of
 
-TODAY = rates_service.today()
+
+def _today():
+    # Asked per use, so a run across midnight in Zurich still agrees with the server.
+    return rates_service.today()
 
 
 def _headers(user_id: str, dealership_id: uuid.UUID) -> dict[str, str]:
@@ -66,7 +69,7 @@ def _contact(db, dealership_id, *, company="Helvetia Versicherungen AG", status=
 
 
 def _agree(client, headers, dealership_id, category_id, contact_id, **overrides):
-    body = {"contactId": str(contact_id), "categoryId": category_id, "validFrom": TODAY.isoformat(),
+    body = {"contactId": str(contact_id), "categoryId": category_id, "validFrom": _today().isoformat(),
             "amount": "120.00", "entered": "net", **overrides}
     return client.post(f"/v1/dealerships/{dealership_id}/labour-rate-agreements", json=body, headers=headers)
 
@@ -97,7 +100,7 @@ def test_an_agreement_with_a_contact_of_the_group_comes_first_in_the_answer(clie
     assert listing.status_code == 200, listing.text
     assert [item["id"] for item in listing.json()["items"]] == [body["id"]]
     ended = _agree(client, headers, dealership_id, category_id, insurer.id, kind="end", amount=None, entered=None,
-                   validFrom=(TODAY + dt.timedelta(days=30)).isoformat())
+                   validFrom=(_today() + dt.timedelta(days=30)).isoformat())
     assert ended.status_code == 201, ended.text
     assert ended.json()["status"] == "scheduled"
 
@@ -147,9 +150,21 @@ def test_the_agreements_page_by_cursor_latest_start_first(client, db_session, be
     second = _contact(db_session, dealership_id, company="Importeur AG")
     _agree(client, headers, dealership_id, category_id, first.id)
     later = _agree(client, headers, dealership_id, category_id, second.id,
-                   validFrom=(TODAY + dt.timedelta(days=3)).isoformat()).json()
+                   validFrom=(_today() + dt.timedelta(days=3)).isoformat()).json()
     path = f"/v1/dealerships/{dealership_id}/labour-rate-agreements"
     page = client.get(path, params={"limit": 1}, headers=headers).json()
     assert [item["id"] for item in page["items"]] == [later["id"]] and page["nextCursor"]
     rest = client.get(path, params={"limit": 1, "cursor": page["nextCursor"]}, headers=headers).json()
     assert [item["contactLabel"] for item in rest["items"]] == ["Fleet AG"] and rest["nextCursor"] is None
+
+
+def test_reconciliation_reports_an_agreement_naming_another_groups_contact(client, db_session, betrieb):
+    dealership_id, headers, category_id = betrieb
+    insurer = _contact(db_session, dealership_id)
+    created = _agree(client, headers, dealership_id, category_id, insurer.id).json()
+    outside = next(c for c in platform_reconciliation.CHECKS if c.label.endswith("outside the business's group"))
+    assert find_rows_in_state(db_session, outside) == []
+    other = uuid.UUID(create_dealership(client))
+    insurer.group_id = dealer_group_of(other)  # what the composition root refuses (404)
+    db_session.commit()
+    assert [str(row) for row, _ in find_rows_in_state(db_session, outside)] == [created["id"]]

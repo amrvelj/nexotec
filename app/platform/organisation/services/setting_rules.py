@@ -17,12 +17,15 @@ Betrieb (a read without a location) and for every *active* location that
 holds a slot of either key, the one being written included. An inactive
 location is left out: its own slots cannot be changed
 (`setting_location_inactive`), so counting it would block the Betrieb for
-ever.
+ever. That leaves one way to a broken scope: a location deactivated while it
+relied on the Betrieb's value, which is then cleared, and reactivated. Platform's
+nightly reconciliation reports it for the one rule shipped
+(«setting_value labour_rates.time_unit on work units without work units per
+hour»); a new rule adds its own check.
 
 **A write never makes it worse.** A scope is refused only when the write
-breaks the rule there; a scope already broken before (a value stored before
-the rule existed) does not block an unrelated write — it is reported by
-platform's reconciliation instead.
+breaks the rule there; a scope already broken before does not block an
+unrelated write.
 
 A restore goes through `change_setting`, so it is checked the same way.
 """

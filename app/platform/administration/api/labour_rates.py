@@ -4,9 +4,11 @@ The Betrieb's categories with their rates per location and their people,
 and the fixed rates agreed with contacts; «which rate applies here» as a
 read. Matrix row `labour_rates`: aftersales, parts, finance and the manager
 read, the manager writes. Every route is the Betrieb's (tenant match, the
-platform tenant 404) and needs the `aftersales` module, else 404 for
-everyone (D-A-04) — answered here, not as a router gate, since a router-level
-entitlement gate is the sales routers' alone.
+platform tenant 404) and needs the `aftersales` module, else 404 (D-A-04) —
+answered here, not as a router gate, since a router-level entitlement gate is
+the sales routers' alone. The role check runs first, so a role without the
+matrix row gets 403 before the 404: it depends on the role alone and
+confirms nothing about the Betrieb (the settings API's order).
 
 Creating an agreement needs the contact, which contact owns: that one route
 lives at the composition root (`app/api/v1/labour_rate_agreements.py`).

@@ -35,9 +35,11 @@ counts a rate still to come). Binding text: the slice page and the ADR in the Ta
   `unknown_category`), never an error or a default; it names the source and the row. GET
   `…/labour-rate-answer` shows it. `labour_categories_of_user` for «the rate from who did the work».
 - **API** (`administration/api/labour_rates.py`, matrix row `labour_rates`): every route 404s without the
-  `aftersales` module (a service-level check: router gates are the sales routers' alone). The agreement
+  `aftersales` module (a service-level check: router gates are the sales routers' alone); the role check runs
+  first, so a role outside the row gets 403 first, as on the settings API. The agreement
   POST lives at the composition root (`app/api/v1/labour_rate_agreements.py`, it reads the contact; listed in
   `session_guard`'s administration prefixes). No outbox event (nothing consumes one). Reconciliation checks
-  the agreement's contact (exists, not merged, in the group) and the rate's location.
+  the agreement's contact (exists, not merged, in the group), the rate's location, and an O18 slot on work units
+  with no O19 in force (a location deactivated, the Betrieb's O19 cleared, the location reactivated).
 - **Open:** a `contact.merged` re-point and a nightly label refresh of agreements (follow-up ticket); copying
   categories from a sister Betrieb (KAN-220's subset).

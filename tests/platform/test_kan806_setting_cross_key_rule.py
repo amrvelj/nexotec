@@ -3,7 +3,7 @@
 A choice may need another setting in force: O18 «work units» needs O19
 «work units per hour». Proved here on `testarea` samples of the same shape,
 so the store's rule is tested apart from the labour-rate declarations
-(`test_kan806_labour_rate_settings.py` checks the real keys).
+(`test_kan806_labour_rates.py` checks the real keys).
 """
 
 import uuid
