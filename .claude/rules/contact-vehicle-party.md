@@ -43,7 +43,7 @@ paths:
 ---
 <!-- Maintainer note. ADR-022, ADR-064 (as amended 2026-10-13), rule 2, rule 12; Anto's rulings on
 KAN-99, KAN-148, KAN-177, KAN-189, KAN-383, KAN-566, KAN-572, KAN-583, KAN-644. Moved out of
-contact.md by KAN-615 (2026-11-13). Last verified against main@3b2bf69 (2026-11-18). -->
+contact.md by KAN-615 (2026-11-13). Last verified against main@32ad509 (2026-11-25). -->
 
 # Vehicle parties, trade-in holders and merges
 

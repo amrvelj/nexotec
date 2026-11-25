@@ -34,7 +34,7 @@ paths:
 <!-- Maintainer note (stripped before Claude sees it). Summarises ADR-013 as amended by ADR-075,
 ADR-042, ADR-044, ADR-072, ADR-111, ADR-112, ADR-123 and the identAPI test agreement's single-lookup
 rule (KAN-485, ADR-023 as amended). Cut from vehicle.md by KAN-614 (2026-11-10) to the invariants.
-Last verified against main@3b2bf69 (2026-11-18). -->
+Last verified against main@32ad509 (2026-11-25). -->
 
 # The catalogue: master data, browse, details, codes
 
@@ -51,8 +51,9 @@ Last verified against main@3b2bf69 (2026-11-18). -->
 ## Single lookups only, for every provider (identAPI test agreement; KAN-485)
 - No full seed, no daily delta, no `FzKeyChanged` nor the identAPI's own changed-keys list
   `GET /vehiclecatalog/mutations/{sinceDate}` (refused by path and by method name, KAN-589),
-  **no daily job reaching an integration provider through the gateway (KAN-485)** — the demo
-  provider too; a connected-account grant revoker (KAN-559) is not a gateway provider. A variant enters only through identification or a browsed page;
+  **no daily job reaching a vehicle-data or catalogue provider through the gateway (KAN-485)** — the demo
+  provider too; the only daily provider calls are Google Business Profile's per-binding drift check and
+  horizon push (KAN-798, ADR-205 amended); a connected-account grant revoker (KAN-559) is not a gateway provider. A variant enters only through identification or a browsed page;
   every variant either returns is stored through `upsert_model_variant` / `store_seen_variants`.
   `test_no_bulk_catalogue_retrieval.py` refuses `page[number]` outside the adapter and any
   catalogue query inside a loop or comprehension (its allow-list is by name, with the bound pinned).

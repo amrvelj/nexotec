@@ -18,7 +18,7 @@ paths:
 ---
 <!-- Maintainer note. PRD-Configurator v1.4 (the host/mode matrix), ADR-083. Moved out of
 vehicle-configurator.md by KAN-615 (2026-11-13) for the hosts' own files. Last verified against
-main@3b2bf69 (2026-11-18). -->
+main@32ad509 (2026-11-25). -->
 
 # Configurator hosts and modes (PRD v1.4, + the pending contract of ADR-083)
 

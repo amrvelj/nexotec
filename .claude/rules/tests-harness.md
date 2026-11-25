@@ -9,7 +9,7 @@ paths:
   - "tests/test_demo_models_off_production_base.py"
 ---
 <!-- Maintainer note. ADR-011, ADR-130 (per-worker databases). Moved out of tests.md by KAN-615
-(2026-11-13). Last verified against main@3b2bf69 (2026-11-18). -->
+(2026-11-13). Last verified against main@32ad509 (2026-11-25). -->
 
 # The Postgres test harness
 

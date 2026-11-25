@@ -34,7 +34,7 @@ paths:
 ---
 <!-- Maintainer note (stripped before Claude sees it). Summarises PRD-Configurator v1.4 (ADR-068…ADR-072,
 the host/mode matrix), ADR-041, ADR-083, ADR-114, ADR-121. Cut from vehicle.md by KAN-614 (2026-11-10)
-to the invariants. Last verified against main@3b2bf69 (2026-11-18). -->
+to the invariants. Last verified against main@32ad509 (2026-11-25). -->
 
 # The configurator (PRD-Configurator v1.4; ADR-068 … ADR-072)
 

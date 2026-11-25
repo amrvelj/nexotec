@@ -9,7 +9,7 @@ paths:
   - "frontend/packages/ui-kit/vite*.config.*"
 ---
 <!-- Maintainer note. Moved out of tests.md and ui.md by KAN-615 (2026-11-13). Last verified
-against main@3b2bf69 (2026-11-18). -->
+against main@32ad509 (2026-11-25). -->
 
 # Frontend tests
 

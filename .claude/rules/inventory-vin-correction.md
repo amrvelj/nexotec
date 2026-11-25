@@ -26,7 +26,7 @@ paths:
 ---
 <!-- Maintainer note. KAN-557 (ADR-116 (2)-(3); Anto's ruling on KAN-544, 2026-11-03), KAN-536
 (Anto, 2026-11-12); the VINs-in-stock section moved here from inventory.md by KAN-615 (2026-11-13).
-Last verified against main@3b2bf69 (2026-11-18). -->
+Last verified against main@32ad509 (2026-11-25). -->
 
 # VINs in stock
 

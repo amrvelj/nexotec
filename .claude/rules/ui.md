@@ -21,7 +21,7 @@ paths:
 <!-- Maintainer note. UI/UX Specification (the one UI page), UI/UX Core Principles, ADR-076, ADR-161,
 ADR-177, KAN-35. Split by KAN-615 (2026-11-13) into this file (what binds every screen) and ui-grid,
 ui-forms, ui-detail, ui-i18n, ui-formats, ui-shell, each with narrow globs. Last verified against
-main@3b2bf69 (2026-11-18). -->
+main@32ad509 (2026-11-25). -->
 
 # Anything a user can see
 

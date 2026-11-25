@@ -41,7 +41,7 @@ paths:
 ADR-065, ADR-067, ADR-093; D-A-29. KAN-615 (2026-11-13) cut it to the invariants; vehicle parties,
 trade-in holders and merges are contact-vehicle-party.md, screens contact-screens.md (KAN-751).
 Frontend under src/modules/contact/ (KAN-636, ADR-161), listed by file: its vehicle-party and
-sales files belong to other rules. Last verified against main@3b2bf69 (2026-11-18). -->
+sales files belong to other rules. Last verified against main@32ad509 (2026-11-25). -->
 
 # Contacts
 

@@ -10,7 +10,8 @@ paths:
 ---
 <!-- Maintainer note. ADR-214, ADR-216; Anto's rulings of 2026-11-24 on KAN-805 (restore for the store
 only, history read by every role, checklist settings declared after activation only notify, the
-per-location column while any location holds a value). Split out of platform-admin.md by KAN-805 PR-2. -->
+per-location column while any location holds a value). Split out of platform-admin.md by KAN-805 PR-2.
+Last verified against main@32ad509 (2026-11-25). -->
 
 # The settings store (KAN-805) — store, API, checklist and copy built; the screen to come
 
