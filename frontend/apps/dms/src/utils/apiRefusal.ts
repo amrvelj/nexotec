@@ -398,6 +398,17 @@ const REASON_KEYS: Record<string, string> = {
       'labour_rate_starts_in_the_past',
       'labour_rates_entry_basis_not_set',
       'labour_rate_agreement_contact_merged',
+      // KAN-808 — the planner's resources and lists (S7).
+      'planning_list_entry_in_use',
+      'planning_list_entry_name_taken',
+      'planning_list_entry_unknown',
+      'planning_location_inactive',
+      'planning_person_already_a_resource',
+      'planning_person_not_in_dealership',
+      'planning_person_only',
+      'planning_workplace_name_taken',
+      'planning_workplace_only',
+      'planning_working_hours_invalid',
       // KAN-523 — the plate a sold car leaves with, at «Rechnung anfordern».
       'invoice_plate_vehicle_unknown',
       // KAN-539 — «Rechnung anfordern» once per contract.

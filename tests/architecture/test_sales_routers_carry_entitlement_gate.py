@@ -7,9 +7,11 @@ one of those packages without the gate fails here; a route of another context
 that gains the gate by mistake fails too, because a gate on master data would
 hide contacts or vehicles from a service-only Betrieb (D-A-10).
 
-KAN-810 (D-A-04; Aftersales slice 1, check 42): the workshop order's
-routers (`app.aftersales.api`) carry the `aftersales` gate the same way —
-router-level, every route, and no other module.
+KAN-810 (D-A-04; Aftersales slice 1, check 42) and KAN-808 (ADR-221 T3): the
+workshop order's routers (`app.aftersales.api`) and the planning context's routers
+(`app.planning.api`) carry the `aftersales` gate the same way — router-level, every
+route, and no other module's gate. When Sales books through the planner, a
+two-module gate needs its own ADR.
 
 The walk uses tests.route_walk (KAN-241): under FastAPI 0.141 `app.routes`
 and `api_v1_router.routes` hold `_IncludedRouter` objects, not APIRoutes, so a
@@ -30,8 +32,9 @@ from tests.route_walk import api_routes
 _GATED_PACKAGES = ("app.sales.api.", "app.inventory.api.", "app.valuation.api.")
 _GATED_MODULES = {"app.vehicle.api.configuration", "app.vehicle.api.identification"}
 _GATED_ROUTERS = 13  # KAN-555: the legacy transactions router is gone
-_AFTERSALES_PACKAGES = ("app.aftersales.api.",)
-_AFTERSALES_ROUTERS = 1  # KAN-810: the service orders
+# KAN-810: the service orders; KAN-808: the planning context's routers — both behind `aftersales`.
+_AFTERSALES_PACKAGES = ("app.aftersales.api.", "app.planning.api.")
+_AFTERSALES_ROUTERS = 2
 
 
 def _is_gated_module(module: str) -> bool:
@@ -76,9 +79,9 @@ def test_every_route_of_a_sales_module_router_is_gated_with_sales():
     assert ungated == [], ungated
 
 
-def test_every_route_of_an_aftersales_router_is_gated_with_aftersales():
+def test_every_route_of_an_aftersales_or_planning_router_is_gated_with_aftersales():
     gated_routes = [(path, route) for path, route in _walk() if _is_aftersales_module(route.endpoint.__module__)]
-    assert len(gated_routes) >= 12, len(gated_routes)
+    assert len(gated_routes) >= 27, len(gated_routes)
     ungated = [
         f"{sorted(route.methods)} {path}"
         for path, route in gated_routes

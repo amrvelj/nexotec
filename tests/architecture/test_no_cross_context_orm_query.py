@@ -303,7 +303,10 @@ def test_every_context_has_its_reconciliation_module_where_expected():
     the moved code would fail (loud). This pins where they are today."""
 
     present = sorted(p.parent.name for p in _APP_ROOT.glob("*/reconciliation.py") if p.parent.name not in _NOT_A_CONTEXT)
-    assert present == ["aftersales", "contact", "integration", "inventory", "platform", "reporting", "sales", "valuation", "vehicle"]
+    assert present == [
+        "aftersales", "contact", "integration", "inventory", "planning", "platform", "reporting", "sales", "valuation",
+        "vehicle",
+    ]
 
 
 # --- anti-vacuous: the gate must be able to fail ----------------------------------

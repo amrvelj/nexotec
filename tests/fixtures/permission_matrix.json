@@ -250,6 +250,14 @@
       "write": []
     },
     {
+      "label": "Planner resources",
+      "key": "planner_resources",
+      "read": [
+        "aftersales"
+      ],
+      "write": []
+    },
+    {
       "label": "Connected accounts of a user",
       "key": "connected_accounts",
       "read": [],

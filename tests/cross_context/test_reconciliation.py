@@ -1033,6 +1033,11 @@ def test_no_hard_delete_endpoint_exists_for_fk_target_entities(client):
         # audit row keeps what was deleted, and clocked time refuses the delete (decision 64).
         "/v1/service-orders/{order_id}/jobs/{job_id}",
         "/v1/service-orders/{order_id}/positions/{position_id}",
+        # KAN-808: a planner list entry (S7) no resource uses. Planning's own rows; no
+        # other context holds their ids, and an entry in use is refused (409).
+        "/v1/dealerships/{dealership_id}/planning/workplace-types/{entry_id}",
+        "/v1/dealerships/{dealership_id}/planning/technician-types/{entry_id}",
+        "/v1/dealerships/{dealership_id}/planning/qualifications/{entry_id}",
         # KAN-196: sessions are revoked (`revoked_at`), never deleted — the
         # user's own revoke (platform staff's revoke-all and MFA reset are
         # POSTs at the recovery door since KAN-202). The second

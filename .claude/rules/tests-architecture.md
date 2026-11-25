@@ -27,8 +27,8 @@ the names do not say:
 - `test_no_password_credential_storage.py`: password-shaped columns live in `credential` alone
   and no second credential table outside the allow-list; a third realm is an ADR (D-A-07).
 - `test_sales_routers_carry_entitlement_gate.py`: every route of a sales, inventory, valuation
-  or configurator router behind the `sales` gate, every route of an `app.aftersales.api` router
-  behind the `aftersales` gate (KAN-810) — and no other route.
+  or configurator router behind the `sales` gate, every planning route behind `aftersales`
+  (ADR-221), every `app.aftersales.api` route behind `aftersales` (KAN-810) — and no other route.
 - `test_standard_texts_write_honours_delegations.py`: no standard-text write behind the plain
   `require_write`; the delegation-aware gate only on a route whose path carries `{category}`.
 - `test_catalogue_browse_is_a_bounded_live_query.py`: one provider request per page and per

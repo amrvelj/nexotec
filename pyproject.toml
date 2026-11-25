@@ -508,11 +508,9 @@ forbidden_modules = [
 allow_indirect_imports = true
 
 # KAN-804: planning, the thirteenth bounded context (Decision A of Aftersales
-# slice 1, amending ADR-131), directly above platform. Empty like the stubs:
-# only `public` exists, so there is nothing yet to forbid; the contract is
-# here from the first day so that KAN-808's first module lands in a list
-# that already exists (test_import_contracts_cover_every_module.py then
-# demands it).
+# slice 1, amending ADR-131), directly above platform. KAN-808 built its
+# first modules; every one but `public` is forbidden to the other contexts
+# (test_import_contracts_cover_every_module.py demands each).
 [[tool.importlinter.contracts]]
 name = "Only app.planning.public is reachable from outside planning"
 type = "forbidden"
@@ -530,5 +528,11 @@ source_modules = [
     "app.reporting",
     "app.compliance",
 ]
-forbidden_modules = []
+forbidden_modules = [
+    "app.planning.api",
+    "app.planning.models",
+    "app.planning.reconciliation",
+    "app.planning.schemas",
+    "app.planning.services",
+]
 allow_indirect_imports = true
