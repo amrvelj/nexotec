@@ -2,7 +2,7 @@
   "planning_list_entry_in_use": "Una risorsa utilizza questa voce. Modificate prima la risorsa.",
   "planning_list_entry_name_taken": "L'elenco contiene già una voce con questo nome.",
   "planning_list_entry_unknown": "Questa voce dell'elenco non appartiene a questa azienda.",
-  "planning_location_inactive": "Una sede disattivata non riceve nuove risorse.",
+  "planning_location_inactive": "Una sede disattivata non può avere risorse attive.",
   "planning_person_already_a_resource": "Questa persona è già una risorsa dell'azienda. Riattivatela invece di crearla di nuovo.",
   "planning_person_not_in_dealership": "Può essere pianificato solo chi lavora in questa azienda.",
   "planning_person_only": "Tipo di tecnico, qualifiche e orari di lavoro riguardano una persona, non una postazione di lavoro.",

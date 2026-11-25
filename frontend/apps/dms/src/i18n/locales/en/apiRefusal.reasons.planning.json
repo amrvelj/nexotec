@@ -2,7 +2,7 @@
   "planning_list_entry_in_use": "A resource uses this entry. Change the resource first.",
   "planning_list_entry_name_taken": "The list already has an entry of this name.",
   "planning_list_entry_unknown": "This list entry is not one of this business's.",
-  "planning_location_inactive": "A deactivated location gets no new resource.",
+  "planning_location_inactive": "A deactivated location cannot hold an active planner resource.",
   "planning_person_already_a_resource": "This person already is a resource of the business. Reactivate them instead of creating them again.",
   "planning_person_not_in_dealership": "Only someone who works in this business can be planned.",
   "planning_person_only": "A technician type, qualifications and working hours belong to a person, not to a workplace.",

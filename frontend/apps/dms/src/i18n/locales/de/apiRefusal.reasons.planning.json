@@ -2,7 +2,7 @@
   "planning_list_entry_in_use": "Eine Ressource verwendet diesen Eintrag. Ändern Sie zuerst die Ressource.",
   "planning_list_entry_name_taken": "Die Liste hat bereits einen Eintrag mit diesem Namen.",
   "planning_list_entry_unknown": "Dieser Listeneintrag gehört nicht zu diesem Betrieb.",
-  "planning_location_inactive": "Ein deaktivierter Standort erhält keine neue Ressource.",
+  "planning_location_inactive": "An einem deaktivierten Standort kann keine Ressource aktiv sein.",
   "planning_person_already_a_resource": "Diese Person ist bereits eine Ressource des Betriebs. Aktivieren Sie sie wieder, statt sie neu anzulegen.",
   "planning_person_not_in_dealership": "Nur wer in diesem Betrieb arbeitet, kann eingeplant werden.",
   "planning_person_only": "Technikertyp, Qualifikationen und Arbeitszeiten gehören zu einer Person, nicht zu einem Arbeitsplatz.",
