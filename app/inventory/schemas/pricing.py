@@ -2,12 +2,13 @@ import uuid
 from decimal import Decimal
 
 from app.core.schemas import CamelModel
+from app.core.validators import DecimalStr
 
 
 class OptionInput(CamelModel):
     code: str
     label: str
-    price: Decimal
+    price: DecimalStr
     equipment_code: str | None = None
 
 
@@ -20,5 +21,5 @@ class OptionRead(CamelModel):
 
 
 class SetOptionsRequest(CamelModel):
-    base_price: Decimal
+    base_price: DecimalStr
     options: list[OptionInput]

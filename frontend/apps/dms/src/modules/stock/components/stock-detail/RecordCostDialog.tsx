@@ -11,7 +11,7 @@ import { apiRefusalText } from '../../../../utils/apiRefusal'
 interface RecordCostDialogProps {
   opened: boolean
   onClose: () => void
-  onSubmit: (data: { category: LedgerCategory; amount: number; occurredAt: string; sourceRef: string }) => Promise<void>
+  onSubmit: (data: { category: LedgerCategory; amount: string; occurredAt: string; sourceRef: string }) => Promise<void>
 }
 
 /**
@@ -47,7 +47,7 @@ export function RecordCostDialog({ opened, onClose, onSubmit }: RecordCostDialog
     setSubmitting(true)
     setError(null)
     try {
-      const entry = { category, amount: Number(amount), occurredAt: new Date(occurredAt).toISOString() }
+      const entry = { category, amount: String(amount), occurredAt: new Date(occurredAt).toISOString() }
       await onSubmit({ ...entry, sourceRef: sourceRefs.headers(entry)['Idempotency-Key'] })
       sourceRefs.renew()
       onClose()

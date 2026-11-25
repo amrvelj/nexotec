@@ -1,11 +1,10 @@
 import datetime as dt
 import uuid
-from decimal import Decimal
 
 from pydantic import Field, field_validator
 
 from app.core.schemas import CamelModel
-from app.core.validators import NormalisedVinOrChassisNumber
+from app.core.validators import DecimalStr, NormalisedVinOrChassisNumber
 
 
 class RecordPurchaseRequest(CamelModel):
@@ -27,10 +26,10 @@ class RecordPurchaseRequest(CamelModel):
             "contact's own (when the contact tells one) is audited as `supplier_vat_status_overridden` (KAN-465)."
         )
     )
-    purchase_price: Decimal
+    purchase_price: DecimalStr
     purchase_date: dt.date
     purchase_invoice_ref: str | None = None
-    landed_cost: Decimal | None = None
+    landed_cost: DecimalStr | None = None
     vin: NormalisedVinOrChassisNumber | None = Field(
         default=None,
         description=(
@@ -61,7 +60,7 @@ class NotionalInputTaxOverrideRequest(CamelModel):
     """
 
     applicable: bool
-    rate: Decimal | None = None
+    rate: DecimalStr | None = None
     reason: str
 
 

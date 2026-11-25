@@ -105,7 +105,7 @@ describe('RecordPurchaseDialog — a pipeline item is bought with its VIN (KAN-4
     fireEvent.click(submitButton())
 
     await vi.waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1))
-    expect(onSubmit.mock.calls[0][0]).toMatchObject({ supplierContactId: SUPPLIER.id, purchasePrice: 8000, vin: 'WVWZZZ1KZAW004461' })
+    expect(onSubmit.mock.calls[0][0]).toMatchObject({ supplierContactId: SUPPLIER.id, purchasePrice: '8000', vin: 'WVWZZZ1KZAW004461' })
   })
 
   it.each([

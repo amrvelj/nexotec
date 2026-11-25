@@ -3,12 +3,13 @@ import uuid
 from decimal import Decimal
 
 from app.core.schemas import CamelModel
+from app.core.validators import DecimalStr
 from app.inventory.models.stock_item_ledger import LedgerCategory, LedgerDirection
 
 
 class RecordCostRequest(CamelModel):
     category: LedgerCategory
-    amount: Decimal
+    amount: DecimalStr
     occurred_at: dt.datetime
     source_ref: str
 

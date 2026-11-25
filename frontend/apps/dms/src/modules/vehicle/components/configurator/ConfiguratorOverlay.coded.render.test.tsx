@@ -321,6 +321,34 @@ describe('ConfiguratorOverlay — clearing a saved field (KAN-247)', () => {
     // only the overridden spec field travels, cleared
     expect(body.spec).toEqual({ ps: null })
   })
+
+  // KAN-827: a decimal or CHF spec field travels as a decimal string, never a
+  // JSON number (the API refuses one: a number passes through a float); a
+  // whole-number field stays a number.
+  it('sends a decimal and a CHF spec field as decimal strings, a whole number as a number', async () => {
+    const user = userEvent.setup()
+    const ctx = install()
+    renderWithProviders(
+      <ConfiguratorOverlay
+        allowedModes={['record']}
+        existing={configurationRead({ mode: 'record', mileageKm: 30000, spec: { ps: 245 } })}
+        onCommitted={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    )
+
+    const consumption = await screen.findByRole('textbox', { name: (n) => n.startsWith(i18n.t(specFieldLabelKey('consumptionMixed'))) })
+    await user.type(consumption, '6.5')
+    await user.type(screen.getByRole('textbox', { name: (n) => n.startsWith(i18n.t(specFieldLabelKey('basePrice'))) }), '42500')
+    const ps = screen.getByRole('textbox', { name: i18n.t(specFieldLabelKey('ps')) })
+    await user.clear(ps)
+    await user.type(ps, '250')
+    await user.click(screen.getByRole('button', { name: i18n.t('configurator.save') }))
+
+    await waitFor(() => expect(ctx.saved()).toHaveLength(1))
+    const body = ctx.saved()[0] as { spec: Record<string, unknown> }
+    expect(body.spec).toEqual({ consumptionMixed: '6.5', basePrice: '42500', ps: 250 })
+  })
 })
 
 // KAN-239 — the spec block's reference fields (engine cycle, emission

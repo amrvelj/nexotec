@@ -106,7 +106,7 @@ describe('OfferWorkspace — Continue waits for a price edit still in its deboun
     expect(backend.callsTo(/^\/sales\/offers\/o1$/, 'PATCH')).toHaveLength(0)
 
     await waitFor(() => expect(backend.callsTo(/^\/sales\/offers\/o1$/, 'PATCH')).toHaveLength(1), { timeout: 2000 })
-    expect(backend.callsTo(/^\/sales\/offers\/o1$/, 'PATCH')[0].body).toMatchObject({ discountType: 'amount', discountValue: 1000 })
+    expect(backend.callsTo(/^\/sales\/offers\/o1$/, 'PATCH')[0].body).toMatchObject({ discountType: 'amount', discountValue: '1000' })
     await waitFor(() => expect(screen.getByRole('button', { name: i18n.t('offerWorkspace.continue') })).toBeEnabled())
     // The build-up shows the saved discount before Generate can open.
     expect(screen.getByText("− CHF 1'000.00")).toBeInTheDocument()

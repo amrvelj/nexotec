@@ -25,7 +25,7 @@ afterAll(async () => {
 afterEach(() => cleanup())
 
 describe("CHF inputs under the French UI (KAN-168)", () => {
-  it("stock — a Wagenbuch cost typed as 12500 reads CHF 12'500.00 and is sent as 12500", async () => {
+  it("stock — a Wagenbuch cost typed as 12500 reads CHF 12'500.00 and is sent as \"12500\"", async () => {
     installFakeBackend([])
     const user = userEvent.setup()
     const onSubmit = vi.fn(async () => {})
@@ -40,7 +40,7 @@ describe("CHF inputs under the French UI (KAN-168)", () => {
     expect(amount.value).toBe("CHF 12'500.00")
     await user.click(screen.getByRole('button', { name: i18n.t('stockDetail.wagenbuch.submit') }))
     await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1))
-    expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ amount: 12500 }))
+    expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ amount: '12500' }))
   })
 
   it("offer — a saved base price and amount discount open as CHF 42'500.00 and CHF 500.00", async () => {

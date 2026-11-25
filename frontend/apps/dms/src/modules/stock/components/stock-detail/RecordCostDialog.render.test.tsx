@@ -13,7 +13,7 @@ import { RecordCostDialog } from './RecordCostDialog'
 // Now it is one per request: a retry keeps it, a corrected entry gets a
 // new one. A failed save is shown, so the user knows to send it again.
 
-type Entry = { category: string; amount: number; occurredAt: string; sourceRef: string }
+type Entry = { category: string; amount: string; occurredAt: string; sourceRef: string }
 
 function renderDialog() {
   const submitted: Entry[] = []
@@ -73,7 +73,7 @@ describe('RecordCostDialog — one sourceRef per request (KAN-266)', () => {
     await submit(user)
     await waitFor(() => expect(submitted).toHaveLength(2))
 
-    expect(submitted[1].amount).toBe(420)
+    expect(submitted[1].amount).toBe('420')
     expect(submitted[1].sourceRef).toBeTruthy()
     expect(submitted[1].sourceRef).not.toBe(submitted[0].sourceRef)
   })

@@ -11,6 +11,7 @@ asserts its field set (by alias) equals `SPEC_BLOCK_FIELDS`.
 from decimal import Decimal
 
 from app.core.schemas import CamelModel
+from app.core.validators import DecimalStr
 
 
 class VehicleSpecBlockRead(CamelModel):
@@ -68,5 +69,16 @@ class VehicleSpecBlockInput(VehicleSpecBlockRead):
     moment the read model is also used as a request body). C-C's
     configuration create/update use this; every read keeps
     `VehicleSpecBlockRead`. Inherits `model_fields`, so the drift test
-    covers it for free."""
+    covers it for free.
+
+    KAN-827: its decimal fields are redeclared as `DecimalStr`, so a request
+    takes them as decimal strings only; the read model keeps `Decimal` and
+    every response its shape."""
+
+    consumption_mixed: DecimalStr | None = None
+    consumption_urban: DecimalStr | None = None
+    consumption_extra_urban: DecimalStr | None = None
+    energy_consumption_kwh: DecimalStr | None = None
+    battery_capacity_kwh: DecimalStr | None = None
+    base_price: DecimalStr | None = None
 
