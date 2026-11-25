@@ -7,7 +7,7 @@ paths:
 «Architecture decisions of slice 1» https://app.notion.com/p/4223e79334dd816e941bf780af822854 and
 section 3.8 of «Build slice 1 - the order backbone» https://app.notion.com/p/4223e79334dd81d8b83bc1fbf4376c74
 (binding; read the section before building against a line). Built by KAN-808 (backend) and KAN-809 (page).
-Last verified against KAN-808 PR-1a on main@498cc66 (2026-11-25). -->
+Last verified against KAN-808 PR-1b, cut from main@4c33042 (2026-11-25). -->
 
 # Planning — the planner every context books through
 
@@ -28,7 +28,12 @@ Last verified against KAN-808 PR-1a on main@498cc66 (2026-11-25). -->
   user and location are the three-column pattern, validated through `platform.public` (T5). A type
   copied from a starting set (ADR-222, not copied yet) is a sample until changed or confirmed; the
   database refuses a rank or factor on one. Exporter, reconciliation and chain (`9a5bf8ec0ed6`)
-  registered. Not yet: bookings, blocks, `planning.public`'s writes, label refreshes, starting sets.
+  registered.
+- **Built (KAN-808 PR-1b; ADR-221 (4)):** the nightly label refreshes `planning.person_labels` (a
+  person's user name) and `planning.location_labels` (every resource's location name),
+  `services/labels.py`, through `platform.public`, before `reconciliation.run_all`, under the shared
+  label rules (`events-worker.md`); gauges `planning.person` and `planning.location`. Not yet:
+  bookings, blocks, `planning.public`'s writes, starting sets.
 - **It owns:** resources (people, workplaces, bookable cars) with their types, qualifications and
   working hours; bookings and blocks; the overlap rule; the record of an overruled warning.
 - **It owns no order, car or customer.** A caller's reference is the three-column pattern (id, label,
