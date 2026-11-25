@@ -354,8 +354,15 @@ def _candidate(
 # --- writing --------------------------------------------------------------------------------
 
 
-def _label(value: str) -> str:
-    return value.strip()[:LABEL_LENGTH]
+def _label(value: str, what: str) -> str:
+    """A caller's label, as stored beside its id. The calling context names the
+    thing (rule 2), so an empty or all-blank label is its programming error,
+    refused at the door before anything is read or written."""
+
+    cleaned = value.strip() if isinstance(value, str) else ""
+    if not cleaned:
+        raise ValueError(f"the {what}'s label is empty: the calling context names what it books for")
+    return cleaned[:LABEL_LENGTH]
 
 
 def _audit(booking: Booking, resource_ids: Sequence[uuid.UUID]) -> dict[str, Any]:
@@ -646,6 +653,11 @@ def book(
         raise ValueError("a block is written by block()")
     if reference is not None and not _REFERENCE_TYPE.fullmatch(reference.type):
         raise ValueError(f"reference type {reference.type!r} is not `<context>.<entity>`")
+    labels = {
+        "reference": _label(reference.label, "reference") if reference else None,
+        "job": _label(job.label, "job") if job else None,
+        "vehicle": _label(vehicle.label, "vehicle") if vehicle else None,
+    }
     path = "planning.book"
     body = {
         "kind": kind.value,
@@ -700,13 +712,13 @@ def book(
         ends_at=end,
         reference_type=reference.type if reference else None,
         reference_id=reference.id if reference else None,
-        reference_label=_label(reference.label) if reference else None,
+        reference_label=labels["reference"],
         reference_label_refreshed_at=now if reference else None,
         job_id=job.id if job else None,
-        job_label=_label(job.label) if job else None,
+        job_label=labels["job"],
         job_label_refreshed_at=now if job else None,
         vehicle_id=vehicle.id if vehicle else None,
-        vehicle_label=_label(vehicle.label) if vehicle else None,
+        vehicle_label=labels["vehicle"],
         vehicle_label_refreshed_at=now if vehicle else None,
         created_by=actor_id,
         updated_by=actor_id,

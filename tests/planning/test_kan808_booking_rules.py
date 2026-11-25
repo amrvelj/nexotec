@@ -222,7 +222,7 @@ def test_confirming_another_warning_does_not_overrule(db_session, shop):
         planning.ConfirmedWarning(code=W.OUTSIDE_WORKING_HOURS, resource_id=shop.max),  # the code, another person
     ):
         details = _refused(
-            lambda: p.work(
+            lambda other=other: p.work(
                 db_session, shop, starts_at=p.at(6, 30), ends_at=p.at(7, 30), resources=[shop.lift_1, shop.lea],
                 confirmed=[other],
             ),
@@ -547,6 +547,32 @@ def test_a_refused_write_holds_no_lock_after_the_call(engine, db_session, shop):
         p.work(other, shop, starts_at=p.at(11), ends_at=p.at(12), resources=[shop.lift_1])
     finally:
         other.close()
+
+
+def test_a_blank_label_of_the_callers_is_refused_at_the_door(db_session, shop):
+    """The calling context names its reference, job and car (rule 2): a label
+    that is empty or blank is its programming error, refused before any write."""
+
+    for blank in ("", "   "):
+        for field in ("reference", "for_job", "vehicle"):
+            named = {
+                "reference": p.order(),
+                "for_job": p.job(),
+                "vehicle": p.car(),
+            }
+            kind = {"reference": planning.Reference, "for_job": planning.LabelledId, "vehicle": planning.LabelledId}[field]
+            named[field] = (
+                kind(type="aftersales.order", id=uuid.uuid4(), label=blank)
+                if kind is planning.Reference
+                else kind(id=uuid.uuid4(), label=blank)
+            )
+            with pytest.raises(ValueError, match="label is empty"):
+                p.work(db_session, shop, starts_at=p.at(9), ends_at=p.at(10), resources=[shop.lift_1], **named)
+    assert (_count(db_session, Booking), _events(db_session)) == (0, [])
+    booked = p.work(
+        db_session, shop, starts_at=p.at(9), ends_at=p.at(10), resources=[shop.lift_1], vehicle=p.car("  VW Golf  ")
+    )
+    assert booked.booking.vehicle is not None and booked.booking.vehicle.label == "VW Golf"
 
 
 def test_planning_public_hands_out_no_mapped_class(db_session, shop):
