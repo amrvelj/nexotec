@@ -122,9 +122,11 @@ CHECKS: list[ReferenceCheck | StateCheck] = [
     ),
     StateCheck(
         # KAN-464 (rule 10): an event published under its name before the
-        # rename, still pending or dead an hour on. Since PR-5 no consumer
-        # subscribes to an old name, so such a row is a merge Sales and Stock
-        # never follow: a finding, never repaired here (ADR-107).
+        # rename, still pending or dead an hour on. Since PR-5 nothing
+        # subscribes to an old name, so a worker publishes such a row with no
+        # consumer at its first poll (staging held no `customer.merged`,
+        # 2026-11-25): this reports only a database no worker has polled yet,
+        # such as one restored from before the rename. Never repaired here.
         label="event under its name before the rename to contacts, still pending or dead",
         source_model=OutboxMessage,
         source_row_id_column=OutboxMessage.id,
@@ -136,9 +138,9 @@ CHECKS: list[ReferenceCheck | StateCheck] = [
     ),
     StateCheck(
         # KAN-464 PR-5 (rule 10): a Stock or Sales fact published before the
-        # rename names the contact by its old key. PR-5 retired the consumers'
-        # fallbacks to those keys, so one still pending or dead would record
-        # no trade-in seller, reopen no holder, or dead-letter: a finding.
+        # rename names the contact by its old key. Its consumers refuse such a
+        # payload since PR-5, so a worker dead-letters it (with the alert);
+        # this names those dead rows, and pending ones no worker has polled.
         label="stock or sales event naming the contact by its key before the rename, still pending or dead",
         source_model=OutboxMessage,
         source_row_id_column=OutboxMessage.id,

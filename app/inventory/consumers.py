@@ -27,8 +27,8 @@ and `consumer_name` of each:
 - `contact.merged` -> `inventory.contact_merged`
   (`handle_contact_merged_message`, KAN-465): an item whose supplier is the
   merged contact moves to the survivor, with its name
-  (app.inventory.services.supplier_labels). `customer.merged` -> `inventory.customer_merged`
-  stays subscribed, the same handler, until KAN-464 PR-5 (ADR-210).
+  (app.inventory.services.supplier_labels). KAN-464 PR-5 retired its
+  pre-rename twin on `customer.merged` (ADR-210).
 """
 
 import uuid

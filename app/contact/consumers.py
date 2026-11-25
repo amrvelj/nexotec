@@ -216,6 +216,10 @@ def handle_stock_item_storno_message(db: Session, message: OutboxMessage) -> Non
     consume_once commits."""
 
     payload = message.payload or {}
+    if "returnedToCustomer" in payload or "tradeInCustomerId" in payload:
+        # KAN-464 PR-5 retired the pre-rename keys: refused (redelivered, then
+        # dead-lettered with its alert, rule 10), never read as «not returned».
+        raise TradeInEventWithoutSeller(f"{message.event_type} message {message.id} names the contact by its key before the rename.")
     overtaken = False
     if message.tenant_id is not None:
         lock_stock_item(db, stock_item_id=message.aggregate_id)

@@ -180,12 +180,22 @@ def _item_for_ref(db: Session, *, tenant_id: uuid.UUID, pipeline_ref: str) -> St
     return db.scalar(select(StockItem).where(StockItem.tenant_id == tenant_id, StockItem.pipeline_ref == pipeline_ref))
 
 
+class ConfirmationBeforeTheRename(RuntimeError):
+    """A `sales.contract.confirmed` published before customers became contacts
+    (`customerId`, KAN-464 PR-3). Raised so it dead-letters with its alert."""
+
+
 def handle_sales_contract_confirmed(db: Session, *, tenant_id: uuid.UUID, payload: dict[str, Any]) -> None:
     """FR-I-02/02b. KAN-513: a configuration copy made on the way (its own
     session, ADR-047) is discarded again if the rest of the handler fails —
     the compensating action; `configuration_holding`'s docstring says what
     a failed commit after it leaves."""
 
+    if "customerId" in payload:
+        # KAN-464 PR-5 retired the pre-rename key: a confirmation still naming
+        # the customer is refused (redelivered, then dead-lettered with its
+        # alert, rule 10), never consumed without its trade-in seller.
+        raise ConfirmationBeforeTheRename(f"sales.contract.confirmed {payload.get('contractId')} names the contact by its key before the rename.")
     copies: list[uuid.UUID] = []
     try:
         _handle_sales_contract_confirmed(db, tenant_id=tenant_id, payload=payload, copies=copies)

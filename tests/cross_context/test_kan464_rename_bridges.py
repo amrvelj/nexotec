@@ -8,8 +8,9 @@ contacts across the rename — each proven by a run, not by reading.
 - The contact reconciliation reports an event published under its old name,
   or a Stock or Sales fact naming the contact by its old key, still pending
   or dead.
-- KAN-464 PR-5 retired the old names and keys: no consumer reads an old key
-  any more, so such an event is refused or does nothing, never half-read.
+- KAN-464 PR-5 retired the old names and keys: a consumer refuses a payload
+  carrying an old key (redelivered, then dead-lettered with its alert, rule 10),
+  never half-reads it. A `customer.merged` has no consumer at all any more.
 """
 
 import datetime as dt
@@ -33,6 +34,7 @@ from app.core.outbox_model import OutboxMessage, OutboxStatus
 from app.core.outbox_transport import DeliveryError, InProcessTransport
 from app.core.reconciliation import StateCheck, find_rows_in_state
 from app.inventory.models.stock_item import StockItem
+from app.inventory.services.pipeline import ConfirmationBeforeTheRename
 from app.sales.services.contract import confirm_contract, create_contract
 from app.sales.services.offer import create_offer
 from app.sales.services.trade_in import set_trade_in
@@ -294,18 +296,19 @@ def test_a_trade_in_purchase_naming_the_customer_is_refused_since_pr5(db_session
     assert owners(db_session) == before
 
 
-def test_a_storno_saying_returned_to_customer_reopens_nobody_since_pr5(db_session, engine, monkeypatch):
+def test_a_storno_saying_returned_to_customer_is_refused_since_pr5(db_session, engine, monkeypatch):
     message, reopened = _trade_in_storno(db_session, engine, monkeypatch)
     _as_before_the_rename(db_session, message, "returnedToContact", "returnedToCustomer")
     before = reopened(db_session)
 
-    _deliver_once(engine, "contact.trade_in_storno", message)
+    with pytest.raises(DeliveryError):
+        _deliver_once(engine, "contact.trade_in_storno", message)
     db_session.expire_all()
 
     assert reopened(db_session) == before
 
 
-def test_a_confirmation_naming_the_customer_gives_stock_no_trade_in_seller_since_pr5(db_session, engine):
+def test_a_confirmation_naming_the_customer_is_refused_by_stock_since_pr5(db_session, engine):
     dealership = _dealership(db_session)
     group_id = dealership.dealer_group_id
     offer = _with_buyer(db_session, create_offer(db_session, tenant_id=dealership.id, actor_id=uuid.uuid4()), group_id)
@@ -323,8 +326,10 @@ def test_a_confirmation_naming_the_customer_gives_stock_no_trade_in_seller_since
     confirmed.payload = {**confirmed.payload, "signedAt": _SIGNED_AT.isoformat()}
     _as_before_the_rename(db_session, confirmed, "contactId", "customerId")
 
-    _stock_consumes_the_confirmation(db_session, contract)
+    with pytest.raises(ConfirmationBeforeTheRename):
+        _stock_consumes_the_confirmation(db_session, contract)
+    db_session.rollback()
 
-    item = db_session.scalars(select(StockItem).where(StockItem.pipeline_ref == f"contract:{contract.id}:trade_in")).one()
-    assert item.trade_in_contact_id is None  # the old key is no longer read (KAN-464 PR-5)
+    # Refused before anything is written: no pipeline item without its seller.
+    assert db_session.scalars(select(StockItem).where(StockItem.pipeline_ref.like(f"contract:{contract.id}:%"))).all() == []
     assert db_session.scalar(select(func.count()).select_from(VehicleParty).where(VehicleParty.role == VehiclePartyRole.OWNER)) == 0
