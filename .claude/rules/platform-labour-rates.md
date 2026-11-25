@@ -43,15 +43,14 @@ counts a rate still to come). Binding text: the slice page and the ADR in the Ta
   `session_guard`'s administration prefixes). No outbox event (nothing consumes one). Reconciliation checks
   the agreement's contact (exists, not merged, in the group), the rate's location, and an O18 slot on work units
   with no O19 in force (a location deactivated, the Betrieb's O19 cleared, the location reactivated).
-- **Screen** `/administration/labour-rates` (`LabourRatesPage`, nav entry shown with `aftersales`). Until
-  KAN-805 PR-5 ships, it is also served at `/administration/settings/labour_rates` — an **interim** route so
-  O16's checklist link opens a screen; PR-5 removes it, its generic screen shows this area too, and this screen
-  embeds PR-5's rows for O16/O18/O19 (KAN-805 criterion 6: a setting appears in both places; ADR-219
-  addendum). Until then it holds the Betrieb's own values, «not set» shown as a state of its own (never an
-  empty field or a chosen value); a location's own value goes through the settings API, and the rate dialog
-  enters a rate as the location's own O16 says. Then each category with its rates (status today, withdraw only when scheduled) and people, and the
-  agreed rates (cursor-paged, withdrawn ones shown). Rates are typed to the Rappen (`ChfInput`); the API takes
-  four decimals. The dialogs pre-fill the business's `today` from the API, the day the server checks against.
+- **Screen** `/administration/labour-rates` (`LabourRatesPage`, nav entry shown with `aftersales`): it embeds the
+  shared settings rows (`SettingRows` with `keys`) for O16, O18 and O19 — the same value, history and
+  per-location column as the generic screen `/administration/settings/labour_rates` (KAN-805 criterion 6;
+  ADR-219 addendum; no static settings route may shadow `:area`, a test says so) — then each category with its
+  rates (status today, withdraw only when scheduled) and people, and the agreed rates (cursor-paged, withdrawn
+  ones shown). The rate dialog enters a rate as O16 says at the chosen location (its own value, else the
+  Betrieb's). Rates are typed to the Rappen (`ChfInput`); the API takes four decimals. The dialogs pre-fill
+  the business's `today` from the API, the day the server checks against.
 - **Checklist (Aftersales):** O16 (`labour_rates.rates_entered`, a setting item) and `labour_rates` — an active
   category with a rate at an active location, one still to come counting (Anto, 2026-11-25); neither blocks an
   action after activation yet. `tests/setup_checklist_support.complete_checklist` completes both for an

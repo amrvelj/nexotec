@@ -26,6 +26,11 @@ interface InlineEditFieldBaseProps {
   isEmpty?: boolean;
   /** Shown when `isEmpty` — translated by the caller (KAN-422). */
   emptyLabel: string;
+  /** ADR-220 (KAN-805) — drawn instead of the italic `emptyLabel` when
+   * `isEmpty`, for a caller whose empty state carries meaning and must not
+   * look like an empty field: the settings screen's «not set» badge and a
+   * location's inherited value. Without it, empty reads as an empty field. */
+  emptyDisplay?: ReactNode;
   /** Raw value seeded into the editor; defaults to `value`. */
   editValue?: string;
   /** Persists the new value — throw to reject the edit. Given the actual
@@ -69,6 +74,7 @@ export function InlineEditField({
   value,
   isEmpty,
   emptyLabel,
+  emptyDisplay,
   editValue,
   onSave,
   describeError,
@@ -288,7 +294,11 @@ export function InlineEditField({
         backgroundColor: hovering && !disabled ? purple[0] : undefined,
       }}
     >
-      <span style={{ fontStyle: isEmpty ? "italic" : undefined, color: isEmpty ? slate[3] : undefined }}>{isEmpty ? emptyLabel : value}</span>
+      {isEmpty && emptyDisplay !== undefined ? (
+        emptyDisplay
+      ) : (
+        <span style={{ fontStyle: isEmpty ? "italic" : undefined, color: isEmpty ? slate[3] : undefined }}>{isEmpty ? emptyLabel : value}</span>
+      )}
       {hovering && !disabled && <Pencil size={14} color={purple[6]} aria-hidden="true" />}
     </span>
   );

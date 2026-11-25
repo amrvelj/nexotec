@@ -19,5 +19,75 @@
         "label": "Work units per hour"
       }
     }
+  },
+  "areas": {
+    "labour_rates": "Labour rates"
+  },
+  "units": {
+    "work_units_per_hour": "AW per hour"
+  },
+  "title": "Settings",
+  "subtitle": "The settings of the areas this business uses. Each value applies to the business and can differ per location.",
+  "areaSubtitle": "A change applies from now on. A location without a value of its own takes the business's value.",
+  "areaNotFound": "This area does not exist for this business.",
+  "loadError": "The settings could not be loaded.",
+  "readOnly": "Only management changes settings. You see the values and their history.",
+  "saveError": "The setting could not be saved.",
+  "tableLabel": "Settings",
+  "areasLabel": "Areas",
+  "empty": {
+    "title": "No settings yet",
+    "description": "As soon as an area this business uses brings settings, they appear here."
+  },
+  "columns": {
+    "area": "Area",
+    "count": "Settings",
+    "setting": "Setting",
+    "dealership": "Business",
+    "inactive": "(inactive)"
+  },
+  "notSet": {
+    "label": "Not set",
+    "actsAs": "Without a value: {{value}}",
+    "refuses": "Without a value, what needs this setting is refused."
+  },
+  "inherited": "From the business: {{value}}",
+  "inheritedMarker": "from the business",
+  "stale": "The stored value no longer fits – it counts as not set",
+  "staleClear": "Remove the stored value",
+  "clear": {
+    "dealership": "Not set",
+    "location": "Take the business's value"
+  },
+  "value": {
+    "on": "On",
+    "off": "Off",
+    "withUnit": "{{number}} {{unit}}"
+  },
+  "edit": "Edit",
+  "checklistItem": "Setup",
+  "text": {
+    "name": "Text",
+    "translationsNote": "Translations are optional; without one, the text appears as entered."
+  },
+  "history": {
+    "title": "History",
+    "scope": "History for",
+    "you": "You",
+    "unknownUser": "Unknown",
+    "current": "Current",
+    "more": "Load more",
+    "restore": "Restore «{{value}}»",
+    "restoreError": "The value could not be restored.",
+    "loadError": "The history could not be loaded.",
+    "origin": {
+      "edit": "Changed",
+      "restore": "Restored",
+      "copy": "Copied"
+    },
+    "empty": {
+      "title": "No change yet",
+      "description": "This setting has never been changed here."
+    }
   }
 }

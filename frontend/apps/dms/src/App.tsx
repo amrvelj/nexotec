@@ -61,6 +61,8 @@ const PlatformStatusPage = lazyPage(() => import('./pages/PlatformStatusPage'), 
 const SupportSessionLogPage = lazyPage(() => import('./pages/SupportSessionLogPage'), 'SupportSessionLogPage')
 const PlatformUsersPage = lazyPage(() => import('./pages/PlatformUsersPage'), 'PlatformUsersPage')
 const ContactGroupsPage = lazyPage(() => import('./pages/ContactGroupsPage'), 'ContactGroupsPage')
+const SettingsIndexPage = lazyPage(() => import('./pages/SettingsIndexPage'), 'SettingsIndexPage')
+const SettingsAreaPage = lazyPage(() => import('./pages/SettingsAreaPage'), 'SettingsAreaPage')
 const DataExportPage = lazyPage(() => import('./pages/DataExportPage'), 'DataExportPage')
 const PlatformOffboardingPage = lazyPage(() => import('./pages/PlatformOffboardingPage'), 'PlatformOffboardingPage')
 const AdministrationIntegrationsPage = lazyPage(() => import('./pages/IntegrationsPage'), 'AdministrationIntegrationsPage')
@@ -157,11 +159,9 @@ export default function App() {
               <Route path="/mail-link/callback" element={<MailLinkCallbackPage />} />
               <Route path="/business-profile-link/callback" element={<BusinessProfileLinkCallbackPage />} />
               <Route path="/administration/number-ranges" element={<NumberRangesPage />} />
-              {/* KAN-806: the labour-rates screen holds O16, O18 and O19. The second route is interim:
-                  it opens O16's checklist link (KAN-805 PR-3) until KAN-805 PR-5's generic
-                  /administration/settings/:area exists, which removes it (ADR-219 addendum). */}
+              {/* KAN-806: the labour-rates screen embeds the settings rows of O16, O18 and O19; the area
+                  itself is /administration/settings/labour_rates (KAN-805 criterion 6). */}
               <Route path="/administration/labour-rates" element={<LabourRatesPage />} />
-              <Route path="/administration/settings/labour_rates" element={<LabourRatesPage />} />
               {/* KAN-214 — the setup checklist and «Betrieb aktivieren» (D-A-21, FR-A-34),
                   the re-acceptance of a new ToS / DPA version (FR-A-39), and what a
                   colleague sees while the Betrieb is being set up. */}
@@ -169,6 +169,8 @@ export default function App() {
               <Route path="/administration/legal-acceptance" element={<LegalAcceptancePage />} />
               <Route path="/setup-in-progress" element={<SetupInProgressPage />} />
               <Route path="/administration/contact-groups" element={<ContactGroupsPage />} />
+              <Route path="/administration/settings" element={<SettingsIndexPage />} />
+              <Route path="/administration/settings/:area" element={<SettingsAreaPage />} />
               <Route path="/administration/export" element={<DataExportPage />} />
               <Route path="/administration/account-recovery" element={<AccountRecoveryPage />} />
               {/* KAN-209 — Platform Administration › Translations (D-A-23). */}

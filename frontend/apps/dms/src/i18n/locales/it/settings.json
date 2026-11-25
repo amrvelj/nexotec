@@ -19,5 +19,75 @@
         "label": "Unità di lavoro all'ora"
       }
     }
+  },
+  "areas": {
+    "labour_rates": "Tariffe orarie"
+  },
+  "units": {
+    "work_units_per_hour": "UL all'ora"
+  },
+  "title": "Impostazioni",
+  "subtitle": "Le impostazioni degli ambiti che questa azienda utilizza. Ogni valore vale per l'azienda e può differire per sede.",
+  "areaSubtitle": "Una modifica vale da subito. Una sede senza valore proprio riprende il valore dell'azienda.",
+  "areaNotFound": "Questo ambito non esiste per questa azienda.",
+  "loadError": "Non è stato possibile caricare le impostazioni.",
+  "readOnly": "Solo la direzione modifica le impostazioni. Lei vede i valori e la loro cronologia.",
+  "saveError": "Non è stato possibile salvare l'impostazione.",
+  "tableLabel": "Impostazioni",
+  "areasLabel": "Ambiti",
+  "empty": {
+    "title": "Ancora nessuna impostazione",
+    "description": "Non appena un ambito utilizzato da questa azienda porta impostazioni, compaiono qui."
+  },
+  "columns": {
+    "area": "Ambito",
+    "count": "Impostazioni",
+    "setting": "Impostazione",
+    "dealership": "Azienda",
+    "inactive": "(inattiva)"
+  },
+  "notSet": {
+    "label": "Non definito",
+    "actsAs": "Senza valore vale: {{value}}",
+    "refuses": "Senza valore, ciò che richiede questa impostazione viene rifiutato."
+  },
+  "inherited": "Dall'azienda: {{value}}",
+  "inheritedMarker": "dall'azienda",
+  "stale": "Il valore salvato non è più valido – vale come non definito",
+  "staleClear": "Rimuovere il valore salvato",
+  "clear": {
+    "dealership": "Non definito",
+    "location": "Riprendere il valore dell'azienda"
+  },
+  "value": {
+    "on": "Attivo",
+    "off": "Disattivo",
+    "withUnit": "{{number}} {{unit}}"
+  },
+  "edit": "Modificare",
+  "checklistItem": "Configurazione",
+  "text": {
+    "name": "Testo",
+    "translationsNote": "Le traduzioni sono facoltative; senza traduzione il testo appare come inserito."
+  },
+  "history": {
+    "title": "Cronologia",
+    "scope": "Cronologia per",
+    "you": "Lei",
+    "unknownUser": "Sconosciuto",
+    "current": "Attuale",
+    "more": "Caricare altro",
+    "restore": "Ripristinare «{{value}}»",
+    "restoreError": "Non è stato possibile ripristinare il valore.",
+    "loadError": "Non è stato possibile caricare la cronologia.",
+    "origin": {
+      "edit": "Modificato",
+      "restore": "Ripristinato",
+      "copy": "Ripreso"
+    },
+    "empty": {
+      "title": "Ancora nessuna modifica",
+      "description": "Questa impostazione non è mai stata modificata qui."
+    }
   }
 }

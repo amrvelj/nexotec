@@ -34,6 +34,7 @@ import {
   ShieldCheck,
   ShieldUser,
   Siren,
+  SlidersHorizontal,
   Sparkles,
   Mail,
   Tags,
@@ -180,6 +181,10 @@ function buildNavGroups(t: (key: string) => string, statusIndicator?: NavItemInd
         // KAN-466 — Dealer Administration › Contact groups. Any role reads; the
         // manager switches a group on or off (A-RULE-0). Never role-hidden (A-RULE-7).
         { label: t('shell.nav.contactGroups'), href: '/administration/contact-groups', icon: Tags, status: 'active' },
+        // KAN-805 — Dealer Administration › Settings: the areas whose declared settings the
+        // Betrieb configures (A-RULE-0). Any role reads; the manager writes. Never
+        // role-hidden (A-RULE-7); an area of a module the Betrieb lacks is not listed.
+        { label: t('shell.nav.settings'), href: '/administration/settings', icon: SlidersHorizontal, status: 'active' },
         // KAN-218 — Dealer Administration › Data export (D-A-31, FR-A-44). The
         // manager's at the API (`data_export`); never role-hidden (A-RULE-7).
         { label: t('shell.nav.dataExport'), href: '/administration/export', icon: FileArchive, status: 'active' },

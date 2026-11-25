@@ -4,13 +4,11 @@ import {
   Button,
   Group,
   Paper,
-  SegmentedControl,
   Select,
   Skeleton,
   Stack,
   Table,
   Text,
-  TextInput,
   Title,
 } from '@mantine/core'
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -19,7 +17,6 @@ import { X } from 'lucide-react'
 import { Badge, type BadgeTone, useSetBreadcrumb } from '@nexotec/ui-kit'
 import { api } from '../api/client'
 import type {
-  AreaSettingsRead,
   LabourCategoryCandidateList,
   LabourRateAgreementPage,
   LabourRateCategoryList,
@@ -38,6 +35,8 @@ import {
   type WithdrawTarget,
 } from '../components/labourRates/LabourRateDialogs'
 import { rateAmountText } from '../components/labourRates/rateAmount'
+import { SettingRows } from '../components/settings/SettingRows'
+import { useSettingArea } from '../components/settings/useSettings'
 import { apiRefusalText } from '../utils/apiRefusal'
 import { formatDateOnly } from '../utils/format'
 
@@ -83,11 +82,8 @@ export function LabourRatesPage() {
     queryFn: () => api.get<LabourRateCategoryList>(`${base}/labour-rate-categories`),
     enabled: dealershipId !== '',
   })
-  const settings = useQuery({
-    queryKey: [...labourRatesKey(dealershipId), 'settings'],
-    queryFn: () => api.get<AreaSettingsRead>(`${base}/setting-areas/labour_rates`),
-    enabled: dealershipId !== '',
-  })
+  // The settings area's shared query (KAN-805): SettingRows below writes and refreshes it.
+  const settings = useSettingArea(dealershipId, 'labour_rates')
   const locations = useQuery({
     queryKey: ['locations', dealershipId],
     queryFn: () => api.get<LocationList>(`${base}/locations`),
@@ -130,22 +126,9 @@ export function LabourRatesPage() {
   const anyEntered =
     entered !== null ||
     (settings.data?.settings.find((s) => s.declaration.key === RATES_ENTERED)?.locations ?? []).some((l) => l.isSet)
-  // «Not set» is a state of its own, never an empty field, a zero or «off» (KAN-805, design):
-  // O18 not set selects nothing and says it acts as hours; O19 not set says so.
-  const timeUnit = slot(TIME_UNIT)?.value?.choice ?? null
-  const perHour = slot(WORK_UNITS_PER_HOUR)?.value?.number ?? null
   const locationName = (id: string) => locations.data?.items.find((location) => location.id === id)?.name ?? '—'
   const categoryName = (id: string) => categories.data?.items.find((category) => category.id === id)?.name ?? '—'
 
-  const writeSetting = async (key: string, value: Record<string, string> | null) => {
-    setError(null)
-    try {
-      await api.put(`${base}/setting-values/${key}`, { value }, { 'If-Match': String(slot(key)?.version ?? 0) })
-      await refresh()
-    } catch (err) {
-      setError(apiRefusalText(t, err, 'labourRates.saveError'))
-    }
-  }
 
   const run = async (call: () => Promise<unknown>) => {
     setError(null)
@@ -186,74 +169,26 @@ export function LabourRatesPage() {
       )}
 
       {settings.data && (
-        <Paper withBorder radius="md" p="md" aria-label={t('labourRates.settings.title')} component="section">
-          <Title order={4} mb="xs">
-            {t('labourRates.settings.title')}
-          </Title>
-          <Stack gap="sm">
-            <div>
-              <Group gap="xs">
-                <Text fz="sm" fw={500}>
-                  {t('settings.keys.labour_rates.rates_entered.label')}
-                </Text>
-                {entered === null && <Badge tone="warning">{t('labourRates.settings.notSet')}</Badge>}
-              </Group>
-              <SegmentedControl
-                aria-label={t('settings.keys.labour_rates.rates_entered.label')}
-                disabled={!canWrite}
-                value={entered ?? ''}
-                onChange={(value) => void writeSetting(RATES_ENTERED, { choice: value })}
-                data={[
-                  { value: 'net', label: t('settings.keys.labour_rates.rates_entered.options.net') },
-                  { value: 'gross', label: t('settings.keys.labour_rates.rates_entered.options.gross') },
-                ]}
-              />
-              {entered === null && (
-                <Alert color="yellow" variant="light" mt="xs">
-                  {anyEntered ? t('labourRates.settings.enteredAtLocationsOnly') : t('labourRates.settings.enteredNotSet')}
-                </Alert>
-              )}
-            </div>
-            <Group align="flex-end" gap="lg">
-              <div>
-                <Group gap="xs">
-                  <Text fz="sm" fw={500}>
-                    {t('settings.keys.labour_rates.time_unit.label')}
-                  </Text>
-                  {timeUnit === null && <Badge tone="slate">{t('labourRates.settings.notSetActsAsHours')}</Badge>}
-                </Group>
-                <SegmentedControl
-                  aria-label={t('settings.keys.labour_rates.time_unit.label')}
-                  disabled={!canWrite}
-                  value={timeUnit ?? ''}
-                  onChange={(value) => void writeSetting(TIME_UNIT, { choice: value })}
-                  data={[
-                    { value: 'hours', label: t('settings.keys.labour_rates.time_unit.options.hours') },
-                    {
-                      value: 'work_units',
-                      label: t('settings.keys.labour_rates.time_unit.options.work_units'),
-                      // Check 49: work units only with work units per hour.
-                      disabled: perHour === null,
-                    },
-                  ]}
-                />
-              </div>
-              <WorkUnitsPerHourField
-                value={perHour}
-                disabled={!canWrite}
-                onSave={(value) => void writeSetting(WORK_UNITS_PER_HOUR, value === null ? null : { number: value })}
-              />
-            </Group>
-            {settings.data.settings.some((setting) => !setting.dealership.fitsDeclaration) && (
-              <Alert color="yellow" variant="light">
-                {t('labourRates.settings.staleValue')}
-              </Alert>
-            )}
-            <Text c="dimmed" fz="xs">
-              {t('labourRates.settings.perHourNote')}
-            </Text>
-          </Stack>
-        </Paper>
+        <Stack gap="xs" component="section" aria-label={t('labourRates.settings.title')}>
+          <Title order={4}>{t('labourRates.settings.title')}</Title>
+          {/* KAN-805 criterion 6: the same rows as the generic settings screen
+              (/administration/settings/labour_rates) — the same value, history and
+              per-location column; «not set» shown as a state of its own. */}
+          <SettingRows
+            dealershipId={dealershipId}
+            data={settings.data}
+            keys={[RATES_ENTERED, TIME_UNIT, WORK_UNITS_PER_HOUR]}
+            onReload={() => void settings.refetch()}
+          />
+          {entered === null && (
+            <Alert color="yellow" variant="light">
+              {anyEntered ? t('labourRates.settings.enteredAtLocationsOnly') : t('labourRates.settings.enteredNotSet')}
+            </Alert>
+          )}
+          <Text c="dimmed" fz="xs">
+            {t('labourRates.settings.perHourNote')}
+          </Text>
+        </Stack>
       )}
 
       {categories.data && (
@@ -444,54 +379,6 @@ export function LabourRatesPage() {
         />
       )}
     </Stack>
-  )
-}
-
-function WorkUnitsPerHourField({
-  value,
-  disabled,
-  onSave,
-}: {
-  value: string | null
-  disabled: boolean
-  onSave: (value: string | null) => void
-}) {
-  const { t } = useTranslation()
-  const [draft, setDraft] = useState<string>(value ?? '')
-  const [shown, setShown] = useState<string | null>(value)
-  if (shown !== value) {
-    setShown(value)
-    setDraft(value ?? '')
-  }
-  const commit = () => {
-    const trimmed = draft.trim()
-    if (trimmed === (value ?? '')) return
-    onSave(trimmed === '' ? null : trimmed)
-  }
-  return (
-    <TextInput
-      label={
-        value === null ? (
-          <Group gap="xs" component="span">
-            <span>{t('settings.keys.labour_rates.work_units_per_hour.label')}</span>
-            <Badge tone="slate">{t('labourRates.settings.notSet')}</Badge>
-          </Group>
-        ) : (
-          t('settings.keys.labour_rates.work_units_per_hour.label')
-        )
-      }
-      aria-label={t('settings.keys.labour_rates.work_units_per_hour.label')}
-      placeholder={t('labourRates.settings.notSet')}
-      inputMode="numeric"
-      w={200}
-      disabled={disabled}
-      value={draft}
-      onChange={(event) => setDraft(event.currentTarget.value.replace(/[^0-9]/g, ''))}
-      onBlur={commit}
-      onKeyDown={(event) => {
-        if (event.key === 'Enter') commit()
-      }}
-    />
   )
 }
 

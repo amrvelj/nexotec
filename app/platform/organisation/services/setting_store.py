@@ -32,6 +32,7 @@ changed (`SettingRefused`).
 
 from __future__ import annotations
 
+import dataclasses
 import hashlib
 import logging
 import uuid
@@ -141,6 +142,10 @@ class SettingChange:
     restored_from_id: uuid.UUID | None
     created_at: Any
     created_by: uuid.UUID | None
+    # The slot as it was before this change (KAN-805 PR-5: the history shows
+    # before → after). A first change follows «not set».
+    is_set_before: bool = False
+    value_before: Value | None = None
 
 
 def _declaration(key: str) -> SettingDeclaration:
@@ -541,4 +546,26 @@ def setting_history_page(
     stmt = select(SettingValueChange).where(SettingValueChange.setting_value_id == slot.id)
     rows = list(db.scalars(paginate_query_sorted(stmt, model=SettingValueChange, params=params)).all())
     page, next_cursor = build_page_for_sort(rows, params)
-    return [_change_of(row) for row in page], next_cursor
+    # Each change raises the slot's version by one, so the change before one
+    # is the slot's change of the version below it.
+    before = {
+        row.version_after: row
+        for row in db.scalars(
+            select(SettingValueChange).where(
+                SettingValueChange.setting_value_id == slot.id,
+                SettingValueChange.version_after.in_({row.version_after - 1 for row in page}),
+            )
+        )
+    }
+    changes = []
+    for row in page:
+        previous = before.get(row.version_after - 1)
+        change = _change_of(row)
+        if previous is not None:
+            change = dataclasses.replace(
+                change,
+                is_set_before=previous.state == SettingState.SET,
+                value_before=_value_of(previous),
+            )
+        changes.append(change)
+    return changes, next_cursor

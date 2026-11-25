@@ -43,7 +43,6 @@ function settings({
   entered = null as string | null,
   perHour = null as string | null,
   locationEntered = null as string | null,
-  staleUnit = false,
 } = {}) {
   return {
     area: 'labour_rates',
@@ -61,7 +60,7 @@ function settings({
           choices: ['hours', 'work_units'],
           choiceRequires: [{ choice: 'work_units', key: 'labour_rates.work_units_per_hour' }],
         }),
-        dealership: { ...slot(null), fitsDeclaration: !staleUnit },
+        dealership: slot(null),
         locations: [],
       },
       {
@@ -102,7 +101,6 @@ function install(
     entered?: string | null
     perHour?: string | null
     locationEntered?: string | null
-    staleUnit?: boolean
     extra?: FakeRoute[]
   } = {},
 ) {
@@ -121,7 +119,6 @@ function install(
           entered: options.entered ?? null,
           perHour: options.perHour ?? null,
           locationEntered: options.locationEntered ?? null,
-          staleUnit: options.staleUnit ?? false,
         }),
     },
     {
@@ -178,33 +175,6 @@ describe('LabourRatesPage (KAN-806)', () => {
     renderWithProviders(<LabourRatesPage />, { route: '/administration/labour-rates' })
     expect(await screen.findByText(i18n.t('labourRates.settings.enteredNotSet'))).toBeInTheDocument()
     expect(screen.getByRole('button', { name: i18n.t('labourRates.rates.add') })).toBeDisabled()
-  })
-
-  it('writes O16 through the settings store with the slot version', async () => {
-    const backend = install({
-      entered: null,
-      extra: [
-        {
-          method: 'PUT',
-          match: new RegExp(`${BASE.source}/setting-values/labour_rates\\.rates_entered$`),
-          handler: () => slot({ choice: 'gross' }, 1),
-        },
-      ],
-    })
-    renderWithProviders(<LabourRatesPage />, { route: '/administration/labour-rates' })
-    await screen.findByText(i18n.t('labourRates.settings.enteredNotSet'))
-    await userEvent.click(screen.getByText(i18n.t('settings.keys.labour_rates.rates_entered.options.gross')))
-    await waitFor(() => expect(backend.calls.some((call: RecordedCall) => call.method === 'PUT')).toBe(true))
-    const put = backend.calls.find((call: RecordedCall) => call.method === 'PUT')!
-    expect(put.body).toEqual({ value: { choice: 'gross' } })
-    expect(put.headers.get('If-Match')).toBe('0')
-  })
-
-  it('offers work units only once work units per hour is set (check 49)', async () => {
-    install({ entered: 'net', perHour: null })
-    renderWithProviders(<LabourRatesPage />, { route: '/administration/labour-rates' })
-    const workUnits = await screen.findByLabelText(i18n.t('settings.keys.labour_rates.time_unit.options.work_units'))
-    expect(workUnits).toBeDisabled()
   })
 
   it('enters a new rate from a date, typed as O16 says', async () => {
@@ -370,17 +340,6 @@ describe('LabourRatesPage (KAN-806)', () => {
     })
   })
 
-  it('shows «not set» as a state of its own, never an empty field or a chosen value', async () => {
-    install({ entered: null, perHour: null })
-    renderWithProviders(<LabourRatesPage />, { route: '/administration/labour-rates' })
-    expect(await screen.findByText(i18n.t('labourRates.settings.notSetActsAsHours'))).toBeInTheDocument()
-    // O16 and O19 each say «not set».
-    expect(screen.getAllByText(i18n.t('labourRates.settings.notSet')).length).toBeGreaterThanOrEqual(2)
-    // Neither «Stunden» nor «netto» is shown as chosen.
-    expect(screen.getByLabelText(i18n.t('settings.keys.labour_rates.time_unit.options.hours'))).not.toBeChecked()
-    expect(screen.getByLabelText(i18n.t('settings.keys.labour_rates.rates_entered.options.net'))).not.toBeChecked()
-  })
-
   it('pages the agreements by cursor and asks for withdrawn ones too', async () => {
     const agreement = (id: string, contactLabel: string) => ({
       id,
@@ -418,12 +377,6 @@ describe('LabourRatesPage (KAN-806)', () => {
     expect(first.params.get('includeWithdrawn')).toBe('true')
   })
 
-  it('says when a stored value no longer fits its setting', async () => {
-    install({ entered: 'net', staleUnit: true })
-    renderWithProviders(<LabourRatesPage />, { route: '/administration/labour-rates' })
-    expect(await screen.findByText(i18n.t('labourRates.settings.staleValue'))).toBeInTheDocument()
-  })
-
   it('an agreement cannot be saved without the Betrieb\'s O16 and the dialog says why', async () => {
     install({
       entered: null,
@@ -458,5 +411,16 @@ describe('LabourRatesPage (KAN-806)', () => {
     // The end of an agreement needs no amount and no O16: then it can be saved.
     await userEvent.click(within(form).getByText(i18n.t('labourRates.agreementDialog.kindEnd')))
     expect(within(form).getByRole('button', { name: i18n.t('common.save') })).toBeEnabled()
+  })
+
+  it('embeds the settings rows of O16, O18 and O19 (KAN-805 criterion 6)', async () => {
+    install({ entered: null, perHour: null })
+    renderWithProviders(<LabourRatesPage />, { route: '/administration/labour-rates' })
+    const table = await screen.findByRole('table', { name: i18n.t('settings.tableLabel') })
+    for (const key of ['rates_entered', 'time_unit', 'work_units_per_hour']) {
+      expect(within(table).getByText(i18n.t(`settings.keys.labour_rates.${key}.label`))).toBeInTheDocument()
+    }
+    // «Not set» as a state of its own, from the shared rows.
+    expect(within(table).getAllByText(i18n.t('settings.notSet.label')).length).toBe(3)
   })
 })
