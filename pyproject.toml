@@ -456,8 +456,8 @@ allow_indirect_imports = true
 
 # KAN-120: the aftersales and parts stubs gained their first module — the
 # ownership provider each registers for the deactivation step (D-A-35),
-# wired by app/ownership_registry.py, a composition root. Neither has a
-# `public` yet; no other context has reason to import either.
+# wired by app/ownership_registry.py, a composition root. KAN-810 gave
+# aftersales the workshop order and its `public`; every other module stays inside.
 [[tool.importlinter.contracts]]
 name = "Only app.aftersales.public is reachable from outside aftersales"
 type = "forbidden"
@@ -476,7 +476,12 @@ source_modules = [
     "app.compliance",
 ]
 forbidden_modules = [
+    "app.aftersales.api",
+    "app.aftersales.models",
     "app.aftersales.ownership",
+    "app.aftersales.reconciliation",
+    "app.aftersales.schemas",
+    "app.aftersales.services",
 ]
 allow_indirect_imports = true
 

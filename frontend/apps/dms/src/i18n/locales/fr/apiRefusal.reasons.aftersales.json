@@ -1,0 +1,21 @@
+{
+  "service_order_cancel_reason_required": "Indiquez le motif de l'annulation.",
+  "service_order_clock_has_run": "Du temps a déjà été pointé sur cet ordre ; il ne peut pas être annulé. Refusez plutôt ses travaux.",
+  "service_order_contact_blocked": "Ce contact est bloqué ({{reason}}). Aucun ordre d'atelier ne peut être ouvert pour lui.",
+  "service_order_frozen": "Cet ordre est clos (prêt à facturer ou annulé) et ne peut plus être modifié.",
+  "service_order_job_accepted": "Ce travail est accepté et ne peut pas être supprimé. Enregistrez plutôt la réponse.",
+  "service_order_job_already_answered": "La réponse pour ce travail est déjà enregistrée.",
+  "service_order_job_name_required": "Un travail a besoin d'une désignation.",
+  "service_order_job_time_clocked": "Du temps a été pointé sur ce travail ; il ne peut pas être supprimé. Refusez-le plutôt.",
+  "service_order_labour_category_unknown": "Cette catégorie de main-d'œuvre n'appartient pas à cette entreprise.",
+  "service_order_labour_rate_missing": "Aucun taux horaire ne s'applique à cette catégorie sur ce site à la date de l'ordre. Saisissez le prix.",
+  "service_order_position_incomplete": "La position est incomplète : la main-d'œuvre a besoin d'une catégorie, au temps d'un temps, un prix fixe de son prix, un prix de l'indication net ou TVA incluse ; un texte ne porte pas de prix.",
+  "service_order_position_time_clocked": "Du temps a été pointé sur cette position ; elle ne peut pas être supprimée.",
+  "service_order_price_negative": "Un prix n'est pas inférieur à zéro.",
+  "service_order_price_too_many_decimals": "Un prix a au plus quatre décimales.",
+  "service_order_time_not_positive": "Un temps de travail est supérieur à zéro.",
+  "service_order_time_too_many_decimals": "Un temps de travail a au plus deux décimales.",
+  "service_order_time_unit_changed": "Le temps de travail est désormais saisi ici dans une autre unité. Vérifiez le temps et saisissez-le à nouveau.",
+  "service_order_vat_rate_not_set": "Aucun taux de TVA n'est encore défini pour cette entreprise ; aucun prix ne peut encore être saisi.",
+  "service_order_vehicle_not_identified": "Le véhicule n'est pas identifié. Choisissez-le parmi les véhicules ou saisissez-le d'abord."
+}

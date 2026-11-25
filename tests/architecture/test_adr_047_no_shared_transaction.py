@@ -312,7 +312,8 @@ _SHARED_TRANSACTION_EXCEPTIONS: dict[str, str] = {}
 # Number allocation alone; a new entry is a new ADR.
 _RULED_SHARED_TRANSACTIONS = {
     "app.platform.public.allocate_number": (
-        "ADR-109 — sales: allocate_offer_number (services/numbering.py), inside the offer's own transaction"
+        "ADR-109 — sales: allocate_offer_number (services/numbering.py), inside the offer's own transaction; "
+        "aftersales: create_order (services/service_order.py), inside the service order's own transaction"
     ),
 }
 
@@ -356,6 +357,13 @@ _READS = {
     # KAN-104 item 5: a document without a contact language prints in the Betrieb's default; a SELECT only.
     "app.platform.public.get_dealership_default_correspondence_language",
     "app.platform.public.get_dealership_or_404",
+    # KAN-810: the workshop order's reads of platform — the cash rounding step its total
+    # rounds to, a labour category's name, «which labour rate applies here» and the unit
+    # labour time is typed in (O18/O19); SELECTs only.
+    "app.platform.public.get_dealership_cash_rounding",
+    "app.platform.public.labour_category_labels",
+    "app.platform.public.labour_rate_for",
+    "app.platform.public.labour_time_unit",
     # KAN-221 (review, 2026-11-18): whether a Betrieb is the platform tenant, so
     # integration's shared-mailbox routes 404 it; a SELECT only.
     "app.platform.public.is_platform_dealership",
@@ -500,6 +508,7 @@ _READS = {
     "app.platform.public.find_dealer_group_ids",
     "app.platform.public.find_dealership_group_ids",
     "app.platform.public.location_reference_check",
+    "app.platform.public.labour_rate_category_reference_check",  # KAN-810: a builder, reads nothing itself
     "app.platform.public.user_is_deactivated",
     "app.platform.public.user_reference_check",
     # KAN-215: whether a mailbox grant is still live (one SELECT), and the
