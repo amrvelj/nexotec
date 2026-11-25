@@ -6,8 +6,8 @@ A JSON number is decoded as a float before pydantic turns it into a
 to the Rappen). Every `Decimal` field of a request body is therefore a
 `DecimalStr` (`app/core/validators.py`): a string only, a JSON number is 422.
 
-The walk reads the OpenAPI document, so it covers every request body and query
-parameter the API serves, whichever schema module declares it. A plain
+The walk reads the OpenAPI document, so it covers every request body the API
+serves, whichever schema module declares it. A plain
 `Decimal` field shows there as `anyOf: [number, string]` — that pair is the
 signature this test refuses. A float field (a coordinate) is `number` alone
 and is not a money field; it is not this test's business. Query parameters are

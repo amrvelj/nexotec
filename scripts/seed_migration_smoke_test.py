@@ -259,6 +259,10 @@ def _seed_user(db: Session, *, tenant_id: uuid.UUID) -> uuid.UUID:
 SMOKE_TEST_UID = "CHE-987.654.326"
 SMOKE_TEST_INVALID_TAX_ID = "CHE-999.999.999"
 SMOKE_TEST_INVALID_UID_LEGAL_NAME = "Migration Smoke Test Invalid UID GmbH"
+# KAN-819: the seeded contact holds an encrypted UID in this spelling, so the
+# backfill of contact.tax_id_search_key (customer chain 9e4b7c2d1a58) runs on
+# a real row; the verify step checks the key equals the application's.
+SMOKE_TEST_CONTACT_UID = "CHE-123.456.788 MWST"
 
 
 def _seed_dealer_and_group_new_schema(db: Session) -> tuple[uuid.UUID, uuid.UUID]:
@@ -962,6 +966,27 @@ def _seed_customer_chain_old_schema(db: Session, *, dealer_id: uuid.UUID) -> uui
     return customer_id
 
 
+def _seed_contact_uid(db: Session, *, contact_id: uuid.UUID) -> None:
+    """KAN-819: an encrypted UID on the seeded contact, on whichever schema is
+    live. A schema that already has `tax_id_search_key` (this branch's heads)
+    gets the key the model would write; main's has no such column, and the
+    upgrade's backfill writes it."""
+
+    from app.core.blind_index import uid_search_key
+
+    table_name = _live_table_name(db, "contact")
+    live = {col["name"] for col in inspect(db.get_bind()).get_columns(table_name)}
+    if "tax_id" not in live:
+        return
+    columns = [sa.column("id", GUID()), sa.column("tax_id", EncryptedString())]
+    values: dict[str, object] = {"tax_id": SMOKE_TEST_CONTACT_UID}
+    if "tax_id_search_key" in live:
+        columns.append(sa.column("tax_id_search_key", sa.String()))
+        values["tax_id_search_key"] = uid_search_key(SMOKE_TEST_CONTACT_UID)
+    table = sa.table(table_name, *columns)
+    db.execute(table.update().where(table.c.id == contact_id).values(values))
+
+
 def main() -> None:
     db = SessionLocal()
     try:
@@ -983,6 +1008,7 @@ def main() -> None:
         else:
             customer_id = _seed_customer_chain_old_schema(db, dealer_id=dealer_id)
 
+        _seed_contact_uid(db, contact_id=customer_id)
         seed_catalogue_type_approval(db)
 
         db.commit()
