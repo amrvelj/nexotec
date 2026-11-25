@@ -1,0 +1,12 @@
+{
+  "planning_list_entry_in_use": "Eine Ressource verwendet diesen Eintrag. Ändern Sie zuerst die Ressource.",
+  "planning_list_entry_name_taken": "Die Liste hat bereits einen Eintrag mit diesem Namen.",
+  "planning_list_entry_unknown": "Dieser Listeneintrag gehört nicht zu diesem Betrieb.",
+  "planning_location_inactive": "Ein deaktivierter Standort erhält keine neue Ressource.",
+  "planning_person_already_a_resource": "Diese Person ist bereits eine Ressource des Betriebs. Aktivieren Sie sie wieder, statt sie neu anzulegen.",
+  "planning_person_not_in_dealership": "Nur wer in diesem Betrieb arbeitet, kann eingeplant werden.",
+  "planning_person_only": "Technikertyp, Qualifikationen und Arbeitszeiten gehören zu einer Person, nicht zu einem Arbeitsplatz.",
+  "planning_workplace_name_taken": "Am Standort gibt es bereits einen Arbeitsplatz mit diesem Namen.",
+  "planning_workplace_only": "Name und Arbeitsplatztyp gehören zu einem Arbeitsplatz, nicht zu einer Person.",
+  "planning_working_hours_invalid": "Die Arbeitszeiten passen nicht zusammen: Jede Zeit endet nach ihrem Beginn, die zweite beginnt nach dem Ende der ersten, und jeder Wochentag kommt einmal vor."
+}

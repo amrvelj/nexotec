@@ -160,6 +160,8 @@ _ADMINISTRATION_MODULE_PREFIXES = (
     "app.integration.api.providers",
     # KAN-806: an agreed labour rate, composed at the root because it reads the contact.
     "app.api.v1.labour_rate_agreements",
+    # KAN-808: the planner's resources (S7) — set up before activation.
+    "app.planning.api.resources",
 )
 _ACCEPT_FIRST = "Accept the current Terms of Service and Data Processing Agreement first."
 # What a manager held by the legal hold may still reach (FR-A-39, Q1 A).

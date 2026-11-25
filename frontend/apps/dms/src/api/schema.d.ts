@@ -2099,6 +2099,248 @@ export interface paths {
         patch: operations["update_number_range_v1_dealerships__dealership_id__number_ranges__document_type__patch"];
         trace?: never;
     };
+    "/v1/dealerships/{dealership_id}/planning/person-candidates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Person Candidates
+         * @description Who may become a person resource: the users who work in the business
+         *     and are none yet, by name. Read under the write row: only the one who
+         *     creates resources needs the list.
+         */
+        get: operations["list_person_candidates_v1_dealerships__dealership_id__planning_person_candidates_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/dealerships/{dealership_id}/planning/qualifications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Qualifications */
+        get: operations["list_qualifications_v1_dealerships__dealership_id__planning_qualifications_get"];
+        put?: never;
+        /** Create Qualification */
+        post: operations["create_qualification_v1_dealerships__dealership_id__planning_qualifications_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/dealerships/{dealership_id}/planning/qualifications/{entry_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Qualification */
+        delete: operations["delete_qualification_v1_dealerships__dealership_id__planning_qualifications__entry_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update Qualification */
+        patch: operations["update_qualification_v1_dealerships__dealership_id__planning_qualifications__entry_id__patch"];
+        trace?: never;
+    };
+    "/v1/dealerships/{dealership_id}/planning/resources": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Resources
+         * @description The Betrieb's resources in their order. A Betrieb has a few dozen: one page.
+         */
+        get: operations["list_resources_v1_dealerships__dealership_id__planning_resources_get"];
+        put?: never;
+        /**
+         * Create Resource
+         * @description A person (a user who works in the business, once) or a workplace.
+         */
+        post: operations["create_resource_v1_dealerships__dealership_id__planning_resources_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/dealerships/{dealership_id}/planning/resources/{resource_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Resource */
+        get: operations["get_resource_v1_dealerships__dealership_id__planning_resources__resource_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update Resource
+         * @description Changes, deactivates (`isActive: false`: out of the planner, kept for
+         *     its bookings) or reactivates a resource.
+         */
+        patch: operations["update_resource_v1_dealerships__dealership_id__planning_resources__resource_id__patch"];
+        trace?: never;
+    };
+    "/v1/dealerships/{dealership_id}/planning/resources/{resource_id}/working-hours": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Replace Working Hours
+         * @description A person's whole week, under the resource's version.
+         */
+        put: operations["replace_working_hours_v1_dealerships__dealership_id__planning_resources__resource_id__working_hours_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/dealerships/{dealership_id}/planning/technician-types": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Technician Types */
+        get: operations["list_technician_types_v1_dealerships__dealership_id__planning_technician_types_get"];
+        put?: never;
+        /** Create Technician Type */
+        post: operations["create_technician_type_v1_dealerships__dealership_id__planning_technician_types_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/dealerships/{dealership_id}/planning/technician-types/{entry_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Technician Type */
+        delete: operations["delete_technician_type_v1_dealerships__dealership_id__planning_technician_types__entry_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Update Technician Type
+         * @description Any change ends a sample; `rank` and `countedTimeFactor` clear with null.
+         */
+        patch: operations["update_technician_type_v1_dealerships__dealership_id__planning_technician_types__entry_id__patch"];
+        trace?: never;
+    };
+    "/v1/dealerships/{dealership_id}/planning/technician-types/{entry_id}/confirmation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Confirm Technician Type */
+        post: operations["confirm_technician_type_v1_dealerships__dealership_id__planning_technician_types__entry_id__confirmation_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/dealerships/{dealership_id}/planning/workplace-types": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Workplace Types */
+        get: operations["list_workplace_types_v1_dealerships__dealership_id__planning_workplace_types_get"];
+        put?: never;
+        /** Create Workplace Type */
+        post: operations["create_workplace_type_v1_dealerships__dealership_id__planning_workplace_types_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/dealerships/{dealership_id}/planning/workplace-types/{entry_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Workplace Type
+         * @description Refused while a resource uses the entry (409 `planning_list_entry_in_use`).
+         */
+        delete: operations["delete_workplace_type_v1_dealerships__dealership_id__planning_workplace_types__entry_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Update Workplace Type
+         * @description Any change ends a sample.
+         */
+        patch: operations["update_workplace_type_v1_dealerships__dealership_id__planning_workplace_types__entry_id__patch"];
+        trace?: never;
+    };
+    "/v1/dealerships/{dealership_id}/planning/workplace-types/{entry_id}/confirmation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm Workplace Type
+         * @description «Bestätigen»: a sample becomes the Betrieb's own entry as it is.
+         */
+        post: operations["confirm_workplace_type_v1_dealerships__dealership_id__planning_workplace_types__entry_id__confirmation_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/dealerships/{dealership_id}/public-stock": {
         parameters: {
             query?: never;
@@ -12721,6 +12963,52 @@ export interface components {
          */
         PeriodLockPolicy: "month_end_close" | "quarter_end_close" | "year_end_close";
         /**
+         * PersonCandidateList
+         * @description Who may become a person resource: the users who work in the business
+         *     (homed or an active member, active or invited) and are none yet.
+         */
+        PersonCandidateList: {
+            /** Items */
+            items: components["schemas"]["PersonCandidateRead"][];
+        };
+        /** PersonCandidateRead */
+        PersonCandidateRead: {
+            /** Displayname */
+            displayName: string;
+            /**
+             * Userid
+             * Format: uuid
+             */
+            userId: string;
+        };
+        /** PersonCreate */
+        PersonCreate: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "person";
+            /**
+             * Locationid
+             * Format: uuid
+             */
+            locationId: string;
+            /** Qualificationids */
+            qualificationIds?: string[];
+            /**
+             * Sortorder
+             * @default 0
+             */
+            sortOrder?: number;
+            /** Techniciantypeid */
+            technicianTypeId?: string | null;
+            /**
+             * Userid
+             * Format: uuid
+             */
+            userId: string;
+        };
+        /**
          * PhoneType
          * @description Remapped in WP-3 PR-5 (ADR-067): MOBILE unchanged, PRIVATE->LANDLINE,
          *     OFFICE->WORK — see that migration's own docstring for the reasoning.
@@ -13423,6 +13711,68 @@ export interface components {
          * @enum {string}
          */
         QrReferenceType: "qrr" | "scor" | "non";
+        /** QualificationCreate */
+        QualificationCreate: {
+            /**
+             * Ismandatory
+             * @default false
+             */
+            isMandatory?: boolean;
+            /** Name */
+            name: string;
+            /** Nametranslations */
+            nameTranslations?: {
+                [key: string]: string;
+            } | null;
+            /**
+             * Sortorder
+             * @default 0
+             */
+            sortOrder?: number;
+        };
+        /** QualificationList */
+        QualificationList: {
+            /** Items */
+            items: components["schemas"]["QualificationRead"][];
+        };
+        /** QualificationRead */
+        QualificationRead: {
+            /**
+             * Createdat
+             * Format: date-time
+             */
+            createdAt: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Ismandatory */
+            isMandatory: boolean;
+            /** Name */
+            name: string;
+            /** Nametranslations */
+            nameTranslations: {
+                [key: string]: string;
+            };
+            /** Sortorder */
+            sortOrder: number;
+            /** Version */
+            version: number;
+        };
+        /** QualificationUpdate */
+        QualificationUpdate: {
+            /** Ismandatory */
+            isMandatory?: boolean | null;
+            /** Name */
+            name?: string | null;
+            /** Nametranslations */
+            nameTranslations?: {
+                [key: string]: string;
+            } | null;
+            /** Sortorder */
+            sortOrder?: number | null;
+        };
         /** RecordCostRequest */
         RecordCostRequest: {
             /**
@@ -13722,6 +14072,81 @@ export interface components {
             totalPercent: string | null;
             /** Totalprice */
             totalPrice: string | null;
+        };
+        /**
+         * ResourceKind
+         * @enum {string}
+         */
+        ResourceKind: "person" | "workplace";
+        /** ResourceList */
+        ResourceList: {
+            /** Items */
+            items: components["schemas"]["ResourceRead"][];
+        };
+        /** ResourceRead */
+        ResourceRead: {
+            /**
+             * Createdat
+             * Format: date-time
+             */
+            createdAt: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Isactive */
+            isActive: boolean;
+            kind: components["schemas"]["ResourceKind"];
+            /**
+             * Locationid
+             * Format: uuid
+             */
+            locationId: string;
+            /** Locationlabel */
+            locationLabel: string;
+            /** Name */
+            name: string | null;
+            /** Personactshere */
+            personActsHere: boolean | null;
+            /** Qualificationids */
+            qualificationIds: string[];
+            /** Sortorder */
+            sortOrder: number;
+            /** Techniciantypeid */
+            technicianTypeId: string | null;
+            /** Userid */
+            userId: string | null;
+            /** Userlabel */
+            userLabel: string | null;
+            /** Version */
+            version: number;
+            /** Workinghours */
+            workingHours: components["schemas"]["WorkingDay"][];
+            /** Workplacetypeid */
+            workplaceTypeId: string | null;
+        };
+        /**
+         * ResourceUpdate
+         * @description Each field sent is changed; a field of the other kind is refused.
+         *     `workplaceTypeId` and `technicianTypeId` clear with null. A field no
+         *     resource has (`userId`, `kind`, …) is a schema 422, never silently dropped.
+         */
+        ResourceUpdate: {
+            /** Isactive */
+            isActive?: boolean | null;
+            /** Locationid */
+            locationId?: string | null;
+            /** Name */
+            name?: string | null;
+            /** Qualificationids */
+            qualificationIds?: string[] | null;
+            /** Sortorder */
+            sortOrder?: number | null;
+            /** Techniciantypeid */
+            technicianTypeId?: string | null;
+            /** Workplacetypeid */
+            workplaceTypeId?: string | null;
         };
         /**
          * ResyncFieldRead
@@ -14925,6 +15350,75 @@ export interface components {
              * Format: uuid
              */
             dealershipId: string;
+        };
+        /** TechnicianTypeCreate */
+        TechnicianTypeCreate: {
+            /** Countedtimefactor */
+            countedTimeFactor?: string | null;
+            /** Name */
+            name: string;
+            /** Nametranslations */
+            nameTranslations?: {
+                [key: string]: string;
+            } | null;
+            /** Rank */
+            rank?: number | null;
+            /**
+             * Sortorder
+             * @default 0
+             */
+            sortOrder?: number;
+        };
+        /** TechnicianTypeList */
+        TechnicianTypeList: {
+            /** Items */
+            items: components["schemas"]["TechnicianTypeRead"][];
+        };
+        /** TechnicianTypeRead */
+        TechnicianTypeRead: {
+            /** Countedtimefactor */
+            countedTimeFactor: string | null;
+            /**
+             * Createdat
+             * Format: date-time
+             */
+            createdAt: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Issample */
+            isSample: boolean;
+            /** Name */
+            name: string;
+            /** Nametranslations */
+            nameTranslations: {
+                [key: string]: string;
+            };
+            /** Rank */
+            rank: number | null;
+            /** Seedcode */
+            seedCode: string | null;
+            /** Sortorder */
+            sortOrder: number;
+            /** Version */
+            version: number;
+        };
+        /** TechnicianTypeUpdate */
+        TechnicianTypeUpdate: {
+            /** Countedtimefactor */
+            countedTimeFactor?: string | null;
+            /** Name */
+            name?: string | null;
+            /** Nametranslations */
+            nameTranslations?: {
+                [key: string]: string;
+            } | null;
+            /** Rank */
+            rank?: number | null;
+            /** Sortorder */
+            sortOrder?: number | null;
         };
         /** TextDelegationsRead */
         TextDelegationsRead: {
@@ -16399,6 +16893,117 @@ export interface components {
             unlistedAt: string | null;
             /** Version */
             version: number;
+        };
+        /**
+         * WorkingDay
+         * @description One working weekday (ISO: 1 = Monday … 7 = Sunday), local times to the
+         *     minute, e.g. 07:30–12:00 and 13:00–17:00.
+         */
+        WorkingDay: {
+            /**
+             * Endsat
+             * Format: time
+             */
+            endsAt: string;
+            /** Secondendsat */
+            secondEndsAt?: string | null;
+            /** Secondstartsat */
+            secondStartsAt?: string | null;
+            /**
+             * Startsat
+             * Format: time
+             */
+            startsAt: string;
+            /** Weekday */
+            weekday: number;
+        };
+        /**
+         * WorkingHoursUpdate
+         * @description The person's whole week, replacing what is stored (PUT, If-Match on the
+         *     resource's version). A weekday that is not sent is not worked.
+         */
+        WorkingHoursUpdate: {
+            /** Days */
+            days: components["schemas"]["WorkingDay"][];
+        };
+        /** WorkplaceCreate */
+        WorkplaceCreate: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "workplace";
+            /**
+             * Locationid
+             * Format: uuid
+             */
+            locationId: string;
+            /** Name */
+            name: string;
+            /**
+             * Sortorder
+             * @default 0
+             */
+            sortOrder?: number;
+            /** Workplacetypeid */
+            workplaceTypeId?: string | null;
+        };
+        /** WorkplaceTypeCreate */
+        WorkplaceTypeCreate: {
+            /** Name */
+            name: string;
+            /** Nametranslations */
+            nameTranslations?: {
+                [key: string]: string;
+            } | null;
+            /**
+             * Sortorder
+             * @default 0
+             */
+            sortOrder?: number;
+        };
+        /** WorkplaceTypeList */
+        WorkplaceTypeList: {
+            /** Items */
+            items: components["schemas"]["WorkplaceTypeRead"][];
+        };
+        /** WorkplaceTypeRead */
+        WorkplaceTypeRead: {
+            /**
+             * Createdat
+             * Format: date-time
+             */
+            createdAt: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Issample */
+            isSample: boolean;
+            /** Name */
+            name: string;
+            /** Nametranslations */
+            nameTranslations: {
+                [key: string]: string;
+            };
+            /** Seedcode */
+            seedCode: string | null;
+            /** Sortorder */
+            sortOrder: number;
+            /** Version */
+            version: number;
+        };
+        /** WorkplaceTypeUpdate */
+        WorkplaceTypeUpdate: {
+            /** Name */
+            name?: string | null;
+            /** Nametranslations */
+            nameTranslations?: {
+                [key: string]: string;
+            } | null;
+            /** Sortorder */
+            sortOrder?: number | null;
         };
     };
     responses: never;
@@ -21775,6 +22380,773 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["NumberRangeRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_person_candidates_v1_dealerships__dealership_id__planning_person_candidates_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PersonCandidateList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_qualifications_v1_dealerships__dealership_id__planning_qualifications_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QualificationList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_qualification_v1_dealerships__dealership_id__planning_qualifications_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                dealership_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["QualificationCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QualificationRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_qualification_v1_dealerships__dealership_id__planning_qualifications__entry_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "If-Match"?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                entry_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_qualification_v1_dealerships__dealership_id__planning_qualifications__entry_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "If-Match"?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                entry_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["QualificationUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QualificationRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_resources_v1_dealerships__dealership_id__planning_resources_get: {
+        parameters: {
+            query?: {
+                locationId?: string | null;
+                kind?: components["schemas"]["ResourceKind"] | null;
+                includeInactive?: boolean;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResourceList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_resource_v1_dealerships__dealership_id__planning_resources_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                dealership_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PersonCreate"] | components["schemas"]["WorkplaceCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResourceRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_resource_v1_dealerships__dealership_id__planning_resources__resource_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                resource_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResourceRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_resource_v1_dealerships__dealership_id__planning_resources__resource_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "If-Match"?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                resource_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResourceUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResourceRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    replace_working_hours_v1_dealerships__dealership_id__planning_resources__resource_id__working_hours_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "If-Match"?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                resource_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkingHoursUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResourceRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_technician_types_v1_dealerships__dealership_id__planning_technician_types_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TechnicianTypeList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_technician_type_v1_dealerships__dealership_id__planning_technician_types_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                dealership_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TechnicianTypeCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TechnicianTypeRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_technician_type_v1_dealerships__dealership_id__planning_technician_types__entry_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "If-Match"?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                entry_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_technician_type_v1_dealerships__dealership_id__planning_technician_types__entry_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "If-Match"?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                entry_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TechnicianTypeUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TechnicianTypeRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    confirm_technician_type_v1_dealerships__dealership_id__planning_technician_types__entry_id__confirmation_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "If-Match"?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                entry_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TechnicianTypeRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_workplace_types_v1_dealerships__dealership_id__planning_workplace_types_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkplaceTypeList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_workplace_type_v1_dealerships__dealership_id__planning_workplace_types_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                dealership_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkplaceTypeCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkplaceTypeRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_workplace_type_v1_dealerships__dealership_id__planning_workplace_types__entry_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "If-Match"?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                entry_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_workplace_type_v1_dealerships__dealership_id__planning_workplace_types__entry_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "If-Match"?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                entry_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkplaceTypeUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkplaceTypeRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    confirm_workplace_type_v1_dealerships__dealership_id__planning_workplace_types__entry_id__confirmation_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "If-Match"?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                entry_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkplaceTypeRead"];
                 };
             };
             /** @description Validation Error */

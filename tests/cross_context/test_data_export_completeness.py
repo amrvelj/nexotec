@@ -95,6 +95,7 @@ def test_every_context_is_in_the_registry():
         "inventory",
         "sales",
         "reporting",
+        "planning",
         *STUB_CONTEXTS,
     }
 
@@ -102,7 +103,8 @@ def test_every_context_is_in_the_registry():
 def _seed(client, engine, dealership_id, headers, manager):
     """A Betrieb with data in each built context: users and a membership, a
     contact with contact channels, a stock item, an offer with a document,
-    a valuation, a vehicle configuration and an integration connection."""
+    a valuation, a vehicle configuration, an integration connection and a
+    planner workplace with its type."""
 
     from sqlalchemy import select
 
@@ -113,6 +115,9 @@ def _seed(client, engine, dealership_id, headers, manager):
     from app.inventory.models.stock_item import StockItemCondition
     from app.inventory.schemas.stock_item import StockItemCreate
     from app.inventory.services.stock_item import create_stock_item
+    from app.planning.services import lists as planning_lists
+    from app.planning.services import resources as planning_resources
+    from app.platform.organisation.models.dealership import Location
     from app.sales.models.document import DocumentOwnerType, SalesDocument
     from app.sales.services.offer import create_offer
     from app.valuation.models.valuation import Valuation, ValuationSource
@@ -196,6 +201,15 @@ def _seed(client, engine, dealership_id, headers, manager):
             ),
             actor_id=uuid.UUID(manager["id"]),
         )
+        lift = planning_lists.create_entry(
+            session, planning_lists.WORKPLACE_TYPES, dealership_id=tenant, actor_id=uuid.UUID(manager["id"]),
+            name="Hebebühne",
+        )
+        planning_resources.create_workplace(
+            session, dealership_id=tenant, actor_id=uuid.UUID(manager["id"]), name="Bühne 1",
+            location_id=session.scalar(select(Location.id).where(Location.tenant_id == tenant)),
+            workplace_type_id=lift.id,
+        )
         session.commit()
     finally:
         session.close()
@@ -233,7 +247,9 @@ def test_a_seeded_betriebs_export_holds_exactly_its_rows(client, export_store, e
             if exported:
                 filled[exporter.context] += 1
     # The seed reached every built context's export.
-    assert {"core", "platform", "contact", "inventory", "sales", "valuation", "vehicle", "integration"} <= set(filled)
+    assert {
+        "core", "platform", "contact", "inventory", "sales", "valuation", "vehicle", "integration", "planning",
+    } <= set(filled)
     # What the seed made for this Betrieb, counted by hand — not through the
     # export's own scope functions, which `expected` above relies on.
     by_hand = {
@@ -244,6 +260,8 @@ def test_a_seeded_betriebs_export_holds_exactly_its_rows(client, export_store, e
         ("vehicle", "vehicle_configuration"): 1,
         ("integration", "integration_connection"): 1,
         ("valuation", "valuation"): 1,
+        ("planning", "planning_workplace_type"): 1,
+        ("planning", "planning_resource"): 1,
     }
     assert {key: len(rows_in(archive, *key)) for key in by_hand} == by_hand
     # No row of the other Betrieb (its own id never appears as an owner).

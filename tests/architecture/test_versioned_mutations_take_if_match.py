@@ -93,6 +93,11 @@ POST_WITHOUT_IF_MATCH = {
     "/v1/dealerships/{dealership_id}/labour-rate-categories/{category_id}/rates": _NEW_ROW,
     "/v1/dealerships/{dealership_id}/labour-rate-categories/{category_id}/members": _CHILD_ROW,
     "/v1/dealerships/{dealership_id}/labour-rate-agreements": _NEW_ROW,
+    # KAN-808: the planner's lists and resources (S7).
+    "/v1/dealerships/{dealership_id}/planning/workplace-types": _NEW_ROW,
+    "/v1/dealerships/{dealership_id}/planning/technician-types": _NEW_ROW,
+    "/v1/dealerships/{dealership_id}/planning/qualifications": _NEW_ROW,
+    "/v1/dealerships/{dealership_id}/planning/resources": _NEW_ROW,
     "/v1/dealerships/{dealership_id}/locations/{location_id}/closures": "a new closure row (KAN-204), versioned "
     "itself; the location's version does not move",
     "/v1/dealerships/{dealership_id}/standard-texts/{category}": "a new standard-text row (KAN-208); with isDefault "
