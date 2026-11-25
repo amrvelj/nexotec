@@ -45,8 +45,11 @@ ROW_LOCKS = pytest.mark.skipif(
 
 # pysqlite runs its own transaction handling: it issues no BEGIN before a
 # SAVEPOINT, so releasing the outermost savepoint commits, and the rollback
-# that follows undoes nothing (a dry run, a read-only preview that seeds a row
-# under a savepoint). SQLAlchemy's documented remedy (the driver's isolation
+# that follows undoes nothing (a read-only preview that seeds a row under a
+# savepoint). Code can avoid it by opening one savepoint of its own around all
+# its writes and rolling back to that, as the configuration copy's dry run does
+# (KAN-834); a test is marked only where the code under test does not.
+# SQLAlchemy's documented remedy (the driver's isolation
 # level off, BEGIN on begin) breaks the shared connection above: two sessions
 # would both BEGIN on it.
 SAVEPOINT_ROLLBACK = pytest.mark.skipif(

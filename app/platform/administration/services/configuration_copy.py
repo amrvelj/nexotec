@@ -570,7 +570,7 @@ def copy_configuration(
         # never the outermost transaction, which a driver that opens its
         # transaction only at the first write (pysqlite) would commit on their
         # RELEASE, so the dry run's preview would be written after all.
-        copy = db.begin_nested()
+        outer = db.begin_nested()
         for subset in CopySubset:
             if subset in subsets:
                 _COPIERS[subset](db, source=source, target=target, actor_id=principal.user_id, report=report)
@@ -594,9 +594,9 @@ def copy_configuration(
         db.rollback()
         raise
     if dry_run:
-        copy.rollback()
+        outer.rollback()
         db.rollback()
     else:
-        copy.commit()
+        outer.commit()
         db.commit()
     return report
