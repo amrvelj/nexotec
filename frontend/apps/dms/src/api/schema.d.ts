@@ -14129,7 +14129,8 @@ export interface components {
         /**
          * ResourceUpdate
          * @description Each field sent is changed; a field of the other kind is refused.
-         *     `workplaceTypeId` and `technicianTypeId` clear with null.
+         *     `workplaceTypeId` and `technicianTypeId` clear with null. A field no
+         *     resource has (`userId`, `kind`, …) is a schema 422, never silently dropped.
          */
         ResourceUpdate: {
             /** Isactive */

@@ -585,3 +585,57 @@ def test_the_lists_keep_their_order(client, db_session, betrieb):
     names = [item["name"] for item in client.get(f"{base}/qualifications", headers=boss).json()["items"]]
     assert names == ["alpha", "Ärztin", "Erst", "Zeta", "Zuletzt"]
 
+
+
+# --- review of a675266 ----------------------------------------------------------------------
+
+
+def test_a_field_no_resource_or_entry_has_is_refused_not_dropped(client, db_session, betrieb):
+    dealership_id, boss = betrieb
+    workplace = _workplace(client, db_session, dealership_id, boss)
+    path = f"{_base(dealership_id)}/resources/{workplace['id']}"
+    for body in ({"kind": "person"}, {"userId": str(uuid.uuid4())}):
+        refused = client.patch(path, json=body, headers={**boss, "If-Match": "1"})
+        assert refused.status_code == 422, refused.text
+    entry = _post(client, f"{_base(dealership_id)}/workplace-types", {"name": "Hebebühne"}, boss)
+    refused = client.patch(
+        f"{_base(dealership_id)}/workplace-types/{entry['id']}", json={"rank": 3}, headers={**boss, "If-Match": "1"}
+    )
+    assert refused.status_code == 422, refused.text
+    assert client.get(path, headers=boss).json()["version"] == 1
+
+
+def test_a_resource_is_reactivated_only_at_an_active_location(client, db_session, betrieb):
+    dealership_id, boss = betrieb
+    branch = _second_location(db_session, dealership_id)
+    path = f"{_base(dealership_id)}/resources"
+    workplace = _post(client, path, {"kind": "workplace", "name": "A", "locationId": str(branch)}, boss)
+    off = client.patch(f"{path}/{workplace['id']}", json={"isActive": False}, headers={**boss, "If-Match": "1"})
+    assert off.status_code == 200, off.text
+    db_session.get(Location, branch).is_active = False
+    db_session.commit()
+    refused = client.patch(f"{path}/{workplace['id']}", json={"isActive": True}, headers={**boss, "If-Match": "2"})
+    assert _reason(refused) == (422, "planning_location_inactive")
+    db_session.get(Location, branch).is_active = True
+    db_session.commit()
+    back = client.patch(f"{path}/{workplace['id']}", json={"isActive": True}, headers={**boss, "If-Match": "2"})
+    assert (back.status_code, back.json()["isActive"]) == (200, True)
+
+
+def test_a_change_of_working_hours_is_in_the_resources_history(client, db_session, betrieb):
+    dealership_id, boss = betrieb
+    person, _ = _person(client, db_session, dealership_id, boss)
+    week = {"days": [{"weekday": 1, "startsAt": "07:30", "endsAt": "16:30"}]}
+    stored = client.put(
+        f"{_base(dealership_id)}/resources/{person['id']}/working-hours",
+        json=week,
+        headers={**boss, "If-Match": str(person["version"])},
+    )
+    assert stored.status_code == 200, stored.text
+    events = db_session.scalars(
+        select(AuditEvent).where(
+            AuditEvent.entity_type == "planning_resource", AuditEvent.entity_id == uuid.UUID(person["id"])
+        )
+    ).all()
+    assert [event.action for event in events] == ["create", "working_hours_replaced"]
+    assert events[-1].after["workingHours"][0]["weekday"] == 1

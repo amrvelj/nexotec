@@ -72,12 +72,17 @@ class QualificationList(CamelModel):
 
 
 class _EntryCreate(CamelModel):
+    # An unknown field is a schema 422, never silently dropped (KAN-808 review).
+    model_config = ConfigDict(extra="forbid")
+
     name: Name
     name_translations: NameTranslations | None = None
     sort_order: SortOrder = 0
 
 
 class _EntryUpdate(CamelModel):
+    model_config = ConfigDict(extra="forbid")
+
     name: Name | None = None
     # null clears every translation.
     name_translations: NameTranslations | None = None
@@ -118,6 +123,8 @@ class WorkingDay(CamelModel):
     """One working weekday (ISO: 1 = Monday … 7 = Sunday), local times to the
     minute, e.g. 07:30–12:00 and 13:00–17:00."""
 
+    model_config = ConfigDict(extra="forbid")
+
     weekday: int
     starts_at: dt.time
     ends_at: dt.time
@@ -128,6 +135,8 @@ class WorkingDay(CamelModel):
 class WorkingHoursUpdate(CamelModel):
     """The person's whole week, replacing what is stored (PUT, If-Match on the
     resource's version). A weekday that is not sent is not worked."""
+
+    model_config = ConfigDict(extra="forbid")
 
     days: list[WorkingDay] = Field(max_length=7)
 
@@ -186,7 +195,10 @@ ResourceCreate = Annotated[PersonCreate | WorkplaceCreate, Field(discriminator="
 
 class ResourceUpdate(CamelModel):
     """Each field sent is changed; a field of the other kind is refused.
-    `workplaceTypeId` and `technicianTypeId` clear with null."""
+    `workplaceTypeId` and `technicianTypeId` clear with null. A field no
+    resource has (`userId`, `kind`, …) is a schema 422, never silently dropped."""
+
+    model_config = ConfigDict(extra="forbid")
 
     name: Name | None = None
     location_id: uuid.UUID | None = None

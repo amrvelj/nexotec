@@ -31,7 +31,9 @@ from app.planning.models.resource import Resource, ResourceKind, WorkingHours
 from app.planning.services.locks import lock_master_data
 from app.planning.services.resources import get_resource_or_404
 
-ENTITY_TYPE = "planning_working_hours"
+# Audited on the resource itself, so its history shows the week changing with
+# its version (KAN-808 review).
+ENTITY_TYPE = "planning_resource"
 
 
 @dataclass(frozen=True)
@@ -152,9 +154,9 @@ def replace_working_hours(
         entity_type=ENTITY_TYPE,
         entity_id=resource.id,
         tenant_id=dealership_id,
-        action="update",
+        action="working_hours_replaced",
         actor_id=actor_id,
-        before={"days": before},
-        after={"days": after},
+        before={"workingHours": before},
+        after={"workingHours": after},
     )
     return resource

@@ -360,10 +360,16 @@ def change_resource(
         if changes.get("qualification_ids") is not None:
             held = _check_qualifications(db, dealership_id, changes["qualification_ids"])
     if changes.get("is_active") is not None and changes["is_active"] != resource.is_active:
-        if changes["is_active"] and resource.kind is ResourceKind.PERSON and resource.user_id is not None:
-            # Back in the planner only while the person still works here.
-            resource.user_label = person_label_for(db, dealership_id=dealership_id, user_id=resource.user_id)
-            resource.user_label_refreshed_at = now
+        if changes["is_active"]:
+            # Back in the planner only at an active location of the Betrieb (422
+            # `planning_location_inactive`), and a person only while they still work here.
+            resource.location_label = location_label_for(
+                db, dealership_id=dealership_id, location_id=resource.location_id
+            )
+            resource.location_label_refreshed_at = now
+            if resource.kind is ResourceKind.PERSON and resource.user_id is not None:
+                resource.user_label = person_label_for(db, dealership_id=dealership_id, user_id=resource.user_id)
+                resource.user_label_refreshed_at = now
         resource.is_active = changes["is_active"]
     if changes.get("sort_order") is not None:
         resource.sort_order = changes["sort_order"]
