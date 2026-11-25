@@ -72,7 +72,8 @@ Last verified against main@32ad509 (2026-11-25). -->
   italic; ADR-220, Anto 2026-11-25), with what it acts as or refuses; a location without its own
   value shows the Betrieb's, readable, with a «vom Betrieb» badge; a stale value is removed by its
   own button, never by an untouched blur; a choice whose `choiceRequires` key is not in force in that
-  column (the location's own value, else the Betrieb's) is offered disabled (KAN-806, check 49); the
+  column (the location's own value, else the Betrieb's, else its `acts_as`) is offered disabled (KAN-806,
+  check 49; a required key of another area is not in the area's data, so there the API's refusal shows); the
   history opens under its row: who, when, before → after, restore (manager) as a new entry. No design
   is drawn for it (ticket, «Design»). An area needs `areas.<area>` and a unit `units.<unit>` in the
   `settings` bundles (`test_declared_settings_have_labels.py`).

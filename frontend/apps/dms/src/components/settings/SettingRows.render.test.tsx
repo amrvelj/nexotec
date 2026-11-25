@@ -183,4 +183,40 @@ describe('SettingRows (KAN-805)', () => {
     // The location holds its own value per hour — work units can be chosen there.
     expect(await option(atLocation)).not.toHaveAttribute('data-combobox-disabled')
   })
+
+  it('counts a required setting whose «not set» acts as a value as in force, as the API does (check 49)', async () => {
+    i18n.addResource('de', 'translation', 'settings.keys.testarea.unit.label', 'Einheit')
+    i18n.addResource('de', 'translation', 'settings.keys.testarea.unit.options.hours', 'Stunden')
+    i18n.addResource('de', 'translation', 'settings.keys.testarea.unit.options.work_units', 'Arbeitswerte')
+    i18n.addResource('de', 'translation', 'settings.keys.testarea.per_hour.label', 'Pro Stunde')
+    const data: AreaSettingsRead = {
+      area: 'testarea',
+      showsLocations: false,
+      locations: [],
+      settings: [
+        {
+          declaration: {
+            ...declaration('testarea.unit'),
+            kind: 'choice',
+            choices: ['hours', 'work_units'],
+            choiceRequires: [{ choice: 'work_units', key: 'testarea.per_hour' }],
+          },
+          dealership: slot(),
+          locations: [],
+        },
+        {
+          // Never written, but «not set» acts as 10 — the store counts that as in force.
+          declaration: { ...declaration('testarea.per_hour'), whenNotSet: 'acts_as', actsAs: { number: '10' } },
+          dealership: slot(),
+          locations: [],
+        },
+      ],
+    }
+    render(data, ['testarea.unit', 'testarea.per_hour'])
+    const table = within(await screen.findByRole('table', { name: 'Einstellungen' }))
+    const unitRow = table.getAllByRole('row').find((row) => row.querySelector('td')?.textContent === 'Einheit')!
+    const betrieb = Array.from(unitRow.querySelectorAll('td'))[1]
+    await userEvent.click(betrieb.querySelector('span[style]') as HTMLElement)
+    expect(await screen.findByRole('option', { name: 'Arbeitswerte' })).not.toHaveAttribute('data-combobox-disabled')
+  })
 })

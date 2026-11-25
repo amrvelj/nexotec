@@ -62,10 +62,13 @@ export function SettingRows({ dealershipId, data, keys, onReload }: SettingRowsP
   const slotAt = (setting: AreaSettingRead, locationId: string) =>
     setting.locations.find((slot) => slot.locationId === locationId) ?? neverWritten(locationId)
   // KAN-806 (check 49): a choice that needs another setting is unavailable where that one is
-  // not in force — the location's own value, else the Betrieb's — as the API would refuse it.
+  // not in force — the location's own value, else the Betrieb's, else what «not set» acts as —
+  // as the API would refuse it (`setting_rules._effective`). A required key of another area is
+  // not in this area's data: the choice stays offered and the API's refusal is shown.
   const inForceAt = (key: string, locationId: string | null): boolean => {
     const other = data.settings.find((setting) => setting.declaration.key === key)
     if (!other) return true
+    if (other.declaration.whenNotSet === 'acts_as' && other.declaration.actsAs != null) return true
     const own = locationId === null ? null : other.locations.find((slot) => slot.locationId === locationId)
     return Boolean(own?.isSet) || other.dealership.isSet
   }
