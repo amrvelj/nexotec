@@ -22,7 +22,7 @@ paths:
   - "tests/cross_context/test_reconciliation*.py"
 ---
 <!-- Maintainer note. Moved out of events.md by KAN-615 (2026-11-13) so the broad file stays
-small; ADR-047 addendum, ADR-081, ADR-105, ADR-107. Last verified against main@32ad509 (2026-11-25). -->
+small; ADR-047 addendum, ADR-081, ADR-105, ADR-107. Last verified against main@32ad509 (2026-11-25); planning's jobs added by KAN-808 PR-1b. -->
 
 # The worker, daily jobs and label refreshes
 
@@ -46,7 +46,8 @@ small; ADR-047 addendum, ADR-081, ADR-105, ADR-107. Last verified against main@3
   Jobs: `contact.vehicle_party_labels`, `contact.advisor_labels`, `sales.owner_labels`,
   `sales.contact_labels`, `inventory.configuration_labels`, `integration.location_labels`
   (KAN-222: a connection's and, KAN-226, a Business Profile binding's copy of its location's name), `inventory.location_labels` (KAN-739: a
-  stock item's copy of its location's name), `inventory.supplier_labels` (KAN-465: its supplier contact's). Shared rules: no `version` bump, a
+  stock item's copy of its location's name), `inventory.supplier_labels` (KAN-465: its supplier contact's), `planning.person_labels` and
+  `planning.location_labels` (KAN-808: a planner resource's user and location names). Shared rules: no `version` bump, a
   current label only restamped, a deactivated user's label kept, an id naming nothing left
   alone, batches `FOR NO KEY UPDATE SKIP LOCKED` (the vehicle-party job locks in id order and
   waits — `contact-vehicle-party.md`).
