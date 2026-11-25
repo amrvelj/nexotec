@@ -108,14 +108,17 @@ export function CategoryDialog({
 
 export function RateDialog({
   category,
-  entered,
+  enteredAt,
   today,
   locations,
   onClose,
   onSave,
 }: {
   category: LabourRateCategoryRead
-  entered: string | null
+  /** O16 at a location: its own value, else the Betrieb's (ruling 175); null while not set. */
+  enteredAt: (locationId: string | null) => string | null
+  /** The business's today (Europe/Zurich), the day the server checks «today or later»
+   * against — not the browser's (todayLocalIsoDate), so a dealer abroad gets no refusal. */
   today: string
   locations: LocationRead[]
   onClose: () => void
@@ -127,6 +130,7 @@ export function RateDialog({
   const [amount, setAmount] = useState<number | string>('')
   const { submitting, error, submit } = useSubmit('labourRates.saveError')
   const amountText = decimalString(amount)
+  const entered = locationId ? enteredAt(locationId) : null
   return (
     <FormDialog
       opened
@@ -151,6 +155,11 @@ export function RateDialog({
         <Alert color="blue" variant="light">
           {t('labourRates.rateDialog.writtenOnce')}
         </Alert>
+        {locationId && entered === null && (
+          <Alert color="yellow" variant="light">
+            {t('labourRates.settings.enteredNotSet')}
+          </Alert>
+        )}
         <Select
           label={t('labourRates.columns.location')}
           required
@@ -190,7 +199,9 @@ export function AgreementDialog({
   onSave,
 }: {
   categories: LabourRateCategoryRead[]
+  /** O16 of the Betrieb: an agreement is Betrieb-wide (Anto, 2026-11-25). */
   entered: string | null
+  /** The business's today, as in RateDialog. */
   today: string
   onClose: () => void
   onSave: (body: {
@@ -354,7 +365,9 @@ export function WithdrawDialog({
             {error}
           </Alert>
         )}
-        <Text fz="sm">{t('labourRates.withdraw.body')}</Text>
+        <Text fz="sm">
+          {t(target.kind === 'rate' ? 'labourRates.withdraw.rateBody' : 'labourRates.withdraw.agreementBody')}
+        </Text>
       </Stack>
     </FormDialog>
   )

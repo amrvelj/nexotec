@@ -38,7 +38,8 @@
     "columns": {
       "contact": "Contatto",
       "category": "Categoria"
-    }
+    },
+    "more": "Carica altro"
   },
   "columns": {
     "location": "Sede",
@@ -60,7 +61,8 @@
     "action": "Ritira",
     "rateTitle": "Ritira la tariffa",
     "agreementTitle": "Ritira l'accordo",
-    "body": "Non è ancora iniziata e non varrà. Resta nell'elenco, indicata come ritirata."
+    "rateBody": "Non è ancora iniziata e non varrà. Resta nell'elenco, indicata come ritirata.",
+    "agreementBody": "Non è ancora iniziato e non varrà. Resta nell'elenco, indicato come ritirato."
   },
   "categoryDialog": {
     "createTitle": "Aggiungi categoria di manodopera",

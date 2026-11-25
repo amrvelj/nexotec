@@ -13,7 +13,7 @@ import {
   TextInput,
   Title,
 } from '@mantine/core'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { X } from 'lucide-react'
 import { Badge, type BadgeTone, useSetBreadcrumb } from '@nexotec/ui-kit'
@@ -92,11 +92,18 @@ export function LabourRatesPage() {
     queryFn: () => api.get<LocationList>(`${base}/locations`),
     enabled: dealershipId !== '',
   })
-  const agreements = useQuery({
+  // Cursor-paged (insurers and fleets make it grow); withdrawn rows shown, as withdrawn rates are.
+  const agreements = useInfiniteQuery({
     queryKey: [...labourRatesKey(dealershipId), 'agreements'],
-    queryFn: () => api.get<LabourRateAgreementPage>(`${base}/labour-rate-agreements?limit=100`),
+    queryFn: ({ pageParam }) =>
+      api.get<LabourRateAgreementPage>(
+        `${base}/labour-rate-agreements?includeWithdrawn=true&limit=50${pageParam ? `&cursor=${encodeURIComponent(pageParam)}` : ''}`,
+      ),
+    initialPageParam: '',
+    getNextPageParam: (last) => last.nextCursor ?? undefined,
     enabled: dealershipId !== '',
   })
+  const agreementRows = agreements.data?.pages.flatMap((page) => page.items) ?? []
   const candidates = useQuery({
     queryKey: [...labourRatesKey(dealershipId), 'candidates'],
     queryFn: () => api.get<LabourCategoryCandidateList>(`${base}/labour-category-candidates`),
@@ -113,10 +120,19 @@ export function LabourRatesPage() {
   const slot = (key: string): SettingSlotRead | undefined =>
     settings.data?.settings.find((setting) => setting.declaration.key === key)?.dealership
   const entered = slot(RATES_ENTERED)?.value?.choice ?? null
+  // O16 counts at the rate's location (ruling 175): a location's own value, else the Betrieb's.
+  const enteredAt = (locationId: string | null): string | null => {
+    const setting = settings.data?.settings.find((s) => s.declaration.key === RATES_ENTERED)
+    const own = setting?.locations.find((l) => l.locationId === locationId && l.isSet)
+    return own?.value?.choice ?? entered
+  }
+  const anyEntered =
+    entered !== null ||
+    (settings.data?.settings.find((s) => s.declaration.key === RATES_ENTERED)?.locations ?? []).some((l) => l.isSet)
   const timeUnit = slot(TIME_UNIT)?.value?.choice ?? 'hours'
   const perHour = slot(WORK_UNITS_PER_HOUR)?.value?.number ?? null
-  const locationName = (id: string) => locations.data?.items.find((location) => location.id === id)?.name ?? id
-  const categoryName = (id: string) => categories.data?.items.find((category) => category.id === id)?.name ?? id
+  const locationName = (id: string) => locations.data?.items.find((location) => location.id === id)?.name ?? '—'
+  const categoryName = (id: string) => categories.data?.items.find((category) => category.id === id)?.name ?? '—'
 
   const writeSetting = async (key: string, value: Record<string, string> | null) => {
     setError(null)
@@ -151,7 +167,7 @@ export function LabourRatesPage() {
       </div>
       {(categories.isError || settings.isError) && (
         <Alert color="red" role="alert">
-          {t('labourRates.loadError')}
+          {apiRefusalText(t, categories.error ?? settings.error, 'labourRates.loadError')}
         </Alert>
       )}
       {error && (
@@ -246,7 +262,7 @@ export function LabourRatesPage() {
               key={category.id}
               category={category}
               canWrite={canWrite}
-              entered={entered}
+              canEnterRates={anyEntered}
               locationName={locationName}
               candidates={candidates.data?.items ?? []}
               onEdit={() => setCategoryDialog({ category })}
@@ -287,7 +303,7 @@ export function LabourRatesPage() {
               </Button>
             )}
           </Group>
-          {agreements.data.items.length === 0 ? (
+          {agreementRows.length === 0 ? (
             <Text c="dimmed" fz="sm">
               {t('labourRates.agreements.empty')}
             </Text>
@@ -305,7 +321,7 @@ export function LabourRatesPage() {
                   </Table.Tr>
                 </Table.Thead>
                 <Table.Tbody>
-                  {agreements.data.items.map((agreement) => (
+                  {agreementRows.map((agreement) => (
                     <Table.Tr key={agreement.id}>
                       <Table.Td>{agreement.contactLabel}</Table.Td>
                       <Table.Td>{categoryName(agreement.categoryId)}</Table.Td>
@@ -340,6 +356,16 @@ export function LabourRatesPage() {
               </Table>
             </Paper>
           )}
+          {agreements.hasNextPage && (
+            <Button
+              size="xs"
+              variant="default"
+              loading={agreements.isFetchingNextPage}
+              onClick={() => void agreements.fetchNextPage()}
+            >
+              {t('labourRates.agreements.more')}
+            </Button>
+          )}
         </Stack>
       )}
 
@@ -364,7 +390,7 @@ export function LabourRatesPage() {
       {rateFor && (
         <RateDialog
           category={rateFor}
-          entered={entered}
+          enteredAt={enteredAt}
           today={categories.data?.today ?? ''}
           locations={(locations.data?.items ?? []).filter((location) => location.isActive)}
           onClose={() => setRateFor(null)}
@@ -447,7 +473,7 @@ function WorkUnitsPerHourField({
 function CategoryCard({
   category,
   canWrite,
-  entered,
+  canEnterRates,
   locationName,
   candidates,
   onEdit,
@@ -459,7 +485,8 @@ function CategoryCard({
 }: {
   category: LabourRateCategoryRead
   canWrite: boolean
-  entered: string | null
+  /** O16 is set for the Betrieb or at a location: a rate can be entered somewhere. */
+  canEnterRates: boolean
   locationName: (id: string) => string
   candidates: LabourCategoryCandidateList['items']
   onEdit: () => void
@@ -531,7 +558,7 @@ function CategoryCard({
         </Table>
       )}
       {canWrite && category.isActive && (
-        <Button size="xs" variant="light" mt="xs" disabled={entered === null} onClick={onAddRate}>
+        <Button size="xs" variant="light" mt="xs" disabled={!canEnterRates} onClick={onAddRate}>
           {t('labourRates.rates.add')}
         </Button>
       )}

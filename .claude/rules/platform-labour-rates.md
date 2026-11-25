@@ -45,9 +45,12 @@ counts a rate still to come). Binding text: the slice page and the ADR in the Ta
   with no O19 in force (a location deactivated, the Betrieb's O19 cleared, the location reactivated).
 - **Screen** `/administration/labour-rates` (`LabourRatesPage`, nav entry shown with `aftersales`), also served
   at `/administration/settings/labour_rates` — the settings area of O16/O18/O19, where the checklist links O16.
-  It holds the three settings (Betrieb values; per-location values stay with the generic settings screen,
-  KAN-805 PR-5), each category with its rates (status today, withdraw only when scheduled) and people, and the
-  agreed rates. Rates are typed to the Rappen (`ChfInput`); the API takes four decimals.
+  It holds the three settings (the Betrieb's values; their per-location values are this screen's to offer,
+  with KAN-805 PR-5's component — the static route outranks PR-5's `:area` route, ADR-219 addendum; until then
+  a location's own value goes through the settings API, and the rate dialog enters a rate as the location's own
+  O16 says), each category with its rates (status today, withdraw only when scheduled) and people, and the
+  agreed rates (cursor-paged, withdrawn ones shown). Rates are typed to the Rappen (`ChfInput`); the API takes
+  four decimals. The dialogs pre-fill the business's `today` from the API, the day the server checks against.
 - **Checklist (Aftersales):** O16 (`labour_rates.rates_entered`, a setting item) and `labour_rates` — an active
   category with a rate at an active location, one still to come counting (Anto, 2026-11-25); neither blocks an
   action after activation yet. `tests/setup_checklist_support.complete_checklist` completes both for an

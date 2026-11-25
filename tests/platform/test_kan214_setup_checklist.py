@@ -20,6 +20,8 @@ from app.platform.organisation.models.dealership_bank_account import DealershipB
 from tests import setup_checklist_support as s
 
 ALL_ITEMS = {"branding", "vat_and_rounding", "bank_account", "number_ranges", "location_opening_hours", "users"}
+# KAN-806: what a Betrieb holding aftersales must set up besides — O16 and a category with a rate.
+AFTERSALES_ITEMS = {"labour_rates.rates_entered", "labour_rates"}
 
 
 def _items(db, dealership_id) -> dict[str, bool]:
@@ -36,7 +38,7 @@ def test_a_workshop_without_sales_has_no_location_hours_item(client, db_session)
     """Q2 A: opening hours (and later the publishing profile) apply only with `sales`."""
 
     dealership_id = s.pending_dealership(client, db_session, modules=(ModuleCode.AFTERSALES,))
-    assert set(_items(db_session, dealership_id)) == ALL_ITEMS - {"location_opening_hours"}
+    assert set(_items(db_session, dealership_id)) == (ALL_ITEMS - {"location_opening_hours"}) | AFTERSALES_ITEMS
 
 
 def test_each_item_is_completed_by_its_owners_data(client, db_session):

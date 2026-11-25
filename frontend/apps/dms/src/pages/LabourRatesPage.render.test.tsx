@@ -4,7 +4,7 @@ import { cleanup, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import i18n from '../i18n'
 import { renderWithProviders } from '../test/renderWithProviders'
-import { installFakeBackend, type FakeRequest, type FakeRoute } from '../test/fakeBackend'
+import { installFakeBackend, type FakeRoute, type RecordedCall } from '../test/fakeBackend'
 import { LabourRatesPage } from './LabourRatesPage'
 
 // KAN-806 — Dealer Administration › Labour rates (D-A-19; rulings 177, 178, 183).
@@ -39,7 +39,11 @@ const declaration = (key: string, kind: string, extra: Record<string, unknown> =
   ...extra,
 })
 
-function settings({ entered = null as string | null, perHour = null as string | null } = {}) {
+function settings({
+  entered = null as string | null,
+  perHour = null as string | null,
+  locationEntered = null as string | null,
+} = {}) {
   return {
     area: 'labour_rates',
     showsLocations: false,
@@ -48,7 +52,8 @@ function settings({ entered = null as string | null, perHour = null as string | 
       {
         declaration: declaration('labour_rates.rates_entered', 'choice', { choices: ['net', 'gross'] }),
         dealership: slot(entered === null ? null : { choice: entered }, entered === null ? 0 : 1),
-        locations: [],
+        locations:
+          locationEntered === null ? [] : [{ ...slot({ choice: locationEntered }, 1), locationId: 'loc-1' }],
       },
       {
         declaration: declaration('labour_rates.time_unit', 'choice', {
@@ -91,7 +96,9 @@ const CATEGORY = {
   members: [{ userId: 'user-9', displayName: 'Lea Meier', isActive: true }],
 }
 
-function install(options: { entered?: string | null; perHour?: string | null; extra?: FakeRoute[] } = {}) {
+function install(
+  options: { entered?: string | null; perHour?: string | null; locationEntered?: string | null; extra?: FakeRoute[] } = {},
+) {
   return installFakeBackend([
     ...(options.extra ?? []),
     {
@@ -102,7 +109,12 @@ function install(options: { entered?: string | null; perHour?: string | null; ex
     {
       method: 'GET',
       match: new RegExp(`${BASE.source}/setting-areas/labour_rates$`),
-      handler: () => settings({ entered: options.entered ?? null, perHour: options.perHour ?? null }),
+      handler: () =>
+        settings({
+          entered: options.entered ?? null,
+          perHour: options.perHour ?? null,
+          locationEntered: options.locationEntered ?? null,
+        }),
     },
     {
       method: 'GET',
@@ -174,8 +186,8 @@ describe('LabourRatesPage (KAN-806)', () => {
     renderWithProviders(<LabourRatesPage />, { route: '/administration/labour-rates' })
     await screen.findByText(i18n.t('labourRates.settings.enteredNotSet'))
     await userEvent.click(screen.getByText(i18n.t('settings.keys.labour_rates.rates_entered.options.gross')))
-    await waitFor(() => expect(backend.calls.some((call: FakeRequest) => call.method === 'PUT')).toBe(true))
-    const put = backend.calls.find((call: FakeRequest) => call.method === 'PUT')!
+    await waitFor(() => expect(backend.calls.some((call: RecordedCall) => call.method === 'PUT')).toBe(true))
+    const put = backend.calls.find((call: RecordedCall) => call.method === 'PUT')!
     expect(put.body).toEqual({ value: { choice: 'gross' } })
     expect(put.headers.get('If-Match')).toBe('0')
   })
@@ -210,8 +222,8 @@ describe('LabourRatesPage (KAN-806)', () => {
       '155',
     )
     await userEvent.click(within(dialog).getByRole('button', { name: i18n.t('common.save') }))
-    await waitFor(() => expect(backend.calls.some((call: FakeRequest) => call.method === 'POST')).toBe(true))
-    const post = backend.calls.find((call: FakeRequest) => call.method === 'POST')!
+    await waitFor(() => expect(backend.calls.some((call: RecordedCall) => call.method === 'POST')).toBe(true))
+    const post = backend.calls.find((call: RecordedCall) => call.method === 'POST')!
     expect(post.body).toEqual({ locationId: 'loc-1', validFrom: '2026-11-25', amount: '155.00', entered: 'net' })
   })
 
@@ -221,5 +233,129 @@ describe('LabourRatesPage (KAN-806)', () => {
     const card = await screen.findByRole('article', { name: 'Mechanik' })
     expect(within(card).getByText('Lea Meier')).toBeInTheDocument()
     expect(within(card).getByRole('button', { name: i18n.t('labourRates.members.remove', { name: 'Lea Meier' }) })).toBeInTheDocument()
+  })
+
+  it('a location with its own O16 enters its rate as that location says (ruling 175)', async () => {
+    const backend = install({
+      entered: null,
+      locationEntered: 'gross',
+      extra: [
+        {
+          method: 'POST',
+          match: new RegExp(`${BASE.source}/labour-rate-categories/cat-1/rates$`),
+          handler: () => CATEGORY,
+        },
+      ],
+    })
+    renderWithProviders(<LabourRatesPage />, { route: '/administration/labour-rates' })
+    await ratesTable()
+    await userEvent.click(screen.getByRole('button', { name: i18n.t('labourRates.rates.add') }))
+    const dialog = await screen.findByRole('dialog', { name: i18n.t('labourRates.rateDialog.title', { name: 'Mechanik' }) })
+    await userEvent.type(
+      within(dialog).getByRole('textbox', {
+        name: (n) => n.startsWith(i18n.t('labourRates.rateDialog.amount', { entered: 'inkl. MwSt.' })),
+      }),
+      '162',
+    )
+    await userEvent.click(within(dialog).getByRole('button', { name: i18n.t('common.save') }))
+    await waitFor(() => expect(backend.calls.some((call: RecordedCall) => call.method === 'POST')).toBe(true))
+    expect(backend.calls.find((call: RecordedCall) => call.method === 'POST')!.body).toMatchObject({ entered: 'gross' })
+  })
+
+  it('renames a category with its version and withdraws a rate still to come with its version', async () => {
+    const backend = install({
+      entered: 'net',
+      extra: [
+        { method: 'PATCH', match: new RegExp(`${BASE.source}/labour-rate-categories/cat-1$`), handler: () => CATEGORY },
+        { method: 'POST', match: new RegExp(`${BASE.source}/labour-rates/rate-2/withdraw$`), handler: () => CATEGORY },
+      ],
+    })
+    renderWithProviders(<LabourRatesPage />, { route: '/administration/labour-rates' })
+    const card = await screen.findByRole('article', { name: 'Mechanik' })
+    await userEvent.click(within(card).getByRole('button', { name: i18n.t('labourRates.categories.edit') }))
+    const edit = await screen.findByRole('dialog', { name: i18n.t('labourRates.categoryDialog.editTitle') })
+    // The first «Name» field; the translations follow as «Name auf …».
+    const [name] = within(edit).getAllByRole('textbox', { name: (n) => n.startsWith(i18n.t('labourRates.categoryDialog.name')) })
+    await userEvent.clear(name)
+    await userEvent.type(name, 'Mechanik und Elektrik')
+    await userEvent.click(within(edit).getByRole('button', { name: i18n.t('common.save') }))
+    await waitFor(() => expect(backend.calls.some((call: RecordedCall) => call.method === 'PATCH')).toBe(true))
+    const patch = backend.calls.find((call: RecordedCall) => call.method === 'PATCH')!
+    expect(patch.headers.get('If-Match')).toBe('1')
+    expect(patch.body).toMatchObject({ name: 'Mechanik und Elektrik' })
+
+    const scheduled = within(await ratesTable()).getByRole('row', { name: (n) => n.includes('01.12.2026') })
+    await userEvent.click(within(scheduled).getByRole('button', { name: i18n.t('labourRates.withdraw.action') }))
+    const confirm = await screen.findByRole('dialog', { name: i18n.t('labourRates.withdraw.rateTitle') })
+    expect(within(confirm).getByText(i18n.t('labourRates.withdraw.rateBody'))).toBeInTheDocument()
+    await userEvent.click(within(confirm).getByRole('button', { name: i18n.t('labourRates.withdraw.action') }))
+    await waitFor(() =>
+      expect(backend.calls.some((call: RecordedCall) => call.pathname.endsWith('/labour-rates/rate-2/withdraw'))).toBe(true),
+    )
+    const withdraw = backend.calls.find((call: RecordedCall) => call.pathname.endsWith('/labour-rates/rate-2/withdraw'))!
+    expect(withdraw.headers.get('If-Match')).toBe('1')
+  })
+
+  it('removes a person from a category', async () => {
+    const backend = install({
+      entered: 'net',
+      extra: [
+        {
+          method: 'DELETE',
+          match: new RegExp(`${BASE.source}/labour-rate-categories/cat-1/members/user-9$`),
+          handler: () => null,
+        },
+      ],
+    })
+    renderWithProviders(<LabourRatesPage />, { route: '/administration/labour-rates' })
+    const card = await screen.findByRole('article', { name: 'Mechanik' })
+    await userEvent.click(
+      within(card).getByRole('button', { name: i18n.t('labourRates.members.remove', { name: 'Lea Meier' }) }),
+    )
+    await waitFor(() => expect(backend.calls.some((call: RecordedCall) => call.method === 'DELETE')).toBe(true))
+  })
+
+  it('enters an agreed rate for a contact picked from the search', async () => {
+    const backend = install({
+      entered: 'net',
+      extra: [
+        {
+          method: 'GET',
+          match: /^\/contacts$/,
+          handler: () => ({
+            items: [{ id: 'contact-7', contactNumber: 'K-1007', companyName: 'Helvetia Versicherungen AG' }],
+            nextCursor: null,
+          }),
+        },
+        { method: 'POST', match: new RegExp(`${BASE.source}/labour-rate-agreements$`), handler: () => ({}) },
+      ],
+    })
+    renderWithProviders(<LabourRatesPage />, { route: '/administration/labour-rates' })
+    await ratesTable()
+    await userEvent.click(screen.getByRole('button', { name: i18n.t('labourRates.agreements.add') }))
+    const dialog = await screen.findByRole('dialog', { name: i18n.t('labourRates.agreementDialog.title') })
+    await userEvent.click(within(dialog).getByRole('button', { name: i18n.t('labourRates.agreementDialog.chooseContact') }))
+    await userEvent.type(await screen.findByPlaceholderText(i18n.t('labourRates.agreementDialog.searchContact')), 'Helv')
+    await userEvent.click(await screen.findByText('Helvetia Versicherungen AG'))
+    const form = await screen.findByRole('dialog', { name: i18n.t('labourRates.agreementDialog.title') })
+    await userEvent.type(
+      within(form).getByRole('textbox', {
+        name: (n) => n.startsWith(i18n.t('labourRates.rateDialog.amount', { entered: 'netto' })),
+      }),
+      '128',
+    )
+    await userEvent.click(within(form).getByRole('button', { name: i18n.t('common.save') }))
+    await waitFor(() =>
+      expect(backend.calls.some((call: RecordedCall) => call.method === 'POST' && call.pathname.endsWith('/labour-rate-agreements'))).toBe(true),
+    )
+    const post = backend.calls.find((call: RecordedCall) => call.method === 'POST')!
+    expect(post.body).toEqual({
+      contactId: 'contact-7',
+      categoryId: 'cat-1',
+      kind: 'rate',
+      validFrom: '2026-11-25',
+      amount: '128.00',
+      entered: 'net',
+    })
   })
 })

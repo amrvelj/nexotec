@@ -38,7 +38,8 @@
     "columns": {
       "contact": "Contact",
       "category": "Catégorie"
-    }
+    },
+    "more": "Charger la suite"
   },
   "columns": {
     "location": "Site",
@@ -60,7 +61,8 @@
     "action": "Retirer",
     "rateTitle": "Retirer le taux",
     "agreementTitle": "Retirer l'accord",
-    "body": "Il n'a pas encore commencé et ne s'appliquera pas. Il reste dans la liste, marqué comme retiré."
+    "rateBody": "Il n'a pas encore commencé et ne s'appliquera pas. Il reste dans la liste, marqué comme retiré.",
+    "agreementBody": "Il n'a pas encore commencé et ne s'appliquera pas. Il reste dans la liste, marqué comme retiré."
   },
   "categoryDialog": {
     "createTitle": "Ajouter une catégorie de main-d'œuvre",

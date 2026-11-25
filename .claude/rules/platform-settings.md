@@ -53,8 +53,10 @@ per-location column while any location holds a value). Split out of platform-adm
   item blocking one — the SPA then says the action is blocked (`body_blocked`; Anto, 2026-11-24).
   The SPA names it by the setting's label (`settings.keys.<area>.<name>.label`,
   `utils/checklistItem.ts`); `test_declared_settings_have_labels.py` fails on a declared setting
-  without its label in the four languages, and on a shipped checklist setting before the SPA serves
-  `/administration/settings/:area` (PR-5).
+  without its label in the four languages, and on a shipped checklist setting whose link the SPA does
+  not serve — `/administration/settings/:area` (PR-5) or the area's own route (KAN-806:
+  `/administration/settings/labour_rates` is the labour-rates screen; PR-5's generic screen leaves that
+  area to it and offers its per-location values there).
 - **Copy from a sister Betrieb** (`administration/services/configuration_copy.py`, subset `settings`):
   the source's own value of each setting the target configures (module held, or none), written by
   `change_setting` as origin `copy` (history, restore); «not set» in the source keeps the target's

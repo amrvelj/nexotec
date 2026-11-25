@@ -38,7 +38,8 @@
     "columns": {
       "contact": "Contact",
       "category": "Category"
-    }
+    },
+    "more": "Load more"
   },
   "columns": {
     "location": "Location",
@@ -60,7 +61,8 @@
     "action": "Withdraw",
     "rateTitle": "Withdraw rate",
     "agreementTitle": "Withdraw agreement",
-    "body": "It has not started yet and will not apply. It stays in the list, shown as withdrawn."
+    "rateBody": "It has not started yet and will not apply. It stays in the list, shown as withdrawn.",
+    "agreementBody": "It has not started yet and will not apply. It stays in the list, shown as withdrawn."
   },
   "categoryDialog": {
     "createTitle": "Add labour category",

@@ -38,7 +38,8 @@
     "columns": {
       "contact": "Kontakt",
       "category": "Kategorie"
-    }
+    },
+    "more": "Weitere laden"
   },
   "columns": {
     "location": "Standort",
@@ -60,7 +61,8 @@
     "action": "Zurückziehen",
     "rateTitle": "Ansatz zurückziehen",
     "agreementTitle": "Vereinbarung zurückziehen",
-    "body": "Er hat noch nicht begonnen und wird nicht gelten. Er bleibt in der Liste als zurückgezogen sichtbar."
+    "rateBody": "Er hat noch nicht begonnen und wird nicht gelten. Er bleibt in der Liste als zurückgezogen sichtbar.",
+    "agreementBody": "Sie hat noch nicht begonnen und wird nicht gelten. Sie bleibt in der Liste als zurückgezogen sichtbar."
   },
   "categoryDialog": {
     "createTitle": "Arbeitskategorie hinzufügen",
