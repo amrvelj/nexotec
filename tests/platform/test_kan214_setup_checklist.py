@@ -20,8 +20,9 @@ from app.platform.organisation.models.dealership_bank_account import DealershipB
 from tests import setup_checklist_support as s
 
 ALL_ITEMS = {"branding", "vat_and_rounding", "bank_account", "number_ranges", "location_opening_hours", "users"}
-# KAN-806: what a Betrieb holding aftersales must set up besides — O16 and a category with a rate.
-AFTERSALES_ITEMS = {"labour_rates.rates_entered", "labour_rates"}
+# KAN-806: what a Betrieb holding aftersales must set up besides — O16 and a category with a rate;
+# KAN-808: the planner's grid O6 and slot length O7.
+AFTERSALES_ITEMS = {"labour_rates.rates_entered", "labour_rates", "planning.grid_minutes", "planning.slot_minutes"}
 
 
 def _items(db, dealership_id) -> dict[str, bool]:

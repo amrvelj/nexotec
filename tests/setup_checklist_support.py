@@ -129,6 +129,7 @@ def complete_checklist(db: Session, dealership_id: uuid.UUID, manager_user: dict
     complete_opening_hours(db, dealership_id)
     if ModuleCode.AFTERSALES.value in list_active_modules(db, dealership_id):
         complete_labour_rates(db, dealership_id)
+        complete_planner_settings(db, dealership_id)
 
 
 def complete_labour_rates(db: Session, dealership_id: uuid.UUID) -> None:
@@ -150,6 +151,20 @@ def complete_labour_rates(db: Session, dealership_id: uuid.UUID) -> None:
         db, dealership_id=dealership_id, category_id=category.id, location_id=location_id,
         valid_from=labour_rates.today(), amount=Decimal("150.00"), entered=PriceEntry.NET, actor_id=None,
     )
+    db.commit()
+
+
+def complete_planner_settings(db: Session, dealership_id: uuid.UUID) -> None:
+    """KAN-808: the planner's Aftersales items — O6 (the grid) and O7 (the slot length) set."""
+
+    from app.platform.organisation.services import setting_store
+
+    for key, minutes in (("planning.grid_minutes", 15), ("planning.slot_minutes", 30)):
+        version = setting_store.get_slot(db, dealership_id=dealership_id, location_id=None, key=key).version
+        setting_store.change_setting(
+            db, dealership_id=dealership_id, location_id=None, key=key, value=Decimal(minutes),
+            expected_version=version, actor_id=None,
+        )
     db.commit()
 
 

@@ -18,13 +18,23 @@
       "work_units_per_hour": {
         "label": "Work units per hour"
       }
+    },
+    "planning": {
+      "grid_minutes": {
+        "label": "Planner's grid"
+      },
+      "slot_minutes": {
+        "label": "Length of a drop-off or pick-up slot"
+      }
     }
   },
   "areas": {
-    "labour_rates": "Labour rates"
+    "labour_rates": "Labour rates",
+    "planning": "Planner"
   },
   "units": {
-    "work_units_per_hour": "AW per hour"
+    "work_units_per_hour": "AW per hour",
+    "minutes": "minutes"
   },
   "title": "Settings",
   "subtitle": "The settings of the areas this business uses. Each value applies to the business and can differ per location.",

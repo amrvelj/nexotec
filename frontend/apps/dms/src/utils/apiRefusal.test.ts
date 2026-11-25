@@ -93,6 +93,28 @@ describe('apiRefusalText — the API refusal in the UI language, never its Engli
     expect(closed({ validFrom: '2026-13-45' })).toBe(sentence(de.apiRefusal.accessWindow.none))
   })
 
+  // KAN-808: the planner's grid and slot length by their minutes, a block note's limit, a
+  // setting not set by its label, and the divisor a setting must divide.
+  it("names the planner's grid, the slot length, the note's limit, the missing setting and the divisor", async () => {
+    await i18n.changeLanguage('fr')
+    const r = fr.apiRefusal.reasons
+    const say = (status: number, details: Record<string, unknown>) => apiRefusalText(t, refusal(status, details), FALLBACK)
+    expect(say(422, { reason: 'planning_time_off_grid', gridMinutes: 15, fields: ['startsAt'] })).toBe(
+      r.planning_time_off_grid.replace('{{minutes}}', '15'),
+    )
+    expect(say(422, { reason: 'planning_slot_length_fixed', slotMinutes: 30 })).toBe(r.planning_slot_length_fixed.replace('{{minutes}}', '30'))
+    expect(say(422, { reason: 'planning_note_too_long', maxLength: 200 })).toBe(r.planning_note_too_long.replace('{{maxLength}}', '200'))
+    expect(say(409, { reason: 'planning_setting_not_set', setting: 'planning.grid_minutes' })).toBe(
+      r.planning_setting_not_set.replace('{{setting}}', fr.settings.keys.planning.grid_minutes.label),
+    )
+    expect(say(409, { reason: 'planning_setting_not_set', setting: 'planning.slot_minutes' })).toBe(
+      r.planning_setting_not_set.replace('{{setting}}', fr.settings.keys.planning.slot_minutes.label),
+    )
+    expect(say(422, { reason: 'setting_value_not_a_divisor', divides: '60' })).toBe(r.setting_value_not_a_divisor.replace('{{divides}}', '60'))
+    // A detail the API did not send reads as a dash, never as the placeholder.
+    expect(say(422, { reason: 'planning_time_off_grid' })).toBe(r.planning_time_off_grid.replace('{{minutes}}', '—'))
+  })
+
   it('says a stale If-Match 409 as such, before any reason', () => {
     expect(apiRefusalText(t, refusal(409, { currentVersion: 4, reason: 'contract_not_pending' }), FALLBACK)).toBe(de.apiRefusal.staleVersion)
   })

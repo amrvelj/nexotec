@@ -85,6 +85,36 @@
         "own_mailbox_in_error"
       ]
     },
+    "app/planning/services/bookings.py::_raise_refusal::first.reason": {
+      "kind": "refusal",
+      "hints": {
+        "first.reason": {
+          "argumentsOf": "Refusal",
+          "parameter": "reason"
+        }
+      },
+      "values": [
+        "planning_car_at_another_workplace",
+        "planning_person_twice_on_job",
+        "planning_workplace_taken"
+      ]
+    },
+    "app/planning/services/bookings.py::_refuse::reason": {
+      "kind": "refusal",
+      "values": [
+        "planning_booking_needs_a_resource",
+        "planning_booking_needs_reference",
+        "planning_interval_invalid",
+        "planning_note_too_long",
+        "planning_resource_inactive",
+        "planning_resources_at_several_locations",
+        "planning_slot_length_fixed",
+        "planning_time_off_grid",
+        "planning_warnings_unconfirmed",
+        "planning_work_needs_job_and_vehicle",
+        "planning_work_needs_one_workplace"
+      ]
+    },
     "app/platform/administration/api/area_settings.py::_refusals::refused.reason": {
       "kind": "refusal",
       "hints": {
@@ -107,12 +137,15 @@
       },
       "values": [
         "setting_choice_requires_setting",
+        "setting_no_longer_divides_setting",
+        "setting_not_a_multiple_of_setting",
         "setting_required_by_choice",
         "setting_value_above_maximum",
         "setting_value_below_minimum",
         "setting_value_language",
         "setting_value_no_longer_valid",
         "setting_value_not_a_choice",
+        "setting_value_not_a_divisor",
         "setting_value_not_a_number",
         "setting_value_not_a_switch",
         "setting_value_not_a_text",

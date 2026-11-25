@@ -1,4 +1,4 @@
-"""Rules across two settings (KAN-806, check 49; ADR-216 (5)).
+"""Rules across two settings (KAN-806, check 49; ADR-216 (5); KAN-808).
 
 A declaration may say that one of its choices needs another setting in force:
 O18 «work units» needs O19 «work units per hour» (ruling 183). The store
@@ -28,6 +28,19 @@ breaks the rule there; a scope already broken before does not block an
 unrelated write.
 
 A restore goes through `change_setting`, so it is checked the same way.
+
+**A multiple** (KAN-808; Anto, 2026-11-25): a number declared
+`multiple_of=<key>` is a whole multiple of that key's value wherever both are
+in force — O7, the slot length, of O6, the planner's grid. The same scopes,
+the same lock, the same «never worse»:
+
+- writing the multiple to a value that is not one is refused
+  (`setting_not_a_multiple_of_setting`);
+- writing the other key to a value the multiple no longer is a multiple of is
+  refused (`setting_no_longer_divides_setting`).
+
+«Not set» on either side breaks nothing: each setting refuses its own reader
+while not set. No acts-as applies: a number with an acts-as value has none here.
 """
 
 from __future__ import annotations
@@ -47,6 +60,7 @@ from app.platform.organisation.services.setting_declarations import (
     WhenNotSet,
     choice_rules,
     get_declaration,
+    multiple_rules,
 )
 
 # (key, location_id) -> the value in force in that slot, None when not set.
@@ -72,6 +86,35 @@ def _broken(
     return _effective(slots, choice_of, location_id) == choice and _effective(slots, required, location_id) is None
 
 
+def _slots_of(
+    db: Session,
+    *,
+    dealership_id: uuid.UUID,
+    keys: set[str],
+    in_force: Callable[[SettingDeclaration, SettingValue], Any],
+) -> _Slots:
+    declarations = {k: get_declaration(k) for k in keys}
+    found: _Slots = {}
+    for row in db.scalars(
+        select(SettingValue).where(SettingValue.dealership_id == dealership_id, SettingValue.key.in_(keys))
+    ):
+        declaration = declarations[row.key]
+        if declaration is not None:
+            found[(row.key, row.location_id)] = in_force(declaration, row)
+    return found
+
+
+def _scopes(db: Session, dealership_id: uuid.UUID, slots: _Slots) -> list[uuid.UUID | None]:
+    """The Betrieb, and every active location holding a slot of the keys."""
+
+    active = set(
+        db.scalars(select(Location.id).where(Location.tenant_id == dealership_id, Location.is_active.is_(True)))
+    )
+    scopes: list[uuid.UUID | None] = [None]
+    scopes += sorted({loc for (_, loc) in slots if loc is not None and loc in active}, key=str)
+    return scopes
+
+
 def check_choice_rules(
     db: Session,
     *,
@@ -95,21 +138,10 @@ def check_choice_rules(
         return
     keys = {choice_of.key for choice_of, _, _ in rules} | {required_key for _, _, required_key in rules}
     declarations = {k: get_declaration(k) for k in keys}
-    before: _Slots = {}
-    for row in db.scalars(
-        select(SettingValue).where(SettingValue.dealership_id == dealership_id, SettingValue.key.in_(keys))
-    ):
-        declaration = declarations[row.key]
-        if declaration is not None:
-            before[(row.key, row.location_id)] = in_force(declaration, row)
+    before = _slots_of(db, dealership_id=dealership_id, keys=keys, in_force=in_force)
     after = dict(before)
     after[(key, location_id)] = proposed
-
-    active = set(
-        db.scalars(select(Location.id).where(Location.tenant_id == dealership_id, Location.is_active.is_(True)))
-    )
-    scopes: list[uuid.UUID | None] = [None]
-    scopes += sorted({loc for (_, loc) in after if loc is not None and loc in active}, key=str)
+    scopes = _scopes(db, dealership_id, after)
 
     for choice_of, choice, required_key in rules:
         required = declarations[required_key]
@@ -134,5 +166,58 @@ def check_choice_rules(
                 raise SettingValueError(
                     f"{required_key} cannot be cleared while {choice_of.key} is {choice!r}.",
                     reason="setting_required_by_choice",
+                    details=details,
+                )
+
+
+def _not_a_multiple(slots: _Slots, multiple: SettingDeclaration, divisor: SettingDeclaration, scope: uuid.UUID | None) -> bool:
+    value, of = _effective(slots, multiple, scope), _effective(slots, divisor, scope)
+    if value is None or of is None or of == 0:
+        return False
+    return value % of != 0
+
+
+def check_multiple_rules(
+    db: Session,
+    *,
+    dealership_id: uuid.UUID,
+    location_id: uuid.UUID | None,
+    key: str,
+    proposed: Any,
+    in_force: Callable[[SettingDeclaration, SettingValue], Any],
+) -> None:
+    """Refuses the write of `proposed` (None: clearing) to `key`'s slot at
+    `location_id` when it leaves a multiple no multiple of its key in a scope
+    where it was one. Called under the Betrieb's settings lock."""
+
+    rules = [(multiple, of) for multiple, of in multiple_rules() if key in (multiple.key, of)]
+    if not rules:
+        return
+    keys = {multiple.key for multiple, _ in rules} | {of for _, of in rules}
+    before = _slots_of(db, dealership_id=dealership_id, keys=keys, in_force=in_force)
+    after = dict(before)
+    after[(key, location_id)] = proposed
+    scopes = _scopes(db, dealership_id, after)
+
+    for multiple, of_key in rules:
+        divisor = get_declaration(of_key)
+        if divisor is None:  # refused at start-up by check_declaration_references
+            continue
+        for scope in scopes:
+            if _not_a_multiple(after, multiple, divisor, scope) and not _not_a_multiple(before, multiple, divisor, scope):
+                details: dict[str, object] = {
+                    "setting": multiple.key,
+                    "multipleOf": of_key,
+                    "locationId": str(scope) if scope is not None else None,
+                }
+                if key == multiple.key:
+                    raise SettingValueError(
+                        f"{multiple.key} must be a multiple of {of_key}.",
+                        reason="setting_not_a_multiple_of_setting",
+                        details=details,
+                    )
+                raise SettingValueError(
+                    f"{of_key} must divide {multiple.key} without remainder.",
+                    reason="setting_no_longer_divides_setting",
                     details=details,
                 )
