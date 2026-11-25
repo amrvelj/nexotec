@@ -114,6 +114,7 @@ def test_a_clean_run_is_recorded_distinguishably_from_no_run(db_session):
     runs = db_session.query(ReconciliationRun).all()
     assert {r.context for r in runs} == {
         "platform",
+        "planning",  # KAN-808: resources and their lists
         "contact",
         "inventory",
         "sales",

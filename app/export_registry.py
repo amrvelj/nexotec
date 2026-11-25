@@ -18,19 +18,21 @@ from app.core.export import StubExporter, register_exporter
 from app.core.export_core import CoreExporter
 from app.integration.public import IntegrationExporter
 from app.inventory.public import InventoryExporter
+from app.planning.public import PlanningExporter
 from app.platform.public import PlatformExporter
 from app.reporting.public import ReportingExporter
 from app.sales.public import SalesExporter
 from app.valuation.public import ValuationExporter
 from app.vehicle.public import VehicleExporter
 
-STUB_CONTEXTS = ("planning", "aftersales", "parts", "finance", "compliance")
+STUB_CONTEXTS = ("aftersales", "parts", "finance", "compliance")
 
 
 def register_exporters() -> None:
     for exporter in (
         CoreExporter(),
         PlatformExporter(),
+        PlanningExporter(),
         IntegrationExporter(),
         VehicleExporter(),
         ContactExporter(),

@@ -9,9 +9,9 @@ dealership and dealership.dealer_group_id -> dealer_group are its own), so
 app.platform.reconciliation carries only the created_by / updated_by checks
 every context runs (KAN-243; added by KAN-318, once
 scripts/seed_staging_demo.py stopped stamping a random actor on the rows it
-creates). planning, aftersales, parts, finance, reporting and compliance still need to
-add their own once they're built out. The one table with actor columns and
-no job is core's daily_job_run, which nothing writes an actor to:
+creates). aftersales, parts, finance and compliance still need to add
+their own once they're built out (planning's came with KAN-808). The one
+table with actor columns and no job is core's daily_job_run, which nothing writes an actor to:
 tests/architecture/test_actor_columns_reconciled.py names it as the open
 exception and why.
 
@@ -29,6 +29,7 @@ from app.contact import reconciliation as contact_reconciliation
 from app.core.reconciliation import ReconciliationAlarm, ReconciliationRun
 from app.integration import reconciliation as integration_reconciliation
 from app.inventory import reconciliation as inventory_reconciliation
+from app.planning import reconciliation as planning_reconciliation
 from app.platform import reconciliation as platform_reconciliation
 from app.reporting import reconciliation as reporting_reconciliation
 from app.sales import reconciliation as sales_reconciliation
@@ -39,6 +40,7 @@ logger = logging.getLogger("app.reconciliation_runner")
 
 _JOBS = [
     platform_reconciliation,
+    planning_reconciliation,
     contact_reconciliation,
     inventory_reconciliation,
     sales_reconciliation,

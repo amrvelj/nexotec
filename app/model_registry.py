@@ -45,6 +45,8 @@ from app.inventory.models.stock_item_ledger import StockItemLedger
 from app.inventory.models.stock_item_option import StockItemOption
 from app.inventory.models.stock_item_publishing import StockItemMedia, StockItemPublishing
 from app.inventory.models.website_listing import StockItemWebsiteListing
+from app.planning.models.lists import Qualification, TechnicianType, WorkplaceType
+from app.planning.models.resource import Resource, ResourceQualification, WorkingHours
 from app.platform.administration.models.export_job import ExportJob
 from app.platform.administration.models.setup_checklist import SetupChecklistRegression
 from app.platform.administration.models.status_page import PlatformStatusIncident, StatusItemState
@@ -216,10 +218,13 @@ __all__ = [
     "PublicStockListing",
     "PublishingProfile",
     "PushSubscription",
+    "Qualification",
     "ReconciliationOrphan",
     "ReconciliationRun",
     "ReferenceList",
     "ReferenceValue",
+    "Resource",
+    "ResourceQualification",
     "SalesContract",
     "SalesDeal",
     "SalesDocument",
@@ -243,6 +248,7 @@ __all__ = [
     "StockItemWebsiteListing",
     "StockNumberSequence",
     "SupportSession",
+    "TechnicianType",
     "TypeApproval",
     "TyreSpecCache",
     "UiTranslation",
@@ -276,4 +282,6 @@ __all__ = [
     "VehicleParty",
     "VehiclePlate",
     "VehicleStockHolding",
+    "WorkingHours",
+    "WorkplaceType",
 ]
