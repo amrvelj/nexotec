@@ -85,6 +85,41 @@
         "own_mailbox_in_error"
       ]
     },
+    "app/platform/administration/api/area_settings.py::_refusals::refused.reason": {
+      "kind": "refusal",
+      "hints": {
+        "refused.reason": {
+          "argumentsOf": "SettingRefused",
+          "parameter": "reason"
+        }
+      },
+      "values": [
+        "setting_location_inactive"
+      ]
+    },
+    "app/platform/administration/api/area_settings.py::_refusals::value_error.reason": {
+      "kind": "refusal",
+      "hints": {
+        "value_error.reason": {
+          "argumentsOf": "SettingValueError",
+          "parameter": "reason"
+        }
+      },
+      "values": [
+        "setting_value_above_maximum",
+        "setting_value_below_minimum",
+        "setting_value_language",
+        "setting_value_no_longer_valid",
+        "setting_value_not_a_choice",
+        "setting_value_not_a_number",
+        "setting_value_not_a_switch",
+        "setting_value_not_a_text",
+        "setting_value_text_length",
+        "setting_value_too_large",
+        "setting_value_too_many_decimals",
+        "setting_value_wrong_field"
+      ]
+    },
     "app/platform/administration/services/data_export.py::_assert_downloadable::f'export_{job.status.value}'": {
       "kind": "refusal",
       "hints": {

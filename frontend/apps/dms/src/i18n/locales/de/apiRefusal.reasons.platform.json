@@ -69,5 +69,18 @@
   "platform_group_holds_no_dealer": "Die Gruppe Nexotec ist der Plattform vorbehalten. Wählen Sie eine andere Gruppe.",
   "platform_tenant_holds_no_entitlements": "Die Nexotec-Plattform erhält keine Module.",
   "support_target_self": "Sie können keine Support-Sitzung für sich selbst starten.",
-  "support_target_not_active": "Eine Support-Sitzung ist nur für einen aktiven Benutzer möglich."
+  "support_target_not_active": "Eine Support-Sitzung ist nur für einen aktiven Benutzer möglich.",
+  "setting_location_inactive": "Die Einstellung eines deaktivierten Standorts kann nicht geändert werden.",
+  "setting_value_above_maximum": "Der Wert ist grösser als erlaubt.",
+  "setting_value_below_minimum": "Der Wert ist kleiner als erlaubt.",
+  "setting_value_language": "Eine Übersetzung ist nur auf Deutsch, Französisch, Italienisch oder Englisch möglich.",
+  "setting_value_no_longer_valid": "Dieser frühere Wert passt nicht mehr zur Einstellung und kann nicht wiederhergestellt werden.",
+  "setting_value_not_a_choice": "Wählen Sie einen der angebotenen Werte.",
+  "setting_value_not_a_number": "Geben Sie eine Zahl ein.",
+  "setting_value_not_a_switch": "Diese Einstellung ist ein Schalter: ein oder aus.",
+  "setting_value_not_a_text": "Diese Einstellung nimmt einen Text.",
+  "setting_value_text_length": "Der Text darf nicht leer und höchstens 500 Zeichen lang sein.",
+  "setting_value_too_large": "Der Wert ist zu gross.",
+  "setting_value_too_many_decimals": "Der Wert hat zu viele Nachkommastellen.",
+  "setting_value_wrong_field": "Der Wert passt nicht zur Art dieser Einstellung."
 }

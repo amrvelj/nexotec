@@ -69,5 +69,18 @@
   "platform_group_holds_no_dealer": "Le groupe Nexotec est réservé à la plateforme. Choisissez un autre groupe.",
   "platform_tenant_holds_no_entitlements": "La plateforme Nexotec ne reçoit aucun module.",
   "support_target_self": "Vous ne pouvez pas ouvrir une session de support pour vous-même.",
-  "support_target_not_active": "Une session de support n’est possible que pour un utilisateur actif."
+  "support_target_not_active": "Une session de support n’est possible que pour un utilisateur actif.",
+  "setting_location_inactive": "Le réglage d'un site désactivé ne peut pas être modifié.",
+  "setting_value_above_maximum": "La valeur dépasse le maximum autorisé.",
+  "setting_value_below_minimum": "La valeur est inférieure au minimum autorisé.",
+  "setting_value_language": "Une traduction n'est possible qu'en allemand, français, italien ou anglais.",
+  "setting_value_no_longer_valid": "Cette ancienne valeur ne correspond plus au réglage et ne peut pas être restaurée.",
+  "setting_value_not_a_choice": "Choisissez l'une des valeurs proposées.",
+  "setting_value_not_a_number": "Saisissez un nombre.",
+  "setting_value_not_a_switch": "Ce réglage est un interrupteur : activé ou désactivé.",
+  "setting_value_not_a_text": "Ce réglage attend un texte.",
+  "setting_value_text_length": "Le texte ne peut pas être vide et compte au plus 500 caractères.",
+  "setting_value_too_large": "La valeur est trop grande.",
+  "setting_value_too_many_decimals": "La valeur a trop de décimales.",
+  "setting_value_wrong_field": "La valeur ne correspond pas au type de ce réglage."
 }
