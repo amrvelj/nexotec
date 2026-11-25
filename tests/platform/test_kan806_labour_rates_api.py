@@ -286,3 +286,46 @@ def test_the_settings_area_shows_o16_o18_o19(client, db_session, betrieb):
         headers={**boss, "If-Match": "0"},
     )
     assert (refused.status_code, refused.json()["error"]["details"]["reason"]) == (422, "setting_choice_requires_setting")
+
+
+# --- PR-2: the checklist items and the people the manager may allocate -----------------------
+
+
+def _checklist_item(db, dealership_id, code):
+    from app.platform.administration.services import setup_checklist
+    from app.platform.organisation.models.dealership import Dealership
+
+    db.expire_all()
+    checklist = setup_checklist.derive(db, db.get(Dealership, dealership_id))
+    return next((item for item in checklist.items if item.code == code), None)
+
+
+def test_o16_and_a_category_with_a_rate_are_items_of_the_aftersales_checklist(client, db_session):
+    dealership_id = _betrieb(client, db_session)
+    boss = _headers(client, db_session, dealership_id, manager=True)
+    o16 = _checklist_item(db_session, dealership_id, "labour_rates.rates_entered")
+    rates_item = _checklist_item(db_session, dealership_id, "labour_rates")
+    assert (o16.complete, o16.link) == (False, "/administration/settings/labour_rates")
+    assert (rates_item.complete, rates_item.blocks, rates_item.link) == (False, None, "/administration/labour-rates")
+
+    _set_o16(client, boss, dealership_id)
+    assert _checklist_item(db_session, dealership_id, "labour_rates.rates_entered").complete is True
+    category = _category(client, boss, dealership_id)
+    later = _today() + dt.timedelta(days=10)
+    assert _rate(client, boss, dealership_id, category["id"], _seat(db_session, dealership_id), valid_from=later).status_code == 201
+    # A rate still to come counts (Anto, 2026-11-25).
+    assert _checklist_item(db_session, dealership_id, "labour_rates").complete is True
+
+    without = _betrieb(client, db_session, aftersales=False)
+    assert _checklist_item(db_session, without, "labour_rates") is None
+    assert _checklist_item(db_session, without, "labour_rates.rates_entered") is None
+
+
+def test_the_manager_reads_who_may_be_allocated(client, db_session, betrieb):
+    dealership_id, boss = betrieb
+    colleague = s.manager(client, db_session, dealership_id, isDealerManager=False, firstName="Lea", lastName="Meier")
+    listing = client.get(f"{_base(dealership_id)}/labour-category-candidates", headers=boss)
+    assert listing.status_code == 200, listing.text
+    assert {"userId": colleague["id"], "displayName": "Lea Meier"} in listing.json()["items"]
+    reader = _headers(client, db_session, dealership_id, roles={AccessRole.AFTERSALES})
+    assert client.get(f"{_base(dealership_id)}/labour-category-candidates", headers=reader).status_code == 403

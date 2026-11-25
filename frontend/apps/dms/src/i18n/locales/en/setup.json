@@ -36,6 +36,10 @@
     "publishing_profile": {
       "title": "Publishing profile",
       "description": "Description, legal notice and lead routing."
+    },
+    "labour_rates": {
+      "title": "Labour category with a rate",
+      "description": "At least one active labour category has an hourly rate at an active location – one that starts later counts too."
     }
   },
   "blocks": {

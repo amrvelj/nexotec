@@ -40,7 +40,8 @@
     "aiTexts": "Textes IA",
     "contactMail": "E-mails aux contacts",
     "supportSessions": "Sessions de support",
-    "platformUsers": "Utilisateurs de la plateforme"
+    "platformUsers": "Utilisateurs de la plateforme",
+    "labourRates": "Taux horaires"
   },
   "signOut": "Se déconnecter",
   "environmentNotice": {

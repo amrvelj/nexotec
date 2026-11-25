@@ -6,13 +6,15 @@ paths:
   - "app/platform/administration/*/labour_rates.py"
   - "app/api/v1/labour_rate_agreements.py"
   - "tests/platform/test_kan806_*.py"
+  - "frontend/apps/dms/src/pages/LabourRatesPage*"
+  - "frontend/apps/dms/src/components/labourRates/**"
 ---
 <!-- Maintainer note. KAN-806 (2026-11-25); D-A-19 of the Dealer Administration PRD; Aftersales slice 1
 sections 5, 7 (checks 11, 12, 15, 49), 9 (rulings 177, 178, 183), 10; Anto's answers on KAN-806 of
 2026-11-25 (in use from the start date; agreements follow O16; no starting categories; the checklist item
 counts a rate still to come). Binding text: the slice page and the ADR in the Target Architecture. -->
 
-# Labour rates (KAN-806, D-A-19) — backend built; screen and checklist item to come (PR-2)
+# Labour rates (KAN-806, D-A-19) — built: backend (PR-1), screen and checklist items (PR-2)
 
 - **Platform master data, not Aftersales'** (A-RULE-0): `labour_rate_category` (dealer-defined, a name
   with optional translations, ruling 176; deactivated, never deleted), `labour_rate` (category × location
@@ -41,5 +43,14 @@ counts a rate still to come). Binding text: the slice page and the ADR in the Ta
   `session_guard`'s administration prefixes). No outbox event (nothing consumes one). Reconciliation checks
   the agreement's contact (exists, not merged, in the group), the rate's location, and an O18 slot on work units
   with no O19 in force (a location deactivated, the Betrieb's O19 cleared, the location reactivated).
+- **Screen** `/administration/labour-rates` (`LabourRatesPage`, nav entry shown with `aftersales`), also served
+  at `/administration/settings/labour_rates` — the settings area of O16/O18/O19, where the checklist links O16.
+  It holds the three settings (Betrieb values; per-location values stay with the generic settings screen,
+  KAN-805 PR-5), each category with its rates (status today, withdraw only when scheduled) and people, and the
+  agreed rates. Rates are typed to the Rappen (`ChfInput`); the API takes four decimals.
+- **Checklist (Aftersales):** O16 (`labour_rates.rates_entered`, a setting item) and `labour_rates` — an active
+  category with a rate at an active location, one still to come counting (Anto, 2026-11-25); neither blocks an
+  action after activation yet. `tests/setup_checklist_support.complete_checklist` completes both for an
+  Aftersales Betrieb.
 - **Open:** a `contact.merged` re-point and a nightly label refresh of agreements (follow-up ticket); copying
   categories from a sister Betrieb (KAN-220's subset).

@@ -81,6 +81,18 @@ class LabourCategoryMemberCreate(CamelModel):
     user_id: uuid.UUID
 
 
+class LabourCategoryCandidateRead(CamelModel):
+    user_id: uuid.UUID
+    display_name: str
+
+
+class LabourCategoryCandidateList(CamelModel):
+    """Who may be allocated: the users who work in the business (homed or an
+    active member, active or invited)."""
+
+    items: list[LabourCategoryCandidateRead]
+
+
 class LabourRateAgreementRead(CamelModel):
     id: uuid.UUID
     contact_id: uuid.UUID

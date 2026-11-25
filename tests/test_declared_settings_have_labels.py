@@ -57,5 +57,9 @@ def test_a_checklist_setting_links_to_a_screen_the_spa_serves():
 
     items = [d for d in declared_settings() if d.checklist_item and not d.key.startswith("testarea.")]
     routes = set(re.findall(r'path="([^"]+)"', (_DMS / "App.tsx").read_text(encoding="utf-8")))
-    served = {"/administration/settings/:area"} & routes
-    assert not items or served, f"{[d.key for d in items]} link to /administration/settings/<area>, which App.tsx does not serve"
+    # The generic screen (PR-5), or an area's own route (KAN-806: labour_rates is the labour-rates screen).
+    unserved = [
+        d.key for d in items
+        if "/administration/settings/:area" not in routes and f"/administration/settings/{d.area}" not in routes
+    ]
+    assert unserved == [], f"{unserved} link to /administration/settings/<area>, which App.tsx does not serve"

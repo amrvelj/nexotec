@@ -1,0 +1,92 @@
+{
+  "title": "Labour rates",
+  "subtitle": "The business's labour categories, their hourly rates per location from a date, the people in each category, and rates agreed with contacts.",
+  "loadError": "The labour rates could not be loaded.",
+  "saveError": "The change could not be saved.",
+  "readOnly": "You can view the labour rates; the manager changes them.",
+  "settings": {
+    "title": "Settings",
+    "enteredNotSet": "First set whether the business enters labour rates net or with VAT. Without it no rate can be entered.",
+    "perHourNote": "A rate is always per hour. Work units are only a way of showing time; the amount is hours times the hourly rate."
+  },
+  "categories": {
+    "title": "Labour categories",
+    "add": "Add category",
+    "empty": "No labour category yet. Add one such as Mechanics, Bodywork or Paint.",
+    "inactive": "Deactivated",
+    "edit": "Edit",
+    "deactivate": "Deactivate",
+    "reactivate": "Reactivate"
+  },
+  "rates": {
+    "empty": "No hourly rate yet.",
+    "title": "Hourly rates {{name}}",
+    "add": "Enter rate"
+  },
+  "members": {
+    "title": "People",
+    "empty": "Nobody allocated.",
+    "remove": "Remove {{name}}",
+    "add": "Allocate a person"
+  },
+  "agreements": {
+    "title": "Agreed rates",
+    "subtitle": "A rate agreed with a contact applies before the category rate when that contact receives the invoice.",
+    "add": "Enter agreement",
+    "empty": "No agreed rates.",
+    "ends": "Agreement ends",
+    "columns": {
+      "contact": "Contact",
+      "category": "Category"
+    }
+  },
+  "columns": {
+    "location": "Location",
+    "validFrom": "Valid from",
+    "amount": "Rate per hour",
+    "status": "Status"
+  },
+  "entered": {
+    "net": "net",
+    "gross": "with VAT"
+  },
+  "status": {
+    "in_force": "Applies",
+    "scheduled": "Scheduled",
+    "superseded": "Superseded",
+    "withdrawn": "Withdrawn"
+  },
+  "withdraw": {
+    "action": "Withdraw",
+    "rateTitle": "Withdraw rate",
+    "agreementTitle": "Withdraw agreement",
+    "body": "It has not started yet and will not apply. It stays in the list, shown as withdrawn."
+  },
+  "categoryDialog": {
+    "createTitle": "Add labour category",
+    "editTitle": "Edit labour category",
+    "name": "Name",
+    "translationsHint": "Translations are optional; without one the name shows as typed.",
+    "translation": "Name in {{language}}"
+  },
+  "languages": {
+    "de": "German",
+    "fr": "French",
+    "it": "Italian",
+    "en": "English"
+  },
+  "rateDialog": {
+    "title": "Hourly rate for {{name}}",
+    "writtenOnce": "A rate that applies is never changed. A new price is a new rate from today or later.",
+    "amount": "Rate per hour ({{entered}})"
+  },
+  "agreementDialog": {
+    "title": "Enter agreed rate",
+    "noContact": "No contact chosen",
+    "chooseContact": "Choose contact",
+    "searchContact": "Search contact",
+    "kind": "Kind",
+    "kindRate": "Fixed rate",
+    "kindEnd": "End of the agreement"
+  }
+}

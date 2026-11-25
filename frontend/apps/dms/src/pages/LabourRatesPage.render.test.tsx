@@ -1,0 +1,225 @@
+// @vitest-environment jsdom
+import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
+import { cleanup, screen, waitFor, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import i18n from '../i18n'
+import { renderWithProviders } from '../test/renderWithProviders'
+import { installFakeBackend, type FakeRequest, type FakeRoute } from '../test/fakeBackend'
+import { LabourRatesPage } from './LabourRatesPage'
+
+// KAN-806 — Dealer Administration › Labour rates (D-A-19; rulings 177, 178, 183).
+
+const BASE = /^\/dealerships\/dealership-1/
+
+const slot = (value: unknown, version = 0) => ({
+  locationId: null,
+  isSet: value !== null,
+  value,
+  version,
+  changedAt: null,
+  changedBy: null,
+  fitsDeclaration: true,
+})
+
+const declaration = (key: string, kind: string, extra: Record<string, unknown> = {}) => ({
+  key,
+  area: 'labour_rates',
+  module: 'aftersales',
+  kind,
+  whenNotSet: 'quiet',
+  actsAs: null,
+  minimum: null,
+  maximum: null,
+  decimals: 0,
+  unit: null,
+  choices: [],
+  checklistItem: false,
+  checklistBlocks: null,
+  choiceRequires: [],
+  ...extra,
+})
+
+function settings({ entered = null as string | null, perHour = null as string | null } = {}) {
+  return {
+    area: 'labour_rates',
+    showsLocations: false,
+    locations: [],
+    settings: [
+      {
+        declaration: declaration('labour_rates.rates_entered', 'choice', { choices: ['net', 'gross'] }),
+        dealership: slot(entered === null ? null : { choice: entered }, entered === null ? 0 : 1),
+        locations: [],
+      },
+      {
+        declaration: declaration('labour_rates.time_unit', 'choice', {
+          choices: ['hours', 'work_units'],
+          choiceRequires: [{ choice: 'work_units', key: 'labour_rates.work_units_per_hour' }],
+        }),
+        dealership: slot(null),
+        locations: [],
+      },
+      {
+        declaration: declaration('labour_rates.work_units_per_hour', 'number'),
+        dealership: slot(perHour === null ? null : { number: perHour }, perHour === null ? 0 : 1),
+        locations: [],
+      },
+    ],
+  }
+}
+
+const rate = (id: string, status: string, validFrom: string, amount = '150.0000') => ({
+  id,
+  locationId: 'loc-1',
+  validFrom,
+  amount,
+  entered: 'net',
+  status,
+  withdrawnAt: null,
+  version: 1,
+  createdAt: '2026-11-25T08:00:00Z',
+  createdBy: null,
+})
+
+const CATEGORY = {
+  id: 'cat-1',
+  name: 'Mechanik',
+  nameTranslations: {},
+  isActive: true,
+  version: 1,
+  createdAt: '2026-11-25T08:00:00Z',
+  rates: [rate('rate-2', 'scheduled', '2026-12-01', '160.0000'), rate('rate-1', 'in_force', '2026-11-25')],
+  members: [{ userId: 'user-9', displayName: 'Lea Meier', isActive: true }],
+}
+
+function install(options: { entered?: string | null; perHour?: string | null; extra?: FakeRoute[] } = {}) {
+  return installFakeBackend([
+    ...(options.extra ?? []),
+    {
+      method: 'GET',
+      match: new RegExp(`${BASE.source}/labour-rate-categories$`),
+      handler: () => ({ today: '2026-11-25', items: [CATEGORY] }),
+    },
+    {
+      method: 'GET',
+      match: new RegExp(`${BASE.source}/setting-areas/labour_rates$`),
+      handler: () => settings({ entered: options.entered ?? null, perHour: options.perHour ?? null }),
+    },
+    {
+      method: 'GET',
+      match: new RegExp(`${BASE.source}/locations$`),
+      handler: () => ({ items: [{ id: 'loc-1', name: 'Hauptsitz', isActive: true }] }),
+    },
+    {
+      method: 'GET',
+      match: new RegExp(`${BASE.source}/labour-rate-agreements$`),
+      handler: () => ({ today: '2026-11-25', items: [], nextCursor: null }),
+    },
+    {
+      method: 'GET',
+      match: new RegExp(`${BASE.source}/labour-category-candidates$`),
+      handler: () => ({ items: [{ userId: 'user-9', displayName: 'Lea Meier' }] }),
+    },
+  ])
+}
+
+afterEach(() => {
+  cleanup()
+})
+
+const ratesTable = () => screen.findByRole('table', { name: i18n.t('labourRates.rates.title', { name: 'Mechanik' }) })
+
+describe('LabourRatesPage (KAN-806)', () => {
+  // A rate's validFrom is a calendar day (formatDateOnly): it must read the same far west of Zurich.
+  let tz: string | undefined
+  beforeAll(() => {
+    tz = process.env.TZ
+    process.env.TZ = 'Pacific/Honolulu'
+  })
+  afterAll(() => {
+    if (tz === undefined) delete process.env.TZ
+    else process.env.TZ = tz
+  })
+
+  it('shows each rate with its status; only a rate still to come can be withdrawn', async () => {
+    install({ entered: 'net' })
+    renderWithProviders(<LabourRatesPage />, { route: '/administration/labour-rates' })
+    const table = await ratesTable()
+    const scheduled = within(table).getByRole('row', { name: (n) => n.includes('01.12.2026') })
+    const inForce = within(table).getByRole('row', { name: (n) => n.includes('25.11.2026') })
+    expect(within(scheduled).getByText(i18n.t('labourRates.status.scheduled'))).toBeInTheDocument()
+    expect(within(scheduled).getByText("CHF 160.00 netto")).toBeInTheDocument()
+    expect(within(scheduled).getByRole('button', { name: i18n.t('labourRates.withdraw.action') })).toBeInTheDocument()
+    // Ruling 178: a rate in use is never changed — no withdraw on it.
+    expect(within(inForce).queryByRole('button', { name: i18n.t('labourRates.withdraw.action') })).toBeNull()
+  })
+
+  it('without O16 says so and offers no rate entry', async () => {
+    install({ entered: null })
+    renderWithProviders(<LabourRatesPage />, { route: '/administration/labour-rates' })
+    expect(await screen.findByText(i18n.t('labourRates.settings.enteredNotSet'))).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: i18n.t('labourRates.rates.add') })).toBeDisabled()
+  })
+
+  it('writes O16 through the settings store with the slot version', async () => {
+    const backend = install({
+      entered: null,
+      extra: [
+        {
+          method: 'PUT',
+          match: new RegExp(`${BASE.source}/setting-values/labour_rates\\.rates_entered$`),
+          handler: () => slot({ choice: 'gross' }, 1),
+        },
+      ],
+    })
+    renderWithProviders(<LabourRatesPage />, { route: '/administration/labour-rates' })
+    await screen.findByText(i18n.t('labourRates.settings.enteredNotSet'))
+    await userEvent.click(screen.getByText(i18n.t('settings.keys.labour_rates.rates_entered.options.gross')))
+    await waitFor(() => expect(backend.calls.some((call: FakeRequest) => call.method === 'PUT')).toBe(true))
+    const put = backend.calls.find((call: FakeRequest) => call.method === 'PUT')!
+    expect(put.body).toEqual({ value: { choice: 'gross' } })
+    expect(put.headers.get('If-Match')).toBe('0')
+  })
+
+  it('offers work units only once work units per hour is set (check 49)', async () => {
+    install({ entered: 'net', perHour: null })
+    renderWithProviders(<LabourRatesPage />, { route: '/administration/labour-rates' })
+    const workUnits = await screen.findByLabelText(i18n.t('settings.keys.labour_rates.time_unit.options.work_units'))
+    expect(workUnits).toBeDisabled()
+  })
+
+  it('enters a new rate from a date, typed as O16 says', async () => {
+    const backend = install({
+      entered: 'net',
+      extra: [
+        {
+          method: 'POST',
+          match: new RegExp(`${BASE.source}/labour-rate-categories/cat-1/rates$`),
+          handler: () => CATEGORY,
+        },
+      ],
+    })
+    renderWithProviders(<LabourRatesPage />, { route: '/administration/labour-rates' })
+    await ratesTable()
+    await userEvent.click(screen.getByRole('button', { name: i18n.t('labourRates.rates.add') }))
+    const dialog = await screen.findByRole('dialog', { name: i18n.t('labourRates.rateDialog.title', { name: 'Mechanik' }) })
+    expect(within(dialog).getByText(i18n.t('labourRates.rateDialog.writtenOnce'))).toBeInTheDocument()
+    await userEvent.type(
+      within(dialog).getByRole('textbox', {
+        name: (n) => n.startsWith(i18n.t('labourRates.rateDialog.amount', { entered: 'netto' })),
+      }),
+      '155',
+    )
+    await userEvent.click(within(dialog).getByRole('button', { name: i18n.t('common.save') }))
+    await waitFor(() => expect(backend.calls.some((call: FakeRequest) => call.method === 'POST')).toBe(true))
+    const post = backend.calls.find((call: FakeRequest) => call.method === 'POST')!
+    expect(post.body).toEqual({ locationId: 'loc-1', validFrom: '2026-11-25', amount: '155.00', entered: 'net' })
+  })
+
+  it('lists the people of a category', async () => {
+    install({ entered: 'net' })
+    renderWithProviders(<LabourRatesPage />, { route: '/administration/labour-rates' })
+    const card = await screen.findByRole('article', { name: 'Mechanik' })
+    expect(within(card).getByText('Lea Meier')).toBeInTheDocument()
+    expect(within(card).getByRole('button', { name: i18n.t('labourRates.members.remove', { name: 'Lea Meier' }) })).toBeInTheDocument()
+  })
+})

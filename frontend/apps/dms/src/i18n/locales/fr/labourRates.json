@@ -1,0 +1,92 @@
+{
+  "title": "Taux horaires",
+  "subtitle": "Les catégories de main-d'œuvre de l'entreprise, leurs taux horaires par site à partir d'une date, les personnes de chaque catégorie et les taux convenus avec des contacts.",
+  "loadError": "Les taux horaires n'ont pas pu être chargés.",
+  "saveError": "La modification n'a pas pu être enregistrée.",
+  "readOnly": "Vous pouvez consulter les taux horaires ; le directeur les modifie.",
+  "settings": {
+    "title": "Réglages",
+    "enteredNotSet": "Définissez d'abord si l'entreprise saisit les taux nets ou TVA incluse. Sans cela, aucun taux ne peut être saisi.",
+    "perHourNote": "Un taux est toujours horaire. Les unités de travail ne sont qu'une façon d'afficher le temps ; le montant est le nombre d'heures fois le taux horaire."
+  },
+  "categories": {
+    "title": "Catégories de main-d'œuvre",
+    "add": "Ajouter une catégorie",
+    "empty": "Aucune catégorie pour l'instant. Ajoutez par exemple Mécanique, Carrosserie ou Peinture.",
+    "inactive": "Désactivée",
+    "edit": "Modifier",
+    "deactivate": "Désactiver",
+    "reactivate": "Réactiver"
+  },
+  "rates": {
+    "empty": "Aucun taux horaire pour l'instant.",
+    "title": "Taux horaires {{name}}",
+    "add": "Saisir un taux"
+  },
+  "members": {
+    "title": "Personnes",
+    "empty": "Personne n'est affecté.",
+    "remove": "Retirer {{name}}",
+    "add": "Affecter une personne"
+  },
+  "agreements": {
+    "title": "Taux convenus",
+    "subtitle": "Un taux convenu avec un contact s'applique avant le taux de la catégorie lorsque ce contact reçoit la facture.",
+    "add": "Saisir un accord",
+    "empty": "Aucun taux convenu.",
+    "ends": "Fin de l'accord",
+    "columns": {
+      "contact": "Contact",
+      "category": "Catégorie"
+    }
+  },
+  "columns": {
+    "location": "Site",
+    "validFrom": "Valable dès",
+    "amount": "Taux horaire",
+    "status": "Statut"
+  },
+  "entered": {
+    "net": "net",
+    "gross": "TVA incluse"
+  },
+  "status": {
+    "in_force": "En vigueur",
+    "scheduled": "Prévu",
+    "superseded": "Remplacé",
+    "withdrawn": "Retiré"
+  },
+  "withdraw": {
+    "action": "Retirer",
+    "rateTitle": "Retirer le taux",
+    "agreementTitle": "Retirer l'accord",
+    "body": "Il n'a pas encore commencé et ne s'appliquera pas. Il reste dans la liste, marqué comme retiré."
+  },
+  "categoryDialog": {
+    "createTitle": "Ajouter une catégorie de main-d'œuvre",
+    "editTitle": "Modifier la catégorie de main-d'œuvre",
+    "name": "Nom",
+    "translationsHint": "Les traductions sont facultatives ; sans traduction, le nom s'affiche tel que saisi.",
+    "translation": "Nom en {{language}}"
+  },
+  "languages": {
+    "de": "allemand",
+    "fr": "français",
+    "it": "italien",
+    "en": "anglais"
+  },
+  "rateDialog": {
+    "title": "Taux horaire pour {{name}}",
+    "writtenOnce": "Un taux en vigueur n'est jamais modifié. Un nouveau prix est un nouveau taux à partir d'aujourd'hui ou plus tard.",
+    "amount": "Taux horaire ({{entered}})"
+  },
+  "agreementDialog": {
+    "title": "Saisir un taux convenu",
+    "noContact": "Aucun contact choisi",
+    "chooseContact": "Choisir un contact",
+    "searchContact": "Rechercher un contact",
+    "kind": "Type",
+    "kindRate": "Taux fixe",
+    "kindEnd": "Fin de l'accord"
+  }
+}

@@ -36,6 +36,10 @@
     "publishing_profile": {
       "title": "Profil de publication",
       "description": "Description, mentions légales et routage des leads."
+    },
+    "labour_rates": {
+      "title": "Catégorie de main-d'œuvre avec un taux",
+      "description": "Au moins une catégorie de main-d'œuvre active a un taux horaire sur un site actif – un taux qui commence plus tard compte aussi."
     }
   },
   "blocks": {

@@ -13,6 +13,8 @@ const NAV_MODULE_BY_HREF: Record<string, string> = {
   // KAN-225: the publishing profile feeds the website, which only lists stock.
   '/administration/publishing': 'sales',
   '/aftersales': 'aftersales',
+  // KAN-806: labour rates are the Aftersales module's master data (404 without it).
+  '/administration/labour-rates': 'aftersales',
   '/parts': 'parts',
   '/finance': 'finance',
   '/reporting': 'reporting',

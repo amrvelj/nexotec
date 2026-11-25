@@ -36,6 +36,10 @@
     "publishing_profile": {
       "title": "Profilo di pubblicazione",
       "description": "Descrizione, note legali e inoltro dei lead."
+    },
+    "labour_rates": {
+      "title": "Categoria di manodopera con una tariffa",
+      "description": "Almeno una categoria di manodopera attiva ha una tariffa oraria in una sede attiva – conta anche una che inizia più tardi."
     }
   },
   "blocks": {
