@@ -2104,6 +2104,121 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/dealerships/{dealership_id}/setting-areas": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Setting Areas */
+        get: operations["list_setting_areas_v1_dealerships__dealership_id__setting_areas_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/dealerships/{dealership_id}/setting-areas/{area}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Setting Area */
+        get: operations["get_setting_area_v1_dealerships__dealership_id__setting_areas__area__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/dealerships/{dealership_id}/setting-changes/{change_id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Restore Setting Change
+         * @description Brings back the value an earlier change wrote, as a change of its own
+         *     (Anto, 2026-11-24). If-Match names the version of the slot it restores into.
+         */
+        post: operations["restore_setting_change_v1_dealerships__dealership_id__setting_changes__change_id__restore_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/dealerships/{dealership_id}/setting-values/{key}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Put Setting Value
+         * @description The Betrieb's own value of `key`.
+         */
+        put: operations["put_setting_value_v1_dealerships__dealership_id__setting_values__key__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/dealerships/{dealership_id}/setting-values/{key}/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Setting History
+         * @description Every change of the slot (the Betrieb's, or `locationId`'s), newest first.
+         */
+        get: operations["get_setting_history_v1_dealerships__dealership_id__setting_values__key__history_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/dealerships/{dealership_id}/setting-values/{key}/locations/{location_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Put Location Setting Value
+         * @description A location's own value of `key`; `null` makes it take the Betrieb's again.
+         */
+        put: operations["put_location_setting_value_v1_dealerships__dealership_id__setting_values__key__locations__location_id__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/dealerships/{dealership_id}/settings": {
         parameters: {
             query?: never;
@@ -6020,6 +6135,24 @@ export interface components {
         ArchiveExportRequest: {
             /** Reason */
             reason: string;
+        };
+        /** AreaSettingRead */
+        AreaSettingRead: {
+            dealership: components["schemas"]["SettingSlotRead"];
+            declaration: components["schemas"]["SettingDeclarationRead"];
+            /** Locations */
+            locations: components["schemas"]["SettingSlotRead"][];
+        };
+        /** AreaSettingsRead */
+        AreaSettingsRead: {
+            /** Area */
+            area: string;
+            /** Locations */
+            locations: components["schemas"]["SettingLocationRead"][];
+            /** Settings */
+            settings: components["schemas"]["AreaSettingRead"][];
+            /** Showslocations */
+            showsLocations: boolean;
         };
         /** AttachValuationRequest */
         AttachValuationRequest: {
@@ -13271,6 +13404,132 @@ export interface components {
             /** Options */
             options: components["schemas"]["OptionInput"][];
         };
+        /** SettingAreaList */
+        SettingAreaList: {
+            /** Items */
+            items: components["schemas"]["SettingAreaRead"][];
+        };
+        /** SettingAreaRead */
+        SettingAreaRead: {
+            /** Area */
+            area: string;
+            /** Settingcount */
+            settingCount: number;
+        };
+        /** SettingChangePage */
+        SettingChangePage: {
+            /** Items */
+            items: components["schemas"]["SettingChangeRead"][];
+            /** Nextcursor */
+            nextCursor?: string | null;
+        };
+        /** SettingChangeRead */
+        SettingChangeRead: {
+            /**
+             * Createdat
+             * Format: date-time
+             */
+            createdAt: string;
+            /** Createdby */
+            createdBy: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Isset */
+            isSet: boolean;
+            /** Key */
+            key: string;
+            /** Locationid */
+            locationId: string | null;
+            /** Origin */
+            origin: string;
+            /** Restoredfromid */
+            restoredFromId: string | null;
+            value: components["schemas"]["SettingValueBody"] | null;
+            /** Versionafter */
+            versionAfter: number;
+        };
+        /** SettingDeclarationRead */
+        SettingDeclarationRead: {
+            actsAs: components["schemas"]["SettingValueBody"] | null;
+            /** Area */
+            area: string;
+            /** Checklistblocks */
+            checklistBlocks: string | null;
+            /** Checklistitem */
+            checklistItem: boolean;
+            /** Choices */
+            choices: string[];
+            /** Decimals */
+            decimals: number;
+            /** Key */
+            key: string;
+            /** Kind */
+            kind: string;
+            /** Maximum */
+            maximum: string | null;
+            /** Minimum */
+            minimum: string | null;
+            /** Module */
+            module: string | null;
+            /** Unit */
+            unit: string | null;
+            /** Whennotset */
+            whenNotSet: string;
+        };
+        /** SettingLocationRead */
+        SettingLocationRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Isactive */
+            isActive: boolean;
+            /** Name */
+            name: string;
+        };
+        /**
+         * SettingSlotRead
+         * @description The Betrieb's slot (`locationId` null) or a location's. `version` 0: never written.
+         */
+        SettingSlotRead: {
+            /** Changedat */
+            changedAt: string | null;
+            /** Changedby */
+            changedBy: string | null;
+            /** Fitsdeclaration */
+            fitsDeclaration: boolean;
+            /** Isset */
+            isSet: boolean;
+            /** Locationid */
+            locationId: string | null;
+            value: components["schemas"]["SettingValueBody"] | null;
+            /** Version */
+            version: number;
+        };
+        /**
+         * SettingValueBody
+         * @description A value: exactly the field of the setting's kind.
+         */
+        SettingValueBody: {
+            /** Choice */
+            choice?: string | null;
+            /** Number */
+            number?: string | null;
+            /** Switch */
+            switch?: boolean | null;
+            text?: components["schemas"]["TextValueBody"] | null;
+        };
+        /**
+         * SettingWrite
+         * @description The new value of a slot; `null` clears it back to «not set».
+         */
+        SettingWrite: {
+            value: components["schemas"]["SettingValueBody"] | null;
+        };
         /** SetupChecklistItemRead */
         SetupChecklistItemRead: {
             /**
@@ -14177,6 +14436,15 @@ export interface components {
         TextDelegationsUpdate: {
             /** Categories */
             categories: components["schemas"]["StandardTextCategory"][];
+        };
+        /** TextValueBody */
+        TextValueBody: {
+            /** Name */
+            name: string;
+            /** Translations */
+            translations?: {
+                [key: string]: string;
+            };
         };
         /** TotpConfirmRequest */
         TotpConfirmRequest: {
@@ -21186,6 +21454,239 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ProfileValidationRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_setting_areas_v1_dealerships__dealership_id__setting_areas_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SettingAreaList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_setting_area_v1_dealerships__dealership_id__setting_areas__area__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                area: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AreaSettingsRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    restore_setting_change_v1_dealerships__dealership_id__setting_changes__change_id__restore_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+                authorization?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                change_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SettingSlotRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_setting_value_v1_dealerships__dealership_id__setting_values__key__put: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                key: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SettingWrite"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SettingSlotRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_setting_history_v1_dealerships__dealership_id__setting_values__key__history_get: {
+        parameters: {
+            query?: {
+                locationId?: string | null;
+                limit?: number;
+                cursor?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                key: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SettingChangePage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_location_setting_value_v1_dealerships__dealership_id__setting_values__key__locations__location_id__put: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                key: string;
+                location_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SettingWrite"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SettingSlotRead"];
                 };
             };
             /** @description Validation Error */

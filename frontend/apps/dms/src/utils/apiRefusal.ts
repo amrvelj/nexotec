@@ -360,6 +360,20 @@ const REASON_KEYS: Record<string, string> = {
       'number_range_frozen',
       'number_range_reason_required',
       'number_range_start_out_of_range',
+      // KAN-805 — the settings store.
+      'setting_location_inactive',
+      'setting_value_above_maximum',
+      'setting_value_below_minimum',
+      'setting_value_language',
+      'setting_value_no_longer_valid',
+      'setting_value_not_a_choice',
+      'setting_value_not_a_number',
+      'setting_value_not_a_switch',
+      'setting_value_not_a_text',
+      'setting_value_text_length',
+      'setting_value_too_large',
+      'setting_value_too_many_decimals',
+      'setting_value_wrong_field',
       // KAN-523 — the plate a sold car leaves with, at «Rechnung anfordern».
       'invoice_plate_vehicle_unknown',
       // KAN-539 — «Rechnung anfordern» once per contract.
