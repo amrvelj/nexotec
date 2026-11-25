@@ -1630,6 +1630,192 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/dealerships/{dealership_id}/labour-rate-agreements": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Labour Rate Agreements
+         * @description The agreed rates, latest start first (cursor pagination: insurers and
+         *     fleets make this list grow).
+         */
+        get: operations["list_labour_rate_agreements_v1_dealerships__dealership_id__labour_rate_agreements_get"];
+        put?: never;
+        /**
+         * Create Labour Rate Agreement
+         * @description A fixed rate agreed with a contact for a category, from a date today or
+         *     later (ruling 178); with `kind: end`, the end of the one before that date.
+         *     Typed as the business's O16 says (Anto, 2026-11-25).
+         */
+        post: operations["create_labour_rate_agreement_v1_dealerships__dealership_id__labour_rate_agreements_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/dealerships/{dealership_id}/labour-rate-agreements/{agreement_id}/withdraw": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Withdraw Labour Rate Agreement
+         * @description Withdraws an agreement row that has not started yet (ruling 178).
+         */
+        post: operations["withdraw_labour_rate_agreement_v1_dealerships__dealership_id__labour_rate_agreements__agreement_id__withdraw_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/dealerships/{dealership_id}/labour-rate-answer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Labour Rate Answer
+         * @description The rate for a category at a location on a day (today when not given)
+         *     for an invoice recipient: an agreed rate first, else the category rate,
+         *     else `found: false` — an answer, never an error (check 11).
+         */
+        get: operations["get_labour_rate_answer_v1_dealerships__dealership_id__labour_rate_answer_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/dealerships/{dealership_id}/labour-rate-categories": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Labour Rate Categories
+         * @description Every category with its rates (newest start first, each with its status
+         *     today) and its people. A Betrieb has a handful of categories: one page.
+         */
+        get: operations["list_labour_rate_categories_v1_dealerships__dealership_id__labour_rate_categories_get"];
+        put?: never;
+        /** Create Labour Rate Category */
+        post: operations["create_labour_rate_category_v1_dealerships__dealership_id__labour_rate_categories_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/dealerships/{dealership_id}/labour-rate-categories/{category_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update Labour Rate Category
+         * @description Renames, translates, deactivates or reactivates a category; its rates stay.
+         */
+        patch: operations["update_labour_rate_category_v1_dealerships__dealership_id__labour_rate_categories__category_id__patch"];
+        trace?: never;
+    };
+    "/v1/dealerships/{dealership_id}/labour-rate-categories/{category_id}/members": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add Labour Category Member */
+        post: operations["add_labour_category_member_v1_dealerships__dealership_id__labour_rate_categories__category_id__members_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/dealerships/{dealership_id}/labour-rate-categories/{category_id}/members/{user_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Remove Labour Category Member */
+        delete: operations["remove_labour_category_member_v1_dealerships__dealership_id__labour_rate_categories__category_id__members__user_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/dealerships/{dealership_id}/labour-rate-categories/{category_id}/rates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create Labour Rate
+         * @description A new rate of the category at a location from a date, today or later
+         *     (ruling 178). There is no edit: a new price is a new rate.
+         */
+        post: operations["create_labour_rate_v1_dealerships__dealership_id__labour_rate_categories__category_id__rates_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/dealerships/{dealership_id}/labour-rates/{rate_id}/withdraw": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Withdraw Labour Rate
+         * @description Withdraws a rate that has not started yet; one in use stays (ruling 178).
+         */
+        post: operations["withdraw_labour_rate_v1_dealerships__dealership_id__labour_rates__rate_id__withdraw_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/dealerships/{dealership_id}/legal-acceptances": {
         parameters: {
             query?: never;
@@ -7164,6 +7350,16 @@ export interface components {
          */
         ChartOfAccountsVariant: "kmu" | "kaefer";
         /**
+         * ChoiceRequirementRead
+         * @description Choosing `choice` needs the setting `key` in force (KAN-806, check 49).
+         */
+        ChoiceRequirementRead: {
+            /** Choice */
+            choice: string;
+            /** Key */
+            key: string;
+        };
+        /**
          * ClosureCreate
          * @description A closure of the whole site (Betriebsferien, a one-off closed day),
          *     both days inclusive.
@@ -10168,6 +10364,255 @@ export interface components {
             /** Token */
             token: string;
         };
+        /** LabourCategoryMemberCreate */
+        LabourCategoryMemberCreate: {
+            /**
+             * Userid
+             * Format: uuid
+             */
+            userId: string;
+        };
+        /** LabourCategoryMemberRead */
+        LabourCategoryMemberRead: {
+            /** Displayname */
+            displayName: string;
+            /** Isactive */
+            isActive: boolean;
+            /**
+             * Userid
+             * Format: uuid
+             */
+            userId: string;
+        };
+        /** LabourRateAgreementCreate */
+        LabourRateAgreementCreate: {
+            /** Amount */
+            amount?: string | null;
+            /**
+             * Categoryid
+             * Format: uuid
+             */
+            categoryId: string;
+            /**
+             * Contactid
+             * Format: uuid
+             */
+            contactId: string;
+            entered?: components["schemas"]["PriceEntry"] | null;
+            /** @default rate */
+            kind?: components["schemas"]["LabourRateAgreementKind"];
+            /**
+             * Validfrom
+             * Format: date
+             */
+            validFrom: string;
+        };
+        /**
+         * LabourRateAgreementKind
+         * @enum {string}
+         */
+        LabourRateAgreementKind: "rate" | "end";
+        /** LabourRateAgreementPage */
+        LabourRateAgreementPage: {
+            /** Items */
+            items: components["schemas"]["LabourRateAgreementRead"][];
+            /** Nextcursor */
+            nextCursor: string | null;
+            /**
+             * Today
+             * Format: date
+             */
+            today: string;
+        };
+        /** LabourRateAgreementRead */
+        LabourRateAgreementRead: {
+            /** Amount */
+            amount: string | null;
+            /**
+             * Categoryid
+             * Format: uuid
+             */
+            categoryId: string;
+            /**
+             * Contactid
+             * Format: uuid
+             */
+            contactId: string;
+            /** Contactlabel */
+            contactLabel: string;
+            /**
+             * Createdat
+             * Format: date-time
+             */
+            createdAt: string;
+            entered: components["schemas"]["PriceEntry"] | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            kind: components["schemas"]["LabourRateAgreementKind"];
+            status: components["schemas"]["LabourRateStatus"];
+            /**
+             * Validfrom
+             * Format: date
+             */
+            validFrom: string;
+            /** Version */
+            version: number;
+            /** Withdrawnat */
+            withdrawnAt: string | null;
+        };
+        /**
+         * LabourRateAnswerRead
+         * @description «Which rate applies here» — what Aftersales gets through platform.public.
+         */
+        LabourRateAnswerRead: {
+            /** Amount */
+            amount: string | null;
+            /**
+             * Categoryid
+             * Format: uuid
+             */
+            categoryId: string;
+            /** Categoryisactive */
+            categoryIsActive: boolean;
+            entered: components["schemas"]["PriceEntry"] | null;
+            /** Found */
+            found: boolean;
+            missing: components["schemas"]["LabourRateMissing"] | null;
+            /** Rateid */
+            rateId: string | null;
+            source: components["schemas"]["LabourRateSource"] | null;
+            /** Validfrom */
+            validFrom: string | null;
+        };
+        /** LabourRateCategoryCreate */
+        LabourRateCategoryCreate: {
+            /** Name */
+            name: string;
+            /** Nametranslations */
+            nameTranslations?: {
+                [key: string]: string;
+            } | null;
+        };
+        /** LabourRateCategoryList */
+        LabourRateCategoryList: {
+            /** Items */
+            items: components["schemas"]["LabourRateCategoryRead"][];
+            /**
+             * Today
+             * Format: date
+             */
+            today: string;
+        };
+        /** LabourRateCategoryRead */
+        LabourRateCategoryRead: {
+            /**
+             * Createdat
+             * Format: date-time
+             */
+            createdAt: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Isactive */
+            isActive: boolean;
+            /** Members */
+            members: components["schemas"]["LabourCategoryMemberRead"][];
+            /** Name */
+            name: string;
+            /** Nametranslations */
+            nameTranslations: {
+                [key: string]: string;
+            };
+            /** Rates */
+            rates: components["schemas"]["LabourRateRead"][];
+            /** Version */
+            version: number;
+        };
+        /** LabourRateCategoryUpdate */
+        LabourRateCategoryUpdate: {
+            /** Isactive */
+            isActive?: boolean | null;
+            /** Name */
+            name?: string | null;
+            /** Nametranslations */
+            nameTranslations?: {
+                [key: string]: string;
+            } | null;
+        };
+        /** LabourRateCreate */
+        LabourRateCreate: {
+            /**
+             * Amount
+             * Format: decimal
+             */
+            amount: string;
+            entered: components["schemas"]["PriceEntry"];
+            /**
+             * Locationid
+             * Format: uuid
+             */
+            locationId: string;
+            /**
+             * Validfrom
+             * Format: date
+             */
+            validFrom: string;
+        };
+        /**
+         * LabourRateMissing
+         * @enum {string}
+         */
+        LabourRateMissing: "no_rate" | "unknown_category";
+        /** LabourRateRead */
+        LabourRateRead: {
+            /** Amount */
+            amount: string;
+            /**
+             * Createdat
+             * Format: date-time
+             */
+            createdAt: string;
+            /** Createdby */
+            createdBy: string | null;
+            entered: components["schemas"]["PriceEntry"];
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Locationid
+             * Format: uuid
+             */
+            locationId: string;
+            status: components["schemas"]["LabourRateStatus"];
+            /**
+             * Validfrom
+             * Format: date
+             */
+            validFrom: string;
+            /** Version */
+            version: number;
+            /** Withdrawnat */
+            withdrawnAt: string | null;
+        };
+        /**
+         * LabourRateSource
+         * @enum {string}
+         */
+        LabourRateSource: "agreement" | "category_rate";
+        /**
+         * LabourRateStatus
+         * @description A rate row as of a day: the one in force, one still to come, one a
+         *     later rate replaced, or one withdrawn before it started.
+         * @enum {string}
+         */
+        LabourRateStatus: "in_force" | "scheduled" | "superseded" | "withdrawn";
         /**
          * Language
          * @description The contact's correspondence language (Contact PRD D-01/FR-13).
@@ -12386,6 +12831,12 @@ export interface components {
          * @enum {string}
          */
         PreviewDocument: "offer" | "invoice";
+        /**
+         * PriceEntry
+         * @description Which figure the user typed; the other one follows.
+         * @enum {string}
+         */
+        PriceEntry: "net" | "gross";
         /** ProfileValidationRead */
         ProfileValidationRead: {
             /**
@@ -13460,6 +13911,8 @@ export interface components {
             checklistBlocks: string | null;
             /** Checklistitem */
             checklistItem: boolean;
+            /** Choicerequires */
+            choiceRequires: components["schemas"]["ChoiceRequirementRead"][];
             /** Choices */
             choices: string[];
             /** Decimals */
@@ -20067,6 +20520,444 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_labour_rate_agreements_v1_dealerships__dealership_id__labour_rate_agreements_get: {
+        parameters: {
+            query?: {
+                contactId?: string | null;
+                categoryId?: string | null;
+                includeWithdrawn?: boolean;
+                limit?: number;
+                cursor?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LabourRateAgreementPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_labour_rate_agreement_v1_dealerships__dealership_id__labour_rate_agreements_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                dealership_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LabourRateAgreementCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LabourRateAgreementRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    withdraw_labour_rate_agreement_v1_dealerships__dealership_id__labour_rate_agreements__agreement_id__withdraw_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+                authorization?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                agreement_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LabourRateAgreementRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_labour_rate_answer_v1_dealerships__dealership_id__labour_rate_answer_get: {
+        parameters: {
+            query: {
+                categoryId: string;
+                locationId: string;
+                on?: string | null;
+                invoiceRecipientContactId?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LabourRateAnswerRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_labour_rate_categories_v1_dealerships__dealership_id__labour_rate_categories_get: {
+        parameters: {
+            query?: {
+                includeInactive?: boolean;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LabourRateCategoryList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_labour_rate_category_v1_dealerships__dealership_id__labour_rate_categories_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                dealership_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LabourRateCategoryCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LabourRateCategoryRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_labour_rate_category_v1_dealerships__dealership_id__labour_rate_categories__category_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                category_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LabourRateCategoryUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LabourRateCategoryRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_labour_category_member_v1_dealerships__dealership_id__labour_rate_categories__category_id__members_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                category_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LabourCategoryMemberCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LabourRateCategoryRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_labour_category_member_v1_dealerships__dealership_id__labour_rate_categories__category_id__members__user_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                category_id: string;
+                user_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_labour_rate_v1_dealerships__dealership_id__labour_rate_categories__category_id__rates_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                category_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LabourRateCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LabourRateCategoryRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    withdraw_labour_rate_v1_dealerships__dealership_id__labour_rates__rate_id__withdraw_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+                authorization?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                rate_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LabourRateCategoryRead"];
                 };
             };
             /** @description Validation Error */

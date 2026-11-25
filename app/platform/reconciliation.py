@@ -18,6 +18,7 @@ from zoneinfo import ZoneInfo
 from sqlalchemy import ColumnElement, String, and_, cast, select
 from sqlalchemy.orm import Session
 
+from app.contact.public import contact_exists, contact_in_group, contact_is_merged, contact_reference_check
 from app.core.auth import AccessRole
 from app.core.base import utcnow
 from app.core.config import get_settings
@@ -56,6 +57,7 @@ from app.platform.organisation.models.module_entitlement import ModuleEntitlemen
 from app.platform.organisation.models.number_range import NumberRange
 from app.platform.organisation.models.publishing_profile import LocationLeadRouting, PublishingProfile
 from app.platform.organisation.models.setting_value import SettingValue, SettingValueChange
+from app.platform.organisation.services.reconciliation_targets import dealership_group_of
 from app.platform.reference.models.reference_data import ReferenceList, ReferenceValue
 from app.platform.reference.models.ui_translation import UiTranslation
 
@@ -178,6 +180,33 @@ def _platform_admin_homed_outside_the_platform_tenant() -> ColumnElement[bool]:
     )
 
 
+
+# KAN-806: an agreement whose contact was merged keeps the duplicate's id until the
+# follow-up re-points it; reported a day after the merged contact's last write.
+_AGREEMENT_MERGE_GRACE = dt.timedelta(days=1)
+
+
+def _agreement_names_a_merged_contact() -> ColumnElement[bool]:
+    return LabourRateAgreement.withdrawn_at.is_(None) & contact_is_merged(
+        LabourRateAgreement.contact_id, merged_before=utcnow() - _AGREEMENT_MERGE_GRACE
+    ).correlate(LabourRateAgreement)
+
+
+def _agreement_contact_outside_group() -> ColumnElement[bool]:
+    group = dealership_group_of(LabourRateAgreement.dealership_id, correlate=LabourRateAgreement)
+    named = contact_exists(LabourRateAgreement.contact_id).correlate(LabourRateAgreement)
+    return named & ~contact_in_group(LabourRateAgreement.contact_id, group).correlate(LabourRateAgreement)
+
+
+def _rate_location_elsewhere() -> ColumnElement[bool]:
+    return (
+        select(Location.id)
+        .where(Location.id == LabourRate.location_id, Location.tenant_id != LabourRate.dealership_id)
+        .correlate(LabourRate)
+        .exists()
+    )
+
+
 CHECKS: list[ReferenceCheck | StateCheck] = [
     *actor_reference_checks(*ACTOR_TABLES),
     StateCheck(
@@ -209,6 +238,33 @@ CHECKS: list[ReferenceCheck | StateCheck] = [
         source_model=User,
         source_row_id_column=User.id,
         where=_platform_admin_homed_outside_the_platform_tenant,
+    ),
+    # KAN-806: an agreed labour rate names a contact, which contact owns (rule 2). It is
+    # read here only, through contact.public; a merge's re-point and the label refresh are
+    # a follow-up (the agreement keeps the label it was given until then).
+    contact_reference_check(
+        label="labour_rate_agreement.contact_id -> contact.id",
+        source_model=LabourRateAgreement,
+        source_row_id_column=LabourRateAgreement.id,
+        source_fk_column=LabourRateAgreement.contact_id,
+    ),
+    StateCheck(
+        label="labour_rate_agreement.contact_id names a merged contact",
+        source_model=LabourRateAgreement,
+        source_row_id_column=LabourRateAgreement.id,
+        where=_agreement_names_a_merged_contact,
+    ),
+    StateCheck(
+        label="labour_rate_agreement.contact_id names a contact outside the business's group",
+        source_model=LabourRateAgreement,
+        source_row_id_column=LabourRateAgreement.id,
+        where=_agreement_contact_outside_group,
+    ),
+    StateCheck(
+        label="labour_rate.location_id names another business's location",
+        source_model=LabourRate,
+        source_row_id_column=LabourRate.id,
+        where=_rate_location_elsewhere,
     ),
 ]
 

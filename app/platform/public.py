@@ -3,6 +3,9 @@ contract allows `app.<other-context>` to import `app.platform.public`, never
 `app.platform.models` / `app.platform.services` / `app.platform.api` directly.
 """
 
+from app.platform.administration.api.labour_rates import create_labour_rate_agreement
+from app.platform.administration.api.labour_rates import guard as labour_rates_guard
+from app.platform.administration.schemas.labour_rates import LabourRateAgreementCreate, LabourRateAgreementRead
 from app.platform.administration.services.data_export_tables import PlatformExporter
 from app.platform.administration.services.location_channel_facts import (
     ChannelOpeningHours,
@@ -245,6 +248,9 @@ from app.platform.reference.services.reference_data import get_active_reference_
 # gives the categories a user is allocated to; labour_time_unit gives O18/O19
 # (hours, or work units with how many make an hour). The composition root
 # registers the three settings with register_labour_rate_settings. Plain reads.
+# The composition root's agreement POST (app/api/v1/labour_rate_agreements.py)
+# calls labour_rates_guard, resolves the contact, then create_labour_rate_agreement
+# (LabourRateAgreementCreate in, LabourRateAgreementRead out; it commits).
 __all__ = [
     "PLACEHOLDER_UNRESOLVED",
     "ActingUser",
@@ -266,6 +272,8 @@ __all__ = [
     "IssuedDocumentLink",
     "KeyValueBlock",
     "KeyValueRow",
+    "LabourRateAgreementCreate",
+    "LabourRateAgreementRead",
     "LabourRateAnswer",
     "LabourRateMissing",
     "LabourRateSource",
@@ -312,6 +320,7 @@ __all__ = [
     "closed_days_until",
     "connected_account_states",
     "contact_group_codes",
+    "create_labour_rate_agreement",
     "dealer_group_reference_check",
     "dealership_exists",
     "dealership_group_of",
@@ -338,6 +347,7 @@ __all__ = [
     "issue_document_link",
     "labour_categories_of_user",
     "labour_rate_for",
+    "labour_rates_guard",
     "labour_time_unit",
     "link_connected_account",
     "list_active_users_acting_in",
