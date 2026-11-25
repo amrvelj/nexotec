@@ -1,3 +1,67 @@
 {
-  "keys": {}
+  "keys": {},
+  "areas": {},
+  "units": {},
+  "title": "Réglages",
+  "subtitle": "Les réglages des domaines que cette entreprise utilise. Chaque valeur vaut pour l'entreprise et peut différer selon le site.",
+  "areaSubtitle": "Une modification s'applique immédiatement. Un site sans valeur propre reprend la valeur de l'entreprise.",
+  "areaNotFound": "Ce domaine n'existe pas pour cette entreprise.",
+  "loadError": "Les réglages n'ont pas pu être chargés.",
+  "readOnly": "Seule la direction modifie les réglages. Vous voyez les valeurs et leur historique.",
+  "saveError": "Le réglage n'a pas pu être enregistré.",
+  "tableLabel": "Réglages",
+  "areasLabel": "Domaines",
+  "empty": {
+    "title": "Aucun réglage pour l'instant",
+    "description": "Dès qu'un domaine utilisé par cette entreprise apporte des réglages, ils apparaissent ici."
+  },
+  "columns": {
+    "area": "Domaine",
+    "count": "Réglages",
+    "setting": "Réglage",
+    "dealership": "Entreprise",
+    "inactive": "(inactif)"
+  },
+  "notSet": {
+    "label": "Non défini",
+    "actsAs": "Sans valeur, s'applique : {{value}}",
+    "refuses": "Sans valeur, ce qui a besoin de ce réglage est refusé."
+  },
+  "inherited": "De l'entreprise : {{value}}",
+  "stale": "La valeur enregistrée ne convient plus – elle est considérée comme non définie",
+  "clear": {
+    "dealership": "Non défini",
+    "location": "Reprendre la valeur de l'entreprise"
+  },
+  "value": {
+    "on": "Activé",
+    "off": "Désactivé",
+    "withUnit": "{{number}} {{unit}}"
+  },
+  "edit": "Modifier",
+  "checklistItem": "Mise en service",
+  "text": {
+    "name": "Texte",
+    "translationsNote": "Les traductions sont facultatives ; sans traduction, le texte apparaît tel que saisi."
+  },
+  "history": {
+    "title": "Historique",
+    "scope": "Historique pour",
+    "you": "Vous",
+    "unknownUser": "Inconnu",
+    "current": "Actuel",
+    "more": "Charger plus",
+    "restore": "Restaurer «{{value}}»",
+    "restoreError": "La valeur n'a pas pu être restaurée.",
+    "loadError": "L'historique n'a pas pu être chargé.",
+    "origin": {
+      "edit": "Modifié",
+      "restore": "Restauré",
+      "copy": "Repris"
+    },
+    "empty": {
+      "title": "Aucune modification",
+      "description": "Ce réglage n'a encore jamais été modifié ici."
+    }
+  }
 }

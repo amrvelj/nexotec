@@ -1,7 +1,8 @@
 """Every setting an area declares in `app/setting_registry.py` has its label
 in the SPA's four `settings` bundles (`settings.keys.<area>.<name>.label`) —
 the setup checklist names a setting item by it (KAN-805 PR-3), and the
-settings screen will (PR-5). A setting without one would show «MISSING I18N
+settings screen does (PR-5), which also titles each area (`areas.<area>`) and
+words a number's unit (`units.<unit>`). A setting without one would show «MISSING I18N
 KEY» to the manager; this fails first, as test_status_sources_have_labels
 does for the status page. A choice's codes need their labels too
 (`…<name>.options.<code>`)."""
@@ -22,6 +23,13 @@ _LOCALES = _DMS / "i18n" / "locales"
 def missing_labels(bundle: dict, declarations) -> list[str]:
     keys = bundle.get("keys", {})
     missing = []
+    # The settings screen (PR-5) titles an area and words a number's unit.
+    for area in sorted({declaration.area for declaration in declarations}):
+        if not bundle.get("areas", {}).get(area):
+            missing.append(f"areas.{area}")
+    for unit in sorted({declaration.unit for declaration in declarations if declaration.unit}):
+        if not bundle.get("units", {}).get(unit):
+            missing.append(f"units.{unit}")
     for declaration in declarations:
         area, name = declaration.key.split(".", 1)
         entry = keys.get(area, {}).get(name, {})
@@ -45,9 +53,13 @@ def test_the_rule_on_a_sample():
 
     bundle = {"keys": {"testarea": {"time_unit": {"label": "Zeiteinheit", "options": {"hours": "Stunden"}}}}}
     assert missing_labels(bundle, [samples.UNIT, samples.WAIT]) == [
+        "areas.testarea",
+        "units.minutes",
         "testarea.time_unit.options.work_units",
         "testarea.wait_minutes.label",
     ]
+    complete = {**bundle, "areas": {"testarea": "Test"}, "units": {"minutes": "Minuten"}}
+    assert missing_labels(complete, [samples.UNIT]) == ["testarea.time_unit.options.work_units"]
 
 
 def test_a_checklist_setting_links_to_a_screen_the_spa_serves():

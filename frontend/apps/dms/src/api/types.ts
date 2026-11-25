@@ -180,6 +180,16 @@ export type ConfigurationCopySubset = Schemas['ConfigurationCopyItem']['subset']
 // KAN-466 — contact groups per Betrieb.
 export type ContactGroupRead = Schemas['ContactGroupRead']
 export type ContactGroupList = Schemas['ContactGroupList']
+// KAN-805 — the settings store (Dealer Administration › Einstellungen).
+export type SettingAreaList = Schemas['SettingAreaList']
+export type AreaSettingsRead = Schemas['AreaSettingsRead']
+export type AreaSettingRead = Schemas['AreaSettingRead']
+export type SettingDeclarationRead = Schemas['SettingDeclarationRead']
+export type SettingSlotRead = Schemas['SettingSlotRead']
+export type SettingLocationRead = Schemas['SettingLocationRead']
+export type SettingValueBody = Schemas['SettingValueBody']
+export type SettingChangeRead = Schemas['SettingChangeRead']
+export type SettingChangePage = Schemas['SettingChangePage']
 // KAN-218 — the data export and offboarding.
 export type ExportRead = Schemas['ExportRead']
 export type ExportPage = Schemas['ExportPage']
