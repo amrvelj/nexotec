@@ -38,6 +38,7 @@ class SetupChecklistRegression(PrimaryKeyMixin, Base):
     )
 
     dealership_id: Mapped[uuid.UUID] = mapped_column(GUID(), ForeignKey("dealership.id"), nullable=False)
-    item_code: Mapped[str] = mapped_column(String(32), nullable=False)
+    # 64: a setting's key is an item code too (KAN-805 PR-3).
+    item_code: Mapped[str] = mapped_column(String(64), nullable=False)
     detected_at: Mapped[dt.datetime] = mapped_column(UTCDateTime(), nullable=False, default=utcnow)
     resolved_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)

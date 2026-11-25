@@ -127,5 +127,8 @@
     "manager_only": "A manager of this business does this.",
     "setup_checklist_incomplete": "The checklist is not complete yet.",
     "setup_checklist_item_missing": "A setup item is missing: “{{item}}”. Complete it under Administration › Setup."
+  },
+  "settingItem": {
+    "description": "The setting has a value for the business. A location's value does not replace it."
   }
 }

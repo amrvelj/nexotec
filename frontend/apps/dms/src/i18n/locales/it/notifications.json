@@ -112,8 +112,9 @@
       "body": "L'accesso per {{provider}} scade tra {{days, number}} giorni. Lo rinnovi in Amministrazione › Integrazioni, così che il collegamento non si interrompa."
     },
     "checklistItemRegressed": {
-      "title": "Un punto della configurazione manca di nuovo",
-      "body": "Il punto «{{item}}» della lista di configurazione non è più soddisfatto. Finché non è completato, l'azione che ne ha bisogno è bloccata."
+      "title": "Un punto della configurazione è aperto",
+      "body": "Il punto «{{item}}» della lista di configurazione non è soddisfatto.",
+      "body_blocked": "Il punto «{{item}}» della lista di configurazione non è soddisfatto. Finché non è completato, l'azione che ne ha bisogno è bloccata."
     },
     "statusItemDegraded": {
       "title": "La pagina di stato non è più verde",

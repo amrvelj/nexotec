@@ -19,7 +19,8 @@ same declaration again.
 def register_settings() -> None:
     from app.platform import public as platform
 
-    platform.register_labour_rate_settings()
+    for declaration in platform.LABOUR_RATE_SETTINGS:
+        platform.register_setting(declaration)
     # Last: every key a rule across two settings names is declared.
     platform.check_declaration_references()
 

@@ -97,7 +97,9 @@ def check_dealership(db: Session, dealership: Dealership) -> RegressionRun:
                     user_id=manager.id,
                     dealership_id=dealership.id,
                     subject=notifications.NotificationSubject(type=SUBJECT_TYPE, id=regression.id, link=item.link),
-                    params={"item": item.code},
+                    # `blocks` picks the body: an item blocking nothing only
+                    # tells (Anto, 2026-11-24, KAN-805).
+                    params={"item": item.code, **({"blocks": item.blocks} if item.blocks else {})},
                 )
                 if delivered is not None:
                     notified += 1

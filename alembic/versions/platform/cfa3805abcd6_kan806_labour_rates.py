@@ -10,7 +10,7 @@ that has not started yet may be withdrawn, never changed. Seeds nothing (Anto,
 2026-11-25: no starting categories).
 
 Revision ID: cfa3805abcd6
-Revises: 44c7ad0312ef
+Revises: fa830f17a876
 Create Date: 2026-11-25 08:05:07.812219
 
 """
@@ -23,7 +23,7 @@ import app.core.types
 
 # revision identifiers, used by Alembic.
 revision: str = 'cfa3805abcd6'
-down_revision: Union[str, Sequence[str], None] = '44c7ad0312ef'
+down_revision: Union[str, Sequence[str], None] = 'fa830f17a876'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

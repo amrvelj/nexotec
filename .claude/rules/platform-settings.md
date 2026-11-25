@@ -12,7 +12,7 @@ paths:
 only, history read by every role, checklist settings declared after activation only notify, the
 per-location column while any location holds a value). Split out of platform-admin.md by KAN-805 PR-2. -->
 
-# The settings store (KAN-805) — store and API built; checklist, copy and screen to come
+# The settings store (KAN-805) — store, API, checklist and copy built; the screen to come
 
 - An area **declares** each setting it reads (`SettingDeclaration`: key `<area>.<name>`, kind switch ·
   number · amount · choice · text, what «not set» does — `quiet`, `refuses`, `acts_as`, never for an
@@ -41,3 +41,21 @@ per-location column while any location holds a value). Split out of platform-adm
   `check_declaration_references()` (start-up) refuses a rule naming an undeclared key; the area API shows
   `choiceRequires`. A copy (KAN-805 PR-4) writes the required key first. Shipped declarations: O16, O18, O19
   (`platform-labour-rates.md`).
+- **Setup checklist** (`administration/services/setup_checklist.py`): a declaration with
+  `checklist_item` is an item, code = its key (a contributed code never has a dot), applying with
+  its module, linked to `/administration/settings/<area>`, complete while **the Betrieb's own value**
+  is in force (`setting_store.is_set_for_dealership`; a location's value overrides it, never stands
+  in for it — a read without a location would answer «not set»; a value that no longer fits does
+  not count; ADR-216). It blocks only the `BlockedAction` its declaration names
+  (`platform.public.register_setting` refuses an unknown one at start-up); otherwise an active
+  Betrieb is only notified by the daily regression job, whose notice carries `blocks` only for an
+  item blocking one — the SPA then says the action is blocked (`body_blocked`; Anto, 2026-11-24).
+  The SPA names it by the setting's label (`settings.keys.<area>.<name>.label`,
+  `utils/checklistItem.ts`); `test_declared_settings_have_labels.py` fails on a declared setting
+  without its label in the four languages, and on a shipped checklist setting before the SPA serves
+  `/administration/settings/:area` (PR-5).
+- **Copy from a sister Betrieb** (`administration/services/configuration_copy.py`, subset `settings`):
+  the source's own value of each setting the target configures (module held, or none), written by
+  `change_setting` as origin `copy` (history, restore); «not set» in the source keeps the target's
+  value; a location's value is never copied; a source value that no longer fits is skipped
+  (`setting_value_stale`).

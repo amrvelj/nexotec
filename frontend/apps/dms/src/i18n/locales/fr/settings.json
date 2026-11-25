@@ -1,0 +1,23 @@
+{
+  "keys": {
+    "labour_rates": {
+      "rates_entered": {
+        "label": "Taux horaires saisis",
+        "options": {
+          "net": "nets",
+          "gross": "TVA incluse"
+        }
+      },
+      "time_unit": {
+        "label": "Temps de travail en",
+        "options": {
+          "hours": "heures",
+          "work_units": "unités de travail (UT)"
+        }
+      },
+      "work_units_per_hour": {
+        "label": "Unités de travail par heure"
+      }
+    }
+  }
+}

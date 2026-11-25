@@ -62,8 +62,9 @@ platform-notifications.md) by KAN-751, 2026-11-18, for platform's `administratio
   `/administration/publishing`; the public stock projection is `reporting`'s (ADR-174, ADR-175).
 - **Copy configuration from a sister Betrieb** (D-A-01, FR-A-01; ADR-156) — built (KAN-220): a
   manager of both Betriebe copies a chosen subset once (`POST /v1/dealerships/{id}/copy-configuration`:
-  standard texts, the template's header notes, number-range patterns, contact groups; a dry run
-  lists exactly what the commit does), each row through its own write path, audited as one
+  standard texts, the template's header notes, number-range patterns, contact groups, settings
+  (KAN-805: the source's own values, `platform-settings.md`); a dry run lists exactly what the
+  commit does), each row through its own write path, audited as one
   `configuration_copied` row on the target — never inheritance, no link to the source.
 
 ## Data export and offboarding (KAN-218)

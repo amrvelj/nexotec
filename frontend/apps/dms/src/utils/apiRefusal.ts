@@ -1,6 +1,7 @@
 import type { TFunction } from 'i18next'
 import { ApiError } from '../api/client'
 import i18n, { toSwissLocale, type SupportedLanguage } from '../i18n'
+import { checklistItemTitle } from './checklistItem'
 import { formatDate, formatDateOnly } from './format'
 
 type Details = Record<string, unknown>
@@ -479,7 +480,7 @@ const REASON_PARAMS: Record<string, (details: Details, t: TFunction) => Record<s
   access_window_closed: (d, t) => ({ window: accessWindowText(d, t) }),
   configuration_held_by_stock_item: (d) => ({ stockNumber: String(d.stockNumber ?? '—') }),
   // KAN-214 (FR-A-26): the checklist item that blocks the action, by its name.
-  setup_checklist_item_missing: (d, t) => ({ item: t(`setup.items.${String(d.item ?? '')}.title`) }),
+  setup_checklist_item_missing: (d, t) => ({ item: checklistItemTitle(t, String(d.item ?? '')) }),
   credit_block: (d) => ({ reason: String(d.creditBlockReason ?? '—') }),
   // KAN-539: the instant of the first request, as a day in the user's locale.
   invoice_already_requested: (d) => ({

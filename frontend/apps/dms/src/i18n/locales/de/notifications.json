@@ -112,8 +112,9 @@
       "body": "Der Zugang für {{provider}} läuft in {{days, number}} Tagen ab. Erneuern Sie ihn unter Verwaltung › Integrationen, damit die Verbindung nicht unterbricht."
     },
     "checklistItemRegressed": {
-      "title": "Ein Punkt der Einrichtung fehlt wieder",
-      "body": "Der Punkt «{{item}}» der Einrichtungs-Checkliste ist nicht mehr erfüllt. Bis er erledigt ist, ist die Aktion gesperrt, die ihn braucht."
+      "title": "Ein Punkt der Einrichtung ist offen",
+      "body": "Der Punkt «{{item}}» der Einrichtungs-Checkliste ist nicht erfüllt.",
+      "body_blocked": "Der Punkt «{{item}}» der Einrichtungs-Checkliste ist nicht erfüllt. Bis er erledigt ist, ist die Aktion gesperrt, die ihn braucht."
     },
     "statusItemDegraded": {
       "title": "Die Statusseite ist nicht mehr grün",

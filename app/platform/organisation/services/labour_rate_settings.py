@@ -33,7 +33,6 @@ from app.platform.organisation.services.setting_declarations import (
     SettingDeclaration,
     SettingKind,
     WhenNotSet,
-    register_setting,
 )
 from app.platform.organisation.services.setting_store import read_setting
 
@@ -52,7 +51,10 @@ RATES_ENTERED = SettingDeclaration(
     kind=SettingKind.CHOICE,
     when_not_set=WhenNotSet.REFUSES,
     choices=(PriceEntry.NET.value, PriceEntry.GROSS.value),
-    checklist_item=True,
+    # O16 is an item of the Aftersales setup checklist (slice 1, section 5). A setting item
+    # links to the settings screen, which the SPA does not serve yet
+    # (test_declared_settings_have_labels.py): KAN-806 PR-2 turns it on with the screen.
+    checklist_item=False,
 )
 TIME_UNIT = SettingDeclaration(
     key=TIME_UNIT_KEY,
@@ -74,11 +76,9 @@ WORK_UNITS_PER_HOUR = SettingDeclaration(
 )
 
 
-def register_labour_rate_settings() -> None:
-    """Called by the composition root `app/setting_registry.py`."""
-
-    for declaration in (RATES_ENTERED, TIME_UNIT, WORK_UNITS_PER_HOUR):
-        register_setting(declaration)
+# Registered by the composition root `app/setting_registry.py` through
+# `platform.public.register_setting` (which also judges a checklist action).
+LABOUR_RATE_SETTINGS = (RATES_ENTERED, TIME_UNIT, WORK_UNITS_PER_HOUR)
 
 
 def rates_entered(db: Session, *, dealership_id: uuid.UUID, location_id: uuid.UUID | None) -> PriceEntry | None:

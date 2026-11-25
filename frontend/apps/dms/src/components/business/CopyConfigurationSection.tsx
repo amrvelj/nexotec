@@ -18,7 +18,13 @@ import { useContactGroups } from '../../hooks/useContactGroups'
 import { useFieldHint } from '../../hooks/useFieldHint'
 import { SectionCard } from './SectionCard'
 
-const SUBSETS: ConfigurationCopySubset[] = ['standard_texts', 'document_template', 'number_ranges', 'contact_groups']
+const SUBSETS: ConfigurationCopySubset[] = [
+  'standard_texts',
+  'document_template',
+  'number_ranges',
+  'contact_groups',
+  'settings',
+]
 const OUTCOME_TONE: Record<ConfigurationCopyItem['outcome'], BadgeTone> = {
   created: 'success',
   overwritten: 'warning',
@@ -31,6 +37,7 @@ const KNOWN_REASONS = new Set([
   'number_range_frozen',
   'number_pattern_location_code_missing',
   'number_range_counter_too_short',
+  'setting_value_stale',
   'standard_text_placeholder_invalid',
   'standard_text_seed_language_missing',
   'whatsapp_approval_reset',
@@ -251,6 +258,8 @@ function ItemLabel({ item }: { item: ConfigurationCopyItem }) {
   }
   if (item.subset === 'document_template') return <Text fz="sm">{t('business.copyConfiguration.headerNotes')}</Text>
   if (item.subset === 'contact_groups') return <ContactGroupLabel code={item.key} />
+  // KAN-805: a setting by its label (`settings.keys.<area>.<name>.label`).
+  if (item.subset === 'settings') return <Text fz="sm">{t(`settings.keys.${item.key}.label`)}</Text>
   return (
     <Text fz="sm">
       {item.label} {item.language && <LanguageBadge language={item.language} />}

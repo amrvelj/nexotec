@@ -9238,7 +9238,7 @@ export interface components {
          * CopySubset
          * @enum {string}
          */
-        CopySubset: "standard_texts" | "document_template" | "number_ranges" | "contact_groups";
+        CopySubset: "standard_texts" | "document_template" | "number_ranges" | "contact_groups" | "settings";
         /** CurrentLegalDocuments */
         CurrentLegalDocuments: {
             /** Items */
@@ -13987,12 +13987,12 @@ export interface components {
         SetupChecklistItemRead: {
             /**
              * Blocks
-             * @description What an incomplete item refuses once the Betrieb is active; null = activation only.
+             * @description What an incomplete item refuses once the Betrieb is active; null = it blocks activation only, and once active the daily job only notifies the managers.
              */
             blocks: string | null;
             /**
              * Code
-             * @description The item: branding, vat_and_rounding, bank_account, number_ranges, …
+             * @description The item: branding, vat_and_rounding, bank_account, number_ranges, …; a code with a dot is a setting's key (`<area>.<name>`), titled by the setting's label.
              */
             code: string;
             /** Complete */

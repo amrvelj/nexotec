@@ -112,9 +112,9 @@ from app.platform.organisation.services.labour_rate_answer import (
     labour_rate_for,
 )
 from app.platform.organisation.services.labour_rate_settings import (
+    LABOUR_RATE_SETTINGS,
     LabourTimeUnit,
     labour_time_unit,
-    register_labour_rate_settings,
 )
 from app.platform.organisation.services.location import LocationLabel, get_location_labels
 from app.platform.organisation.services.number_range import allocate_number
@@ -143,8 +143,8 @@ from app.platform.organisation.services.setting_declarations import (
     TextValue,
     WhenNotSet,
     check_declaration_references,
-    register_setting,
 )
+from app.platform.organisation.services.setting_declarations import register_setting as _register_setting
 from app.platform.organisation.services.setting_store import SettingRead, read_setting
 from app.platform.reference.services.reference_data import get_active_reference_value_codes
 
@@ -247,11 +247,29 @@ from app.platform.reference.services.reference_data import get_active_reference_
 # typed and whether it was typed net or with VAT). labour_categories_of_user
 # gives the categories a user is allocated to; labour_time_unit gives O18/O19
 # (hours, or work units with how many make an hour). The composition root
-# registers the three settings with register_labour_rate_settings. Plain reads.
+# registers the three settings (LABOUR_RATE_SETTINGS) with register_setting. Plain reads.
 # The composition root's agreement POST (app/api/v1/labour_rate_agreements.py)
 # calls labour_rates_guard, resolves the contact, then create_labour_rate_agreement
 # (LabourRateAgreementCreate in, LabourRateAgreementRead out; it commits).
+
+
+# The settings store's door for declarations (see the paragraph above).
+def register_setting(declaration: SettingDeclaration) -> None:
+    """Declares a setting (KAN-805, ADR-214). Also refuses, at start-up, a
+    checklist item blocking an action the setup checklist does not know: the
+    store sits below the checklist and cannot judge it, and a wrong one found
+    only when the checklist is derived would fail it for every Betrieb."""
+
+    blocks = declaration.checklist_blocks
+    if blocks is not None and blocks not in {action.value for action in SetupBlockedAction}:
+        raise SettingDeclarationError(
+            f"Setting {declaration.key!r} blocks {blocks!r}, no action of the setup checklist."
+        )
+    _register_setting(declaration)
+
+
 __all__ = [
+    "LABOUR_RATE_SETTINGS",
     "PLACEHOLDER_UNRESOLVED",
     "ActingUser",
     "Addressee",
@@ -366,7 +384,6 @@ __all__ = [
     "read_setting",
     "register_document_source",
     "register_grant_revoker",
-    "register_labour_rate_settings",
     "register_message_type",
     "register_setting",
     "render_document",

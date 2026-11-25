@@ -1,0 +1,23 @@
+{
+  "keys": {
+    "labour_rates": {
+      "rates_entered": {
+        "label": "Labour rates entered",
+        "options": {
+          "net": "net",
+          "gross": "with VAT"
+        }
+      },
+      "time_unit": {
+        "label": "Labour time in",
+        "options": {
+          "hours": "hours",
+          "work_units": "work units (AW)"
+        }
+      },
+      "work_units_per_hour": {
+        "label": "Work units per hour"
+      }
+    }
+  }
+}
