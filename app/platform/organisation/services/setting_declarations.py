@@ -88,6 +88,11 @@ class SettingDeclaration:
     # notifies (Anto, 2026-11-24).
     checklist_item: bool = False
     checklist_blocks: str | None = None
+    # A rule across two keys (KAN-806, check 49): choosing the choice needs the
+    # other setting in force wherever the choice is, and that setting cannot be
+    # cleared while the choice stands (`setting_rules`). Pairs (choice, key), so
+    # the declaration stays hashable. O18 «work_units» needs O19.
+    choice_requires: tuple[tuple[str, str], ...] = ()
 
     @property
     def area(self) -> str:
@@ -125,6 +130,11 @@ def _check(declaration: SettingDeclaration) -> None:
         raise SettingDeclarationError(f"Setting {key!r}: only a number declares its decimals.")
     if declaration.checklist_blocks is not None and not declaration.checklist_item:
         raise SettingDeclarationError(f"Setting {key!r} blocks an action but is no checklist item.")
+    for choice, required in declaration.choice_requires:
+        if kind != SettingKind.CHOICE or choice not in declaration.choices:
+            raise SettingDeclarationError(f"Setting {key!r}: {choice!r} is no choice of it, so it requires nothing.")
+        if required == key or not _KEY.fullmatch(required):
+            raise SettingDeclarationError(f"Setting {key!r}: its choice {choice!r} requires {required!r}, no other key.")
 
     when = WhenNotSet(declaration.when_not_set)
     if when != WhenNotSet.ACTS_AS:
@@ -142,11 +152,13 @@ def _check(declaration: SettingDeclaration) -> None:
 
 
 class SettingValueError(ValueError):
-    """A value that does not fit its declaration; `reason` is the refusal code."""
+    """A value that does not fit its declaration; `reason` is the refusal code,
+    `details` what the refusal names besides (the other key of a cross-key rule)."""
 
-    def __init__(self, message: str, *, reason: str) -> None:
+    def __init__(self, message: str, *, reason: str, details: dict[str, object] | None = None) -> None:
         super().__init__(message)
         self.reason = reason
+        self.details = details or {}
 
 
 @dataclass(frozen=True)
@@ -224,6 +236,36 @@ def register_setting(declaration: SettingDeclaration) -> None:
             return
         raise SettingDeclarationError(f"Setting {declaration.key!r} is already declared otherwise.")
     _REGISTRY[declaration.key] = declaration
+
+
+def check_declaration_references() -> None:
+    """Start-up check, after every area registered: a key a choice requires is
+    declared, belongs to the same module (or to none), and is no text. Raised
+    at start-up so a rule never names a key nobody can set."""
+
+    for declaration in _REGISTRY.values():
+        for choice, required in declaration.choice_requires:
+            other = _REGISTRY.get(required)
+            if other is None:
+                raise SettingDeclarationError(
+                    f"Setting {declaration.key!r}: its choice {choice!r} requires {required!r}, which nobody declared."
+                )
+            if other.module not in (None, declaration.module):
+                raise SettingDeclarationError(
+                    f"Setting {declaration.key!r} requires {required!r} of another module ({other.module!r})."
+                )
+            if SettingKind(other.kind) == SettingKind.TEXT:
+                raise SettingDeclarationError(f"Setting {declaration.key!r} requires the text {required!r}.")
+
+
+def choice_rules() -> tuple[tuple[SettingDeclaration, str, str], ...]:
+    """Every cross-key rule: (the choice's declaration, the choice, the key it requires)."""
+
+    return tuple(
+        (declaration, choice, required)
+        for declaration in declared_settings()
+        for choice, required in declaration.choice_requires
+    )
 
 
 def unregister_setting(key: str) -> None:

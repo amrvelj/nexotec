@@ -40,6 +40,7 @@ from app.db import get_db
 from app.platform.administration.schemas.area_settings import (
     AreaSettingRead,
     AreaSettingsRead,
+    ChoiceRequirementRead,
     SettingAreaList,
     SettingAreaRead,
     SettingChangePage,
@@ -126,6 +127,7 @@ def _declaration_read(declaration: SettingDeclaration) -> SettingDeclarationRead
         choices=list(declaration.choices),
         checklist_item=declaration.checklist_item,
         checklist_blocks=declaration.checklist_blocks,
+        choice_requires=[ChoiceRequirementRead(choice=c, key=k) for c, k in declaration.choice_requires],
     )
 
 
@@ -163,7 +165,9 @@ def _refusals(call):
     try:
         return call()
     except SettingValueError as value_error:
-        raise UnprocessableEntityError(str(value_error), details={"reason": value_error.reason}) from value_error
+        raise UnprocessableEntityError(
+            str(value_error), details={**value_error.details, "reason": value_error.reason}
+        ) from value_error
     except store.SettingRefused as refused:
         raise ConflictError(str(refused), details={"reason": refused.reason}) from refused
 

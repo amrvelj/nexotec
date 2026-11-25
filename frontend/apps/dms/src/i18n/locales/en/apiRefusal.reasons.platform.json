@@ -82,5 +82,7 @@
   "setting_value_text_length": "The text cannot be empty and has at most 500 characters.",
   "setting_value_too_large": "The value is too large.",
   "setting_value_too_many_decimals": "The value has too many decimal places.",
-  "setting_value_wrong_field": "The value does not match this setting's kind."
+  "setting_value_wrong_field": "The value does not match this setting's kind.",
+  "setting_choice_requires_setting": "This choice needs another setting first, for example the work units per hour. Set it, then choose again.",
+  "setting_required_by_choice": "Another setting needs this one, for example time in work units. It cannot be cleared while that one applies."
 }

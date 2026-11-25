@@ -127,6 +127,7 @@ from app.platform.organisation.services.setting_declarations import (
     SettingKind,
     TextValue,
     WhenNotSet,
+    check_declaration_references,
     register_setting,
 )
 from app.platform.organisation.services.setting_store import SettingRead, read_setting
@@ -221,6 +222,8 @@ from app.platform.reference.services.reference_data import get_active_reference_
 # that acts as (SettingRead, plain values). The key is a literal so
 # tests/architecture/test_setting_keys_declared_and_read.py can pair every read
 # with its declaration. A plain read; it writes nothing.
+# check_declaration_references runs after every area registered: a choice's
+# `choice_requires` (KAN-806, O18 «work units» needs O19) names a declared key.
 __all__ = [
     "PLACEHOLDER_UNRESOLVED",
     "ActingUser",
@@ -280,6 +283,7 @@ __all__ = [
     "WhenNotSet",
     "actor_reference_checks",
     "allocate_number",
+    "check_declaration_references",
     "closed_days_until",
     "connected_account_states",
     "contact_group_codes",

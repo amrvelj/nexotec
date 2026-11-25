@@ -82,5 +82,7 @@
   "setting_value_text_length": "Il testo non può essere vuoto e conta al massimo 500 caratteri.",
   "setting_value_too_large": "Il valore è troppo grande.",
   "setting_value_too_many_decimals": "Il valore ha troppi decimali.",
-  "setting_value_wrong_field": "Il valore non corrisponde al tipo di questa impostazione."
+  "setting_value_wrong_field": "Il valore non corrisponde al tipo di questa impostazione.",
+  "setting_choice_requires_setting": "Questa scelta richiede prima un'altra impostazione, ad esempio le unità di lavoro all'ora. Impostatela, poi scegliete di nuovo.",
+  "setting_required_by_choice": "Un'altra impostazione ne ha bisogno, ad esempio il tempo in unità di lavoro. Non può essere svuotata finché quella vale."
 }

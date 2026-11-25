@@ -82,5 +82,7 @@
   "setting_value_text_length": "Der Text darf nicht leer und höchstens 500 Zeichen lang sein.",
   "setting_value_too_large": "Der Wert ist zu gross.",
   "setting_value_too_many_decimals": "Der Wert hat zu viele Nachkommastellen.",
-  "setting_value_wrong_field": "Der Wert passt nicht zur Art dieser Einstellung."
+  "setting_value_wrong_field": "Der Wert passt nicht zur Art dieser Einstellung.",
+  "setting_choice_requires_setting": "Diese Auswahl braucht zuerst eine andere Einstellung, zum Beispiel die Arbeitswerte pro Stunde. Setzen Sie diese, dann wählen Sie erneut.",
+  "setting_required_by_choice": "Eine andere Einstellung braucht diese, zum Beispiel die Zeit in Arbeitswerten. Sie kann nicht geleert werden, solange jene gilt."
 }

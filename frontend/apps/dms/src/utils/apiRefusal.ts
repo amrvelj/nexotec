@@ -374,6 +374,8 @@ const REASON_KEYS: Record<string, string> = {
       'setting_value_too_large',
       'setting_value_too_many_decimals',
       'setting_value_wrong_field',
+      'setting_choice_requires_setting',
+      'setting_required_by_choice',
       // KAN-523 — the plate a sold car leaves with, at «Rechnung anfordern».
       'invoice_plate_vehicle_unknown',
       // KAN-539 — «Rechnung anfordern» once per contract.

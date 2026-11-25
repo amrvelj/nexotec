@@ -82,5 +82,7 @@
   "setting_value_text_length": "Le texte ne peut pas être vide et compte au plus 500 caractères.",
   "setting_value_too_large": "La valeur est trop grande.",
   "setting_value_too_many_decimals": "La valeur a trop de décimales.",
-  "setting_value_wrong_field": "La valeur ne correspond pas au type de ce réglage."
+  "setting_value_wrong_field": "La valeur ne correspond pas au type de ce réglage.",
+  "setting_choice_requires_setting": "Ce choix nécessite d'abord un autre réglage, par exemple les unités de travail par heure. Définissez-le, puis choisissez à nouveau.",
+  "setting_required_by_choice": "Un autre réglage en a besoin, par exemple le temps en unités de travail. Il ne peut pas être vidé tant que celui-ci s'applique."
 }
