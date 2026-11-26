@@ -72,6 +72,25 @@ describe('BlockingFactsStrip (FR-18 region 1)', () => {
     expect(alerts[1]).toHaveTextContent(dncNote)
   })
 
+  it('«Gesperrt» gets its own red strip with its reason, before the credit block (KAN-810)', async () => {
+    installBackend({
+      blocked: true,
+      blockedReason: 'Hausverbot',
+      creditBlock: true,
+      creditBlockReason: 'Overdue invoice 4471',
+      lifecycleStatus: 'do_not_contact',
+    })
+    renderDetail()
+
+    const blocked = await screen.findByRole('alert', { name: i18n.t('contactDetail.overview.blockingStrip.blockedTitle') })
+    expect(blocked).toHaveTextContent('Hausverbot')
+    const alerts = screen.getAllByRole('alert')
+    expect(alerts).toHaveLength(3)
+    expect(alerts[0]).toBe(blocked)
+    expect(alerts[1]).toHaveAccessibleName(blockTitle)
+    expect(alerts[2]).toHaveTextContent(dncNote)
+  })
+
   it('do-not-contact only: amber strip shows, and the header "New offer" action is disabled', async () => {
     installBackend({ lifecycleStatus: 'do_not_contact' })
     renderDetail()

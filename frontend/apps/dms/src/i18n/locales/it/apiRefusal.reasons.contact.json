@@ -13,7 +13,9 @@
   "contact_group_read_only": "Questo gruppo di contatti non è attivo nella vostra azienda e qui non può essere tolto.",
   "contact_group_assignment_exists": "Un gruppo di contatti di questa modifica è già presente sul contatto: il contatto è stato modificato nel frattempo. Ricaricalo e riprova.",
   "customer_role_required": "Questo campo appartiene al ruolo cliente, che questo contatto non ha. Dategli prima il ruolo cliente.",
-  "customer_role_not_permitted": "Il ruolo cliente e i suoi campi (stato, consulente, blocco del credito) sono modificati dalla vendita e dall’assistenza. Il vostro ruolo dà ai contatti il ruolo fornitore.",
+  "customer_role_not_permitted": "Il ruolo cliente e i suoi campi (stato, consulente, blocco del credito, blocco) sono modificati dalla vendita e dall’assistenza. Il vostro ruolo dà ai contatti il ruolo fornitore.",
   "customer_role_credit_blocked": "Il ruolo cliente non può essere tolto finché vige un blocco del credito. Togliete prima il blocco.",
+  "customer_role_blocked": "Il ruolo cliente non può essere tolto finché il contatto è bloccato. Togliete prima il blocco.",
+  "contact_block_reason_required": "È richiesto un motivo per bloccare un contatto.",
   "contact_role_exists": "Il contatto ha già un ruolo di questa modifica: è stato modificato nel frattempo. Ricaricalo e riprova."
 }

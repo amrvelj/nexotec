@@ -788,6 +788,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/contacts/{contact_id}/block": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set Block
+         * @description KAN-810 — «Gesperrt»: a workshop order refuses the contact.
+         */
+        post: operations["set_block_v1_contacts__contact_id__block_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/contacts/{contact_id}/credit-block": {
         parameters: {
             query?: never;
@@ -8714,6 +8734,18 @@ export interface components {
             items: components["schemas"]["ContactAdvisorOption"][];
         };
         /**
+         * ContactBlockRequest
+         * @description KAN-810 (Anto, 2026-11-26): «Gesperrt». A reason is required to place
+         *     the block (the service says so with a 409, like the credit block's);
+         *     lifting it takes none.
+         */
+        ContactBlockRequest: {
+            /** Blocked */
+            blocked: boolean;
+            /** Reason */
+            reason?: string | null;
+        };
+        /**
          * ContactCreate
          * @description contact_type is immutable after creation (not settable via
          *     ContactUpdate below) — gates which of the individual-only
@@ -9171,6 +9203,12 @@ export interface components {
             advisorLabelRefreshedAt: string | null;
             /** Birthdate */
             birthDate: string | null;
+            /** Blocked */
+            blocked: boolean;
+            /** Blockedat */
+            blockedAt: string | null;
+            /** Blockedreason */
+            blockedReason: string | null;
             /** Companyname */
             companyName: string | null;
             /** Contactgroups */
@@ -19267,6 +19305,48 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ContactHistoryPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_block_v1_contacts__contact_id__block_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+                authorization?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                contact_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ContactBlockRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContactRead"];
                 };
             };
             /** @description Validation Error */

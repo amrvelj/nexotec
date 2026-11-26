@@ -1,4 +1,4 @@
-import { Ban, Car, Copy, FileSignature, GitMerge, Handshake, Lock } from 'lucide-react'
+import { Ban, Car, Copy, FileSignature, GitMerge, Handshake, Lock, ShieldOff } from 'lucide-react'
 import type { DetailHeaderAction, RowMenuGroups } from '@nexotec/ui-kit'
 import type { ContactRead } from '../../../api/types'
 
@@ -27,6 +27,8 @@ export interface ContactRowMenuHandlers {
   onCopyContactNumber: () => void
   onToggleDoNotContact: () => void
   onManageCreditBlock: () => void
+  /** KAN-810: «Gesperrt» — a workshop order refuses the contact. */
+  onManageBlock: () => void
   /** Detail-screen only — both open a modal that needs data (the merge
    * picker needs the contact's phones/emails), gated out of the list
    * menu the same way `buildValuationRowMenu` gates out what a list can't
@@ -60,7 +62,7 @@ type T = (key: string, options?: Record<string, unknown>) => string
 
 export function buildContactRowMenu(
   t: T,
-  contact: Pick<ContactRead, 'lifecycleStatus' | 'creditBlock' | 'creditBlockReason'> & Partial<Pick<ContactRead, 'roles'>>,
+  contact: Pick<ContactRead, 'lifecycleStatus' | 'creditBlock' | 'creditBlockReason' | 'blocked'> & Partial<Pick<ContactRead, 'roles'>>,
   handlers: ContactRowMenuHandlers,
   // KAN-464 Q3: whether the user may write the customer role's data
   // (`contact_customer_role`). Without it, the credit block and the merge of
@@ -73,6 +75,9 @@ export function buildContactRowMenu(
   // it is offered none (a block already standing can always be lifted).
   const holdsCustomer = contact.roles === undefined || contact.roles.includes('customer')
   const canBeBlocked = mayWriteCustomerRole && (isBlocked || holdsCustomer)
+  // KAN-810: «Gesperrt» is the customer role's too, offered on the same terms.
+  const isContactBlocked = contact.blocked
+  const canBeContactBlocked = mayWriteCustomerRole && (isContactBlocked || holdsCustomer)
   const canBeMerged = mayWriteCustomerRole || !holdsCustomer
   const isMerged = contact.lifecycleStatus === 'merged'
 
@@ -135,6 +140,15 @@ export function buildContactRowMenu(
             label: isBlocked ? t('contactRowMenu.removeCreditBlock') : t('contactRowMenu.setCreditBlock'),
             icon: <Lock size={16} />,
             onClick: handlers.onManageCreditBlock,
+          },
+        ]
+      : []),
+    ...(canBeContactBlocked
+      ? [
+          {
+            label: isContactBlocked ? t('contactRowMenu.removeBlock') : t('contactRowMenu.setBlock'),
+            icon: <ShieldOff size={16} />,
+            onClick: handlers.onManageBlock,
           },
         ]
       : []),

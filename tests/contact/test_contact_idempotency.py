@@ -310,6 +310,22 @@ def test_credit_block_with_a_reused_key_and_another_body_is_a_409(client, db_ses
     assert db_session.get(Contact, uuid.UUID(contact["id"])).credit_block is True
 
 
+def test_a_retried_block_replays_its_success_instead_of_a_version_conflict(client, db_session):
+    """KAN-810: «Gesperrt» is idempotent like the credit block."""
+
+    _, token = _setup(client)
+    contact = _contact(client, token)
+    path = f"/v1/contacts/{contact['id']}/block"
+
+    key, body = _twice(client, path, token, {"blocked": True, "reason": "Hausverbot"}, **{"If-Match": "1"})
+
+    assert body["blocked"] is True
+    db_session.expire_all()
+    assert db_session.get(Contact, uuid.UUID(contact["id"])).version == body["version"] == 2
+    response = client.post(path, json={"blocked": False}, headers=_headers(token, key, **{"If-Match": "2"}))
+    _assert_key_conflict(response, key)
+
+
 def test_a_retried_merge_replays_its_success_instead_of_a_version_conflict(client, db_session):
     _, token = _setup(client)
     survivor = _contact(client, token)

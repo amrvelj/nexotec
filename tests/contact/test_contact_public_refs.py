@@ -39,7 +39,7 @@ def test_a_contact_is_handed_out_as_a_frozen_value(db_session):
     assert ref == public.ContactRef(
         id=row.id, group_id=GROUP_ID, contact_number=row.contact_number, first_name="Ada", last_name="Lovelace",
         company_name=None, language=Language.FR, lifecycle_status=ContactLifecycleStatus.PROSPECT,
-        credit_block=True, credit_block_reason="Mahnung offen",
+        credit_block=True, credit_block_reason="Mahnung offen", blocked=False, blocked_reason=None,
     )
     with pytest.raises(dataclasses.FrozenInstanceError):
         ref.credit_block = False  # type: ignore[misc]

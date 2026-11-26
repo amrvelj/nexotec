@@ -9,6 +9,8 @@
   "removeDoNotContact": "Remove do-not-contact",
   "setCreditBlock": "Set credit block…",
   "removeCreditBlock": "Remove credit block",
+  "setBlock": "Block contact…",
+  "removeBlock": "Lift block",
   "mergeInto": "Merge into another contact…",
   "mergeDisabledMerged": "This record has already been merged into another.",
   "copyContactNumber": "Copy contact number",

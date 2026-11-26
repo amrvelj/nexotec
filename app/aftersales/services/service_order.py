@@ -13,9 +13,11 @@ This module is the one place these rules live; a route only calls it. A
 refusal says why in one sentence and carries a `details.reason` the SPA
 says in the user's language.
 
-**«Blocked»** is the contact's block with its reason (`credit_block`,
-Contacts FR-21: «named on every refusal»), read from `contact.public` at
-the moment of the action and never copied (FR-21). A do-not-contact contact
+**«Blocked»** is the contact's «Gesperrt» with its reason (`blocked`; Anto,
+2026-11-26, KAN-810 Q1 option 1), read from `contact.public` at the moment
+of the action and never copied (Contacts FR-21: «named on every refusal»).
+The credit block is not «Blocked»: an order for a credit-blocked customer
+exists, and the credit block only changes how it is paid (3.7, check 38). A do-not-contact contact
 is not refused: do-not-contact never stops service (Contacts FR-12). A merged
 contact is refused, naming the contact it was merged into.
 
@@ -196,15 +198,15 @@ def _party(db: Session, *, group_id: uuid.UUID, contact_id: uuid.UUID, role: str
     lock_order_contacts(db, [contact_id])
     contact = get_contact_or_404(db, group_id, contact_id)
     _refuse_merged(db, group_id=group_id, contact=contact)
-    if refuse_blocked and contact.credit_block:
+    if refuse_blocked and contact.blocked:
         raise ConflictError(
-            f"Contact {contact.contact_number} is blocked ({contact.credit_block_reason or 'no reason given'}) "
+            f"Contact {contact.contact_number} is blocked ({contact.blocked_reason or 'no reason given'}) "
             "— no service order can be opened or held for them.",
             details={
                 "reason": "service_order_contact_blocked",
                 "role": role,
                 "contactNumber": contact.contact_number,
-                "blockedReason": contact.credit_block_reason,
+                "blockedReason": contact.blocked_reason,
             },
         )
     return _Party(id=contact.id, label=contact_display_name(contact)[:200])

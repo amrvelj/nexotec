@@ -1,12 +1,12 @@
 {
   "setTitle": "Définir un blocage de crédit",
   "clearTitle": "Retirer le blocage de crédit",
-  "setBody": "Bloquer un contact empêche la confirmation de tout contrat. Une offre reste possible — c’est souvent ainsi que le blocage se résout.",
+  "setBody": "Un blocage de crédit empêche la confirmation de tout contrat. Une offre reste possible — c’est souvent ainsi que le blocage de crédit se résout.",
   "clearBody": "Lever le blocage de crédit sur {{number}} ? Les contrats peuvent à nouveau être confirmés immédiatement.",
   "reasonLabel": "Motif",
   "reasonRequired": "Un motif est requis pour poser un blocage de crédit.",
-  "setSubmit": "Bloquer le contact",
-  "clearSubmit": "Lever le blocage",
+  "setSubmit": "Poser le blocage de crédit",
+  "clearSubmit": "Lever le blocage de crédit",
   "cancel": "Annuler",
   "conflict": "Ce contact a changé depuis l’ouverture. Rechargez et réessayez.",
   "failed": "Impossible de mettre à jour le blocage de crédit."

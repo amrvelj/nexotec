@@ -59,11 +59,11 @@ def _insert_raw_contact(db_session, *, contact_number: str, preferred_channel: s
         text(
             "INSERT INTO contact "
             "(id, group_id, contact_number, contact_type, language, lifecycle_status, "
-            "marketing_consent, credit_block, gender, newsletter, vat_registered, version, "
+            "marketing_consent, credit_block, blocked, gender, newsletter, vat_registered, version, "
             "created_at, updated_at, preferred_channel) "
             "VALUES "
             "(:id, :group_id, :contact_number, :contact_type, :language, :lifecycle_status, "
-            ":marketing_consent, :credit_block, :gender, :newsletter, :vat_registered, :version, "
+            ":marketing_consent, :credit_block, :blocked, :gender, :newsletter, :vat_registered, :version, "
             ":created_at, :updated_at, :preferred_channel)"
         ),
         {
@@ -75,6 +75,7 @@ def _insert_raw_contact(db_session, *, contact_number: str, preferred_channel: s
             "lifecycle_status": "prospect",
             "marketing_consent": False,
             "credit_block": False,
+            "blocked": False,
             "gender": "unspecified",
             "newsletter": False,
             "vat_registered": False,
@@ -169,17 +170,17 @@ def test_list_contacts_omits_the_bad_row_but_returns_everyone_else_in_the_same_g
         text(
             "INSERT INTO contact "
             "(id, group_id, contact_number, contact_type, language, lifecycle_status, "
-            "marketing_consent, credit_block, gender, newsletter, vat_registered, version, "
+            "marketing_consent, credit_block, blocked, gender, newsletter, vat_registered, version, "
             "created_at, updated_at, preferred_channel) "
             "VALUES "
             "(:id, :group_id, :contact_number, :contact_type, :language, :lifecycle_status, "
-            ":marketing_consent, :credit_block, :gender, :newsletter, :vat_registered, :version, "
+            ":marketing_consent, :credit_block, :blocked, :gender, :newsletter, :vat_registered, :version, "
             ":created_at, :updated_at, :preferred_channel)"
         ),
         {
             "id": str(bad_id), "group_id": str(group_id), "contact_number": "K-BAD",
             "contact_type": "individual", "language": "de", "lifecycle_status": "prospect",
-            "marketing_consent": False, "credit_block": False, "gender": "unspecified",
+            "marketing_consent": False, "credit_block": False, "blocked": False, "gender": "unspecified",
             "newsletter": False, "vat_registered": False, "version": 1,
             "created_at": now, "updated_at": now, "preferred_channel": "MAIL",
         },

@@ -103,15 +103,22 @@ describe('the row menu offers a credit block only to the customer role (KAN-464)
     onCopyContactNumber: vi.fn(),
     onToggleDoNotContact: vi.fn(),
     onManageCreditBlock: vi.fn(),
+    onManageBlock: vi.fn(),
   }
   const labels = (c: Parameters<typeof buildContactRowMenu>[1]) =>
     (buildContactRowMenu(t, c, handlers).overflow.edit ?? []).map((a) => a.label)
-  const base = { lifecycleStatus: 'active' as const, creditBlock: false, creditBlockReason: null }
+  const base = { lifecycleStatus: 'active' as const, creditBlock: false, creditBlockReason: null, blocked: false }
 
   it('a supplier is offered none; a customer and a standing block are', () => {
     expect(labels({ ...base, roles: ['supplier'] })).not.toContain('contactRowMenu.setCreditBlock')
     expect(labels({ ...base, roles: ['customer', 'supplier'] })).toContain('contactRowMenu.setCreditBlock')
     expect(labels({ ...base, creditBlock: true, roles: ['supplier'] })).toContain('contactRowMenu.removeCreditBlock')
+  })
+
+  it('«Gesperrt» the same way (KAN-810)', () => {
+    expect(labels({ ...base, roles: ['supplier'] })).not.toContain('contactRowMenu.setBlock')
+    expect(labels({ ...base, roles: ['customer', 'supplier'] })).toContain('contactRowMenu.setBlock')
+    expect(labels({ ...base, blocked: true, roles: ['supplier'] })).toContain('contactRowMenu.removeBlock')
   })
 })
 

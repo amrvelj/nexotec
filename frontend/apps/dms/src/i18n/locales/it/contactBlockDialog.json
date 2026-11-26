@@ -1,0 +1,13 @@
+{
+  "setTitle": "Blocca contatto",
+  "clearTitle": "Rimuovi blocco",
+  "setBody": "Un contatto bloccato non può essere né committente né destinatario della fattura di un ordine d’officina. Il blocco creditizio ne è separato.",
+  "clearBody": "Rimuovere il blocco su {{number}}? Gli ordini d’officina possono essere aperti di nuovo immediatamente.",
+  "reasonLabel": "Motivo",
+  "reasonRequired": "È richiesto un motivo per bloccare un contatto.",
+  "setSubmit": "Blocca contatto",
+  "clearSubmit": "Rimuovi blocco",
+  "cancel": "Annulla",
+  "conflict": "Questo contatto è cambiato dopo l’apertura. Ricarica e riprova.",
+  "failed": "Impossibile aggiornare il blocco."
+}

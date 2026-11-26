@@ -36,6 +36,9 @@ export function contact(overrides: Partial<ContactRead> = {}): ContactRead {
     creditBlock: false,
     creditBlockReason: null,
     creditBlockedAt: null,
+    blocked: false,
+    blockedReason: null,
+    blockedAt: null,
     // FR-17 / FR-18 stored fields (KAN-50)
     title: null,
     gender: 'unspecified',
