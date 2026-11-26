@@ -512,11 +512,15 @@ def _copy_settings(
     configured = {declaration.key for declaration in declarations}
     # KAN-839: a multiple and the key it is a multiple of are judged and written
     # together — one at a time, a pair valid on its own can be refused twice.
+    # Only a key in exactly one such rule is paired; a key in two rules (none
+    # today) keeps the one-at-a-time path rather than an arbitrary partner.
+    rules = [(m.key, of) for m, of in multiple_rules() if m.key in configured and of in configured]
+    in_rules = [key for pair in rules for key in pair]
     partner: dict[str, str] = {}
-    for multiple, of_key in multiple_rules():
-        if multiple.key in configured and of_key in configured:
-            partner[multiple.key] = of_key
-            partner[of_key] = multiple.key
+    for multiple_key, of_key in rules:
+        if in_rules.count(multiple_key) == 1 and in_rules.count(of_key) == 1:
+            partner[multiple_key] = of_key
+            partner[of_key] = multiple_key
     done: set[str] = set()
     for declaration in declarations:
         if declaration.key in done:
@@ -525,12 +529,14 @@ def _copy_settings(
         if declaration.key in partner and partner[declaration.key] not in done:
             group.append(partner[declaration.key])
         done.update(group)
+        # The group's items in write order, whatever their outcome.
+        items: list[CopyItem] = []
         pending: list[tuple[CopyItem, setting_store.SettingSlot, setting_store.SettingSlot]] = []
         for key in group:
             wanted = setting_store.get_slot(db, dealership_id=source.id, location_id=None, key=key)
             if not wanted.is_set:
                 if not wanted.fits_declaration:
-                    report.items.append(
+                    items.append(
                         CopyItem(
                             subset=CopySubset.SETTINGS, key=key, outcome=CopyOutcome.SKIPPED, reason="setting_value_stale"
                         )
@@ -539,26 +545,26 @@ def _copy_settings(
                 continue
             current = setting_store.get_slot(db, dealership_id=target.id, location_id=None, key=key)
             item = CopyItem(subset=CopySubset.SETTINGS, key=key, outcome=CopyOutcome.UNCHANGED)
-            if current.is_set and current.value == wanted.value:
-                report.items.append(item)
-                continue
-            pending.append((item, current, wanted))
+            items.append(item)
+            if not (current.is_set and current.value == wanted.value):
+                pending.append((item, current, wanted))
+        written = False
         if len(pending) > 1:
             try:
                 _write_copied_settings(db, target=target, actor_id=actor_id, pending=pending)
-                report.items.extend(item for item, _, _ in pending)
-                continue
+                written = True
             except SettingValueError:
                 # The pair as a whole does not fit the target (a location's own
                 # value, say): each key is tried alone, as any other setting.
                 pass
-        for one in pending:
-            try:
-                _write_copied_settings(db, target=target, actor_id=actor_id, pending=[one])
-            except SettingValueError as refused:
-                one[0].outcome = CopyOutcome.SKIPPED
-                one[0].reason = refused.reason
-            report.items.append(one[0])
+        if not written:
+            for one in pending:
+                try:
+                    _write_copied_settings(db, target=target, actor_id=actor_id, pending=[one])
+                except SettingValueError as refused:
+                    one[0].outcome = CopyOutcome.SKIPPED
+                    one[0].reason = refused.reason
+        report.items.extend(items)
 
 
 def _write_copied_settings(

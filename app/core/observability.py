@@ -19,8 +19,9 @@ logs sit outside the record's retention and erasure). uvicorn's access line
 is scrubbed by `QueryStringAccessLogFilter` (installed by configure_logging,
 so whatever command starts the server), spans by `scrub_span_query` (the
 FastAPI instrumentation's request hook), Sentry events by
-`_drop_query_string`. The application's own `app.http` line never had the
-query (`httpPath`).
+`_drop_query_string` (the query string, and the `Referer`'s query: the SPA
+writes a list's search into its own URL). The application's own `app.http`
+line never had the query (`httpPath`) and logs no Referer.
 
 correlationId/tenantId are contextvars, not parameters threaded through
 every function — the entire point is that a log line logged deep inside a
@@ -46,12 +47,12 @@ from starlette.responses import Response
 from starlette.types import ASGIApp
 
 from app.core.auth import SESSION_COOKIE_NAME
-
-if TYPE_CHECKING:
-    from sentry_sdk.types import Event, Hint
 from app.core.config import get_settings
 from app.core.correlation import correlation_id_from_header, correlation_scope, get_correlation_id
 from app.core.redact import REDACTED_PLACEHOLDER, SECRET_FIELDS, is_secret_field
+
+if TYPE_CHECKING:
+    from sentry_sdk.types import Event, Hint
 
 CORRELATION_ID_HEADER = "X-Correlation-Id"
 
@@ -305,8 +306,12 @@ def _sentry_secret_names() -> list[str]:
 
 def _drop_query_string(event: "Event", hint: "Hint") -> "Event | None":
     """KAN-829: Sentry's ASGI integration sends the request's query string
-    (`request.query_string`) with every error and transaction; it never leaves.
-    `request.url` is already without it."""
+    (`request.query_string`) and its headers with every error and
+    transaction. The query string never leaves, and neither does the
+    `Referer`'s: the SPA is served from the same origin and writes a list's
+    search into its own URL (`/contacts?q=…`), so every API call from that
+    page names the search in its Referer. `request.url` is already without
+    a query; it is cut too, should that change."""
 
     request = event.get("request")
     if isinstance(request, dict):
@@ -314,6 +319,11 @@ def _drop_query_string(event: "Event", hint: "Hint") -> "Event | None":
         url = request.get("url")
         if isinstance(url, str):
             request["url"] = _without_query(url)
+        headers = request.get("headers")
+        if isinstance(headers, dict):
+            for name, value in list(headers.items()):
+                if isinstance(name, str) and name.lower() == "referer" and isinstance(value, str):
+                    headers[name] = _without_query(value)
     return event
 
 

@@ -39,8 +39,9 @@ small; ADR-047 addendum, ADR-081, ADR-105, ADR-107. Last verified against main@3
 - **No query string leaves the process** (KAN-829, revDSG): a search's `?q=` carries names, phones, e-mails, UIDs.
   `app/core/observability.py` scrubs it from uvicorn's access line (`QueryStringAccessLogFilter`, on the
   `uvicorn.access` logger whatever the start command), from every server span (`instrument_app`'s request hook)
-  and from Sentry events (`before_send`); `tests/core/test_kan829_no_query_in_logs_or_traces.py` starts the server
-  as production does.
+  and from Sentry events (`before_send`: the query string and the `Referer`'s query — the same-origin SPA writes a
+  list's search into its own URL); `tests/core/test_kan829_no_query_in_logs_or_traces.py` starts the server as
+  production does.
 - **Repairs today** (each the owner's daily job with its own record): Stock's orphan-reservation
   sweep `inventory.orphaned_reservations.release` (`inventory.md`); Stock's `inventory.merged_record_items.repair` (KAN-724: re-runs the merge consumer's move for an item left on a merged record, once nothing blocks it); `platform.user_expiry`'s
   retry of a hand-over a module refused (30 days; the Sales and Contacts StateChecks name the

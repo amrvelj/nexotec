@@ -121,12 +121,47 @@ def test_a_sentry_event_carries_no_search_text(monkeypatch):
         raise RuntimeError("kan-829 probe")
 
     marker = f"anna-{uuid.uuid4().hex[:8]}"
-    response = TestClient(app, raise_server_exceptions=False).get(f"/v1/contacts?q={marker}")
+    # The SPA is same-origin and writes a list's search into its own URL, so
+    # the API call from that page names the search in its Referer too.
+    response = TestClient(app, raise_server_exceptions=False).get(
+        f"/v1/contacts?q={marker}", headers={"Referer": f"https://dms.example/contacts?q={marker}&sort=name"}
+    )
     assert response.status_code == 500
     [event] = [e for e in transport.events if e.get("request")]
     assert event["request"]["url"].endswith("/v1/contacts")
     assert "query_string" not in event["request"]
+    assert event["request"]["headers"]["referer"] == "https://dms.example/contacts"
     assert marker not in json.dumps(event, default=str)
+
+
+def test_the_web_process_instruments_its_app_with_the_scrubbing_hook(monkeypatch):
+    """The span test above instruments an app with `instrument_app`; this one
+    proves the production path reaches it: `app.main` hands its app to
+    `configure_tracing`, which instruments it with `scrub_span_query`."""
+
+    from opentelemetry import metrics, trace
+    from opentelemetry.exporter.otlp.proto.http import trace_exporter
+    from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+    from opentelemetry.sdk import metrics as sdk_metrics
+    from opentelemetry.sdk.metrics import export as sdk_metrics_export
+
+    main_source = (_REPO / "app" / "main.py").read_text()
+    assert re.search(r"^configure_tracing\(app\)$", main_source, re.MULTILINE)
+
+    _settings(monkeypatch, otel_exporter_otlp_endpoint="http://127.0.0.1:9", sentry_dsn=None)
+    monkeypatch.setattr(trace, "set_tracer_provider", lambda provider: None)
+    monkeypatch.setattr(metrics, "set_meter_provider", lambda provider: None)
+    monkeypatch.setattr(trace_exporter, "OTLPSpanExporter", lambda **kw: InMemorySpanExporter())
+    # No meter provider and no periodic reader: no export thread outlives the test.
+    monkeypatch.setattr(sdk_metrics, "MeterProvider", lambda **kw: None)
+    monkeypatch.setattr(sdk_metrics_export, "PeriodicExportingMetricReader", lambda *a, **kw: None)
+    instrumented: list[dict] = []
+    monkeypatch.setattr(
+        FastAPIInstrumentor, "instrument_app", staticmethod(lambda app, **kw: instrumented.append(kw))
+    )
+    observability.configure_tracing(FastAPI())
+    assert [kw.get("server_request_hook") for kw in instrumented] == [observability.scrub_span_query]
+
 
 
 def test_the_filter_leaves_a_record_without_a_query_as_it_is():

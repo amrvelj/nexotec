@@ -71,8 +71,8 @@ Last verified against main@32ad509 (2026-11-25); O6/O7 and `divides` added by KA
   that would hide an area from the generic screen (criterion 6; KAN-806's topic screen lives at its
   own path and embeds the rows).
 - **Copy from a sister Betrieb** (`administration/services/configuration_copy.py`, subset `settings`):
-  the source's own value of each setting the target configures (module held, or none), written by
-  `change_setting` as origin `copy` (history, restore); «not set» in the source keeps the target's
+  the source's own value of each setting the target configures (module held, or none), written through
+  the store (`change_setting`, a `multiple_of` pair `change_settings`) as origin `copy` (history, restore); «not set» in the source keeps the target's
   value; a location's value is never copied; a source value that no longer fits is skipped
   (`setting_value_stale`). A pair tied by `multiple_of` (O6/O7) goes through `setting_store.change_settings` as
   one change (KAN-839): the rules judge the state after both keys, each key keeps its own history and audit row,
