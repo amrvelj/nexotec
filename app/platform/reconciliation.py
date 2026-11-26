@@ -189,14 +189,12 @@ def _platform_admin_homed_outside_the_platform_tenant() -> ColumnElement[bool]:
 
 
 # KAN-806: an agreement whose contact was merged keeps the duplicate's id until the
-# consumer platform.labour_rate_agreements_on_contact_merged (KAN-831) re-points it;
-# reported a day after the merged contact's last write. A row it set aside (the
-# survivor's own row of that date won) stays on the duplicate by design.
+# follow-up re-points it; reported a day after the merged contact's last write.
 _AGREEMENT_MERGE_GRACE = dt.timedelta(days=1)
 
 
 def _agreement_names_a_merged_contact() -> ColumnElement[bool]:
-    return LabourRateAgreement.withdrawn_at.is_(None) & LabourRateAgreement.set_aside_at.is_(None) & contact_is_merged(
+    return LabourRateAgreement.withdrawn_at.is_(None) & contact_is_merged(
         LabourRateAgreement.contact_id, merged_before=utcnow() - _AGREEMENT_MERGE_GRACE
     ).correlate(LabourRateAgreement)
 

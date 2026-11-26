@@ -17,11 +17,10 @@ three-column pattern. Aftersales reads them only through each owner's
 - **A vehicle merge** (`repoint_orders_on_vehicle_merge`, the consumer
   `aftersales.vehicle_merged`): every order naming the merged record moves to
   the record the car lives on now.
-- **Which labels follow** — as Sales' open work does (Anto, 2026-11-10, ruling
-  1A, applied to the order): an open order (draft, accepted) takes the new
-  name, on a merge and nightly; a frozen one (ready for billing, cancelled)
-  keeps the name it was frozen with and is only restamped («checked, kept on
-  purpose»), so its stamp never makes the label-age alarm fire.
+- **Every order takes the new name** — on a merge and nightly, whatever its
+  state (the ticket's criterion: «it takes the survivor's label»). Sales keeps
+  a signed contract's name (Anto's ruling 1A for Sales); whether a frozen
+  workshop order should keep its name too is put to Anto on KAN-837.
 - **Nightly** (`refresh_order_labels`, the daily job `aftersales.order_labels`,
   `.claude/rules/events-worker.md`): no `version` bump, a current label only
   restamped, an id naming nothing or a merged record left alone (the merge
@@ -50,7 +49,6 @@ from sqlalchemy.orm import Session
 
 from app.aftersales.models.service_order import ServiceOrder
 from app.aftersales.services.service_order import (
-    OPEN_STATES,
     lock_order_contacts,
     lock_order_vehicle,
     record_order_change,
@@ -79,10 +77,6 @@ _CONTACT_ROLES = (
 )
 
 
-def _is_open(order: ServiceOrder) -> bool:
-    return order.state in OPEN_STATES
-
-
 # --- merges -------------------------------------------------------------------------------
 
 
@@ -90,7 +84,7 @@ def repoint_orders_on_contact_merge(
     db: Session, *, duplicate_id: uuid.UUID, target_id: uuid.UUID, target_label: str | None
 ) -> list[uuid.UUID]:
     """Move every order naming `duplicate_id` in any of its three roles to
-    `target_id`. An open order takes `target_label` (None: a survivor the
+    `target_id`, with `target_label` (None: a survivor the
     group cannot read — the id moves, the label waits for the nightly job).
     Returns the ids of the orders moved."""
 
@@ -117,7 +111,7 @@ def repoint_orders_on_contact_merge(
             if getattr(order, id_column) != duplicate_id:
                 continue
             setattr(order, id_column, target_id)
-            if target_label is not None and _is_open(order):
+            if target_label is not None:
                 setattr(order, label_column, target_label[:200])
                 setattr(order, stamp_column, now)
         record_order_change(
@@ -153,8 +147,8 @@ def repoint_orders_on_vehicle_merge(
     db: Session, *, duplicate_vehicle_id: uuid.UUID, survivor_vehicle_id: uuid.UUID
 ) -> list[uuid.UUID]:
     """Move every order naming the merged record onto the record the car lives
-    on now (a merge delivered after a later one lands on the live record). An
-    open order takes that record's label. Returns the ids moved."""
+    on now (a merge delivered after a later one lands on the live record), with
+    that record's label. Returns the ids moved."""
 
     live_id = resolve_merged_vehicle_id(db, survivor_vehicle_id)
     if live_id == duplicate_vehicle_id:
@@ -174,7 +168,7 @@ def repoint_orders_on_vehicle_merge(
     for order in orders:
         before = snapshot(order)
         order.vehicle_id = live_id
-        if summary is not None and _is_open(order):
+        if summary is not None:
             order.vehicle_label = vehicle_label(summary)
             order.vehicle_label_refreshed_at = now
         record_order_change(
@@ -219,13 +213,12 @@ def _apply(
     restamp: dict[str, list[uuid.UUID]],
     report: RefreshReport,
 ) -> None:
-    """One label of one order: unresolved, restamped (current, or a frozen order
-    keeping its name), or changed."""
+    """One label of one order: unresolved, restamped (still current), or changed."""
 
     if current is None:
         report.unresolved.append((order.id, label_column))
         return
-    if current == getattr(order, label_column) or not _is_open(order):
+    if current == getattr(order, label_column):
         restamp.setdefault(stamp_column, []).append(order.id)
         return
     report.changed.append((order.id, label_column, getattr(order, label_column), current))

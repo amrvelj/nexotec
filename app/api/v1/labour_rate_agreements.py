@@ -44,10 +44,6 @@ def create_labour_rate_agreement(
     Typed as the business's O16 says (Anto, 2026-11-25)."""
 
     platform.labour_rates_guard(db, dealership_id, principal)
-    # KAN-831: before the contact is read — a merge consumer moving this contact's
-    # agreements waits for this create to commit (and moves its row), or this
-    # create waits and reads the contact merged.
-    platform.lock_agreement_contact(db, body.contact_id)
     party = contact.get_contact_or_404(db, principal.group_id, body.contact_id)
     if party.lifecycle_status == contact.ContactLifecycleStatus.MERGED:
         raise ConflictError(

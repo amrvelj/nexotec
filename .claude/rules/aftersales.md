@@ -53,7 +53,7 @@ Last verified against main@32ad509 (2026-11-25). -->
   Every screen sits behind the `aftersales` module switch (off → 404 for everybody).
 - **An order follows a merge** (KAN-837, `services/order_references.py`): `aftersales.contact_merged` and
   `aftersales.vehicle_merged` move every order naming the duplicate (any state; prices untouched, ruling 178),
-  audited; an open order takes the survivor's name, a frozen one keeps its own. Creating an order and
+  audited, with the survivor's name. Creating an order and
   changing its people take the contact's or car's merge lock before reading it.
 - A billing category exists on every job from the first day, with one value («customer»); later
   slices add values, not a field. A service-catalogue package is **copied** onto a job, never linked.

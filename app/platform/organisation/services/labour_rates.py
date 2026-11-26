@@ -451,7 +451,7 @@ class AgreementContact:
     label: str
 
 
-def agreement_audit(row: LabourRateAgreement) -> dict:
+def _agreement_audit(row: LabourRateAgreement) -> dict:
     return {
         "contactId": str(row.contact_id),
         "categoryId": str(row.category_id),
@@ -460,22 +460,18 @@ def agreement_audit(row: LabourRateAgreement) -> dict:
         "amount": str(row.amount) if row.amount is not None else None,
         "entered": row.entered.value if row.entered else None,
         "withdrawnAt": row.withdrawn_at.isoformat() if row.withdrawn_at else None,
-        "setAsideAt": row.set_aside_at.isoformat() if row.set_aside_at else None,
     }
 
 
 def agreement_statuses(rows: list[LabourRateAgreement], on: dt.date) -> dict[uuid.UUID, LabourRateStatus]:
     """Each row's status on `on`, per contact and category (an end row that
-    is in force means the agreement has ended). A row a contact merge set
-    aside (KAN-831: the survivor's own row of that date won) is superseded."""
+    is in force means the agreement has ended)."""
 
     statuses: dict[uuid.UUID, LabourRateStatus] = {}
     seen: set[tuple[uuid.UUID, uuid.UUID]] = set()
     for row in sorted(rows, key=lambda r: r.valid_from, reverse=True):
         if row.withdrawn_at is not None:
             statuses[row.id] = LabourRateStatus.WITHDRAWN
-        elif row.set_aside_at is not None:
-            statuses[row.id] = LabourRateStatus.SUPERSEDED
         elif row.valid_from > on:
             statuses[row.id] = LabourRateStatus.SCHEDULED
         elif (row.contact_id, row.category_id) in seen:
@@ -574,7 +570,7 @@ def create_agreement(
         tenant_id=dealership_id,
         action="create",
         actor_id=actor_id,
-        after=agreement_audit(row),
+        after=_agreement_audit(row),
     )
     return row
 
@@ -609,7 +605,7 @@ def withdraw_agreement(
             "An agreement in use is never changed; enter a new one or its end from a later date.",
             details={"reason": "labour_rate_agreement_in_use"},
         )
-    before = agreement_audit(row)
+    before = _agreement_audit(row)
     row.withdrawn_at = utcnow()
     row.version += 1
     row.updated_by = actor_id
@@ -622,7 +618,7 @@ def withdraw_agreement(
         action="withdraw",
         actor_id=actor_id,
         before=before,
-        after=agreement_audit(row),
+        after=_agreement_audit(row),
     )
     return row
 
@@ -643,8 +639,7 @@ def agreements_query(
     if category_id is not None:
         stmt = stmt.where(LabourRateAgreement.category_id == category_id)
     if not include_withdrawn:
-        # A row a contact merge set aside (KAN-831) is listed with the withdrawn ones.
-        stmt = stmt.where(LabourRateAgreement.withdrawn_at.is_(None), LabourRateAgreement.set_aside_at.is_(None))
+        stmt = stmt.where(LabourRateAgreement.withdrawn_at.is_(None))
     return stmt
 
 

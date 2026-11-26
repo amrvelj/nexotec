@@ -10996,8 +10996,6 @@ export interface components {
              */
             id: string;
             kind: components["schemas"]["LabourRateAgreementKind"];
-            /** Setasideat */
-            setAsideAt: string | null;
             status: components["schemas"]["LabourRateStatus"];
             /**
              * Validfrom

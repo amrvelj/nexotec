@@ -114,13 +114,6 @@ from app.platform.organisation.services.labour_rate_answer import (
     labour_category_labels,
     labour_rate_for,
 )
-from app.platform.organisation.services.labour_rate_contacts import (
-    ContactNow,
-    lock_agreement_contact,
-    oldest_agreement_contact_label_age_seconds,
-    refresh_agreement_contact_labels,
-    repoint_agreements_of_merged_contact,
-)
 from app.platform.organisation.services.labour_rate_settings import (
     LABOUR_RATE_SETTINGS,
     LabourTimeUnit,
@@ -263,13 +256,6 @@ from app.platform.reference.services.reference_data import get_active_reference_
 # The composition root's agreement POST (app/api/v1/labour_rate_agreements.py)
 # calls labour_rates_guard, resolves the contact, then create_labour_rate_agreement
 # (LabourRateAgreementCreate in, LabourRateAgreementRead out; it commits).
-# KAN-831: an agreement's contact follows a merge and a rename, composed at the
-# composition root (app/worker.py), which reads contact: lock_agreement_contact
-# (the POST and the merge consumer serialise on it),
-# repoint_agreements_of_merged_contact (the consumer; the survivor's own row of
-# a date wins, the duplicate's is set aside), refresh_agreement_contact_labels
-# (the nightly job, handed a reader of ContactNow) and its gauge,
-# oldest_agreement_contact_label_age_seconds.
 #
 # KAN-810 (Aftersales' workshop order): labour_category_labels names a labour
 # position's category beside its id (LabourCategoryLabel, plain values);
@@ -304,7 +290,6 @@ __all__ = [
     "ConnectedAccountProvider",
     "ConnectedAccountStatus",
     "ContactGroupCodes",
-    "ContactNow",
     "ContentDefinition",
     "DealerGroupRead",
     "DealershipRef",
@@ -407,22 +392,18 @@ __all__ = [
     "location_channel_facts",
     "location_channel_images",
     "location_reference_check",
-    "lock_agreement_contact",
     "message_types",
     "notify",
-    "oldest_agreement_contact_label_age_seconds",
     "publishing_profile_missing_items",
     "publishing_profile_ready",
     "read_location_channel_image",
     "read_setting",
-    "refresh_agreement_contact_labels",
     "register_document_source",
     "register_grant_revoker",
     "register_message_type",
     "register_setting",
     "render_document",
     "render_standard_text",
-    "repoint_agreements_of_merged_contact",
     "require_setup_item_for",
     "revoke_connected_account",
     "sample_document_link_url",

@@ -4,8 +4,7 @@ a contact or vehicle merge and refreshes its labels.
 - `aftersales.contact_merged` moves every order naming the duplicate as
   customer, invoice recipient or driver to the end of the survivor's chain.
 - `aftersales.vehicle_merged` moves every order naming the merged record.
-- `aftersales.order_labels` refreshes the five labels nightly; an open order
-  follows, a frozen one keeps its name (Sales' ruling 1A, applied by analogy).
+- `aftersales.order_labels` refreshes the five labels nightly, on every order.
 - After the consumers ran, PR-1's StateChecks find nothing.
 """
 
@@ -160,7 +159,10 @@ def test_a_chain_merge_delivered_out_of_order_lands_on_the_end_of_the_chain(clie
     assert moved.invoice_recipient_contact_id == end.id and moved.invoice_recipient_label == "Ende AG"
 
 
-def test_a_frozen_order_moves_but_keeps_the_name_it_was_frozen_with(client, db_session):
+def test_a_frozen_order_moves_too_and_takes_the_survivors_name(client, db_session):
+    """The criterion: every order naming the duplicate moves and takes the
+    survivor's label — a ready-for-billing order still names its invoice recipient."""
+
     betrieb = make_betrieb(client, db_session)
     duplicate = make_contact(db_session, betrieb, name="Dublette")
     survivor = make_contact(db_session, betrieb, name="Echt AG")
@@ -176,7 +178,8 @@ def test_a_frozen_order_moves_but_keeps_the_name_it_was_frozen_with(client, db_s
 
     moved = _order(db_session, order["id"])
     assert moved.invoice_recipient_contact_id == survivor.id
-    assert moved.invoice_recipient_label == "Dublette"
+    assert moved.invoice_recipient_label == "Echt AG"
+    assert moved.state is ServiceOrderState.READY_FOR_BILLING
 
 
 def test_a_vehicle_merge_moves_the_order_to_the_record_the_car_lives_on(client, db_session):
@@ -201,7 +204,7 @@ def test_a_vehicle_merge_moves_the_order_to_the_record_the_car_lives_on(client, 
     assert _states(db_session) == {}
 
 
-def test_the_nightly_job_relabels_an_open_order_and_restamps_a_frozen_one(client, db_session):
+def test_the_nightly_job_relabels_every_order(client, db_session):
     betrieb = make_betrieb(client, db_session)
     open_order = new_order(client, db_session, betrieb)
     frozen = new_order(client, db_session, betrieb)
@@ -221,8 +224,8 @@ def test_the_nightly_job_relabels_an_open_order_and_restamps_a_frozen_one(client
     assert relabelled.contact_label == "Neu AG" and relabelled.invoice_recipient_label == "Neu AG"
     assert relabelled.location_label == "Filiale Nord"
     assert relabelled.version == open_order["version"]  # a copy refreshed on purpose: no version bump
-    kept = _order(db_session, frozen["id"])
-    assert kept.contact_label == "Muster AG" and kept.contact_label_refreshed_at > _LONG_AGO
+    cancelled = _order(db_session, frozen["id"])
+    assert cancelled.contact_label == "Neu AG" and cancelled.contact_label_refreshed_at > _LONG_AGO
     assert {(row, column) for row, column, _, _ in report.changed} >= {
         (relabelled.id, "contact_label"), (relabelled.id, "location_label")
     }
@@ -241,3 +244,32 @@ def test_the_nightly_job_leaves_a_merged_contact_alone(client, db_session):
 
     assert (uuid.UUID(order["id"]), "contact_label") in report.unresolved
     assert _order(db_session, order["id"]).contact_id == contact_id  # the consumer moves it, not the job
+
+
+def test_a_vehicle_chain_merge_delivered_out_of_order_lands_on_the_live_record(client, db_session):
+    """A→B is delivered after B→C: the order lands on C, never on the merged B."""
+
+    betrieb = make_betrieb(client, db_session)
+    order = new_order(client, db_session, betrieb)
+    first = uuid.UUID(order["vehicleId"])
+    middle, end = make_vehicle(db_session), make_vehicle(db_session)
+    first_into_middle = _merge_vehicle(db_session, duplicate_id=first, survivor_id=middle)
+    middle_into_end = _merge_vehicle(db_session, duplicate_id=middle, survivor_id=end)
+
+    assert _deliver_vehicle(db_session, middle_into_end)
+    assert _deliver_vehicle(db_session, first_into_middle)
+    db_session.commit()
+
+    assert _order(db_session, order["id"]).vehicle_id == end
+
+
+def test_the_nightly_job_relabels_a_car_whose_record_changed(client, db_session):
+    betrieb = make_betrieb(client, db_session)
+    order = new_order(client, db_session, betrieb)
+    record = db_session.get(VehicleMdm, uuid.UUID(order["vehicleId"]))
+    record.vin = "WVWZZZ1KZAW837099"
+    db_session.commit()
+
+    refresh_order_labels(db_session)
+
+    assert _order(db_session, order["id"]).vehicle_label == "WVWZZZ1KZAW837099"

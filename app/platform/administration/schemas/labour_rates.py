@@ -105,8 +105,6 @@ class LabourRateAgreementRead(CamelModel):
     entered: PriceEntry | None
     status: LabourRateStatus
     withdrawn_at: dt.datetime | None
-    # KAN-831: set aside by a contact merge (the survivor's own row of that date won).
-    set_aside_at: dt.datetime | None
     version: int
     created_at: dt.datetime
 
