@@ -11,7 +11,7 @@ import {
   type FakeRoute,
   type RecordedCall,
 } from '../test/fakeBackend'
-import { ServiceCataloguePage } from './ServiceCataloguePage'
+import { ServicePackagesPage } from './ServicePackagesPage'
 
 // KAN-818 — Dealer Administration › Service catalogue (S1; section 3.10, rulings 176, 182, 183).
 
@@ -134,12 +134,12 @@ afterEach(() => {
   cleanup()
 })
 
-const render = () => renderWithProviders(<ServiceCataloguePage />, { route: '/administration/service-catalogue' })
+const render = () => renderWithProviders(<ServicePackagesPage />, { route: '/administration/service-catalogue' })
 const table = () => screen.findByRole('table', { name: i18n.t('serviceCatalogue.title') })
 const calls = (backend: { calls: RecordedCall[] }, method: string, path: RegExp) =>
   backend.calls.filter((call) => call.method === method && path.test(call.pathname))
 
-describe('ServiceCataloguePage (KAN-818)', () => {
+describe('ServicePackagesPage (KAN-818)', () => {
   it('lists every package in the UI language, as typed without a translation, with time, check and state', async () => {
     install()
     render()

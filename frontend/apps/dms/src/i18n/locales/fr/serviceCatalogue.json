@@ -14,8 +14,8 @@
   "saveError": "Le forfait n'a pas pu être enregistré.",
   "mixedUnits": "Heures et UT mélangées",
   "checkBadge": "Contrôle requis",
-  "positionCount_one": "{{count}} position ({{labour}} travail)",
-  "positionCount_other": "{{count}} positions ({{labour}} travail)",
+  "positionCount_one": "{{count, number}} position ({{labour, number}} travail)",
+  "positionCount_other": "{{count, number}} positions ({{labour, number}} travail)",
   "columns": {
     "name": "Forfait",
     "positions": "Positions",

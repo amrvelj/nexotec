@@ -50,7 +50,7 @@ function unitOf(settings: AreaSettingsRead | undefined): TimeUnitInForce {
  * offered for a new job, and no order that holds its positions changes
  * (check 45). Nexotec ships no package (ruling 174).
  */
-export function ServiceCataloguePage() {
+export function ServicePackagesPage() {
   const { t, i18n } = useTranslation()
   useSetBreadcrumb([t('shell.nav.administration'), t('serviceCatalogue.title')])
   const { activeDealership } = useAuth()

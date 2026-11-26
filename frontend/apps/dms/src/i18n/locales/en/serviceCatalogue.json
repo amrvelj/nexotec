@@ -14,8 +14,8 @@
   "saveError": "The package could not be saved.",
   "mixedUnits": "Hours and work units mixed",
   "checkBadge": "Check needed",
-  "positionCount_one": "{{count}} position ({{labour}} labour)",
-  "positionCount_other": "{{count}} positions ({{labour}} labour)",
+  "positionCount_one": "{{count, number}} position ({{labour, number}} labour)",
+  "positionCount_other": "{{count, number}} positions ({{labour, number}} labour)",
   "columns": {
     "name": "Package",
     "positions": "Positions",

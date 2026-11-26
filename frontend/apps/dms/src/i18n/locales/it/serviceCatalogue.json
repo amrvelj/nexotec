@@ -14,8 +14,8 @@
   "saveError": "Non è stato possibile salvare il pacchetto.",
   "mixedUnits": "Ore e UL miste",
   "checkBadge": "Controllo necessario",
-  "positionCount_one": "{{count}} posizione ({{labour}} lavoro)",
-  "positionCount_other": "{{count}} posizioni ({{labour}} lavoro)",
+  "positionCount_one": "{{count, number}} posizione ({{labour, number}} lavoro)",
+  "positionCount_other": "{{count, number}} posizioni ({{labour, number}} lavoro)",
   "columns": {
     "name": "Pacchetto",
     "positions": "Posizioni",

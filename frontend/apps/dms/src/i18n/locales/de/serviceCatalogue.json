@@ -14,8 +14,8 @@
   "saveError": "Das Paket konnte nicht gespeichert werden.",
   "mixedUnits": "Stunden und AW gemischt",
   "checkBadge": "Prüfung nötig",
-  "positionCount_one": "{{count}} Position ({{labour}} Arbeit)",
-  "positionCount_other": "{{count}} Positionen ({{labour}} Arbeit)",
+  "positionCount_one": "{{count, number}} Position ({{labour, number}} Arbeit)",
+  "positionCount_other": "{{count, number}} Positionen ({{labour, number}} Arbeit)",
   "columns": {
     "name": "Paket",
     "positions": "Positionen",
