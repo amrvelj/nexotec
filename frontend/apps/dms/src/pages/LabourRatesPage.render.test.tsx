@@ -36,6 +36,8 @@ const declaration = (key: string, kind: string, extra: Record<string, unknown> =
   checklistItem: false,
   checklistBlocks: null,
   choiceRequires: [],
+  divides: null,
+  multipleOf: null,
   ...extra,
 })
 
