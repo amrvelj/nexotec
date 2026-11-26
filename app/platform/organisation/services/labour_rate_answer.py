@@ -65,6 +65,42 @@ class LabourRateAnswer:
     missing: LabourRateMissing | None = None
 
 
+@dataclass(frozen=True)
+class LabourCategoryLabel:
+    """A labour category as another context names it beside its id (rule 2's
+    label, KAN-810): its name as typed, its translations (ruling 176) and
+    whether it is still offered."""
+
+    id: uuid.UUID
+    name: str
+    name_translations: dict[str, str] | None
+    is_active: bool
+
+
+def labour_category_labels(
+    db: Session, *, dealership_id: uuid.UUID, category_ids: list[uuid.UUID]
+) -> dict[uuid.UUID, LabourCategoryLabel]:
+    """The Betrieb's categories among `category_ids`, by id. An id of another
+    Betrieb, or of none, is absent. A SELECT only."""
+
+    if not category_ids:
+        return {}
+    rows = db.scalars(
+        select(LabourRateCategory).where(
+            LabourRateCategory.dealership_id == dealership_id, LabourRateCategory.id.in_(set(category_ids))
+        )
+    )
+    return {
+        row.id: LabourCategoryLabel(
+            id=row.id,
+            name=row.name,
+            name_translations=dict(row.name_translations) if row.name_translations else None,
+            is_active=row.is_active,
+        )
+        for row in rows
+    }
+
+
 def labour_rate_for(
     db: Session,
     *,

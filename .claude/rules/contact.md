@@ -56,7 +56,8 @@ sales files belong to other rules. Last verified against main@32ad509 (2026-11-2
 
 ## The rename from customers (KAN-464, ADR-210)
 - Kept: the Alembic chain and history; old audit rows' `entity_type` `customer` (read);
-  `{{customer.salutation}}`. Until PR-5: `customer.merged` stays subscribed (`sales.`/`inventory.customer_merged`), old payload keys, old-name events reported, `/customers/*` redirect.
+  `{{customer.salutation}}`; old outbox rows. PR-5 retired old-name consumers, old payload keys
+  (refused: dead-lettered) and `/customers/*`; reconciliation names old-key rows.
 - Guards: `test_kan464_no_customer_naming.py`, `no-customer-wording.test.ts`
 
 ## Contact channels (ADR-067) — child records, not columns

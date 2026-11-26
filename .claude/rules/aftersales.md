@@ -12,7 +12,7 @@ Last verified against main@32ad509 (2026-11-25). -->
 
 # Aftersales (workshop orders) and Parts
 
-- **`aftersales` is an empty shell until KAN-810; `parts` stays empty in slice 1.** The slice is one
+- **`aftersales` holds the workshop order since KAN-810 (`services/service_order.py`); `parts` stays empty in slice 1.** The slice is one
   road: an order for a customer's car, jobs and positions, the customer's yes at the desk, the work
   planned, «Fahrzeug ist da», the technician's clock, the quality check, «Rechnungsbereit», the
   handover. Parts, offers and the customer's page, findings, other payers, internal orders and

@@ -107,9 +107,11 @@ from app.platform.organisation.services.dealership import get_dealership_default
 from app.platform.organisation.services.entitlement_facts import MODULE_ENTITLEMENT_GRANTED_EVENT
 from app.platform.organisation.services.group_read_dealerships import DealershipRef, list_group_read_dealerships
 from app.platform.organisation.services.labour_rate_answer import (
+    LabourCategoryLabel,
     LabourRateAnswer,
     LabourRateMissing,
     LabourRateSource,
+    labour_category_labels,
     labour_rate_for,
 )
 from app.platform.organisation.services.labour_rate_settings import (
@@ -124,6 +126,7 @@ from app.platform.organisation.services.organisation_refs import (
     LocationSummary,
     enable_group_read,
     get_dealer_group_or_404,
+    get_dealership_cash_rounding,
     get_dealership_or_404,
     get_location_or_404,
 )
@@ -135,6 +138,7 @@ from app.platform.organisation.services.reconciliation_targets import (
     dealership_reference_check,
     find_dealer_group_ids,
     find_dealership_group_ids,
+    labour_rate_category_reference_check,
     location_reference_check,
 )
 from app.platform.organisation.services.setting_declarations import (
@@ -252,6 +256,12 @@ from app.platform.reference.services.reference_data import get_active_reference_
 # The composition root's agreement POST (app/api/v1/labour_rate_agreements.py)
 # calls labour_rates_guard, resolves the contact, then create_labour_rate_agreement
 # (LabourRateAgreementCreate in, LabourRateAgreementRead out; it commits).
+#
+# KAN-810 (Aftersales' workshop order): labour_category_labels names a labour
+# position's category beside its id (LabourCategoryLabel, plain values);
+# get_dealership_cash_rounding is the step the order's total rounds to;
+# labour_rate_category_reference_check is the category reference's nightly
+# check (reconciliation only). Plain reads.
 
 
 # The settings store's door for declarations (see the paragraph above).
@@ -292,6 +302,7 @@ __all__ = [
     "IssuedDocumentLink",
     "KeyValueBlock",
     "KeyValueRow",
+    "LabourCategoryLabel",
     "LabourRateAgreementCreate",
     "LabourRateAgreementRead",
     "LabourRateAnswer",
@@ -354,6 +365,7 @@ __all__ = [
     "get_active_reference_value_codes",
     "get_active_user_acting_in",
     "get_dealer_group_or_404",
+    "get_dealership_cash_rounding",
     "get_dealership_default_correspondence_language",
     "get_dealership_or_404",
     "get_group_display_labels",
@@ -366,6 +378,8 @@ __all__ = [
     "is_platform_dealership",
     "issue_document_link",
     "labour_categories_of_user",
+    "labour_category_labels",
+    "labour_rate_category_reference_check",
     "labour_rate_for",
     "labour_rates_guard",
     "labour_time_unit",
