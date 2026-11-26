@@ -210,3 +210,63 @@ def test_reconciliation_reports_a_scope_a_reactivated_location_left_broken(db_se
     assert sorted(_findings(db_session), key=str) == sorted(
         [_slot_id(db_session, betrieb, SLOT, north), _slot_id(db_session, betrieb, GRID, south)], key=str
     )
+
+
+# --- KAN-840: «not set», acts-as and a value that no longer fits agree everywhere ---------------
+
+
+def test_a_number_acting_as_a_value_takes_no_part_in_a_multiple_rule():
+    """KAN-840: the rule counts set values only, so a declaration refuses
+    `multiple_of` on a number whose «not set» acts as a value, and naming one."""
+
+    acting_multiple = SettingDeclaration(
+        key="testarea.slot", module=None, kind=SettingKind.NUMBER, when_not_set=WhenNotSet.ACTS_AS,
+        acts_as=Decimal(30), minimum=Decimal(5), multiple_of="testarea.grid",
+    )
+    with pytest.raises(SettingDeclarationError, match="acts as a value"), samples.declared(acting_multiple):
+        pass
+    multiple = SettingDeclaration(
+        key="testarea.slot", module=None, kind=SettingKind.NUMBER, when_not_set=WhenNotSet.QUIET,
+        minimum=Decimal(5), multiple_of="testarea.grid",
+    )
+    acting_divisor = SettingDeclaration(
+        key="testarea.grid", module=None, kind=SettingKind.NUMBER, when_not_set=WhenNotSet.ACTS_AS,
+        acts_as=Decimal(15), minimum=Decimal(1),
+    )
+    with samples.declared(multiple, acting_divisor), pytest.raises(SettingDeclarationError, match="acts as a value"):
+        check_declaration_references()
+
+
+def _store_raw(db, dealership_id, key, value) -> None:
+    """A stored value that no longer fits today's declaration (a bound moved since)."""
+
+    db.execute(
+        SettingValue.__table__.update()
+        .where(SettingValue.dealership_id == dealership_id, SettingValue.key == key, SettingValue.location_id.is_(None))
+        .values(value_decimal=Decimal(value))
+    )
+    db.commit()
+
+
+@pytest.mark.parametrize(("unfit_key", "unfit_value"), [(GRID, 7), (SLOT, 500)])
+def test_reconciliation_reads_a_value_that_no_longer_fits_as_not_set_like_the_store(
+    db_session, betrieb, unfit_key, unfit_value
+):
+    """KAN-840: a grid of 7 (it no longer divides 60) or a slot of 500 minutes
+    (above 480) reads as «not set» in the store, which breaks nothing; the
+    nightly check judged the raw number and reported 30 of 7, 500 of 15."""
+
+    _set(db_session, betrieb, GRID, 15)
+    _set(db_session, betrieb, SLOT, 30)
+    _store_raw(db_session, betrieb, unfit_key, unfit_value)
+    assert store.read_setting(db_session, dealership_id=betrieb, location_id=None, key=unfit_key).value is None
+
+    assert _findings(db_session) == []
+
+
+def test_reconciliation_still_reports_a_fitting_value_that_is_no_multiple(db_session, betrieb):
+    _set(db_session, betrieb, GRID, 15)
+    _set(db_session, betrieb, SLOT, 30)
+    _store_raw(db_session, betrieb, SLOT, 50)  # fits O7's bounds, but is no multiple of 15
+
+    assert _findings(db_session) == [_slot_id(db_session, betrieb, SLOT, None)]
