@@ -765,6 +765,26 @@ def test_linking_records_an_auth_event_naming_the_provider_never_the_address(cli
     assert "anna@garage-muster.ch" not in str(event.details)
 
 
+def test_linking_a_mailbox_tells_the_user_in_the_security_family(client, db_session, fakes, app_registrations, betrieb):
+    """KAN-799: a linked mailbox can send customer mail as the user (ADR-187), so
+    the link raises `security.connected_account_linked` to the linking user, as
+    the revoke raises its own notice — never silently."""
+
+    from app.platform.identity.models.connected_account import UserConnectedAccount
+    from app.platform.identity.models.notification import Notification
+
+    providers, _ = fakes
+    anna = make_user(db_session, tenant_id=betrieb.id, email="anna@garage-muster.ch")
+    _connect_own_ms(client, providers, anna)
+    db_session.expire_all()
+    (grant,) = db_session.scalars(select(UserConnectedAccount).where(UserConnectedAccount.user_id == anna.id))
+    rows = list(db_session.scalars(select(Notification).where(Notification.user_id == anna.id)))
+    assert [(n.event_code, n.subject_type, n.subject_id, n.link) for n in rows] == [
+        ("security.connected_account_linked", "connected_account", grant.id, "/account/connected-accounts")
+    ]
+    assert "anna@garage-muster.ch" not in str([n.params for n in rows])
+
+
 def test_the_worker_registers_the_mailbox_revokers_for_both_providers(engine, monkeypatch):
     import inspect
 

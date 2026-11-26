@@ -358,6 +358,17 @@ def lock_settings(db: Session, *, dealership_id: uuid.UUID) -> None:
     _lock_dealership(db, dealership_id)
 
 
+@dataclass(frozen=True)
+class SettingWrite:
+    """One slot of a `change_settings` call: the key, the location (None: the
+    Betrieb), the new value (or `NOT_SET`) and the version the caller read."""
+
+    key: str
+    value: Any
+    expected_version: int
+    location_id: uuid.UUID | None = None
+
+
 def change_setting(
     db: Session,
     *,
@@ -375,21 +386,86 @@ def change_setting(
     inactive location, `NotFoundError` for another Betrieb's location, and the
     version conflict for a stale `expected_version`."""
 
-    declaration = _declaration(key)
-    kind = SettingKind(declaration.kind)
-    checked: Value | None = None if value is NOT_SET else validate_value(declaration, value)
+    [slot] = change_settings(
+        db,
+        dealership_id=dealership_id,
+        writes=[SettingWrite(key=key, value=value, expected_version=expected_version, location_id=location_id)],
+        actor_id=actor_id,
+        origin=origin,
+        restored_from_id=restored_from_id,
+    )
+    return slot
+
+
+def change_settings(
+    db: Session,
+    *,
+    dealership_id: uuid.UUID,
+    writes: list[SettingWrite],
+    actor_id: uuid.UUID | None,
+    origin: SettingChangeOrigin = SettingChangeOrigin.EDIT,
+    restored_from_id: uuid.UUID | None = None,
+) -> list[SettingSlot]:
+    """Sets several slots as one change (KAN-839): every value is validated and
+    every version checked first, then the rules across two keys judge the state
+    after all of them together, and only then is each slot written — its own
+    history row and audit row, as `change_setting` writes one. A pair tied by a
+    rule (O6/O7) is so never refused half-way when the pair itself fits. Refuses
+    as `change_setting` does, before anything is written. The caller commits."""
+
+    planned: list[tuple[SettingWrite, SettingKind, Value | None]] = []
+    for write in writes:
+        declaration = _declaration(write.key)
+        checked: Value | None = None if write.value is NOT_SET else validate_value(declaration, write.value)
+        planned.append((write, SettingKind(declaration.kind), checked))
+    slots = [(write.key, write.location_id) for write in writes]
+    if len(set(slots)) != len(slots):
+        raise ValueError("change_settings: a slot is written twice in one change.")
     _lock_dealership(db, dealership_id)
-    if location_id is not None:
+    for location_id in sorted({write.location_id for write in writes if write.location_id is not None}, key=str):
         location = _location(db, dealership_id=dealership_id, location_id=location_id)
         if not location.is_active:
             raise SettingRefused(
                 "A deactivated location's settings are not changed.", reason="setting_location_inactive"
             )
 
-    row = _slot_row(db, dealership_id=dealership_id, location_id=location_id, key=key, for_update=True)
-    check_version(row.version if row is not None else 0, expected_version, entity_name="setting")
-    check_choice_rules(db, dealership_id=dealership_id, location_id=location_id, key=key, proposed=checked, in_force=_in_force)
-    check_multiple_rules(db, dealership_id=dealership_id, location_id=location_id, key=key, proposed=checked, in_force=_in_force)
+    rows: list[SettingValue | None] = []
+    for write, _, _ in planned:
+        row = _slot_row(db, dealership_id=dealership_id, location_id=write.location_id, key=write.key, for_update=True)
+        check_version(row.version if row is not None else 0, write.expected_version, entity_name="setting")
+        rows.append(row)
+    proposed = {(write.key, write.location_id): checked for write, _, checked in planned}
+    check_choice_rules(db, dealership_id=dealership_id, proposed=proposed, in_force=_in_force)
+    check_multiple_rules(db, dealership_id=dealership_id, proposed=proposed, in_force=_in_force)
+    return [
+        _write_slot(
+            db,
+            dealership_id=dealership_id,
+            write=write,
+            kind=kind,
+            checked=checked,
+            row=row,
+            actor_id=actor_id,
+            origin=origin,
+            restored_from_id=restored_from_id,
+        )
+        for (write, kind, checked), row in zip(planned, rows, strict=True)
+    ]
+
+
+def _write_slot(
+    db: Session,
+    *,
+    dealership_id: uuid.UUID,
+    write: SettingWrite,
+    kind: SettingKind,
+    checked: Value | None,
+    row: SettingValue | None,
+    actor_id: uuid.UUID | None,
+    origin: SettingChangeOrigin,
+    restored_from_id: uuid.UUID | None,
+) -> SettingSlot:
+    key, location_id = write.key, write.location_id
     before = _value_of(row) if row is not None else None
     if row is None and checked is None:
         # Clearing a slot never written changes nothing.

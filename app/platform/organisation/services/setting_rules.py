@@ -41,12 +41,20 @@ the same lock, the same «never worse»:
 
 «Not set» on either side breaks nothing: each setting refuses its own reader
 while not set. No acts-as applies: a number with an acts-as value has none here.
+
+**Several keys at once** (KAN-839): each check takes every slot the write
+changes, and judges the state after all of them. The copy from a sister
+Betrieb writes a pair tied by a rule as one change
+(`setting_store.change_settings`), so a pair valid on its own is never refused
+because one of its keys, written alone first, did not fit the target's other
+key (target 15/45, source 10/40). The refusal names the multiple's code when
+the multiple is among the keys written, the choice's code when the choice is.
 """
 
 from __future__ import annotations
 
 import uuid
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from typing import Any
 
 from sqlalchemy import select
@@ -65,6 +73,8 @@ from app.platform.organisation.services.setting_declarations import (
 
 # (key, location_id) -> the value in force in that slot, None when not set.
 _Slots = dict[tuple[str, uuid.UUID | None], Any]
+# The slots one write changes: (key, location_id) -> the proposed value (None: clearing).
+Proposed = Mapping[tuple[str, uuid.UUID | None], Any]
 
 
 def _effective(slots: _Slots, declaration: SettingDeclaration, location_id: uuid.UUID | None) -> Any:
@@ -119,28 +129,26 @@ def check_choice_rules(
     db: Session,
     *,
     dealership_id: uuid.UUID,
-    location_id: uuid.UUID | None,
-    key: str,
-    proposed: Any,
+    proposed: Proposed,
     in_force: Callable[[SettingDeclaration, SettingValue], Any],
 ) -> None:
-    """Refuses the write of `proposed` (None: clearing) to `key`'s slot at
-    `location_id` when it breaks a rule across two keys. `in_force` is the
+    """Refuses the write of `proposed` — each changed slot's new value, None
+    clearing it — when it breaks a rule across two keys. `in_force` is the
     store's reading of a stored slot (its value, or None when not set or no
     longer fitting). Called under the Betrieb's settings lock."""
 
+    written = {key for key, _ in proposed}
     rules = [
         (choice_of, choice, required_key)
         for choice_of, choice, required_key in choice_rules()
-        if key in (choice_of.key, required_key)
+        if written & {choice_of.key, required_key}
     ]
     if not rules:
         return
     keys = {choice_of.key for choice_of, _, _ in rules} | {required_key for _, _, required_key in rules}
     declarations = {k: get_declaration(k) for k in keys}
     before = _slots_of(db, dealership_id=dealership_id, keys=keys, in_force=in_force)
-    after = dict(before)
-    after[(key, location_id)] = proposed
+    after = {**before, **proposed}
     scopes = _scopes(db, dealership_id, after)
 
     for choice_of, choice, required_key in rules:
@@ -157,7 +165,7 @@ def check_choice_rules(
                     "requires": required_key,
                     "locationId": str(scope) if scope is not None else None,
                 }
-                if key == choice_of.key:
+                if choice_of.key in written:
                     raise SettingValueError(
                         f"{choice_of.key} cannot be {choice!r} while {required_key} is not set.",
                         reason="setting_choice_requires_setting",
@@ -181,22 +189,20 @@ def check_multiple_rules(
     db: Session,
     *,
     dealership_id: uuid.UUID,
-    location_id: uuid.UUID | None,
-    key: str,
-    proposed: Any,
+    proposed: Proposed,
     in_force: Callable[[SettingDeclaration, SettingValue], Any],
 ) -> None:
-    """Refuses the write of `proposed` (None: clearing) to `key`'s slot at
-    `location_id` when it leaves a multiple no multiple of its key in a scope
+    """Refuses the write of `proposed` — each changed slot's new value, None
+    clearing it — when it leaves a multiple no multiple of its key in a scope
     where it was one. Called under the Betrieb's settings lock."""
 
-    rules = [(multiple, of) for multiple, of in multiple_rules() if key in (multiple.key, of)]
+    written = {key for key, _ in proposed}
+    rules = [(multiple, of) for multiple, of in multiple_rules() if written & {multiple.key, of}]
     if not rules:
         return
     keys = {multiple.key for multiple, _ in rules} | {of for _, of in rules}
     before = _slots_of(db, dealership_id=dealership_id, keys=keys, in_force=in_force)
-    after = dict(before)
-    after[(key, location_id)] = proposed
+    after = {**before, **proposed}
     scopes = _scopes(db, dealership_id, after)
 
     for multiple, of_key in rules:
@@ -210,7 +216,7 @@ def check_multiple_rules(
                     "multipleOf": of_key,
                     "locationId": str(scope) if scope is not None else None,
                 }
-                if key == multiple.key:
+                if multiple.key in written:
                     raise SettingValueError(
                         f"{multiple.key} must be a multiple of {of_key}.",
                         reason="setting_not_a_multiple_of_setting",

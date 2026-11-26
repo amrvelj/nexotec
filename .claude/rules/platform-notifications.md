@@ -72,11 +72,9 @@ against main@32ad509 (2026-11-25). -->
   per user filed under no Betrieb (a digest may span sister Betriebe).
 - The security family hangs on `auth_events.record` (`services/security_alerts.py`): new-device
   login, factor enrolled or removed, recovery code used, lockout, password reset or replaced, a
-  session ended by someone else, connected account revoked, and staff recovery (the action as a
+  session ended by someone else, connected account linked (KAN-215's mailbox link, KAN-799) or revoked, and staff recovery (the action as a
   closed code, never the reason). Impersonation start and end (`security.impersonation_started`/`_ended`) are raised by
-  `services/support_sessions.py` to the supported user (KAN-221 PR-4); connected-account linking ships
-  (KAN-215 records `connected_account_linked`) but raises no notice — `security.connected_account_linked`
-  is in the catalogue only (KAN-799).
+  `services/support_sessions.py` to the supported user (KAN-221 PR-4).
 - **Web Push is a port with no working adapter**: no VAPID key is configured — its home is
   `app/core/config.py`, a preserved file, so adding it is Anto's decision — so
   `GET /v1/me/push/config` says unavailable and nothing is pushed. Pushes carry title + link only,
