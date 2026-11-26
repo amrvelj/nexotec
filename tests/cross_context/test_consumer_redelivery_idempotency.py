@@ -442,6 +442,49 @@ def _labour_rate_agreements_on_contact_merged(db_session, engine, monkeypatch):
     return message, agreements_on_survivor
 
 
+def _workshop_orders_on_contact_merged(db_session, engine, monkeypatch):
+    """KAN-837 — a contact merge: Aftersales moves the order naming the
+    duplicate to the survivor once (the measure counts orders on the survivor)."""
+
+    from app.aftersales.models.service_order import ServiceOrder
+    from app.vehicle.services.vehicle_mdm import create_vehicle_mdm
+    from tests.aftersales.service_order_support import insert_order
+    from tests.sales.test_sales_contact_merged_consumer import _contact, _merge
+
+    tenant_id, group_id = uuid.uuid4(), uuid.uuid4()
+    survivor = _contact(db_session, group_id, tenant_id, "Survivor")
+    duplicate = _contact(db_session, group_id, tenant_id, "Duplicate")
+    car = create_vehicle_mdm(db_session, vin="WVWZZZ1KZAW837001", catalogue_variant_id=None)
+    insert_order(db_session, tenant_id=tenant_id, contact_id=duplicate.id, vehicle_id=car.id)
+    message = _merge(db_session, duplicate_id=duplicate.id, survivor_id=survivor.id, group_id=group_id)
+
+    def orders_on_survivor(db: Session) -> int:
+        return db.scalar(select(func.count()).select_from(ServiceOrder).where(ServiceOrder.contact_id == survivor.id))
+
+    return message, orders_on_survivor
+
+
+def _workshop_orders_on_vehicle_merged(db_session, engine, monkeypatch):
+    """KAN-837 — a vehicle merge, from the real producer: the order naming the
+    duplicate record moves onto the survivor, once."""
+
+    from app.aftersales.models.service_order import ServiceOrder
+    from app.vehicle.services.merge import MERGED_EVENT, merge_vehicles
+    from app.vehicle.services.vehicle_mdm import create_vehicle_mdm
+    from tests.aftersales.service_order_support import insert_order
+
+    survivor = create_vehicle_mdm(db_session, vin="WVWZZZ1KZAW837002", catalogue_variant_id=None)
+    duplicate = create_vehicle_mdm(db_session, vin="WVWZZZ1KZAW837003", catalogue_variant_id=None)
+    insert_order(db_session, tenant_id=uuid.uuid4(), contact_id=uuid.uuid4(), vehicle_id=duplicate.id)
+    merge_vehicles(db_session, survivor_id=survivor.id, duplicate_id=duplicate.id, actor_id=uuid.uuid4())
+    message = _message(db_session, MERGED_EVENT, duplicate.id)
+
+    def on_survivor(db: Session) -> int:
+        return db.scalar(select(func.count()).select_from(ServiceOrder).where(ServiceOrder.vehicle_id == survivor.id))
+
+    return message, on_survivor
+
+
 def _invoice_requested_with_plate(db_session, engine, monkeypatch):
     """KAN-523 — «Rechnung anfordern» with the plate the car leaves with, from
     the real producer: vehicle-mdm records it on the sold car, once."""
@@ -1174,6 +1217,8 @@ _FIXTURES: dict[str, Fixture] = {
     "sales.contact_merged": _contact_merged,
     "inventory.contact_merged": _stock_suppliers_on_contact_merged,
     "platform.labour_rate_agreements_on_contact_merged": _labour_rate_agreements_on_contact_merged,
+    "aftersales.contact_merged": _workshop_orders_on_contact_merged,
+    "aftersales.vehicle_merged": _workshop_orders_on_vehicle_merged,
     "sales.stock_item_reassigned": _stock_item_reassigned,
     "inventory.marketplace_transmission_on_publish": _stock_item_published,
     "reporting.public_stock_listing": _website_listing_changed,

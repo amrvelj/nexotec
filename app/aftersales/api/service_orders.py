@@ -129,8 +129,11 @@ def change_service_order_parties(
     principal: Principal = Depends(require_write(_READ)),
     db: Session = Depends(get_db),
 ):
-    order = _locked(db, principal, order_id, if_match)
     changes = {name: getattr(body, name) for name in body.model_fields_set}
+    # KAN-837: the new contacts' merge locks before the order's row lock, the order
+    # aftersales.contact_merged takes them in.
+    service.lock_order_contacts(db, changes.values())
+    order = _locked(db, principal, order_id, if_match)
     service.change_parties(db, order=order, group_id=principal.group_id, actor_id=principal.user_id, changes=changes)
     return _read(db, principal, order_id)
 
