@@ -111,7 +111,7 @@ def test_a_blocked_driver_is_not_refused(client, db_session, betrieb):
     """Table 3.1 names the contact and the invoice recipient only."""
 
     contact = make_contact(db_session, betrieb)
-    driver = make_contact(db_session, betrieb, name="Fahrer", blocked_reason="Kreditlimite")
+    driver = make_contact(db_session, betrieb, name="Fahrer", blocked_reason="Hausverbot")
     response = create_order(client, betrieb, contact.id, make_vehicle(db_session), driverContactId=str(driver.id))
     assert response.status_code == 201, response.text
     assert response.json()["driver"]["contactId"] == str(driver.id)
@@ -289,6 +289,11 @@ def test_the_people_of_an_open_order_change_and_a_blocked_one_is_refused(client,
     assert changed.status_code == 200, changed.text
     assert changed.json()["invoiceRecipient"] == {"contactId": str(recipient.id), "label": "Flotte AG"}
     assert changed.json()["version"] == order["version"] + 1
+    # A credit block alone does not refuse the change either (Anto, 2026-11-26, Q1 option 1).
+    credit_blocked = make_contact(db_session, betrieb, name="Zahlt bar AG", credit_block_reason="Betreibung")
+    accepted = client.patch(base, json={"invoiceRecipientContactId": str(credit_blocked.id)},
+                            headers=headers(betrieb, if_match=changed.json()["version"]))
+    assert accepted.status_code == 200, accepted.text
 
 
 # --- the list (D1) and the history ------------------------------------------------------------------
