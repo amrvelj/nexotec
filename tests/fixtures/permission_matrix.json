@@ -258,6 +258,16 @@
       "write": []
     },
     {
+      "label": "Planner",
+      "key": "planner",
+      "read": [
+        "aftersales"
+      ],
+      "write": [
+        "aftersales"
+      ]
+    },
+    {
       "label": "Connected accounts of a user",
       "key": "connected_accounts",
       "read": [],

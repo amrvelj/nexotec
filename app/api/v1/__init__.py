@@ -25,6 +25,7 @@ from app.inventory.api.pricing import router as inventory_pricing_router
 from app.inventory.api.publishing import router as inventory_publishing_router
 from app.inventory.api.reservations import router as inventory_reservations_router
 from app.inventory.api.stock_items import router as stock_items_router
+from app.planning.api.bookings import router as planning_bookings_router
 from app.planning.api.resources import router as planning_resources_router
 from app.platform.administration.api.area_settings import router as area_settings_router
 from app.platform.administration.api.configuration_copy import router as configuration_copy_router
@@ -96,6 +97,7 @@ api_v1_router.include_router(labour_rates_router)
 api_v1_router.include_router(labour_rate_agreements_router)
 # KAN-808: the planner's resources (S7), Dealer Administration behind the aftersales gate.
 api_v1_router.include_router(planning_resources_router)
+api_v1_router.include_router(planning_bookings_router)
 api_v1_router.include_router(contact_groups_router)
 api_v1_router.include_router(dealer_groups_router)
 api_v1_router.include_router(platform_recovery_router)

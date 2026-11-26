@@ -2099,6 +2099,87 @@ export interface paths {
         patch: operations["update_number_range_v1_dealerships__dealership_id__number_ranges__document_type__patch"];
         trace?: never;
     };
+    "/v1/dealerships/{dealership_id}/planning/blocks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create Block
+         * @description Block people and/or workplaces (PL4). Always possible; the bookings it
+         *     hits are marked «neu einplanen» and returned.
+         */
+        post: operations["create_block_v1_dealerships__dealership_id__planning_blocks_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/dealerships/{dealership_id}/planning/bookings/{booking_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Move Booking
+         * @description Change a booking's people, workplace, from and to (PL2).
+         */
+        patch: operations["move_booking_v1_dealerships__dealership_id__planning_bookings__booking_id__patch"];
+        trace?: never;
+    };
+    "/v1/dealerships/{dealership_id}/planning/bookings/{booking_id}/release": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Release Booking
+         * @description Release a booking (PL2): it holds nothing and is kept.
+         */
+        post: operations["release_booking_v1_dealerships__dealership_id__planning_bookings__booking_id__release_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/dealerships/{dealership_id}/planning/day": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Planner Day
+         * @description The location's bookings of one Europe/Zurich day and its grid (O6).
+         */
+        get: operations["get_planner_day_v1_dealerships__dealership_id__planning_day_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/dealerships/{dealership_id}/planning/person-candidates": {
         parameters: {
             query?: never;
@@ -6833,6 +6914,26 @@ export interface components {
             requiresConfirmation: boolean;
         };
         /**
+         * BlockCreate
+         * @description Block people and/or workplaces, with an optional note (Anto, 2026-11-25).
+         */
+        BlockCreate: {
+            /**
+             * Endsat
+             * Format: date-time
+             */
+            endsAt: string;
+            /** Note */
+            note?: string | null;
+            /** Resourceids */
+            resourceIds: string[];
+            /**
+             * Startsat
+             * Format: date-time
+             */
+            startsAt: string;
+        };
+        /**
          * BlockingCondition
          * @description `field` is the marketplace's OWN field name (never inventory's own
          *     internal name) — computed and named before send, per ADR-062.
@@ -6845,6 +6946,93 @@ export interface components {
             /** Message */
             message: string;
         };
+        /** BookedResourceRead */
+        BookedResourceRead: {
+            kind: components["schemas"]["ResourceKind"];
+            /** Label */
+            label: string;
+            /**
+             * Resourceid
+             * Format: uuid
+             */
+            resourceId: string;
+        };
+        /**
+         * BookingChange
+         * @description The write a warning was overruled on.
+         * @enum {string}
+         */
+        BookingChange: "booked" | "moved";
+        /**
+         * BookingKind
+         * @enum {string}
+         */
+        BookingKind: "work" | "drop_off" | "pick_up" | "block";
+        /**
+         * BookingMove
+         * @description Change a booking: its time, its resources, or both. Without `endsAt` a
+         *     slot is O7 long and work or a block keeps its length; without
+         *     `resourceIds` it keeps its resources.
+         */
+        BookingMove: {
+            /** Confirmedwarnings */
+            confirmedWarnings?: components["schemas"]["ConfirmedWarningWrite"][];
+            /** Endsat */
+            endsAt?: string | null;
+            /** Resourceids */
+            resourceIds?: string[] | null;
+            /**
+             * Startsat
+             * Format: date-time
+             */
+            startsAt: string;
+        };
+        /**
+         * BookingOutcomeRead
+         * @description A booking written, and the bookings the write marked «neu einplanen».
+         */
+        BookingOutcomeRead: {
+            booking: components["schemas"]["BookingRead"];
+            /** Markedforreplanning */
+            markedForReplanning: components["schemas"]["BookingRead"][];
+        };
+        /** BookingRead */
+        BookingRead: {
+            /**
+             * Endsat
+             * Format: date-time
+             */
+            endsAt: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            job: components["schemas"]["LabelledIdRead"] | null;
+            kind: components["schemas"]["BookingKind"];
+            /** Note */
+            note: string | null;
+            /** Overruledwarnings */
+            overruledWarnings: components["schemas"]["OverruledWarningRead"][];
+            reference: components["schemas"]["ReferenceRead"] | null;
+            replan: components["schemas"]["ReplanMarkRead"] | null;
+            /** Resources */
+            resources: components["schemas"]["BookedResourceRead"][];
+            /**
+             * Startsat
+             * Format: date-time
+             */
+            startsAt: string;
+            status: components["schemas"]["BookingStatus"];
+            vehicle: components["schemas"]["LabelledIdRead"] | null;
+            /** Version */
+            version: number;
+        };
+        /**
+         * BookingStatus
+         * @enum {string}
+         */
+        BookingStatus: "booked" | "released";
         /** BrandCreate */
         BrandCreate: {
             /** Code */
@@ -8164,6 +8352,18 @@ export interface components {
             wheels?: string | null;
             /** Wheelssurcharge */
             wheelsSurcharge?: string | null;
+        };
+        /**
+         * ConfirmedWarningWrite
+         * @description A warning the page showed and the user books against, exactly as the
+         *     422 `planning_warnings_unconfirmed` listed it.
+         */
+        ConfirmedWarningWrite: {
+            /** Againstbookingid */
+            againstBookingId?: string | null;
+            code: components["schemas"]["WarningCode"];
+            /** Resourceid */
+            resourceId?: string | null;
         };
         /** ConnectedAccountListRead */
         ConnectedAccountListRead: {
@@ -10628,6 +10828,16 @@ export interface components {
             /** Token */
             token: string;
         };
+        /** LabelledIdRead */
+        LabelledIdRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Label */
+            label: string;
+        };
         /**
          * LabourCategoryCandidateList
          * @description Who may be allocated: the users who work in the business (homed or an
@@ -12783,6 +12993,40 @@ export interface components {
             effectiveFrom?: string | null;
             role: components["schemas"]["VehiclePartyRole"];
         };
+        /**
+         * OverruledWarningRead
+         * @description A warning booked against: kept with the name and the time (decision 22).
+         */
+        OverruledWarningRead: {
+            /** Againstbookingid */
+            againstBookingId: string | null;
+            /**
+             * Bookedendsat
+             * Format: date-time
+             */
+            bookedEndsAt: string;
+            /**
+             * Bookedstartsat
+             * Format: date-time
+             */
+            bookedStartsAt: string;
+            change: components["schemas"]["BookingChange"];
+            code: components["schemas"]["WarningCode"];
+            /**
+             * Overruledat
+             * Format: date-time
+             */
+            overruledAt: string;
+            /**
+             * Overruledby
+             * Format: uuid
+             */
+            overruledBy: string;
+            /** Overruledbyname */
+            overruledByName: string;
+            /** Resourceid */
+            resourceId: string | null;
+        };
         /** OwnMailboxRead */
         OwnMailboxRead: {
             mailbox: components["schemas"]["MailboxRead"] | null;
@@ -13016,6 +13260,39 @@ export interface components {
          * @enum {string}
          */
         PhoneType: "mobile" | "landline" | "work" | "fax";
+        /**
+         * PlannerDayRead
+         * @description One day of one location: its bookings in the Europe/Zurich day
+         *     `[starts_at, ends_at)` — every booking not released that holds a resource
+         *     of the location and overlaps the day — and the grid of setting O6 there
+         *     (null while it is not set).
+         */
+        PlannerDayRead: {
+            /** Bookings */
+            bookings: components["schemas"]["BookingRead"][];
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /**
+             * Endsat
+             * Format: date-time
+             */
+            endsAt: string;
+            /** Gridminutes */
+            gridMinutes: number | null;
+            /**
+             * Locationid
+             * Format: uuid
+             */
+            locationId: string;
+            /**
+             * Startsat
+             * Format: date-time
+             */
+            startsAt: string;
+        };
         /**
          * PlateMoveAnswer
          * @description One other car's plate assignment the user confirmed moving the plate
@@ -13929,6 +14206,18 @@ export interface components {
             /** Version */
             version: number;
         };
+        /** ReferenceRead */
+        ReferenceRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Label */
+            label: string;
+            /** Type */
+            type: string;
+        };
         /**
          * ReferenceValueCreate
          * @description list_code is not part of the body — it comes from the
@@ -14027,6 +14316,27 @@ export interface components {
         ReorderMediaRequest: {
             /** Orderedmediaids */
             orderedMediaIds: string[];
+        };
+        /**
+         * ReplanCause
+         * @enum {string}
+         */
+        ReplanCause: "blocked" | "outside_drop_off_pick_up" | "resource_deactivated" | "resource_moved";
+        /**
+         * ReplanMarkRead
+         * @description «Neu einplanen»: why, since when, and what caused it.
+         */
+        ReplanMarkRead: {
+            cause: components["schemas"]["ReplanCause"];
+            /** Causedbybookingid */
+            causedByBookingId: string | null;
+            /** Causedbyresourceid */
+            causedByResourceId: string | null;
+            /**
+             * Since
+             * Format: date-time
+             */
+            since: string;
         };
         /** ReservationRead */
         ReservationRead: {
@@ -16880,6 +17190,12 @@ export interface components {
             /** Stocknumber */
             stockNumber: string;
         };
+        /**
+         * WarningCode
+         * @description What warns and stays bookable (check 18; Anto, 2026-11-25).
+         * @enum {string}
+         */
+        WarningCode: "outside_working_hours" | "before_drop_off" | "after_pick_up" | "resource_blocked";
         /** WebsiteListingRead */
         WebsiteListingRead: {
             /** Blockingconditions */
@@ -22384,6 +22700,165 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["NumberRangeRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_block_v1_dealerships__dealership_id__planning_blocks_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                dealership_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BlockCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BookingOutcomeRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    move_booking_v1_dealerships__dealership_id__planning_bookings__booking_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "If-Match"?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                booking_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BookingMove"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BookingOutcomeRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    release_booking_v1_dealerships__dealership_id__planning_bookings__booking_id__release_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "If-Match"?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                booking_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BookingRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_planner_day_v1_dealerships__dealership_id__planning_day_get: {
+        parameters: {
+            query: {
+                locationId: string;
+                date: string;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlannerDayRead"];
                 };
             };
             /** @description Validation Error */

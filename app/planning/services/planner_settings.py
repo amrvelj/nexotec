@@ -83,6 +83,15 @@ def _minutes(value: object, key: str) -> int:
     return int(value)
 
 
+def read_minutes_or_none(db: Session, *, dealership_id: uuid.UUID, location_id: uuid.UUID, key: str) -> int | None:
+    """O6 or O7 at this location (its own value, else the Betrieb's), or None
+    while it is not set — for a read that shows the gap instead of refusing
+    (the planner page, KAN-809)."""
+
+    read = read_setting(db, dealership_id=dealership_id, location_id=location_id, key=key)
+    return _minutes(read.value, key) if read.is_set else None
+
+
 def grid_minutes(db: Session, *, dealership_id: uuid.UUID, location_id: uuid.UUID) -> int:
     """O6 at this location (its own value, else the Betrieb's); 409 while not set."""
 

@@ -43,6 +43,14 @@ def location_label_for(db: Session, *, dealership_id: uuid.UUID, location_id: uu
     return current.label[:LABEL_LENGTH]
 
 
+def location_belongs_to(db: Session, *, dealership_id: uuid.UUID, location_id: uuid.UUID) -> bool:
+    """Whether the location is one of the Betrieb's, active or not (a read of
+    its planner day; another Betrieb's reads as missing, rule 7)."""
+
+    current = get_location_labels(db, {location_id}).get(location_id)
+    return current is not None and current.dealership_id == dealership_id
+
+
 def require_active_location(db: Session, *, dealership_id: uuid.UUID, location_id: uuid.UUID) -> None:
     """A booking's location — its resources' — must be one of the Betrieb's
     active locations: 422 `planning_location_inactive` otherwise (a location
