@@ -124,7 +124,7 @@ sales files belong to other rules. Last verified against main@32ad509 (2026-11-2
 - `contact_role`: `customer` / `supplier`, one open row per role (`valid_to` closes it, never deleted);
   every contact that existed before was migrated with `customer`; a create without `roles` is a customer.
   `services/roles.py`.
-- Lifecycle (prospect/active/inactive), credit block and advisor are the **customer role's**: without it,
+- Lifecycle (prospect/active/inactive), credit block, «Gesperrt» and advisor are the **customer role's**: without it,
   stored `active` is neutral, no D-24 advisor, setting one is 422 `customer_role_required`; taking the
   role away resets them (audited), refused while credit-blocked (409 `customer_role_credit_blocked`).
   Lifecycle filters on those values and the unassigned queue match customers only. A merge unites roles.
@@ -142,6 +142,12 @@ sales files belong to other rules. Last verified against main@32ad509 (2026-11-2
 - **ADR-065 — a credit block stops contract confirmation, not the offer.** **Do-not-contact** is
   the `lifecycleStatus` value `do_not_contact`, not a flag, and stops the offer and the contract. A
   credit block is visible on the contact's own screens, not only inside the offer.
+- **«Gesperrt» (`blocked`, KAN-810; Anto, 2026-11-26)** is a block of its own, beside the credit block:
+  a workshop order refuses the contact as its orderer or invoice recipient, while the credit block
+  only changes how such an order is paid (at pick-up). Sales does not read it. Shaped like the credit
+  block — `POST /v1/contacts/{id}/block`, a reason to place it (409 `contact_block_reason_required`),
+  `blockedAt`, audited `block_changed`, the customer role's data (409 `customer_role_blocked` when
+  the role is taken away), `contact.public`'s `ContactRef.blocked`.
 - **`vatStatusConfirmed`**: `vatRegistered = false` is also the default, so a second checkbox says
   someone checked it; every row started unconfirmed; the purchase booking's supplier VAT prefill reads it (KAN-465).
 

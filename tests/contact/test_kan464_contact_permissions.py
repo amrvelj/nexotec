@@ -240,7 +240,7 @@ def test_every_call_in_app_passes_the_customer_role_cell():
     import ast
     import pathlib
 
-    guarded = {"create_contact", "update_contact", "set_credit_block", "merge_contact"}
+    guarded = {"create_contact", "update_contact", "set_credit_block", "set_block", "merge_contact"}
     root = pathlib.Path(__file__).resolve().parents[2] / "app"
     calls = []
     for path in root.rglob("*.py"):

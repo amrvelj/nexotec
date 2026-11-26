@@ -27,6 +27,7 @@ from app.contact.schemas.contact import (
     ContactAdvisorOption,
     ContactAdvisorOptionList,
     ContactCreate,
+    ContactBlockRequest,
     ContactCreditBlockRequest,
     ContactDuplicateCandidate,
     ContactDuplicateCandidateList,
@@ -221,6 +222,30 @@ def set_credit_block(
     contact = contact_common_service.get_contact_or_404(db, principal.group_id, contact_id)
     check_version(contact.version, if_match, entity_name="Contact")
     contact = contact_service.set_credit_block(
+        db,
+        contact=contact,
+        blocked=body.blocked,
+        reason=body.reason,
+        actor_id=principal.user_id,
+        acting_dealership_id=principal.tenant_id,
+        may_write_customer_role=_may_write_customer_role(principal),
+    )
+    return _contact_read(db, contact)
+
+
+@router.post("/contacts/{contact_id}/block", response_model=ContactRead)
+def set_block(
+    contact_id: uuid.UUID,
+    body: ContactBlockRequest,
+    if_match: int = Depends(require_if_match),
+    principal: Principal = Depends(require_write("contacts")),
+    db: Session = Depends(get_db),
+):
+    """KAN-810 — «Gesperrt»: a workshop order refuses the contact."""
+
+    contact = contact_common_service.get_contact_or_404(db, principal.group_id, contact_id)
+    check_version(contact.version, if_match, entity_name="Contact")
+    contact = contact_service.set_block(
         db,
         contact=contact,
         blocked=body.blocked,

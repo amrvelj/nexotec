@@ -383,6 +383,16 @@ class Contact(PrimaryKeyMixin, VersionedMixin, TimestampMixin, Base):
     credit_block_reason: Mapped[str | None] = mapped_column(String(500), nullable=True)
     credit_blocked_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)
 
+    # KAN-810 (Anto, 2026-11-26, Q1 option 1): «Gesperrt», a block of its own,
+    # distinct from the credit block above. The credit block changes how a
+    # workshop order is paid (at pick-up); «Gesperrt» refuses the workshop
+    # order itself, as its customer or invoice recipient. Sales does not read
+    # it (same ruling). The customer role's data, like the credit block: set
+    # with a reason, by who may write that role (`contact_customer_role`).
+    blocked: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    blocked_reason: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    blocked_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)
+
     # --- FR-17 / FR-18, ratified 2026-08-21, built in Phase B2 (KAN-50) ---
     # Contact (both types). `website` is scheme-normalised at the schema
     # boundary and rendered as a live link on the 360 — NOT business-gated

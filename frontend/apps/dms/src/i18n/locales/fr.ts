@@ -23,6 +23,7 @@ import ns_businessProfile from './fr/businessProfile.json'
 import ns_catalogueBrowse from './fr/catalogueBrowse.json'
 import ns_common from './fr/common.json'
 import ns_configurator from './fr/configurator.json'
+import ns_contactBlockDialog from './fr/contactBlockDialog.json'
 import ns_contactCreate from './fr/contactCreate.json'
 import ns_contactDetail from './fr/contactDetail.json'
 import ns_contactEnums from './fr/contactEnums.json'
@@ -93,6 +94,7 @@ const bundle = {
   catalogueBrowse: ns_catalogueBrowse,
   common: ns_common,
   configurator: ns_configurator,
+  contactBlockDialog: ns_contactBlockDialog,
   contactCreate: ns_contactCreate,
   contactDetail: ns_contactDetail,
   contactEnums: ns_contactEnums,

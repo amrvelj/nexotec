@@ -82,10 +82,11 @@
     },
     "blockingStrip": {
       "creditBlockTitle": "Credit-blocked",
+      "blockedTitle": "Blocked",
       "doNotContactTitle": "Do not contact",
       "doNotContactNote": "No commercial contact. Service and legally required correspondence are still allowed; an offer or contract is not."
     },
-    "customerRoleFieldsHint": "Status, advisor and credit block belong to the customer role.",
+    "customerRoleFieldsHint": "Status, advisor, credit block and block belong to the customer role.",
     "removeCustomerRole": {
       "title": "Remove the customer role?",
       "body": "The contact loses its status and its advisor; both belong to the customer role. The history records the change.",
@@ -216,7 +217,8 @@
       "vehicle_party_add": "Vehicle linked",
       "vehicle_party_update": "Vehicle link updated",
       "vehicle_party_remove": "Vehicle link ended",
-      "credit_block_changed": "Credit block changed"
+      "credit_block_changed": "Credit block changed",
+      "block_changed": "Block changed"
     },
     "otherAction": "Change recorded",
     "fields": {
@@ -235,6 +237,8 @@
       "duplicateOfContactId": "Duplicate of contact",
       "creditBlock": "Credit block",
       "creditBlockReason": "Credit block reason",
+      "blocked": "Blocked",
+      "blockedReason": "Block reason",
       "vehiclePartiesRepointed": "Vehicle links moved",
       "vehiclePartiesKeptClosed": "Vehicle links kept closed",
       "vehiclePartiesKeptClosedIds": "Vehicle links kept closed (vehicles)",

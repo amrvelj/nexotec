@@ -1,0 +1,13 @@
+{
+  "setTitle": "Bloquer le contact",
+  "clearTitle": "Lever le blocage",
+  "setBody": "Un contact bloqué ne peut être ni donneur d’ordre ni destinataire de la facture d’un ordre d’atelier. Le blocage de crédit en est distinct.",
+  "clearBody": "Lever le blocage de {{number}} ? Des ordres d’atelier peuvent à nouveau être ouverts immédiatement.",
+  "reasonLabel": "Motif",
+  "reasonRequired": "Un motif est requis pour bloquer un contact.",
+  "setSubmit": "Bloquer le contact",
+  "clearSubmit": "Lever le blocage",
+  "cancel": "Annuler",
+  "conflict": "Ce contact a changé depuis l’ouverture. Rechargez et réessayez.",
+  "failed": "Impossible de mettre à jour le blocage."
+}

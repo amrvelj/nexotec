@@ -15,5 +15,7 @@
   "customer_role_required": "This field belongs to the customer role, which this contact does not hold. Give it the customer role first.",
   "customer_role_not_permitted": "The customer role and its fields (status, advisor, credit block) are changed by sales and aftersales. Your role gives contacts the supplier role.",
   "customer_role_credit_blocked": "The customer role cannot be removed while a credit block stands. Lift the block first.",
+  "customer_role_blocked": "The customer role cannot be removed while the contact is blocked. Lift the block first.",
+  "contact_block_reason_required": "A reason is required to block a contact.",
   "contact_role_exists": "The contact already holds a role in this change — it changed in the meantime. Reload it and try again."
 }

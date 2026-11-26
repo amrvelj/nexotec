@@ -744,6 +744,61 @@ def set_credit_block(
     return contact
 
 
+
+def set_block(
+    db: Session,
+    *,
+    contact: Contact,
+    blocked: bool,
+    reason: str | None,
+    actor_id: uuid.UUID,
+    acting_dealership_id: uuid.UUID | None,
+    may_write_customer_role: bool = True,
+) -> Contact:
+    """KAN-810 (Anto, 2026-11-26, Q1 option 1) — «Gesperrt»: a workshop order
+    refuses the contact as its customer or invoice recipient. Distinct from
+    the credit block, which only changes how such an order is paid; Sales
+    reads neither this nor a change to it. Shaped like `set_credit_block`:
+    the customer role's data, a reason required to place it, audited.
+    """
+
+    if not may_write_customer_role:
+        raise roles_service.customer_role_not_permitted("blocked")
+    reason = reason.strip() if reason else None
+    if blocked and not reason:
+        raise ConflictError(
+            "A reason is required to block a contact.",
+            details={"reason": "contact_block_reason_required"},
+        )
+    if blocked:
+        # Locked first, so a PATCH taking the customer role away cannot slip in between.
+        _lock_for_role_change(db, contact)
+        if ContactRole.CUSTOMER.value not in roles_service.open_roles(db, contact.id):
+            raise roles_service.customer_role_required("blocked")
+
+    before = {"blocked": contact.blocked, "blockedReason": contact.blocked_reason}
+    contact.blocked = blocked
+    contact.blocked_reason = reason if blocked else None
+    contact.blocked_at = utcnow() if blocked else None
+    contact.updated_by = actor_id
+    contact.version += 1
+    db.flush()
+
+    record_audit_event(
+        db,
+        entity_type="contact",
+        entity_id=contact.id,
+        tenant_id=contact.group_id,
+        action="block_changed",
+        actor_id=actor_id,
+        acting_dealership_id=acting_dealership_id,
+        before=before,
+        after={"blocked": contact.blocked, "blockedReason": contact.blocked_reason},
+    )
+    db.commit()
+    db.refresh(contact)
+    return contact
+
 # KAN-371 (Anto, 2026-10-18, option A; ADR-093): the History tab's ids are
 # named on read — the audit log is append-only and keeps only the ids. The
 # keys whose values are ids (or lists of ids) of each kind, as the contact

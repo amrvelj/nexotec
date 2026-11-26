@@ -13,6 +13,7 @@ function handlers(over: Partial<ContactRowMenuHandlers> = {}): ContactRowMenuHan
     onCopyContactNumber: vi.fn(),
     onToggleDoNotContact: vi.fn(),
     onManageCreditBlock: vi.fn(),
+    onManageBlock: vi.fn(),
     ...over,
   }
 }
@@ -167,6 +168,8 @@ describe('buildContactRowMenu (KAN-44 / ADR-061 anti-drift, FR-21/FR-22)', () =>
         'contactRowMenu.linkVehicle',
         'contactRowMenu.setDoNotContact',
         'contactRowMenu.setCreditBlock',
+        // KAN-810: «Gesperrt», beside the credit block.
+        'contactRowMenu.setBlock',
       ])
       expect(createFrom(menu).map((a) => a.label)).toEqual([
         'contactRowMenu.newOffer',

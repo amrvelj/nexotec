@@ -9,6 +9,8 @@
   "removeDoNotContact": "Nicht kontaktieren aufheben",
   "setCreditBlock": "Kreditsperre setzen…",
   "removeCreditBlock": "Kreditsperre aufheben",
+  "setBlock": "Kontakt sperren…",
+  "removeBlock": "Sperre aufheben",
   "mergeInto": "In einen anderen Kontakt zusammenführen…",
   "mergeDisabledMerged": "Dieser Datensatz wurde bereits mit einem anderen zusammengeführt.",
   "copyContactNumber": "Kontaktnummer kopieren",

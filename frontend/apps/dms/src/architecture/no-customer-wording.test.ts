@@ -41,6 +41,7 @@ const ALLOWED_STRINGS: Record<string, [string, Language[]]> = {
   'apiRefusal.reasons.contact:customer_role_required': ['names the role «Kunde»', ALL],
   'apiRefusal.reasons.contact:customer_role_not_permitted': ['names the role «Kunde»', ALL],
   'apiRefusal.reasons.contact:customer_role_credit_blocked': ['names the role «Kunde»', ALL],
+  'apiRefusal.reasons.contact:customer_role_blocked': ['names the role «Kunde»', ALL],
   'contactDetail:mergeRefused.customerRoleNotPermitted': ['names the role «Kunde»', ALL],
   'contactDetail:overview.customerRoleFieldsHint': ['names the role «Kunde»', ALL],
   'contactDetail:overview.removeCustomerRole.title': ['names the role «Kunde»', ALL],

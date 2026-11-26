@@ -5,8 +5,8 @@
   "clearBody": "Lift the credit block on {{number}}? Contracts can be confirmed again immediately.",
   "reasonLabel": "Reason",
   "reasonRequired": "A reason is required to place a credit block.",
-  "setSubmit": "Block contact",
-  "clearSubmit": "Lift block",
+  "setSubmit": "Set credit block",
+  "clearSubmit": "Lift credit block",
   "cancel": "Cancel",
   "conflict": "This contact changed since you opened this. Reload and try again.",
   "failed": "Could not update the credit block."
