@@ -1,0 +1,207 @@
+{
+  "state": {
+    "draft": "Bozza",
+    "accepted": "Accettato",
+    "ready_for_billing": "Pronto per la fatturazione",
+    "cancelled": "Annullato"
+  },
+  "answerState": {
+    "draft": "Bozza",
+    "waiting": "In attesa di risposta",
+    "accepted": "Accettato",
+    "declined": "Rifiutato"
+  },
+  "billingCategory": {
+    "customer": "Cliente"
+  },
+  "kind": {
+    "labour_fixed": "Lavoro",
+    "labour_time": "Lavoro",
+    "text": "Testo"
+  },
+  "kindDetail": {
+    "labour_fixed": "prezzo fisso",
+    "labour_time": "a tempo"
+  },
+  "timeUnit": {
+    "hours": "h",
+    "work_units": "UL"
+  },
+  "unitName": {
+    "hours": "ore",
+    "work_units": "unità di lavoro (UL)"
+  },
+  "rateSource": {
+    "agreement": "tariffa concordata con il destinatario della fattura",
+    "category_rate": "tariffa della categoria nella sede",
+    "typed": "prezzo inserito"
+  },
+  "loadError": "Non è stato possibile caricare l'ordine.",
+  "saveError": "Non è stato possibile salvare la modifica.",
+  "reload": "Ricarica",
+  "tabs": {
+    "positions": "Posizioni",
+    "overview": "Panoramica",
+    "history": "Cronologia"
+  },
+  "actions": {
+    "open": "Apri",
+    "addJob": "Aggiungi gruppo",
+    "cancel": "Annulla l'ordine",
+    "frozen": "Questo ordine è chiuso e non può più essere modificato.",
+    "cancelNotInState": {
+      "cancelled": "L'ordine è già annullato.",
+      "ready_for_billing": "Un ordine pronto per la fatturazione non può essere annullato."
+    }
+  },
+  "jobs": {
+    "empty": "Ancora nessun gruppo. Create il primo con «Aggiungi gruppo».",
+    "addPosition": "Posizione",
+    "rename": "Rinomina",
+    "delete": "Elimina il gruppo",
+    "deleteBody": "Eliminare «{{name}}» con tutte le sue posizioni?",
+    "noPositions": "Ancora nessuna posizione.",
+    "dialog": {
+      "addTitle": "Aggiungi gruppo",
+      "renameTitle": "Rinomina il gruppo",
+      "name": "Denominazione",
+      "add": "Aggiungi",
+      "nameMissing": "Inserite un nome."
+    }
+  },
+  "positions": {
+    "columns": {
+      "kind": "Tipo",
+      "text": "Denominazione",
+      "quantity": "Quantità",
+      "unitPriceNet": "Prezzo netto",
+      "net": "Netto",
+      "gross": "IVA incl."
+    },
+    "edit": "Modifica la posizione",
+    "delete": "Elimina la posizione",
+    "deleteBody": "Eliminare «{{text}}»?",
+    "confirmDelete": "Elimina"
+  },
+  "totals": {
+    "title": "Totale dell'ordine per pagatore",
+    "accepted": "Accettato",
+    "open": "Ancora aperto",
+    "net": "Netto",
+    "vatLine": "IVA {{rate}} %",
+    "rounding": "Arrotondamento",
+    "total": "Totale",
+    "none": "Niente",
+    "note": "L'IVA è calcolata una volta per pagatore. Si arrotonda solo alla fine, sul totale."
+  },
+  "positionDialog": {
+    "addTitle": "Posizione",
+    "editTitle": "Modifica la posizione",
+    "kindLabel": "Tipo di posizione",
+    "kinds": {
+      "labour": "Lavoro",
+      "text": "Testo"
+    },
+    "text": "Denominazione",
+    "labourCategory": "Categoria di manodopera",
+    "noCategories": "Per questa azienda non è registrata alcuna categoria di manodopera attiva.",
+    "categoriesError": "Non è stato possibile caricare le categorie di manodopera.",
+    "byTime": "Fatturare secondo il tempo timbrato",
+    "quantity": "Quantità",
+    "quantityIn": "Quantità ({{unit}})",
+    "quantityHint": "Con un prezzo fisso il tempo è un'indicazione per la pianificazione; l'importo è il prezzo fisso.",
+    "workUnitsPerHour": "{{count, number}} UL all'ora",
+    "chooseCategoryFirst": "Scegliete prima la categoria di manodopera.",
+    "rateNet": "Tariffa oraria netta",
+    "rateGross": "Tariffa oraria IVA incl.",
+    "fixedNet": "Prezzo fisso netto",
+    "fixedGross": "Prezzo fisso IVA incl.",
+    "priceLeads": "Vale il prezzo inserito per ultimo; l'altro ne deriva.",
+    "proposal": "Proposta: {{source}}",
+    "proposalFrom": "Proposta: {{source}}, valida dal {{date}}",
+    "noProposal": "Per questa categoria qui alla data dell'ordine non vale alcuna tariffa oraria. Inserite il prezzo.",
+    "proposalError": "Non è stato possibile leggere la proposta.",
+    "useProposal": "Riprendi la proposta",
+    "fixedTyped": "Un prezzo fisso è sempre inserito.",
+    "keepsUnit": "Questa posizione è stata inserita in {{unit}}.",
+    "save": "Salva",
+    "error": "Non è stato possibile salvare la posizione.",
+    "missing": {
+      "text": "Inserite una descrizione.",
+      "category": "Scegliete una categoria di manodopera.",
+      "time": "Inserite il tempo.",
+      "price": "Inserite un prezzo."
+    },
+    "unitMoved": "Questa posizione è stata registrata in {{entry}}; l’azienda conta ora in {{now}}. Un tempo modificato si registra in {{now}}.",
+    "grossPreview": "Calcolato dall’altro prezzo, solo per la visualizzazione; si salva il prezzo inserito per ultimo."
+  },
+  "overview": {
+    "parties": "Partecipanti",
+    "contact": "Committente",
+    "invoiceRecipient": "Fattura a",
+    "driver": "Conducente",
+    "driverOptional": "Conducente (facoltativo)",
+    "vehicleCard": "Veicolo",
+    "vehicle": "Veicolo",
+    "orderCard": "Ordine",
+    "orderNumber": "Numero d'ordine",
+    "location": "Sede",
+    "orderDate": "Data dell'ordine",
+    "createdAt": "Registrato il",
+    "change": "Modifica",
+    "changeTitle": "Modifica: {{role}}",
+    "removeDriver": "Rimuovi il conducente",
+    "contactSearchLabel": "Cerca un contatto",
+    "contactSearchPlaceholder": "Nome o numero di contatto",
+    "noContactMatches": "Nessun contatto trovato."
+  },
+  "cancel": {
+    "title": "Annulla l'ordine",
+    "reason": "Motivo dell'annullamento",
+    "submit": "Annulla l'ordine",
+    "error": "Non è stato possibile annullare l'ordine.",
+    "bannerTitle": "Annullato",
+    "bannerBody": "{{who}} ha annullato questo ordine il {{when}}. Motivo: {{reason}}",
+    "reasonMissing": "Inserite un motivo."
+  },
+  "history": {
+    "title": "Cronologia",
+    "empty": "Ancora nessuna voce.",
+    "loadError": "Non è stato possibile caricare la cronologia.",
+    "system": "Sistema",
+    "unknownUser": "Utente sconosciuto",
+    "otherAction": "Modifica",
+    "withSubject": "{{action}}: {{subject}}",
+    "reason": "Motivo: {{reason}}",
+    "actions": {
+      "service_order_created": "Ordine registrato",
+      "service_order_cancelled": "Ordine annullato",
+      "service_order_parties_changed": "Partecipanti modificati",
+      "service_order_job_added": "Gruppo aggiunto",
+      "service_order_job_changed": "Gruppo modificato",
+      "service_order_job_deleted": "Gruppo eliminato",
+      "service_order_job_accepted": "Gruppo accettato",
+      "service_order_position_added": "Posizione aggiunta",
+      "service_order_position_changed": "Posizione modificata",
+      "service_order_position_deleted": "Posizione eliminata"
+    },
+    "fields": {
+      "contactLabel": "Committente",
+      "invoiceRecipientLabel": "Fattura a",
+      "driverLabel": "Conducente",
+      "vehicleLabel": "Veicolo",
+      "state": "Stato dell'ordine",
+      "name": "Denominazione",
+      "answerState": "Risposta",
+      "text": "Denominazione",
+      "time": "Quantità",
+      "unitPrice": "Prezzo",
+      "priceEntered": "Prezzo inserito",
+      "rateSource": "Origine del prezzo"
+    },
+    "priceEntered": {
+      "net": "netto",
+      "gross": "IVA incl."
+    }
+  }
+}

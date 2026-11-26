@@ -1,0 +1,52 @@
+{
+  "title": "Werkstattaufträge",
+  "newOrder": "Neuer Auftrag",
+  "searchPlaceholder": "Auftragsnummer, Fahrzeug, VIN, Auftraggeber …",
+  "allView": "Alle Aufträge",
+  "loadError": "Die Aufträge konnten nicht geladen werden.",
+  "columns": {
+    "orderNumber": "Auftrag",
+    "vehicleAndContact": "Fahrzeug · Auftraggeber",
+    "state": "Auftragsstatus",
+    "orderDate": "Auftragsdatum",
+    "location": "Standort",
+    "createdAt": "Erfasst am"
+  },
+  "emptyState": {
+    "title": "Noch kein Werkstattauftrag",
+    "description": "Ein Auftrag entsteht mit «Neuer Auftrag» für das Fahrzeug eines Kontakts."
+  },
+  "emptyFilteredState": {
+    "title": "Kein Auftrag passt",
+    "description": "Ändern Sie die Suche oder den Filter.",
+    "action": "Suche und Filter zurücksetzen"
+  },
+  "create": {
+    "title": "Neuer Auftrag",
+    "searchLabel": "Kontrollschild, Kontakt oder VIN",
+    "searchPlaceholder": "z. B. VD 929696 oder Croci",
+    "noMatches": "Kein Fahrzeug und kein Kontakt gefunden.",
+    "typeToSearch": "Geben Sie ein Kontrollschild, eine VIN oder einen Namen ein.",
+    "vehicleRow": "Fahrzeug {{vehicleNumber}}",
+    "contactRow": "Kontakt {{contactNumber}}",
+    "vehicle": "Fahrzeug",
+    "otherVehicle": "Anderes Fahrzeug oder anderen Kontakt suchen",
+    "contactVehicles": "Fahrzeuge von {{name}}",
+    "noContactVehicles": "Diesem Kontakt ist kein Fahrzeug zugeordnet.",
+    "createVehicle": "Fahrzeug erfassen",
+    "holderProposed": "Halter als Auftraggeber vorgeschlagen",
+    "noHolder": "Für dieses Fahrzeug ist kein Halter erfasst. Wählen Sie den Auftraggeber.",
+    "holdersLoadError": "Der Halter konnte nicht gelesen werden. Wählen Sie den Auftraggeber.",
+    "location": "Standort",
+    "noLocation": "Für diesen Betrieb ist kein aktiver Standort erfasst.",
+    "submit": "Auftrag anlegen",
+    "error": "Der Auftrag konnte nicht angelegt werden.",
+    "searchError": "Die Suche ist fehlgeschlagen.",
+    "missing": {
+      "vehicle": "Wählen Sie ein Fahrzeug.",
+      "contact": "Wählen Sie den Auftraggeber.",
+      "location": "Wählen Sie den Standort."
+    },
+    "unnamedContact": "Kontakt ohne Namen"
+  }
+}

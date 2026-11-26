@@ -11,6 +11,7 @@ import { StockReservationBadge } from "./StockReservationBadge";
 import { SalesStatusBadge } from "./SalesStatusBadge";
 import { SalesTypeBadge } from "./SalesTypeBadge";
 import { ValuationStatusBadge } from "./ValuationStatusBadge";
+import { ServiceOrderStateBadge } from "./ServiceOrderStateBadge";
 
 // KAN-110 / KAN-181 — a kit badge never carries a user-visible default
 // string: `label` is required and is the only text the badge renders. The
@@ -51,6 +52,8 @@ describe("status badges render only the label they are given", () => {
     ["SalesStatusBadge", () => <SalesStatusBadge status="confirmed" label="Confirmé" />, "Confirmé", "Bestätigt"],
     ["SalesTypeBadge", () => <SalesTypeBadge entityType="offer" label="Offre" />, "Offre", "Offerte"],
     ["ValuationStatusBadge", () => <ValuationStatusBadge status="valid" label="Valide" />, "Valide", "Gültig"],
+    // KAN-810 — never had a default; pinned so it never gains one.
+    ["ServiceOrderStateBadge", () => <ServiceOrderStateBadge state="cancelled" label="Annulé" />, "Annulé", "Storniert"],
   ])("%s: the French label, never the former default", (_name, ui, label, formerDefault) => {
     render(ui());
     expect(screen.getByText(label)).toBeInTheDocument();

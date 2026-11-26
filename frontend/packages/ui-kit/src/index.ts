@@ -13,6 +13,7 @@ export * from "./components/SalesTypeBadge";
 export * from "./components/SalesStatusBadge";
 export * from "./components/ValuationStatusBadge";
 export * from "./components/ValuationSourceBadge";
+export * from "./components/ServiceOrderStateBadge";
 export * from "./components/ConnectionStatusBadge";
 export * from "./components/StickyActionFooter";
 export * from "./components/StatRow";
