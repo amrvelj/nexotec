@@ -108,6 +108,24 @@ def test_the_settings_api_refuses_a_grid_that_does_not_divide_60(client, db_sess
     assert settings["planning.grid_minutes"]["dealership"]["value"]["number"] == "20"
 
 
+def test_the_declaration_read_names_the_divisor_and_the_multiple(client, db_session):
+    """KAN-808 PR-2 (PR-1c review finding 5): the area API names both number rules, so the
+    screen can hint and check them before a write instead of learning them from a refusal."""
+
+    dealership_id = uuid.UUID(create_dealership(client))
+    db_session.add(ModuleEntitlement(dealership_id=dealership_id, module=ModuleCode.AFTERSALES))
+    db_session.commit()
+    boss = s.headers_for(s.manager(client, db_session, dealership_id), dealership_id)
+    area = client.get(f"/v1/dealerships/{dealership_id}/setting-areas/planning", headers=boss)
+    assert area.status_code == 200, area.text
+    declared = {item["declaration"]["key"]: item["declaration"] for item in area.json()["settings"]}
+    grid, slot = declared["planning.grid_minutes"], declared["planning.slot_minutes"]
+    assert Decimal(grid["divides"]) == Decimal(60)
+    assert grid["multipleOf"] is None
+    assert slot["divides"] is None
+    assert slot["multipleOf"] == "planning.grid_minutes"
+
+
 def test_not_set_refuses_work_and_slots_and_names_the_setting(client, db_session):
     shop = p.workshop(client, db_session, grid=None, slot=None)
     details = _refused(lambda: p.work(db_session, shop, starts_at=p.at(9), ends_at=p.at(10), resources=[shop.lift_1]))
