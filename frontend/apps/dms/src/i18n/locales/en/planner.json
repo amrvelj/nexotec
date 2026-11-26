@@ -1,0 +1,101 @@
+{
+  "title": "Planner",
+  "subtitle": "One day of a location: people and workplaces",
+  "blockResource": "Block resource",
+  "previousDay": "Previous day",
+  "nextDay": "Next day",
+  "today": "Today",
+  "location": "Location",
+  "groups": {
+    "people": "Technicians",
+    "workplaces": "Workplaces"
+  },
+  "grid": {
+    "resource": "Resource",
+    "unavailable": "Not on duty",
+    "now": "Now",
+    "aria": "Planner, {{day}}, {{location}}"
+  },
+  "kinds": {
+    "work": "Work",
+    "drop_off": "Drop-off",
+    "pick_up": "Pick-up",
+    "block": "Blocked"
+  },
+  "replan": "Reschedule",
+  "inactive": "Deactivated",
+  "itemAria": "{{row}} – {{kind}}: {{title}}, {{from}} to {{to}}",
+  "itemAriaReplan": "{{row}} – {{kind}}: {{title}}, {{from}} to {{to}}, reschedule",
+  "setup": {
+    "noWorkplace": "No workplace has been set up at this location yet. Without a workplace nothing can be planned here.",
+    "noPerson": "No person has been set up at this location yet. Without a person nothing can be planned here.",
+    "nothing": "No people and no workplaces have been set up at this location yet. Without them nothing can be planned here.",
+    "where": "People and workplaces are set up in Administration under «Planner resources».",
+    "open": "Open planner resources"
+  },
+  "gridNotSet": "The planner's grid is not set for this location. Work and appointments can be planned once it is set in the planner's settings.",
+  "openSettings": "Open settings",
+  "loadError": "The planner could not be loaded.",
+  "retry": "Try again",
+  "noLocation": "The business has no active location. Locations are set up in Administration.",
+  "fields": {
+    "from": "From",
+    "to": "To",
+    "date": "Date",
+    "time": "Time",
+    "people": "People",
+    "workplace": "Workplace",
+    "workplaces": "Workplaces",
+    "note": "Note",
+    "noteHint": "Optional, at most 200 characters.",
+    "none": "– none –"
+  },
+  "booking": {
+    "title": "Change booking",
+    "blockTitle": "Change block",
+    "order": "Order",
+    "job": "Job",
+    "vehicle": "Vehicle",
+    "replanSince": "Reschedule since {{since}}: {{cause}}",
+    "causes": {
+      "blocked": "a block covers the booking.",
+      "outside_drop_off_pick_up": "the work lies outside drop-off and pick-up.",
+      "resource_deactivated": "one of its resources was deactivated.",
+      "resource_moved": "one of its resources was moved to another location."
+    },
+    "overruled": "Booked despite a warning: {{warning}} – {{name}}, {{at}}",
+    "save": "Save",
+    "saveAnyway": "Save anyway",
+    "cancel": "Cancel",
+    "release": "Release booking",
+    "releaseConfirm": "The booking will be released: it then holds nothing and cannot be reactivated.",
+    "releaseConfirmButton": "Release",
+    "releaseBack": "Back",
+    "warningsTitle": "The change raises a warning",
+    "warningsNote": "If you save anyway, each warning is recorded with your name and the time.",
+    "refusedTitle": "The change is not possible",
+    "conflict": "The booking was changed in the meantime. Reload the planner.",
+    "reload": "Reload",
+    "failed": "The booking could not be saved.",
+    "needsResource": "Choose at least one person or one workplace.",
+    "workNeedsWorkplace": "Work holds exactly one workplace.",
+    "timeRequired": "Enter a date and a time for both the start and the end.",
+    "endAfterStart": "The end must come after the start.",
+    "notBookable": "{{name}} (no longer bookable)",
+    "slotLength": "A drop-off or pick-up slot lasts as long as the planner's settings say; its end follows its start."
+  },
+  "warnings": {
+    "outside_working_hours": "{{resource}} does not work at this time.",
+    "before_drop_off": "The work starts before the vehicle is dropped off.",
+    "after_pick_up": "The work ends only after the vehicle is picked up.",
+    "resource_blocked": "{{resource}} is blocked at this time."
+  },
+  "block": {
+    "title": "Block resource",
+    "submit": "Block",
+    "cancel": "Cancel",
+    "failed": "The block could not be saved.",
+    "marked_one": "One booking is now marked «reschedule».",
+    "marked_other": "{{count, number}} bookings are now marked «reschedule»."
+  }
+}

@@ -52,6 +52,7 @@ const BusinessProfileLinkCallbackPage = lazyPage(
 const NumberRangesPage = lazyPage(() => import('./pages/NumberRangesPage'), 'NumberRangesPage')
 const LabourRatesPage = lazyPage(() => import('./pages/LabourRatesPage'), 'LabourRatesPage')
 const PlannerResourcesPage = lazyPage(() => import('./pages/PlannerResourcesPage'), 'PlannerResourcesPage')
+const PlannerDayPage = lazyPage(() => import('./modules/planning/pages/PlannerDayPage'), 'PlannerDayPage')
 const ServicePackagesPage = lazyPage(() => import('./pages/ServicePackagesPage'), 'ServicePackagesPage')
 const SetupChecklistPage = lazyPage(() => import('./pages/SetupChecklistPage'), 'SetupChecklistPage')
 const LegalAcceptancePage = lazyPage(() => import('./pages/LegalAcceptancePage'), 'LegalAcceptancePage')
@@ -213,8 +214,10 @@ export default function App() {
                 <Route path="/valuations/new" element={<ValuationCreatePage />} />
                 <Route path="/valuations/:id" element={<ValuationDetailPage />} />
               </Route>
-              {/* KAN-810: the workshop orders are Aftersales' — a Betrieb without the module never reaches them. */}
+              {/* KAN-809, KAN-810: the planner and the workshop orders are Aftersales' — a Betrieb
+                  without the module never reaches them. */}
               <Route element={<RequireEntitlement module="aftersales" />}>
+                <Route path="/planner" element={<PlannerDayPage />} />
                 <Route path="/aftersales" element={<ServiceOrdersListPage />} />
                 <Route path="/aftersales/orders/:id" element={<ServiceOrderDetailPage />} />
               </Route>

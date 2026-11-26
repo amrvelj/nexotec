@@ -54,6 +54,9 @@ const MODULE_WORDS: Record<string, string[]> = {
   // Not "Deal": admin's IntegrationDealerView and useDealershipPatch carry it
   // with another meaning; the deal-workspace files and the deal* tests move by
   // the mapping all the same (KAN-636 step 5).
+  // KAN-809: the planner page. Not «Planner» — Dealer Administration's planner
+  // resources (S7, A-RULE-0) carry that word and stay where they are.
+  planning: ['PlannerDay', 'Booking'],
   sales: ['Offer', 'Contract', 'Sales'],
   stock: ['Stock'],
   valuation: ['Valuation'],

@@ -28,6 +28,7 @@ export * from "./components/PresentMode";
 export * from "./components/CounterTextarea";
 export * from "./components/FieldHint";
 export * from "./components/MediaGallery";
+export * from "./planner/ResourceDayGrid";
 export * from "./shell/types";
 export * from "./shell/BreadcrumbContext";
 export * from "./shell/Sidebar";

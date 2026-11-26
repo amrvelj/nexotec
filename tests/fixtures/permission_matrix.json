@@ -258,6 +258,16 @@
       "write": []
     },
     {
+      "label": "Planner",
+      "key": "planner",
+      "read": [
+        "aftersales"
+      ],
+      "write": [
+        "aftersales"
+      ]
+    },
+    {
       "label": "Service catalogue",
       "key": "service_packages",
       "read": [

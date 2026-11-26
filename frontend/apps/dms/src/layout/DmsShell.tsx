@@ -9,6 +9,7 @@ import {
   Building2,
   Cable,
   CalendarCog,
+  CalendarDays,
   Car,
   CarFront,
   ChartColumn,
@@ -101,6 +102,9 @@ function buildNavGroups(t: (key: string) => string, statusIndicator?: NavItemInd
         // placement) since a valuation is created from within an offer's
         // trade-in container as often as it is from this standalone list.
         { label: t('shell.nav.valuations'), href: '/valuations', icon: CarFront, status: 'active' },
+        // KAN-809 — the planner (PL1): one day of a location. Shown with the aftersales
+        // module (navEntitlements); never role-hidden (A-RULE-7): the API's 403/404 decide.
+        { label: t('shell.nav.planner'), href: '/planner', icon: CalendarDays, status: 'active' },
         // KAN-810 — the workshop orders (D1), «Aufträge» (slice 1, X7). Shown with the
         // aftersales module (navEntitlements); never role-hidden (A-RULE-7): the API decides.
         { label: t('shell.nav.orders'), href: '/aftersales', icon: Wrench, status: 'active' },
