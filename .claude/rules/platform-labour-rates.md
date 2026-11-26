@@ -6,13 +6,16 @@ paths:
   - "app/platform/administration/*/labour_rates.py"
   - "app/api/v1/labour_rate_agreements.py"
   - "tests/platform/test_kan806_*.py"
+  - "tests/cross_context/test_kan831_*.py"
   - "frontend/apps/dms/src/pages/LabourRatesPage*"
   - "frontend/apps/dms/src/components/labourRates/**"
 ---
 <!-- Maintainer note. KAN-806 (2026-11-25); D-A-19 of the Dealer Administration PRD; Aftersales slice 1
 sections 5, 7 (checks 11, 12, 15, 49), 9 (rulings 177, 178, 183), 10; Anto's answers on KAN-806 of
 2026-11-25 (in use from the start date; agreements follow O16; no starting categories; the checklist item
-counts a rate still to come). Binding text: the slice page and the ADR in the Target Architecture. -->
+counts a rate still to come). Binding text: the slice page and the ADR in the Target Architecture.
+Last verified against main@dbf886d (2026-11-26, KAN-833); KAN-831's merge re-point and label refresh added
+in the same PR. -->
 
 # Labour rates (KAN-806, D-A-19) — built: backend (PR-1), screen and checklist items (PR-2)
 
@@ -56,5 +59,10 @@ counts a rate still to come). Binding text: the slice page and the ADR in the Ta
   category with a rate at an active location, one still to come counting (Anto, 2026-11-25); neither blocks an
   action after activation yet. `tests/setup_checklist_support.complete_checklist` completes both for an
   Aftersales Betrieb.
-- **Open:** a `contact.merged` re-point and a nightly label refresh of agreements (follow-up ticket); copying
-  categories from a sister Betrieb (KAN-220's subset).
+- **A contact merge and a rename (KAN-831, ADR-219 addendum)** — composed in `app/worker.py` (contact sits
+  above platform): the consumer `platform.labour_rate_agreements_on_contact_merged` moves the duplicate's rows
+  to the end of the survivor's chain (`services/labour_rate_contacts.py`); a live survivor row of the same
+  category and date wins (Anto, 2026-11-25) and the duplicate's is **set aside** (`set_aside_at`: never an
+  answer of `labour_rate_for`, `superseded` on the screen, listed with the withdrawn, not reported). The POST
+  and the consumer serialise on `lock_agreement_contact`. Nightly `platform.labour_rate_agreement_labels`.
+- **Open:** copying categories from a sister Betrieb (KAN-220's subset).

@@ -47,7 +47,10 @@ small; ADR-047 addendum, ADR-081, ADR-105, ADR-107. Last verified against main@3
   `sales.contact_labels`, `inventory.configuration_labels`, `integration.location_labels`
   (KAN-222: a connection's and, KAN-226, a Business Profile binding's copy of its location's name), `inventory.location_labels` (KAN-739: a
   stock item's copy of its location's name), `inventory.supplier_labels` (KAN-465: its supplier contact's), `planning.person_labels` and
-  `planning.location_labels` (KAN-808: a planner resource's user and location names). Shared rules: no `version` bump, a
+  `planning.location_labels` (KAN-808: a planner resource's user and location names),
+  `platform.labour_rate_agreement_labels` (KAN-831: an agreement's contact, read at the composition root) and
+  `aftersales.order_labels` (KAN-837: a workshop order's contacts, car and location; open orders follow, frozen
+  ones are restamped, as Sales' ruling 1A). Shared rules: no `version` bump, a
   current label only restamped, a deactivated user's label kept, an id naming nothing left
   alone, batches `FOR NO KEY UPDATE SKIP LOCKED` (the vehicle-party job locks in id order and
   waits — `contact-vehicle-party.md`).
