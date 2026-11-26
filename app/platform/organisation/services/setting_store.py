@@ -65,7 +65,7 @@ from app.platform.organisation.services.setting_declarations import (
     get_declaration,
     validate_value,
 )
-from app.platform.organisation.services.setting_rules import check_choice_rules
+from app.platform.organisation.services.setting_rules import check_choice_rules, check_multiple_rules
 
 Value = bool | Decimal | str | TextValue
 
@@ -389,6 +389,7 @@ def change_setting(
     row = _slot_row(db, dealership_id=dealership_id, location_id=location_id, key=key, for_update=True)
     check_version(row.version if row is not None else 0, expected_version, entity_name="setting")
     check_choice_rules(db, dealership_id=dealership_id, location_id=location_id, key=key, proposed=checked, in_force=_in_force)
+    check_multiple_rules(db, dealership_id=dealership_id, location_id=location_id, key=key, proposed=checked, in_force=_in_force)
     before = _value_of(row) if row is not None else None
     if row is None and checked is None:
         # Clearing a slot never written changes nothing.

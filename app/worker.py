@@ -103,6 +103,11 @@ from app.inventory.public import (
 from app.inventory.public import referenced_configuration_ids as referenced_by_stock_items
 from app.message_type_registry import register_message_types
 from app.ownership_registry import register_ownership_providers
+from app.planning.consumers import STARTING_SETS_CONSUMER_NAME as PLANNING_STARTING_SETS_CONSUMER
+from app.planning.consumers import STARTING_SETS_EVENT_TYPE as PLANNING_STARTING_SETS_EVENT
+from app.planning.consumers import (
+    handle_module_entitlement_granted_message as copy_starting_sets_on_module_granted,
+)
 from app.planning.public import oldest_location_label_age_seconds as oldest_planning_location_label_age_seconds
 from app.planning.public import (
     oldest_person_label_age_seconds,
@@ -432,6 +437,13 @@ def register_handlers(transport: InProcessTransport) -> None:
         REPORTING_WEBSITE_LISTING_EVENT,
         consumer_name=REPORTING_PUBLIC_STOCK_CONSUMER,
         handler=handle_website_listing_changed_message,
+    )
+    # KAN-808 PR-1d (ADR-222) — a Betrieb that first holds Aftersales gets
+    # Nexotec's planner starting sets, once ever (planning's marker row).
+    transport.register(
+        PLANNING_STARTING_SETS_EVENT,
+        consumer_name=PLANNING_STARTING_SETS_CONSUMER,
+        handler=copy_starting_sets_on_module_granted,
     )
 
     if os.environ.get("DMS_OUTBOX_WORKER_CI_SMOKE_TEST_PROBE") == "1":

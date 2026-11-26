@@ -46,8 +46,10 @@ from app.inventory.models.stock_item_ledger import StockItemLedger
 from app.inventory.models.stock_item_option import StockItemOption
 from app.inventory.models.stock_item_publishing import StockItemMedia, StockItemPublishing
 from app.inventory.models.website_listing import StockItemWebsiteListing
+from app.planning.models.booking import Booking, BookingResource, OverruledWarning
 from app.planning.models.lists import Qualification, TechnicianType, WorkplaceType
 from app.planning.models.resource import Resource, ResourceQualification, WorkingHours
+from app.planning.models.starting_set import StartingSet
 from app.platform.administration.models.export_job import ExportJob
 from app.platform.administration.models.setup_checklist import SetupChecklistRegression
 from app.platform.administration.models.status_page import PlatformStatusIncident, StatusItemState
@@ -139,6 +141,8 @@ __all__ = [
     "AuthEvent",
     "AuthSession",
     "AuthToken",
+    "Booking",
+    "BookingResource",
     "Brand",
     "BrandingAsset",
     "ColourCache",
@@ -211,6 +215,7 @@ __all__ = [
     "NumberRange",
     "NumberRangeConfirmation",
     "OutboxMessage",
+    "OverruledWarning",
     "PlateLookupCacheEntry",
     "PlatformStatusIncident",
     "ProcessedEvent",
@@ -242,6 +247,7 @@ __all__ = [
     "SetupChecklistRegression",
     "StandardText",
     "StandardTextDelegation",
+    "StartingSet",
     "StatusItemState",
     "StockItem",
     "StockItemBooking",

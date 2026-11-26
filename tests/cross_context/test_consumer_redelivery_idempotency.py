@@ -1078,6 +1078,29 @@ def _business_profile_push_on_dealership_updated(db_session, engine, monkeypatch
     )
 
 
+def _starting_sets_on_module_granted(db_session, engine, monkeypatch):
+    """KAN-808 PR-1d (ADR-222) — a Betrieb granted Aftersales: its planner
+    starting sets copied once, the marker row written once."""
+
+    from app.core.permissions import ModuleCode
+    from app.planning.models.starting_set import StartingSet
+    from app.platform.organisation.models.module_entitlement import ModuleEntitlement
+    from app.platform.organisation.services import entitlement, entitlement_facts
+
+    dealership = _dealership(db_session)
+    entitlement.set_entitlements(
+        db_session, dealership=dealership, modules={ModuleCode.AFTERSALES}, actor_id=uuid.uuid4()
+    )
+    row = db_session.scalars(select(ModuleEntitlement).where(ModuleEntitlement.dealership_id == dealership.id)).one()
+
+    def markers(db: Session) -> int:
+        return db.scalar(
+            select(func.count()).select_from(StartingSet).where(StartingSet.tenant_id == dealership.id)
+        )
+
+    return _message(db_session, entitlement_facts.MODULE_ENTITLEMENT_GRANTED_EVENT, row.id), markers
+
+
 _FIXTURES: dict[str, Fixture] = {
     "integration.business_profile_push_on_dealership_updated": _business_profile_push_on_dealership_updated,
     "integration.business_profile_push_on_location_updated": _business_profile_push_on("platform.location.updated"),
@@ -1146,6 +1169,7 @@ _FIXTURES: dict[str, Fixture] = {
     "vehicle.configuration_taken_by_valuation": _configuration_taken("valuation.created", _valuation_takes),
     "vehicle.stock_holding_on_vin_assigned": _stock_holding_on_vin_assigned,
     "vehicle.stock_holding_on_sold": _stock_holding_on_sold,
+    "planning.starting_sets_on_module_granted": _starting_sets_on_module_granted,
 }
 
 

@@ -104,6 +104,7 @@ from app.platform.organisation.schemas.dealership import DealerGroupRead
 from app.platform.organisation.services.contact_group import ContactGroupCodes, contact_group_codes
 from app.platform.organisation.services.dealer_dealerships import is_platform_dealership
 from app.platform.organisation.services.dealership import get_dealership_default_correspondence_language
+from app.platform.organisation.services.entitlement_facts import MODULE_ENTITLEMENT_GRANTED_EVENT
 from app.platform.organisation.services.group_read_dealerships import DealershipRef, list_group_read_dealerships
 from app.platform.organisation.services.labour_rate_answer import (
     LabourCategoryLabel,
@@ -280,6 +281,7 @@ def register_setting(declaration: SettingDeclaration) -> None:
 
 __all__ = [
     "LABOUR_RATE_SETTINGS",
+    "MODULE_ENTITLEMENT_GRANTED_EVENT",
     "PLACEHOLDER_UNRESOLVED",
     "ActingUser",
     "Addressee",

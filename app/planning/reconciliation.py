@@ -6,17 +6,21 @@ mechanism; a finding is reported, never repaired.
 - a resource names a location and, for a person, a user that exist;
 - an active person resource whose user is deactivated: the planner still
   offers someone who has left (the manager deactivates the resource);
+- a booking's release and an overruled warning name a user that exists;
 - the actor columns of every table that has them (KAN-243).
 
-The caller's references (an order, a job, a car) arrive with bookings; they
-are checked by the caller's own reconciliation, above planning (ADR-221 T6).
+A booking's caller references (an order, a job, a car) belong to contexts
+above planning, which planning cannot read: the caller's own reconciliation
+checks them through a planning.public builder (ADR-221 T6).
 """
 
 from sqlalchemy.orm import Session
 
 from app.core.reconciliation import ReconciliationRun, ReferenceCheck, StateCheck, run_reconciliation
+from app.planning.models.booking import Booking, BookingResource, OverruledWarning
 from app.planning.models.lists import Qualification, TechnicianType, WorkplaceType
 from app.planning.models.resource import Resource, ResourceKind, ResourceQualification, WorkingHours
+from app.planning.models.starting_set import StartingSet
 from app.platform.public import (
     actor_reference_checks,
     dealership_reference_check,
@@ -28,7 +32,7 @@ from app.platform.public import (
 CONTEXT = "planning"
 
 # Every planning table with created_by / updated_by (KAN-243).
-ACTOR_TABLES = (WorkplaceType, TechnicianType, Qualification, Resource)
+ACTOR_TABLES = (WorkplaceType, TechnicianType, Qualification, Resource, Booking)
 
 
 def _tenant_checks() -> list[ReferenceCheck | StateCheck]:
@@ -39,7 +43,18 @@ def _tenant_checks() -> list[ReferenceCheck | StateCheck]:
             source_row_id_column=model.id,
             source_fk_column=model.tenant_id,
         )
-        for model in (WorkplaceType, TechnicianType, Qualification, Resource, ResourceQualification, WorkingHours)
+        for model in (
+            WorkplaceType,
+            TechnicianType,
+            Qualification,
+            Resource,
+            ResourceQualification,
+            WorkingHours,
+            Booking,
+            BookingResource,
+            OverruledWarning,
+            StartingSet,
+        )
     ]
 
 
@@ -57,6 +72,19 @@ CHECKS: list[ReferenceCheck | StateCheck] = [
         source_row_id_column=Resource.id,
         source_fk_column=Resource.user_id,
         nullable=True,  # a workplace names no user
+    ),
+    user_reference_check(
+        label="planning_booking.released_by -> user.id",
+        source_model=Booking,
+        source_row_id_column=Booking.id,
+        source_fk_column=Booking.released_by,
+        nullable=True,  # a booked booking, or one released by the system
+    ),
+    user_reference_check(
+        label="planning_overruled_warning.overruled_by -> user.id",
+        source_model=OverruledWarning,
+        source_row_id_column=OverruledWarning.id,
+        source_fk_column=OverruledWarning.overruled_by,
     ),
     StateCheck(
         label="active person resource whose user is deactivated",

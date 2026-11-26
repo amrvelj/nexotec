@@ -59,6 +59,9 @@ Decided rulings live in the PRD; built only where a bullet says so — check the
   before any role check and answers **404 for everyone**, staff included
   (`test_sales_routers_carry_entitlement_gate.py`). A changed set bumps
   `dealership.entitlements_version`; a token with another `ent_v` gets 401 and signs in again.
+  Each module that becomes active (onboarding included) states `platform.module_entitlement.granted`
+  in the same transaction (`entitlement_facts.py`, ADR-222; planning's starting sets consume it);
+  `scripts/restate_module_entitlements.py` restates it, dry run by default.
   Sales-licensed data inside another module's response is gated per field with
   `holds_entitlement(db, principal, ModuleCode.X)` — never per route.
 - **Permissions are platform-defined (D-A-03); no policy limits in v1 (D-A-18).**

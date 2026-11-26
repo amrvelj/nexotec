@@ -1,12 +1,16 @@
 """Planning's export declaration (KAN-218; FR-A-44): the Betrieb's planner
-lists and resources with their qualifications and working hours. Every
+lists and resources with their qualifications and working hours, and its
+bookings with the resources each holds and the warnings overruled, and the
+marker of the starting sets copied (ADR-222). Every
 planning table carries `tenant_id` (ADR-221 T7), so each is scoped by it."""
 
 from collections.abc import Sequence
 
 from app.core.export import ExportedTable, TableExporter, table_of
+from app.planning.models.booking import Booking, BookingResource, OverruledWarning
 from app.planning.models.lists import Qualification, TechnicianType, WorkplaceType
 from app.planning.models.resource import Resource, ResourceQualification, WorkingHours
+from app.planning.models.starting_set import StartingSet
 
 
 def _tenant(model) -> ExportedTable:
@@ -25,4 +29,8 @@ class PlanningExporter(TableExporter):
             _tenant(Resource),
             _tenant(ResourceQualification),
             _tenant(WorkingHours),
+            _tenant(Booking),
+            _tenant(BookingResource),
+            _tenant(OverruledWarning),
+            _tenant(StartingSet),
         )

@@ -18,13 +18,23 @@
       "work_units_per_hour": {
         "label": "Unités de travail par heure"
       }
+    },
+    "planning": {
+      "grid_minutes": {
+        "label": "Trame du planning"
+      },
+      "slot_minutes": {
+        "label": "Durée d'un créneau de dépôt ou de retrait"
+      }
     }
   },
   "areas": {
-    "labour_rates": "Taux horaires"
+    "labour_rates": "Taux horaires",
+    "planning": "Planning"
   },
   "units": {
-    "work_units_per_hour": "UT par heure"
+    "work_units_per_hour": "UT par heure",
+    "minutes": "minutes"
   },
   "title": "Réglages",
   "subtitle": "Les réglages des domaines que cette entreprise utilise. Chaque valeur vaut pour l'entreprise et peut différer selon le site.",

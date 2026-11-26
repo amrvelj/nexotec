@@ -102,7 +102,7 @@ Lowest layer first (ADR-131, ADR-211); peers: parts and inventory, aftersales an
 | Context | Owns |
 |---|---|
 | `platform` | tenants/dealers, users, auth, roles, module entitlements, feature flags, reference data, locations, document templates, standard texts, branding, UI translations, staff notifications |
-| `planning` | resources; bookings, blocks next (ADR-211) |
+| `planning` | resources, bookings, blocks (ADR-211, ADR-221) |
 | `integration` | the integration registry (connections, write-only secret refs, entitlements, call log, retention) + provider-gateway adapters; AI (ADR-181) |
 | `vehicle` | physical vehicles, catalogue, plates, odometer, custody, provenance, the configurator |
 | `contact` | contacts (**group-scoped**, ADR-014), contact channels (ADR-067), external IDs, duplicates/merges, `VehicleParty` |
