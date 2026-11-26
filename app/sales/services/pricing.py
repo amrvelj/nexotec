@@ -8,27 +8,30 @@ KAN-67 (ADR-083): one calculation for an offer and a pending contract —
 """
 
 from decimal import Decimal
+from fractions import Fraction
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.money import to_rappen
 from app.sales.models.line_item import LineItemKind, SalesLineItem
 from app.sales.services.priced_deal import PricedDeal, line_item_owner_clause
-
-_CENTS = Decimal("0.01")
 
 
 def resolve_discount(discount_type: str | None, discount_value: Decimal | None, base_amount: Decimal) -> Decimal:
     """{type, value} -> resolvedAmount (FR-S's own discount shape). No
     discount configured is exactly `amount=0`, never None, so callers
     never have to special-case "no discount" separately from "0 discount".
-    Capped at `base_amount` (KAN-190).
+    Capped at `base_amount` (KAN-190). A percentage is taken exactly and
+    rounded to the Rappen by core money (KAN-824, ADR-215): half away from
+    zero, so a discount of exactly half a Rappen rounds up (Anto,
+    2026-11-25, option A).
     """
 
     if discount_type is None or discount_value is None:
         return Decimal(0)
     if discount_type == "percent":
-        resolved = (base_amount * discount_value / Decimal(100)).quantize(_CENTS)
+        resolved = to_rappen(Fraction(base_amount) * Fraction(discount_value) / 100)
     else:
         resolved = discount_value
     # KAN-190: never more than the amount it is taken off, so no line and

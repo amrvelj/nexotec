@@ -159,3 +159,25 @@ def add_position(client, betrieb: Betrieb, order: dict, job_id: str, **body):
 def labour_by_time(betrieb: Betrieb, time: str, **extra) -> dict:
     return {"kind": "labour_time", "text": "Arbeit", "labourCategoryId": str(betrieb.category_id), "time": time,
             **extra}
+
+
+def insert_order(db: Session, *, tenant_id: uuid.UUID, contact_id: uuid.UUID, vehicle_id: uuid.UUID,
+                 label: str = "Duplicate Keller") -> uuid.UUID:
+    """An order row written directly, for the redelivery fixtures that have no
+    client (KAN-837): the customer is also the invoice recipient."""
+
+    from app.aftersales.models.service_order import ServiceOrder
+    from app.core.base import utcnow
+
+    now = utcnow()
+    order = ServiceOrder(
+        tenant_id=tenant_id, order_number=f"W-{uuid.uuid4().hex[:8]}", location_id=uuid.uuid4(),
+        location_label="Hauptsitz", location_label_refreshed_at=now, order_date=now.date(),
+        contact_id=contact_id, contact_label=label, contact_label_refreshed_at=now,
+        invoice_recipient_contact_id=contact_id, invoice_recipient_label=label,
+        invoice_recipient_label_refreshed_at=now, vehicle_id=vehicle_id, vehicle_label="VW Golf",
+        vehicle_label_refreshed_at=now,
+    )
+    db.add(order)
+    db.commit()
+    return order.id

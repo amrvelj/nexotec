@@ -34,8 +34,12 @@ of the same value give the same total.
 (ruling 183): `labour_hours` turns work units into exact hours. A price per
 work unit is never calculated with.
 
-Sales does not use this module yet; it moves to it in a ticket of its own,
-with its totals unchanged (ADR-215).
+**Sales** (KAN-824) takes two figures from here and nothing else: a percent
+discount (`to_rappen`), and the VAT included in a gross price as typed
+(`included_vat`), for the one printed VAT line (ADR-057, ADR-098). It never
+re-sums a total through `payer_totals`: net rounded plus VAT rounded can
+differ from the typed gross price by a Rappen, and ADR-057 keeps that price
+as typed.
 """
 
 from __future__ import annotations
@@ -152,6 +156,14 @@ class Price:
         value = self.net if figure is PriceEntry.NET else self.gross
         unit = Decimal(1).scaleb(-UNIT_PRICE_PLACES)
         return _round(value, Fraction(unit)).quantize(unit, rounding=ROUND_HALF_UP)
+
+
+def included_vat(gross: Decimal, vat_rate: Decimal) -> Decimal:
+    """The VAT included in a gross price as typed, to the Rappen: the VAT
+    component of `Price(gross, GROSS, vat_rate)`, half away from zero."""
+
+    price = Price(gross, PriceEntry.GROSS, vat_rate)
+    return to_rappen(price.gross - price.net)
 
 
 def labour_hours(work_units: Exact, units_per_hour: Exact) -> Fraction:

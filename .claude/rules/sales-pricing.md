@@ -44,3 +44,6 @@ for the pricing and document files. Last verified against main@32ad509 (2026-11-
 - **Pricing bounds:** `OfferUpdate` takes `ContractUpdate`'s bounds (no negatives;
   `test_sales_offer_pricing_bounds.py`). **A discount never exceeds what it is taken off**
   (`pricing.resolve_discount` caps it at its base; the typed value is stored as typed).
+- **Sales rounds through `app/core/money.py`** (KAN-824, ADR-215; Anto, 2026-11-25, option A): a percent
+  discount is exact, then `to_rappen` (half away from zero — a half Rappen rounds up); the printed VAT is
+  `included_vat(gross, rate)`. Never a re-summed `payer_totals` total: the gross price stays as typed (ADR-057).

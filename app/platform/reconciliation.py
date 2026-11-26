@@ -59,7 +59,12 @@ from app.platform.organisation.models.publishing_profile import LocationLeadRout
 from app.platform.organisation.models.setting_value import SettingState, SettingValue, SettingValueChange
 from app.platform.organisation.services.labour_rate_settings import TIME_UNIT_KEY, WORK_UNITS, WORK_UNITS_PER_HOUR_KEY
 from app.platform.organisation.services.reconciliation_targets import dealership_group_of
-from app.platform.organisation.services.setting_declarations import multiple_rules
+from app.platform.organisation.services.setting_declarations import (
+    SettingDeclaration,
+    SettingKind,
+    get_declaration,
+    multiple_rules,
+)
 from app.platform.reference.models.reference_data import ReferenceList, ReferenceValue
 from app.platform.reference.models.ui_translation import UiTranslation
 
@@ -239,13 +244,35 @@ def _work_units_without_units_per_hour() -> ColumnElement[bool]:
     )
 
 
+def _number_fits(row, declaration: SettingDeclaration) -> ColumnElement[bool]:
+    """KAN-840: the store's `_still_fits` for a whole number, in SQL — a stored
+    value counts only while it fits today's declaration (the same kind, its
+    bounds, its decimals, what it divides); one that no longer fits reads as
+    not set in the store, so it is not in force here either."""
+
+    value = row.value_decimal
+    condition = (row.kind == SettingKind(declaration.kind)) & value.is_not(None)
+    condition = condition & (value * (10**declaration.decimals) % 1 == 0)
+    if declaration.minimum is not None:
+        condition = condition & (value >= declaration.minimum)
+    if declaration.maximum is not None:
+        condition = condition & (value <= declaration.maximum)
+    if declaration.divides is not None:
+        condition = condition & (value != 0) & (declaration.divides % value == 0)
+    return condition
+
+
 def _decimal_in_force(key: str, *, at_the_rows_location: bool) -> ColumnElement:
     """The value of `key` set in the row's Betrieb — at the row's own location,
-    or the Betrieb's own — as a scalar subquery (NULL when not set)."""
+    or the Betrieb's own — as a scalar subquery (NULL when not set, or when it
+    no longer fits its declaration, as the store reads it)."""
 
     other = aliased(SettingValue)
     where = [other.dealership_id == SettingValue.dealership_id, other.key == key, other.state == SettingState.SET]
     where.append(other.location_id == SettingValue.location_id if at_the_rows_location else other.location_id.is_(None))
+    declaration = get_declaration(key)
+    if declaration is not None:
+        where.append(_number_fits(other, declaration))
     return select(other.value_decimal).where(*where).correlate(SettingValue).scalar_subquery()
 
 
@@ -258,7 +285,10 @@ def _multiples_broken() -> ColumnElement[bool]:
 
     Reported on the multiple's slot when the scope has one of its own (or is
     the Betrieb), else on the location's slot of the other key. Built from the
-    registered declarations when the check runs."""
+    registered declarations when the check runs. Judged as the store judges
+    (KAN-840): a value that no longer fits its declaration is not in force,
+    and no acts-as value takes part (a declaration refuses `multiple_of` on or
+    naming a number with one)."""
 
     location_active = (
         select(Location.id).where(Location.id == SettingValue.location_id, Location.is_active.is_(True)).exists()
@@ -268,9 +298,13 @@ def _multiples_broken() -> ColumnElement[bool]:
         own_divisor = _decimal_in_force(of_key, at_the_rows_location=True)
         betriebs_divisor = _decimal_in_force(of_key, at_the_rows_location=False)
         divisor = func.coalesce(own_divisor, betriebs_divisor)
+        divisor_declaration = get_declaration(of_key)
+        if divisor_declaration is None:  # refused at start-up by check_declaration_references
+            continue
         conditions.append(
             (SettingValue.key == multiple.key)
             & (SettingValue.state == SettingState.SET)
+            & _number_fits(SettingValue, multiple)
             & (SettingValue.location_id.is_(None) | location_active)
             & (divisor > 0)
             & (SettingValue.value_decimal % divisor != 0)
@@ -280,6 +314,7 @@ def _multiples_broken() -> ColumnElement[bool]:
         conditions.append(
             (SettingValue.key == of_key)
             & (SettingValue.state == SettingState.SET)
+            & _number_fits(SettingValue, divisor_declaration)
             & SettingValue.location_id.is_not(None)
             & location_active
             & own_multiple.is_(None)
