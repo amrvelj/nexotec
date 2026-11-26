@@ -43,9 +43,12 @@ export function formatTime(iso: string, locale = 'de-CH'): string {
 
 // KAN-809 — an instant as the wall-clock date and time of a named zone, whatever
 // the browser's own zone: the planner shows the Betrieb's day (Europe/Zurich).
+const WALL_CLOCK_FORMATS = new Map<string, Intl.DateTimeFormat>()
+
 export function wallClockIn(instant: string | Date, timeZone: string): { date: string; time: string } {
-  const parts = Object.fromEntries(
-    new Intl.DateTimeFormat('en-CA', {
+  let format = WALL_CLOCK_FORMATS.get(timeZone)
+  if (!format) {
+    format = new Intl.DateTimeFormat('en-CA', {
       timeZone,
       year: 'numeric',
       month: '2-digit',
@@ -54,6 +57,10 @@ export function wallClockIn(instant: string | Date, timeZone: string): { date: s
       minute: '2-digit',
       hourCycle: 'h23',
     })
+    WALL_CLOCK_FORMATS.set(timeZone, format)
+  }
+  const parts = Object.fromEntries(
+    format
       .formatToParts(typeof instant === 'string' ? new Date(instant) : instant)
       .map((p) => [p.type, p.value]),
   )

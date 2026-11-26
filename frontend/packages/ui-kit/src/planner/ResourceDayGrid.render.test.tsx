@@ -94,6 +94,14 @@ describe("ResourceDayGrid (KAN-809)", () => {
     expect(onActivate).toHaveBeenCalledTimes(3);
   });
 
+  it("shows an item nobody may open without offering it: no button, no tab stop", () => {
+    const readOnly = groups().map((g) => ({ ...g, rows: g.rows.map((r) => ({ ...r, items: r.items.map((i) => ({ ...i, onActivate: undefined })) })) }));
+    wrap(<ResourceDayGrid fromMinute={420} toMinute={1080} groups={readOnly} labels={labels} ariaLabel="Planer" />);
+    expect(screen.queryAllByRole("button")).toHaveLength(0);
+    const item = screen.getByRole("img", { name: "Sperre" });
+    expect(item).toHaveAttribute("tabindex", "-1");
+  });
+
   it("draws the now line only when now lies on the axis", () => {
     const { rerender } = wrap(
       <ResourceDayGrid fromMinute={420} toMinute={1080} nowMinute={600} groups={groups()} labels={labels} ariaLabel="Planer" />,

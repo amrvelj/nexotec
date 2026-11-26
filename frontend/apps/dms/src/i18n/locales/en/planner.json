@@ -23,6 +23,7 @@
     "block": "Blocked"
   },
   "replan": "Reschedule",
+  "inactive": "Deactivated",
   "itemAria": "{{row}} – {{kind}}: {{title}}, {{from}} to {{to}}",
   "itemAriaReplan": "{{row}} – {{kind}}: {{title}}, {{from}} to {{to}}, reschedule",
   "setup": {

@@ -244,6 +244,26 @@ describe('PlannerDayPage (KAN-809)', () => {
     expect(screen.getByRole('link', { name: i18n.t('planner.setup.open') })).toHaveAttribute('href', '/administration/planner-resources')
   })
 
+  it('a deactivated resource keeps a row while it holds a booking of the day, and is not offered for a new one', async () => {
+    const user = userEvent.setup()
+    const gone = resource('r-old', { kind: 'workplace', name: 'Bühne alt', workplaceTypeId: 'wt-1', isActive: false })
+    const idle = resource('r-idle', { kind: 'workplace', name: 'Bühne leer', isActive: false })
+    const stranded = booking('b-9', {
+      resources: [{ resourceId: 'r-old', kind: 'workplace', label: 'Bühne alt' }],
+      replan: { cause: 'resource_deactivated', since: '2027-02-28T10:00:00Z', causedByBookingId: null, causedByResourceId: 'r-old' },
+    })
+    install({ resources: [LEA, LIFT, gone, idle], bookings: [stranded] })
+    render()
+
+    const grid = await screen.findByRole('group', { name: /Hauptsitz/ })
+    expect(within(grid).getByText('Bühne alt')).toBeInTheDocument()
+    expect(within(grid).getByText(`${i18n.t('planner.inactive')} · Hebebühne`)).toBeInTheDocument()
+    expect(within(grid).queryByText('Bühne leer')).not.toBeInTheDocument()
+    await user.click(within(grid).getByRole('button', { name: /^Bühne alt – .*neu einplanen/ }))
+    const dialog = await screen.findByRole('dialog')
+    expect(within(dialog).getByText(new RegExp(i18n.t('planner.booking.causes.resource_deactivated')))).toBeInTheDocument()
+  })
+
   it('a location without a person says so and where to set it up', async () => {
     install({ resources: [LIFT], bookings: [] })
     render()
@@ -259,7 +279,9 @@ describe('PlannerDayPage (KAN-809)', () => {
 
     await screen.findByRole('group', { name: /Hauptsitz/ })
     const first = screen.getAllByRole('button', { name: /Auftrag 1001/ })[0]
-    first.focus()
+    // From the top of the page, Tab walks the header, the day navigation and the location to the grid.
+    ;(document.activeElement as HTMLElement | null)?.blur()
+    for (let i = 0; i < 25 && document.activeElement !== first; i += 1) await user.tab()
     expect(first).toHaveFocus()
     await user.keyboard('{Enter}')
     expect(await screen.findByRole('dialog', { name: i18n.t('planner.booking.title') })).toBeInTheDocument()

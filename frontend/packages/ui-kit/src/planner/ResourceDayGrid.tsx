@@ -17,8 +17,9 @@ import { purple, radius, semantic, slate, slate25, white } from "../tokens";
  *   aria description), never by colour alone.
  * - An item marked `flagLabel` («neu einplanen») gets a dashed destructive
  *   border AND the label as text.
- * - Every item is a button in the tab order, rows in order and items by
- *   start; Enter or Space activates it. The track scrolls horizontally on a
+ * - Every item the caller lets open (`onActivate`) is a button in the tab
+ *   order, rows in order and items by start; Enter or Space activates it. One
+ *   without is shown and named, never offered. The track scrolls horizontally on a
  *   narrow screen; the labels stay put.
  */
 
@@ -249,7 +250,9 @@ export function ResourceDayGrid({
                       return (
                         <UnstyledButton
                           key={item.id}
-                          onClick={item.onActivate}
+                          // An item nobody may open is shown, not offered: no button, no tab stop.
+                          component={item.onActivate ? "button" : "div"}
+                          {...(item.onActivate ? { onClick: item.onActivate } : { role: "img", tabIndex: -1 })}
                           aria-label={item.ariaLabel}
                           data-item={item.id}
                           style={{

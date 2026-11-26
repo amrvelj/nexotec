@@ -91,7 +91,7 @@ export function PlannerDayPage() {
 
   const resources = useQuery({
     queryKey: ['planner', dealershipId, 'resources', locationId],
-    queryFn: () => api.get<ResourceList>(`${planningPath}/resources?locationId=${locationId}`),
+    queryFn: () => api.get<ResourceList>(`${planningPath}/resources?locationId=${locationId}&includeInactive=true`),
     enabled: enabled && !!locationId,
   })
   const technicianTypes = useQuery({
@@ -119,10 +119,15 @@ export function PlannerDayPage() {
     setMarked(null)
   }
 
-  const people = (resources.data?.items ?? []).filter((r) => r.kind === 'person')
-  const workplaces = (resources.data?.items ?? []).filter((r) => r.kind === 'workplace')
-  const personOptions: PlannerOption[] = people.map((r) => ({ value: r.id, label: r.userLabel ?? '' }))
-  const workplaceOptions: PlannerOption[] = workplaces.map((r) => ({ value: r.id, label: r.name ?? '' }))
+  // A deactivated resource gets a row only while it holds a booking of the day: its bookings are
+  // marked «neu einplanen» (planning.md) and this page is where they are moved or released.
+  const held = new Set((plannerDay.data?.bookings ?? []).flatMap((b) => b.resources.map((r) => r.resourceId)))
+  const shown = (resources.data?.items ?? []).filter((r) => r.isActive || held.has(r.id))
+  const people = shown.filter((r) => r.kind === 'person')
+  const workplaces = shown.filter((r) => r.kind === 'workplace')
+  // Only an active resource is offered for a booking; the server refuses an inactive one.
+  const personOptions: PlannerOption[] = people.filter((r) => r.isActive).map((r) => ({ value: r.id, label: r.userLabel ?? '' }))
+  const workplaceOptions: PlannerOption[] = workplaces.filter((r) => r.isActive).map((r) => ({ value: r.id, label: r.name ?? '' }))
   const resourceLabels = useMemo(() => {
     const labels = new Map<string, string>()
     for (const r of resources.data?.items ?? []) labels.set(r.id, r.name ?? r.userLabel ?? '')
@@ -169,19 +174,21 @@ export function PlannerDayPage() {
       items: bookings.filter((b) => b.resources.some((r) => r.resourceId === resource.id)).map((b) => itemOf(b, title)),
     }
   }
+  const subtitleOf = (resource: ResourceRead, type?: string) =>
+    resource.isActive ? type : [t('planner.inactive'), type].filter(Boolean).join(' · ')
   const groups: DayGridGroup[] = [
     {
       id: 'people',
       label: t('planner.groups.people'),
       rows: people.map((r) =>
-        rowOf(r, entryName(technicianTypes.data?.items.find((x) => x.id === r.technicianTypeId), language)),
+        rowOf(r, subtitleOf(r, entryName(technicianTypes.data?.items.find((x) => x.id === r.technicianTypeId), language))),
       ),
     },
     {
       id: 'workplaces',
       label: t('planner.groups.workplaces'),
       rows: workplaces.map((r) =>
-        rowOf(r, entryName(workplaceTypes.data?.items.find((x) => x.id === r.workplaceTypeId), language)),
+        rowOf(r, subtitleOf(r, entryName(workplaceTypes.data?.items.find((x) => x.id === r.workplaceTypeId), language))),
       ),
     },
   ].filter((g) => g.rows.length > 0)
@@ -202,12 +209,14 @@ export function PlannerDayPage() {
 
   const loading = locations.isLoading || resources.isLoading || plannerDay.isLoading
   const loadError = locations.isError || resources.isError || plannerDay.isError
+  const activePeople = personOptions.length
+  const activeWorkplaces = workplaceOptions.length
   const setupKey =
-    resources.data && people.length === 0 && workplaces.length === 0
+    resources.data && activePeople === 0 && activeWorkplaces === 0
       ? 'planner.setup.nothing'
-      : resources.data && workplaces.length === 0
+      : resources.data && activeWorkplaces === 0
         ? 'planner.setup.noWorkplace'
-        : resources.data && people.length === 0
+        : resources.data && activePeople === 0
           ? 'planner.setup.noPerson'
           : null
 

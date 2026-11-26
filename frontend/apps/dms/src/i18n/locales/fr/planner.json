@@ -23,6 +23,7 @@
     "block": "Bloqué"
   },
   "replan": "À replanifier",
+  "inactive": "Désactivé",
   "itemAria": "{{row}} – {{kind}} : {{title}}, de {{from}} à {{to}}",
   "itemAriaReplan": "{{row}} – {{kind}} : {{title}}, de {{from}} à {{to}}, à replanifier",
   "setup": {

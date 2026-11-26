@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next'
 import { CounterTextarea, FormDialog } from '@nexotec/ui-kit'
 import { api } from '../../../api/client'
 import type { BookingOutcomeRead } from '../../../api/types'
+import { useFieldHint } from '../../../hooks/useFieldHint'
 import { useIdempotencyKey } from '../../../hooks/useIdempotencyKey'
 import { apiRefusalText } from '../../../utils/apiRefusal'
 import { zurichInstant } from '../plannerTime'
@@ -44,6 +45,7 @@ export function BlockResourceDialog({ opened, day, planningPath, people, workpla
   const [refusal, setRefusal] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const idempotency = useIdempotencyKey()
+  const hint = useFieldHint()
 
   useEffect(() => {
     if (!opened) return
@@ -98,8 +100,7 @@ export function BlockResourceDialog({ opened, day, planningPath, people, workpla
     >
       <Stack gap="sm">
         <CounterTextarea
-          label={t('planner.fields.note')}
-          description={t('planner.fields.noteHint')}
+          {...hint(t('planner.fields.note'), t('planner.fields.noteHint'))}
           value={note}
           onChange={setNote}
           maxLength={NOTE_LENGTH}
