@@ -1,0 +1,13 @@
+{
+  "setTitle": "Block contact",
+  "clearTitle": "Lift block",
+  "setBody": "A blocked contact cannot be the orderer or the invoice recipient of a workshop order. The credit block is separate from this.",
+  "clearBody": "Lift the block on {{number}}? Workshop orders can be opened again immediately.",
+  "reasonLabel": "Reason",
+  "reasonRequired": "A reason is required to block a contact.",
+  "setSubmit": "Block contact",
+  "clearSubmit": "Lift block",
+  "cancel": "Cancel",
+  "conflict": "This contact changed since you opened this. Reload and try again.",
+  "failed": "Could not update the block."
+}

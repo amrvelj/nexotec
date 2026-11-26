@@ -1,0 +1,13 @@
+{
+  "setTitle": "Kontakt sperren",
+  "clearTitle": "Sperre aufheben",
+  "setBody": "Ein gesperrter Kontakt kann weder Auftraggeber noch Rechnungsempfänger eines Werkstattauftrags werden. Die Kreditsperre ist davon getrennt.",
+  "clearBody": "Sperre für {{number}} aufheben? Werkstattaufträge können sofort wieder eröffnet werden.",
+  "reasonLabel": "Grund",
+  "reasonRequired": "Für eine Sperre ist ein Grund erforderlich.",
+  "setSubmit": "Kontakt sperren",
+  "clearSubmit": "Sperre aufheben",
+  "cancel": "Abbrechen",
+  "conflict": "Dieser Kontakt wurde seit dem Öffnen geändert. Bitte neu laden und erneut versuchen.",
+  "failed": "Die Sperre konnte nicht aktualisiert werden."
+}

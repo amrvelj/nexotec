@@ -5,8 +5,8 @@
   "clearBody": "Kreditsperre für {{number}} aufheben? Verträge können sofort wieder bestätigt werden.",
   "reasonLabel": "Grund",
   "reasonRequired": "Für eine Kreditsperre ist ein Grund erforderlich.",
-  "setSubmit": "Kontakt sperren",
-  "clearSubmit": "Sperre aufheben",
+  "setSubmit": "Kreditsperre setzen",
+  "clearSubmit": "Kreditsperre aufheben",
   "cancel": "Abbrechen",
   "conflict": "Dieser Kontakt wurde seit dem Öffnen geändert. Bitte neu laden und erneut versuchen.",
   "failed": "Die Kreditsperre konnte nicht aktualisiert werden."

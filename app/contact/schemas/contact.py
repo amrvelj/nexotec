@@ -528,6 +528,15 @@ class ContactCreditBlockRequest(CamelModel):
     reason: str | None = None
 
 
+class ContactBlockRequest(CamelModel):
+    """KAN-810 (Anto, 2026-11-26): «Gesperrt». A reason is required to place
+    the block (the service says so with a 409, like the credit block's);
+    lifting it takes none."""
+
+    blocked: bool
+    reason: str | None = Field(default=None, max_length=500)
+
+
 class ContactUpdate(CamelModel):
     """duplicate_of_contact_id is not settable here — only through
     POST /v1/contacts/{id}/merge, which sets it atomically with
@@ -688,6 +697,11 @@ class ContactRead(CamelModel):
     credit_block: bool
     credit_block_reason: str | None
     credit_blocked_at: dt.datetime | None
+    # KAN-810 — «Gesperrt»: refuses a workshop order; see
+    # app.contact.services.contact.set_block.
+    blocked: bool
+    blocked_reason: str | None
+    blocked_at: dt.datetime | None
 
     # --- FR-17 / FR-18 stored fields (KAN-50) ---
     payment_terms: PaymentTerms | None

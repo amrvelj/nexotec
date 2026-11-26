@@ -28,6 +28,7 @@ export const GATED_CAPABILITIES = [
   'service_packages',
   'sales_contracts',
   'sales_offers',
+  'service_orders',
   'stock_acquisition',
   'stock_condition',
   'stock_items',

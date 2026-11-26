@@ -42,7 +42,7 @@ import { api, ApiError } from '../../../api/client'
 import { useAuth } from '../../../auth/AuthContext'
 import { useCanWrite } from '../../../auth/useCanWrite'
 import { buildContactRowMenu } from '../components/contactRowMenu'
-import { CreditBlockDialog } from '../components/contact-detail/CreditBlockDialog'
+import { ContactBlockDialog, type ContactBlockKind } from '../components/contact-detail/ContactBlockDialog'
 import { ContactCreateDialog } from '../components/ContactCreateDialog'
 import { toSwissLocale, type SupportedLanguage } from '../../../i18n'
 import { languageEndonym } from '../../../i18n/languageEndonyms'
@@ -171,7 +171,7 @@ export function ContactsListPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   // KAN-44 — the credit-block set/clear form is reachable from the shared
   // row menu on this surface too (ADR-061), not only the detail screen.
-  const [blockDialogContact, setBlockDialogContact] = useState<ContactRead | null>(null)
+  const [blockDialog, setBlockDialog] = useState<{ contact: ContactRead; kind: ContactBlockKind } | null>(null)
   // FR-05 / FR-20 — creating a contact opens the shared dialog over the
   // list, not a navigation. `/contacts/new` renders the same dialog for a
   // pasted link (App.tsx → ContactCreatePage).
@@ -498,6 +498,25 @@ export function ContactsListPage() {
       },
       text('creditBlockReason', t('contactsList.columns.creditBlockReason'), (row) => row.creditBlockReason),
       date('creditBlockedAt', t('contactsList.columns.creditBlockedAt'), (row) => row.creditBlockedAt),
+      // KAN-810 — «Gesperrt», shaped like the credit block's three columns, hidden by default.
+      {
+        id: 'blocked',
+        header: t('contactsList.columns.blocked'),
+        cell: ({ row }) =>
+          row.original.blocked ? (
+            <span title={row.original.blockedReason ?? undefined}>
+              <Badge tone="destructive">{t('contactsList.columns.blocked')}</Badge>
+            </span>
+          ) : (
+            '—'
+          ),
+        meta: {
+          defaultVisible: false,
+          exportValue: (row) => (row.blocked ? (row.blockedReason ?? t('common.yes')) : ''),
+        },
+      },
+      text('blockedReason', t('contactsList.columns.blockedReason'), (row) => row.blockedReason),
+      date('blockedAt', t('contactsList.columns.blockedAt'), (row) => row.blockedAt),
       date('contactSince', t('contactsList.columns.contactSince'), (row) => row.contactSince, formatDateOnly),
       date('nextFollowUp', t('contactsList.columns.nextFollowUp'), (row) => row.nextFollowUp, formatDateOnly),
       date('createdAt', t('contactsList.columns.created'), (row) => row.createdAt),
@@ -830,7 +849,8 @@ export function ContactsListPage() {
               onNewContract: salesEntitled ? () => void createContractForContact(row.id) : undefined,
               onCopyContactNumber: () => void navigator.clipboard.writeText(row.contactNumber),
               onToggleDoNotContact: () => void toggleDoNotContact(row),
-              onManageCreditBlock: () => setBlockDialogContact(row),
+              onManageCreditBlock: () => setBlockDialog({ contact: row, kind: 'credit' }),
+              onManageBlock: () => setBlockDialog({ contact: row, kind: 'contact' }),
             }, { mayWriteCustomerRole })
             return {
               navigate: [
@@ -846,13 +866,14 @@ export function ContactsListPage() {
         />
       </OverviewShellRegion>
 
-      {blockDialogContact && (
-        <CreditBlockDialog
+      {blockDialog && (
+        <ContactBlockDialog
+          kind={blockDialog.kind}
           opened
-          onClose={() => setBlockDialogContact(null)}
-          contact={blockDialogContact}
+          onClose={() => setBlockDialog(null)}
+          contact={blockDialog.contact}
           onSaved={() => {
-            setBlockDialogContact(null)
+            setBlockDialog(null)
             void queryClient.invalidateQueries({ queryKey: ['contacts'] })
           }}
         />

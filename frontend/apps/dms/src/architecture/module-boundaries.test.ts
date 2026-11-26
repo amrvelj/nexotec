@@ -47,6 +47,9 @@ const MOVES_DIR = join(APP_ROOT, 'scripts', 'module-moves')
 
 /** Each module folder → the words its file names carry (camelCase, capitalised). */
 const MODULE_WORDS: Record<string, string[]> = {
+  // KAN-810: the workshop order. Not «Aftersales»: that names the module switch,
+  // the entitlement and the labour-rate administration outside the module.
+  aftersales: ['ServiceOrder'],
   contact: ['Contact'],
   // Not "Deal": admin's IntegrationDealerView and useDealershipPatch carry it
   // with another meaning; the deal-workspace files and the deal* tests move by
@@ -216,12 +219,13 @@ describe('frontend modules keep their boundary (KAN-636, ADR-161)', () => {
       'modules/sales/pages/ContractDetailPage.tsx',
       'modules/stock/components/stock-detail/EvaluationTab.tsx',
     ])
-    // And contact's: the Vehicle 360, the deal workspace, the contract page, the offer workspace, valuation and
-    // the purchase dialog's supplier (KAN-465).
+    // And contact's: the Vehicle 360, the deal workspace, the contract page, the offer workspace, valuation,
+    // the purchase dialog's supplier (KAN-465) and the workshop order's parties (KAN-810).
     const throughContactsDoor = [...realFiles].filter(
       ([path, source]) => moduleOf(path) !== 'contact' && !isTestCode(path) && importsOf(path, source).some(({ specifier }) => /(^|\/)(modules\/)?contact$/.test(specifier) && resolveImport(path, specifier, (p) => realFiles.has(p)) === 'modules/contact/index.ts'),
     )
     expect(throughContactsDoor.map(([path]) => path).sort()).toEqual([
+      'modules/aftersales/components/ContactChooseDialog.tsx',
       'modules/sales/components/deal-workspace/DealWorkspaceContainers.tsx',
       'modules/sales/pages/ContractDetailPage.tsx',
       'modules/sales/pages/OfferWorkspacePage.tsx',
@@ -240,11 +244,13 @@ describe('frontend modules keep their boundary (KAN-636, ADR-161)', () => {
       'modules/sales/pages/OfferWorkspacePage.tsx',
       'modules/vehicle/pages/VehicleDetailPage.tsx',
     ])
-    // And vehicle's: the configurator's hosts (stock, valuation, the deal workspace) and the invoice request's plate holders.
+    // And vehicle's: the configurator's hosts (stock, valuation, the deal workspace), the invoice request's plate holders
+    // and the new workshop order's «Fahrzeug erfassen» (KAN-810).
     const throughVehiclesDoor = [...realFiles].filter(
       ([path, source]) => moduleOf(path) !== 'vehicle' && !isTestCode(path) && importsOf(path, source).some(({ specifier }) => resolveImport(path, specifier, (p) => realFiles.has(p)) === 'modules/vehicle/index.ts'),
     )
     expect(throughVehiclesDoor.map(([path]) => path).sort()).toEqual([
+      'modules/aftersales/components/ServiceOrderCreateDialog.tsx',
       'modules/sales/components/contract-detail/RequestInvoiceDialog.tsx',
       'modules/sales/components/deal-workspace/DealWorkspaceContainers.tsx',
       'modules/stock/components/AddToPipelineButton.tsx',

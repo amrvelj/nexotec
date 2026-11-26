@@ -251,7 +251,7 @@ CHECKS: list[ReferenceCheck | StateCheck] = [
     StateCheck(
         # KAN-464 (Q1, rule 10): a contact without the customer role carries
         # no customer field — no prospect/inactive status, no advisor, no
-        # credit block. Every writer judges it under the contact row's lock;
+        # credit block, no «Gesperrt» (KAN-810). Every writer judges it under the contact row's lock;
         # this says when one did not.
         label="contact without the customer role carries a customer field",
         source_model=Contact,
@@ -261,7 +261,8 @@ CHECKS: list[ReferenceCheck | StateCheck] = [
             (Contact.lifecycle_status != ContactLifecycleStatus.MERGED)
             & (Contact.lifecycle_status.in_([ContactLifecycleStatus.PROSPECT, ContactLifecycleStatus.INACTIVE])
              | Contact.advisor_id.is_not(None)
-             | Contact.credit_block.is_(True))
+             | Contact.credit_block.is_(True)
+             | Contact.blocked.is_(True))
             & ~select(ContactRoleAssignment.id)
             .where(
                 ContactRoleAssignment.contact_id == Contact.id,

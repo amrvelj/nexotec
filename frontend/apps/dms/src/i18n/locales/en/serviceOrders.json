@@ -1,0 +1,52 @@
+{
+  "title": "Workshop orders",
+  "newOrder": "New order",
+  "searchPlaceholder": "Order number, vehicle, VIN, ordering party …",
+  "allView": "All orders",
+  "loadError": "The orders could not be loaded.",
+  "columns": {
+    "orderNumber": "Order",
+    "vehicleAndContact": "Vehicle · ordering party",
+    "state": "Order status",
+    "orderDate": "Order date",
+    "location": "Location",
+    "createdAt": "Created"
+  },
+  "emptyState": {
+    "title": "No workshop order yet",
+    "description": "An order is created with “New order” for a contact's vehicle."
+  },
+  "emptyFilteredState": {
+    "title": "No order matches",
+    "description": "Change the search or the filter.",
+    "action": "Reset search and filter"
+  },
+  "create": {
+    "title": "New order",
+    "searchLabel": "Plate, contact or VIN",
+    "searchPlaceholder": "e.g. VD 929696 or Croci",
+    "noMatches": "No vehicle and no contact found.",
+    "typeToSearch": "Type a plate, a VIN or a name.",
+    "vehicleRow": "Vehicle {{vehicleNumber}}",
+    "contactRow": "Contact {{contactNumber}}",
+    "vehicle": "Vehicle",
+    "otherVehicle": "Search another vehicle or contact",
+    "contactVehicles": "Vehicles of {{name}}",
+    "noContactVehicles": "No vehicle is allocated to this contact.",
+    "createVehicle": "Create vehicle",
+    "holderProposed": "Keeper proposed as the ordering party",
+    "noHolder": "No keeper is recorded for this vehicle. Choose the ordering party.",
+    "holdersLoadError": "The keeper could not be read. Choose the ordering party.",
+    "location": "Location",
+    "noLocation": "No active location is recorded for this business.",
+    "submit": "Create order",
+    "error": "The order could not be created.",
+    "searchError": "The search failed.",
+    "missing": {
+      "vehicle": "Choose a vehicle.",
+      "contact": "Choose the ordering party.",
+      "location": "Choose the location."
+    },
+    "unnamedContact": "Contact without a name"
+  }
+}

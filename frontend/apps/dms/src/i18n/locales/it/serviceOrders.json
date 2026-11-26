@@ -1,0 +1,52 @@
+{
+  "title": "Ordini d'officina",
+  "newOrder": "Nuovo ordine",
+  "searchPlaceholder": "Numero d'ordine, veicolo, VIN, committente …",
+  "allView": "Tutti gli ordini",
+  "loadError": "Non è stato possibile caricare gli ordini.",
+  "columns": {
+    "orderNumber": "Ordine",
+    "vehicleAndContact": "Veicolo · committente",
+    "state": "Stato dell'ordine",
+    "orderDate": "Data dell'ordine",
+    "location": "Sede",
+    "createdAt": "Registrato il"
+  },
+  "emptyState": {
+    "title": "Ancora nessun ordine d'officina",
+    "description": "Un ordine si crea con «Nuovo ordine» per il veicolo di un contatto."
+  },
+  "emptyFilteredState": {
+    "title": "Nessun ordine corrisponde",
+    "description": "Modificate la ricerca o il filtro.",
+    "action": "Reimposta ricerca e filtro"
+  },
+  "create": {
+    "title": "Nuovo ordine",
+    "searchLabel": "Targa, contatto o VIN",
+    "searchPlaceholder": "p. es. VD 929696 o Croci",
+    "noMatches": "Nessun veicolo e nessun contatto trovato.",
+    "typeToSearch": "Inserite una targa, un VIN o un nome.",
+    "vehicleRow": "Veicolo {{vehicleNumber}}",
+    "contactRow": "Contatto {{contactNumber}}",
+    "vehicle": "Veicolo",
+    "otherVehicle": "Cerca un altro veicolo o un altro contatto",
+    "contactVehicles": "Veicoli di {{name}}",
+    "noContactVehicles": "Nessun veicolo è assegnato a questo contatto.",
+    "createVehicle": "Registra un veicolo",
+    "holderProposed": "Detentore proposto come committente",
+    "noHolder": "Per questo veicolo non è registrato alcun detentore. Scegliete il committente.",
+    "holdersLoadError": "Non è stato possibile leggere il detentore. Scegliete il committente.",
+    "location": "Sede",
+    "noLocation": "Per questa azienda non è registrata alcuna sede attiva.",
+    "submit": "Crea l'ordine",
+    "error": "Non è stato possibile creare l'ordine.",
+    "searchError": "La ricerca non è riuscita.",
+    "missing": {
+      "vehicle": "Scegliete un veicolo.",
+      "contact": "Scegliete il committente.",
+      "location": "Scegliete la sede."
+    },
+    "unnamedContact": "Contatto senza nome"
+  }
+}

@@ -48,6 +48,9 @@ Last verified against main@32ad509 (2026-11-25). -->
 - **States and refusals** are the slice page's section 3 tables (order, job and answer, position,
   stay, clock, check, «Rechnungsbereit», booking); a refusal says why in one sentence. Its 49 checks
   (section 7) are the acceptance tests: a ticket cites its checks by number.
+- **«Blocked» (check 2) is the contact's «Gesperrt»** (`ContactRef.blocked`; Anto, 2026-11-26, KAN-810
+  Q1 option 1), refusing an order's contact or invoice recipient — never the credit block, which only
+  makes payment «at pick-up» (3.7, check 38). Fixed-price labour is always typed (Q2, option 4).
 - **Who may do what** (ruling 180): every decision at the desk is open to the role `aftersales`; the
   technician has what is on their phone (no prices anywhere, decision 7); the manager has everything.
   Every screen sits behind the `aftersales` module switch (off → 404 for everybody).

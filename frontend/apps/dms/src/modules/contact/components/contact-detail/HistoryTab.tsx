@@ -35,6 +35,7 @@ const KNOWN_ACTIONS = new Set([
   'vehicle_party_update',
   'vehicle_party_remove',
   'credit_block_changed',
+  'block_changed',
 ])
 
 function actionLabel(action: string, t: Translate): string {
@@ -108,6 +109,8 @@ const HISTORY_FIELDS = new Set([
   'duplicateOfContactId',
   'creditBlock',
   'creditBlockReason',
+  'blocked',
+  'blockedReason',
   'vehiclePartiesRepointed',
   'vehiclePartiesKeptClosed',
   'vehiclePartiesKeptClosedIds',
