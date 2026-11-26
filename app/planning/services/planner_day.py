@@ -23,8 +23,8 @@ from app.core.relative_dates import session_zone
 from app.planning.models.booking import Booking, BookingResource, BookingStatus
 from app.planning.models.resource import Resource
 from app.planning.services.booking_records import BookingRecord, records_of
-from app.planning.services.platform_refs import location_belongs_to
 from app.planning.services.planner_settings import GRID_MINUTES_KEY, read_minutes_or_none
+from app.planning.services.platform_refs import location_belongs_to
 
 
 @dataclass(frozen=True)
