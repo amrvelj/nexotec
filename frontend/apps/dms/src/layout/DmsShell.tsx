@@ -25,6 +25,7 @@ import {
   LayoutDashboard,
   LifeBuoy,
   ListChecks,
+  PackageOpen,
   MapPin,
   Palette,
   Megaphone,
@@ -183,6 +184,10 @@ function buildNavGroups(t: (key: string) => string, statusIndicator?: NavItemInd
         // and workplaces. Aftersales and the manager read; the manager writes. Shown with the
         // aftersales module (navEntitlements); never role-hidden (A-RULE-7).
         { label: t('shell.nav.plannerResources'), href: '/administration/planner-resources', icon: CalendarCog, status: 'active' },
+        // KAN-818 — Dealer Administration › Service catalogue (S1): Aftersales' packages, configured
+        // here (A-RULE-0). Aftersales and the manager read; the manager writes. Shown with the
+        // aftersales module (navEntitlements); never role-hidden (A-RULE-7).
+        { label: t('shell.nav.serviceCatalogue'), href: '/administration/service-catalogue', icon: PackageOpen, status: 'active' },
         // KAN-466 — Dealer Administration › Contact groups. Any role reads; the
         // manager switches a group on or off (A-RULE-0). Never role-hidden (A-RULE-7).
         { label: t('shell.nav.contactGroups'), href: '/administration/contact-groups', icon: Tags, status: 'active' },

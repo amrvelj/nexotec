@@ -571,6 +571,12 @@ export type ListingTextSuggestionRead = Schemas['ListingTextSuggestionRead']
 // KAN-806 — Dealer Administration › Labour rates (D-A-19)
 export type LabourRateCategoryList = Schemas['LabourRateCategoryList']
 export type LabourRateCategoryRead = Schemas['LabourRateCategoryRead']
+// KAN-818 — the service catalogue (Aftersales' packages, S1 in Dealer Administration).
+export type ServicePackageList = Schemas['ServicePackageList']
+export type ServicePackageRead = Schemas['ServicePackageRead']
+export type ServicePackageWrite = Schemas['ServicePackageWrite']
+export type PackagePositionRead = Schemas['PackagePositionRead']
+export type PackagePositionWrite = Schemas['PackagePositionWrite']
 export type LabourRateRead = Schemas['LabourRateRead']
 export type LabourRateAgreementPage = Schemas['LabourRateAgreementPage']
 export type LabourRateAgreementRead = Schemas['LabourRateAgreementRead']

@@ -18,5 +18,20 @@
   "service_order_time_too_many_decimals": "Un temps de travail a au plus deux décimales.",
   "service_order_time_unit_changed": "Le temps de travail est désormais saisi ici dans une autre unité. Vérifiez le temps et saisissez-le à nouveau.",
   "service_order_vat_rate_not_set": "Aucun taux de TVA n'est encore défini pour cette entreprise ; aucun prix ne peut encore être saisi.",
-  "service_order_vehicle_not_identified": "Le véhicule n'est pas identifié. Choisissez-le parmi les véhicules ou saisissez-le d'abord."
+  "service_order_vehicle_not_identified": "Le véhicule n'est pas identifié. Choisissez-le parmi les véhicules ou saisissez-le d'abord.",
+  "service_package_inactive": "Ce forfait est inactif et n'est plus proposé.",
+  "service_package_labour_category_required": "Une position de travail indique sa catégorie de travail.",
+  "service_package_labour_category_unknown": "Cette catégorie de travail n'appartient pas à cette entreprise.",
+  "service_package_labour_rate_missing": "Aucun taux horaire ne s'applique à une catégorie de travail de ce forfait sur ce site à la date de l'ordre ; le forfait ne peut pas être repris.",
+  "service_package_labour_time_not_positive": "Un temps de travail est supérieur à zéro.",
+  "service_package_labour_time_required": "Une position de travail a besoin de son temps.",
+  "service_package_labour_time_too_many_decimals": "Un temps de travail a au plus deux décimales.",
+  "service_package_name_language": "Un nom ne peut être traduit qu'en allemand, français, italien ou anglais.",
+  "service_package_name_required": "Un forfait a besoin d'un nom.",
+  "service_package_name_taken": "Le catalogue de services contient déjà un forfait de ce nom.",
+  "service_package_name_too_long": "Le nom d'un forfait compte au plus 200 caractères.",
+  "service_package_position_incomplete": "Une position de texte n'a ni catégorie de travail, ni temps, ni contrôle.",
+  "service_package_position_text_required": "Chaque position du forfait a besoin de son texte.",
+  "service_package_position_text_too_long": "Le texte d'une position compte au plus 1000 caractères.",
+  "service_package_time_unit_changed": "Le temps de travail est désormais saisi dans une autre unité. Vérifiez le temps et saisissez-le à nouveau."
 }

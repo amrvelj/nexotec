@@ -24,6 +24,8 @@ const SUBSETS: ConfigurationCopySubset[] = [
   'number_ranges',
   'contact_groups',
   'settings',
+  // KAN-818: Aftersales' service catalogue (skipped when either Betrieb lacks the module).
+  'service_catalogue',
 ]
 const OUTCOME_TONE: Record<ConfigurationCopyItem['outcome'], BadgeTone> = {
   created: 'success',
@@ -41,6 +43,11 @@ const KNOWN_REASONS = new Set([
   'standard_text_placeholder_invalid',
   'standard_text_seed_language_missing',
   'whatsapp_approval_reset',
+  // KAN-818: the service catalogue's items.
+  'labour_category_missing',
+  'module_not_held',
+  'subset_not_available',
+  'time_unit_differs',
 ])
 
 /**

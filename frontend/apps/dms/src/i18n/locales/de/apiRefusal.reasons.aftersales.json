@@ -18,5 +18,20 @@
   "service_order_time_too_many_decimals": "Eine Arbeitszeit hat höchstens zwei Nachkommastellen.",
   "service_order_time_unit_changed": "Die Arbeitszeit wird hier inzwischen in einer anderen Einheit erfasst. Prüfen Sie die Zeit und erfassen Sie sie erneut.",
   "service_order_vat_rate_not_set": "Für diesen Betrieb ist noch kein MwSt.-Satz festgelegt; es kann noch kein Preis erfasst werden.",
-  "service_order_vehicle_not_identified": "Das Fahrzeug ist nicht bestimmt. Wählen Sie es unter den Fahrzeugen aus oder erfassen Sie es zuerst."
+  "service_order_vehicle_not_identified": "Das Fahrzeug ist nicht bestimmt. Wählen Sie es unter den Fahrzeugen aus oder erfassen Sie es zuerst.",
+  "service_package_inactive": "Dieses Paket ist inaktiv und wird nicht mehr angeboten.",
+  "service_package_labour_category_required": "Eine Arbeitsposition nennt ihre Arbeitskategorie.",
+  "service_package_labour_category_unknown": "Diese Arbeitskategorie gehört nicht zu diesem Betrieb.",
+  "service_package_labour_rate_missing": "Für eine Arbeitskategorie dieses Pakets gilt an diesem Standort am Auftragsdatum kein Stundenansatz; das Paket kann nicht übernommen werden.",
+  "service_package_labour_time_not_positive": "Eine Arbeitszeit ist grösser als null.",
+  "service_package_labour_time_required": "Eine Arbeitsposition braucht ihre Zeit.",
+  "service_package_labour_time_too_many_decimals": "Eine Arbeitszeit hat höchstens zwei Nachkommastellen.",
+  "service_package_name_language": "Ein Name kann nur auf Deutsch, Französisch, Italienisch oder Englisch übersetzt werden.",
+  "service_package_name_required": "Ein Paket braucht einen Namen.",
+  "service_package_name_taken": "Im Servicekatalog gibt es schon ein Paket mit diesem Namen.",
+  "service_package_name_too_long": "Der Name eines Pakets hat höchstens 200 Zeichen.",
+  "service_package_position_incomplete": "Eine Textposition hat keine Arbeitskategorie, keine Zeit und keine Prüfung.",
+  "service_package_position_text_required": "Jede Position des Pakets braucht ihren Text.",
+  "service_package_position_text_too_long": "Der Text einer Position hat höchstens 1000 Zeichen.",
+  "service_package_time_unit_changed": "Arbeitszeit wird hier jetzt in einer anderen Einheit erfasst. Prüfen Sie die Zeit und erfassen Sie sie neu."
 }

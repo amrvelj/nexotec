@@ -1,0 +1,77 @@
+{
+  "title": "Catalogue de services",
+  "subtitle": "Des forfaits avec positions de travail et de texte et leurs temps, que la réception reprend en une étape sur un travail. Le prix est le temps au taux horaire de l'ordre.",
+  "add": "Saisir un forfait",
+  "edit": "Modifier",
+  "editNamed": "Modifier {{name}}",
+  "activate": "Activer",
+  "activateNamed": "Activer {{name}}",
+  "deactivate": "Désactiver",
+  "deactivateNamed": "Désactiver {{name}}",
+  "empty": "Aucun forfait pour l'instant. Nexotec ne livre aucun forfait : saisissez les vôtres.",
+  "readOnly": "Seule la direction modifie le catalogue de services.",
+  "loadError": "Le catalogue de services n'a pas pu être chargé.",
+  "saveError": "Le forfait n'a pas pu être enregistré.",
+  "mixedUnits": "Heures et UT mélangées",
+  "checkBadge": "Contrôle requis",
+  "positionCount_one": "{{count}} position ({{labour}} travail)",
+  "positionCount_other": "{{count}} positions ({{labour}} travail)",
+  "columns": {
+    "name": "Forfait",
+    "positions": "Positions",
+    "time": "Temps",
+    "check": "Contrôle",
+    "status": "Statut",
+    "actions": "Actions"
+  },
+  "status": {
+    "active": "Actif",
+    "inactive": "Inactif"
+  },
+  "unitInForce": {
+    "hours": "Le temps de travail est saisi en heures.",
+    "work_units": "Le temps de travail est saisi en unités de travail (UT), {{perHour}} UT par heure."
+  },
+  "units": {
+    "hours": "heures",
+    "work_units": "unités de travail (UT)"
+  },
+  "unitShort": {
+    "hours": "h",
+    "work_units": "UT"
+  },
+  "kinds": {
+    "labour": "Travail",
+    "text": "Texte"
+  },
+  "languages": {
+    "de": "allemand",
+    "fr": "français",
+    "it": "italien",
+    "en": "anglais"
+  },
+  "dialog": {
+    "createTitle": "Saisir un forfait",
+    "editTitle": "Modifier le forfait",
+    "name": "Nom",
+    "translationsHint": "Facultatif : le nom dans d'autres langues. Sans traduction, le nom est affiché tel que saisi.",
+    "translation": "Nom ({{language}})",
+    "active": "Actif",
+    "activeHint": "Un forfait inactif n'est plus proposé pour de nouveaux travaux. Les ordres existants ne changent pas.",
+    "positions": "Positions",
+    "unitNote": "Temps en {{unit}}",
+    "noPositions": "Aucune position pour l'instant.",
+    "positionLabel": "Position {{position}}",
+    "moveUp": "Monter la position {{position}}",
+    "moveDown": "Descendre la position {{position}}",
+    "remove": "Retirer la position {{position}}",
+    "text": "Texte",
+    "category": "Catégorie de travail",
+    "noCategories": "Aucune catégorie de travail",
+    "time": "Temps",
+    "checkNeeded": "Contrôle requis",
+    "checkNeededHint": "Le travail reçoit un contrôle qualité par une personne qui n'y a pas travaillé.",
+    "addLabour": "Ajouter un travail",
+    "addText": "Ajouter un texte"
+  }
+}

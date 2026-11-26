@@ -5,6 +5,7 @@ this composition role.
 """
 
 from app.aftersales.models.service_order import ServiceOrder, ServiceOrderJob, ServiceOrderPosition
+from app.aftersales.models.service_package import ServicePackage, ServicePackagePosition
 from app.contact.models.contact import (
     Contact,
     ContactAddress,
@@ -242,6 +243,8 @@ __all__ = [
     "ServiceOrder",
     "ServiceOrderJob",
     "ServiceOrderPosition",
+    "ServicePackage",
+    "ServicePackagePosition",
     "SettingValue",
     "SettingValueChange",
     "SetupChecklistRegression",

@@ -48,7 +48,7 @@ import enum
 import uuid
 from decimal import Decimal
 
-from sqlalchemy import Date, ForeignKey, Index, Integer, Numeric, String, UniqueConstraint
+from sqlalchemy import Boolean, Date, ForeignKey, Index, Integer, Numeric, String, UniqueConstraint, false
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.base import PrimaryKeyMixin, TenantScopedMixin, TimestampMixin, VersionedMixin
@@ -238,3 +238,7 @@ class ServiceOrderPosition(PrimaryKeyMixin, TenantScopedMixin, TimestampMixin, B
     # Who set the price, and when (section 3.2: the order says who entered each price).
     priced_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)
     priced_by: Mapped[uuid.UUID | None] = mapped_column(GUID(), nullable=True)
+
+    # «Prüfung nötig» on a labour position (section 3.6): copied from a service-catalogue
+    # package (KAN-818, check 44); the quality check that reads it is KAN-815.
+    check_needed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default=false())

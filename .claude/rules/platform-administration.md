@@ -63,8 +63,10 @@ platform-notifications.md) by KAN-751, 2026-11-18, for platform's `administratio
 - **Copy configuration from a sister Betrieb** (D-A-01, FR-A-01; ADR-156) — built (KAN-220): a
   manager of both Betriebe copies a chosen subset once (`POST /v1/dealerships/{id}/copy-configuration`:
   standard texts, the template's header notes, number-range patterns, contact groups, settings
-  (KAN-805: the source's own values, `platform-settings.md`); a dry run lists exactly what the
-  commit does), each row through its own write path, audited as one
+  (KAN-805: the source's own values, `platform-settings.md`), and a context's own subset through
+  `app/core/configuration_copy.py` — registered at `app/configuration_copy_registry.py`, run first on
+  the copier's own session (rule 12), today Aftersales' `service_catalogue` (KAN-818, `aftersales.md`);
+  a dry run lists exactly what the commit does), each row through its own write path, audited as one
   `configuration_copied` row on the target — never inheritance, no link to the source.
 
 ## Data export and offboarding (KAN-218)

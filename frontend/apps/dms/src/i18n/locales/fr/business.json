@@ -194,14 +194,16 @@
       "document_template": "Modèle de document (en-têtes)",
       "number_ranges": "Modèles des plages de numéros",
       "contact_groups": "Groupes de contacts",
-      "settings": "Réglages"
+      "settings": "Réglages",
+      "service_catalogue": "Catalogue de services"
     },
     "subsetHint": {
       "standard_texts": "Les textes propres et adaptés de l'entreprise, sans les variantes par site. Un texte que cette entreprise possède déjà est écrasé. L'approbation des modèles WhatsApp n'est jamais reprise ; un modèle écrasé doit être soumis à nouveau.",
       "document_template": "L'en-tête des documents, par langue. Si l'autre entreprise n'en a pas dans une langue, celui d'ici reste inchangé.",
       "number_ranges": "Modèle, valeur de départ et redémarrage annuel des modules que cette entreprise utilise. Les compteurs ne sont jamais repris ; une plage qui a déjà attribué un numéro reste inchangée.",
       "contact_groups": "Les groupes de contacts que l’autre entreprise utilise sont activés ici. Aucun groupe n’est désactivé.",
-      "settings": "Les valeurs que l'autre entreprise a définies pour elle-même, pour les modules que cette entreprise utilise et pour les réglages qui ne relèvent d'aucun module. Les valeurs des sites ne sont jamais reprises ; un réglage qui n'y est pas défini reste inchangé ici."
+      "settings": "Les valeurs que l'autre entreprise a définies pour elle-même, pour les modules que cette entreprise utilise et pour les réglages qui ne relèvent d'aucun module. Les valeurs des sites ne sont jamais reprises ; un réglage qui n'y est pas défini reste inchangé ici.",
+      "service_catalogue": "Les forfaits actifs. Un forfait du même nom est remplacé ; les catégories de travail sont associées par leur nom."
     },
     "preview": "Afficher l'aperçu",
     "previewTitle": "Aperçu : reprise depuis {{source}}",
@@ -236,7 +238,11 @@
       "whatsapp_approval_reset": "Le modèle WhatsApp doit être soumis à nouveau pour approbation.",
       "other": "Cet élément ne peut pas être repris.",
       "contact_group_inactive": "Nexotec a retiré ce groupe de contacts.",
-      "setting_value_stale": "La valeur ne correspond plus à ce réglage et y est considérée comme non définie."
+      "setting_value_stale": "La valeur ne correspond plus à ce réglage et y est considérée comme non définie.",
+      "labour_category_missing": "Cette entreprise n'a pas de catégorie de travail active portant le nom d'une catégorie de ce forfait.",
+      "module_not_held": "L'une des deux entreprises n'a pas le module Après-vente.",
+      "subset_not_available": "Ce domaine ne peut pas être repris pour l'instant.",
+      "time_unit_differs": "Les temps de ce forfait sont saisis dans une autre unité que celle de cette entreprise."
     }
   },
   "statusRefusals": {

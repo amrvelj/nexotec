@@ -52,6 +52,7 @@ const BusinessProfileLinkCallbackPage = lazyPage(
 const NumberRangesPage = lazyPage(() => import('./pages/NumberRangesPage'), 'NumberRangesPage')
 const LabourRatesPage = lazyPage(() => import('./pages/LabourRatesPage'), 'LabourRatesPage')
 const PlannerResourcesPage = lazyPage(() => import('./pages/PlannerResourcesPage'), 'PlannerResourcesPage')
+const ServiceCataloguePage = lazyPage(() => import('./pages/ServiceCataloguePage'), 'ServiceCataloguePage')
 const SetupChecklistPage = lazyPage(() => import('./pages/SetupChecklistPage'), 'SetupChecklistPage')
 const LegalAcceptancePage = lazyPage(() => import('./pages/LegalAcceptancePage'), 'LegalAcceptancePage')
 const SetupInProgressPage = lazyPage(() => import('./pages/SetupInProgressPage'), 'SetupInProgressPage')
@@ -163,6 +164,7 @@ export default function App() {
               {/* KAN-808: the planner's resources and lists, embedding the settings rows of O6 and O7;
                   the area itself is /administration/settings/planning (KAN-805 criterion 6). */}
               <Route path="/administration/planner-resources" element={<PlannerResourcesPage />} />
+              <Route path="/administration/service-catalogue" element={<ServiceCataloguePage />} />
               {/* KAN-214 — the setup checklist and «Betrieb aktivieren» (D-A-21, FR-A-34),
                   the re-acceptance of a new ToS / DPA version (FR-A-39), and what a
                   colleague sees while the Betrieb is being set up. */}

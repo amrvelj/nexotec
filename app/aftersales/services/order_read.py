@@ -64,6 +64,7 @@ def _position(position: ServiceOrderPosition, payer: str) -> PositionRead:
         labour_category_id=position.labour_category_id,
         labour_category_label=position.labour_category_label,
         time=time,
+        check_needed=position.check_needed,
         unit_price=_unit_price(order_money.position_price(position)),
         line_net=line.net if line else None,
         line_gross=line.gross if line else None,
