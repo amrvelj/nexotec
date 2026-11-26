@@ -132,7 +132,7 @@
       "time": "Saisissez le temps.",
       "price": "Saisissez un prix."
     },
-    "unitMoved": "Cette position a été saisie en {{entry}} ; ici s’appliquent désormais les {{now}}. Un temps modifié est saisi en {{now}}.",
+    "unitMoved": "Cette position a été saisie en {{entry}} ; l’entreprise compte désormais en {{now}}. Un temps modifié est saisi en {{now}}.",
     "grossPreview": "Calculé à partir de l’autre prix, pour affichage seulement ; le prix saisi en dernier est celui enregistré."
   },
   "overview": {

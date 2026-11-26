@@ -63,7 +63,13 @@ export function ContactChooseDialog({ opened, title, onClose, onChosen }: Contac
           loading={search.isFetching}
           inputLabel={t('serviceOrder.overview.contactSearchLabel')}
           placeholder={t('serviceOrder.overview.contactSearchPlaceholder')}
-          emptyLabel={debouncedQuery.trim() ? t('serviceOrder.overview.noContactMatches') : t('serviceOrder.overview.contactSearchPlaceholder')}
+          emptyLabel={
+            search.isError
+              ? t('serviceOrders.create.searchError')
+              : debouncedQuery.trim()
+                ? t('serviceOrder.overview.noContactMatches')
+                : t('serviceOrder.overview.contactSearchPlaceholder')
+          }
           onCreateNew={() => setCreateOpen(true)}
           createLabel={t('contactsList.newContact')}
         />

@@ -132,6 +132,70 @@ describe('the workshop order page (KAN-810, D3)', () => {
     await waitFor(() => expect(backend.callsTo(ORDER_PATH, 'GET').length).toBeGreaterThan(reads))
   })
 
+  it('a job is renamed under If-Match', async () => {
+    const user = userEvent.setup()
+    const backend = install({
+      extra: [{ method: 'PATCH', match: new RegExp(`^/service-orders/${ORDER_ID}/jobs/job-1$`), handler: () => order({ version: 4 }) }],
+    })
+    renderPage()
+
+    await user.click((await screen.findAllByRole('button', { name: t('serviceOrder.jobs.rename') }))[0])
+    const name = await screen.findByRole('textbox', { name: (n) => n.startsWith(t('serviceOrder.jobs.dialog.name')) })
+    await user.clear(name)
+    await user.type(name, 'Jahresservice Flotte 2027')
+    await user.click(screen.getByRole('button', { name: t('common.save') }))
+
+    await waitFor(() => expect(backend.callsTo(/\/jobs\/job-1$/, 'PATCH')).toHaveLength(1))
+    const [patch] = backend.callsTo(/\/jobs\/job-1$/, 'PATCH')
+    expect(patch.body).toEqual({ name: 'Jahresservice Flotte 2027' })
+    expect(patch.headers.get('If-Match')).toBe('3')
+  })
+
+  it('a position is deleted after a confirmation, under If-Match', async () => {
+    const user = userEvent.setup()
+    const backend = install({
+      extra: [{ method: 'DELETE', match: /\/positions\/pos-1$/, handler: () => order({ version: 4 }) }],
+    })
+    renderPage()
+
+    await user.click((await screen.findAllByRole('button', { name: t('serviceOrder.positions.delete') }))[0])
+    expect(backend.callsTo(/\/positions\/pos-1$/, 'DELETE')).toHaveLength(0)
+    await user.click(await screen.findByRole('button', { name: t('serviceOrder.positions.confirmDelete') }))
+
+    await waitFor(() => expect(backend.callsTo(/\/positions\/pos-1$/, 'DELETE')).toHaveLength(1))
+    expect(backend.callsTo(/\/positions\/pos-1$/, 'DELETE')[0].headers.get('If-Match')).toBe('3')
+  })
+
+  it('the driver is removed under If-Match', async () => {
+    const user = userEvent.setup()
+    const backend = install({
+      current: order({ driver: { contactId: 'contact-9', label: 'Luca Fahrer' } }),
+      extra: [{ method: 'PATCH', match: ORDER_PATH, handler: () => order({ version: 4 }) }],
+    })
+    renderPage('?tab=overview')
+
+    await user.click(await screen.findByRole('button', { name: t('serviceOrder.overview.removeDriver') }))
+
+    await waitFor(() => expect(backend.callsTo(ORDER_PATH, 'PATCH')).toHaveLength(1))
+    const [patch] = backend.callsTo(ORDER_PATH, 'PATCH')
+    expect(patch.body).toEqual({ driverContactId: null })
+    expect(patch.headers.get('If-Match')).toBe('3')
+  })
+
+  it('the overview renders the order date as a calendar day under Pacific/Honolulu (ui-formats.md)', async () => {
+    const tz = process.env.TZ
+    process.env.TZ = 'Pacific/Honolulu'
+    try {
+      install()
+      renderPage('?tab=overview')
+      expect((await screen.findAllByText('26.11.2026')).length).toBeGreaterThan(0)
+      expect(screen.queryByText('25.11.2026')).not.toBeInTheDocument()
+    } finally {
+      if (tz === undefined) delete process.env.TZ
+      else process.env.TZ = tz
+    }
+  })
+
   it('a frozen order shows the party changes disabled (ADR-061/104: a state disables, only a role hides)', async () => {
     install({ current: order({ version: 4, state: 'cancelled' }) })
     renderPage('?tab=overview')

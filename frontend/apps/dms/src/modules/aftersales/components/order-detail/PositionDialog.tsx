@@ -150,7 +150,7 @@ export function PositionDialog({ opened, order, jobId, position, onClose, onSave
   const unitInForce: LabourTimeUnit | null = proposal.data?.timeUnit ?? null
   const timeBefore: number | '' = position?.time ? decimal(position.time.quantity) : ''
   const timeChanged = !editing || time !== timeBefore
-  const unit: LabourTimeUnit | null = timeChanged ? (unitInForce ?? entryUnit) : entryUnit
+  const unit: LabourTimeUnit | null = timeChanged || entryUnit === null ? (unitInForce ?? entryUnit) : entryUnit
   const unitMoved = editing && entryUnit !== null && unitInForce !== null && entryUnit !== unitInForce
   const workUnitsPerHour =
     !timeChanged && position?.time ? position.time.workUnitsPerHour : (proposal.data?.workUnitsPerHour ?? null)
@@ -349,8 +349,9 @@ export function PositionDialog({ opened, order, jobId, position, onClose, onSave
             onChange={(value) => {
               setCategoryId(value)
               setTyped(null)
-              // By time, another category is priced by its own proposal on saving: show it.
-              setBackToProposal(editing && byTime)
+              // The server's rule (positions.change_position): a changed category takes that
+              // category's rate for a proposed price and keeps a typed one. Show what it will do.
+              setBackToProposal(editing && byTime && position?.rateSource !== 'typed')
             }}
             required
             allowDeselect={false}

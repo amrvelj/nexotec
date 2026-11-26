@@ -115,9 +115,13 @@ export function OverviewTab({
             </Text>
             {changeButton('driver')}
             {canWrite && order.driver && (
-              <Button size="compact-xs" variant="subtle" color="gray" disabled={!editable} title={frozenReason ?? undefined} onClick={() => void change({ driverContactId: null })}>
-                {t('serviceOrder.overview.removeDriver')}
-              </Button>
+              <Tooltip label={frozenReason} disabled={frozenReason === null}>
+                <span>
+                  <Button size="compact-xs" variant="subtle" color="gray" disabled={!editable} onClick={() => void change({ driverContactId: null })}>
+                    {t('serviceOrder.overview.removeDriver')}
+                  </Button>
+                </span>
+              </Tooltip>
             )}
           </Row>
         </OverviewCard>

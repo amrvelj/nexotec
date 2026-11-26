@@ -7,7 +7,7 @@ import { renderWithProviders } from '../../../../test/renderWithProviders'
 import { installFakeBackend, status, type FakeRoute } from '../../../../test/fakeBackend'
 import type { LabourRateProposalRead } from '../../../../api/types'
 import { PositionDialog } from './PositionDialog'
-import { JOB_ID, LABOUR_BY_TIME, LABOUR_CATEGORIES, ORDER_ID, order, proposal } from '../../test/serviceOrderFixtures'
+import { JOB_ID, LABOUR_BY_TIME, LABOUR_CATEGORIES, LABOUR_FIXED_NO_TIME, ORDER_ID, order, proposal } from '../../test/serviceOrderFixtures'
 
 // KAN-810 criterion 3 (D13): labour by time proposes the rate «which applies here» and names its
 // source (check 11); the price typed last leads and is sent with `priceEntered` (check 12); the time
@@ -217,5 +217,65 @@ describe('the position dialog (KAN-810, D13)', () => {
 
     await waitFor(() => expect(onSaved).toHaveBeenCalled())
     expect(backend.callsTo(/\/positions\/pos-1$/, 'PATCH')[0].body).toEqual({ text: 'Jahresservice mit Pollenfilter' })
+  })
+
+  it("the proposal's valid-from is a calendar day under Pacific/Honolulu (ui-formats.md)", async () => {
+    const tz = process.env.TZ
+    process.env.TZ = 'Pacific/Honolulu'
+    try {
+      const user = userEvent.setup()
+      install()
+      renderDialog()
+      await chooseCategory(user)
+      expect(await screen.findByTestId('rate-proposal')).toHaveTextContent('01.11.2026')
+    } finally {
+      if (tz === undefined) delete process.env.TZ
+      else process.env.TZ = tz
+    }
+  })
+
+  it('a fixed-price position without a time gets one on edit, in the unit in force', async () => {
+    const user = userEvent.setup()
+    const backend = installUnitContract('hours')
+    const { onSaved } = renderDialog(LABOUR_FIXED_NO_TIME)
+
+    const time = await screen.findByRole('textbox', { name: (name) => name.startsWith(t('serviceOrder.positionDialog.quantityIn', { unit: 'h' })) })
+    await waitFor(() => expect(time).toBeEnabled())
+    await user.type(time, '2')
+    await user.click(screen.getByRole('button', { name: t('serviceOrder.positionDialog.save') }))
+
+    await waitFor(() => expect(onSaved).toHaveBeenCalled())
+    expect(backend.callsTo(/\/positions\/pos-1$/, 'PATCH')[0].body).toEqual({ time: '2', timeUnit: 'hours' })
+  })
+
+  // positions.change_position: a changed category takes that category's rate for a proposed price
+  // and keeps a typed one. The dialog sends accordingly and never decides otherwise.
+  async function changeCategory(user: ReturnType<typeof userEvent.setup>) {
+    await user.click(await screen.findByRole('textbox', { name: (name) => name.startsWith(t('serviceOrder.positionDialog.labourCategory')) }))
+    await user.click(await screen.findByRole('option', { name: 'Karosserie' }))
+  }
+
+  it('a changed category keeps a typed price (only the category is sent)', async () => {
+    const user = userEvent.setup()
+    const backend = installUnitContract('work_units')
+    const { onSaved } = renderDialog({ ...LABOUR_BY_TIME, rateSource: 'typed', labourRateId: null })
+
+    await changeCategory(user)
+    await user.click(screen.getByRole('button', { name: t('serviceOrder.positionDialog.save') }))
+
+    await waitFor(() => expect(onSaved).toHaveBeenCalled())
+    expect(backend.callsTo(/\/positions\/pos-1$/, 'PATCH')[0].body).toEqual({ labourCategoryId: 'cat-2' })
+  })
+
+  it("a changed category re-proposes a proposed price (sent as unitPrice: null, the server's proposal)", async () => {
+    const user = userEvent.setup()
+    const backend = installUnitContract('work_units')
+    const { onSaved } = renderDialog(LABOUR_BY_TIME)
+
+    await changeCategory(user)
+    await user.click(screen.getByRole('button', { name: t('serviceOrder.positionDialog.save') }))
+
+    await waitFor(() => expect(onSaved).toHaveBeenCalled())
+    expect(backend.callsTo(/\/positions\/pos-1$/, 'PATCH')[0].body).toEqual({ labourCategoryId: 'cat-2', unitPrice: null })
   })
 })

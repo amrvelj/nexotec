@@ -169,5 +169,29 @@ export const LABOUR_CATEGORIES = {
       rates: [],
       members: [],
     },
+    {
+      id: 'cat-2',
+      name: 'Karosserie',
+      nameTranslations: {},
+      isActive: true,
+      version: 1,
+      createdAt: '2026-11-01T00:00:00Z',
+      rates: [],
+      members: [],
+    },
   ],
+}
+
+/** A fixed-price labour position without a time (KAN-810 review: its time can be added on edit). */
+export const LABOUR_FIXED_NO_TIME: ServiceOrderPositionRead = {
+  ...LABOUR_BY_TIME,
+  id: 'pos-1',
+  kind: 'labour_fixed',
+  text: 'Pauschale Bremsen',
+  time: null,
+  unitPrice: { amount: '250.0000', entered: 'net', vatRate: '8.10', net: '250.0000', gross: '270.2500' },
+  lineNet: '250.00',
+  lineGross: '270.25',
+  rateSource: 'typed',
+  labourRateId: null,
 }

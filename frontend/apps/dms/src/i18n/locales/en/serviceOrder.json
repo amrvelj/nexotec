@@ -132,7 +132,7 @@
       "time": "Enter the time.",
       "price": "Enter a price."
     },
-    "unitMoved": "This position was entered in {{entry}}; {{now}} apply here now. A changed time is entered in {{now}}.",
+    "unitMoved": "This position was entered in {{entry}}; the business now works in {{now}}. A changed time is entered in {{now}}.",
     "grossPreview": "Worked out from the other price, for display only; the price entered last is the one saved."
   },
   "overview": {

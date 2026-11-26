@@ -89,6 +89,7 @@ export function ServiceOrderCreateDialog({ opened, onClose, onCreated }: Service
     setLocationId(null)
     setHolderNote(null)
     setError(null)
+    setMissing(false)
   }, [opened, idempotency])
 
   const searching = opened && vehicle === null && contact === null
@@ -412,7 +413,11 @@ export function ServiceOrderCreateDialog({ opened, onClose, onCreated }: Service
         title={choosing ? t('serviceOrder.overview.changeTitle', { role: roleTitle[choosing] }) : ''}
         onClose={() => setChoosing(null)}
         onChosen={(chosen) => {
-          if (choosing === 'contact') setContact(chosen)
+          if (choosing === 'contact') {
+            setContact(chosen)
+            // Another ordering party than the keeper: the «proposed» note no longer holds.
+            setHolderNote(null)
+          }
           if (choosing === 'invoiceRecipient') setInvoiceRecipient(chosen)
           if (choosing === 'driver') setDriver(chosen)
           setError(null)
