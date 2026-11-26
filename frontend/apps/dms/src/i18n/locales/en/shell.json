@@ -14,6 +14,7 @@
     "reporting": "Reporting",
     "compliance": "Compliance",
     "valuations": "Valuations",
+    "planner": "Planner",
     "integrations": "Integrations",
     "administration": "Administration",
     "referenceData": "Reference data",
@@ -43,7 +44,8 @@
     "supportSessions": "Support sessions",
     "platformUsers": "Platform users",
     "labourRates": "Labour rates",
-    "plannerResources": "Planner resources"
+    "plannerResources": "Planner resources",
+    "serviceCatalogue": "Service catalogue"
   },
   "signOut": "Sign out",
   "environmentNotice": {

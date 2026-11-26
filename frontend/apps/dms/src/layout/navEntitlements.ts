@@ -13,10 +13,13 @@ const NAV_MODULE_BY_HREF: Record<string, string> = {
   // KAN-225: the publishing profile feeds the website, which only lists stock.
   '/administration/publishing': 'sales',
   '/aftersales': 'aftersales',
+  // KAN-809: the planner is Aftersales' (its API 404s without the module).
+  '/planner': 'aftersales',
   // KAN-806: labour rates are the Aftersales module's master data (404 without it).
   '/administration/labour-rates': 'aftersales',
   // KAN-808: the planner's resources are set up with Aftersales (its API 404s without it).
   '/administration/planner-resources': 'aftersales',
+  '/administration/service-catalogue': 'aftersales',
   '/parts': 'parts',
   '/finance': 'finance',
   '/reporting': 'reporting',

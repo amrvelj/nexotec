@@ -1,6 +1,22 @@
 {
   "_about": "KAN-801 — every `\"reason\": <expression>` in app/ that is neither a string literal nor a module-level constant. kind refusal: a refusal body's details.reason, each value translated in REASON_KEYS (apiRefusal.ts) or listed in notARefusalReasons.json; kind problem: a reassignment 422's details.problems[].reason, each value in userOptions.ts PROBLEM_REASONS; kind notARefusal: never a refusal body, and why. values are what tests/refusal_reason_values.py reads from the code (hints say how, for a form it cannot follow alone); tests/test_refusal_reason_value_sites.py keeps this file equal to the code. Keyed <path>::<function>::<expression>, no line numbers.",
   "sites": {
+    "app/aftersales/services/service_packages.py::_refuse::reason": {
+      "kind": "refusal",
+      "values": [
+        "service_package_labour_category_required",
+        "service_package_labour_category_unknown",
+        "service_package_labour_time_not_positive",
+        "service_package_labour_time_required",
+        "service_package_labour_time_too_many_decimals",
+        "service_package_name_language",
+        "service_package_name_required",
+        "service_package_name_too_long",
+        "service_package_position_incomplete",
+        "service_package_position_text_required",
+        "service_package_position_text_too_long"
+      ]
+    },
     "app/core/export.py::write_archive::reason": {
       "kind": "notARefusal",
       "why": "The archive manifest's `excluded[].reason` (an exporter's excluded_tables() text), written into the export file, never a refusal body."

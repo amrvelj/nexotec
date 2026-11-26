@@ -362,6 +362,7 @@ _READS = {
     # labour time is typed in (O18/O19); SELECTs only.
     "app.platform.public.get_dealership_cash_rounding",
     "app.platform.public.labour_category_labels",
+    "app.platform.public.labour_categories_of_dealership",
     "app.platform.public.labour_rate_for",
     "app.platform.public.labour_time_unit",
     # KAN-221 (review, 2026-11-18): whether a Betrieb is the platform tenant, so

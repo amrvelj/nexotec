@@ -48,6 +48,7 @@ export const LABOUR_BY_TIME: ServiceOrderPositionRead = {
   rateValidFrom: '2026-11-01',
   pricedAt: '2026-11-26T08:12:00Z',
   pricedBy: 'user-1',
+  checkNeeded: false,
 }
 
 export const TEXT_POSITION: ServiceOrderPositionRead = {
@@ -68,6 +69,7 @@ export const TEXT_POSITION: ServiceOrderPositionRead = {
   rateValidFrom: null,
   pricedAt: null,
   pricedBy: null,
+  checkNeeded: false,
 }
 
 export function order(overrides: Partial<ServiceOrderRead> = {}): ServiceOrderRead {

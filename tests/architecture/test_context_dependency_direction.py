@@ -101,6 +101,9 @@ _TOP_LEVEL: dict[str, int] = {
     # KAN-805: names every area's setting declarations for platform's settings
     # store, as message_type_registry does for the send dialog.
     "setting_registry": _COMPOSITION_ROOT_RANK,
+    # KAN-818: names every context's part of «copy configuration from a sister
+    # Betrieb» for app.core.configuration_copy's registry, as setting_registry does.
+    "configuration_copy_registry": _COMPOSITION_ROOT_RANK,
 }
 
 # The upward imports that exist today, each with the ticket that removes it

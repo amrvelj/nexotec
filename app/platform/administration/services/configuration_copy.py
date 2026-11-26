@@ -37,6 +37,15 @@ groups since KAN-466; FR-A-01's "role presets" has nothing behind it, D-A-03):
   switched on in the target; one the target has on already is unchanged,
   and none is ever switched off (absent = kept, as for texts). A group
   platform staff have deactivated is skipped (`contact_group_inactive`).
+- **a context's own configuration** through `app.core.configuration_copy`
+  (KAN-818): a context above platform registers a copier for its subset at
+  the composition root, and platform runs it without importing it — first
+  the **service catalogue** (Aftersales' packages, subset
+  `service_catalogue`). The subset needs its module in both Betriebe; one
+  without it is one skipped item (`module_not_held`). A registered copier
+  runs **before** platform's own subsets, on a session of its own that it
+  commits (the dry run: rolls back), never inside this transaction (rule 12,
+  ADR-047); the summary row counts its items too.
 - **settings** (KAN-805 PR-4, ADR-214) — the source's own value of each
   declared setting the target configures (its module held, or none), written
   through the store's own path as a change of origin `copy`, so the target's
@@ -69,6 +78,7 @@ from sqlalchemy.orm import Session
 
 from app.core.audit import record_audit_event
 from app.core.auth import Principal
+from app.core.configuration_copy import configuration_copier
 from app.core.errors import AppError, ConflictError, NotFoundError
 from app.core.i18n import SwissLanguage
 from app.core.permissions import ModuleCode
@@ -111,6 +121,8 @@ class CopySubset(str, enum.Enum):
     NUMBER_RANGES = "number_ranges"
     CONTACT_GROUPS = "contact_groups"
     SETTINGS = "settings"
+    # KAN-818: Aftersales' service catalogue, copied by the copier Aftersales registers.
+    SERVICE_CATALOGUE = "service_catalogue"
 
 
 class CopyOutcome(str, enum.Enum):
@@ -596,6 +608,52 @@ def _write_copied_settings(
         item.outcome = CopyOutcome.OVERWRITTEN if replaced else CopyOutcome.CREATED
 
 
+# The subsets a context above platform owns, run through `app.core.configuration_copy`.
+_REGISTERED_SUBSETS = frozenset({CopySubset.SERVICE_CATALOGUE})
+
+
+def _copy_registered(
+    db: Session,
+    *,
+    subset: CopySubset,
+    source: Dealership,
+    target: Dealership,
+    actor_id: uuid.UUID,
+    dry_run: bool,
+    report: CopyReport,
+) -> None:
+    """A subset a context above platform owns: its copier commits (or rolls
+    back) its own session; this transaction only reads."""
+
+    copier = configuration_copier(subset.value)
+    if copier is None:
+        report.items.append(
+            CopyItem(subset=subset, key=subset.value, outcome=CopyOutcome.SKIPPED, reason="subset_not_available")
+        )
+        return
+    if copier.module is not None:
+        module = ModuleCode(copier.module)
+        if module not in _target_modules(db, target) or module not in _target_modules(db, source):
+            report.items.append(
+                CopyItem(subset=subset, key=subset.value, outcome=CopyOutcome.SKIPPED, reason="module_not_held")
+            )
+            return
+    bind = db.get_bind()
+    for item in copier.copy(
+        # As SessionLocal: no autoflush, no expiry on commit — like every other own session.
+        lambda: Session(bind=bind, autoflush=False, expire_on_commit=False),
+        source_dealership_id=source.id,
+        target_dealership_id=target.id,
+        actor_id=actor_id,
+        dry_run=dry_run,
+    ):
+        report.items.append(
+            CopyItem(
+                subset=subset, key=item.key, outcome=CopyOutcome(item.outcome), label=item.label, reason=item.reason
+            )
+        )
+
+
 _COPIERS = {
     CopySubset.STANDARD_TEXTS: _copy_standard_texts,
     CopySubset.DOCUMENT_TEMPLATE: _copy_document_template,
@@ -620,6 +678,13 @@ def copy_configuration(
     target = require_target(db, principal, target_id)
     source = require_source(db, principal, target=target, source_id=source_id)
     report = CopyReport(source_dealership_id=source.id, source_legal_name=source.legal_name, dry_run=dry_run)
+    # KAN-818: a context's own subsets first, each committing (or rolling back) its own session.
+    for subset in CopySubset:
+        if subset in subsets and subset in _REGISTERED_SUBSETS:
+            _copy_registered(
+                db, subset=subset, source=source, target=target, actor_id=principal.user_id, dry_run=dry_run,
+                report=report,
+            )
     try:
         # KAN-834: every write sits inside one savepoint of the copy's own, and
         # the dry run rolls back to it. The copiers' own savepoints are then
@@ -628,7 +693,7 @@ def copy_configuration(
         # RELEASE, so the dry run's preview would be written after all.
         outer = db.begin_nested()
         for subset in CopySubset:
-            if subset in subsets:
+            if subset in subsets and subset not in _REGISTERED_SUBSETS:
                 _COPIERS[subset](db, source=source, target=target, actor_id=principal.user_id, report=report)
         summary: dict[str, Any] = {
             "sourceDealershipId": str(source.id),

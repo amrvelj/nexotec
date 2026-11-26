@@ -8,6 +8,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.api.v1 import api_v1_router
+from app.configuration_copy_registry import register_configuration_copiers
 from app.core.auth import get_jwks
 from app.core.config import get_settings
 from app.core.deployment_environment import require_valid_deployment_environment
@@ -36,6 +37,7 @@ configure_sentry()
 # KAN-200: every context's ownership provider, so the deactivation step can
 # ask the registry (app.core.ownership) and import no context itself.
 register_ownership_providers()
+register_configuration_copiers()
 # KAN-218: every context's exporter, so the export and offboarding ask the
 # registry (app.core.export) and import no context themselves.
 register_exporters()

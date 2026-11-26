@@ -9,6 +9,7 @@ import {
   Building2,
   Cable,
   CalendarCog,
+  CalendarDays,
   Car,
   CarFront,
   ChartColumn,
@@ -25,6 +26,7 @@ import {
   LayoutDashboard,
   LifeBuoy,
   ListChecks,
+  PackageOpen,
   MapPin,
   Palette,
   Megaphone,
@@ -100,6 +102,9 @@ function buildNavGroups(t: (key: string) => string, statusIndicator?: NavItemInd
         // placement) since a valuation is created from within an offer's
         // trade-in container as often as it is from this standalone list.
         { label: t('shell.nav.valuations'), href: '/valuations', icon: CarFront, status: 'active' },
+        // KAN-809 — the planner (PL1): one day of a location. Shown with the aftersales
+        // module (navEntitlements); never role-hidden (A-RULE-7): the API's 403/404 decide.
+        { label: t('shell.nav.planner'), href: '/planner', icon: CalendarDays, status: 'active' },
         // KAN-810 — the workshop orders (D1), «Aufträge» (slice 1, X7). Shown with the
         // aftersales module (navEntitlements); never role-hidden (A-RULE-7): the API decides.
         { label: t('shell.nav.orders'), href: '/aftersales', icon: Wrench, status: 'active' },
@@ -185,6 +190,10 @@ function buildNavGroups(t: (key: string) => string, statusIndicator?: NavItemInd
         // and workplaces. Aftersales and the manager read; the manager writes. Shown with the
         // aftersales module (navEntitlements); never role-hidden (A-RULE-7).
         { label: t('shell.nav.plannerResources'), href: '/administration/planner-resources', icon: CalendarCog, status: 'active' },
+        // KAN-818 — Dealer Administration › Service catalogue (S1): Aftersales' packages, configured
+        // here (A-RULE-0). Aftersales and the manager read; the manager writes. Shown with the
+        // aftersales module (navEntitlements); never role-hidden (A-RULE-7).
+        { label: t('shell.nav.serviceCatalogue'), href: '/administration/service-catalogue', icon: PackageOpen, status: 'active' },
         // KAN-466 — Dealer Administration › Contact groups. Any role reads; the
         // manager switches a group on or off (A-RULE-0). Never role-hidden (A-RULE-7).
         { label: t('shell.nav.contactGroups'), href: '/administration/contact-groups', icon: Tags, status: 'active' },

@@ -157,6 +157,12 @@ CAPABILITY_MATRIX: dict[str, Capability] = {
     "labour_rates": Capability(read_roles=frozenset({_AS, _P, _F}), write_roles=_MANAGER_ONLY),
     # KAN-808 (Anto, 2026-11-25): the planner's resources and lists (S7) — aftersales and the manager read.
     "planner_resources": Capability(read_roles=frozenset({_AS}), write_roles=_MANAGER_ONLY),
+    # KAN-809 (ruling 180, 24.11.2026): the planner page — whoever has the role aftersales decides
+    # at the desk (changes, releases, blocks); the manager everything; the technician has his phone.
+    "planner": Capability(read_roles=frozenset({_AS}), write_roles=frozenset({_AS})),
+    # KAN-818: the service catalogue (S1) — aftersales reads (the desk puts a package onto a job),
+    # the manager writes.
+    "service_packages": Capability(read_roles=frozenset({_AS}), write_roles=_MANAGER_ONLY),
     # Connected accounts: the user himself links (a self check in the
     # endpoint); the manager sees provider/scopes/status and may revoke.
     "connected_accounts": Capability(read_roles=_MANAGER_ONLY, write_roles=_MANAGER_ONLY),

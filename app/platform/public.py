@@ -111,6 +111,7 @@ from app.platform.organisation.services.labour_rate_answer import (
     LabourRateAnswer,
     LabourRateMissing,
     LabourRateSource,
+    labour_categories_of_dealership,
     labour_category_labels,
     labour_rate_for,
 )
@@ -262,6 +263,10 @@ from app.platform.reference.services.reference_data import get_active_reference_
 # get_dealership_cash_rounding is the step the order's total rounds to;
 # labour_rate_category_reference_check is the category reference's nightly
 # check (reconciliation only). Plain reads.
+#
+# KAN-818 (the service catalogue): labour_categories_of_dealership lists a
+# Betrieb's categories, so the catalogue's copy from a sister Betrieb can
+# match a package's categories by name. A plain read.
 
 
 # The settings store's door for declarations (see the paragraph above).
@@ -377,6 +382,7 @@ __all__ = [
     "get_user_display_labels",
     "is_platform_dealership",
     "issue_document_link",
+    "labour_categories_of_dealership",
     "labour_categories_of_user",
     "labour_category_labels",
     "labour_rate_category_reference_check",

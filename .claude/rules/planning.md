@@ -4,6 +4,8 @@ paths:
   - "alembic/versions/planning/**"
   - "frontend/apps/dms/src/pages/PlannerResourcesPage*"
   - "frontend/apps/dms/src/components/plannerResources/**"
+  - "frontend/apps/dms/src/modules/planning/**"
+  - "frontend/packages/ui-kit/src/planner/**"
 ---
 <!-- Maintainer note. ADR-211 (KAN-804, 2026-11-24), amending ADR-131. Summarises Decision A of
 «Architecture decisions of slice 1» https://app.notion.com/p/4223e79334dd816e941bf780af822854 and
@@ -71,8 +73,9 @@ Last verified against KAN-808 PR-2, cut from main@131a8f7 (2026-11-26). -->
   pattern B, and takes an idempotency key; a replay returns the booking as it now stands),
   `bookings_of_reference` (a read), `register_settings`, the frozen records (`BookingRecord`,
   `BookingOutcome` …) and enums. Events (`services/booking_facts.py`, one payload shape):
-  `planning.booking.booked` (a block too), `.moved`, `.released`, `.marked_for_replanning`. No HTTP
-  booking route yet (KAN-809); no caller yet (KAN-810), so none of them is in the ADR-047 lists.
+  `planning.booking.booked` (a block too), `.moved`, `.released`, `.marked_for_replanning`. The page's
+  HTTP routes call the services inside planning (KAN-809); no other context calls `book`… yet, so
+  none of them is in the ADR-047 lists.
 - **Built (KAN-808 PR-1d; ADR-222): the starting sets.** Consumer
   `planning.starting_sets_on_module_granted` (`consumers.py`) of platform's
   `platform.module_entitlement.granted`: for `aftersales` only, `services/starting_sets.py` copies
@@ -95,7 +98,17 @@ Last verified against KAN-808 PR-2, cut from main@131a8f7 (2026-11-26). -->
   from `/person-candidates` with the kit's `Picker`, a workplace by name; type, qualifications, sort order, deactivate
   (a confirm that says its bookings are marked) and reactivate; `personActsHere: false` marked «Arbeitet nicht mehr
   hier»; the working week a PUT with If-Match. Every versioned write sends If-Match; a refusal shows through
-  `apiRefusalText`, a stale 409 with «Neu laden». No booking UI: KAN-809.
+  `apiRefusalText`, a stale 409 with «Neu laden». The booking UI is the planner page (below).
+- **Built (KAN-809; ADR-231): the planner page** `/planner` (`modules/planning`, sidebar «Planer» with
+  `aftersales`), PL1: one Europe/Zurich day of one location (both in the URL), a row per person and per
+  workplace in the kit's `ResourceDayGrid`, off-duty hatched, «neu einplanen» in words. API
+  `api/bookings.py`, matrix row `planner` (ruling 180: aftersales and the manager read and write):
+  `GET …/planning/day` (bookings not released holding a resource of the location, overlapping the day;
+  O6 or null), `PATCH …/bookings/{id}` (move, If-Match, `confirmedWarnings`), `POST …/bookings/{id}/release`,
+  `POST …/blocks`. PL2 changes and releases only — work and slots are booked from the order (KAN-812;
+  Anto, 2026-11-26); a warning is overruled by re-sending exactly the warnings shown, and the dialog says
+  it is recorded. PL4: people and/or workplaces, from, to, an optional note (no car, no weekly repeat).
+  Times are Zurich's whatever the browser's zone (`plannerTime.ts`).
 - **It owns:** resources (people, workplaces, bookable cars) with their types, qualifications and
   working hours; bookings and blocks; the overlap rule; the record of an overruled warning.
 - **It owns no order, car or customer.** A caller's reference is the three-column pattern (id, label,

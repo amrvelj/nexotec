@@ -24,7 +24,12 @@ from app.aftersales.consumers import CONTACT_MERGED_CONSUMER as AFTERSALES_CONTA
 from app.aftersales.consumers import VEHICLE_MERGED_CONSUMER as AFTERSALES_VEHICLE_MERGED_CONSUMER
 from app.aftersales.consumers import handle_contact_merged_message as move_workshop_orders_on_contact_merged
 from app.aftersales.consumers import handle_vehicle_merged_message as move_workshop_orders_on_vehicle_merged
-from app.aftersales.public import oldest_order_label_age_seconds, refresh_order_labels
+from app.aftersales.public import (
+    oldest_order_label_age_seconds,
+    oldest_package_label_age_seconds,
+    refresh_order_labels,
+    refresh_package_labels,
+)
 from app.contact.consumers import (
     handle_stock_item_booking_purchased_message,
     handle_stock_item_booking_storno_message,
@@ -522,6 +527,8 @@ def _heartbeat(db, transport: InProcessTransport) -> None:
     record_label_age_seconds("planning.location", planning_location_label_age)
     order_label_age = oldest_order_label_age_seconds(db)
     record_label_age_seconds("aftersales.order", order_label_age)
+    package_label_age = oldest_package_label_age_seconds(db)
+    record_label_age_seconds("aftersales.package", package_label_age)
 
     logger.info(
         "outbox heartbeat",
@@ -539,6 +546,7 @@ def _heartbeat(db, transport: InProcessTransport) -> None:
             "planningPersonLabelAgeSeconds": planning_person_label_age,
             "planningLocationLabelAgeSeconds": planning_location_label_age,
             "workshopOrderLabelAgeSeconds": order_label_age,
+            "servicePackageLabelAgeSeconds": package_label_age,
         },
     )
 
@@ -611,6 +619,15 @@ def _refresh_order_labels(db: Session) -> None:
     report = refresh_order_labels(db)
     logger.info(
         "aftersales.order_labels: %d workshop order label(s) changed, %d left alone (no such record, or a merged one)",
+        len(report.changed),
+        len(report.unresolved),
+    )
+
+
+def _refresh_package_labels(db: Session) -> None:
+    report = refresh_package_labels(db)
+    logger.info(
+        "aftersales.package_labels: %d service-package label(s) changed, %d left alone (no such category)",
         len(report.changed),
         len(report.unresolved),
     )
@@ -723,6 +740,9 @@ def register_daily_jobs() -> None:
     7d. ``aftersales.order_labels`` — KAN-837: a workshop order's copies of
        its three contacts', its car's and its location's names, through
        each owner's public.
+    7e. ``aftersales.package_labels`` — KAN-818: a service-catalogue
+       position's copy of its labour category's name, through platform's
+       public.
     8. ``reconciliation.run_all`` — the nightly cross-context reconciliation
        (P-10, CLAUDE.md rule 10). There are no cross-context foreign keys
        anywhere in this codebase, so the database cannot detect a dangling
@@ -820,6 +840,7 @@ def register_daily_jobs() -> None:
     register_daily_job("planning.person_labels", _refresh_planning_person_labels)
     register_daily_job("planning.location_labels", _refresh_planning_location_labels)
     register_daily_job("aftersales.order_labels", _refresh_order_labels)
+    register_daily_job("aftersales.package_labels", _refresh_package_labels)
     register_daily_job("reconciliation.run_all", run_all_daily)
     register_daily_job("inventory.orphaned_reservations.release", run_daily_reservation_sweep)
     # 9b. KAN-724: a stock item a vehicle merge had to leave on the duplicate follows once nothing blocks it.

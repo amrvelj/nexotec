@@ -51,6 +51,7 @@ import ns_offboarding from './de/offboarding.json'
 import ns_offerDetail from './de/offerDetail.json'
 import ns_offerWorkspace from './de/offerWorkspace.json'
 import ns_onboarding from './de/onboarding.json'
+import ns_planner from './de/planner.json'
 import ns_plannerResources from './de/plannerResources.json'
 import ns_providerCaptions from './de/providerCaptions.json'
 import ns_publishing from './de/publishing.json'
@@ -60,6 +61,7 @@ import ns_referenceData from './de/referenceData.json'
 import ns_salesDocuments from './de/salesDocuments.json'
 import ns_salesEnums from './de/salesEnums.json'
 import ns_salesList from './de/salesList.json'
+import ns_serviceCatalogue from './de/serviceCatalogue.json'
 import ns_serviceOrder from './de/serviceOrder.json'
 import ns_serviceOrders from './de/serviceOrders.json'
 import ns_settings from './de/settings.json'
@@ -124,6 +126,7 @@ const bundle = {
   offerDetail: ns_offerDetail,
   offerWorkspace: ns_offerWorkspace,
   onboarding: ns_onboarding,
+  planner: ns_planner,
   plannerResources: ns_plannerResources,
   providerCaptions: ns_providerCaptions,
   publishing: ns_publishing,
@@ -133,6 +136,7 @@ const bundle = {
   salesDocuments: ns_salesDocuments,
   salesEnums: ns_salesEnums,
   salesList: ns_salesList,
+  serviceCatalogue: ns_serviceCatalogue,
   serviceOrder: ns_serviceOrder,
   serviceOrders: ns_serviceOrders,
   settings: ns_settings,

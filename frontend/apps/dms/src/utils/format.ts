@@ -41,6 +41,40 @@ export function formatTime(iso: string, locale = 'de-CH'): string {
   return new Intl.DateTimeFormat(locale, { hour: '2-digit', minute: '2-digit' }).format(new Date(iso))
 }
 
+// KAN-809 — an instant as the wall-clock date and time of a named zone, whatever
+// the browser's own zone: the planner shows the Betrieb's day (Europe/Zurich).
+const WALL_CLOCK_FORMATS = new Map<string, Intl.DateTimeFormat>()
+
+export function wallClockIn(instant: string | Date, timeZone: string): { date: string; time: string } {
+  let format = WALL_CLOCK_FORMATS.get(timeZone)
+  if (!format) {
+    format = new Intl.DateTimeFormat('en-CA', {
+      timeZone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hourCycle: 'h23',
+    })
+    WALL_CLOCK_FORMATS.set(timeZone, format)
+  }
+  const parts = Object.fromEntries(
+    format
+      .formatToParts(typeof instant === 'string' ? new Date(instant) : instant)
+      .map((p) => [p.type, p.value]),
+  )
+  return { date: `${parts.year}-${parts.month}-${parts.day}`, time: `${parts.hour}:${parts.minute}` }
+}
+
+// KAN-809 — a calendar day written out with its weekday («Donnerstag, 26. November
+// 2026»), read in the zone it was parsed in, as formatDateOnly does.
+export function formatLongDateOnly(isoDate: string, locale = 'de-CH'): string {
+  return new Intl.DateTimeFormat(locale, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }).format(
+    new Date(isoDate)
+  )
+}
+
 // WP-6c PR-12 / KAN-156: formatNumber and formatCurrencyChf, the frontend
 // mirror of app.core.i18n's Swiss number formatting. Since KAN-160 their one
 // implementation lives in the ui-kit (packages/ui-kit/src/format/

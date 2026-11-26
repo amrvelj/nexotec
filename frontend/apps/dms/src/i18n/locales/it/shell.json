@@ -14,6 +14,7 @@
     "reporting": "Reportistica",
     "compliance": "Conformità",
     "valuations": "Valutazioni",
+    "planner": "Pianificatore",
     "integrations": "Integrazioni",
     "administration": "Amministrazione",
     "referenceData": "Dati di riferimento",
@@ -43,7 +44,8 @@
     "supportSessions": "Sessioni di supporto",
     "platformUsers": "Utenti della piattaforma",
     "labourRates": "Tariffe orarie",
-    "plannerResources": "Risorse della pianificazione"
+    "plannerResources": "Risorse della pianificazione",
+    "serviceCatalogue": "Catalogo dei servizi"
   },
   "signOut": "Disconnetti",
   "environmentNotice": {

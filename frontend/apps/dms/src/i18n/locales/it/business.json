@@ -194,14 +194,16 @@
       "document_template": "Modello di documento (intestazioni)",
       "number_ranges": "Modelli degli intervalli di numerazione",
       "contact_groups": "Gruppi di contatti",
-      "settings": "Impostazioni"
+      "settings": "Impostazioni",
+      "service_catalogue": "Catalogo dei servizi"
     },
     "subsetHint": {
       "standard_texts": "I testi propri e adattati dell'azienda, senza le varianti per sede. Un testo che questa azienda ha già viene sovrascritto. L'approvazione dei modelli WhatsApp non viene mai ripresa; un modello sovrascritto deve essere inviato di nuovo.",
       "document_template": "L'intestazione dei documenti, per lingua. Se l'altra azienda non ne ha una in una lingua, quella di qui resta invariata.",
       "number_ranges": "Modello, valore iniziale e ripartenza annuale dei moduli che questa azienda usa. I contatori non vengono mai ripresi; un intervallo che ha già assegnato un numero resta invariato.",
       "contact_groups": "I gruppi di contatti che l’altra azienda usa vengono attivati qui. Nessun gruppo viene disattivato.",
-      "settings": "I valori che l'altra azienda ha definito per sé, per i moduli che questa azienda utilizza e per le impostazioni che non appartengono ad alcun modulo. I valori delle singole sedi non vengono mai ripresi; un'impostazione che lì non è definita resta invariata qui."
+      "settings": "I valori che l'altra azienda ha definito per sé, per i moduli che questa azienda utilizza e per le impostazioni che non appartengono ad alcun modulo. I valori delle singole sedi non vengono mai ripresi; un'impostazione che lì non è definita resta invariata qui.",
+      "service_catalogue": "I pacchetti attivi. Un pacchetto con lo stesso nome viene sovrascritto, uno inattivo qui resta com'è. Le categorie di lavoro sono associate per nome: un pacchetto la cui categoria manca qui o la cui unità di tempo qui non vale viene saltato. Riprendendo anche le impostazioni, riprendete poi il catalogo una seconda volta."
     },
     "preview": "Mostra anteprima",
     "previewTitle": "Anteprima: ripresa da {{source}}",
@@ -236,7 +238,12 @@
       "whatsapp_approval_reset": "Il modello WhatsApp deve essere inviato di nuovo per l'approvazione.",
       "other": "Questa voce non può essere ripresa.",
       "contact_group_inactive": "Nexotec ha ritirato questo gruppo di contatti.",
-      "setting_value_stale": "Il valore non corrisponde più a questa impostazione e lì vale come non definito."
+      "setting_value_stale": "Il valore non corrisponde più a questa impostazione e lì vale come non definito.",
+      "labour_category_missing": "Questa azienda non ha una categoria di lavoro attiva con il nome di una categoria di questo pacchetto.",
+      "module_not_held": "Una delle due aziende non ha il modulo Aftersales.",
+      "subset_not_available": "Questo ambito non può essere ripreso al momento.",
+      "time_unit_differs": "I tempi di questo pacchetto sono inseriti in un'altra unità rispetto a quella di questa azienda.",
+      "package_inactive_here": "Qui esiste un pacchetto con questo nome ed è inattivo; resta com'è."
     }
   },
   "statusRefusals": {
