@@ -50,7 +50,7 @@
     "factorHint": "Temps imputé = temps pointé × facteur, de 0.01 à 9.99. Vide : le temps pointé compte.",
     "factorInvalid": "Le facteur est compris entre 0.01 et 9.99.",
     "mandatory": "Qualification obligatoire",
-    "mandatoryHint": "Elle est enregistrée. Elle ne sera vérifiée que lorsqu'un travail ou un poste exigera une qualification."
+    "mandatoryHint": "Elle est enregistrée. Elle ne sera vérifiée que lorsqu'un groupe ou un poste exigera une qualification."
   },
   "languages": {
     "de": "allemand",

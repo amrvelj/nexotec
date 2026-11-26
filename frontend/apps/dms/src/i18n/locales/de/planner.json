@@ -54,7 +54,7 @@
     "title": "Buchung ändern",
     "blockTitle": "Blockierung ändern",
     "order": "Auftrag",
-    "job": "Arbeit",
+    "job": "Gruppe",
     "vehicle": "Fahrzeug",
     "replanSince": "Neu einplanen seit {{since}}: {{cause}}",
     "causes": {

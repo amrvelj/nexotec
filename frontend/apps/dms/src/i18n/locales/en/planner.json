@@ -54,7 +54,7 @@
     "title": "Change booking",
     "blockTitle": "Change block",
     "order": "Order",
-    "job": "Job",
+    "job": "Group",
     "vehicle": "Vehicle",
     "replanSince": "Reschedule since {{since}}: {{cause}}",
     "causes": {
