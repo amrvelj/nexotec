@@ -308,21 +308,22 @@ def test_vat_amount_rounds_a_genuine_tie_half_up_not_half_even():
     """KAN-68: _compute_vat_amount calls .quantize(..., rounding=ROUND_HALF_UP)
     explicitly, but nothing asserted the mode itself until this test — the
     line above passed under either mode because 36'000 @ 8.10% isn't a tie.
-    A 100% rate is not a real Swiss VAT rate; it is the smallest gross
-    price/rate pair that lands the pre-rounded amount exactly on a X.XX5
-    boundary (24.69 * 100 / 200 = 12.345 exactly), which is what this test
-    needs to actually distinguish the two rounding modes:
-    ROUND_HALF_EVEN would give 12.34 (4 is even), production's
-    ROUND_HALF_UP gives 12.35.
+    A 60% rate is not a real Swiss VAT rate; no real two-decimal rate lands
+    a two-decimal gross price exactly on a X.XX5 boundary. 60 % does
+    (2.68 * 60 / 160 = 1.005 exactly), which is what this test needs to
+    actually distinguish the two rounding modes: ROUND_HALF_EVEN would give
+    1.00 (0 is even), production's half away from zero 1.01. KAN-824: the
+    figure comes from core money, which refuses a rate of 100 % or more —
+    the 100 % pair this test used before (24.69 → 12.345) is outside it.
     """
 
-    offer = _bare_offer(gross_price=Decimal("24.69"), discount_amount=None, payable=Decimal("24.69"))
-    content = build_offer_content(offer, language=SwissLanguage.DE, vat_rate=Decimal(100))
+    offer = _bare_offer(gross_price=Decimal("2.68"), discount_amount=None, payable=Decimal("2.68"))
+    content = build_offer_content(offer, language=SwissLanguage.DE, vat_rate=Decimal(60))
     lines = _line_items_lines(content)
     vat_line = next(line for line in lines if "MWST" in line.label)
 
-    assert vat_line.amount == Decimal("12.35")
-    assert vat_line.amount != Decimal("12.34")  # what ROUND_HALF_EVEN would have given
+    assert vat_line.amount == Decimal("1.01")
+    assert vat_line.amount != Decimal("1.00")  # what ROUND_HALF_EVEN would have given
 
 
 def test_vat_rate_label_renders_a_whole_number_dealer_rate_without_scientific_notation():
