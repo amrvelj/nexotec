@@ -99,5 +99,16 @@
       "title": "No change yet",
       "description": "This setting has never been changed here."
     }
+  },
+  "rule": {
+    "divides": "A divisor of {{number}}: {{values}}.",
+    "multipleOf": "A multiple of «{{setting}}», here {{values}}.",
+    "multipleOfNotSet": "A multiple of «{{setting}}» once that setting is set.",
+    "dividesSetting": "«{{setting}}» ({{values}}) must stay a multiple of it.",
+    "refused": {
+      "notADivisor": "The value {{value}} is not a divisor of {{bound}}.",
+      "notAMultiple": "The value {{value}} is not a multiple of {{bound}} («{{setting}}»).",
+      "wouldNotDivide": "«{{setting}}» ({{bound}}) would then no longer be a multiple of {{value}}."
+    }
   }
 }

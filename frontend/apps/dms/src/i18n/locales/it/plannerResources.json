@@ -1,0 +1,146 @@
+{
+  "title": "Risorse della pianificazione",
+  "subtitle": "Chi e cosa la pianificazione pianifica: le persone e le postazioni di lavoro per sede, i loro tipi e qualifiche, e la griglia della pianificazione.",
+  "readOnly": "Solo la direzione modifica le risorse della pianificazione. Vedete le voci.",
+  "loadError": "Non è stato possibile caricare le risorse della pianificazione.",
+  "saveError": "Non è stato possibile salvare la modifica.",
+  "settings": {
+    "title": "Griglia e appuntamenti"
+  },
+  "samples": {
+    "badge": "Modello",
+    "confirm": "Confermare",
+    "confirmNamed": "Confermare: {{name}}",
+    "note": "Le voci «Modello» provengono dal set iniziale di Nexotec. Confermatele o adattatele."
+  },
+  "workplaceTypes": {
+    "title": "Tipi di postazione",
+    "add": "Aggiungere un tipo di postazione",
+    "empty": "Ancora nessun tipo di postazione.",
+    "createTitle": "Aggiungere un tipo di postazione",
+    "editTitle": "Modificare il tipo di postazione",
+    "deleteTitle": "Eliminare il tipo di postazione"
+  },
+  "technicianTypes": {
+    "title": "Tipi di tecnico",
+    "add": "Aggiungere un tipo di tecnico",
+    "empty": "Ancora nessun tipo di tecnico.",
+    "createTitle": "Aggiungere un tipo di tecnico",
+    "editTitle": "Modificare il tipo di tecnico",
+    "deleteTitle": "Eliminare il tipo di tecnico",
+    "noFactor": "Tempo timbrato"
+  },
+  "qualifications": {
+    "title": "Qualifiche",
+    "add": "Aggiungere una qualifica",
+    "empty": "Ancora nessuna qualifica.",
+    "createTitle": "Aggiungere una qualifica",
+    "editTitle": "Modificare la qualifica",
+    "deleteTitle": "Eliminare la qualifica",
+    "mandatory": "Obbligatoria"
+  },
+  "entryDialog": {
+    "name": "Nome",
+    "nameHint": "Il nome vale in ogni lingua per cui non inserite una traduzione.",
+    "translation": "Nome in {{language}}",
+    "rank": "Rango",
+    "rankHint": "Un numero intero da 1 a 99. Lasciate vuoto se non vale alcun rango.",
+    "rankInvalid": "Un rango è un numero intero da 1 a 99.",
+    "factor": "Fattore del tempo computato",
+    "factorHint": "Tempo computato = tempo timbrato × fattore, da 0.01 a 9.99. Vuoto: conta il tempo timbrato.",
+    "factorInvalid": "Il fattore è compreso tra 0.01 e 9.99.",
+    "mandatory": "Qualifica obbligatoria",
+    "mandatoryHint": "Viene salvata. Sarà verificata solo quando un lavoro o una postazione richiederà una qualifica."
+  },
+  "languages": {
+    "de": "tedesco",
+    "fr": "francese",
+    "it": "italiano",
+    "en": "inglese"
+  },
+  "columns": {
+    "name": "Nome",
+    "rank": "Rango",
+    "factor": "Fattore tempo computato",
+    "mandatory": "Obbligatoria",
+    "usedBy": "Usato da",
+    "actions": "Azioni",
+    "kind": "Genere",
+    "type": "Tipo",
+    "location": "Sede",
+    "technicianType": "Tipo di tecnico",
+    "workplaceType": "Tipo di postazione",
+    "qualifications": "Qualifiche",
+    "workingHours": "Orari di lavoro",
+    "sortOrder": "Ordine",
+    "status": "Stato"
+  },
+  "usedBy_one": "{{count, number}} risorsa",
+  "usedBy_other": "{{count, number}} risorse",
+  "actions": {
+    "edit": "Modificare",
+    "editNamed": "Modificare: {{name}}",
+    "delete": "Eliminare",
+    "deleteNamed": "Eliminare: {{name}}",
+    "deleteInUse": "Una risorsa utilizza questa voce. Modificate prima la risorsa.",
+    "deleteBody": "«{{name}}» sarà eliminato. L'operazione non può essere annullata.",
+    "deactivate": "Disattivare",
+    "deactivateNamed": "Disattivare: {{name}}",
+    "reactivate": "Riattivare",
+    "reactivateNamed": "Riattivare: {{name}}"
+  },
+  "deactivate": {
+    "title": "Disattivare la risorsa",
+    "body": "«{{name}}» non compare più nella pianificazione. Le sue prenotazioni non ancora trascorse vengono contrassegnate da ripianificare."
+  },
+  "kinds": {
+    "person": "Persona",
+    "workplace": "Postazione di lavoro"
+  },
+  "status": {
+    "active": "Attiva",
+    "inactive": "Inattiva",
+    "noLongerWorksHere": "Non lavora più qui"
+  },
+  "resources": {
+    "title": "Risorse",
+    "subtitle": "Le persone e le postazioni di lavoro che la pianificazione pianifica, per sede.",
+    "filter": "Sede",
+    "allLocations": "Tutte le sedi",
+    "addPerson": "Aggiungere una persona",
+    "addWorkplace": "Aggiungere una postazione",
+    "empty": "Ancora nessuna risorsa. Aggiungete persone e postazioni di lavoro affinché la pianificazione possa pianificarle.",
+    "emptyAtLocation": "Questa sede non ha ancora risorse.",
+    "locationInactive": "Sede inattiva",
+    "tableLabel": "Risorse della sede {{location}}"
+  },
+  "resourceDialog": {
+    "personCreateTitle": "Aggiungere una persona",
+    "personEditTitle": "Modificare la persona",
+    "workplaceCreateTitle": "Aggiungere una postazione",
+    "workplaceEditTitle": "Modificare la postazione",
+    "person": "Persona",
+    "noPerson": "Nessuna persona scelta",
+    "choosePerson": "Scegliere una persona",
+    "searchPerson": "Cercare una persona",
+    "noCandidates": "Tutte le persone che lavorano in questa azienda sono già risorse.",
+    "workplaceName": "Nome della postazione",
+    "sortOrder": "Ordine",
+    "sortOrderHint": "L'ordine nella pianificazione, da 0 a 9999: prima i numeri più piccoli.",
+    "movingNote": "Nella nuova sede la risorsa vale subito. Le sue prenotazioni non ancora trascorse vengono contrassegnate da ripianificare."
+  },
+  "hours": {
+    "title": "Orari di lavoro di {{name}}",
+    "openNamed": "Orari di lavoro: {{name}}",
+    "days_one": "{{count, number}} giorno lavorativo",
+    "days_other": "{{count, number}} giorni lavorativi",
+    "notEntered": "Non inseriti",
+    "none": "Per questa persona non sono inseriti orari di lavoro.",
+    "startsAt": "Inizio",
+    "endsAt": "Fine",
+    "secondStartsAt": "Inizio dopo la pausa",
+    "secondEndsAt": "Fine dopo la pausa",
+    "off": "Libero",
+    "invalid": "Gli orari di {{day}} non concordano: ogni fascia termina dopo il suo inizio e la seconda inizia dopo la fine della prima."
+  }
+}

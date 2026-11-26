@@ -42,7 +42,8 @@
     "contactMail": "Mail to contacts",
     "supportSessions": "Support sessions",
     "platformUsers": "Platform users",
-    "labourRates": "Labour rates"
+    "labourRates": "Labour rates",
+    "plannerResources": "Planner resources"
   },
   "signOut": "Sign out",
   "environmentNotice": {

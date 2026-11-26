@@ -66,6 +66,12 @@ class SettingDeclarationRead(CamelModel):
     checklist_item: bool
     checklist_blocks: str | None
     choice_requires: list[ChoiceRequirementRead]
+    # KAN-808 (PR-1c review finding 5): the two number rules, so a screen hints and checks
+    # them before the write — `divides`: the value divides this number without remainder
+    # (O6: 60); `multipleOf`: the value is a whole multiple of that key's value wherever
+    # both are in force (O7 of O6). None: no such rule.
+    divides: Decimal | None
+    multiple_of: str | None
 
 
 class SettingSlotRead(CamelModel):

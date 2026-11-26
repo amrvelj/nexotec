@@ -1,0 +1,146 @@
+{
+  "title": "Planer-Ressourcen",
+  "subtitle": "Wer und was im Planer eingeplant wird: Personen und Arbeitsplätze je Standort, ihre Typen und Qualifikationen, dazu das Raster des Planers.",
+  "readOnly": "Nur die Geschäftsführung ändert die Planer-Ressourcen. Sie sehen die Einträge.",
+  "loadError": "Die Planer-Ressourcen konnten nicht geladen werden.",
+  "saveError": "Die Änderung konnte nicht gespeichert werden.",
+  "settings": {
+    "title": "Raster und Termine"
+  },
+  "samples": {
+    "badge": "Muster",
+    "confirm": "Bestätigen",
+    "confirmNamed": "Bestätigen: {{name}}",
+    "note": "Einträge mit «Muster» stammen aus der Startvorlage von Nexotec. Bestätigen Sie sie oder passen Sie sie an."
+  },
+  "workplaceTypes": {
+    "title": "Arbeitsplatztypen",
+    "add": "Arbeitsplatztyp hinzufügen",
+    "empty": "Noch keine Arbeitsplatztypen.",
+    "createTitle": "Arbeitsplatztyp hinzufügen",
+    "editTitle": "Arbeitsplatztyp bearbeiten",
+    "deleteTitle": "Arbeitsplatztyp löschen"
+  },
+  "technicianTypes": {
+    "title": "Technikertypen",
+    "add": "Technikertyp hinzufügen",
+    "empty": "Noch keine Technikertypen.",
+    "createTitle": "Technikertyp hinzufügen",
+    "editTitle": "Technikertyp bearbeiten",
+    "deleteTitle": "Technikertyp löschen",
+    "noFactor": "Gestempelte Zeit"
+  },
+  "qualifications": {
+    "title": "Qualifikationen",
+    "add": "Qualifikation hinzufügen",
+    "empty": "Noch keine Qualifikationen.",
+    "createTitle": "Qualifikation hinzufügen",
+    "editTitle": "Qualifikation bearbeiten",
+    "deleteTitle": "Qualifikation löschen",
+    "mandatory": "Pflicht"
+  },
+  "entryDialog": {
+    "name": "Name",
+    "nameHint": "Der Name gilt in jeder Sprache, für die Sie keine Übersetzung erfassen.",
+    "translation": "Name auf {{language}}",
+    "rank": "Rang",
+    "rankHint": "Eine ganze Zahl von 1 bis 99. Leer lassen, wenn kein Rang gilt.",
+    "rankInvalid": "Ein Rang ist eine ganze Zahl von 1 bis 99.",
+    "factor": "Faktor für die angerechnete Zeit",
+    "factorHint": "Angerechnete Zeit = gestempelte Zeit × Faktor, von 0.01 bis 9.99. Leer: Es zählt die gestempelte Zeit.",
+    "factorInvalid": "Der Faktor liegt zwischen 0.01 und 9.99.",
+    "mandatory": "Pflichtqualifikation",
+    "mandatoryHint": "Wird gespeichert. Geprüft wird sie erst, wenn eine Arbeit oder ein Arbeitsplatz eine Qualifikation verlangt."
+  },
+  "languages": {
+    "de": "Deutsch",
+    "fr": "Französisch",
+    "it": "Italienisch",
+    "en": "Englisch"
+  },
+  "columns": {
+    "name": "Name",
+    "rank": "Rang",
+    "factor": "Faktor angerechnete Zeit",
+    "mandatory": "Pflicht",
+    "usedBy": "Verwendet von",
+    "actions": "Aktionen",
+    "kind": "Art",
+    "type": "Typ",
+    "location": "Standort",
+    "technicianType": "Technikertyp",
+    "workplaceType": "Arbeitsplatztyp",
+    "qualifications": "Qualifikationen",
+    "workingHours": "Arbeitszeiten",
+    "sortOrder": "Reihenfolge",
+    "status": "Status"
+  },
+  "usedBy_one": "{{count, number}} Ressource",
+  "usedBy_other": "{{count, number}} Ressourcen",
+  "actions": {
+    "edit": "Bearbeiten",
+    "editNamed": "Bearbeiten: {{name}}",
+    "delete": "Löschen",
+    "deleteNamed": "Löschen: {{name}}",
+    "deleteInUse": "Eine Ressource verwendet diesen Eintrag. Ändern Sie zuerst die Ressource.",
+    "deleteBody": "«{{name}}» wird gelöscht. Das lässt sich nicht rückgängig machen.",
+    "deactivate": "Deaktivieren",
+    "deactivateNamed": "Deaktivieren: {{name}}",
+    "reactivate": "Reaktivieren",
+    "reactivateNamed": "Reaktivieren: {{name}}"
+  },
+  "deactivate": {
+    "title": "Ressource deaktivieren",
+    "body": "«{{name}}» erscheint nicht mehr im Planer. Die Buchungen dieser Ressource, die noch nicht vorbei sind, werden zum Neu-Einplanen markiert."
+  },
+  "kinds": {
+    "person": "Person",
+    "workplace": "Arbeitsplatz"
+  },
+  "status": {
+    "active": "Aktiv",
+    "inactive": "Inaktiv",
+    "noLongerWorksHere": "Arbeitet nicht mehr hier"
+  },
+  "resources": {
+    "title": "Ressourcen",
+    "subtitle": "Personen und Arbeitsplätze, die im Planer eingeplant werden – je Standort.",
+    "filter": "Standort",
+    "allLocations": "Alle Standorte",
+    "addPerson": "Person hinzufügen",
+    "addWorkplace": "Arbeitsplatz hinzufügen",
+    "empty": "Noch keine Ressourcen. Fügen Sie Personen und Arbeitsplätze hinzu, damit der Planer sie einplanen kann.",
+    "emptyAtLocation": "An diesem Standort gibt es noch keine Ressourcen.",
+    "locationInactive": "Standort inaktiv",
+    "tableLabel": "Ressourcen am Standort {{location}}"
+  },
+  "resourceDialog": {
+    "personCreateTitle": "Person hinzufügen",
+    "personEditTitle": "Person bearbeiten",
+    "workplaceCreateTitle": "Arbeitsplatz hinzufügen",
+    "workplaceEditTitle": "Arbeitsplatz bearbeiten",
+    "person": "Person",
+    "noPerson": "Noch keine Person gewählt",
+    "choosePerson": "Person wählen",
+    "searchPerson": "Person suchen",
+    "noCandidates": "Alle, die in diesem Betrieb arbeiten, sind bereits Ressourcen.",
+    "workplaceName": "Name des Arbeitsplatzes",
+    "sortOrder": "Reihenfolge",
+    "sortOrderHint": "Die Reihenfolge im Planer, von 0 bis 9999: kleinere Zahlen zuerst.",
+    "movingNote": "Am neuen Standort gilt die Ressource ab sofort. Die Buchungen dieser Ressource, die noch nicht vorbei sind, werden zum Neu-Einplanen markiert."
+  },
+  "hours": {
+    "title": "Arbeitszeiten von {{name}}",
+    "openNamed": "Arbeitszeiten: {{name}}",
+    "days_one": "{{count, number}} Arbeitstag",
+    "days_other": "{{count, number}} Arbeitstage",
+    "notEntered": "Nicht erfasst",
+    "none": "Für diese Person sind keine Arbeitszeiten erfasst.",
+    "startsAt": "Beginn",
+    "endsAt": "Ende",
+    "secondStartsAt": "Beginn nach der Pause",
+    "secondEndsAt": "Ende nach der Pause",
+    "off": "Arbeitsfrei",
+    "invalid": "Die Zeiten am {{day}} passen nicht: Jede Zeit endet nach ihrem Beginn, und die zweite beginnt nach dem Ende der ersten."
+  }
+}

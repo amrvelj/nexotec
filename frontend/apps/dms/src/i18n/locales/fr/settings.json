@@ -99,5 +99,16 @@
       "title": "Aucune modification",
       "description": "Ce réglage n'a encore jamais été modifié ici."
     }
+  },
+  "rule": {
+    "divides": "Un diviseur de {{number}} : {{values}}.",
+    "multipleOf": "Un multiple de «{{setting}}», ici {{values}}.",
+    "multipleOfNotSet": "Un multiple de «{{setting}}», dès que ce paramètre est défini.",
+    "dividesSetting": "«{{setting}}» ({{values}}) doit en rester un multiple.",
+    "refused": {
+      "notADivisor": "La valeur {{value}} n'est pas un diviseur de {{bound}}.",
+      "notAMultiple": "La valeur {{value}} n'est pas un multiple de {{bound}} («{{setting}}»).",
+      "wouldNotDivide": "«{{setting}}» ({{bound}}) ne serait alors plus un multiple de {{value}}."
+    }
   }
 }

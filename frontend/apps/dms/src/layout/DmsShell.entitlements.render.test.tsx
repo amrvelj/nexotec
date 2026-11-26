@@ -60,9 +60,22 @@ describe('DmsShell navigation follows the module entitlements (KAN-198)', () => 
     for (const hidden of ['shell.nav.sales', 'shell.nav.inventory', 'shell.nav.valuations']) {
       expect(within(nav).queryByText(t(hidden))).not.toBeInTheDocument()
     }
+    // KAN-806, KAN-808: the Aftersales master data in administration shows with aftersales.
+    expect(within(nav).getByText(t('shell.nav.labourRates'))).toBeInTheDocument()
+    expect(within(nav).getByText(t('shell.nav.plannerResources'))).toBeInTheDocument()
     // never role- or entitlement-hidden: master data and administration
     expect(within(nav).getByText(t('shell.nav.vehicles'))).toBeInTheDocument()
     expect(within(nav).getByText(t('shell.nav.referenceData'))).toBeInTheDocument()
+  })
+
+  it('a Betrieb without aftersales sees neither labour rates nor planner resources (KAN-806, KAN-808)', async () => {
+    renderShell(['sales'])
+    const nav = await screen.findByRole('navigation', { name: t('shell.sidebar.mainNavigation') })
+    expect(await within(nav).findByText(t('shell.nav.sales'))).toBeInTheDocument()
+    for (const hidden of ['shell.nav.aftersales', 'shell.nav.labourRates', 'shell.nav.plannerResources']) {
+      expect(within(nav).queryByText(t(hidden))).not.toBeInTheDocument()
+    }
+    expect(within(nav).getByText(t('shell.nav.locations'))).toBeInTheDocument()
   })
 
   it('a fully entitled Betrieb sees every module entry', async () => {

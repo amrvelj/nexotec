@@ -55,10 +55,13 @@ Decided rulings live in the PRD; built only where a bullet says so — check the
   `aftersales`, `parts`, `finance`, `reporting`), written by `platform_admin` only, read by the
   manager; claims `entitlements` + `ent_v`. `require_entitlement(ModuleCode.X)` is a
   **router-level** dependency on every sales, inventory, valuation and configurator router (and
-  `aftersales` on planning's, ADR-221), runs
+  `aftersales` on planning's, ADR-221, and on Aftersales' own, KAN-810), runs
   before any role check and answers **404 for everyone**, staff included
   (`test_sales_routers_carry_entitlement_gate.py`). A changed set bumps
   `dealership.entitlements_version`; a token with another `ent_v` gets 401 and signs in again.
+  Each module that becomes active (onboarding included) states `platform.module_entitlement.granted`
+  in the same transaction (`entitlement_facts.py`, ADR-222; planning's starting sets consume it);
+  `scripts/restate_module_entitlements.py` restates it, dry run by default.
   Sales-licensed data inside another module's response is gated per field with
   `holds_entitlement(db, principal, ModuleCode.X)` — never per route.
 - **Permissions are platform-defined (D-A-03); no policy limits in v1 (D-A-18).**
@@ -90,6 +93,10 @@ Declarations, the read, history and restore, the API, the checklist, the copy, t
 ## Labour rates (KAN-806, D-A-19) — backend and screen built
 Categories, rates per location from a date, agreed rates, allocations, «which rate applies here»:
 `platform-labour-rates.md`.
+
+## Planner resources (KAN-808, S7) — backend and screen built
+The planner's lists, people and workplaces at `/administration/planner-resources` (owned by `planning`, configured
+here, A-RULE-0): `planning.md`.
 
 ## Business master data (D-A-22, D-A-25, D-A-27, FR-A-25) — built
 - `/administration/business` is the one screen for the Betrieb's own data: legal identity,

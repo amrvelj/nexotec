@@ -6,6 +6,7 @@ import ns_addressSearch from './fr/addressSearch.json'
 import ns_aiPrompts from './fr/aiPrompts.json'
 import ns_apiRefusal__accessWindow from './fr/apiRefusal.accessWindow.json'
 import ns_apiRefusal from './fr/apiRefusal.json'
+import ns_apiRefusal__reasons__aftersales from './fr/apiRefusal.reasons.aftersales.json'
 import ns_apiRefusal__reasons__common from './fr/apiRefusal.reasons.common.json'
 import ns_apiRefusal__reasons__contact from './fr/apiRefusal.reasons.contact.json'
 import ns_apiRefusal__reasons__integration from './fr/apiRefusal.reasons.integration.json'
@@ -49,6 +50,7 @@ import ns_offboarding from './fr/offboarding.json'
 import ns_offerDetail from './fr/offerDetail.json'
 import ns_offerWorkspace from './fr/offerWorkspace.json'
 import ns_onboarding from './fr/onboarding.json'
+import ns_plannerResources from './fr/plannerResources.json'
 import ns_providerCaptions from './fr/providerCaptions.json'
 import ns_publishing from './fr/publishing.json'
 import ns_publishingValidation from './fr/publishingValidation.json'
@@ -83,7 +85,7 @@ const bundle = {
   account: ns_account,
   addressSearch: ns_addressSearch,
   aiPrompts: ns_aiPrompts,
-  apiRefusal: { ...ns_apiRefusal, accessWindow: ns_apiRefusal__accessWindow, reasons: { ...ns_apiRefusal__reasons__common, ...ns_apiRefusal__reasons__contact, ...ns_apiRefusal__reasons__integration, ...ns_apiRefusal__reasons__inventory, ...ns_apiRefusal__reasons__planning, ...ns_apiRefusal__reasons__platform, ...ns_apiRefusal__reasons__sales, ...ns_apiRefusal__reasons__valuation, ...ns_apiRefusal__reasons__vehicle } },
+  apiRefusal: { ...ns_apiRefusal, accessWindow: ns_apiRefusal__accessWindow, reasons: { ...ns_apiRefusal__reasons__aftersales, ...ns_apiRefusal__reasons__common, ...ns_apiRefusal__reasons__contact, ...ns_apiRefusal__reasons__integration, ...ns_apiRefusal__reasons__inventory, ...ns_apiRefusal__reasons__planning, ...ns_apiRefusal__reasons__platform, ...ns_apiRefusal__reasons__sales, ...ns_apiRefusal__reasons__valuation, ...ns_apiRefusal__reasons__vehicle } },
   auth: ns_auth,
   branding: ns_branding,
   brandsAdmin: ns_brandsAdmin,
@@ -118,6 +120,7 @@ const bundle = {
   offerDetail: ns_offerDetail,
   offerWorkspace: ns_offerWorkspace,
   onboarding: ns_onboarding,
+  plannerResources: ns_plannerResources,
   providerCaptions: ns_providerCaptions,
   publishing: ns_publishing,
   publishingValidation: ns_publishingValidation,

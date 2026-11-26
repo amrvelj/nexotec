@@ -111,14 +111,22 @@ def _camel(field: str) -> str:
     return head + "".join(part.title() for part in rest)
 
 
-def _refuse_taken_name(
+def name_taken(
     db: Session, spec: ListSpec, dealership_id: uuid.UUID, name: str, *, other_than: uuid.UUID | None = None
-) -> None:
+) -> bool:
+    """The Betrieb's list already has an entry of this (cleaned) name, ignoring case."""
+
     model = spec.model
     stmt = select(model.id).where(model.tenant_id == dealership_id, func.lower(model.name) == name.lower())
     if other_than is not None:
         stmt = stmt.where(model.id != other_than)
-    if db.scalar(stmt.limit(1)) is not None:
+    return db.scalar(stmt.limit(1)) is not None
+
+
+def _refuse_taken_name(
+    db: Session, spec: ListSpec, dealership_id: uuid.UUID, name: str, *, other_than: uuid.UUID | None = None
+) -> None:
+    if name_taken(db, spec, dealership_id, name, other_than=other_than):
         raise ConflictError(
             "The list already has an entry of this name.", details={"reason": "planning_list_entry_name_taken"}
         )

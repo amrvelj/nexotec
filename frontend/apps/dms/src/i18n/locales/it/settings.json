@@ -99,5 +99,16 @@
       "title": "Ancora nessuna modifica",
       "description": "Questa impostazione non è mai stata modificata qui."
     }
+  },
+  "rule": {
+    "divides": "Un divisore di {{number}}: {{values}}.",
+    "multipleOf": "Un multiplo di «{{setting}}», qui {{values}}.",
+    "multipleOfNotSet": "Un multiplo di «{{setting}}», non appena questa impostazione è definita.",
+    "dividesSetting": "«{{setting}}» ({{values}}) deve restarne un multiplo.",
+    "refused": {
+      "notADivisor": "Il valore {{value}} non è un divisore di {{bound}}.",
+      "notAMultiple": "Il valore {{value}} non è un multiplo di {{bound}} («{{setting}}»).",
+      "wouldNotDivide": "«{{setting}}» ({{bound}}) non sarebbe più un multiplo di {{value}}."
+    }
   }
 }

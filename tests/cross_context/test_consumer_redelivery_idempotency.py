@@ -391,24 +391,6 @@ def _contact_merged(db_session, engine, monkeypatch):
     return message, offers_on_survivor
 
 
-def _before_the_rename(fixture):
-    """KAN-464 PR-3 — the same merge as published before customers became
-    contacts: the real producer's row, turned back into the name and payload
-    keys it carried then (`customer.merged`, `customerId`,
-    `duplicateOfCustomerId`), for the consumer that stays subscribed to it."""
-
-    def build(db_session, engine, monkeypatch):
-        message, measure = fixture(db_session, engine, monkeypatch)
-        payload = dict(message.payload)
-        payload["customerId"] = payload.pop("contactId")
-        payload["duplicateOfCustomerId"] = payload.pop("duplicateOfContactId")
-        message.event_type, message.payload = "customer.merged", payload
-        db_session.flush()
-        return message, measure
-
-    return build
-
-
 def _stock_suppliers_on_contact_merged(db_session, engine, monkeypatch):
     """KAN-465 — a contact merge: Stock moves the item whose supplier is the
     duplicate to the survivor once (the measure counts items on the survivor)."""
@@ -1096,6 +1078,29 @@ def _business_profile_push_on_dealership_updated(db_session, engine, monkeypatch
     )
 
 
+def _starting_sets_on_module_granted(db_session, engine, monkeypatch):
+    """KAN-808 PR-1d (ADR-222) — a Betrieb granted Aftersales: its planner
+    starting sets copied once, the marker row written once."""
+
+    from app.core.permissions import ModuleCode
+    from app.planning.models.starting_set import StartingSet
+    from app.platform.organisation.models.module_entitlement import ModuleEntitlement
+    from app.platform.organisation.services import entitlement, entitlement_facts
+
+    dealership = _dealership(db_session)
+    entitlement.set_entitlements(
+        db_session, dealership=dealership, modules={ModuleCode.AFTERSALES}, actor_id=uuid.uuid4()
+    )
+    row = db_session.scalars(select(ModuleEntitlement).where(ModuleEntitlement.dealership_id == dealership.id)).one()
+
+    def markers(db: Session) -> int:
+        return db.scalar(
+            select(func.count()).select_from(StartingSet).where(StartingSet.tenant_id == dealership.id)
+        )
+
+    return _message(db_session, entitlement_facts.MODULE_ENTITLEMENT_GRANTED_EVENT, row.id), markers
+
+
 _FIXTURES: dict[str, Fixture] = {
     "integration.business_profile_push_on_dealership_updated": _business_profile_push_on_dealership_updated,
     "integration.business_profile_push_on_location_updated": _business_profile_push_on("platform.location.updated"),
@@ -1140,9 +1145,7 @@ _FIXTURES: dict[str, Fixture] = {
     "contact.trade_in_purchased": _trade_in_purchased,
     "contact.trade_in_storno": _trade_in_storno,
     "sales.contact_merged": _contact_merged,
-    "sales.customer_merged": _before_the_rename(_contact_merged),
     "inventory.contact_merged": _stock_suppliers_on_contact_merged,
-    "inventory.customer_merged": _before_the_rename(_stock_suppliers_on_contact_merged),
     "sales.stock_item_reassigned": _stock_item_reassigned,
     "inventory.marketplace_transmission_on_publish": _stock_item_published,
     "reporting.public_stock_listing": _website_listing_changed,
@@ -1166,6 +1169,7 @@ _FIXTURES: dict[str, Fixture] = {
     "vehicle.configuration_taken_by_valuation": _configuration_taken("valuation.created", _valuation_takes),
     "vehicle.stock_holding_on_vin_assigned": _stock_holding_on_vin_assigned,
     "vehicle.stock_holding_on_sold": _stock_holding_on_sold,
+    "planning.starting_sets_on_module_granted": _starting_sets_on_module_granted,
 }
 
 

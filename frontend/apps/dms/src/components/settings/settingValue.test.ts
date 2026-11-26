@@ -17,6 +17,8 @@ const declaration = (kind: string): SettingDeclarationRead => ({
   checklistItem: false,
   checklistBlocks: null,
   choiceRequires: [],
+  divides: null,
+  multipleOf: null,
 })
 
 describe('the settings screen’s value drafts (KAN-805)', () => {

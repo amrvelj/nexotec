@@ -2,12 +2,14 @@
 paths:
   - "app/planning/**"
   - "alembic/versions/planning/**"
+  - "frontend/apps/dms/src/pages/PlannerResourcesPage*"
+  - "frontend/apps/dms/src/components/plannerResources/**"
 ---
 <!-- Maintainer note. ADR-211 (KAN-804, 2026-11-24), amending ADR-131. Summarises Decision A of
 «Architecture decisions of slice 1» https://app.notion.com/p/4223e79334dd816e941bf780af822854 and
 section 3.8 of «Build slice 1 - the order backbone» https://app.notion.com/p/4223e79334dd81d8b83bc1fbf4376c74
 (binding; read the section before building against a line). Built by KAN-808 (backend) and KAN-809 (page).
-Last verified against KAN-808 PR-1c, cut from main@f30e9d4 (2026-11-25). -->
+Last verified against KAN-808 PR-2, cut from main@131a8f7 (2026-11-26). -->
 
 # Planning — the planner every context books through
 
@@ -26,7 +28,7 @@ Last verified against KAN-808 PR-1c, cut from main@f30e9d4 (2026-11-25). -->
   `planner_resources` (aftersales and the manager read, the manager writes), Dealer Administration
   for the activation gate. Deactivating or moving a resource marks its bookings to come (PR-1c).
   Every table carries `tenant_id` (T7); user and location are the three-column pattern, validated
-  through `platform.public` (T5). A type copied from a starting set (ADR-222, not copied yet) is a
+  through `platform.public` (T5). A type copied from a starting set (ADR-222, PR-1d below) is a
   sample until changed or confirmed; the database refuses a rank or factor on one. A deactivated
   location takes no planner resource (422 `planning_location_inactive`, active or not). Exporter,
   reconciliation and chain (`9a5bf8ec0ed6`) registered.
@@ -70,8 +72,30 @@ Last verified against KAN-808 PR-1c, cut from main@f30e9d4 (2026-11-25). -->
   `bookings_of_reference` (a read), `register_settings`, the frozen records (`BookingRecord`,
   `BookingOutcome` …) and enums. Events (`services/booking_facts.py`, one payload shape):
   `planning.booking.booked` (a block too), `.moved`, `.released`, `.marked_for_replanning`. No HTTP
-  booking route yet (KAN-809); no caller yet (KAN-810), so none of them is in the ADR-047 lists. Not
-  yet: starting sets.
+  booking route yet (KAN-809); no caller yet (KAN-810), so none of them is in the ADR-047 lists.
+- **Built (KAN-808 PR-1d; ADR-222): the starting sets.** Consumer
+  `planning.starting_sets_on_module_granted` (`consumers.py`) of platform's
+  `platform.module_entitlement.granted`: for `aftersales` only, `services/starting_sets.py` copies
+  Nexotec's technician types (Lernender · Automobil-Fachmann · Automobil-Mechatroniker ·
+  Automobil-Diagnostiker · Werkstattchef) and workplace types (Hebebühne · Arbeitsplatz ohne
+  Hebebühne · Diagnoseplatz · Achsvermessung · Reifenmontage · Waschplatz; Anto, 2026-11-25) as
+  samples with a seed code and no figure, named in the Betrieb's default correspondence language
+  with the other three as translations (ruling 176). **Once per Betrieb, ever:** the marker
+  `planning_starting_set` (chain `bfb2acffd59f`) is checked under the master-data lock, so a
+  redelivery, a re-grant or a restatement copies nothing and a deleted sample never returns. A name
+  the Betrieb already uses (case ignored) is skipped, its entry left its own. Audit
+  `starting_set_copied` (no actor). A Betrieb that held Aftersales before the fact:
+  `scripts/restate_module_entitlements.py --module aftersales` (platform's, dry run by default).
+- **Built (KAN-808 PR-2): the S7 screen** `/administration/planner-resources` (`PlannerResourcesPage`,
+  `components/plannerResources/`; nav entry shown with `aftersales`, capability `planner_resources` — read-only
+  without the write). It embeds the shared `SettingRows` for O6 and O7 (the same rows as
+  `/administration/settings/planning`; their `divides`/`multipleOf` hinted and checked, `platform-settings.md`), then
+  the three lists — a name in the UI language from `nameTranslations`, else `name`; a sample badge with «Bestätigen»;
+  delete offered disabled while a resource uses the entry — and the resources per location (filter): a person added
+  from `/person-candidates` with the kit's `Picker`, a workplace by name; type, qualifications, sort order, deactivate
+  (a confirm that says its bookings are marked) and reactivate; `personActsHere: false` marked «Arbeitet nicht mehr
+  hier»; the working week a PUT with If-Match. Every versioned write sends If-Match; a refusal shows through
+  `apiRefusalText`, a stale 409 with «Neu laden». No booking UI: KAN-809.
 - **It owns:** resources (people, workplaces, bookable cars) with their types, qualifications and
   working hours; bookings and blocks; the overlap rule; the record of an overruled warning.
 - **It owns no order, car or customer.** A caller's reference is the three-column pattern (id, label,
