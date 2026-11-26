@@ -144,6 +144,7 @@ def test_the_web_process_instruments_its_app_with_the_scrubbing_hook(monkeypatch
     from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
     from opentelemetry.sdk import metrics as sdk_metrics
     from opentelemetry.sdk.metrics import export as sdk_metrics_export
+    from opentelemetry.sdk.trace import export as sdk_trace_export
 
     main_source = (_REPO / "app" / "main.py").read_text()
     assert re.search(r"^configure_tracing\(app\)$", main_source, re.MULTILINE)
@@ -152,6 +153,8 @@ def test_the_web_process_instruments_its_app_with_the_scrubbing_hook(monkeypatch
     monkeypatch.setattr(trace, "set_tracer_provider", lambda provider: None)
     monkeypatch.setattr(metrics, "set_meter_provider", lambda provider: None)
     monkeypatch.setattr(trace_exporter, "OTLPSpanExporter", lambda **kw: InMemorySpanExporter())
+    # A simple processor: no batch thread outlives the test.
+    monkeypatch.setattr(sdk_trace_export, "BatchSpanProcessor", SimpleSpanProcessor)
     # No meter provider and no periodic reader: no export thread outlives the test.
     monkeypatch.setattr(sdk_metrics, "MeterProvider", lambda **kw: None)
     monkeypatch.setattr(sdk_metrics_export, "PeriodicExportingMetricReader", lambda *a, **kw: None)
@@ -163,7 +166,6 @@ def test_the_web_process_instruments_its_app_with_the_scrubbing_hook(monkeypatch
     assert [kw.get("server_request_hook") for kw in instrumented] == [observability.scrub_span_query]
 
 
-
 def test_the_filter_leaves_a_record_without_a_query_as_it_is():
     import logging
 
@@ -171,3 +173,32 @@ def test_the_filter_leaves_a_record_without_a_query_as_it_is():
                                ("127.0.0.1:5000", "GET", "/v1/health", "1.1", 200), None)
     assert observability.QueryStringAccessLogFilter().filter(record)
     assert record.getMessage() == '127.0.0.1:5000 - "GET /v1/health HTTP/1.1" 200'
+
+
+def test_a_request_through_the_production_app_leaves_no_search_text_in_a_span():
+    """The production app itself (`app.main.app`, its middleware and routes),
+    instrumented as `configure_tracing` instruments it: a search through it
+    leaves the value in no span attribute and no span name."""
+
+    from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+
+    from app.main import app as production_app
+
+    exporter = InMemorySpanExporter()
+    provider = TracerProvider()
+    provider.add_span_processor(SimpleSpanProcessor(exporter))
+    observability.instrument_app(production_app, tracer_provider=provider)
+    try:
+        marker = f"CHE-{uuid.uuid4().int % 10**9:09d}"
+        client = TestClient(production_app)
+        assert client.get(f"/v1/contacts?q={marker}").status_code == 401
+        client.get(f"/v1/contacts/duplicate-check?q={marker}")
+    finally:
+        FastAPIInstrumentor.uninstrument_app(production_app)
+    spans = exporter.get_finished_spans()
+    servers = [span for span in spans if span.parent is None]
+    assert len(servers) == 2
+    assert {span.attributes.get("http.target") for span in servers} == {"/v1/contacts", "/v1/contacts/duplicate-check"}
+    for span in spans:
+        assert marker not in json.dumps(dict(span.attributes), default=str)
+        assert marker not in span.name
