@@ -13,8 +13,8 @@ import { purple, radius, semantic, slate, slate25, white } from "../tokens";
  * - Groups of rows (people, workplaces), each row a label and a track.
  * - Items in a row that overlap are laid in lanes, so none hides another.
  * - `unavailable` spans (outside a person's working hours) are hatched — and
- *   carry their meaning in text too (`labels.unavailable`, a title and an
- *   aria description), never by colour alone.
+ *   carry their meaning in text too (`labels.unavailable` as their title and
+ *   accessible name), never by pattern alone.
  * - An item marked `flagLabel` («neu einplanen») gets a dashed destructive
  *   border AND the label as text.
  * - Every item the caller lets open (`onActivate`) is a button in the tab
@@ -230,7 +230,8 @@ export function ResourceDayGrid({
                         <Box
                           key={`${gap.startMinute}-${gap.endMinute}`}
                           title={labels.unavailable}
-                          aria-hidden
+                          role="img"
+                          aria-label={labels.unavailable}
                           data-unavailable
                           style={{
                             position: "absolute",

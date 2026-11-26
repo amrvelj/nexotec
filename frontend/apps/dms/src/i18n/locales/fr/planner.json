@@ -80,7 +80,9 @@
     "needsResource": "Choisissez au moins une personne ou un poste de travail.",
     "workNeedsWorkplace": "Un travail occupe exactement un poste de travail.",
     "timeRequired": "Indiquez une date et une heure pour le début et pour la fin.",
-    "endAfterStart": "La fin doit suivre le début."
+    "endAfterStart": "La fin doit suivre le début.",
+    "notBookable": "{{name}} (plus réservable)",
+    "slotLength": "Un créneau de réception ou de restitution dure ce que fixent les paramètres du planning ; sa fin suit son début."
   },
   "warnings": {
     "outside_working_hours": "{{resource}} ne travaille pas à cette heure.",

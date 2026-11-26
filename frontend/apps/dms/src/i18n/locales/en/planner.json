@@ -80,7 +80,9 @@
     "needsResource": "Choose at least one person or one workplace.",
     "workNeedsWorkplace": "Work holds exactly one workplace.",
     "timeRequired": "Enter a date and a time for both the start and the end.",
-    "endAfterStart": "The end must come after the start."
+    "endAfterStart": "The end must come after the start.",
+    "notBookable": "{{name}} (no longer bookable)",
+    "slotLength": "A drop-off or pick-up slot lasts as long as the planner's settings say; its end follows its start."
   },
   "warnings": {
     "outside_working_hours": "{{resource}} does not work at this time.",

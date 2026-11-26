@@ -262,6 +262,47 @@ describe('PlannerDayPage (KAN-809)', () => {
     await user.click(within(grid).getByRole('button', { name: /^Bühne alt – .*neu einplanen/ }))
     const dialog = await screen.findByRole('dialog')
     expect(within(dialog).getByText(new RegExp(i18n.t('planner.booking.causes.resource_deactivated')))).toBeInTheDocument()
+    // Its own deactivated workplace stays visible, named as no longer bookable; only active ones are offered.
+    expect(within(dialog).getByDisplayValue(i18n.t('planner.booking.notBookable', { name: 'Bühne alt' }))).toBeInTheDocument()
+    await user.click(within(dialog).getByRole('textbox', { name: i18n.t('planner.fields.workplace') }))
+    expect(await screen.findByRole('option', { name: 'Bühne 1' })).toBeInTheDocument()
+    expect(screen.queryByRole('option', { name: 'Bühne leer' })).not.toBeInTheDocument()
+    await user.keyboard('{Escape}')
+    await user.click(screen.getByRole('button', { name: i18n.t('planner.booking.cancel') }))
+    // The block dialog offers active resources only.
+    await user.click(screen.getByRole('button', { name: i18n.t('planner.blockResource') }))
+    const block = await screen.findByRole('dialog', { name: i18n.t('planner.block.title') })
+    await user.click(within(block).getByRole('textbox', { name: i18n.t('planner.fields.workplaces') }))
+    expect(await screen.findByRole('option', { name: 'Bühne 1' })).toBeInTheDocument()
+    expect(screen.queryByRole('option', { name: /Bühne alt/ })).not.toBeInTheDocument()
+  })
+
+  it('a slot moves by its start only: its end is O7 and the server sets it', async () => {
+    const user = userEvent.setup()
+    const slot = booking('b-7', {
+      kind: 'drop_off', startsAt: '2027-03-01T07:00:00Z', endsAt: '2027-03-01T07:30:00Z',
+      resources: [{ resourceId: 'r-lea', kind: 'person', label: 'Lea Meier' }], job: null, vehicle: null,
+    })
+    const backend = install({
+      bookings: [slot],
+      extra: [{ method: 'PATCH', match: new RegExp(`${PLANNING}/bookings/b-7$`), handler: () => ({ booking: slot, markedForReplanning: [] }) }],
+    })
+    render()
+
+    await user.click(await screen.findByRole('button', { name: /Lea Meier – Annahme/ }))
+    const dialog = await screen.findByRole('dialog')
+    const toTime = within(dialog).getByLabelText(new RegExp(`${i18n.t('planner.fields.to')} – ${i18n.t('planner.fields.time')}`))
+    expect(toTime).toHaveAttribute('readonly')
+    expect(within(dialog).getByText(i18n.t('planner.booking.slotLength'))).toBeInTheDocument()
+    const fromTime = within(dialog).getByLabelText(new RegExp(`${i18n.t('planner.fields.from')} – ${i18n.t('planner.fields.time')}`))
+    await user.clear(fromTime)
+    await user.type(fromTime, '09:00')
+    await user.click(within(dialog).getByRole('button', { name: i18n.t('planner.booking.save') }))
+
+    await waitFor(() => expect(backend.callsTo(/\/bookings\/b-7$/, 'PATCH')).toHaveLength(1))
+    const body = backend.callsTo(/\/bookings\/b-7$/, 'PATCH')[0].body as Record<string, unknown>
+    expect(body.startsAt).toBe('2027-03-01T09:00:00+01:00')
+    expect(body).not.toHaveProperty('endsAt')
   })
 
   it('a location without a person says so and where to set it up', async () => {
@@ -334,7 +375,6 @@ describe('PlannerDayPage (KAN-809)', () => {
         expect(within(grid).getByText('Pont élévateur')).toBeInTheDocument()
       }
       expect(screen.getByRole('button', { name: i18n.t('planner.blockResource') })).toBeInTheDocument()
-      expect(i18n.t('apiRefusal.reasons.planning_workplace_taken')).not.toBe('apiRefusal.reasons.planning_workplace_taken')
     } finally {
       await i18n.changeLanguage('de')
     }

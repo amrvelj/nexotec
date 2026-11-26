@@ -256,7 +256,11 @@ export function PlannerDayPage() {
         <Select
           aria-label={t('planner.location')}
           placeholder={t('planner.location')}
-          data={activeLocations.map((l) => ({ value: l.id, label: l.name }))}
+          data={[
+            ...activeLocations.map((l) => ({ value: l.id, label: l.name })),
+            // A deactivated location named in the URL stays readable, and says so.
+            ...(location && !location.isActive ? [{ value: location.id, label: `${location.name} (${t('planner.inactive')})` }] : []),
+          ]}
           value={locationId ?? null}
           onChange={(value) => value && go({ location: value })}
           allowDeselect={false}

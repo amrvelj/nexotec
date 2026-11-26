@@ -80,7 +80,9 @@
     "needsResource": "Scegliete almeno una persona o una postazione di lavoro.",
     "workNeedsWorkplace": "Un lavoro occupa esattamente una postazione di lavoro.",
     "timeRequired": "Indicate una data e un’ora sia per l’inizio sia per la fine.",
-    "endAfterStart": "La fine deve seguire l’inizio."
+    "endAfterStart": "La fine deve seguire l’inizio.",
+    "notBookable": "{{name}} (non più prenotabile)",
+    "slotLength": "Un appuntamento di accettazione o di ritiro dura quanto fissato nelle impostazioni del pianificatore; la sua fine segue l’inizio."
   },
   "warnings": {
     "outside_working_hours": "{{resource}} non lavora a quest’ora.",

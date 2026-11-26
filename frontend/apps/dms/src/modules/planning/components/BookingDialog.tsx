@@ -68,13 +68,17 @@ export function BookingDialog({ booking, planningPath, people, workplaces, resou
     setConfirmRelease(false)
   }, [booking])
 
-  // The booking's own resources stay choosable, even one no longer listed at the location.
+  // The booking's own resources stay visible, even one the page does not offer (deactivated, or
+  // moved to another location): named as no longer bookable, so a refusal on saving is no surprise
+  // (the server refuses it, planning_resource_inactive).
   const withOwn = (options: PlannerOption[], kind: 'person' | 'workplace') => {
     const own = (booking?.resources ?? [])
       .filter((r) => r.kind === kind && !options.some((o) => o.value === r.resourceId))
-      .map((r) => ({ value: r.resourceId, label: r.label }))
+      .map((r) => ({ value: r.resourceId, label: t('planner.booking.notBookable', { name: r.label }) }))
     return [...options, ...own]
   }
+  // A drop-off or pick-up slot is O7 long (planning.md): its end follows its start, server-side.
+  const isSlot = booking?.kind === 'drop_off' || booking?.kind === 'pick_up'
   const peopleOptions = withOwn(people, 'person')
   const workplaceOptions = withOwn(workplaces, 'workplace')
 
@@ -101,16 +105,16 @@ export function BookingDialog({ booking, planningPath, people, workplaces, resou
     const resourceIds = [...personIds, ...workplaceIds]
     if (resourceIds.length === 0) return setFormError(t('planner.booking.needsResource'))
     if (isWork && workplaceIds.length !== 1) return setFormError(t('planner.booking.workNeedsWorkplace'))
-    if (!fromDate || !fromTime || !toDate || !toTime) return setFormError(t('planner.booking.timeRequired'))
+    if (!fromDate || !fromTime || (!isSlot && (!toDate || !toTime))) return setFormError(t('planner.booking.timeRequired'))
     const startsAt = zurichInstant(fromDate, fromTime)
-    const endsAt = zurichInstant(toDate, toTime)
-    if (new Date(endsAt) <= new Date(startsAt)) return setFormError(t('planner.booking.endAfterStart'))
+    const endsAt = isSlot ? undefined : zurichInstant(toDate, toTime)
+    if (endsAt && new Date(endsAt) <= new Date(startsAt)) return setFormError(t('planner.booking.endAfterStart'))
     setSubmitting(true)
     setRefusal(null)
     try {
       await api.patch<BookingOutcomeRead>(
         `${planningPath}/bookings/${booking.id}`,
-        { startsAt, endsAt, resourceIds, confirmedWarnings: warnings ?? [] },
+        { startsAt, ...(endsAt ? { endsAt } : {}), resourceIds, confirmedWarnings: warnings ?? [] },
         { 'If-Match': String(booking.version) },
       )
       onSaved()
@@ -173,9 +177,14 @@ export function BookingDialog({ booking, planningPath, people, workplaces, resou
         <SimpleGrid cols={2} spacing="sm">
           <TextInput type="date" label={`${t('planner.fields.from')} – ${t('planner.fields.date')}`} value={fromDate} onChange={(e) => changed(setFromDate)(e.currentTarget.value)} required />
           <TextInput type="time" label={`${t('planner.fields.from')} – ${t('planner.fields.time')}`} value={fromTime} onChange={(e) => changed(setFromTime)(e.currentTarget.value)} required />
-          <TextInput type="date" label={`${t('planner.fields.to')} – ${t('planner.fields.date')}`} value={toDate} onChange={(e) => changed(setToDate)(e.currentTarget.value)} required />
-          <TextInput type="time" label={`${t('planner.fields.to')} – ${t('planner.fields.time')}`} value={toTime} onChange={(e) => changed(setToTime)(e.currentTarget.value)} required />
+          <TextInput type="date" label={`${t('planner.fields.to')} – ${t('planner.fields.date')}`} value={toDate} onChange={(e) => changed(setToDate)(e.currentTarget.value)} required={!isSlot} readOnly={isSlot} />
+          <TextInput type="time" label={`${t('planner.fields.to')} – ${t('planner.fields.time')}`} value={toTime} onChange={(e) => changed(setToTime)(e.currentTarget.value)} required={!isSlot} readOnly={isSlot} />
         </SimpleGrid>
+        {isSlot && (
+          <Text size="xs" c="dimmed">
+            {t('planner.booking.slotLength')}
+          </Text>
+        )}
         <MultiSelect
           label={t('planner.fields.people')}
           data={peopleOptions}

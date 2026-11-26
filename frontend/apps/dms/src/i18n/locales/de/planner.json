@@ -80,7 +80,9 @@
     "needsResource": "Wählen Sie mindestens eine Person oder einen Arbeitsplatz.",
     "workNeedsWorkplace": "Arbeit belegt genau einen Arbeitsplatz.",
     "timeRequired": "Geben Sie für Beginn und Ende je ein Datum und eine Zeit an.",
-    "endAfterStart": "Das Ende muss nach dem Beginn liegen."
+    "endAfterStart": "Das Ende muss nach dem Beginn liegen.",
+    "notBookable": "{{name}} (nicht mehr buchbar)",
+    "slotLength": "Ein Annahme- oder Abholtermin dauert so lange, wie in den Einstellungen des Planers festgelegt; sein Ende folgt seinem Beginn."
   },
   "warnings": {
     "outside_working_hours": "{{resource}} arbeitet zu dieser Zeit nicht.",
