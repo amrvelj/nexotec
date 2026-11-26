@@ -12,7 +12,8 @@ paths:
 <!-- Maintainer note. KAN-806 (2026-11-25); D-A-19 of the Dealer Administration PRD; Aftersales slice 1
 sections 5, 7 (checks 11, 12, 15, 49), 9 (rulings 177, 178, 183), 10; Anto's answers on KAN-806 of
 2026-11-25 (in use from the start date; agreements follow O16; no starting categories; the checklist item
-counts a rate still to come). Binding text: the slice page and the ADR in the Target Architecture. -->
+counts a rate still to come). Binding text: the slice page and the ADR in the Target Architecture.
+Last verified against main@dbf886d (2026-11-26, KAN-833). -->
 
 # Labour rates (KAN-806, D-A-19) — built: backend (PR-1), screen and checklist items (PR-2)
 
@@ -56,5 +57,6 @@ counts a rate still to come). Binding text: the slice page and the ADR in the Ta
   category with a rate at an active location, one still to come counting (Anto, 2026-11-25); neither blocks an
   action after activation yet. `tests/setup_checklist_support.complete_checklist` completes both for an
   Aftersales Betrieb.
-- **Open:** a `contact.merged` re-point and a nightly label refresh of agreements (follow-up ticket); copying
-  categories from a sister Betrieb (KAN-220's subset).
+- **Open:** a `contact.merged` re-point and a nightly label refresh of agreements (KAN-831, waiting for Anto on
+  how a duplicate's rows of other dates combine with the survivor's agreement); copying categories from a
+  sister Betrieb (KAN-220's subset).

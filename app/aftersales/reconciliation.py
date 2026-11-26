@@ -10,9 +10,10 @@ app.core.reconciliation for the mechanism.
 Beyond existence (slice 1, section 6; KAN-810 review): an order that is not
 cancelled must not name a merged contact (contact, invoice recipient or
 driver), a contact outside its Betrieb's dealer group (ADR-014), or a merged
-vehicle record. Nothing re-points an order on a merge yet (the consumer and
-the label refresh are a follow-up), so these StateChecks are what makes a
-merge visible meanwhile. A cancelled order is history and is left as it is;
+vehicle record. Since KAN-837 the consumers `aftersales.contact_merged` and
+`aftersales.vehicle_merged` re-point the orders (`services/order_references.py`),
+so these StateChecks find an order only when a consumer has not run or failed
+(its dead letter alerts too). A cancelled order is history and is left as it is;
 a ready-for-billing order is reported, since its invoice still names them.
 A merge is judged after a day's grace, as the labour-rate agreements' check
 does (KAN-806): a consumer's re-point in flight is not a finding.

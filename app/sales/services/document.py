@@ -47,13 +47,14 @@ price, never a rate breakdown across multiple lines.
 import re
 import uuid
 from collections.abc import Sequence
-from decimal import ROUND_HALF_UP, Decimal
+from decimal import Decimal
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.base import utcnow
 from app.core.i18n import SwissLanguage, format_date_ch
+from app.core.money import included_vat
 from app.platform.public import (
     Addressee,
     ContentDefinition,
@@ -110,10 +111,11 @@ def _compute_vat_amount(*, gross_price: Decimal, vat_rate: Decimal) -> Decimal:
     line) — this is the VAT component OF it, the same reverse-inclusive
     formula app.inventory.services.purchase::_compute_notional_input_tax
     uses for the fiktiver Vorsteuerabzug (a different figure, same math):
-    amount = rate / (100 + rate) * gross_price.
+    amount = rate / (100 + rate) * gross_price, to the Rappen, half away from
+    zero — taken from core money (KAN-824, ADR-215), never a re-summed total.
     """
 
-    return (gross_price * vat_rate / (Decimal(100) + vat_rate)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    return included_vat(gross_price, vat_rate)
 
 
 def _price_build_up_lines(

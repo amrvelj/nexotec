@@ -29,11 +29,13 @@ transaction.
 
 from __future__ import annotations
 
+import hashlib
 import uuid
+from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import Any
 
-from sqlalchemy import Exists, Select, exists, or_, select
+from sqlalchemy import Exists, Select, exists, or_, select, text
 from sqlalchemy.orm import Session
 
 from app.aftersales.models.service_order import (
@@ -148,6 +150,39 @@ def list_orders(
 # --- the people and the car -----------------------------------------------------------------
 
 
+# --- a write racing a merge (KAN-837) ---------------------------------------------------
+
+
+def _advisory_lock(db: Session, key: str) -> None:
+    if db.get_bind().dialect.name != "postgresql":
+        return
+    digest = hashlib.sha256(key.encode()).digest()
+    db.execute(text("SELECT pg_advisory_xact_lock(:key)"), {"key": int.from_bytes(digest[:8], "big", signed=True)})
+
+
+def lock_order_contacts(db: Session, contact_ids: Iterable[uuid.UUID | None]) -> None:
+    """Serialises a write naming these contacts with `aftersales.contact_merged`
+    moving them (until the transaction ends). Taken before the contact is read
+    and before the order row; in id order, so two writes never wait on each other."""
+
+    for contact_id in sorted({c for c in contact_ids if c is not None}):
+        _advisory_lock(db, f"aftersales.order_contact:{contact_id}")
+
+
+def lock_order_vehicle(db: Session, vehicle_id: uuid.UUID | None) -> None:
+    """The same for the car and `aftersales.vehicle_merged`."""
+
+    if vehicle_id is not None:
+        _advisory_lock(db, f"aftersales.order_vehicle:{vehicle_id}")
+
+
+def vehicle_label(summary) -> str:
+    """The car as the order names it: make and model with the VIN, else the VIN."""
+
+    name = " ".join(part for part in (summary.make, summary.model) if part)
+    return (f"{name} · {summary.vin}" if name else summary.vin)[:200]
+
+
 @dataclass(frozen=True)
 class _Party:
     id: uuid.UUID
@@ -158,6 +193,7 @@ def _party(db: Session, *, group_id: uuid.UUID, contact_id: uuid.UUID, role: str
     """A contact of the group for `role` (`contact`, `invoice_recipient`, `driver`).
     Another group's is a 404 (rule 7)."""
 
+    lock_order_contacts(db, [contact_id])
     contact = get_contact_or_404(db, group_id, contact_id)
     _refuse_merged(db, group_id=group_id, contact=contact)
     if refuse_blocked and contact.credit_block:
@@ -195,15 +231,14 @@ def _vehicle(db: Session, vehicle_id: uuid.UUID | None) -> _Party:
             "The car is not identified — choose it among the vehicles or create it first.",
             details={"reason": "service_order_vehicle_not_identified"},
         )
+    lock_order_vehicle(db, vehicle_id)
     live_id = resolve_merged_vehicle_id(db, vehicle_id)
     record = get_vehicle_mdm_or_404(db, live_id)
     summary = get_vehicle_summaries(db, [record.id]).get(record.id)
-    name = " ".join(part for part in (summary.make, summary.model) if part) if summary else ""
-    label = f"{name} · {record.vin}" if name else record.vin
-    return _Party(id=record.id, label=label[:200])
+    return _Party(id=record.id, label=vehicle_label(summary) if summary else record.vin[:200])
 
 
-def _snapshot(order: ServiceOrder) -> dict:
+def snapshot(order: ServiceOrder) -> dict:
     return {
         "orderNumber": order.order_number,
         "state": order.state.value,
@@ -258,7 +293,7 @@ def record_order_change(
     order: ServiceOrder,
     *,
     action: str,
-    actor_id: uuid.UUID,
+    actor_id: uuid.UUID | None,
     before: dict | None = None,
     after: dict | None = None,
     reason: str | None = None,
@@ -310,6 +345,8 @@ def create_order(
     """A new order: a draft, with its number from the range (check 1). Refused for a
     blocked contact or invoice recipient (check 2) and for a car not identified."""
 
+    # KAN-837: every contact first, in id order (a merge consumer moves what this commits).
+    lock_order_contacts(db, [contact_id, invoice_recipient_contact_id, driver_contact_id])
     location = get_location_or_404(db, dealership_id=tenant_id, location_id=location_id)
     contact = _party(db, group_id=group_id, contact_id=contact_id, role="contact", refuse_blocked=True)
     recipient = (
@@ -362,7 +399,7 @@ def create_order(
         tenant_id=tenant_id,
         action="service_order_created",
         actor_id=actor_id,
-        after=_snapshot(order),
+        after=snapshot(order),
     )
     _publish(db, order, CREATED_EVENT)
     db.commit()
@@ -384,7 +421,7 @@ def change_parties(
     invoice recipient's agreement (decision 66)."""
 
     refuse_frozen(order)
-    before = _snapshot(order)
+    before = snapshot(order)
     now = utcnow()
     new_contact_id = changes.get("contact_id")
     if new_contact_id is not None:
@@ -406,7 +443,7 @@ def change_parties(
         else:
             party = _party(db, group_id=group_id, contact_id=driver_id, role="driver", refuse_blocked=False)
             order.driver_contact_id, order.driver_label, order.driver_label_refreshed_at = party.id, party.label, now
-    after = _snapshot(order)
+    after = snapshot(order)
     if after != before:
         record_order_change(db, order, action="service_order_parties_changed", actor_id=actor_id, before=before, after=after)
     db.commit()
