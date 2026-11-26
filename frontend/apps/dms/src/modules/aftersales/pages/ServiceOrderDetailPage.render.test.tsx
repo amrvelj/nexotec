@@ -206,6 +206,53 @@ describe('the workshop order page (KAN-810, D3)', () => {
     expect(change).toBeDisabled()
   })
 
+  it('a frozen order gives its reason on hovering a disabled change, on the overview and on the positions', async () => {
+    const user = userEvent.setup()
+    install({ current: order({ version: 4, state: 'cancelled' }) })
+    renderPage('?tab=overview')
+
+    const change = await screen.findByRole('button', {
+      name: t('serviceOrder.overview.changeTitle', { role: t('serviceOrder.overview.invoiceRecipient') }),
+    })
+    await user.hover(change.parentElement as HTMLElement)
+    expect(await screen.findByText(t('serviceOrder.actions.frozen'))).toBeInTheDocument()
+    await user.unhover(change.parentElement as HTMLElement)
+
+    await user.click(screen.getByRole('tab', { name: (n) => n.startsWith(t('serviceOrder.tabs.positions')) }))
+    const rename = (await screen.findAllByRole('button', { name: t('serviceOrder.jobs.rename') }))[0]
+    expect(rename).toBeDisabled()
+    await user.hover(rename.parentElement as HTMLElement)
+    await waitFor(() => expect(screen.getAllByText(t('serviceOrder.actions.frozen')).length).toBeGreaterThan(0))
+  })
+
+  it('a job is deleted after a confirmation, under If-Match', async () => {
+    const user = userEvent.setup()
+    const draft = order()
+    draft.jobs = [{ ...draft.jobs[0], answerState: 'draft', answeredAt: null, answeredBy: null }]
+    const backend = install({
+      current: draft,
+      extra: [{ method: 'DELETE', match: /\/jobs\/job-1$/, handler: () => order({ version: 4, jobs: [] }) }],
+    })
+    renderPage()
+
+    await user.click((await screen.findAllByRole('button', { name: t('serviceOrder.jobs.delete') }))[0])
+    expect(backend.callsTo(/\/jobs\/job-1$/, 'DELETE')).toHaveLength(0)
+    await user.click(await screen.findByRole('button', { name: t('serviceOrder.positions.confirmDelete') }))
+    await waitFor(() => expect(backend.callsTo(/\/jobs\/job-1$/, 'DELETE')).toHaveLength(1))
+    expect(backend.callsTo(/\/jobs\/job-1$/, 'DELETE')[0].headers.get('If-Match')).toBe('3')
+  })
+
+  it('an accepted job’s delete is disabled, and hovering it says why', async () => {
+    const user = userEvent.setup()
+    install()
+    renderPage()
+
+    const remove = (await screen.findAllByRole('button', { name: t('serviceOrder.jobs.delete') }))[0]
+    expect(remove).toBeDisabled()
+    await user.hover(remove.parentElement as HTMLElement)
+    expect(await screen.findByText(t('apiRefusal.reasons.service_order_job_accepted'))).toBeInTheDocument()
+  })
+
   it('without the role the party changes are hidden', async () => {
     install({ writable: ALL_GATED_CAPABILITIES.filter((c) => c !== 'service_orders') })
     renderPage('?tab=overview')

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Alert, Anchor, Button, Group, Select, Stack, Text, UnstyledButton } from '@mantine/core'
 import { useDebouncedValue } from '@mantine/hooks'
 import { useQuery } from '@tanstack/react-query'
@@ -78,6 +78,8 @@ export function ServiceOrderCreateDialog({ opened, onClose, onCreated }: Service
   const [error, setError] = useState<unknown>(null)
   const [missing, setMissing] = useState(false)
 
+  // The vehicle whose keeper is being read; anything else the advisor does cancels the proposal.
+  const proposalFor = useRef<string | null>(null)
   useEffect(() => {
     if (!opened) return
     idempotency.renew()
@@ -90,6 +92,7 @@ export function ServiceOrderCreateDialog({ opened, onClose, onCreated }: Service
     setHolderNote(null)
     setError(null)
     setMissing(false)
+    proposalFor.current = null
   }, [opened, idempotency])
 
   const searching = opened && vehicle === null && contact === null
@@ -151,20 +154,24 @@ export function ServiceOrderCreateDialog({ opened, onClose, onCreated }: Service
     return rows
   }, [vehicleSearch.data, contactSearch.data, t])
 
-  // A picked vehicle proposes its current keeper («Halter») as the ordering party.
+  // A picked vehicle proposes its current keeper («Halter») as the ordering party — unless the
+  // advisor chose one, or started over, while the keeper was being read.
   const proposeHolder = async (vehicleId: string) => {
+    proposalFor.current = vehicleId
     try {
       const parties = await api.get<VehiclePartyAllocationRead[]>(`/vehicle-mdm/${vehicleId}/party-roles`)
+      if (proposalFor.current !== vehicleId) return
       const keeper = parties.find((party) => party.role === 'keeper' && party.effectiveTo === null)
       if (keeper) {
-        const proposed = { id: keeper.contactId, label: keeper.displayName ?? '' }
-        setContact((current) => current ?? proposed)
+        setContact({ id: keeper.contactId, label: keeper.displayName?.trim() || t('serviceOrders.create.unnamedContact') })
         setHolderNote('proposed')
       } else {
         setHolderNote('none')
       }
     } catch {
-      setHolderNote('error')
+      if (proposalFor.current === vehicleId) setHolderNote('error')
+    } finally {
+      if (proposalFor.current === vehicleId) proposalFor.current = null
     }
   }
 
@@ -174,6 +181,7 @@ export function ServiceOrderCreateDialog({ opened, onClose, onCreated }: Service
       setVehicle({ id, label: vehicleText([row.identifier, row.label]) })
       void proposeHolder(id)
     } else {
+      proposalFor.current = null
       setContact({ id, label: row.label })
     }
   }
@@ -184,6 +192,7 @@ export function ServiceOrderCreateDialog({ opened, onClose, onCreated }: Service
   }
 
   const startOver = () => {
+    proposalFor.current = null
     setQuery('')
     setVehicle(null)
     setContact(null)
@@ -414,6 +423,7 @@ export function ServiceOrderCreateDialog({ opened, onClose, onCreated }: Service
         onClose={() => setChoosing(null)}
         onChosen={(chosen) => {
           if (choosing === 'contact') {
+            proposalFor.current = null
             setContact(chosen)
             // Another ordering party than the keeper: the «proposed» note no longer holds.
             setHolderNote(null)

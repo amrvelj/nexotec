@@ -46,6 +46,7 @@
       "vehicle": "Scegliete un veicolo.",
       "contact": "Scegliete il committente.",
       "location": "Scegliete la sede."
-    }
+    },
+    "unnamedContact": "Contatto senza nome"
   }
 }

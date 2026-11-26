@@ -140,4 +140,59 @@ describe('«Neuer Auftrag» (KAN-810, D2)', () => {
     await waitFor(() => expect(backend.callsTo(/^\/service-orders$/, 'POST')).toHaveLength(1))
     expect(backend.callsTo(/^\/service-orders$/, 'POST')[0].body).toEqual({ locationId: 'loc-1', contactId: 'contact-9', vehicleId: 'vehicle-9' })
   })
+
+  it('the submit is never held back: an incomplete order says what is missing and posts nothing', async () => {
+    const user = userEvent.setup()
+    const backend = install([{ method: 'POST', match: /^\/service-orders$/, handler: () => order() }])
+    const { onCreated } = renderDialog()
+
+    const submit = await screen.findByRole('button', { name: i18n.t('serviceOrders.create.submit') })
+    expect(submit).toBeEnabled()
+    await user.click(submit)
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent(i18n.t('serviceOrders.create.missing.vehicle'))
+    expect(alert).toHaveTextContent(i18n.t('serviceOrders.create.missing.contact'))
+    expect(backend.callsTo(/^\/service-orders$/, 'POST')).toHaveLength(0)
+    expect(onCreated).not.toHaveBeenCalled()
+  })
+
+  it('an ordering party chosen while the keeper is read is kept; the keeper is not proposed over it', async () => {
+    const user = userEvent.setup()
+    let release: (value: unknown) => void = () => {}
+    const held = new Promise((resolve) => {
+      release = resolve
+    })
+    install([
+      { method: 'GET', match: /^\/vehicle-mdm\/vehicle-1\/party-roles$/, handler: () => held },
+      { method: 'GET', match: /^\/contacts$/, handler: () => ({ ...EMPTY_PAGE, items: [CONTACT], total: 1 }) },
+    ])
+    renderDialog()
+
+    await searchAndPick(user, 'AG 525440', /AG 525440/)
+    await user.click(screen.getByRole('button', { name: i18n.t('serviceOrder.overview.changeTitle', { role: i18n.t('serviceOrder.overview.contact') }) }))
+    await user.type(await screen.findByRole('textbox', { name: i18n.t('serviceOrder.overview.contactSearchLabel') }), 'Croci')
+    await user.click(await screen.findByRole('option', { name: /Marta Croci/ }))
+    expect(screen.getByTestId('head-contact')).toHaveTextContent('Marta Croci')
+
+    release([{ id: 'p-2', vehicleId: 'vehicle-1', contactId: 'contact-1k', role: 'keeper', effectiveFrom: '2025-01-01T00:00:00Z', effectiveTo: null, displayName: 'Reto Wyss' }])
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    expect(screen.getByTestId('head-contact')).toHaveTextContent('Marta Croci')
+    expect(screen.queryByText(i18n.t('serviceOrders.create.holderProposed'))).not.toBeInTheDocument()
+  })
+
+  it('a keeper without a name is proposed as a contact without a name, never as a blank', async () => {
+    const user = userEvent.setup()
+    install([
+      {
+        method: 'GET',
+        match: /^\/vehicle-mdm\/vehicle-1\/party-roles$/,
+        handler: () => [{ id: 'p-2', vehicleId: 'vehicle-1', contactId: 'contact-1k', role: 'keeper', effectiveFrom: '2025-01-01T00:00:00Z', effectiveTo: null, displayName: null }],
+      },
+    ])
+    renderDialog()
+
+    await searchAndPick(user, 'AG 525440', /AG 525440/)
+    await waitFor(() => expect(screen.getByTestId('head-contact')).toHaveTextContent(i18n.t('serviceOrders.create.unnamedContact')))
+  })
 })

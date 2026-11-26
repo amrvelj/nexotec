@@ -46,6 +46,7 @@
       "vehicle": "Choisissez un véhicule.",
       "contact": "Choisissez le donneur d’ordre.",
       "location": "Choisissez le site."
-    }
+    },
+    "unnamedContact": "Contact sans nom"
   }
 }

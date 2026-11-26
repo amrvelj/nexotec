@@ -45,10 +45,14 @@ interface PositionsTabProps {
 
 function IconAction({ label, disabledReason, onClick, children }: { label: string; disabledReason: string | null; onClick: () => void; children: ReactNode }) {
   return (
+    // A disabled button fires no hover event: the Tooltip sits on a span around it, so the
+    // reason shows (ADR-061: disabled with its explanation).
     <Tooltip label={disabledReason ?? label}>
-      <ActionIcon variant="subtle" color="gray" aria-label={label} disabled={disabledReason !== null} onClick={onClick}>
-        {children}
-      </ActionIcon>
+      <span>
+        <ActionIcon variant="subtle" color="gray" aria-label={label} disabled={disabledReason !== null} onClick={onClick}>
+          {children}
+        </ActionIcon>
+      </span>
     </Tooltip>
   )
 }

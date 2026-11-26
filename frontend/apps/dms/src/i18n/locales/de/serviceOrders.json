@@ -46,6 +46,7 @@
       "vehicle": "Wählen Sie ein Fahrzeug.",
       "contact": "Wählen Sie den Auftraggeber.",
       "location": "Wählen Sie den Standort."
-    }
+    },
+    "unnamedContact": "Kontakt ohne Namen"
   }
 }

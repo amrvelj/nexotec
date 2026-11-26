@@ -351,7 +351,7 @@ export function PositionDialog({ opened, order, jobId, position, onClose, onSave
               setTyped(null)
               // The server's rule (positions.change_position): a changed category takes that
               // category's rate for a proposed price and keeps a typed one. Show what it will do.
-              setBackToProposal(editing && byTime && position?.rateSource !== 'typed')
+              setBackToProposal(editing && byTime && position?.rateSource !== 'typed' && value !== position?.labourCategoryId)
             }}
             required
             allowDeselect={false}
@@ -377,7 +377,9 @@ export function PositionDialog({ opened, order, jobId, position, onClose, onSave
               {...hint(
                 labourTimeLabel,
                 unit === null
-                  ? t('serviceOrder.positionDialog.chooseCategoryFirst')
+                  ? categoryId !== null && proposal.isError
+                    ? t('serviceOrder.positionDialog.proposalError')
+                    : t('serviceOrder.positionDialog.chooseCategoryFirst')
                   : !byTime
                     ? t('serviceOrder.positionDialog.quantityHint')
                     : undefined,

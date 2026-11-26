@@ -46,6 +46,7 @@
       "vehicle": "Choose a vehicle.",
       "contact": "Choose the ordering party.",
       "location": "Choose the location."
-    }
+    },
+    "unnamedContact": "Contact without a name"
   }
 }

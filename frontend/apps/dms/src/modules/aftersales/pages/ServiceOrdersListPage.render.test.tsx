@@ -106,6 +106,27 @@ describe('the workshop order list (KAN-810, D1)', () => {
     expect(backend.callsTo(/^\/service-orders$/, 'GET').every((call) => !call.params.has('state'))).toBe(true)
   })
 
+  it('a sortable header sends its sort to the server; only the columns the API sorts by offer one', async () => {
+    const backend = install()
+    renderList()
+    await screen.findByText('WA-2026-0406')
+    expect(backend.callsTo(/^\/service-orders$/, 'GET').at(-1)!.params.get('sort')).toBe('createdAt:desc')
+
+    // Visible by default: number and order date sort; vehicle · party, state and location do not.
+    const sortable = screen.getAllByRole('columnheader').filter((h) => h.getAttribute('aria-sort') !== null)
+    expect(sortable.map((h) => h.textContent)).toEqual([i18n.t('serviceOrders.columns.orderNumber'), i18n.t('serviceOrders.columns.orderDate')].map((label) => expect.stringContaining(label)))
+
+    await userEvent.click(sortable.find((h) => h.textContent?.includes(i18n.t('serviceOrders.columns.orderDate')))!)
+    await waitFor(() => expect(backend.callsTo(/^\/service-orders$/, 'GET').at(-1)!.params.get('sort')).toBe('orderDate:asc'))
+  })
+
+  it('a sort from the URL on a field the API does not sort by is not sent', async () => {
+    const backend = install()
+    renderList('/aftersales?sort=state:asc')
+    await screen.findByText('WA-2026-0406')
+    expect(backend.callsTo(/^\/service-orders$/, 'GET').every((call) => call.params.get('sort') !== 'state:asc')).toBe(true)
+  })
+
   it('a row opens its order', async () => {
     const user = userEvent.setup()
     install()

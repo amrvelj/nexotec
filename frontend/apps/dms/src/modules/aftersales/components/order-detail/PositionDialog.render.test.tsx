@@ -267,6 +267,37 @@ describe('the position dialog (KAN-810, D13)', () => {
     expect(backend.callsTo(/\/positions\/pos-1$/, 'PATCH')[0].body).toEqual({ labourCategoryId: 'cat-2' })
   })
 
+  it('a category changed and changed back is no change: the proposed price is not proposed again', async () => {
+    const user = userEvent.setup()
+    const backend = installUnitContract('work_units')
+    const { onSaved } = renderDialog(LABOUR_BY_TIME)
+
+    await changeCategory(user)
+    await chooseCategory(user)
+    const text = field(t('serviceOrder.positionDialog.text'))
+    await user.clear(text)
+    await user.type(text, 'Jahresservice')
+    await user.click(screen.getByRole('button', { name: t('serviceOrder.positionDialog.save') }))
+
+    await waitFor(() => expect(onSaved).toHaveBeenCalled())
+    expect(backend.callsTo(/\/positions\/pos-1$/, 'PATCH')[0].body).toEqual({ text: 'Jahresservice' })
+  })
+
+  it('after a failed proposal the time field says the proposal could not be read, not «choose a category»', async () => {
+    const user = userEvent.setup()
+    installFakeBackend([
+      { method: 'GET', match: /^\/dealerships\/dealership-1\/labour-rate-categories$/, handler: () => LABOUR_CATEGORIES },
+      { method: 'GET', match: /^\/dealerships\/dealership-1$/, handler: () => ({ id: 'dealership-1', vatRate: '8.10' }) },
+      { method: 'GET', match: /\/labour-rate-proposal$/, handler: () => status(500, { error: { code: 'internal', message: 'down' } }) },
+    ])
+    renderDialog()
+
+    await chooseCategory(user)
+    await user.click(screen.getByRole('checkbox', { name: t('serviceOrder.positionDialog.byTime') }))
+    await waitFor(() => expect(screen.getAllByText(t('serviceOrder.positionDialog.proposalError')).length).toBeGreaterThan(0))
+    expect(screen.queryByText(t('serviceOrder.positionDialog.chooseCategoryFirst'))).not.toBeInTheDocument()
+  })
+
   it("a changed category re-proposes a proposed price (sent as unitPrice: null, the server's proposal)", async () => {
     const user = userEvent.setup()
     const backend = installUnitContract('work_units')
