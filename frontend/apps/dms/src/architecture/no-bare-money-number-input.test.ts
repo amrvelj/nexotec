@@ -37,6 +37,9 @@ const NOT_MONEY_LABELS = new Set([
   "t('publishing.fields.financingTermMonths')", // months (KAN-225)
   "t('publishing.fields.financingNominalRatePct')", // a percentage (KAN-225)
   "t('publishing.fields.financingEffectiveRatePct')", // a percentage (KAN-225)
+  "t('plannerResources.entryDialog.rank')", // a rank, 1–99 (KAN-808)
+  "t('plannerResources.entryDialog.factor')", // a counted-time factor, 0.01–9.99 (KAN-808)
+  "t('plannerResources.resourceDialog.sortOrder')", // a position in the planner (KAN-808)
   // The settings screen's `number` kind (KAN-805: minutes, a count, a factor);
   // its `amount` kind renders `chfInlineEditor` — SettingCell is on the CHF
   // file list below, and its render test types an amount through it.

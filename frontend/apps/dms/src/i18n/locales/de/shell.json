@@ -42,7 +42,8 @@
     "contactMail": "Mails an Kontakte",
     "supportSessions": "Support-Sitzungen",
     "platformUsers": "Plattform-Benutzer",
-    "labourRates": "Stundenansätze"
+    "labourRates": "Stundenansätze",
+    "plannerResources": "Planer-Ressourcen"
   },
   "signOut": "Abmelden",
   "environmentNotice": {

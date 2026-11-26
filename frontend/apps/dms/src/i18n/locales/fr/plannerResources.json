@@ -1,0 +1,146 @@
+{
+  "title": "Ressources du planning",
+  "subtitle": "Qui et quoi le planning planifie : les personnes et les postes de travail par site, leurs types et qualifications, ainsi que la trame du planning.",
+  "readOnly": "Seule la direction modifie les ressources du planning. Vous voyez les entrées.",
+  "loadError": "Les ressources du planning n'ont pas pu être chargées.",
+  "saveError": "La modification n'a pas pu être enregistrée.",
+  "settings": {
+    "title": "Trame et créneaux"
+  },
+  "samples": {
+    "badge": "Modèle",
+    "confirm": "Confirmer",
+    "confirmNamed": "Confirmer : {{name}}",
+    "note": "Les entrées «Modèle» proviennent du jeu de départ de Nexotec. Confirmez-les ou adaptez-les."
+  },
+  "workplaceTypes": {
+    "title": "Types de poste de travail",
+    "add": "Ajouter un type de poste",
+    "empty": "Aucun type de poste de travail pour l'instant.",
+    "createTitle": "Ajouter un type de poste",
+    "editTitle": "Modifier le type de poste",
+    "deleteTitle": "Supprimer le type de poste"
+  },
+  "technicianTypes": {
+    "title": "Types de technicien",
+    "add": "Ajouter un type de technicien",
+    "empty": "Aucun type de technicien pour l'instant.",
+    "createTitle": "Ajouter un type de technicien",
+    "editTitle": "Modifier le type de technicien",
+    "deleteTitle": "Supprimer le type de technicien",
+    "noFactor": "Temps pointé"
+  },
+  "qualifications": {
+    "title": "Qualifications",
+    "add": "Ajouter une qualification",
+    "empty": "Aucune qualification pour l'instant.",
+    "createTitle": "Ajouter une qualification",
+    "editTitle": "Modifier la qualification",
+    "deleteTitle": "Supprimer la qualification",
+    "mandatory": "Obligatoire"
+  },
+  "entryDialog": {
+    "name": "Nom",
+    "nameHint": "Le nom vaut dans chaque langue pour laquelle vous ne saisissez pas de traduction.",
+    "translation": "Nom en {{language}}",
+    "rank": "Rang",
+    "rankHint": "Un nombre entier de 1 à 99. Laissez vide si aucun rang ne s'applique.",
+    "rankInvalid": "Un rang est un nombre entier de 1 à 99.",
+    "factor": "Facteur du temps imputé",
+    "factorHint": "Temps imputé = temps pointé × facteur, de 0.01 à 9.99. Vide : le temps pointé compte.",
+    "factorInvalid": "Le facteur est compris entre 0.01 et 9.99.",
+    "mandatory": "Qualification obligatoire",
+    "mandatoryHint": "Elle est enregistrée. Elle ne sera vérifiée que lorsqu'un travail ou un poste exigera une qualification."
+  },
+  "languages": {
+    "de": "allemand",
+    "fr": "français",
+    "it": "italien",
+    "en": "anglais"
+  },
+  "columns": {
+    "name": "Nom",
+    "rank": "Rang",
+    "factor": "Facteur temps imputé",
+    "mandatory": "Obligatoire",
+    "usedBy": "Utilisé par",
+    "actions": "Actions",
+    "kind": "Genre",
+    "type": "Type",
+    "location": "Site",
+    "technicianType": "Type de technicien",
+    "workplaceType": "Type de poste de travail",
+    "qualifications": "Qualifications",
+    "workingHours": "Horaires de travail",
+    "sortOrder": "Ordre",
+    "status": "Statut"
+  },
+  "usedBy_one": "{{count, number}} ressource",
+  "usedBy_other": "{{count, number}} ressources",
+  "actions": {
+    "edit": "Modifier",
+    "editNamed": "Modifier : {{name}}",
+    "delete": "Supprimer",
+    "deleteNamed": "Supprimer : {{name}}",
+    "deleteInUse": "Une ressource utilise cette entrée. Modifiez d'abord la ressource.",
+    "deleteBody": "«{{name}}» sera supprimé. Cette action est irréversible.",
+    "deactivate": "Désactiver",
+    "deactivateNamed": "Désactiver : {{name}}",
+    "reactivate": "Réactiver",
+    "reactivateNamed": "Réactiver : {{name}}"
+  },
+  "deactivate": {
+    "title": "Désactiver la ressource",
+    "body": "«{{name}}» n'apparaît plus dans le planning. Ses réservations qui ne sont pas encore passées sont marquées à replanifier."
+  },
+  "kinds": {
+    "person": "Personne",
+    "workplace": "Poste de travail"
+  },
+  "status": {
+    "active": "Active",
+    "inactive": "Inactive",
+    "noLongerWorksHere": "Ne travaille plus ici"
+  },
+  "resources": {
+    "title": "Ressources",
+    "subtitle": "Les personnes et les postes de travail que le planning planifie, par site.",
+    "filter": "Site",
+    "allLocations": "Tous les sites",
+    "addPerson": "Ajouter une personne",
+    "addWorkplace": "Ajouter un poste de travail",
+    "empty": "Aucune ressource pour l'instant. Ajoutez des personnes et des postes de travail pour que le planning puisse les planifier.",
+    "emptyAtLocation": "Ce site n'a encore aucune ressource.",
+    "locationInactive": "Site inactif",
+    "tableLabel": "Ressources du site {{location}}"
+  },
+  "resourceDialog": {
+    "personCreateTitle": "Ajouter une personne",
+    "personEditTitle": "Modifier la personne",
+    "workplaceCreateTitle": "Ajouter un poste de travail",
+    "workplaceEditTitle": "Modifier le poste de travail",
+    "person": "Personne",
+    "noPerson": "Aucune personne choisie",
+    "choosePerson": "Choisir une personne",
+    "searchPerson": "Rechercher une personne",
+    "noCandidates": "Toutes les personnes qui travaillent dans cette entreprise sont déjà des ressources.",
+    "workplaceName": "Nom du poste de travail",
+    "sortOrder": "Ordre",
+    "sortOrderHint": "L'ordre dans le planning, de 0 à 9999 : les petits nombres d'abord.",
+    "movingNote": "La ressource vaut immédiatement au nouveau site. Ses réservations qui ne sont pas encore passées sont marquées à replanifier."
+  },
+  "hours": {
+    "title": "Horaires de travail de {{name}}",
+    "openNamed": "Horaires de travail : {{name}}",
+    "days_one": "{{count, number}} jour de travail",
+    "days_other": "{{count, number}} jours de travail",
+    "notEntered": "Non saisis",
+    "none": "Aucun horaire de travail n'est saisi pour cette personne.",
+    "startsAt": "Début",
+    "endsAt": "Fin",
+    "secondStartsAt": "Début après la pause",
+    "secondEndsAt": "Fin après la pause",
+    "off": "Congé",
+    "invalid": "Les heures du {{day}} ne concordent pas : chaque plage se termine après son début, et la deuxième commence après la fin de la première."
+  }
+}
