@@ -65,10 +65,8 @@ const ALLOWED_STRINGS: Record<string, [string, Language[]]> = {
 // Source files that may still name the /customers route: why, and the exact texts each match of
 // OLD_ROUTE_LITERAL in that file may read, up to the end of its literal (KAN-825: a file is never
 // allowed whole).
-const ALLOWED_ROUTE_FILES: Record<string, [string, RegExp]> = {
-  // Old links redirect to /contacts until KAN-464 PR-5 retires the old names.
-  'App.tsx': ['the /customers → /contacts redirect', /^"\/customers(\/\*)?$/],
-}
+// KAN-464 PR-5 retired the /customers → /contacts redirect: none may.
+const ALLOWED_ROUTE_FILES: Record<string, [string, RegExp]> = {}
 
 type LocaleTree = { [key: string]: string | LocaleTree }
 
@@ -124,7 +122,6 @@ const ALLOWED_LITERALS: Record<string, [string, RegExp]> = {
     "the route /integrations/business-profile/client-status (Nexotec's OAuth client)",
     /^(\/integrations\/business-profile\/)?client-status(\/check)?$/,
   ],
-  'App.tsx': ['the /customers → /contacts redirect, kept until KAN-464 PR-5', /^\/customers(\/\*)?$/],
 }
 
 function literalTexts(file: string): string[] {
@@ -211,13 +208,18 @@ describe('no half-rename: customers are contacts (KAN-464, ADR-210)', () => {
   })
 
   it('an allowed file is pinned to its texts, never allowed whole (KAN-825)', () => {
+    // A fixture allow-list (KAN-464 PR-5 left no real route entry to test against).
+    const pinnedLiterals: Record<string, [string, RegExp]> = { 'App.tsx': ['a fixture redirect', /^\/customers(\/\*)?$/] }
+    const pinnedRoutes: Record<string, [string, RegExp]> = { 'App.tsx': ['a fixture redirect', /^"\/customers(\/\*)?$/] }
     const app: Map<string, string[]> = new Map([['App.tsx', ['/customers/*', 'Neuer Kunde']]])
-    expect(unallowed(app, ALLOWED_LITERALS)).toEqual(['App.tsx: Neuer Kunde'])
+    expect(unallowed(app, pinnedLiterals)).toEqual(['App.tsx: Neuer Kunde'])
     const status = new Map([['pages/PlatformStatusPage.tsx', ['client-status', 'Nouveau client']]])
     expect(unallowed(status, ALLOWED_LITERALS)).toEqual(['pages/PlatformStatusPage.tsx: Nouveau client'])
-    expect(unallowed(new Map([['App.tsx', ['"/customers/new']]]), ALLOWED_ROUTE_FILES)).toEqual(['App.tsx: "/customers/new'])
+    expect(unallowed(new Map([['App.tsx', ['"/customers/new']]]), pinnedRoutes)).toEqual(['App.tsx: "/customers/new'])
+    expect(unallowed(new Map([['App.tsx', ['"/customers/*']]]), ALLOWED_ROUTE_FILES)).toEqual(['App.tsx: "/customers/*'])
     expect([...'<a href="/customers/new">'.matchAll(OLD_ROUTE_MATCHES)].map((m) => m[0])).toEqual(['"/customers/new'])
-    expect(stale(new Map([['App.tsx', ['Kunde']]]), ALLOWED_LITERALS)).toEqual(['pages/PlatformStatusPage.tsx', 'App.tsx'])
+    expect(stale(new Map([['App.tsx', ['Kunde']]]), pinnedLiterals)).toEqual(['App.tsx'])
+    expect(stale(new Map([['App.tsx', ['Kunde']]]), ALLOWED_LITERALS)).toEqual(['pages/PlatformStatusPage.tsx'])
   })
 
   it('the patterns find the old name and spare the words that only look like it', () => {

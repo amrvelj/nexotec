@@ -304,7 +304,8 @@ def test_every_context_has_its_reconciliation_module_where_expected():
 
     present = sorted(p.parent.name for p in _APP_ROOT.glob("*/reconciliation.py") if p.parent.name not in _NOT_A_CONTEXT)
     assert present == [
-        "contact", "integration", "inventory", "planning", "platform", "reporting", "sales", "valuation", "vehicle",
+        "aftersales", "contact", "integration", "inventory", "planning", "platform", "reporting", "sales", "valuation",
+        "vehicle",
     ]
 
 

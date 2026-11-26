@@ -5766,6 +5766,167 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/service-orders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Service Orders */
+        get: operations["list_service_orders_v1_service_orders_get"];
+        put?: never;
+        /** Create Service Order */
+        post: operations["create_service_order_v1_service_orders_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/service-orders/{order_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Service Order */
+        get: operations["get_service_order_v1_service_orders__order_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Change Service Order Parties */
+        patch: operations["change_service_order_parties_v1_service_orders__order_id__patch"];
+        trace?: never;
+    };
+    "/v1/service-orders/{order_id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Cancel Service Order */
+        post: operations["cancel_service_order_v1_service_orders__order_id__cancel_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/service-orders/{order_id}/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Service Order History */
+        get: operations["get_service_order_history_v1_service_orders__order_id__history_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/service-orders/{order_id}/jobs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add Job */
+        post: operations["add_job_v1_service_orders__order_id__jobs_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/service-orders/{order_id}/jobs/{job_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Job */
+        delete: operations["delete_job_v1_service_orders__order_id__jobs__job_id__delete"];
+        options?: never;
+        head?: never;
+        /** Rename Job */
+        patch: operations["rename_job_v1_service_orders__order_id__jobs__job_id__patch"];
+        trace?: never;
+    };
+    "/v1/service-orders/{order_id}/jobs/{job_id}/positions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add Position */
+        post: operations["add_position_v1_service_orders__order_id__jobs__job_id__positions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/service-orders/{order_id}/labour-rate-proposal": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Labour Rate Proposal
+         * @description D13: the rate a labour position of this category would take (check 11), and
+         *     the unit its time is typed in here (ruling 183).
+         */
+        get: operations["get_labour_rate_proposal_v1_service_orders__order_id__labour_rate_proposal_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/service-orders/{order_id}/positions/{position_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Position */
+        delete: operations["delete_position_v1_service_orders__order_id__positions__position_id__delete"];
+        options?: never;
+        head?: never;
+        /** Change Position */
+        patch: operations["change_position_v1_service_orders__order_id__positions__position_id__patch"];
+        trace?: never;
+    };
     "/v1/standard-text-registry": {
         parameters: {
             query?: never;
@@ -6853,6 +7014,13 @@ export interface components {
             requiresConfirmation: boolean;
         };
         /**
+         * BillingCategory
+         * @description Who pays a job (section 10). One value in this slice; warranty,
+         *     goodwill, free service and internal come with the slice «payers».
+         * @enum {string}
+         */
+        BillingCategory: "customer";
+        /**
          * BlockingCondition
          * @description `field` is the marketplace's OWN field name (never inventory's own
          *     internal name) — computed and named before send, per ADR-062.
@@ -7214,6 +7382,23 @@ export interface components {
             payload: string;
             /** Tenantid */
             tenantId: string | null;
+        };
+        /**
+         * CancellationRead
+         * @description Check 10: who cancelled, when and why.
+         */
+        CancellationRead: {
+            /**
+             * Cancelledat
+             * Format: date-time
+             */
+            cancelledAt: string;
+            /** Cancelledby */
+            cancelledBy: string | null;
+            /** Cancelledbylabel */
+            cancelledByLabel: string | null;
+            /** Reason */
+            reason: string;
         };
         /**
          * CapabilityCheckRead
@@ -10507,6 +10692,43 @@ export interface components {
          * @enum {string}
          */
         HeaderLayout: "logo_left" | "logo_right" | "logo_centred";
+        /**
+         * HistoryEntryRead
+         * @description One entry of the order's history: the platform audit trail.
+         */
+        HistoryEntryRead: {
+            /** Action */
+            action: string;
+            /** Actorid */
+            actorId: string | null;
+            /** Actorlabel */
+            actorLabel: string | null;
+            /** After */
+            after: {
+                [key: string]: unknown;
+            } | null;
+            /** Before */
+            before: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Createdat
+             * Format: date-time
+             */
+            createdAt: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Reason */
+            reason: string | null;
+        };
+        /** HistoryRead */
+        HistoryRead: {
+            /** Items */
+            items: components["schemas"]["HistoryEntryRead"][];
+        };
         /** HolidayCalendarList */
         HolidayCalendarList: {
             /** Items */
@@ -10665,6 +10887,45 @@ export interface components {
             password: string;
             /** Token */
             token: string;
+        };
+        /**
+         * JobAnswerState
+         * @description Table 3.2: the customer's answer on a job. Recorded with KAN-811;
+         *     «stopped» is a mark an accepted or declined job carries (KAN-811).
+         * @enum {string}
+         */
+        JobAnswerState: "draft" | "waiting" | "accepted" | "declined";
+        /** JobCreate */
+        JobCreate: {
+            /** @default customer */
+            billingCategory?: components["schemas"]["BillingCategory"];
+            /** Name */
+            name: string;
+        };
+        /** JobRead */
+        JobRead: {
+            answerState: components["schemas"]["JobAnswerState"];
+            /** Answeredat */
+            answeredAt: string | null;
+            /** Answeredby */
+            answeredBy: string | null;
+            billingCategory: components["schemas"]["BillingCategory"];
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Positions */
+            positions: components["schemas"]["PositionRead"][];
+            /** Sortindex */
+            sortIndex: number;
+        };
+        /** JobUpdate */
+        JobUpdate: {
+            /** Name */
+            name: string;
         };
         /**
          * LabourCategoryCandidateList
@@ -10889,6 +11150,30 @@ export interface components {
          * @enum {string}
          */
         LabourRateMissing: "no_rate" | "unknown_category";
+        /**
+         * LabourRateProposalRead
+         * @description «Which rate applies here» for a labour category on this order (check 11):
+         *     the invoice recipient's agreement first, else the category rate at the
+         *     order's location on the order's day. `found: false` when there is none.
+         */
+        LabourRateProposalRead: {
+            /** Found */
+            found: boolean;
+            /**
+             * Labourcategoryid
+             * Format: uuid
+             */
+            labourCategoryId: string;
+            /** Labourrateid */
+            labourRateId: string | null;
+            source: components["schemas"]["RateSource"] | null;
+            timeUnit: components["schemas"]["LabourTimeUnit"];
+            unitPrice: components["schemas"]["UnitPriceRead"] | null;
+            /** Validfrom */
+            validFrom: string | null;
+            /** Workunitsperhour */
+            workUnitsPerHour: string | null;
+        };
         /** LabourRateRead */
         LabourRateRead: {
             /** Amount */
@@ -10934,6 +11219,25 @@ export interface components {
          * @enum {string}
          */
         LabourRateStatus: "in_force" | "scheduled" | "superseded" | "withdrawn";
+        /**
+         * LabourTimeRead
+         * @description The time as typed, in the unit it was typed in (check 47: «9 AW»), and in hours.
+         */
+        LabourTimeRead: {
+            /** Hours */
+            hours: string;
+            /** Quantity */
+            quantity: string;
+            unit: components["schemas"]["LabourTimeUnit"];
+            /** Workunitsperhour */
+            workUnitsPerHour: string | null;
+        };
+        /**
+         * LabourTimeUnit
+         * @description The unit a labour time was typed in (ruling 183), kept per position.
+         * @enum {string}
+         */
+        LabourTimeUnit: "hours" | "work_units";
         /**
          * Language
          * @description The contact's correspondence language (Contact PRD D-01/FR-13).
@@ -12800,6 +13104,16 @@ export interface components {
             price: string;
         };
         /**
+         * OrderTotalsRead
+         * @description Exit criterion 4: accepted, and still open (draft or waiting for the answer).
+         */
+        OrderTotalsRead: {
+            /** Accepted */
+            accepted: components["schemas"]["PayerTotalRead"][];
+            /** Open */
+            open: components["schemas"]["PayerTotalRead"][];
+        };
+        /**
          * OtherVehiclePartySummary
          * @description KAN-49 / FR-19 — the other open party rows on the SAME vehicle, so a
          *     seller taking a leased company car in trade sees owner/keeper/driver as
@@ -12917,6 +13231,16 @@ export interface components {
             /** Transfers */
             transfers: components["schemas"]["OwnershipTransferRequest"][];
         };
+        /** PartyRead */
+        PartyRead: {
+            /**
+             * Contactid
+             * Format: uuid
+             */
+            contactId: string;
+            /** Label */
+            label: string;
+        };
         /** PasskeyAssertionRequest */
         PasskeyAssertionRequest: {
             /** Challengeid */
@@ -12980,6 +13304,26 @@ export interface components {
         PasswordResetRequest: {
             /** Email */
             email: string;
+        };
+        /**
+         * PayerTotalRead
+         * @description One payer's total: the net sum, one VAT line per rate, the total, the
+         *     cash rounding as its own line («Rundung») and the amount due.
+         */
+        PayerTotalRead: {
+            /** Net */
+            net: string;
+            payer: components["schemas"]["BillingCategory"];
+            /** Roundedtotal */
+            roundedTotal: string;
+            /** Rounding */
+            rounding: string;
+            /** Total */
+            total: string;
+            /** Vat */
+            vat: string;
+            /** Vatlines */
+            vatLines: components["schemas"]["VatLineRead"][];
         };
         /**
          * PayloadKind
@@ -13173,6 +13517,95 @@ export interface components {
             /** Deactivated */
             deactivated: boolean;
             entry: components["schemas"]["PlatformStaffEntry"];
+        };
+        /**
+         * PositionCreate
+         * @description D13 «Position»: labour at a fixed price, labour by time, or text.
+         *
+         *     Labour names its category. By time, `time` is typed in the Betrieb's unit
+         *     at the order's location (hours or work units); `timeUnit`, when sent, is
+         *     the unit the screen showed, and a different unit in force is refused
+         *     rather than read in the wrong one. A price left out is proposed from the
+         *     Betrieb's labour rates (by time); a typed price leads, net or gross.
+         */
+        PositionCreate: {
+            kind: components["schemas"]["PositionKind"];
+            /** Labourcategoryid */
+            labourCategoryId?: string | null;
+            priceEntered?: components["schemas"]["PriceEntry"] | null;
+            /** Text */
+            text: string;
+            /** Time */
+            time?: string | null;
+            timeUnit?: components["schemas"]["LabourTimeUnit"] | null;
+            /** Unitprice */
+            unitPrice?: string | null;
+        };
+        /**
+         * PositionKind
+         * @enum {string}
+         */
+        PositionKind: "labour_fixed" | "labour_time" | "text";
+        /** PositionRead */
+        PositionRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Jobid
+             * Format: uuid
+             */
+            jobId: string;
+            kind: components["schemas"]["PositionKind"];
+            /** Labourcategoryid */
+            labourCategoryId: string | null;
+            /** Labourcategorylabel */
+            labourCategoryLabel: string | null;
+            /** Labourrateid */
+            labourRateId: string | null;
+            /** Linegross */
+            lineGross: string | null;
+            /** Linenet */
+            lineNet: string | null;
+            /** Pricedat */
+            pricedAt: string | null;
+            /** Pricedby */
+            pricedBy: string | null;
+            rateSource: components["schemas"]["RateSource"] | null;
+            /** Ratevalidfrom */
+            rateValidFrom: string | null;
+            /** Sortindex */
+            sortIndex: number;
+            state: components["schemas"]["PositionState"];
+            /** Text */
+            text: string;
+            time: components["schemas"]["LabourTimeRead"] | null;
+            unitPrice: components["schemas"]["UnitPriceRead"] | null;
+        };
+        /**
+         * PositionState
+         * @description Table 3.3. «Done» comes with the technician's clock (KAN-814).
+         * @enum {string}
+         */
+        PositionState: "open";
+        /**
+         * PositionUpdate
+         * @description Change a position. A field left out stays; `unitPrice: null` on labour
+         *     by time takes the proposed rate again.
+         */
+        PositionUpdate: {
+            /** Labourcategoryid */
+            labourCategoryId?: string | null;
+            priceEntered?: components["schemas"]["PriceEntry"] | null;
+            /** Text */
+            text?: string | null;
+            /** Time */
+            time?: string | null;
+            timeUnit?: components["schemas"]["LabourTimeUnit"] | null;
+            /** Unitprice */
+            unitPrice?: string | null;
         };
         /**
          * PreferredChannel
@@ -13811,6 +14244,12 @@ export interface components {
             /** Sortorder */
             sortOrder?: number | null;
         };
+        /**
+         * RateSource
+         * @description Where a labour position's price came from (check 11).
+         * @enum {string}
+         */
+        RateSource: "agreement" | "category_rate" | "typed";
         /** RecordCostRequest */
         RecordCostRequest: {
             /**
@@ -14298,6 +14737,158 @@ export interface components {
          * @enum {string}
          */
         SendingIdentityStatus: "active" | "error" | "disconnected";
+        /** ServiceOrderCancel */
+        ServiceOrderCancel: {
+            /** Reason */
+            reason: string;
+        };
+        /**
+         * ServiceOrderCreate
+         * @description D2 «Neuer Auftrag». The invoice recipient defaults to the contact.
+         */
+        ServiceOrderCreate: {
+            /**
+             * Contactid
+             * Format: uuid
+             */
+            contactId: string;
+            /** Drivercontactid */
+            driverContactId?: string | null;
+            /** Invoicerecipientcontactid */
+            invoiceRecipientContactId?: string | null;
+            /**
+             * Locationid
+             * Format: uuid
+             */
+            locationId: string;
+            /** Vehicleid */
+            vehicleId?: string | null;
+        };
+        /** ServiceOrderPage */
+        ServiceOrderPage: {
+            /** Items */
+            items: components["schemas"]["ServiceOrderSummary"][];
+            /** Nextcursor */
+            nextCursor: string | null;
+            /** Total */
+            total: number;
+            /** Totalisestimate */
+            totalIsEstimate: boolean;
+        };
+        /**
+         * ServiceOrderPartiesUpdate
+         * @description Change the contact, the invoice recipient or the driver (table 3.1).
+         *     A field left out stays; `driverContactId: null` removes the driver.
+         */
+        ServiceOrderPartiesUpdate: {
+            /** Contactid */
+            contactId?: string | null;
+            /** Drivercontactid */
+            driverContactId?: string | null;
+            /** Invoicerecipientcontactid */
+            invoiceRecipientContactId?: string | null;
+        };
+        /** ServiceOrderRead */
+        ServiceOrderRead: {
+            cancellation: components["schemas"]["CancellationRead"] | null;
+            contact: components["schemas"]["PartyRead"];
+            /**
+             * Createdat
+             * Format: date-time
+             */
+            createdAt: string;
+            driver: components["schemas"]["PartyRead"] | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            invoiceRecipient: components["schemas"]["PartyRead"];
+            /** Jobs */
+            jobs: components["schemas"]["JobRead"][];
+            /**
+             * Locationid
+             * Format: uuid
+             */
+            locationId: string;
+            /** Locationlabel */
+            locationLabel: string;
+            /**
+             * Orderdate
+             * Format: date
+             */
+            orderDate: string;
+            /** Ordernumber */
+            orderNumber: string;
+            state: components["schemas"]["ServiceOrderState"];
+            totals: components["schemas"]["OrderTotalsRead"];
+            /**
+             * Updatedat
+             * Format: date-time
+             */
+            updatedAt: string;
+            /**
+             * Vehicleid
+             * Format: uuid
+             */
+            vehicleId: string;
+            /** Vehiclelabel */
+            vehicleLabel: string;
+            /** Version */
+            version: number;
+            /** Waitingforanswer */
+            waitingForAnswer: boolean;
+        };
+        /**
+         * ServiceOrderState
+         * @description Table 3.1. «Offered», «lost» and «closed» exist in Part A and are not
+         *     reached in this slice; they join with the slices that reach them.
+         * @enum {string}
+         */
+        ServiceOrderState: "draft" | "accepted" | "ready_for_billing" | "cancelled";
+        /**
+         * ServiceOrderSummary
+         * @description A row of the order list (D1).
+         */
+        ServiceOrderSummary: {
+            contact: components["schemas"]["PartyRead"];
+            /**
+             * Createdat
+             * Format: date-time
+             */
+            createdAt: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Locationid
+             * Format: uuid
+             */
+            locationId: string;
+            /** Locationlabel */
+            locationLabel: string;
+            /**
+             * Orderdate
+             * Format: date
+             */
+            orderDate: string;
+            /** Ordernumber */
+            orderNumber: string;
+            state: components["schemas"]["ServiceOrderState"];
+            /**
+             * Vehicleid
+             * Format: uuid
+             */
+            vehicleId: string;
+            /** Vehiclelabel */
+            vehicleLabel: string;
+            /** Version */
+            version: number;
+            /** Waitingforanswer */
+            waitingForAnswer: boolean;
+        };
         /** SessionList */
         SessionList: {
             /** Items */
@@ -15637,6 +16228,22 @@ export interface components {
          * @enum {string}
          */
         UiTranslationSource: "bundle_seed" | "platform";
+        /**
+         * UnitPriceRead
+         * @description The price as typed (`amount`, `entered`) and both figures as shown:
+         *     the typed one as typed, the other to four decimals (decision 15).
+         */
+        UnitPriceRead: {
+            /** Amount */
+            amount: string;
+            entered: components["schemas"]["PriceEntry"];
+            /** Gross */
+            gross: string;
+            /** Net */
+            net: string;
+            /** Vatrate */
+            vatRate: string;
+        };
         /** UnpublishRequest */
         UnpublishRequest: {
             /** Confirm */
@@ -16253,6 +16860,15 @@ export interface components {
             trimName: string | null;
             /** Variantname */
             variantName: string;
+        };
+        /** VatLineRead */
+        VatLineRead: {
+            /** Net */
+            net: string;
+            /** Rate */
+            rate: string;
+            /** Vat */
+            vat: string;
         };
         /** VehicleAccessoryCreate */
         VehicleAccessoryCreate: {
@@ -31635,6 +32251,516 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["OfferRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_service_orders_v1_service_orders_get: {
+        parameters: {
+            query?: {
+                /** @description waiting_for_answer|ready_for_billing */
+                chip?: string | null;
+                state?: components["schemas"]["ServiceOrderState"] | null;
+                q?: string | null;
+                sort?: string | null;
+                limit?: number;
+                cursor?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServiceOrderPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_service_order_v1_service_orders_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ServiceOrderCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServiceOrderRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_service_order_v1_service_orders__order_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                order_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServiceOrderRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    change_service_order_parties_v1_service_orders__order_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "If-Match"?: string | null;
+            };
+            path: {
+                order_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ServiceOrderPartiesUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServiceOrderRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    cancel_service_order_v1_service_orders__order_id__cancel_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "If-Match"?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                order_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ServiceOrderCancel"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServiceOrderRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_service_order_history_v1_service_orders__order_id__history_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                order_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HistoryRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_job_v1_service_orders__order_id__jobs_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "If-Match"?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                order_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["JobCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServiceOrderRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_job_v1_service_orders__order_id__jobs__job_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "If-Match"?: string | null;
+            };
+            path: {
+                order_id: string;
+                job_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServiceOrderRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    rename_job_v1_service_orders__order_id__jobs__job_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "If-Match"?: string | null;
+            };
+            path: {
+                order_id: string;
+                job_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["JobUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServiceOrderRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_position_v1_service_orders__order_id__jobs__job_id__positions_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "If-Match"?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                order_id: string;
+                job_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PositionCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServiceOrderRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_labour_rate_proposal_v1_service_orders__order_id__labour_rate_proposal_get: {
+        parameters: {
+            query: {
+                labourCategoryId: string;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                order_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LabourRateProposalRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_position_v1_service_orders__order_id__positions__position_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "If-Match"?: string | null;
+            };
+            path: {
+                order_id: string;
+                position_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServiceOrderRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    change_position_v1_service_orders__order_id__positions__position_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "If-Match"?: string | null;
+            };
+            path: {
+                order_id: string;
+                position_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PositionUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServiceOrderRead"];
                 };
             };
             /** @description Validation Error */

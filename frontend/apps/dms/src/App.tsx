@@ -7,7 +7,6 @@ import { LoginPage } from './pages/LoginPage'
 import { lazyPage } from './layout/lazyPage'
 import { RouteSuspense } from './layout/RouteSuspense'
 import { LEGAL_PRIVACY_PATH, LEGAL_TERMS_PATH } from './config/legalPages'
-import { PathPrefixRedirect } from './layout/PathPrefixRedirect'
 
 // KAN-233: the sign-in screen, the session guard and the shell stay in the
 // entry chunk, so signing in never waits on a chunk fetch; every other screen
@@ -132,8 +131,6 @@ export default function App() {
               <Route path="/contacts" element={<ContactsListPage />} />
               <Route path="/contacts/new" element={<ContactCreatePage />} />
               <Route path="/contacts/:id" element={<ContactDetailPage />} />
-              {/* KAN-464 PR-3: the register moved from /customers; old links keep working for one release. */}
-              <Route path="/customers/*" element={<PathPrefixRedirect from="/customers" to="/contacts" />} />
               <Route path="/catalogue" element={<CatalogueBrowsePage />} />
               {/* C-B (KAN-40): the mapping-gap queue moved into /catalogue as a tab.
                   Kept as a redirect so existing deep links don't 404. */}

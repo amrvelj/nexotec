@@ -34,6 +34,7 @@ _BUILDERS = (
     "document_link_reference_check",
     "find_dealer_group_ids",
     "find_dealership_group_ids",
+    "labour_rate_category_reference_check",
     "location_reference_check",
     "user_is_deactivated",
     "user_reference_check",
@@ -42,7 +43,7 @@ _BUILDERS = (
 _NAMED = re.compile(r"\b(" + "|".join(_BUILDERS) + r")\b")
 
 # Where each builder's caller is — the test below proves it is still there.
-_CALLERS = ("contact", "sales", "valuation", "integration", "inventory", "vehicle", "reporting")
+_CALLERS = ("aftersales", "contact", "sales", "valuation", "integration", "inventory", "vehicle", "reporting")
 
 
 def _may_use_them(relative: str) -> bool:

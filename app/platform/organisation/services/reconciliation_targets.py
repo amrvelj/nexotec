@@ -9,7 +9,9 @@ Every context's tables hold a Betrieb (`tenant_id`), many a dealer group or
 a location (the three-column pattern). Their `reconciliation.py` asks:
 
 - `dealership_reference_check` / `dealer_group_reference_check` /
-  `location_reference_check` — the id names a row (an orphan otherwise).
+  `location_reference_check` / `labour_rate_category_reference_check` — the
+  id names a row (an orphan otherwise). The last is Aftersales' (KAN-810): a
+  labour position names the labour category it was priced in.
 - `dealership_exists` — an EXISTS: the id names a Betrieb.
 - `dealership_group_of` — a scalar subquery: the dealer group of the Betrieb
   the id names.
@@ -38,6 +40,7 @@ from sqlalchemy.orm import DeclarativeBase, InstrumentedAttribute, Session
 
 from app.core.reconciliation import ReferenceCheck
 from app.platform.organisation.models.dealership import DealerGroup, Dealership, Location
+from app.platform.organisation.models.labour_rate import LabourRateCategory
 
 _Column = ColumnElement[Any] | InstrumentedAttribute[Any]
 
@@ -47,7 +50,7 @@ def _correlated(query: Select[Any], correlate: type[DeclarativeBase] | None) -> 
 
 
 def _reference_check(
-    target: type[DealerGroup] | type[Dealership] | type[Location],
+    target: type[DealerGroup] | type[Dealership] | type[Location] | type[LabourRateCategory],
     *,
     label: str,
     source_model: type[DeclarativeBase],
@@ -180,3 +183,25 @@ def find_dealership_group_ids(db: Session, ids: Iterable[uuid.UUID]) -> dict[uui
             select(Dealership.id, Dealership.dealer_group_id).where(Dealership.id.in_(list(ids)))
         )
     }
+
+
+def labour_rate_category_reference_check(
+    *,
+    label: str,
+    source_model: type[DeclarativeBase],
+    source_row_id_column: InstrumentedAttribute[Any],
+    source_fk_column: InstrumentedAttribute[Any],
+    nullable: bool = False,
+    source_where: Callable[[], ColumnElement[bool]] | None = None,
+) -> ReferenceCheck:
+    """`source_fk_column` names a `labour_rate_category` row (KAN-810: a labour position's category)."""
+
+    return _reference_check(
+        LabourRateCategory,
+        label=label,
+        source_model=source_model,
+        source_row_id_column=source_row_id_column,
+        source_fk_column=source_fk_column,
+        nullable=nullable,
+        source_where=source_where,
+    )
