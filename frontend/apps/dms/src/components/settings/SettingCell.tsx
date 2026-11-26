@@ -1,15 +1,29 @@
 import { useState } from 'react'
+import type { TFunction } from 'i18next'
 import { ActionIcon, Button, Group, NumberInput, Select, Stack, Text, TextInput, Tooltip } from '@mantine/core'
 import { Pencil } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { Badge, FormDialog, InlineEditField, chfInlineEditor, type EditorRenderProps } from '@nexotec/ui-kit'
+import { Badge, FormDialog, InlineEditField, VISUALLY_HIDDEN, chfInlineEditor, type EditorRenderProps } from '@nexotec/ui-kit'
 import type { SettingDeclarationRead, SettingSlotRead, SettingValueBody } from '../../api/types'
+import { useFieldHint } from '../../hooks/useFieldHint'
 import { useInlineEditRefusal } from '../../hooks/useInlineEditRefusal'
 import { LANGUAGE_ENDONYMS, LANGUAGE_ORDER } from '../../i18n/languageEndonyms'
 import { apiRefusalText, isStaleVersion } from '../../utils/apiRefusal'
+import { formatNumber } from '../../utils/format'
+import { allowedDivisors, ruleViolation, type NumberRule, type RuleViolation } from './numberRules'
 import { SWITCH_OFF, SWITCH_ON, formatSettingValue, fromDraft, settingLabel, toDraft, type SettingKind } from './settingValue'
 
 const CLEAR = '__clear__'
+
+/** A value the screen refuses before the write, as the store would (KAN-808): its
+ * sentence is already in the UI language. */
+class SettingRuleRefusal extends Error {
+  readonly text: string
+  constructor(text: string) {
+    super(text)
+    this.text = text
+  }
+}
 
 export interface SettingCellProps {
   declaration: SettingDeclarationRead
@@ -23,6 +37,9 @@ export interface SettingCellProps {
   /** Choices that need another setting not in force here (`choiceRequires`, KAN-806 check 49):
    * offered disabled, as the API would refuse them. */
   unavailableChoices?: readonly string[]
+  /** The number rules in force in this column (`divides`, `multipleOf`; KAN-808): shown as
+   * the field's hint, offered or checked before the write. */
+  numberRule?: NumberRule
   onSave: (value: SettingValueBody | null, version: number) => Promise<void>
   onReload: () => void
 }
@@ -41,11 +58,15 @@ export function SettingCell({
   locationName,
   canWrite,
   unavailableChoices = [],
+  numberRule,
   onSave,
   onReload,
 }: SettingCellProps) {
   const { t, i18n } = useTranslation()
-  const { describeError, reloadLabel } = useInlineEditRefusal('settings.saveError')
+  const hint = useFieldHint()
+  const refusal = useInlineEditRefusal('settings.saveError')
+  const { reloadLabel } = refusal
+  const describeError = (err: unknown) => (err instanceof SettingRuleRefusal ? err.text : refusal.describeError(err))
   const kind = declaration.kind as SettingKind
   const language = i18n.language
   const own = slot.isSet && slot.value ? formatSettingValue(t, language, declaration, slot.value) : null
@@ -115,6 +136,28 @@ export function SettingCell({
   )
   const display = own !== null ? <Text span size="sm">{own}</Text> : emptyDisplay
 
+  // KAN-808: the number rules as the field's hint (an info icon, never a description line).
+  const formatted = (value: number) => formatSettingValue(t, language, declaration, { number: String(value) })
+  const ruleHint = numberRule ? numberRuleHint(t, declaration, numberRule) : null
+  const violationText = (violation: RuleViolation, value: number) =>
+    t(`settings.rule.refused.${violation.kind}`, {
+      value: formatted(value),
+      // Another setting's number may have another unit: the bound reads as a number.
+      bound: formatNumber(violation.bound.value),
+      setting: violation.bound.key === null ? '' : settingLabel(t, violation.bound.key),
+    })
+  const checkRule = (body: SettingValueBody | null) => {
+    if (!numberRule || body?.number == null) return
+    const value = Number(body.number)
+    const violation = ruleViolation(numberRule, value)
+    if (violation) throw new SettingRuleRefusal(violationText(violation, value))
+  }
+  const divisorOptions = allowedDivisors(declaration)?.map((value) => ({
+    value: String(value),
+    label: formatted(value),
+    disabled: numberRule ? ruleViolation(numberRule, value) !== null : false,
+  }))
+
   let field: React.ReactNode
   if (!canWrite) {
     field = display
@@ -148,14 +191,29 @@ export function SettingCell({
           ariaLabel: `${label} · ${ariaScope}`,
           clearLabel: isLocation ? t('settings.clear.location') : t('settings.clear.dealership'),
           unavailableChoices,
+          divisorOptions,
+          hintText: ruleHint,
         })}
         // A click and blur with nothing changed writes nothing. A clear is the
         // choice's explicit option (CLEAR) or an emptied number, never an
-        // untouched empty draft.
-        onSave={(raw) =>
-          raw === initialDraft ? Promise.resolve() : onSave(raw === CLEAR ? null : fromDraft(declaration, raw), slot.version)
-        }
+        // untouched empty draft. A number that breaks a rule in force here is
+        // refused before the write, in the store's words (KAN-808).
+        onSave={async (raw) => {
+          if (raw === initialDraft) return
+          const body = raw === CLEAR ? null : fromDraft(declaration, raw)
+          checkRule(body)
+          await onSave(body, slot.version)
+        }}
       />
+    )
+  }
+  if (ruleHint) {
+    const hinted = hint(field, ruleHint)
+    field = (
+      <>
+        {hinted.label}
+        {hinted.description}
+      </>
     )
   }
 
@@ -193,19 +251,30 @@ function editorFor(
     ariaLabel,
     clearLabel,
     unavailableChoices = [],
+    divisorOptions,
+    hintText,
   }: {
     t: (key: string) => string
     placeholder: string
     ariaLabel: string
     clearLabel: string
     unavailableChoices?: readonly string[]
+    /** A `divides` number (KAN-808): only its divisors within the bounds are offered,
+     * one breaking another rule here disabled. */
+    divisorOptions?: { value: string; label: string; disabled: boolean }[]
+    /** The rule hint, linked to the editor for assistive technology. */
+    hintText?: string | null
   },
 ): ((editor: EditorRenderProps) => React.ReactNode) | undefined {
   const kind = declaration.kind as SettingKind
+  const description = hintText ? <span style={VISUALLY_HIDDEN}>{hintText}</span> : undefined
   if (kind === 'amount') return chfInlineEditor({ 'aria-label': ariaLabel })
-  if (kind === 'switch' || kind === 'choice') {
-    const options =
-      kind === 'switch'
+  if (kind === 'switch' || kind === 'choice' || (kind === 'number' && divisorOptions)) {
+    // A stored value reads as «20», an option as «20» — never «20.0».
+    const optionValue = (value: string) => (kind === 'number' && value !== '' ? String(Number(value)) : value)
+    const options = divisorOptions
+      ? divisorOptions
+      : kind === 'switch'
         ? [
             { value: SWITCH_ON, label: t('settings.value.on') },
             { value: SWITCH_OFF, label: t('settings.value.off') },
@@ -220,9 +289,10 @@ function editorFor(
         <Select
           size="xs"
           aria-label={ariaLabel}
+          description={description}
           placeholder={placeholder}
           data={[...options, { value: CLEAR, label: clearLabel }]}
-          value={value === '' ? null : value}
+          value={value === '' ? null : optionValue(value)}
           autoFocus
           defaultDropdownOpened
           allowDeselect={false}
@@ -241,6 +311,7 @@ function editorFor(
         <NumberInput
           size="xs"
           aria-label={settingNumberLabel}
+          description={description}
           placeholder={placeholder}
           value={value}
           autoFocus
@@ -259,6 +330,38 @@ function editorFor(
     }
   }
   return undefined
+}
+
+/** The rules in force in a column, in one sentence each (KAN-808). */
+function numberRuleHint(
+  t: TFunction,
+  declaration: SettingDeclarationRead,
+  rule: NumberRule,
+): string | null {
+  const list = (values: number[]) => values.map((value) => formatNumber(value)).join(', ')
+  const sentences: string[] = []
+  const own = allowedDivisors(declaration)
+  if (declaration.divides != null) {
+    sentences.push(
+      t('settings.rule.divides', {
+        number: formatNumber(Number(declaration.divides)),
+        values: own ? list(own) : '',
+      }),
+    )
+  }
+  if (rule.multipleOf.length > 0) {
+    const key = rule.multipleOf[0].key ?? ''
+    sentences.push(
+      t('settings.rule.multipleOf', { setting: settingLabel(t, key), values: list(rule.multipleOf.map((b) => b.value)) }),
+    )
+  } else if (rule.multipleOfNotInForce) {
+    sentences.push(t('settings.rule.multipleOfNotSet', { setting: settingLabel(t, rule.multipleOfNotInForce) }))
+  }
+  for (const key of new Set(rule.divides.filter((b) => b.key !== null).map((b) => b.key as string))) {
+    const values = rule.divides.filter((b) => b.key === key).map((b) => b.value)
+    sentences.push(t('settings.rule.dividesSetting', { setting: settingLabel(t, key), values: list(values) }))
+  }
+  return sentences.length > 0 ? sentences.join(' ') : null
 }
 
 /** A text setting: one name and an optional translation per language

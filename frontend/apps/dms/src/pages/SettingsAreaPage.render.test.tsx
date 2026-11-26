@@ -43,6 +43,8 @@ const declaration = (overrides: Partial<SettingDeclarationRead>): SettingDeclara
   checklistItem: false,
   checklistBlocks: null,
   choiceRequires: [],
+  divides: null,
+  multipleOf: null,
   ...overrides,
 })
 

@@ -130,6 +130,8 @@ def _declaration_read(declaration: SettingDeclaration) -> SettingDeclarationRead
         checklist_item=declaration.checklist_item,
         checklist_blocks=declaration.checklist_blocks,
         choice_requires=[ChoiceRequirementRead(choice=c, key=k) for c, k in declaration.choice_requires],
+        divides=declaration.divides,
+        multiple_of=declaration.multiple_of,
     )
 
 

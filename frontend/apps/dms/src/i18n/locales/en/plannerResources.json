@@ -1,0 +1,146 @@
+{
+  "title": "Planner resources",
+  "subtitle": "Who and what the planner books: people and workplaces per location, their types and qualifications, and the planner's grid.",
+  "readOnly": "Only the management changes the planner resources. You see the entries.",
+  "loadError": "The planner resources could not be loaded.",
+  "saveError": "The change could not be saved.",
+  "settings": {
+    "title": "Grid and slots"
+  },
+  "samples": {
+    "badge": "Sample",
+    "confirm": "Confirm",
+    "confirmNamed": "Confirm: {{name}}",
+    "note": "Entries marked «Sample» come from Nexotec's starting set. Confirm or adapt them."
+  },
+  "workplaceTypes": {
+    "title": "Workplace types",
+    "add": "Add workplace type",
+    "empty": "No workplace types yet.",
+    "createTitle": "Add workplace type",
+    "editTitle": "Edit workplace type",
+    "deleteTitle": "Delete workplace type"
+  },
+  "technicianTypes": {
+    "title": "Technician types",
+    "add": "Add technician type",
+    "empty": "No technician types yet.",
+    "createTitle": "Add technician type",
+    "editTitle": "Edit technician type",
+    "deleteTitle": "Delete technician type",
+    "noFactor": "Clocked time"
+  },
+  "qualifications": {
+    "title": "Qualifications",
+    "add": "Add qualification",
+    "empty": "No qualifications yet.",
+    "createTitle": "Add qualification",
+    "editTitle": "Edit qualification",
+    "deleteTitle": "Delete qualification",
+    "mandatory": "Mandatory"
+  },
+  "entryDialog": {
+    "name": "Name",
+    "nameHint": "The name applies in every language you enter no translation for.",
+    "translation": "Name in {{language}}",
+    "rank": "Rank",
+    "rankHint": "A whole number from 1 to 99. Leave empty when no rank applies.",
+    "rankInvalid": "A rank is a whole number from 1 to 99.",
+    "factor": "Counted-time factor",
+    "factorHint": "Counted time = clocked time × factor, from 0.01 to 9.99. Empty: the clocked time counts.",
+    "factorInvalid": "The factor lies between 0.01 and 9.99.",
+    "mandatory": "Mandatory qualification",
+    "mandatoryHint": "It is stored. It is only checked once a job or a workplace requires a qualification."
+  },
+  "languages": {
+    "de": "German",
+    "fr": "French",
+    "it": "Italian",
+    "en": "English"
+  },
+  "columns": {
+    "name": "Name",
+    "rank": "Rank",
+    "factor": "Counted-time factor",
+    "mandatory": "Mandatory",
+    "usedBy": "Used by",
+    "actions": "Actions",
+    "kind": "Kind",
+    "type": "Type",
+    "location": "Location",
+    "technicianType": "Technician type",
+    "workplaceType": "Workplace type",
+    "qualifications": "Qualifications",
+    "workingHours": "Working hours",
+    "sortOrder": "Order",
+    "status": "Status"
+  },
+  "usedBy_one": "{{count, number}} resource",
+  "usedBy_other": "{{count, number}} resources",
+  "actions": {
+    "edit": "Edit",
+    "editNamed": "Edit: {{name}}",
+    "delete": "Delete",
+    "deleteNamed": "Delete: {{name}}",
+    "deleteInUse": "A resource uses this entry. Change the resource first.",
+    "deleteBody": "«{{name}}» will be deleted. This cannot be undone.",
+    "deactivate": "Deactivate",
+    "deactivateNamed": "Deactivate: {{name}}",
+    "reactivate": "Reactivate",
+    "reactivateNamed": "Reactivate: {{name}}"
+  },
+  "deactivate": {
+    "title": "Deactivate resource",
+    "body": "«{{name}}» no longer appears in the planner. Its bookings that have not yet ended are marked to be re-planned."
+  },
+  "kinds": {
+    "person": "Person",
+    "workplace": "Workplace"
+  },
+  "status": {
+    "active": "Active",
+    "inactive": "Inactive",
+    "noLongerWorksHere": "No longer works here"
+  },
+  "resources": {
+    "title": "Resources",
+    "subtitle": "The people and workplaces the planner books, per location.",
+    "filter": "Location",
+    "allLocations": "All locations",
+    "addPerson": "Add person",
+    "addWorkplace": "Add workplace",
+    "empty": "No resources yet. Add people and workplaces so the planner can book them.",
+    "emptyAtLocation": "This location has no resources yet.",
+    "locationInactive": "Location inactive",
+    "tableLabel": "Resources at {{location}}"
+  },
+  "resourceDialog": {
+    "personCreateTitle": "Add person",
+    "personEditTitle": "Edit person",
+    "workplaceCreateTitle": "Add workplace",
+    "workplaceEditTitle": "Edit workplace",
+    "person": "Person",
+    "noPerson": "No person chosen yet",
+    "choosePerson": "Choose person",
+    "searchPerson": "Search person",
+    "noCandidates": "Everyone who works in this business already is a resource.",
+    "workplaceName": "Workplace name",
+    "sortOrder": "Order",
+    "sortOrderHint": "The order in the planner, from 0 to 9999: smaller numbers first.",
+    "movingNote": "The resource counts at the new location at once. Its bookings that have not yet ended are marked to be re-planned."
+  },
+  "hours": {
+    "title": "Working hours of {{name}}",
+    "openNamed": "Working hours: {{name}}",
+    "days_one": "{{count, number}} working day",
+    "days_other": "{{count, number}} working days",
+    "notEntered": "Not entered",
+    "none": "No working hours are entered for this person.",
+    "startsAt": "Start",
+    "endsAt": "End",
+    "secondStartsAt": "Start after the break",
+    "secondEndsAt": "End after the break",
+    "off": "Day off",
+    "invalid": "The times on {{day}} do not fit: each time ends after it starts, and the second starts after the first ends."
+  }
+}

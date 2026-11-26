@@ -14982,6 +14982,8 @@ export interface components {
             choices: string[];
             /** Decimals */
             decimals: number;
+            /** Divides */
+            divides: string | null;
             /** Key */
             key: string;
             /** Kind */
@@ -14992,6 +14994,8 @@ export interface components {
             minimum: string | null;
             /** Module */
             module: string | null;
+            /** Multipleof */
+            multipleOf: string | null;
             /** Unit */
             unit: string | null;
             /** Whennotset */
