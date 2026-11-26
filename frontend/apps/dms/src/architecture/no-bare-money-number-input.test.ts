@@ -25,6 +25,7 @@ const NOT_MONEY_LABELS = new Set([
   "t('offerWorkspace.leasing.termMonths')", // months
   "t('offerWorkspace.leasing.kmPerYear')", // kilometres
   "t('valuationCreate.mileage')", // kilometres
+  "t('serviceCatalogue.dialog.time')", // a labour time in hours or work units (KAN-818)
   "t('valuationCreate.validForDays')", // days
   "t('configurator.summary.mileage')", // kilometres
   "t('vehicleDetail.odometer.value')", // kilometres

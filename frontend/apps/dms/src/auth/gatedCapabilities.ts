@@ -25,6 +25,7 @@ export const GATED_CAPABILITIES = [
   'publishing_profile',
   'reference_lists',
   'sending_identities',
+  'service_packages',
   'sales_contracts',
   'sales_offers',
   'service_orders',

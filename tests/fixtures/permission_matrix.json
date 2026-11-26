@@ -258,6 +258,14 @@
       "write": []
     },
     {
+      "label": "Service catalogue",
+      "key": "service_packages",
+      "read": [
+        "aftersales"
+      ],
+      "write": []
+    },
+    {
       "label": "Connected accounts of a user",
       "key": "connected_accounts",
       "read": [],

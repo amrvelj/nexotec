@@ -15,13 +15,15 @@ import type {
   ServiceOrderPositionRead,
   ServiceOrderPositionUpdate,
   ServiceOrderRead,
+  ServicePackageList,
+  ServicePackageRead,
 } from '../../../../api/types'
 import { useAuth } from '../../../../auth/AuthContext'
 import { useFieldHint } from '../../../../hooks/useFieldHint'
 import { useIdempotencyKey } from '../../../../hooks/useIdempotencyKey'
 import { formatDateOnly } from '../../../../utils/format'
 import { toSwissLocale, type SupportedLanguage } from '../../../../i18n'
-import { decimal } from '../../serviceOrderOptions'
+import { decimal, formatLabourTime } from '../../serviceOrderOptions'
 import { RefusalAlert } from './RefusalAlert'
 
 interface PositionDialogProps {
@@ -35,7 +37,8 @@ interface PositionDialogProps {
   onReload: () => void
 }
 
-type KindTab = 'labour' | 'text'
+// KAN-818: «Aus dem Katalog» — a package from the service catalogue, copied onto the job.
+type KindTab = 'labour' | 'text' | 'package'
 
 /** A price as the advisor typed it: the amount and which of the two it is (decision 15).
  * An emptied field is `''`: the advisor is typing, nothing is proposed into it. */
@@ -71,6 +74,10 @@ function otherFigure(price: TypedPrice, vatRate: number | null): number | '' {
  *   48); a changed time is typed and sent in the unit in force, and the dialog
  *   says so when the two differ (the server refuses any other unit,
  *   `service_order_time_unit_changed`);
+ * - «Aus dem Katalog» (KAN-818, check 44) lists the active service packages,
+ *   named in the UI language else as typed (ruling 176), and copies the chosen
+ *   one into the job (`POST …/jobs/{jobId}/service-packages`): the server
+ *   prices its labour with the rate which applies here; nothing is typed;
  * - the submit is never disabled for an incomplete form (UI/UX Specification,
  *   Forms): a submit says what is missing, field by field, and sends nothing.
  */
@@ -84,6 +91,7 @@ export function PositionDialog({ opened, order, jobId, position, onClose, onSave
   const editing = Boolean(position)
 
   const [kindTab, setKindTab] = useState<KindTab>('labour')
+  const [packageId, setPackageId] = useState<string | null>(null)
   const [text, setText] = useState('')
   const [categoryId, setCategoryId] = useState<string | null>(null)
   const [byTime, setByTime] = useState(true)
@@ -103,6 +111,7 @@ export function PositionDialog({ opened, order, jobId, position, onClose, onSave
     setTyped(null)
     setBackToProposal(false)
     setKindTab(position?.kind === 'text' ? 'text' : 'labour')
+    setPackageId(null)
     setText(position?.text ?? '')
     setCategoryId(position?.labourCategoryId ?? null)
     setByTime(position ? position.kind === 'labour_time' : true)
@@ -110,6 +119,7 @@ export function PositionDialog({ opened, order, jobId, position, onClose, onSave
   }, [opened, position, idempotency])
 
   const labour = kindTab === 'labour'
+  const fromCatalogue = kindTab === 'package'
   const kind: PositionKind = !labour ? 'text' : byTime ? 'labour_time' : 'labour_fixed'
 
   const categories = useQuery({
@@ -125,6 +135,18 @@ export function PositionDialog({ opened, order, jobId, position, onClose, onSave
       ),
     enabled: opened && labour && categoryId !== null,
   })
+  // Check 45: only an active package is offered.
+  const packages = useQuery({
+    queryKey: ['service-catalogue', dealershipId, 'packages', 'active'],
+    queryFn: () => api.get<ServicePackageList>(`/dealerships/${dealershipId}/aftersales/service-packages?active=true`),
+    enabled: opened && fromCatalogue && dealershipId !== '',
+  })
+  const packageName = (pkg: ServicePackageRead) => {
+    const translated = pkg.nameTranslations[i18n.language.slice(0, 2)]
+    return translated && translated.trim() !== '' ? translated : pkg.name
+  }
+  const packageOptions = (packages.data?.items ?? []).map((pkg) => ({ value: pkg.id, label: packageName(pkg) }))
+  const chosenPackage = (packages.data?.items ?? []).find((pkg) => pkg.id === packageId) ?? null
   const dealership = useQuery({
     queryKey: ['dealership', dealershipId],
     queryFn: () => api.get<DealershipRead>(`/dealerships/${dealershipId}`),
@@ -200,7 +222,8 @@ export function PositionDialog({ opened, order, jobId, position, onClose, onSave
       ? typed.amount !== ''
       : (editing && !backToProposal && position?.unitPrice != null) || (byTime && proposal.data?.found === true)
   const missing = {
-    text: text.trim() === '',
+    package: fromCatalogue && packageId === null,
+    text: !fromCatalogue && text.trim() === '',
     category: labour && categoryId === null,
     time: labour && byTime && time === '',
     price: labour && categoryId !== null && !priceKnown,
@@ -218,7 +241,12 @@ export function PositionDialog({ opened, order, jobId, position, onClose, onSave
     try {
       let updated: ServiceOrderRead
       const headers = { 'If-Match': String(order.version) }
-      if (!position) {
+      if (fromCatalogue && packageId !== null) {
+        const path = `/service-orders/${order.id}/jobs/${jobId}/service-packages`
+        const body = { servicePackageId: packageId }
+        updated = await api.post<ServiceOrderRead>(path, body, { ...headers, ...idempotency.headers([path, body]) })
+        idempotency.renew()
+      } else if (!position) {
         const body: ServiceOrderPositionCreate = { kind, text: text.trim() }
         if (labour) {
           body.labourCategoryId = categoryId
@@ -327,10 +355,46 @@ export function PositionDialog({ opened, order, jobId, position, onClose, onSave
           data={[
             { value: 'labour', label: t('serviceOrder.positionDialog.kinds.labour') },
             { value: 'text', label: t('serviceOrder.positionDialog.kinds.text') },
+            { value: 'package', label: t('serviceOrder.positionDialog.kinds.package') },
           ]}
           style={{ alignSelf: 'flex-start' }}
         />
       )}
+      {fromCatalogue && (
+        <Stack gap="xs">
+          <Select
+            label={t('serviceOrder.positionDialog.package')}
+            data={packageOptions}
+            value={packageId}
+            onChange={setPackageId}
+            required
+            searchable
+            allowDeselect={false}
+            error={packages.isError ? t('serviceOrder.positionDialog.packagesError') : missingText('package')}
+            data-autofocus
+          />
+          {packages.isSuccess && packageOptions.length === 0 && (
+            <Text size="xs" c="dimmed">
+              {t('serviceOrder.positionDialog.noPackages')}
+            </Text>
+          )}
+          {chosenPackage && (
+            <Stack gap={2} data-testid="package-positions">
+              <Text size="xs" c="dimmed">
+                {t('serviceOrder.positionDialog.packagePositions')}
+              </Text>
+              {chosenPackage.positions.map((item) => (
+                <Text key={item.id} size="sm">
+                  {item.time
+                    ? `${item.text} · ${formatLabourTime(t, item.time.quantity, item.time.unit)}`
+                    : item.text}
+                </Text>
+              ))}
+            </Stack>
+          )}
+        </Stack>
+      )}
+      {!fromCatalogue && (
       <TextInput
         label={t('serviceOrder.positionDialog.text')}
         value={text}
@@ -340,6 +404,7 @@ export function PositionDialog({ opened, order, jobId, position, onClose, onSave
         error={missingText('text')}
         data-autofocus
       />
+      )}
       {labour && (
         <Stack gap="sm">
           <Select

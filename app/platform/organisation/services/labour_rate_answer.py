@@ -30,6 +30,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.money import PriceEntry
+from app.core.text_collation import TextSortKey
 from app.platform.organisation.models.labour_rate import (
     LabourRate,
     LabourRateAgreement,
@@ -99,6 +100,27 @@ def labour_category_labels(
         )
         for row in rows
     }
+
+
+def labour_categories_of_dealership(db: Session, *, dealership_id: uuid.UUID) -> list[LabourCategoryLabel]:
+    """Every labour category of the Betrieb, active or not, as `labour_category_labels`
+    names them (KAN-818: the service catalogue's copy from a sister Betrieb matches a
+    category by its name). A SELECT only."""
+
+    rows = db.scalars(
+        select(LabourRateCategory)
+        .where(LabourRateCategory.dealership_id == dealership_id)
+        .order_by(TextSortKey(LabourRateCategory.name), LabourRateCategory.id)
+    )
+    return [
+        LabourCategoryLabel(
+            id=row.id,
+            name=row.name,
+            name_translations=dict(row.name_translations) if row.name_translations else None,
+            is_active=row.is_active,
+        )
+        for row in rows
+    ]
 
 
 def labour_rate_for(

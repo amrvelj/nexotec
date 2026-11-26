@@ -7,6 +7,7 @@ public.py — it needs the APIRouter objects, not domain functions.
 from fastapi import APIRouter
 
 from app.aftersales.api.service_orders import router as aftersales_service_orders_router
+from app.aftersales.api.service_packages import router as aftersales_service_packages_router
 from app.api.v1.contact_vehicles import router as contact_vehicles_router
 from app.api.v1.dealer_groups import router as dealer_groups_router
 from app.api.v1.labour_rate_agreements import router as labour_rate_agreements_router
@@ -129,6 +130,7 @@ api_v1_router.include_router(sales_documents_router)
 api_v1_router.include_router(valuations_router)
 # KAN-810: the workshop order, behind the `aftersales` module switch.
 api_v1_router.include_router(aftersales_service_orders_router)
+api_v1_router.include_router(aftersales_service_packages_router)
 api_v1_router.include_router(integration_providers_router)
 api_v1_router.include_router(integration_connections_router)
 api_v1_router.include_router(integration_ai_prompts_router)

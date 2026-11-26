@@ -194,14 +194,16 @@
       "document_template": "Dokumentvorlage (Kopfzeilen)",
       "number_ranges": "Nummernkreis-Muster",
       "contact_groups": "Kontaktgruppen",
-      "settings": "Einstellungen"
+      "settings": "Einstellungen",
+      "service_catalogue": "Servicekatalog"
     },
     "subsetHint": {
       "standard_texts": "Die eigenen und die angepassten Texte des Betriebs, ohne Standort-Varianten. Ein Text, den dieser Betrieb schon hat, wird überschrieben. Eine Freigabe von WhatsApp-Vorlagen wird nie übernommen; eine überschriebene Vorlage muss erneut eingereicht werden.",
       "document_template": "Die Kopfzeile der Dokumente, je Sprache. Hat der andere Betrieb in einer Sprache keine, bleibt die hiesige unverändert.",
       "number_ranges": "Muster, Startwert und jährlicher Neubeginn der Module, die dieser Betrieb nutzt. Zählerstände werden nie übernommen; ein Nummernkreis, der schon eine Nummer vergeben hat, bleibt unverändert.",
       "contact_groups": "Die Kontaktgruppen, die der andere Betrieb verwendet, werden hier eingeschaltet. Keine Gruppe wird ausgeschaltet.",
-      "settings": "Die Werte, die der andere Betrieb für sich selbst gesetzt hat, für die Module, die dieser Betrieb nutzt, und für Einstellungen, die zu keinem Modul gehören. Werte einzelner Standorte werden nie übernommen; eine Einstellung, die dort nicht gesetzt ist, bleibt hier unverändert."
+      "settings": "Die Werte, die der andere Betrieb für sich selbst gesetzt hat, für die Module, die dieser Betrieb nutzt, und für Einstellungen, die zu keinem Modul gehören. Werte einzelner Standorte werden nie übernommen; eine Einstellung, die dort nicht gesetzt ist, bleibt hier unverändert.",
+      "service_catalogue": "Die aktiven Pakete. Ein Paket gleichen Namens wird überschrieben, ein hier inaktives bleibt, wie es ist. Arbeitskategorien werden nach ihrem Namen zugeordnet: Ein Paket, dessen Kategorie hier fehlt oder dessen Zeiteinheit hier nicht gilt, wird übersprungen. Wer zugleich die Einstellungen übernimmt, übernimmt den Katalog danach ein zweites Mal."
     },
     "preview": "Vorschau anzeigen",
     "previewTitle": "Vorschau: Übernahme aus {{source}}",
@@ -236,7 +238,12 @@
       "whatsapp_approval_reset": "Die WhatsApp-Vorlage muss erneut zur Freigabe eingereicht werden.",
       "other": "Dieser Eintrag kann nicht übernommen werden.",
       "contact_group_inactive": "Diese Kontaktgruppe hat Nexotec eingestellt.",
-      "setting_value_stale": "Der Wert passt nicht mehr zu dieser Einstellung und gilt dort als nicht gesetzt."
+      "setting_value_stale": "Der Wert passt nicht mehr zu dieser Einstellung und gilt dort als nicht gesetzt.",
+      "labour_category_missing": "Dieser Betrieb hat keine aktive Arbeitskategorie mit dem Namen einer Kategorie dieses Pakets.",
+      "module_not_held": "Einer der beiden Betriebe hat das Modul Aftersales nicht.",
+      "subset_not_available": "Dieser Bereich kann zurzeit nicht übernommen werden.",
+      "time_unit_differs": "Die Zeiten dieses Pakets sind in einer anderen Einheit erfasst, als dieser Betrieb sie erfasst.",
+      "package_inactive_here": "Hier gibt es ein Paket dieses Namens, das inaktiv ist; es bleibt, wie es ist."
     }
   },
   "statusRefusals": {

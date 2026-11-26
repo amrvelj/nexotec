@@ -12,7 +12,7 @@ import i18n from '../../i18n'
 // preview is the server's dry run, the confirmation sends the same request
 // with dryRun false, and the result says what was copied.
 
-const ME = (isActiveDealershipManager: boolean): FakeRoute => ({
+const ME = (isActiveDealershipManager: boolean, entitlements: readonly string[] = ALL_ENTITLEMENTS): FakeRoute => ({
   method: 'GET',
   match: /\/auth\/me$/,
   handler: () => ({
@@ -22,7 +22,7 @@ const ME = (isActiveDealershipManager: boolean): FakeRoute => ({
       { id: 'dealership-1', legalName: 'Garage Ziel AG' },
       { id: 'dealership-2', legalName: 'Garage Quelle AG' },
     ],
-    entitlements: ALL_ENTITLEMENTS,
+    entitlements,
     writableCapabilities: ALL_GATED_CAPABILITIES,
     isActiveDealershipManager,
   }),
@@ -75,11 +75,11 @@ describe('CopyConfigurationSection (KAN-220)', () => {
     expect(table.getByText('Wird überschrieben')).toBeInTheDocument()
     expect(table.getByText('Dieser Nummernkreis hat schon eine Nummer vergeben und ist gesperrt.')).toBeInTheDocument()
     const posts = () => backend.callsTo(/\/copy-configuration$/, 'POST')
-    expect(posts()[0].body).toEqual({ sourceDealershipId: 'dealership-2', subsets: ['standard_texts', 'document_template', 'contact_groups', 'settings'], dryRun: true })
+    expect(posts()[0].body).toEqual({ sourceDealershipId: 'dealership-2', subsets: ['standard_texts', 'document_template', 'contact_groups', 'settings', 'service_catalogue'], dryRun: true })
 
     await user.click(section.getByRole('button', { name: '2 Änderungen übernehmen' }))
     await waitFor(() => expect(posts()).toHaveLength(2))
-    expect(posts()[1].body).toEqual({ sourceDealershipId: 'dealership-2', subsets: ['standard_texts', 'document_template', 'contact_groups', 'settings'], dryRun: false })
+    expect(posts()[1].body).toEqual({ sourceDealershipId: 'dealership-2', subsets: ['standard_texts', 'document_template', 'contact_groups', 'settings', 'service_catalogue'], dryRun: false })
     expect(await section.findByText(/übernommen: 1 neu/)).toHaveTextContent(
       'Aus Garage Quelle AG übernommen: 1 neu, 1 überschrieben, 1 übersprungen.',
     )
@@ -150,5 +150,13 @@ describe('CopyConfigurationSection (KAN-220)', () => {
     renderWithProviders(<CopyConfigurationSection dealershipId="dealership-1" />, { route: '/administration/business' })
     await waitFor(() => expect(backend.callsTo(/\/copy-configuration\/sources$/, 'GET')).toHaveLength(1))
     expect(screen.queryByRole('region', { name: 'Konfiguration übernehmen von …' })).toBeNull()
+  })
+
+  it('offers the service catalogue only where the Betrieb holds Aftersales (KAN-818)', async () => {
+    installFakeBackend([ME(true, ALL_ENTITLEMENTS.filter((module) => module !== 'aftersales')), SOURCES])
+    renderWithProviders(<CopyConfigurationSection dealershipId="dealership-1" />, { route: '/administration/business' })
+    const section = within(await screen.findByRole('region', { name: 'Konfiguration übernehmen von …' }))
+    expect(section.getByRole('checkbox', { name: (name) => name.startsWith('Einstellungen') })).toBeInTheDocument()
+    expect(section.queryByRole('checkbox', { name: (name) => name.startsWith('Servicekatalog') })).toBeNull()
   })
 })

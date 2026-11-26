@@ -194,14 +194,16 @@
       "document_template": "Document template (header notes)",
       "number_ranges": "Number-range patterns",
       "contact_groups": "Contact groups",
-      "settings": "Settings"
+      "settings": "Settings",
+      "service_catalogue": "Service catalogue"
     },
     "subsetHint": {
       "standard_texts": "The business's own and adapted texts, without site variants. A text this business already has is overwritten. The approval of WhatsApp templates is never copied; an overwritten template must be submitted again.",
       "document_template": "The documents' header note, per language. Where the other business has none in a language, this one's stays as it is.",
       "number_ranges": "Pattern, start value and yearly reset of the modules this business uses. Counters are never copied; a range that has already issued a number stays as it is.",
       "contact_groups": "The contact groups the other business uses are switched on here. No group is switched off.",
-      "settings": "The values the other business has set for itself, for the modules this business uses, and for settings that belong to no module. A location's values are never copied; a setting not set there stays as it is here."
+      "settings": "The values the other business has set for itself, for the modules this business uses, and for settings that belong to no module. A location's values are never copied; a setting not set there stays as it is here.",
+      "service_catalogue": "The active packages. A package of the same name is overwritten; one that is inactive here stays as it is. Labour categories are matched by name: a package whose category is missing here, or whose time unit does not apply here, is skipped. When you copy the settings too, copy the catalogue a second time afterwards."
     },
     "preview": "Show preview",
     "previewTitle": "Preview: copy from {{source}}",
@@ -236,7 +238,12 @@
       "whatsapp_approval_reset": "The WhatsApp template must be submitted for approval again.",
       "other": "This item cannot be copied.",
       "contact_group_inactive": "Nexotec has withdrawn this contact group.",
-      "setting_value_stale": "The value no longer fits this setting and counts as not set there."
+      "setting_value_stale": "The value no longer fits this setting and counts as not set there.",
+      "labour_category_missing": "This business has no active labour category named like a category of this package.",
+      "module_not_held": "One of the two businesses does not hold the Aftersales module.",
+      "subset_not_available": "This area cannot be copied at the moment.",
+      "time_unit_differs": "This package's times are entered in another unit than this business uses.",
+      "package_inactive_here": "A package of this name exists here and is inactive; it stays as it is."
     }
   },
   "statusRefusals": {

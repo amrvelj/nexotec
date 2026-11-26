@@ -13,7 +13,10 @@ driver), a contact outside its Betrieb's dealer group (ADR-014), or a merged
 vehicle record. Since KAN-837 the consumers `aftersales.contact_merged` and
 `aftersales.vehicle_merged` re-point the orders (`services/order_references.py`),
 so these StateChecks find an order only when a consumer has not run or failed
-(its dead letter alerts too). A cancelled order is history and is left as it is;
+(its dead letter alerts too). The service catalogue (KAN-818): a package position names its labour
+category (platform) and every package row its Betrieb and writers.
+
+A cancelled order is history and is left as it is;
 a ready-for-billing order is reported, since its invoice still names them.
 A merge is judged after a day's grace, as the labour-rate agreements' check
 does (KAN-806): a consumer's re-point in flight is not a finding.
@@ -35,6 +38,7 @@ from app.aftersales.models.service_order import (
     ServiceOrderPosition,
     ServiceOrderState,
 )
+from app.aftersales.models.service_package import ServicePackage, ServicePackagePosition
 from app.contact.public import contact_exists, contact_in_group, contact_is_merged, contact_reference_check
 from app.core.base import utcnow
 from app.core.reconciliation import ReconciliationRun, ReferenceCheck, StateCheck, run_reconciliation
@@ -49,7 +53,7 @@ from app.vehicle.public import vehicle_is_merged, vehicle_reference_check
 
 CONTEXT = "aftersales"
 
-ACTOR_TABLES = (ServiceOrder, ServiceOrderJob, ServiceOrderPosition)
+ACTOR_TABLES = (ServiceOrder, ServiceOrderJob, ServiceOrderPosition, ServicePackage, ServicePackagePosition)
 
 _MERGE_GRACE = dt.timedelta(days=1)
 
@@ -134,6 +138,13 @@ CHECKS: list[ReferenceCheck | StateCheck] = [
         source_model=ServiceOrderPosition,
         source_row_id_column=ServiceOrderPosition.id,
         source_fk_column=ServiceOrderPosition.labour_category_id,
+        nullable=True,  # a text position names none
+    ),
+    labour_rate_category_reference_check(
+        label="service_package_position.labour_category_id -> labour_rate_category.id",
+        source_model=ServicePackagePosition,
+        source_row_id_column=ServicePackagePosition.id,
+        source_fk_column=ServicePackagePosition.labour_category_id,
         nullable=True,  # a text position names none
     ),
     *(_names_a_merged_contact(column) for column in _CONTACT_COLUMNS),

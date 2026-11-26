@@ -100,7 +100,8 @@
     "kindLabel": "Art der Position",
     "kinds": {
       "labour": "Arbeit",
-      "text": "Text"
+      "text": "Text",
+      "package": "Aus dem Katalog"
     },
     "text": "Bezeichnung",
     "labourCategory": "Arbeitskategorie",
@@ -130,10 +131,15 @@
       "text": "Geben Sie eine Bezeichnung ein.",
       "category": "Wählen Sie eine Arbeitskategorie.",
       "time": "Geben Sie die Zeit ein.",
-      "price": "Geben Sie einen Preis ein."
+      "price": "Geben Sie einen Preis ein.",
+      "package": "Wählen Sie ein Paket."
     },
     "unitMoved": "Diese Position wurde in {{entry}} erfasst; der Betrieb rechnet jetzt in {{now}}. Eine geänderte Zeit wird in {{now}} erfasst.",
-    "grossPreview": "Aus dem anderen Preis gerechnet, nur zur Ansicht; gespeichert wird der zuletzt erfasste Preis."
+    "grossPreview": "Aus dem anderen Preis gerechnet, nur zur Ansicht; gespeichert wird der zuletzt erfasste Preis.",
+    "package": "Paket",
+    "packagesError": "Die Paketliste konnte nicht geladen werden.",
+    "noPackages": "Kein aktives Paket im Servicekatalog.",
+    "packagePositions": "Wird übernommen:"
   },
   "overview": {
     "parties": "Beteiligte",
