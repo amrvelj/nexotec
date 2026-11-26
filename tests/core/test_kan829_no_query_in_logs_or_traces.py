@@ -188,6 +188,10 @@ def test_a_request_through_the_production_app_leaves_no_search_text_in_a_span():
     provider = TracerProvider()
     provider.add_span_processor(SimpleSpanProcessor(exporter))
     observability.instrument_app(production_app, tracer_provider=provider)
+    # Starlette builds the stack on the first request and keeps it; the
+    # instrumentation only wraps the builder, so an earlier test's stack would
+    # serve this request uninstrumented. The next request builds it anew.
+    production_app.middleware_stack = None
     try:
         marker = f"CHE-{uuid.uuid4().int % 10**9:09d}"
         client = TestClient(production_app)
