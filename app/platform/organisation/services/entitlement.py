@@ -21,6 +21,7 @@ from app.core.errors import UnprocessableEntityError
 from app.core.permissions import ModuleCode, set_entitlement_version_reader
 from app.platform.organisation.models.dealership import Dealership, DealershipKind
 from app.platform.organisation.models.module_entitlement import ModuleEntitlement
+from app.platform.organisation.services.entitlement_facts import publish_module_granted
 
 
 def _rows(db: Session, dealership_id: uuid.UUID) -> list[ModuleEntitlement]:
@@ -56,7 +57,10 @@ def set_entitlements(
     API checks). Ends the rows no longer wanted (valid_to), reopens or adds
     the wanted ones, audits before/after, and bumps `entitlements_version`
     so every session minted before this change is refused on its next
-    gated request and signs in again. Returns the active set."""
+    gated request and signs in again. Each module that becomes active — a
+    first grant or a re-grant — states `platform.module_entitlement.granted`
+    in this same transaction (ADR-222, `entitlement_facts.py`), onboarding's
+    `commit=False` path included. Returns the active set."""
 
     if dealership.kind != DealershipKind.DEALER:
         # KAN-221 PR-1: the platform tenant is licensed for nothing.
@@ -68,6 +72,7 @@ def set_entitlements(
     wanted = {module.value for module in modules}
     rows = {row.module.value: row for row in _rows(db, dealership.id)}
     before = sorted(code for code, row in rows.items() if row.is_active(now))
+    became_active: list[ModuleEntitlement] = []
 
     for code, row in rows.items():
         if code in wanted and not row.is_active(now):
@@ -75,19 +80,20 @@ def set_entitlements(
             row.valid_to = None
             row.granted_at = now
             row.granted_by = actor_id
+            became_active.append(row)
         elif code not in wanted and row.is_active(now):
             row.valid_to = now
-    for code in wanted - set(rows):
-        db.add(
-            ModuleEntitlement(
-                dealership_id=dealership.id,
-                module=ModuleCode(code),
-                granted_at=now,
-                granted_by=actor_id,
-                valid_from=now,
-                valid_to=None,
-            )
+    for code in sorted(wanted - set(rows)):
+        row = ModuleEntitlement(
+            dealership_id=dealership.id,
+            module=ModuleCode(code),
+            granted_at=now,
+            granted_by=actor_id,
+            valid_from=now,
+            valid_to=None,
         )
+        db.add(row)
+        became_active.append(row)
 
     after = sorted(wanted)
     if after != before:
@@ -104,6 +110,10 @@ def set_entitlements(
             before={"modules": before},
             after={"modules": after},
         )
+    if became_active:
+        db.flush()
+        for row in sorted(became_active, key=lambda r: r.module.value):
+            publish_module_granted(db, dealership=dealership, row=row)
     if not commit:
         # KAN-210: the onboarding's one transaction commits it.
         db.flush()
