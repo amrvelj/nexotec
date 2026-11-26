@@ -213,15 +213,14 @@ def _places(value: Decimal) -> int:
 def _check_position(index: int, data: PackagePositionInput) -> str:
     """The shape of one position (table 3.10); returns its cleaned text."""
 
-    where = {"position": index}
     position_text = _clean(data.text)
     if not position_text:
-        raise _refuse("service_package_position_text_required", "A package position needs its text.", **where)
+        raise _refuse("service_package_position_text_required", "A package position needs its text.", position=index)
     if len(position_text) > POSITION_TEXT_LENGTH:
         raise _refuse(
             "service_package_position_text_too_long",
             f"A package position's text has at most {POSITION_TEXT_LENGTH} characters.",
-            **where,
+            position=index,
         )
     if data.kind is PackagePositionKind.TEXT:
         if data.labour_category_id is not None or data.time is not None or data.check_needed:
@@ -229,22 +228,22 @@ def _check_position(index: int, data: PackagePositionInput) -> str:
                 "service_package_position_incomplete",
                 "A text position carries no labour category, time or «check needed».",
                 field="kind",
-                **where,
+                position=index,
             )
         return position_text
     if data.time is None:
-        raise _refuse("service_package_labour_time_required", "A labour position needs its time.", **where)
+        raise _refuse("service_package_labour_time_required", "A labour position needs its time.", position=index)
     if data.time <= 0:
-        raise _refuse("service_package_labour_time_not_positive", "A labour time is above zero.", **where)
+        raise _refuse("service_package_labour_time_not_positive", "A labour time is above zero.", position=index)
     if _places(data.time) > _TIME_PLACES:
         raise _refuse(
             "service_package_labour_time_too_many_decimals",
             f"A labour time has at most {_TIME_PLACES} decimals.",
-            **where,
+            position=index,
         )
     if data.labour_category_id is None:
         raise _refuse(
-            "service_package_labour_category_required", "A labour position names its labour category.", **where
+            "service_package_labour_category_required", "A labour position names its labour category.", position=index
         )
     return position_text
 
