@@ -203,7 +203,7 @@
       "number_ranges": "Modèle, valeur de départ et redémarrage annuel des modules que cette entreprise utilise. Les compteurs ne sont jamais repris ; une plage qui a déjà attribué un numéro reste inchangée.",
       "contact_groups": "Les groupes de contacts que l’autre entreprise utilise sont activés ici. Aucun groupe n’est désactivé.",
       "settings": "Les valeurs que l'autre entreprise a définies pour elle-même, pour les modules que cette entreprise utilise et pour les réglages qui ne relèvent d'aucun module. Les valeurs des sites ne sont jamais reprises ; un réglage qui n'y est pas défini reste inchangé ici.",
-      "service_catalogue": "Les forfaits actifs. Un forfait du même nom est remplacé ; les catégories de travail sont associées par leur nom."
+      "service_catalogue": "Les forfaits actifs. Un forfait du même nom est remplacé, un forfait inactif ici reste tel quel. Les catégories de travail sont associées par leur nom : un forfait dont la catégorie manque ici ou dont l'unité de temps ne s'applique pas ici est sauté. En reprenant aussi les paramètres, reprenez ensuite le catalogue une seconde fois."
     },
     "preview": "Afficher l'aperçu",
     "previewTitle": "Aperçu : reprise depuis {{source}}",
@@ -242,7 +242,8 @@
       "labour_category_missing": "Cette entreprise n'a pas de catégorie de travail active portant le nom d'une catégorie de ce forfait.",
       "module_not_held": "L'une des deux entreprises n'a pas le module Après-vente.",
       "subset_not_available": "Ce domaine ne peut pas être repris pour l'instant.",
-      "time_unit_differs": "Les temps de ce forfait sont saisis dans une autre unité que celle de cette entreprise."
+      "time_unit_differs": "Les temps de ce forfait sont saisis dans une autre unité que celle de cette entreprise.",
+      "package_inactive_here": "Un forfait de ce nom existe ici et est inactif ; il reste tel quel."
     }
   },
   "statusRefusals": {

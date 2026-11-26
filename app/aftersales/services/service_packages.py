@@ -6,7 +6,7 @@ Table 3.10:
 | What happens | Result | Refused when |
 | --- | --- | --- |
 | New package: a name, labour positions with a fixed time and a labour category, text positions, «check needed» per labour position | Active | The name is empty; a labour position has no time |
-| A package is put onto a job | Its positions are copied into the job (`copy_package_onto_job`) | The order is frozen; the job is stopped |
+| A package is put onto a job | Its positions are copied into the job (`copy_package_onto_job`) | The order is frozen; the job is stopped (KAN-811, as for a typed position) |
 | A package is changed or set inactive | New jobs get the new content; an inactive package is not offered. No order that exists changes | – |
 | A package gets its name in another language | Read in that language; without a translation, as typed (ruling 176) | – |
 
@@ -35,7 +35,7 @@ the one «which applies here» — `positions.propose_rate`: an agreement with
 the invoice recipient first, else the category rate at the order's location
 on the order's day (check 11), keeping its source. No rate for one of the
 package's categories refuses the whole copy (409
-`service_order_labour_rate_missing`, the category named): a package lands
+`service_package_labour_rate_missing`, the category named): a package lands
 whole or not at all.
 
 The caller (the API) checks the role, the Betrieb and the module. Every
@@ -72,6 +72,7 @@ from app.aftersales.models.service_package import (
 )
 from app.aftersales.services.positions import _snapshot as position_snapshot
 from app.aftersales.services.positions import propose_rate
+from app.aftersales.services.service_order import ENTITY_TYPE as ORDER_ENTITY_TYPE
 from app.aftersales.services.service_order import record_order_change, refuse_frozen
 from app.core import configuration_copy as seam
 from app.core.audit import record_audit_event
@@ -159,13 +160,6 @@ def get_package_or_404(
     if package is None:
         raise NotFoundError(f"Service package {package_id} was not found.")
     return package
-
-
-def display_name(package: ServicePackage, language: str | None) -> str:
-    """Ruling 176 (check 46): the name in `language` where one was given, else as typed."""
-
-    translated = (package.name_translations or {}).get((language or "")[:2])
-    return translated if translated else package.name
 
 
 # --- validation -------------------------------------------------------------------------------
@@ -565,11 +559,16 @@ def copy_package_onto_job(
         copied.append(position)
     db.flush()
     # The history says which package the positions came from; the positions do not (check 45).
-    for position in copied:
-        record_order_change(
-            db, order, action="service_order_position_added", actor_id=actor_id,
-            after={**position_snapshot(position), "servicePackageName": package.name},
-        )
+    # One request, one change of the order: its version moves once; each position gets its row.
+    for index, position in enumerate(copied):
+        after = {**position_snapshot(position), "servicePackageName": package.name}
+        if index == 0:
+            record_order_change(db, order, action="service_order_position_added", actor_id=actor_id, after=after)
+        else:
+            record_audit_event(
+                db, entity_type=ORDER_ENTITY_TYPE, entity_id=order.id, tenant_id=order.tenant_id,
+                action="service_order_position_added", actor_id=actor_id, after=after,
+            )
     db.commit()
     return copied
 
@@ -684,6 +683,9 @@ class ServiceCatalogueCopier:
     - A package's times keep their unit (ruling 183); a package whose unit or
       work units per hour differ from what the target has in force is skipped
       (`time_unit_differs`) rather than converted.
+    - A package the target holds under the name and has set inactive is left
+      as the manager left it (`package_inactive_here`): a copy never undoes a
+      deactivation, as the contact-group copy never switches a group off.
     """
 
     subset: str = "service_catalogue"
@@ -779,6 +781,10 @@ class ServiceCatalogueCopier:
                 positions=inputs,
             )
             mine = existing.get(package.name.lower())
+            if mine is not None and not mine.is_active:
+                items.append(CopiedItem(key=package.name, outcome=seam.SKIPPED, label=package.name,
+                                        reason="package_inactive_here"))
+                continue
             if mine is None:
                 create_package(db, dealership_id=target_dealership_id, actor_id=actor_id, data=data, commit=False)
                 items.append(CopiedItem(key=package.name, outcome=seam.CREATED, label=package.name))

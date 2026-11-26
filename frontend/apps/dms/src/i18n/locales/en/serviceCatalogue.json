@@ -73,5 +73,11 @@
     "checkNeededHint": "The work gets a quality check by somebody who did not work on it.",
     "addLabour": "Add labour",
     "addText": "Add text"
+  },
+  "missing": {
+    "name": "Enter a name.",
+    "text": "Enter the text.",
+    "category": "Choose a labour category.",
+    "time": "Enter the time."
   }
 }

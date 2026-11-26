@@ -203,7 +203,7 @@
       "number_ranges": "Muster, Startwert und jährlicher Neubeginn der Module, die dieser Betrieb nutzt. Zählerstände werden nie übernommen; ein Nummernkreis, der schon eine Nummer vergeben hat, bleibt unverändert.",
       "contact_groups": "Die Kontaktgruppen, die der andere Betrieb verwendet, werden hier eingeschaltet. Keine Gruppe wird ausgeschaltet.",
       "settings": "Die Werte, die der andere Betrieb für sich selbst gesetzt hat, für die Module, die dieser Betrieb nutzt, und für Einstellungen, die zu keinem Modul gehören. Werte einzelner Standorte werden nie übernommen; eine Einstellung, die dort nicht gesetzt ist, bleibt hier unverändert.",
-      "service_catalogue": "Die aktiven Pakete. Ein Paket gleichen Namens wird überschrieben; die Arbeitskategorien werden nach ihrem Namen zugeordnet."
+      "service_catalogue": "Die aktiven Pakete. Ein Paket gleichen Namens wird überschrieben, ein hier inaktives bleibt, wie es ist. Arbeitskategorien werden nach ihrem Namen zugeordnet: Ein Paket, dessen Kategorie hier fehlt oder dessen Zeiteinheit hier nicht gilt, wird übersprungen. Wer zugleich die Einstellungen übernimmt, übernimmt den Katalog danach ein zweites Mal."
     },
     "preview": "Vorschau anzeigen",
     "previewTitle": "Vorschau: Übernahme aus {{source}}",
@@ -242,7 +242,8 @@
       "labour_category_missing": "Dieser Betrieb hat keine aktive Arbeitskategorie mit dem Namen einer Kategorie dieses Pakets.",
       "module_not_held": "Einer der beiden Betriebe hat das Modul Aftersales nicht.",
       "subset_not_available": "Dieser Bereich kann zurzeit nicht übernommen werden.",
-      "time_unit_differs": "Die Zeiten dieses Pakets sind in einer anderen Einheit erfasst, als dieser Betrieb sie erfasst."
+      "time_unit_differs": "Die Zeiten dieses Pakets sind in einer anderen Einheit erfasst, als dieser Betrieb sie erfasst.",
+      "package_inactive_here": "Hier gibt es ein Paket dieses Namens, das inaktiv ist; es bleibt, wie es ist."
     }
   },
   "statusRefusals": {

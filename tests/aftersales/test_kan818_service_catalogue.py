@@ -260,11 +260,12 @@ def test_check_46_a_name_per_language_and_as_typed_where_there_is_none(client, d
     package = _created(client, betrieb, _package_body(betrieb, nameTranslations={"fr": "Service 30'000 km FR",
                                                                                   "it": "  ", "en": "Service"}))
 
+    # One name as typed, and only the languages given (an empty one is dropped): the screens read
+    # the user's language from these, else the name as typed (render tests of both screens).
+    assert package["name"] == "Service 30'000 km"
     assert package["nameTranslations"] == {"en": "Service", "fr": "Service 30'000 km FR"}
-    row = db_session.get(ServicePackage, uuid.UUID(package["id"]))
-    assert catalogue.display_name(row, "fr-CH") == "Service 30'000 km FR"
-    assert catalogue.display_name(row, "it") == "Service 30'000 km"  # no Italian: as typed
-    assert catalogue.display_name(row, "de") == "Service 30'000 km"
+    listed = client.get(_base(betrieb), params={"active": "true"}, headers=headers(betrieb)).json()["items"]
+    assert listed[0]["nameTranslations"] == {"en": "Service", "fr": "Service 30'000 km FR"}
     wrong = _create(client, betrieb, _package_body(betrieb, name="X", nameTranslations={"es": "Servicio"}))
     assert wrong.status_code == 422 and _reason(wrong) == "service_package_name_language"
 
@@ -296,7 +297,8 @@ def test_check_44_a_package_brings_its_positions_times_and_check_needed_priced_a
     assert labour["rateSource"] == "category_rate" and labour["unitPrice"]["amount"] == "150.0000"
     assert labour["lineNet"] == "225.00"  # 1.5 h × CHF 150.00, the rate of the order's day at its location
     assert note["kind"] == "text" and note["unitPrice"] is None and note["checkNeeded"] is False
-    assert response.json()["version"] > order["version"]
+    # One request, one change of the order (If-Match): its version moves once, whatever the package holds.
+    assert response.json()["version"] == order["version"] + 1
     history = db_session.scalars(
         select(AuditEvent).where(AuditEvent.entity_id == uuid.UUID(order["id"]),
                                  AuditEvent.action == "service_order_position_added")
@@ -511,6 +513,22 @@ def test_criterion_7_the_catalogue_is_copied_from_a_sister_betrieb(client, engin
     }
     again = _copy(client, target, in_target, source, dry_run=False, subsets=("service_catalogue",))
     assert {item["key"]: item["outcome"] for item in again.json()["items"]}["Klimaservice"] == "unchanged"
+
+
+def test_criterion_7_a_copy_never_undoes_a_deactivation_in_the_target(client, engine):
+    source, target, _, in_target, _ = _pair(client, engine)
+    _entitle(engine, source, target, modules=(ModuleCode.AFTERSALES,))
+    _seed_package(engine, source, "Klimaservice", _category(engine, source, "Mechanik"), time="0.75")
+    _seed_package(engine, target, "Klimaservice", _category(engine, target, "Mechanik"), time="2.00", active=False)
+
+    done = _copy(client, target, in_target, source, dry_run=False, subsets=("service_catalogue",))
+
+    assert [(i["key"], i["outcome"], i["reason"]) for i in done.json()["items"]] == [
+        ("Klimaservice", "skipped", "package_inactive_here")
+    ]
+    with _session(engine) as db:
+        (kept,) = catalogue.list_packages(db, dealership_id=uuid.UUID(target))
+        assert kept.is_active is False and kept.version == 1
 
 
 def test_criterion_7_without_aftersales_in_both_the_catalogue_is_one_skipped_item(client, engine):

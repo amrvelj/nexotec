@@ -73,5 +73,11 @@
     "checkNeededHint": "Die Arbeit bekommt eine Qualitätskontrolle durch jemanden, der nicht daran gearbeitet hat.",
     "addLabour": "Arbeit hinzufügen",
     "addText": "Text hinzufügen"
+  },
+  "missing": {
+    "name": "Geben Sie einen Namen ein.",
+    "text": "Geben Sie den Text ein.",
+    "category": "Wählen Sie eine Arbeitskategorie.",
+    "time": "Geben Sie die Zeit ein."
   }
 }

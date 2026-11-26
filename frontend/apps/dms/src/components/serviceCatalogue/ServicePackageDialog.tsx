@@ -92,6 +92,8 @@ export function ServicePackageDialog({
   const [rows, setRows] = useState<Row[]>(() => rowsOf(pkg))
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // The submit is never disabled (UI/UX Specification, Forms): it says what is missing instead.
+  const [showMissing, setShowMissing] = useState(false)
   const hint = useFieldHint()
   const activeHintId = useId()
   const checkHintId = useId()
@@ -128,7 +130,13 @@ export function ServicePackageDialog({
         (row.kind === 'text' || (row.labourCategoryId !== null && timeString(row.time) !== null)),
     )
 
+  const missing = (condition: boolean, key: string) => (showMissing && condition ? t(`serviceCatalogue.missing.${key}`) : undefined)
+
   const save = async () => {
+    if (!complete) {
+      setShowMissing(true)
+      return
+    }
     setSubmitting(true)
     setError(null)
     try {
@@ -166,7 +174,6 @@ export function ServicePackageDialog({
       submitLabel={t('common.save')}
       cancelLabel={t('common.cancel')}
       submitting={submitting}
-      submitDisabled={!complete}
       onSubmit={() => void save()}
     >
       <Stack gap="sm">
@@ -181,6 +188,7 @@ export function ServicePackageDialog({
           maxLength={200}
           value={name}
           onChange={(event) => setName(event.currentTarget.value)}
+          error={missing(name.trim() === '', 'name')}
           data-autofocus
         />
         <Text fz="sm" c="dimmed">
@@ -262,6 +270,7 @@ export function ServicePackageDialog({
                   maxLength={1000}
                   value={row.text}
                   onChange={(event) => update(row.key, { text: event.currentTarget.value })}
+                  error={missing(row.text.trim() === '', 'text')}
                 />
                 {row.kind === 'labour' && (
                   <Group grow align="flex-start">
@@ -271,6 +280,7 @@ export function ServicePackageDialog({
                       data={categoryOptions}
                       value={row.labourCategoryId}
                       onChange={(value) => update(row.key, { labourCategoryId: value })}
+                      error={missing(row.labourCategoryId === null, 'category')}
                       nothingFoundMessage={t('serviceCatalogue.dialog.noCategories')}
                     />
                     <NumberInput
@@ -284,6 +294,7 @@ export function ServicePackageDialog({
                       value={row.time}
                       // A changed time is typed in the unit in force (ruling 183); the API refuses another.
                       onChange={(value) => update(row.key, { time: value, timeUnit: null })}
+                      error={missing(timeString(row.time) === null, 'time')}
                     />
                   </Group>
                 )}

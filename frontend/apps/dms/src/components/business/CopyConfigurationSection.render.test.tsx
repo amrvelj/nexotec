@@ -12,7 +12,7 @@ import i18n from '../../i18n'
 // preview is the server's dry run, the confirmation sends the same request
 // with dryRun false, and the result says what was copied.
 
-const ME = (isActiveDealershipManager: boolean): FakeRoute => ({
+const ME = (isActiveDealershipManager: boolean, entitlements: readonly string[] = ALL_ENTITLEMENTS): FakeRoute => ({
   method: 'GET',
   match: /\/auth\/me$/,
   handler: () => ({
@@ -22,7 +22,7 @@ const ME = (isActiveDealershipManager: boolean): FakeRoute => ({
       { id: 'dealership-1', legalName: 'Garage Ziel AG' },
       { id: 'dealership-2', legalName: 'Garage Quelle AG' },
     ],
-    entitlements: ALL_ENTITLEMENTS,
+    entitlements,
     writableCapabilities: ALL_GATED_CAPABILITIES,
     isActiveDealershipManager,
   }),
@@ -150,5 +150,13 @@ describe('CopyConfigurationSection (KAN-220)', () => {
     renderWithProviders(<CopyConfigurationSection dealershipId="dealership-1" />, { route: '/administration/business' })
     await waitFor(() => expect(backend.callsTo(/\/copy-configuration\/sources$/, 'GET')).toHaveLength(1))
     expect(screen.queryByRole('region', { name: 'Konfiguration übernehmen von …' })).toBeNull()
+  })
+
+  it('offers the service catalogue only where the Betrieb holds Aftersales (KAN-818)', async () => {
+    installFakeBackend([ME(true, ALL_ENTITLEMENTS.filter((module) => module !== 'aftersales')), SOURCES])
+    renderWithProviders(<CopyConfigurationSection dealershipId="dealership-1" />, { route: '/administration/business' })
+    const section = within(await screen.findByRole('region', { name: 'Konfiguration übernehmen von …' }))
+    expect(section.getByRole('checkbox', { name: (name) => name.startsWith('Einstellungen') })).toBeInTheDocument()
+    expect(section.queryByRole('checkbox', { name: (name) => name.startsWith('Servicekatalog') })).toBeNull()
   })
 })

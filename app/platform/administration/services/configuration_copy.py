@@ -584,7 +584,8 @@ def _copy_registered(
             return
     bind = db.get_bind()
     for item in copier.copy(
-        lambda: Session(bind=bind),
+        # As SessionLocal: no autoflush, no expiry on commit — like every other own session.
+        lambda: Session(bind=bind, autoflush=False, expire_on_commit=False),
         source_dealership_id=source.id,
         target_dealership_id=target.id,
         actor_id=actor_id,

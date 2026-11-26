@@ -73,5 +73,11 @@
     "checkNeededHint": "Le travail reçoit un contrôle qualité par une personne qui n'y a pas travaillé.",
     "addLabour": "Ajouter un travail",
     "addText": "Ajouter un texte"
+  },
+  "missing": {
+    "name": "Saisissez un nom.",
+    "text": "Saisissez le texte.",
+    "category": "Choisissez une catégorie de travail.",
+    "time": "Saisissez le temps."
   }
 }

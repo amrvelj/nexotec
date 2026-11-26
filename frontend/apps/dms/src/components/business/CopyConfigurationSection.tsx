@@ -18,15 +18,16 @@ import { useContactGroups } from '../../hooks/useContactGroups'
 import { useFieldHint } from '../../hooks/useFieldHint'
 import { SectionCard } from './SectionCard'
 
-const SUBSETS: ConfigurationCopySubset[] = [
+const ALL_SUBSETS: ConfigurationCopySubset[] = [
   'standard_texts',
   'document_template',
   'number_ranges',
   'contact_groups',
   'settings',
-  // KAN-818: Aftersales' service catalogue (skipped when either Betrieb lacks the module).
+  // KAN-818: Aftersales' service catalogue — offered only where the Betrieb holds the module.
   'service_catalogue',
 ]
+const SUBSET_MODULE: Partial<Record<ConfigurationCopySubset, string>> = { service_catalogue: 'aftersales' }
 const OUTCOME_TONE: Record<ConfigurationCopyItem['outcome'], BadgeTone> = {
   created: 'success',
   overwritten: 'warning',
@@ -46,6 +47,7 @@ const KNOWN_REASONS = new Set([
   // KAN-818: the service catalogue's items.
   'labour_category_missing',
   'module_not_held',
+  'package_inactive_here',
   'subset_not_available',
   'time_unit_differs',
 ])
@@ -73,10 +75,15 @@ export function CopyConfigurationSection({ dealershipId }: { dealershipId: strin
 }
 
 function CopyConfigurationForm({ dealershipId, sources }: { dealershipId: string; sources: ConfigurationCopySourceList }) {
+  const { entitlements } = useAuth()
+  const offered = ALL_SUBSETS.filter((subset) => {
+    const module = SUBSET_MODULE[subset]
+    return module === undefined || entitlements.includes(module)
+  })
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [sourceId, setSourceId] = useState<string | null>(null)
-  const [subsets, setSubsets] = useState<ConfigurationCopySubset[]>(SUBSETS)
+  const [subsets, setSubsets] = useState<ConfigurationCopySubset[]>(offered)
   const [preview, setPreview] = useState<ConfigurationCopyResult | null>(null)
   const [done, setDone] = useState<ConfigurationCopyResult | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -107,7 +114,7 @@ function CopyConfigurationForm({ dealershipId, sources }: { dealershipId: string
   }
   const toggle = (subset: ConfigurationCopySubset, on: boolean) => {
     reset()
-    setSubsets((current) => (on ? SUBSETS.filter((s) => s === subset || current.includes(s)) : current.filter((s) => s !== subset)))
+    setSubsets((current) => (on ? offered.filter((s) => s === subset || current.includes(s)) : current.filter((s) => s !== subset)))
   }
   const changes = preview ? preview.counts.created + preview.counts.overwritten : 0
 
@@ -135,7 +142,7 @@ function CopyConfigurationForm({ dealershipId, sources }: { dealershipId: string
         />
         <Checkbox.Group label={t('business.copyConfiguration.subsets')} value={subsets}>
           <Stack gap={6} mt={4}>
-            {SUBSETS.map((subset) => (
+            {offered.map((subset) => (
               <SubsetCheckbox key={subset} subset={subset} onToggle={toggle} />
             ))}
           </Stack>

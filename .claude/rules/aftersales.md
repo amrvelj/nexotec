@@ -71,7 +71,8 @@ Last verified against main@32ad509 (2026-11-25). -->
   `/administration/service-catalogue`. «From the catalogue» is `POST /service-orders/{id}/jobs/{jobId}/service-packages`
   (If-Match on the order): labour lands as labour by time with the package's time and unit, priced by
   `positions.propose_rate` (check 11), `check_needed` copied onto `service_order_position`; whole or not
-  at all (`service_package_labour_rate_missing`); an inactive package 409 `service_package_inactive`.
+  at all (`service_package_labour_rate_missing`); an inactive package 409 `service_package_inactive`; the order's version
+  moves once per copy. D13's third choice «Aus dem Katalog» (`PositionDialog`) lists `?active=true` and calls it.
   Nothing on a workshop position names the package (check 45); the history row names it. Copied from a
   sister Betrieb by `ServiceCatalogueCopier` through `app.core.configuration_copy` (its own session,
-  ADR-047, ADR-236). Nexotec ships no package (ruling 174). The D13 choice on the order page is not built yet.
+  ADR-047, ADR-236). A copy never reactivates a package the target set inactive (`package_inactive_here`). Nexotec ships no package (ruling 174).

@@ -100,7 +100,8 @@
     "kindLabel": "Kind of position",
     "kinds": {
       "labour": "Labour",
-      "text": "Text"
+      "text": "Text",
+      "package": "From the catalogue"
     },
     "text": "Description",
     "labourCategory": "Labour category",
@@ -130,10 +131,15 @@
       "text": "Enter a description.",
       "category": "Choose a labour category.",
       "time": "Enter the time.",
-      "price": "Enter a price."
+      "price": "Enter a price.",
+      "package": "Choose a package."
     },
     "unitMoved": "This position was entered in {{entry}}; the business now works in {{now}}. A changed time is entered in {{now}}.",
-    "grossPreview": "Worked out from the other price, for display only; the price entered last is the one saved."
+    "grossPreview": "Worked out from the other price, for display only; the price entered last is the one saved.",
+    "package": "Package",
+    "packagesError": "The package list could not be loaded.",
+    "noPackages": "No active package in the service catalogue.",
+    "packagePositions": "Will be added:"
   },
   "overview": {
     "parties": "Parties",

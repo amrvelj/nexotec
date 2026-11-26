@@ -178,7 +178,9 @@ describe('ServicePackagesPage (KAN-818)', () => {
     await userEvent.click(screen.getByRole('button', { name: i18n.t('serviceCatalogue.add') }))
     const dialog = await screen.findByRole('dialog', { name: i18n.t('serviceCatalogue.dialog.createTitle') })
     const save = within(dialog).getByRole('button', { name: i18n.t('common.save') })
-    expect(save).toBeDisabled() // no name yet
+    // The submit is never disabled: it says what is missing and sends nothing (UI/UX Specification, Forms).
+    await userEvent.click(save)
+    expect(await within(dialog).findByText(i18n.t('serviceCatalogue.missing.name'))).toBeInTheDocument()
     const [name] = within(dialog).getAllByRole('textbox', { name: (n) => n.startsWith(i18n.t('serviceCatalogue.dialog.name')) })
     await userEvent.type(name, 'Klimaservice')
     await userEvent.type(
@@ -190,7 +192,10 @@ describe('ServicePackagesPage (KAN-818)', () => {
     await userEvent.click(within(dialog).getByRole('button', { name: i18n.t('serviceCatalogue.dialog.addLabour') }))
     const first = within(dialog).getByLabelText(i18n.t('serviceCatalogue.dialog.positionLabel', { position: 1 }))
     await userEvent.type(within(first).getByRole('textbox', { name: (n) => n.startsWith(i18n.t('serviceCatalogue.dialog.text')) }), 'Klimaanlage prüfen')
-    expect(save).toBeDisabled() // a labour position without category and time
+    await userEvent.click(save)
+    expect(within(first).getByText(i18n.t('serviceCatalogue.missing.category'))).toBeInTheDocument()
+    expect(within(first).getByText(i18n.t('serviceCatalogue.missing.time'))).toBeInTheDocument()
+    expect(calls(backend, 'POST', new RegExp(`${PACKAGES}$`))).toHaveLength(0)
     await userEvent.click(within(first).getByRole('textbox', { name: (n) => n.startsWith(i18n.t('serviceCatalogue.dialog.category')) }))
     await userEvent.click(await screen.findByRole('option', { name: 'Mechanik' }))
     await userEvent.type(within(first).getByRole('textbox', { name: (n) => n.startsWith(i18n.t('serviceCatalogue.dialog.time')) }), '9')
