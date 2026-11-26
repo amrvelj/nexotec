@@ -1,7 +1,7 @@
 {
   "setTitle": "Imposta blocco creditizio",
   "clearTitle": "Rimuovi blocco creditizio",
-  "setBody": "Bloccare un contatto impedisce la conferma di qualsiasi contratto. Un’offerta resta possibile — spesso è così che il blocco viene risolto.",
+  "setBody": "Un blocco creditizio impedisce la conferma di qualsiasi contratto. Un’offerta resta possibile — spesso è così che il blocco creditizio viene risolto.",
   "clearBody": "Rimuovere il blocco creditizio su {{number}}? I contratti possono essere confermati di nuovo immediatamente.",
   "reasonLabel": "Motivo",
   "reasonRequired": "È richiesto un motivo per applicare un blocco creditizio.",

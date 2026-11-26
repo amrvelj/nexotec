@@ -135,9 +135,10 @@ describe('ContactBlockDialog — «Gesperrt» (KAN-810)', () => {
     }
   })
 
-  it('who may not write the customer role is not offered the block', async () => {
+  it('a supplier-only contact is offered neither block', async () => {
     // Same terms as the credit block (Anto, 2026-11-26): a supplier-only
-    // contact has no customer role, so neither block is offered.
+    // contact has no customer role, so neither block is offered. Without the
+    // permission to write that role: contactPermissions.render.test.tsx.
     const user = userEvent.setup()
     installBackend({ roles: ['supplier'] })
     renderDetail()

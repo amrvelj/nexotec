@@ -13,7 +13,7 @@
   "contact_group_read_only": "Diese Kontaktgruppe ist in Ihrem Betrieb nicht eingeschaltet und kann hier nicht entfernt werden.",
   "contact_group_assignment_exists": "Eine Kontaktgruppe dieser Änderung ist beim Kontakt bereits gesetzt – der Kontakt wurde in der Zwischenzeit geändert. Laden Sie ihn neu und versuchen Sie es erneut.",
   "customer_role_required": "Dieses Feld gehört zur Rolle Kunde, die dieser Kontakt nicht hat. Geben Sie ihm zuerst die Rolle Kunde.",
-  "customer_role_not_permitted": "Die Rolle Kunde und ihre Felder (Status, Betreuer, Kreditsperre) ändern Verkauf und Kundendienst. Ihre Rolle gibt Kontakten die Rolle Lieferant.",
+  "customer_role_not_permitted": "Die Rolle Kunde und ihre Felder (Status, Betreuer, Kreditsperre, Sperre) ändern Verkauf und Kundendienst. Ihre Rolle gibt Kontakten die Rolle Lieferant.",
   "customer_role_credit_blocked": "Die Rolle Kunde kann nicht entfernt werden, solange eine Kreditsperre besteht. Heben Sie die Sperre zuerst auf.",
   "customer_role_blocked": "Die Rolle Kunde kann nicht entfernt werden, solange der Kontakt gesperrt ist. Heben Sie die Sperre zuerst auf.",
   "contact_block_reason_required": "Für eine Sperre ist ein Grund erforderlich.",

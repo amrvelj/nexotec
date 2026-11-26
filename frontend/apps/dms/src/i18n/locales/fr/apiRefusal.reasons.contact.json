@@ -13,7 +13,7 @@
   "contact_group_read_only": "Ce groupe de contacts n’est pas activé dans votre entreprise et ne peut pas être retiré ici.",
   "contact_group_assignment_exists": "Un groupe de contacts de cette modification figure déjà chez le contact — il a été modifié entre-temps. Rechargez-le et réessayez.",
   "customer_role_required": "Ce champ relève du rôle client, que ce contact n’a pas. Donnez-lui d’abord le rôle client.",
-  "customer_role_not_permitted": "Le rôle client et ses champs (statut, conseiller, blocage de crédit) sont modifiés par la vente et l’après-vente. Votre rôle donne aux contacts le rôle fournisseur.",
+  "customer_role_not_permitted": "Le rôle client et ses champs (statut, conseiller, blocage de crédit, blocage) sont modifiés par la vente et l’après-vente. Votre rôle donne aux contacts le rôle fournisseur.",
   "customer_role_credit_blocked": "Le rôle client ne peut pas être retiré tant qu’un blocage de crédit est en place. Levez d’abord le blocage.",
   "customer_role_blocked": "Le rôle client ne peut pas être retiré tant que le contact est bloqué. Levez d’abord le blocage.",
   "contact_block_reason_required": "Un motif est requis pour bloquer un contact.",

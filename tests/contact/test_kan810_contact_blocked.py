@@ -193,7 +193,7 @@ def test_reconciliation_reports_a_blocked_contact_without_the_customer_role(clie
     manager = _as(dealership)
     supplier = _created(client, manager, roles=["supplier"])
     customer = _created(client, manager)
-    _block(client, manager, customer, True)
+    assert _block(client, manager, customer, True).status_code == 200
     check = next(
         c for c in CHECKS
         if isinstance(c, StateCheck) and c.label == "contact without the customer role carries a customer field"

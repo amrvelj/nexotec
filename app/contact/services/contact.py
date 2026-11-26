@@ -744,7 +744,6 @@ def set_credit_block(
     return contact
 
 
-
 def set_block(
     db: Session,
     *,
@@ -798,6 +797,7 @@ def set_block(
     db.commit()
     db.refresh(contact)
     return contact
+
 
 # KAN-371 (Anto, 2026-10-18, option A; ADR-093): the History tab's ids are
 # named on read — the audit log is append-only and keeps only the ids. The

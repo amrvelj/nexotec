@@ -6,6 +6,10 @@ paths:
   - "app/contact/services/contact_merge.py"
   - "app/contact/api/contacts.py"
   - "app/contact/reconciliation.py"
+  - "app/contact/services/contact_search.py"
+  - "app/contact/models/contact.py"
+  - "app/contact/schemas/contact.py"
+  - "frontend/apps/dms/src/modules/contact/pages/ContactsListPage.tsx"
   - "tests/contact/test_kan464_*.py"
   - "tests/contact/test_contact_credit_block.py"
   - "tests/contact/test_kan810_*.py"
@@ -20,7 +24,7 @@ paths:
   - "frontend/apps/dms/src/modules/contact/components/contact-detail/contactRoles*"
 ---
 <!-- Maintainer note. Split from contact.md (KAN-810, 2026-11-26) when «Gesperrt» took it over its
-budget; the text of the two sections is unchanged. KAN-464 (Q1 2026-11-14 A, Q3), ADR-065, KAN-810. -->
+budget; the two sections moved as they were, with «Gesperrt» added to them. KAN-464 (Q1 2026-11-14 A, Q3), ADR-065, KAN-810. -->
 
 # Contacts — roles and blocks
 
