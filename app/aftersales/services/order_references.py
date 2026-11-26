@@ -19,8 +19,9 @@ three-column pattern. Aftersales reads them only through each owner's
   the record the car lives on now.
 - **Every order takes the new name** — on a merge and nightly, whatever its
   state (the ticket's criterion: «it takes the survivor's label»). Sales keeps
-  a signed contract's name (Anto's ruling 1A for Sales); whether a frozen
-  workshop order should keep its name too is put to Anto on KAN-837.
+  a signed contract's name (Anto's ruling 1A, for Sales only); a ruling that a
+  frozen workshop order keeps its name would change `_CONTACT_ROLES`' callers
+  here and in `refresh_order_labels`.
 - **Nightly** (`refresh_order_labels`, the daily job `aftersales.order_labels`,
   `.claude/rules/events-worker.md`): no `version` bump, a current label only
   restamped, an id naming nothing or a merged record left alone (the merge

@@ -13,6 +13,7 @@ import uuid
 
 from sqlalchemy import select, update
 
+from app import worker
 from app.aftersales import reconciliation
 from app.aftersales.consumers import (
     CONTACT_MERGED_CONSUMER,
@@ -273,3 +274,14 @@ def test_the_nightly_job_relabels_a_car_whose_record_changed(client, db_session)
     refresh_order_labels(db_session)
 
     assert _order(db_session, order["id"]).vehicle_label == "WVWZZZ1KZAW837099"
+
+
+def test_the_worker_heartbeat_records_the_order_label_age(client, db_session, monkeypatch):
+    betrieb = make_betrieb(client, db_session)
+    new_order(client, db_session, betrieb)
+    recorded: dict[str, float | None] = {}
+    monkeypatch.setattr(worker, "record_label_age_seconds", lambda label, age: recorded.__setitem__(label, age))
+
+    worker._heartbeat(db_session, worker.InProcessTransport(lambda: db_session))
+
+    assert recorded["aftersales.order"] is not None
