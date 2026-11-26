@@ -17,6 +17,7 @@ deliberate, not an oversight.
 import logging
 import os
 import time
+import uuid
 
 from sqlalchemy.orm import Session
 
@@ -28,14 +29,19 @@ from app.contact.consumers import (
 from app.contact.consumers import handle_stock_item_purchased_message as handle_trade_in_purchased_message
 from app.contact.consumers import handle_stock_item_storno_message as handle_trade_in_storno_message
 from app.contact.public import (
+    contact_display_name,
+    get_contact_or_404,
+    get_contact_sales_labels,
     oldest_advisor_label_age_seconds,
     oldest_vehicle_party_label_age_seconds,
     refresh_advisor_labels,
     refresh_vehicle_party_labels,
+    resolve_live_contact_id,
 )
 from app.contact.services.vehicle_merge import handle_vehicle_merged_message
 from app.core.daily_scheduler import register_daily_job, run_due_daily_jobs
 from app.core.deployment_environment import require_valid_deployment_environment
+from app.core.errors import NotFoundError
 from app.core.idempotent_route import run_daily_idempotency_record_purge
 from app.core.observability import (
     configure_logging,
@@ -48,6 +54,7 @@ from app.core.observability import (
     record_reconciliation_age_seconds,
 )
 from app.core.outbox import consumer_lag_seconds, dead_letter_count, oldest_pending_age_seconds
+from app.core.outbox_model import OutboxMessage
 from app.core.outbox_transport import InProcessTransport
 from app.core.outbox_worker import poll_once
 from app.core.reconciliation import seconds_since_last_reconciliation
@@ -128,6 +135,13 @@ from app.platform.daily_jobs import (
     run_daily_status_page_notifications,
     run_daily_support_session_expiry,
     run_daily_user_expiry,
+)
+from app.platform.public import (
+    ContactNow,
+    lock_agreement_contact,
+    oldest_agreement_contact_label_age_seconds,
+    refresh_agreement_contact_labels,
+    repoint_agreements_of_merged_contact,
 )
 from app.reconciliation_runner import run_all_daily
 from app.reporting.consumers import CONSUMER_NAME as REPORTING_PUBLIC_STOCK_CONSUMER
@@ -244,6 +258,13 @@ def register_handlers(transport: InProcessTransport) -> None:
         "contact.merged",
         consumer_name="inventory.contact_merged",
         handler=move_stock_suppliers_on_contact_merged,
+    )
+    # KAN-831 — and the duplicate's labour-rate agreements to the survivor, in
+    # platform's own transaction; composed here (contact sits above platform).
+    transport.register(
+        "contact.merged",
+        consumer_name="platform.labour_rate_agreements_on_contact_merged",
+        handler=move_labour_rate_agreements_on_contact_merged,
     )
     # KAN-632 (ADR-147) — the contact context's record of Stock's bookings,
     # which the two trade-in consumers below judge an event's order by. Its
@@ -502,6 +523,8 @@ def _heartbeat(db, transport: InProcessTransport) -> None:
     record_label_age_seconds("planning.person", planning_person_label_age)
     planning_location_label_age = oldest_planning_location_label_age_seconds(db)
     record_label_age_seconds("planning.location", planning_location_label_age)
+    agreement_label_age = oldest_agreement_contact_label_age_seconds(db)
+    record_label_age_seconds("platform.labour_rate_agreement", agreement_label_age)
 
     logger.info(
         "outbox heartbeat",
@@ -518,6 +541,7 @@ def _heartbeat(db, transport: InProcessTransport) -> None:
             "connectionLocationLabelAgeSeconds": location_label_age,
             "planningPersonLabelAgeSeconds": planning_person_label_age,
             "planningLocationLabelAgeSeconds": planning_location_label_age,
+            "labourRateAgreementLabelAgeSeconds": agreement_label_age,
         },
     )
 
@@ -584,6 +608,58 @@ def _refresh_supplier_labels(db: Session) -> None:
 def _refresh_location_labels(db: Session) -> None:
     changed = refresh_location_labels(db)
     logger.info("integration.location_labels: %d connection(s) relabelled", changed)
+
+
+def move_labour_rate_agreements_on_contact_merged(db: Session, message: OutboxMessage) -> None:
+    """KAN-831 — a contact merge moves the duplicate's labour-rate agreements
+    to the survivor in platform's own transaction (ADR-047). Composed here
+    because contact sits above platform (ADR-131): this root reads contact
+    (the end of the survivor's merge chain, as Sales' and Stock's consumers
+    do — delivery is unordered — and its name) and hands both to platform. A
+    chain that leaves the group or does not end falls back to the payload's
+    survivor; a survivor the group cannot read moves the rows without a new
+    label. Idempotent: a redelivery finds nothing left on the duplicate."""
+
+    if message.tenant_id is None:
+        raise ValueError(f"contact.merged message {message.id} has no tenant_id.")
+    payload = message.payload or {}
+    duplicate_id = uuid.UUID(payload["contactId"])
+    survivor_id = uuid.UUID(payload["duplicateOfContactId"])
+    # Before any agreement is read: a create naming the duplicate in flight commits
+    # first (and is moved below) or waits and reads it merged.
+    lock_agreement_contact(db, duplicate_id)
+    target_id = resolve_live_contact_id(db, group_id=message.tenant_id, contact_id=survivor_id) or survivor_id
+    try:
+        label: str | None = contact_display_name(get_contact_or_404(db, message.tenant_id, target_id))
+    except NotFoundError:
+        label = None
+    report = repoint_agreements_of_merged_contact(
+        db, group_id=message.tenant_id, duplicate_id=duplicate_id, target_id=target_id, target_label=label
+    )
+    logger.info(
+        "platform.labour_rate_agreements_on_contact_merged: %d agreement row(s) moved, %d set aside",
+        len(report.moved),
+        len(report.set_aside),
+    )
+
+
+def _agreement_contacts_now(db: Session):
+    def read(contact_ids: set[uuid.UUID]) -> dict[uuid.UUID, ContactNow]:
+        return {
+            contact_id: ContactNow(label=current.label, merged=current.merged)
+            for contact_id, current in get_contact_sales_labels(db, contact_ids).items()
+        }
+
+    return read
+
+
+def _refresh_agreement_contact_labels(db: Session) -> None:
+    report = refresh_agreement_contact_labels(db, labels_of=_agreement_contacts_now(db))
+    logger.info(
+        "platform.labour_rate_agreement_labels: %d agreement row(s) relabelled, %d left alone (no contact, or a merged one)",
+        len(report.changed),
+        len(report.unresolved),
+    )
 
 
 def _refresh_planning_person_labels(db: Session) -> None:
@@ -690,6 +766,10 @@ def register_daily_jobs() -> None:
        within a day. A deactivated user's label is kept as it was.
     7c. ``planning.location_labels`` — KAN-808 PR-1b: the same for every
        planner resource's copy of its location's name.
+    7d. ``platform.labour_rate_agreement_labels`` — KAN-831: the same for a
+       labour-rate agreement's copy of its contact's name, read through
+       app.contact.public here (contact sits above platform). A merged
+       contact's row is left alone (the merge consumer moves it).
     8. ``reconciliation.run_all`` — the nightly cross-context reconciliation
        (P-10, CLAUDE.md rule 10). There are no cross-context foreign keys
        anywhere in this codebase, so the database cannot detect a dangling
@@ -786,6 +866,7 @@ def register_daily_jobs() -> None:
     register_daily_job("integration.location_labels", _refresh_location_labels)
     register_daily_job("planning.person_labels", _refresh_planning_person_labels)
     register_daily_job("planning.location_labels", _refresh_planning_location_labels)
+    register_daily_job("platform.labour_rate_agreement_labels", _refresh_agreement_contact_labels)
     register_daily_job("reconciliation.run_all", run_all_daily)
     register_daily_job("inventory.orphaned_reservations.release", run_daily_reservation_sweep)
     # 9b. KAN-724: a stock item a vehicle merge had to leave on the duplicate follows once nothing blocks it.

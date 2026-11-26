@@ -415,6 +415,33 @@ def _stock_suppliers_on_contact_merged(db_session, engine, monkeypatch):
     return message, items_on_survivor
 
 
+def _labour_rate_agreements_on_contact_merged(db_session, engine, monkeypatch):
+    """KAN-831 — a contact merge: platform moves the duplicate's labour-rate
+    agreement to the survivor once (the measure counts the agreements on the survivor)."""
+
+    from app.platform.organisation.models.labour_rate import LabourRateAgreement
+    from tests.cross_context.test_kan831_labour_rate_agreement_contact_merge import _agreement
+    from tests.platform.test_kan806_labour_rates import RATES_ENTERED_KEY, _category, _set
+    from tests.sales.test_sales_contact_merged_consumer import _contact, _merge
+
+    dealership = _make_dealership(db_session)
+    _set(db_session, dealership.id, RATES_ENTERED_KEY, "net")
+    group_id = dealership.dealer_group_id
+    survivor = _contact(db_session, group_id, dealership.id, "Survivor")
+    duplicate = _contact(db_session, group_id, dealership.id, "Duplicate")
+    row = _agreement(db_session, dealership.id, _category(db_session, dealership.id), duplicate)
+    message = _merge(db_session, duplicate_id=duplicate.id, survivor_id=survivor.id, group_id=group_id)
+
+    assert row.contact_id == duplicate.id
+
+    def agreements_on_survivor(db: Session) -> int:
+        return db.scalar(
+            select(func.count()).select_from(LabourRateAgreement).where(LabourRateAgreement.contact_id == survivor.id)
+        )
+
+    return message, agreements_on_survivor
+
+
 def _invoice_requested_with_plate(db_session, engine, monkeypatch):
     """KAN-523 — «Rechnung anfordern» with the plate the car leaves with, from
     the real producer: vehicle-mdm records it on the sold car, once."""
@@ -1146,6 +1173,7 @@ _FIXTURES: dict[str, Fixture] = {
     "contact.trade_in_storno": _trade_in_storno,
     "sales.contact_merged": _contact_merged,
     "inventory.contact_merged": _stock_suppliers_on_contact_merged,
+    "platform.labour_rate_agreements_on_contact_merged": _labour_rate_agreements_on_contact_merged,
     "sales.stock_item_reassigned": _stock_item_reassigned,
     "inventory.marketplace_transmission_on_publish": _stock_item_published,
     "reporting.public_stock_listing": _website_listing_changed,
