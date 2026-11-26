@@ -82,10 +82,11 @@
     },
     "blockingStrip": {
       "creditBlockTitle": "Blocco creditizio",
+      "blockedTitle": "Bloccato",
       "doNotContactTitle": "Non contattare",
       "doNotContactNote": "Nessun contatto commerciale. L’assistenza e la corrispondenza obbligatoria per legge restano consentite; un’offerta o un contratto no."
     },
-    "customerRoleFieldsHint": "Stato, consulente e blocco del credito appartengono al ruolo cliente.",
+    "customerRoleFieldsHint": "Stato, consulente, blocco del credito e blocco appartengono al ruolo cliente.",
     "removeCustomerRole": {
       "title": "Togliere il ruolo cliente?",
       "body": "Il contatto perde il suo stato e il suo consulente; entrambi appartengono al ruolo cliente. La cronologia registra la modifica.",
@@ -216,7 +217,8 @@
       "vehicle_party_add": "Veicolo collegato",
       "vehicle_party_update": "Collegamento al veicolo modificato",
       "vehicle_party_remove": "Collegamento al veicolo terminato",
-      "credit_block_changed": "Blocco creditizio modificato"
+      "credit_block_changed": "Blocco creditizio modificato",
+      "block_changed": "Blocco modificato"
     },
     "otherAction": "Modifica registrata",
     "fields": {
@@ -235,6 +237,8 @@
       "duplicateOfContactId": "Duplicato del contatto",
       "creditBlock": "Blocco creditizio",
       "creditBlockReason": "Motivo del blocco creditizio",
+      "blocked": "Bloccato",
+      "blockedReason": "Motivo del blocco",
       "vehiclePartiesRepointed": "Collegamenti veicolo trasferiti",
       "vehiclePartiesKeptClosed": "Collegamenti veicolo mantenuti chiusi",
       "vehiclePartiesKeptClosedIds": "Collegamenti veicolo mantenuti chiusi (veicoli)",

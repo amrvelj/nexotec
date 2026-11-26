@@ -9,6 +9,8 @@
   "removeDoNotContact": "Retirer « ne pas contacter »",
   "setCreditBlock": "Définir un blocage de crédit…",
   "removeCreditBlock": "Retirer le blocage de crédit",
+  "setBlock": "Bloquer le contact…",
+  "removeBlock": "Lever le blocage",
   "mergeInto": "Fusionner avec un autre contact…",
   "mergeDisabledMerged": "Cet enregistrement a déjà été fusionné avec un autre.",
   "copyContactNumber": "Copier le numéro de contact",

@@ -226,6 +226,8 @@ const REASON_KEYS: Record<string, string> = {
       'unknown_field',
       'contact_group_assignment_exists',
       'customer_role_credit_blocked',
+      'customer_role_blocked',
+      'contact_block_reason_required',
       'contact_role_exists',
       'customer_role_required',
       'customer_role_not_permitted',

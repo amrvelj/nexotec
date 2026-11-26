@@ -33,6 +33,9 @@ class ContactRef:
     lifecycle_status: ContactLifecycleStatus
     credit_block: bool
     credit_block_reason: str | None
+    # KAN-810: «Gesperrt» — the workshop order refuses such a contact.
+    blocked: bool
+    blocked_reason: str | None
 
 
 def _contact_ref(row: Contact) -> ContactRef:
@@ -47,6 +50,8 @@ def _contact_ref(row: Contact) -> ContactRef:
         lifecycle_status=row.lifecycle_status,
         credit_block=row.credit_block,
         credit_block_reason=row.credit_block_reason,
+        blocked=row.blocked,
+        blocked_reason=row.blocked_reason,
     )
 
 

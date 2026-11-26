@@ -99,8 +99,11 @@ def make_betrieb(client, db: Session, *, rate: str | None = "150.00", entered: P
 
 
 def make_contact(db: Session, betrieb: Betrieb, *, name: str = "Muster AG", blocked_reason: str | None = None,
+                 credit_block_reason: str | None = None,
                  status: ContactLifecycleStatus = ContactLifecycleStatus.ACTIVE,
                  group_id: uuid.UUID | None = None) -> Contact:
+    """`blocked_reason` makes the contact «Gesperrt» (KAN-810 Q1); `credit_block_reason` gives it a
+    credit block, which does not refuse an order."""
     contact = Contact(
         group_id=group_id or betrieb.group_id,
         contact_number=f"K-{uuid.uuid4().hex[:10]}",
@@ -108,8 +111,10 @@ def make_contact(db: Session, betrieb: Betrieb, *, name: str = "Muster AG", bloc
         company_name=name,
         language="de",
         lifecycle_status=status,
-        credit_block=blocked_reason is not None,
-        credit_block_reason=blocked_reason,
+        blocked=blocked_reason is not None,
+        blocked_reason=blocked_reason,
+        credit_block=credit_block_reason is not None,
+        credit_block_reason=credit_block_reason,
     )
     db.add(contact)
     db.commit()

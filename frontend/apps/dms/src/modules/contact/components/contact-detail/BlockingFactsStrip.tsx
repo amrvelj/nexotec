@@ -1,5 +1,5 @@
 import { Alert, Stack } from '@mantine/core'
-import { Ban, Lock } from 'lucide-react'
+import { Ban, Lock, ShieldOff } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { ContactRead } from '../../../../api/types'
 
@@ -8,9 +8,9 @@ import type { ContactRead } from '../../../../api/types'
  * a field in the middle of one. A fact that changes what you may do cannot
  * be discovered by scrolling." KAN-44.
  *
- * `creditBlock` (red) carries `creditBlockReason` verbatim; `do_not_contact`
- * (amber) carries a fixed note. Both render when both are true, blocked
- * first. Neither true renders NOTHING — not an empty "not blocked" row
+ * «Gesperrt» (`blocked`, red, KAN-810) carries `blockedReason` verbatim, and
+ * so does `creditBlock` (red) with `creditBlockReason`; `do_not_contact`
+ * (amber) carries a fixed note. Each renders when it is true, in that order. Neither true renders NOTHING — not an empty "not blocked" row
  * (the component returns `null`, so there is no DOM node at all).
  *
  * The prototype's own strip (`44-screens-details.js` `overview()`):
@@ -19,13 +19,23 @@ import type { ContactRead } from '../../../../api/types'
  */
 export function BlockingFactsStrip({ contact }: { contact: ContactRead }) {
   const { t } = useTranslation()
+  const isContactBlocked = contact.blocked
   const isBlocked = contact.creditBlock
   const isDoNotContact = contact.lifecycleStatus === 'do_not_contact'
 
-  if (!isBlocked && !isDoNotContact) return null
+  if (!isContactBlocked && !isBlocked && !isDoNotContact) return null
 
   return (
     <Stack gap="xs">
+      {isContactBlocked && (
+        <Alert
+          color="red"
+          icon={<ShieldOff size={18} />}
+          title={t('contactDetail.overview.blockingStrip.blockedTitle')}
+        >
+          {contact.blockedReason ?? ''}
+        </Alert>
+      )}
       {isBlocked && (
         <Alert
           color="red"

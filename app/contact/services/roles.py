@@ -20,18 +20,20 @@ role (a supplier only):
 - has no advisor: none is defaulted on create (D-24 is a customer rule),
   and setting one is 422 `customer_role_required`. It never enters the
   unassigned queue (FR-A-37);
-- cannot be credit-blocked (422 `customer_role_required`).
+- cannot be credit-blocked nor «Gesperrt» (KAN-810) (422 `customer_role_required`).
 
 Taking the customer role away closes those fields in the same audited
 write: prospect / inactive become `active`, the advisor is cleared. A
 credit block is a deliberate fact someone must lift first: taking the role
-away from a blocked contact is 409 `customer_role_credit_blocked`.
+away from a blocked contact is 409 `customer_role_credit_blocked`, and from
+a «Gesperrt» one 409 `customer_role_blocked` (KAN-810).
 
 **Who may give which role** (Q3, Anto, 2026-11-14, A): sales and
 aftersales give both roles; inventory (purchasing) writes contacts too but
 gives only the supplier role. The matrix row `contact_customer_role` says
 who may write the customer role's data — giving or taking the role, the
-lifecycle values that are the role's, the advisor, the credit block, and a
+lifecycle values that are the role's, the advisor, the credit block,
+«Gesperrt» (KAN-810), and a
 merge of a contact that holds it (the merge moves the role and its
 fields). Anyone the `contacts` row lets write does the rest: contact
 points, consent, setting do-not-contact (lifting it on a customer is the
@@ -189,6 +191,12 @@ def apply_role_rules_on_update(contact: Contact, *, holds_customer_after: bool, 
         raise ConflictError(
             "The customer role cannot be taken away while the contact is credit-blocked — lift the block first.",
             details={"reason": "customer_role_credit_blocked"},
+        )
+    if contact.blocked:
+        # KAN-810: «Gesperrt» is the customer role's too (module docstring).
+        raise ConflictError(
+            "The customer role cannot be taken away while the contact is blocked — lift the block first.",
+            details={"reason": "customer_role_blocked"},
         )
     if "lifecycle_status" not in changes and contact.lifecycle_status in CUSTOMER_LIFECYCLE_STATUSES:
         changes["lifecycle_status"] = NEUTRAL_LIFECYCLE_STATUS

@@ -82,10 +82,11 @@
     },
     "blockingStrip": {
       "creditBlockTitle": "Kreditgesperrt",
+      "blockedTitle": "Gesperrt",
       "doNotContactTitle": "Nicht kontaktieren",
       "doNotContactNote": "Kein kommerzieller Kontakt. Service und gesetzlich vorgeschriebene Korrespondenz sind weiterhin erlaubt; eine Offerte oder ein Vertrag nicht."
     },
-    "customerRoleFieldsHint": "Status, Betreuer und Kreditsperre gehören zur Rolle Kunde.",
+    "customerRoleFieldsHint": "Status, Betreuer, Kreditsperre und Sperre gehören zur Rolle Kunde.",
     "removeCustomerRole": {
       "title": "Rolle Kunde entfernen?",
       "body": "Der Kontakt verliert seinen Status und seinen Betreuer; beides gehört zur Rolle Kunde. Der Verlauf hält die Änderung fest.",
@@ -216,7 +217,8 @@
       "vehicle_party_add": "Fahrzeug verknüpft",
       "vehicle_party_update": "Fahrzeugverknüpfung geändert",
       "vehicle_party_remove": "Fahrzeugverknüpfung beendet",
-      "credit_block_changed": "Kreditsperre geändert"
+      "credit_block_changed": "Kreditsperre geändert",
+      "block_changed": "Sperre geändert"
     },
     "otherAction": "Änderung erfasst",
     "fields": {
@@ -235,6 +237,8 @@
       "duplicateOfContactId": "Duplikat von Kontakt",
       "creditBlock": "Kreditsperre",
       "creditBlockReason": "Grund der Kreditsperre",
+      "blocked": "Gesperrt",
+      "blockedReason": "Grund der Sperre",
       "vehiclePartiesRepointed": "Fahrzeugverknüpfungen übertragen",
       "vehiclePartiesKeptClosed": "Fahrzeugverknüpfungen geschlossen behalten",
       "vehiclePartiesKeptClosedIds": "Fahrzeugverknüpfungen geschlossen behalten (Fahrzeuge)",

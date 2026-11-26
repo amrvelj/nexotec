@@ -35,6 +35,7 @@ import { OffersContractsTab, toContactDealRows } from './OffersContractsTab'
 import { HistoryTab } from './HistoryTab'
 import { ExternalIdsTab } from './ExternalIdsTab'
 import { MergeContactModal } from './MergeContactModal'
+import { ContactBlockDialog } from './ContactBlockDialog'
 import { CreditBlockDialog } from './CreditBlockDialog'
 import { LinkVehicleModal } from './LinkVehicleModal'
 import type {
@@ -113,6 +114,7 @@ export function ContactDetailContent({ contactId: id, embedded = false }: Contac
   const [mergeModalOpen, setMergeModalOpen] = useState(false)
   const [linkVehicleOpen, setLinkVehicleOpen] = useState(false)
   const [creditBlockOpen, setCreditBlockOpen] = useState(false)
+  const [blockOpen, setBlockOpen] = useState(false)
   const [creatingOffer, setCreatingOffer] = useState(false)
   const [creatingContract, setCreatingContract] = useState(false)
   const [createError, setCreateError] = useState<string | null>(null)
@@ -493,6 +495,7 @@ export function ContactDetailContent({ contactId: id, embedded = false }: Contac
     onCopyContactNumber: () => void navigator.clipboard.writeText(contact.contactNumber),
     onToggleDoNotContact: toggleDoNotContact,
     onManageCreditBlock: () => setCreditBlockOpen(true),
+    onManageBlock: () => setBlockOpen(true),
     onMergeInto: () => setMergeModalOpen(true),
     onLinkVehicle: () => setLinkVehicleOpen(true),
   }, { mayWriteCustomerRole })
@@ -678,6 +681,16 @@ export function ContactDetailContent({ contactId: id, embedded = false }: Contac
       <CreditBlockDialog
         opened={creditBlockOpen}
         onClose={() => setCreditBlockOpen(false)}
+        contact={contact}
+        onSaved={(updated) => {
+          queryClient.setQueryData(['contact', id], updated)
+          void queryClient.invalidateQueries({ queryKey: ['contact', id, 'history'] })
+        }}
+      />
+      <ContactBlockDialog
+        kind="contact"
+        opened={blockOpen}
+        onClose={() => setBlockOpen(false)}
         contact={contact}
         onSaved={(updated) => {
           queryClient.setQueryData(['contact', id], updated)
