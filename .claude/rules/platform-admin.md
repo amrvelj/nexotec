@@ -94,6 +94,10 @@ Declarations, the read, history and restore, the API, the checklist, the copy, t
 Categories, rates per location from a date, agreed rates, allocations, «which rate applies here»:
 `platform-labour-rates.md`.
 
+## Planner resources (KAN-808, S7) — backend and screen built
+The planner's lists, people and workplaces at `/administration/planner-resources` (owned by `planning`, configured
+here, A-RULE-0): `planning.md`.
+
 ## Business master data (D-A-22, D-A-25, D-A-27, FR-A-25) — built
 - `/administration/business` is the one screen for the Betrieb's own data: legal identity,
   addresses (with the Betrieb's `email` and `website`, KAN-206, for the documents' footer), address

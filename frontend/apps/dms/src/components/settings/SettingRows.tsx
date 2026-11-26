@@ -7,6 +7,7 @@ import type { AreaSettingRead, AreaSettingsRead, SettingSlotRead } from '../../a
 import { useCanWrite } from '../../auth/useCanWrite'
 import { SettingCell } from './SettingCell'
 import { SettingHistory, type HistoryScope } from './SettingHistory'
+import { numberRuleAt } from './numberRules'
 import { settingLabel } from './settingValue'
 import { useRefreshSettings, writeSetting } from './useSettings'
 
@@ -76,6 +77,9 @@ export function SettingRows({ dealershipId, data, keys, onReload }: SettingRowsP
     (setting.declaration.choiceRequires ?? [])
       .filter((rule) => !inForceAt(rule.key, locationId))
       .map((rule) => rule.choice)
+  // KAN-808: `divides` and `multipleOf` the same way — the other number in force in that
+  // column (for the Betrieb's, also at each location taking the Betrieb's value), so O6 offers
+  // only divisors of 60 that O7 stays a multiple of, and O7 takes only multiples of O6.
 
   const save = (setting: AreaSettingRead, locationId: string | null) => async (value: Parameters<typeof writeSetting>[3], version: number) => {
     await writeSetting(dealershipId, setting.declaration.key, locationId, value, version)
@@ -136,6 +140,7 @@ export function SettingRows({ dealershipId, data, keys, onReload }: SettingRowsP
                       slot={setting.dealership}
                       canWrite={canWrite}
                       unavailableChoices={unavailableAt(setting, null)}
+                      numberRule={numberRuleAt(data, setting, null)}
                       onSave={save(setting, null)}
                       onReload={onReload}
                     />
@@ -149,6 +154,7 @@ export function SettingRows({ dealershipId, data, keys, onReload }: SettingRowsP
                         locationName={location.name}
                         canWrite={canWrite && location.isActive}
                         unavailableChoices={unavailableAt(setting, location.id)}
+                        numberRule={numberRuleAt(data, setting, location.id)}
                         onSave={save(setting, location.id)}
                         onReload={onReload}
                       />

@@ -99,5 +99,16 @@
       "title": "Noch keine Änderung",
       "description": "Diese Einstellung wurde hier noch nie geändert."
     }
+  },
+  "rule": {
+    "divides": "Ein Teiler von {{number}}: {{values}}.",
+    "multipleOf": "Ein Vielfaches von «{{setting}}», hier {{values}}.",
+    "multipleOfNotSet": "Ein Vielfaches von «{{setting}}», sobald diese Einstellung gesetzt ist.",
+    "dividesSetting": "«{{setting}}» ({{values}}) muss ein Vielfaches davon bleiben.",
+    "refused": {
+      "notADivisor": "Der Wert {{value}} ist kein Teiler von {{bound}}.",
+      "notAMultiple": "Der Wert {{value}} ist kein Vielfaches von {{bound}} («{{setting}}»).",
+      "wouldNotDivide": "«{{setting}}» ({{bound}}) wäre dann kein Vielfaches von {{value}} mehr."
+    }
   }
 }

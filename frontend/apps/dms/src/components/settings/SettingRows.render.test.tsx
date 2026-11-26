@@ -4,7 +4,7 @@ import { cleanup, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import i18n from '../../i18n'
 import { renderWithProviders } from '../../test/renderWithProviders'
-import { installFakeBackend, ALL_ENTITLEMENTS, ALL_GATED_CAPABILITIES } from '../../test/fakeBackend'
+import { installFakeBackend, ALL_ENTITLEMENTS, ALL_GATED_CAPABILITIES, type FakeBackend, type FakeRoute } from '../../test/fakeBackend'
 import type { AreaSettingsRead, SettingDeclarationRead, SettingSlotRead } from '../../api/types'
 import { SettingRows } from './SettingRows'
 
@@ -27,6 +27,8 @@ const declaration = (key: string): SettingDeclarationRead => ({
   checklistItem: false,
   checklistBlocks: null,
   choiceRequires: [],
+  divides: null,
+  multipleOf: null,
 })
 
 const slot = (overrides: Partial<SettingSlotRead> = {}): SettingSlotRead => ({
@@ -62,8 +64,9 @@ beforeAll(() => {
 })
 afterEach(() => cleanup())
 
-function render(data: AreaSettingsRead, keys?: string[]) {
-  installFakeBackend([
+function render(data: AreaSettingsRead, keys?: string[], extra: FakeRoute[] = []): FakeBackend {
+  const backend = installFakeBackend([
+    ...extra,
     {
       method: 'GET',
       match: /\/auth\/me$/,
@@ -89,6 +92,7 @@ function render(data: AreaSettingsRead, keys?: string[]) {
     },
   ])
   renderWithProviders(<SettingRows dealershipId="d-1" data={data} keys={keys} onReload={() => {}} />)
+  return backend
 }
 
 const rowLabels = async () => {
@@ -223,5 +227,115 @@ describe('SettingRows (KAN-805)', () => {
     await waitFor(() => expect(betrieb.querySelector('span[style]')).toHaveStyle({ cursor: 'pointer' }))
     await userEvent.click(betrieb.querySelector('span[style]') as HTMLElement)
     expect(await screen.findByRole('option', { name: 'Arbeitswerte' })).not.toHaveAttribute('data-combobox-disabled')
+  })
+
+  // KAN-808 (PR-1c review finding 5): O6 divides 60, O7 is a multiple of O6 — named by the
+  // area API, hinted beside the value (the info icon) and offered or checked before the write.
+  const plannerArea = ({ grid = '15', slot: slotValue = null as string | null, locationGrid = null as string | null } = {}): AreaSettingsRead => ({
+    area: 'planning',
+    showsLocations: true,
+    locations: [
+      { id: 'loc-a', name: 'Hauptsitz', isActive: true },
+      { id: 'loc-b', name: 'Filiale', isActive: true },
+    ],
+    settings: [
+      {
+        declaration: {
+          ...declaration('planning.grid_minutes'),
+          area: 'planning',
+          module: 'aftersales',
+          whenNotSet: 'refuses',
+          minimum: '5',
+          maximum: '60',
+          unit: 'minutes',
+          divides: '60',
+        },
+        dealership: slot({ isSet: true, value: { number: grid }, version: 1 }),
+        locations: locationGrid ? [slot({ locationId: 'loc-a', isSet: true, value: { number: locationGrid }, version: 1 })] : [],
+      },
+      {
+        declaration: {
+          ...declaration('planning.slot_minutes'),
+          area: 'planning',
+          module: 'aftersales',
+          whenNotSet: 'refuses',
+          minimum: '5',
+          maximum: '480',
+          unit: 'minutes',
+          multipleOf: 'planning.grid_minutes',
+        },
+        dealership: slotValue ? slot({ isSet: true, value: { number: slotValue }, version: 1 }) : slot(),
+        locations: [],
+      },
+    ],
+  })
+  const rowCell = async (label: string, column: number) => {
+    const table = within(await screen.findByRole('table', { name: 'Einstellungen' }))
+    const row = table.getAllByRole('row').find((r) => r.querySelector('td')?.textContent === label)!
+    return Array.from(row.querySelectorAll('td'))[column]
+  }
+  // The write right comes from /auth/me, after the first render: wait for the editable state.
+  const openEditor = async (cell: HTMLElement) => {
+    const editable = () => Array.from(cell.querySelectorAll('span')).find((span) => span.style.cursor === 'pointer')
+    await waitFor(() => expect(editable()).toBeTruthy())
+    await userEvent.click(editable()!)
+  }
+  const gridLabel = () => i18n.t('settings.keys.planning.grid_minutes.label')
+  const slotLabel = () => i18n.t('settings.keys.planning.slot_minutes.label')
+
+  it('hints O6 as a divisor of 60 beside its value and offers only those divisors (KAN-808)', async () => {
+    render(plannerArea({ slot: '45' }), ['planning.grid_minutes', 'planning.slot_minutes'])
+    const betrieb = await rowCell(gridLabel(), 1)
+    expect(within(betrieb).getByRole('img', { name: i18n.t('common.fieldHintIcon') })).toBeInTheDocument()
+    expect(betrieb).toHaveTextContent(
+      i18n.t('settings.rule.divides', { number: '60', values: '5, 6, 10, 12, 15, 20, 30, 60' }),
+    )
+    expect(betrieb).toHaveTextContent(i18n.t('settings.rule.dividesSetting', { setting: slotLabel(), values: '45' }))
+    await openEditor(betrieb)
+    const options = await screen.findAllByRole('option')
+    const minutes = (n: number) => i18n.t('settings.value.withUnit', { number: String(n), unit: i18n.t('settings.units.minutes') })
+    expect(options.map((o) => o.textContent)).toEqual([
+      ...[5, 6, 10, 12, 15, 20, 30, 60].map(minutes),
+      i18n.t('settings.clear.dealership'),
+    ])
+    // O7 is 45 here: only a grid it stays a multiple of is offered enabled.
+    const enabled = options.filter((o) => !o.hasAttribute('data-combobox-disabled')).map((o) => o.textContent)
+    expect(enabled).toEqual([minutes(5), minutes(15), i18n.t('settings.clear.dealership')])
+  })
+
+  it('refuses an O7 that is no multiple of the O6 in force, before the write (KAN-808)', async () => {
+    const backend = render(plannerArea({ grid: '15' }), ['planning.grid_minutes', 'planning.slot_minutes'], [
+      { method: 'PUT', match: /\/setting-values\/planning\.slot_minutes$/, handler: () => slot({ isSet: true, value: { number: '45' }, version: 1 }) },
+    ])
+    const betrieb = await rowCell(slotLabel(), 1)
+    expect(betrieb).toHaveTextContent(i18n.t('settings.rule.multipleOf', { setting: gridLabel(), values: '15' }))
+    await openEditor(betrieb)
+    const input = await screen.findByRole('textbox', { name: `${slotLabel()} · Betrieb` })
+    await userEvent.type(input, '40{Enter}')
+    expect(
+      await screen.findByText(
+        i18n.t('settings.rule.refused.notAMultiple', {
+          value: i18n.t('settings.value.withUnit', { number: '40', unit: i18n.t('settings.units.minutes') }),
+          bound: '15',
+          setting: gridLabel(),
+        }),
+      ),
+    ).toBeInTheDocument()
+    expect(backend.calls.filter((call) => call.method === 'PUT')).toEqual([])
+    await userEvent.clear(input)
+    await userEvent.type(input, '45{Enter}')
+    await waitFor(() => expect(backend.calls.filter((call) => call.method === 'PUT')).toHaveLength(1))
+    expect(backend.calls.find((call) => call.method === 'PUT')!.body).toEqual({ value: { number: '45' } })
+  })
+
+  it('a location with its own O6 hints and checks its O7 against that one (KAN-808)', async () => {
+    render(plannerArea({ grid: '15', locationGrid: '20' }), ['planning.grid_minutes', 'planning.slot_minutes'])
+    const hauptsitz = await rowCell(slotLabel(), 2)
+    const filiale = await rowCell(slotLabel(), 3)
+    expect(hauptsitz).toHaveTextContent(i18n.t('settings.rule.multipleOf', { setting: gridLabel(), values: '20' }))
+    expect(filiale).toHaveTextContent(i18n.t('settings.rule.multipleOf', { setting: gridLabel(), values: '15' }))
+    // The Betrieb's O7 is in force at both locations, neither holding its own: both grids count.
+    const betrieb = await rowCell(slotLabel(), 1)
+    expect(betrieb).toHaveTextContent(i18n.t('settings.rule.multipleOf', { setting: gridLabel(), values: '15, 20' }))
   })
 })

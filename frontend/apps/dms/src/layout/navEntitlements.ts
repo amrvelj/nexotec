@@ -15,6 +15,8 @@ const NAV_MODULE_BY_HREF: Record<string, string> = {
   '/aftersales': 'aftersales',
   // KAN-806: labour rates are the Aftersales module's master data (404 without it).
   '/administration/labour-rates': 'aftersales',
+  // KAN-808: the planner's resources are set up with Aftersales (its API 404s without it).
+  '/administration/planner-resources': 'aftersales',
   '/parts': 'parts',
   '/finance': 'finance',
   '/reporting': 'reporting',

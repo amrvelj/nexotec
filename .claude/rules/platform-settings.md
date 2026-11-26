@@ -54,7 +54,11 @@ Last verified against main@32ad509 (2026-11-25); O6/O7 and `divides` added by KA
   other (`details`: `setting`, `multipleOf`, `locationId`); «not set» on either side breaks nothing.
   `check_declaration_references()` refuses an undeclared key, another module's, or one that is no whole number above
   zero; the copy writes the other key first; platform's reconciliation reports a scope a reactivated location left
-  broken. Neither rule is in the area API yet: the screen learns them from the refusal.
+  broken. The area API names both on the declaration (`divides`, `multipleOf`; KAN-808 PR-2); `SettingCell` hints
+  them with the info icon beside the value and checks them before the write (`components/settings/numberRules.ts`): a
+  `divides` number offers only its divisors within the bounds, a multiple is checked against the other number in force
+  in that column (the Betrieb's column: also at each active location taking the Betrieb's value), and a divisor whose
+  multiple would break is offered disabled — as `unavailableAt` mirrors check 49; the API stays the authority.
 - **Setup checklist** (`administration/services/setup_checklist.py`): a declaration with
   `checklist_item` is an item, code = its key (a contributed code never has a dot), applying with
   its module, linked to `/administration/settings/<area>`, complete while **the Betrieb's own value**
