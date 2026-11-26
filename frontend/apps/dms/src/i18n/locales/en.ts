@@ -49,6 +49,7 @@ import ns_offboarding from './en/offboarding.json'
 import ns_offerDetail from './en/offerDetail.json'
 import ns_offerWorkspace from './en/offerWorkspace.json'
 import ns_onboarding from './en/onboarding.json'
+import ns_planner from './en/planner.json'
 import ns_plannerResources from './en/plannerResources.json'
 import ns_providerCaptions from './en/providerCaptions.json'
 import ns_publishing from './en/publishing.json'
@@ -119,6 +120,7 @@ const bundle = {
   offerDetail: ns_offerDetail,
   offerWorkspace: ns_offerWorkspace,
   onboarding: ns_onboarding,
+  planner: ns_planner,
   plannerResources: ns_plannerResources,
   providerCaptions: ns_providerCaptions,
   publishing: ns_publishing,

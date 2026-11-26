@@ -1,0 +1,97 @@
+{
+  "title": "Planer",
+  "subtitle": "Ein Tag eines Standorts: Personen und Arbeitsplätze",
+  "blockResource": "Ressource blockieren",
+  "previousDay": "Vorheriger Tag",
+  "nextDay": "Nächster Tag",
+  "today": "Heute",
+  "location": "Standort",
+  "groups": {
+    "people": "Techniker",
+    "workplaces": "Arbeitsplätze"
+  },
+  "grid": {
+    "resource": "Ressource",
+    "unavailable": "Nicht im Dienst",
+    "now": "Jetzt",
+    "aria": "Planer, {{day}}, {{location}}"
+  },
+  "kinds": {
+    "work": "Arbeit",
+    "drop_off": "Annahme",
+    "pick_up": "Abholung",
+    "block": "Blockiert"
+  },
+  "replan": "Neu einplanen",
+  "itemAria": "{{kind}}: {{title}}, {{from}} bis {{to}}",
+  "itemAriaReplan": "{{kind}}: {{title}}, {{from}} bis {{to}}, neu einplanen",
+  "setup": {
+    "noWorkplace": "An diesem Standort ist noch kein Arbeitsplatz erfasst. Ohne Arbeitsplatz kann hier nichts geplant werden.",
+    "noPerson": "An diesem Standort ist noch keine Person erfasst. Ohne Person kann hier nichts geplant werden.",
+    "nothing": "An diesem Standort sind noch keine Personen und keine Arbeitsplätze erfasst. Ohne sie kann hier nichts geplant werden.",
+    "where": "Personen und Arbeitsplätze werden in der Verwaltung unter «Planer-Ressourcen» erfasst.",
+    "open": "Planer-Ressourcen öffnen"
+  },
+  "gridNotSet": "Das Raster des Planers ist für diesen Standort nicht gesetzt. Arbeit und Termine können erst geplant werden, wenn es in den Einstellungen des Planers gesetzt ist.",
+  "openSettings": "Einstellungen öffnen",
+  "loadError": "Der Planer konnte nicht geladen werden.",
+  "retry": "Erneut versuchen",
+  "noLocation": "Der Betrieb hat keinen aktiven Standort. Standorte werden in der Verwaltung erfasst.",
+  "fields": {
+    "from": "Von",
+    "to": "Bis",
+    "date": "Datum",
+    "time": "Zeit",
+    "people": "Personen",
+    "workplace": "Arbeitsplatz",
+    "workplaces": "Arbeitsplätze",
+    "note": "Notiz",
+    "noteHint": "Optional, höchstens 200 Zeichen.",
+    "none": "– keine –"
+  },
+  "booking": {
+    "title": "Buchung ändern",
+    "blockTitle": "Blockierung ändern",
+    "order": "Auftrag",
+    "job": "Arbeit",
+    "vehicle": "Fahrzeug",
+    "replanSince": "Neu einplanen seit {{since}}: {{cause}}",
+    "causes": {
+      "blocked": "eine Blockierung trifft die Buchung.",
+      "outside_drop_off_pick_up": "die Arbeit liegt ausserhalb von Annahme und Abholung.",
+      "resource_deactivated": "eine ihrer Ressourcen wurde deaktiviert.",
+      "resource_moved": "eine ihrer Ressourcen wurde an einen anderen Standort verschoben."
+    },
+    "overruled": "Trotz Warnung gebucht: {{warning}} – {{name}}, {{at}}",
+    "save": "Speichern",
+    "saveAnyway": "Trotzdem speichern",
+    "cancel": "Abbrechen",
+    "release": "Buchung freigeben",
+    "releaseConfirm": "Die Buchung wird freigegeben: Sie belegt danach nichts mehr und kann nicht wieder aktiviert werden.",
+    "releaseConfirmButton": "Freigeben",
+    "releaseBack": "Zurück",
+    "warningsTitle": "Die Änderung löst eine Warnung aus",
+    "warningsNote": "Wenn Sie trotzdem speichern, wird jede Warnung mit Ihrem Namen und der Zeit festgehalten.",
+    "refusedTitle": "Die Änderung ist nicht möglich",
+    "conflict": "Die Buchung wurde inzwischen geändert. Laden Sie den Planer neu.",
+    "reload": "Neu laden",
+    "failed": "Die Buchung konnte nicht gespeichert werden.",
+    "needsResource": "Wählen Sie mindestens eine Person oder einen Arbeitsplatz.",
+    "workNeedsWorkplace": "Arbeit belegt genau einen Arbeitsplatz.",
+    "endAfterStart": "Das Ende liegt nach dem Beginn."
+  },
+  "warnings": {
+    "outside_working_hours": "{{resource}} arbeitet zu dieser Zeit nicht.",
+    "before_drop_off": "Die Arbeit beginnt, bevor das Fahrzeug gebracht wird.",
+    "after_pick_up": "Die Arbeit endet erst, nachdem das Fahrzeug abgeholt wird.",
+    "resource_blocked": "{{resource}} ist zu dieser Zeit blockiert."
+  },
+  "block": {
+    "title": "Ressource blockieren",
+    "submit": "Blockieren",
+    "cancel": "Abbrechen",
+    "failed": "Die Blockierung konnte nicht gespeichert werden.",
+    "marked_one": "Eine Buchung ist jetzt als «neu einplanen» markiert.",
+    "marked_other": "{{count}} Buchungen sind jetzt als «neu einplanen» markiert."
+  }
+}

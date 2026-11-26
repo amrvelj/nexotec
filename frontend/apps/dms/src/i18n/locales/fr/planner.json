@@ -1,0 +1,97 @@
+{
+  "title": "Planning",
+  "subtitle": "Une journée d’un site : personnes et postes de travail",
+  "blockResource": "Bloquer une ressource",
+  "previousDay": "Jour précédent",
+  "nextDay": "Jour suivant",
+  "today": "Aujourd’hui",
+  "location": "Site",
+  "groups": {
+    "people": "Techniciens",
+    "workplaces": "Postes de travail"
+  },
+  "grid": {
+    "resource": "Ressource",
+    "unavailable": "Hors service",
+    "now": "Maintenant",
+    "aria": "Planning, {{day}}, {{location}}"
+  },
+  "kinds": {
+    "work": "Travail",
+    "drop_off": "Réception",
+    "pick_up": "Restitution",
+    "block": "Bloqué"
+  },
+  "replan": "À replanifier",
+  "itemAria": "{{kind}} : {{title}}, de {{from}} à {{to}}",
+  "itemAriaReplan": "{{kind}} : {{title}}, de {{from}} à {{to}}, à replanifier",
+  "setup": {
+    "noWorkplace": "Aucun poste de travail n’est encore saisi sur ce site. Sans poste de travail, rien ne peut y être planifié.",
+    "noPerson": "Aucune personne n’est encore saisie sur ce site. Sans personne, rien ne peut y être planifié.",
+    "nothing": "Aucune personne et aucun poste de travail ne sont encore saisis sur ce site. Sans eux, rien ne peut y être planifié.",
+    "where": "Les personnes et les postes de travail se saisissent dans l’administration, sous « Ressources du planning ».",
+    "open": "Ouvrir les ressources du planning"
+  },
+  "gridNotSet": "La grille du planning n’est pas définie pour ce site. Le travail et les rendez-vous pourront être planifiés une fois qu’elle sera définie dans les paramètres du planning.",
+  "openSettings": "Ouvrir les paramètres",
+  "loadError": "Le planning n’a pas pu être chargé.",
+  "retry": "Réessayer",
+  "noLocation": "L’entreprise n’a aucun site actif. Les sites se saisissent dans l’administration.",
+  "fields": {
+    "from": "De",
+    "to": "À",
+    "date": "Date",
+    "time": "Heure",
+    "people": "Personnes",
+    "workplace": "Poste de travail",
+    "workplaces": "Postes de travail",
+    "note": "Note",
+    "noteHint": "Facultatif, 200 caractères au plus.",
+    "none": "– aucun –"
+  },
+  "booking": {
+    "title": "Modifier la réservation",
+    "blockTitle": "Modifier le blocage",
+    "order": "Ordre",
+    "job": "Travail",
+    "vehicle": "Véhicule",
+    "replanSince": "À replanifier depuis le {{since}} : {{cause}}",
+    "causes": {
+      "blocked": "un blocage touche la réservation.",
+      "outside_drop_off_pick_up": "le travail se situe hors de la réception et de la restitution.",
+      "resource_deactivated": "une de ses ressources a été désactivée.",
+      "resource_moved": "une de ses ressources a été déplacée vers un autre site."
+    },
+    "overruled": "Réservé malgré un avertissement : {{warning}} – {{name}}, {{at}}",
+    "save": "Enregistrer",
+    "saveAnyway": "Enregistrer quand même",
+    "cancel": "Annuler",
+    "release": "Libérer la réservation",
+    "releaseConfirm": "La réservation sera libérée : elle n’occupera plus rien et ne pourra pas être réactivée.",
+    "releaseConfirmButton": "Libérer",
+    "releaseBack": "Retour",
+    "warningsTitle": "La modification déclenche un avertissement",
+    "warningsNote": "Si vous enregistrez quand même, chaque avertissement est consigné avec votre nom et l’heure.",
+    "refusedTitle": "La modification n’est pas possible",
+    "conflict": "La réservation a été modifiée entre-temps. Rechargez le planning.",
+    "reload": "Recharger",
+    "failed": "La réservation n’a pas pu être enregistrée.",
+    "needsResource": "Choisissez au moins une personne ou un poste de travail.",
+    "workNeedsWorkplace": "Un travail occupe exactement un poste de travail.",
+    "endAfterStart": "La fin doit suivre le début."
+  },
+  "warnings": {
+    "outside_working_hours": "{{resource}} ne travaille pas à cette heure.",
+    "before_drop_off": "Le travail commence avant la réception du véhicule.",
+    "after_pick_up": "Le travail se termine après la restitution du véhicule.",
+    "resource_blocked": "{{resource}} est bloqué à cette heure."
+  },
+  "block": {
+    "title": "Bloquer une ressource",
+    "submit": "Bloquer",
+    "cancel": "Annuler",
+    "failed": "Le blocage n’a pas pu être enregistré.",
+    "marked_one": "Une réservation est maintenant marquée « à replanifier ».",
+    "marked_other": "{{count}} réservations sont maintenant marquées « à replanifier »."
+  }
+}

@@ -1,0 +1,97 @@
+{
+  "title": "Pianificatore",
+  "subtitle": "Una giornata di una sede: persone e postazioni di lavoro",
+  "blockResource": "Blocca risorsa",
+  "previousDay": "Giorno precedente",
+  "nextDay": "Giorno successivo",
+  "today": "Oggi",
+  "location": "Sede",
+  "groups": {
+    "people": "Tecnici",
+    "workplaces": "Postazioni di lavoro"
+  },
+  "grid": {
+    "resource": "Risorsa",
+    "unavailable": "Non in servizio",
+    "now": "Adesso",
+    "aria": "Pianificatore, {{day}}, {{location}}"
+  },
+  "kinds": {
+    "work": "Lavoro",
+    "drop_off": "Accettazione",
+    "pick_up": "Ritiro",
+    "block": "Bloccato"
+  },
+  "replan": "Da ripianificare",
+  "itemAria": "{{kind}}: {{title}}, dalle {{from}} alle {{to}}",
+  "itemAriaReplan": "{{kind}}: {{title}}, dalle {{from}} alle {{to}}, da ripianificare",
+  "setup": {
+    "noWorkplace": "In questa sede non è ancora registrata alcuna postazione di lavoro. Senza postazione qui non si può pianificare nulla.",
+    "noPerson": "In questa sede non è ancora registrata alcuna persona. Senza persona qui non si può pianificare nulla.",
+    "nothing": "In questa sede non sono ancora registrate né persone né postazioni di lavoro. Senza di esse qui non si può pianificare nulla.",
+    "where": "Persone e postazioni di lavoro si registrano nell’amministrazione, alla voce «Risorse del pianificatore».",
+    "open": "Apri le risorse del pianificatore"
+  },
+  "gridNotSet": "La griglia del pianificatore non è impostata per questa sede. Lavori e appuntamenti si potranno pianificare quando sarà impostata nelle impostazioni del pianificatore.",
+  "openSettings": "Apri le impostazioni",
+  "loadError": "Non è stato possibile caricare il pianificatore.",
+  "retry": "Riprova",
+  "noLocation": "L’azienda non ha alcuna sede attiva. Le sedi si registrano nell’amministrazione.",
+  "fields": {
+    "from": "Dalle",
+    "to": "Alle",
+    "date": "Data",
+    "time": "Ora",
+    "people": "Persone",
+    "workplace": "Postazione di lavoro",
+    "workplaces": "Postazioni di lavoro",
+    "note": "Nota",
+    "noteHint": "Facoltativa, al massimo 200 caratteri.",
+    "none": "– nessuna –"
+  },
+  "booking": {
+    "title": "Modifica prenotazione",
+    "blockTitle": "Modifica blocco",
+    "order": "Ordine",
+    "job": "Lavoro",
+    "vehicle": "Veicolo",
+    "replanSince": "Da ripianificare dal {{since}}: {{cause}}",
+    "causes": {
+      "blocked": "un blocco tocca la prenotazione.",
+      "outside_drop_off_pick_up": "il lavoro cade fuori dall’accettazione e dal ritiro.",
+      "resource_deactivated": "una delle sue risorse è stata disattivata.",
+      "resource_moved": "una delle sue risorse è stata spostata in un’altra sede."
+    },
+    "overruled": "Prenotato malgrado un avviso: {{warning}} – {{name}}, {{at}}",
+    "save": "Salva",
+    "saveAnyway": "Salva comunque",
+    "cancel": "Annulla",
+    "release": "Libera la prenotazione",
+    "releaseConfirm": "La prenotazione sarà liberata: non occuperà più nulla e non potrà essere riattivata.",
+    "releaseConfirmButton": "Libera",
+    "releaseBack": "Indietro",
+    "warningsTitle": "La modifica genera un avviso",
+    "warningsNote": "Se salvate comunque, ogni avviso viene registrato con il vostro nome e l’ora.",
+    "refusedTitle": "La modifica non è possibile",
+    "conflict": "La prenotazione è stata modificata nel frattempo. Ricaricate il pianificatore.",
+    "reload": "Ricarica",
+    "failed": "Non è stato possibile salvare la prenotazione.",
+    "needsResource": "Scegliete almeno una persona o una postazione di lavoro.",
+    "workNeedsWorkplace": "Un lavoro occupa esattamente una postazione di lavoro.",
+    "endAfterStart": "La fine deve seguire l’inizio."
+  },
+  "warnings": {
+    "outside_working_hours": "{{resource}} non lavora a quest’ora.",
+    "before_drop_off": "Il lavoro inizia prima che il veicolo venga consegnato.",
+    "after_pick_up": "Il lavoro finisce solo dopo il ritiro del veicolo.",
+    "resource_blocked": "{{resource}} è bloccato a quest’ora."
+  },
+  "block": {
+    "title": "Blocca risorsa",
+    "submit": "Blocca",
+    "cancel": "Annulla",
+    "failed": "Non è stato possibile salvare il blocco.",
+    "marked_one": "Una prenotazione è ora segnata «da ripianificare».",
+    "marked_other": "{{count}} prenotazioni sono ora segnate «da ripianificare»."
+  }
+}
