@@ -40,6 +40,9 @@ const NOT_MONEY_LABELS = new Set([
   "t('plannerResources.entryDialog.rank')", // a rank, 1–99 (KAN-808)
   "t('plannerResources.entryDialog.factor')", // a counted-time factor, 0.01–9.99 (KAN-808)
   "t('plannerResources.resourceDialog.sortOrder')", // a position in the planner (KAN-808)
+  // The workshop order's position dialog: a labour time in hours or work units (KAN-810, ruling 183);
+  // its two prices render ChfInputs (the CHF file list below).
+  'labourTimeLabel',
   // The settings screen's `number` kind (KAN-805: minutes, a count, a factor);
   // its `amount` kind renders `chfInlineEditor` — SettingCell is on the CHF
   // file list below, and its render test types an amount through it.
@@ -78,9 +81,13 @@ function numberInputUses(file: string): NumberInputUse[] {
     const element = source.slice(start, end === -1 ? undefined : end)
     // The label is `label={…}`, or the first argument of a hinted field's
     // spread — `{...hint(label, hint)}` from `useFieldHint()`, or the kit's
-    // `{...fieldHint(label, hint, labels)}` (KAN-443).
+    // `{...fieldHint(label, hint, labels)}` (KAN-443). That first argument is a
+    // `t('…')` call or, as with `label={…}`, a named constant (KAN-810: the
+    // position dialog's `labourTimeLabel`) — named, so the list below judges it.
     const label =
-      element.match(/\blabel=\{([^}]*\)?)\}/)?.[1]?.trim() ?? element.match(/\{\.\.\.(?:fieldHint|hint)\((t\('[^']*'\)),/)?.[1] ?? null
+      element.match(/\blabel=\{([^}]*\)?)\}/)?.[1]?.trim() ??
+      element.match(/\{\.\.\.(?:fieldHint|hint)\(\s*(t\('[^']*'\)|[A-Za-z_]\w*)\s*,/)?.[1] ??
+      null
     const line = source.slice(0, start).split('\n').length
     uses.push({ where: `${relative(APP_ROOT, file)}:${line}`, label })
   }
@@ -127,6 +134,8 @@ describe('a CHF amount is never typed into a bare NumberInput (KAN-168)', () => 
         'modules/stock/components/stock-detail/RecordPurchaseDialog.tsx',
         'modules/valuation/components/ValuationCreateDialog.tsx',
         'modules/sales/pages/OfferWorkspacePage.tsx',
+        // KAN-810: a position's price, net and incl. VAT (D13).
+        'modules/aftersales/components/order-detail/PositionDialog.tsx',
       ].sort(),
     )
   })

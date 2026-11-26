@@ -13,3 +13,5 @@ export { ConfiguratorOverlay, type HostOwnedVin } from './components/configurato
 export { HostCommitError } from './components/configurator/hostCommitError'
 export { HostConfigurationCard } from './components/configurator/HostConfigurationCard'
 export { CANTON_CODES, holdersOf, type PlateHolder } from './components/vehicle-detail/plateRefusal'
+// KAN-810: the workshop order's «Fahrzeug erfassen» is this create step, never a copy of it.
+export { VehicleCreateDialog } from './components/VehicleCreateDialog'
