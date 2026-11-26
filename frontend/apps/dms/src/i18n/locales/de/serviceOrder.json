@@ -1,0 +1,197 @@
+{
+  "state": {
+    "draft": "Entwurf",
+    "accepted": "Angenommen",
+    "ready_for_billing": "Rechnungsbereit",
+    "cancelled": "Storniert"
+  },
+  "answerState": {
+    "draft": "Entwurf",
+    "waiting": "Wartet auf Antwort",
+    "accepted": "Angenommen",
+    "declined": "Abgelehnt"
+  },
+  "billingCategory": {
+    "customer": "Kunde"
+  },
+  "kind": {
+    "labour_fixed": "Arbeit",
+    "labour_time": "Arbeit",
+    "text": "Text"
+  },
+  "kindDetail": {
+    "labour_fixed": "Festpreis",
+    "labour_time": "nach Zeit"
+  },
+  "timeUnit": {
+    "hours": "h",
+    "work_units": "AW"
+  },
+  "unitName": {
+    "hours": "Stunden",
+    "work_units": "Arbeitswerten (AW)"
+  },
+  "rateSource": {
+    "agreement": "mit dem Rechnungsempfänger vereinbarter Satz",
+    "category_rate": "Satz der Kategorie am Standort",
+    "typed": "erfasster Preis"
+  },
+  "loadError": "Der Auftrag konnte nicht geladen werden.",
+  "saveError": "Die Änderung konnte nicht gespeichert werden.",
+  "reload": "Neu laden",
+  "tabs": {
+    "positions": "Positionen",
+    "overview": "Übersicht",
+    "history": "Verlauf"
+  },
+  "actions": {
+    "open": "Öffnen",
+    "addJob": "Gruppe hinzufügen",
+    "cancel": "Auftrag stornieren",
+    "frozen": "Dieser Auftrag ist abgeschlossen und kann nicht mehr geändert werden.",
+    "cancelNotInState": {
+      "cancelled": "Der Auftrag ist schon storniert.",
+      "ready_for_billing": "Ein rechnungsbereiter Auftrag kann nicht storniert werden."
+    }
+  },
+  "jobs": {
+    "empty": "Noch keine Gruppe. Legen Sie mit «Gruppe hinzufügen» die erste an.",
+    "addPosition": "Position",
+    "rename": "Umbenennen",
+    "delete": "Gruppe löschen",
+    "deleteBody": "«{{name}}» mit allen Positionen löschen?",
+    "noPositions": "Noch keine Position.",
+    "dialog": {
+      "addTitle": "Gruppe hinzufügen",
+      "renameTitle": "Gruppe umbenennen",
+      "name": "Bezeichnung",
+      "add": "Hinzufügen"
+    }
+  },
+  "positions": {
+    "columns": {
+      "kind": "Art",
+      "text": "Bezeichnung",
+      "quantity": "Menge",
+      "unitPriceNet": "Preis netto",
+      "net": "Netto",
+      "gross": "Inkl. MWST"
+    },
+    "edit": "Position bearbeiten",
+    "delete": "Position löschen",
+    "deleteBody": "«{{text}}» löschen?",
+    "confirmDelete": "Löschen"
+  },
+  "totals": {
+    "title": "Auftragstotal je Zahler",
+    "accepted": "Angenommen",
+    "open": "Noch offen",
+    "net": "Netto",
+    "vatLine": "MWST {{rate}} %",
+    "rounding": "Rundung",
+    "total": "Total",
+    "none": "Nichts",
+    "note": "Die MWST wird je Zahler einmal gerechnet. Gerundet wird erst am Schluss, auf dem Total."
+  },
+  "positionDialog": {
+    "addTitle": "Position",
+    "editTitle": "Position bearbeiten",
+    "kindLabel": "Art der Position",
+    "kinds": {
+      "labour": "Arbeit",
+      "text": "Text"
+    },
+    "text": "Bezeichnung",
+    "labourCategory": "Arbeitskategorie",
+    "noCategories": "Für diesen Betrieb ist keine aktive Arbeitskategorie erfasst.",
+    "categoriesError": "Die Arbeitskategorien konnten nicht geladen werden.",
+    "byTime": "Nach gestempelter Zeit verrechnen",
+    "quantity": "Menge",
+    "quantityIn": "Menge ({{unit}})",
+    "quantityHint": "Bei einem Festpreis ist die Zeit eine Vorgabe für die Planung; der Betrag ist der Festpreis.",
+    "workUnitsPerHour": "{{count, number}} AW pro Stunde",
+    "chooseCategoryFirst": "Wählen Sie zuerst die Arbeitskategorie.",
+    "rateNet": "Stundensatz netto",
+    "rateGross": "Stundensatz inkl. MWST",
+    "fixedNet": "Festpreis netto",
+    "fixedGross": "Festpreis inkl. MWST",
+    "priceLeads": "Der zuletzt erfasste Preis gilt; der andere folgt aus ihm.",
+    "proposal": "Vorschlag: {{source}}",
+    "proposalFrom": "Vorschlag: {{source}}, gültig ab {{date}}",
+    "noProposal": "Für diese Kategorie gilt hier am Auftragsdatum kein Stundensatz. Erfassen Sie den Preis.",
+    "proposalError": "Der Vorschlag konnte nicht gelesen werden.",
+    "useProposal": "Vorschlag übernehmen",
+    "fixedTyped": "Ein Festpreis wird immer erfasst.",
+    "keepsUnit": "Diese Position wurde in {{unit}} erfasst.",
+    "save": "Speichern",
+    "error": "Die Position konnte nicht gespeichert werden."
+  },
+  "overview": {
+    "parties": "Beteiligte",
+    "contact": "Auftraggeber",
+    "invoiceRecipient": "Rechnung an",
+    "driver": "Fahrer",
+    "driverOptional": "Fahrer (optional)",
+    "vehicleCard": "Fahrzeug",
+    "vehicle": "Fahrzeug",
+    "orderCard": "Auftrag",
+    "orderNumber": "Auftragsnummer",
+    "location": "Standort",
+    "orderDate": "Auftragsdatum",
+    "createdAt": "Erfasst am",
+    "change": "Ändern",
+    "changeTitle": "{{role}} ändern",
+    "removeDriver": "Fahrer entfernen",
+    "contactSearchLabel": "Kontakt suchen",
+    "contactSearchPlaceholder": "Name oder Kontaktnummer",
+    "noContactMatches": "Kein Kontakt gefunden."
+  },
+  "cancel": {
+    "title": "Auftrag stornieren",
+    "reason": "Grund der Stornierung",
+    "submit": "Auftrag stornieren",
+    "error": "Der Auftrag konnte nicht storniert werden.",
+    "bannerTitle": "Storniert",
+    "bannerBody": "{{who}} hat diesen Auftrag am {{when}} storniert. Grund: {{reason}}"
+  },
+  "history": {
+    "title": "Verlauf",
+    "empty": "Noch kein Eintrag.",
+    "loadError": "Der Verlauf konnte nicht geladen werden.",
+    "system": "System",
+    "unknownUser": "Unbekannter Benutzer",
+    "otherAction": "Änderung",
+    "withSubject": "{{action}}: {{subject}}",
+    "reason": "Grund: {{reason}}",
+    "actions": {
+      "service_order_created": "Auftrag erfasst",
+      "service_order_cancelled": "Auftrag storniert",
+      "service_order_parties_changed": "Beteiligte geändert",
+      "service_order_job_added": "Gruppe hinzugefügt",
+      "service_order_job_changed": "Gruppe geändert",
+      "service_order_job_deleted": "Gruppe gelöscht",
+      "service_order_job_accepted": "Gruppe angenommen",
+      "service_order_position_added": "Position hinzugefügt",
+      "service_order_position_changed": "Position geändert",
+      "service_order_position_deleted": "Position gelöscht"
+    },
+    "fields": {
+      "contactLabel": "Auftraggeber",
+      "invoiceRecipientLabel": "Rechnung an",
+      "driverLabel": "Fahrer",
+      "vehicleLabel": "Fahrzeug",
+      "state": "Auftragsstatus",
+      "name": "Bezeichnung",
+      "answerState": "Antwort",
+      "text": "Bezeichnung",
+      "time": "Menge",
+      "unitPrice": "Preis",
+      "priceEntered": "Preis erfasst",
+      "rateSource": "Preisquelle"
+    },
+    "priceEntered": {
+      "net": "netto",
+      "gross": "inkl. MWST"
+    }
+  }
+}

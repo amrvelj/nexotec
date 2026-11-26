@@ -1,0 +1,197 @@
+{
+  "state": {
+    "draft": "Brouillon",
+    "accepted": "Accepté",
+    "ready_for_billing": "Prêt à facturer",
+    "cancelled": "Annulé"
+  },
+  "answerState": {
+    "draft": "Brouillon",
+    "waiting": "Attend la réponse",
+    "accepted": "Accepté",
+    "declined": "Refusé"
+  },
+  "billingCategory": {
+    "customer": "Client"
+  },
+  "kind": {
+    "labour_fixed": "Travail",
+    "labour_time": "Travail",
+    "text": "Texte"
+  },
+  "kindDetail": {
+    "labour_fixed": "prix fixe",
+    "labour_time": "au temps"
+  },
+  "timeUnit": {
+    "hours": "h",
+    "work_units": "UT"
+  },
+  "unitName": {
+    "hours": "heures",
+    "work_units": "unités de travail (UT)"
+  },
+  "rateSource": {
+    "agreement": "taux convenu avec le destinataire de la facture",
+    "category_rate": "taux de la catégorie sur le site",
+    "typed": "prix saisi"
+  },
+  "loadError": "L'ordre n'a pas pu être chargé.",
+  "saveError": "La modification n'a pas pu être enregistrée.",
+  "reload": "Recharger",
+  "tabs": {
+    "positions": "Positions",
+    "overview": "Aperçu",
+    "history": "Historique"
+  },
+  "actions": {
+    "open": "Ouvrir",
+    "addJob": "Ajouter un groupe",
+    "cancel": "Annuler l'ordre",
+    "frozen": "Cet ordre est clos et ne peut plus être modifié.",
+    "cancelNotInState": {
+      "cancelled": "L'ordre est déjà annulé.",
+      "ready_for_billing": "Un ordre prêt à facturer ne peut pas être annulé."
+    }
+  },
+  "jobs": {
+    "empty": "Aucun groupe pour l'instant. Créez le premier avec « Ajouter un groupe ».",
+    "addPosition": "Position",
+    "rename": "Renommer",
+    "delete": "Supprimer le groupe",
+    "deleteBody": "Supprimer « {{name}} » avec toutes ses positions ?",
+    "noPositions": "Aucune position pour l'instant.",
+    "dialog": {
+      "addTitle": "Ajouter un groupe",
+      "renameTitle": "Renommer le groupe",
+      "name": "Désignation",
+      "add": "Ajouter"
+    }
+  },
+  "positions": {
+    "columns": {
+      "kind": "Type",
+      "text": "Désignation",
+      "quantity": "Quantité",
+      "unitPriceNet": "Prix net",
+      "net": "Net",
+      "gross": "TVA incl."
+    },
+    "edit": "Modifier la position",
+    "delete": "Supprimer la position",
+    "deleteBody": "Supprimer « {{text}} » ?",
+    "confirmDelete": "Supprimer"
+  },
+  "totals": {
+    "title": "Total de l'ordre par payeur",
+    "accepted": "Accepté",
+    "open": "Encore ouvert",
+    "net": "Net",
+    "vatLine": "TVA {{rate}} %",
+    "rounding": "Arrondi",
+    "total": "Total",
+    "none": "Rien",
+    "note": "La TVA est calculée une fois par payeur. L'arrondi se fait à la fin, sur le total."
+  },
+  "positionDialog": {
+    "addTitle": "Position",
+    "editTitle": "Modifier la position",
+    "kindLabel": "Type de position",
+    "kinds": {
+      "labour": "Travail",
+      "text": "Texte"
+    },
+    "text": "Désignation",
+    "labourCategory": "Catégorie de main-d'œuvre",
+    "noCategories": "Aucune catégorie de main-d'œuvre active n'est saisie pour cette entreprise.",
+    "categoriesError": "Les catégories de main-d'œuvre n'ont pas pu être chargées.",
+    "byTime": "Facturer selon le temps pointé",
+    "quantity": "Quantité",
+    "quantityIn": "Quantité ({{unit}})",
+    "quantityHint": "Pour un prix fixe, le temps est une indication pour la planification ; le montant est le prix fixe.",
+    "workUnitsPerHour": "{{count, number}} UT par heure",
+    "chooseCategoryFirst": "Choisissez d'abord la catégorie de main-d'œuvre.",
+    "rateNet": "Taux horaire net",
+    "rateGross": "Taux horaire TVA incl.",
+    "fixedNet": "Prix fixe net",
+    "fixedGross": "Prix fixe TVA incl.",
+    "priceLeads": "Le prix saisi en dernier fait foi ; l'autre en découle.",
+    "proposal": "Proposition : {{source}}",
+    "proposalFrom": "Proposition : {{source}}, valable dès le {{date}}",
+    "noProposal": "Aucun taux horaire ne s'applique ici pour cette catégorie à la date de l'ordre. Saisissez le prix.",
+    "proposalError": "La proposition n'a pas pu être lue.",
+    "useProposal": "Reprendre la proposition",
+    "fixedTyped": "Un prix fixe est toujours saisi.",
+    "keepsUnit": "Cette position a été saisie en {{unit}}.",
+    "save": "Enregistrer",
+    "error": "La position n'a pas pu être enregistrée."
+  },
+  "overview": {
+    "parties": "Intervenants",
+    "contact": "Donneur d'ordre",
+    "invoiceRecipient": "Facture à",
+    "driver": "Conducteur",
+    "driverOptional": "Conducteur (facultatif)",
+    "vehicleCard": "Véhicule",
+    "vehicle": "Véhicule",
+    "orderCard": "Ordre",
+    "orderNumber": "Numéro d'ordre",
+    "location": "Site",
+    "orderDate": "Date de l'ordre",
+    "createdAt": "Saisi le",
+    "change": "Modifier",
+    "changeTitle": "Modifier : {{role}}",
+    "removeDriver": "Retirer le conducteur",
+    "contactSearchLabel": "Chercher un contact",
+    "contactSearchPlaceholder": "Nom ou numéro de contact",
+    "noContactMatches": "Aucun contact trouvé."
+  },
+  "cancel": {
+    "title": "Annuler l'ordre",
+    "reason": "Motif de l'annulation",
+    "submit": "Annuler l'ordre",
+    "error": "L'ordre n'a pas pu être annulé.",
+    "bannerTitle": "Annulé",
+    "bannerBody": "{{who}} a annulé cet ordre le {{when}}. Motif : {{reason}}"
+  },
+  "history": {
+    "title": "Historique",
+    "empty": "Aucune entrée pour l'instant.",
+    "loadError": "L'historique n'a pas pu être chargé.",
+    "system": "Système",
+    "unknownUser": "Utilisateur inconnu",
+    "otherAction": "Modification",
+    "withSubject": "{{action}} : {{subject}}",
+    "reason": "Motif : {{reason}}",
+    "actions": {
+      "service_order_created": "Ordre saisi",
+      "service_order_cancelled": "Ordre annulé",
+      "service_order_parties_changed": "Intervenants modifiés",
+      "service_order_job_added": "Groupe ajouté",
+      "service_order_job_changed": "Groupe modifié",
+      "service_order_job_deleted": "Groupe supprimé",
+      "service_order_job_accepted": "Groupe accepté",
+      "service_order_position_added": "Position ajoutée",
+      "service_order_position_changed": "Position modifiée",
+      "service_order_position_deleted": "Position supprimée"
+    },
+    "fields": {
+      "contactLabel": "Donneur d'ordre",
+      "invoiceRecipientLabel": "Facture à",
+      "driverLabel": "Conducteur",
+      "vehicleLabel": "Véhicule",
+      "state": "Statut de l'ordre",
+      "name": "Désignation",
+      "answerState": "Réponse",
+      "text": "Désignation",
+      "time": "Quantité",
+      "unitPrice": "Prix",
+      "priceEntered": "Prix saisi",
+      "rateSource": "Origine du prix"
+    },
+    "priceEntered": {
+      "net": "net",
+      "gross": "TVA incl."
+    }
+  }
+}

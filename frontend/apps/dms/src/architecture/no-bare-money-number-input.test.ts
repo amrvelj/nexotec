@@ -40,6 +40,9 @@ const NOT_MONEY_LABELS = new Set([
   "t('plannerResources.entryDialog.rank')", // a rank, 1–99 (KAN-808)
   "t('plannerResources.entryDialog.factor')", // a counted-time factor, 0.01–9.99 (KAN-808)
   "t('plannerResources.resourceDialog.sortOrder')", // a position in the planner (KAN-808)
+  // The workshop order's position dialog: a labour time in hours or work units (KAN-810, ruling 183);
+  // its two prices render ChfInputs (the CHF file list below).
+  'labourTimeLabel',
   // The settings screen's `number` kind (KAN-805: minutes, a count, a factor);
   // its `amount` kind renders `chfInlineEditor` — SettingCell is on the CHF
   // file list below, and its render test types an amount through it.
@@ -127,6 +130,8 @@ describe('a CHF amount is never typed into a bare NumberInput (KAN-168)', () => 
         'modules/stock/components/stock-detail/RecordPurchaseDialog.tsx',
         'modules/valuation/components/ValuationCreateDialog.tsx',
         'modules/sales/pages/OfferWorkspacePage.tsx',
+        // KAN-810: a position's price, net and incl. VAT (D13).
+        'modules/aftersales/components/order-detail/PositionDialog.tsx',
       ].sort(),
     )
   })
