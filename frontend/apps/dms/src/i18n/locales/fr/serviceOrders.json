@@ -1,0 +1,52 @@
+{
+  "title": "Ordres d'atelier",
+  "newOrder": "Nouvel ordre",
+  "searchPlaceholder": "Numéro d'ordre, véhicule, VIN, donneur d'ordre …",
+  "allView": "Tous les ordres",
+  "loadError": "Les ordres n'ont pas pu être chargés.",
+  "columns": {
+    "orderNumber": "Ordre",
+    "vehicleAndContact": "Véhicule · donneur d'ordre",
+    "state": "Statut de l'ordre",
+    "orderDate": "Date de l'ordre",
+    "location": "Site",
+    "createdAt": "Saisi le"
+  },
+  "emptyState": {
+    "title": "Aucun ordre d'atelier pour l'instant",
+    "description": "Un ordre se crée avec « Nouvel ordre » pour le véhicule d'un contact."
+  },
+  "emptyFilteredState": {
+    "title": "Aucun ordre ne correspond",
+    "description": "Modifiez la recherche ou le filtre.",
+    "action": "Réinitialiser la recherche et le filtre"
+  },
+  "create": {
+    "title": "Nouvel ordre",
+    "searchLabel": "Plaque, contact ou VIN",
+    "searchPlaceholder": "p. ex. VD 929696 ou Croci",
+    "noMatches": "Aucun véhicule ni contact trouvé.",
+    "typeToSearch": "Saisissez une plaque, un VIN ou un nom.",
+    "vehicleRow": "Véhicule {{vehicleNumber}}",
+    "contactRow": "Contact {{contactNumber}}",
+    "vehicle": "Véhicule",
+    "otherVehicle": "Chercher un autre véhicule ou un autre contact",
+    "contactVehicles": "Véhicules de {{name}}",
+    "noContactVehicles": "Aucun véhicule n'est attribué à ce contact.",
+    "createVehicle": "Saisir un véhicule",
+    "holderProposed": "Détenteur proposé comme donneur d'ordre",
+    "noHolder": "Aucun détenteur n'est saisi pour ce véhicule. Choisissez le donneur d'ordre.",
+    "holdersLoadError": "Le détenteur n'a pas pu être lu. Choisissez le donneur d'ordre.",
+    "location": "Site",
+    "noLocation": "Aucun site actif n'est saisi pour cette entreprise.",
+    "submit": "Créer l'ordre",
+    "error": "L'ordre n'a pas pu être créé.",
+    "searchError": "La recherche a échoué.",
+    "missing": {
+      "vehicle": "Choisissez un véhicule.",
+      "contact": "Choisissez le donneur d’ordre.",
+      "location": "Choisissez le site."
+    },
+    "unnamedContact": "Contact sans nom"
+  }
+}

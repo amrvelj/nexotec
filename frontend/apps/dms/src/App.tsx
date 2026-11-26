@@ -79,6 +79,8 @@ const ContractDetailPage = lazyPage(() => import('./modules/sales/pages/Contract
 const ValuationsListPage = lazyPage(() => import('./modules/valuation/pages/ValuationsListPage'), 'ValuationsListPage')
 const ValuationCreatePage = lazyPage(() => import('./modules/valuation/pages/ValuationCreatePage'), 'ValuationCreatePage')
 const ValuationDetailPage = lazyPage(() => import('./modules/valuation/pages/ValuationDetailPage'), 'ValuationDetailPage')
+const ServiceOrdersListPage = lazyPage(() => import('./modules/aftersales/pages/ServiceOrdersListPage'), 'ServiceOrdersListPage')
+const ServiceOrderDetailPage = lazyPage(() => import('./modules/aftersales/pages/ServiceOrderDetailPage'), 'ServiceOrderDetailPage')
 
 function ProtectedLayout() {
   return (
@@ -208,6 +210,11 @@ export default function App() {
                 <Route path="/valuations" element={<ValuationsListPage />} />
                 <Route path="/valuations/new" element={<ValuationCreatePage />} />
                 <Route path="/valuations/:id" element={<ValuationDetailPage />} />
+              </Route>
+              {/* KAN-810: the workshop orders are Aftersales' — a Betrieb without the module never reaches them. */}
+              <Route element={<RequireEntitlement module="aftersales" />}>
+                <Route path="/aftersales" element={<ServiceOrdersListPage />} />
+                <Route path="/aftersales/orders/:id" element={<ServiceOrderDetailPage />} />
               </Route>
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />
