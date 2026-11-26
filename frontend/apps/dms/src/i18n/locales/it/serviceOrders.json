@@ -41,6 +41,11 @@
     "noLocation": "Per questa azienda non è registrata alcuna sede attiva.",
     "submit": "Crea l'ordine",
     "error": "Non è stato possibile creare l'ordine.",
-    "searchError": "La ricerca non è riuscita."
+    "searchError": "La ricerca non è riuscita.",
+    "missing": {
+      "vehicle": "Scegliete un veicolo.",
+      "contact": "Scegliete il committente.",
+      "location": "Scegliete la sede."
+    }
   }
 }

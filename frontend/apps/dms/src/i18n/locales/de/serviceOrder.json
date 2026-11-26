@@ -65,7 +65,8 @@
       "addTitle": "Gruppe hinzufügen",
       "renameTitle": "Gruppe umbenennen",
       "name": "Bezeichnung",
-      "add": "Hinzufügen"
+      "add": "Hinzufügen",
+      "nameMissing": "Geben Sie einen Namen ein."
     }
   },
   "positions": {
@@ -124,7 +125,15 @@
     "fixedTyped": "Ein Festpreis wird immer erfasst.",
     "keepsUnit": "Diese Position wurde in {{unit}} erfasst.",
     "save": "Speichern",
-    "error": "Die Position konnte nicht gespeichert werden."
+    "error": "Die Position konnte nicht gespeichert werden.",
+    "missing": {
+      "text": "Geben Sie eine Bezeichnung ein.",
+      "category": "Wählen Sie eine Arbeitskategorie.",
+      "time": "Geben Sie die Zeit ein.",
+      "price": "Geben Sie einen Preis ein."
+    },
+    "unitMoved": "Diese Position wurde in {{entry}} erfasst; hier gilt jetzt {{now}}. Eine geänderte Zeit wird in {{now}} erfasst.",
+    "grossPreview": "Aus dem anderen Preis gerechnet, nur zur Ansicht; gespeichert wird der zuletzt erfasste Preis."
   },
   "overview": {
     "parties": "Beteiligte",
@@ -152,7 +161,8 @@
     "submit": "Auftrag stornieren",
     "error": "Der Auftrag konnte nicht storniert werden.",
     "bannerTitle": "Storniert",
-    "bannerBody": "{{who}} hat diesen Auftrag am {{when}} storniert. Grund: {{reason}}"
+    "bannerBody": "{{who}} hat diesen Auftrag am {{when}} storniert. Grund: {{reason}}",
+    "reasonMissing": "Geben Sie einen Grund ein."
   },
   "history": {
     "title": "Verlauf",

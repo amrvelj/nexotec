@@ -41,6 +41,11 @@
     "noLocation": "No active location is recorded for this business.",
     "submit": "Create order",
     "error": "The order could not be created.",
-    "searchError": "The search failed."
+    "searchError": "The search failed.",
+    "missing": {
+      "vehicle": "Choose a vehicle.",
+      "contact": "Choose the ordering party.",
+      "location": "Choose the location."
+    }
   }
 }

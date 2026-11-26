@@ -17,6 +17,7 @@ import type {
   ServiceOrderRead,
 } from '../../../../api/types'
 import { useAuth } from '../../../../auth/AuthContext'
+import { useFieldHint } from '../../../../hooks/useFieldHint'
 import { useIdempotencyKey } from '../../../../hooks/useIdempotencyKey'
 import { formatDateOnly } from '../../../../utils/format'
 import { toSwissLocale, type SupportedLanguage } from '../../../../i18n'
@@ -66,8 +67,12 @@ function otherFigure(price: TypedPrice, vatRate: number | null): number | '' {
  *   as a preview only, never sent;
  * - the time is typed in the unit in force at the order's location (hours
  *   or work units, O18/O19, which the proposal endpoint names); a position
- *   keeps the unit it was entered with, so a change of it is sent with that
- *   unit and the server refuses it if the unit has changed since (check 48).
+ *   keeps the unit it was entered with while its time is not changed (check
+ *   48); a changed time is typed and sent in the unit in force, and the dialog
+ *   says so when the two differ (the server refuses any other unit,
+ *   `service_order_time_unit_changed`);
+ * - the submit is never disabled for an incomplete form (UI/UX Specification,
+ *   Forms): a submit says what is missing, field by field, and sends nothing.
  */
 export function PositionDialog({ opened, order, jobId, position, onClose, onSaved, onReload }: PositionDialogProps) {
   const { t, i18n } = useTranslation()
@@ -75,6 +80,7 @@ export function PositionDialog({ opened, order, jobId, position, onClose, onSave
   const { activeDealership } = useAuth()
   const dealershipId = activeDealership?.id ?? ''
   const idempotency = useIdempotencyKey()
+  const hint = useFieldHint()
   const editing = Boolean(position)
 
   const [kindTab, setKindTab] = useState<KindTab>('labour')
@@ -87,11 +93,13 @@ export function PositionDialog({ opened, order, jobId, position, onClose, onSave
   const [backToProposal, setBackToProposal] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<unknown>(null)
+  const [showMissing, setShowMissing] = useState(false)
 
   useEffect(() => {
     if (!opened) return
     idempotency.renew()
     setError(null)
+    setShowMissing(false)
     setTyped(null)
     setBackToProposal(false)
     setKindTab(position?.kind === 'text' ? 'text' : 'labour')
@@ -136,9 +144,16 @@ export function PositionDialog({ opened, order, jobId, position, onClose, onSave
     return options
   }, [categories.data, i18n.language, position])
 
-  // The unit: a position keeps the one it was entered with; a new one takes the unit in force here.
-  const unit: LabourTimeUnit | null = position?.time?.unit ?? proposal.data?.timeUnit ?? null
-  const workUnitsPerHour = position?.time ? position.time.workUnitsPerHour : (proposal.data?.workUnitsPerHour ?? null)
+  // The unit (check 48): an unchanged time keeps the unit it was entered with; a new or changed
+  // time is typed in the unit in force here, the only one the server takes.
+  const entryUnit: LabourTimeUnit | null = position?.time?.unit ?? null
+  const unitInForce: LabourTimeUnit | null = proposal.data?.timeUnit ?? null
+  const timeBefore: number | '' = position?.time ? decimal(position.time.quantity) : ''
+  const timeChanged = !editing || time !== timeBefore
+  const unit: LabourTimeUnit | null = timeChanged ? (unitInForce ?? entryUnit) : entryUnit
+  const unitMoved = editing && entryUnit !== null && unitInForce !== null && entryUnit !== unitInForce
+  const workUnitsPerHour =
+    !timeChanged && position?.time ? position.time.workUnitsPerHour : (proposal.data?.workUnitsPerHour ?? null)
   const vatRate =
     position?.unitPrice?.vatRate != null
       ? decimal(position.unitPrice.vatRate)
@@ -177,18 +192,27 @@ export function PositionDialog({ opened, order, jobId, position, onClose, onSave
     setTyped({ amount: typeof value === 'number' ? value : '', entered })
   }
 
-  // Mirrors of the server's own shape checks (`service_order_position_incomplete`), so the
-  // button waits for what the server would refuse; the server still decides. An emptied
-  // price field waits for a price («Vorschlag übernehmen» brings the proposal back).
+  // Mirrors of the server's own shape checks (`service_order_position_incomplete`): a submit
+  // that would be refused says what is missing instead; the server still decides. An emptied
+  // price field needs a price («Vorschlag übernehmen» brings the proposal back).
   const priceKnown =
     typed !== null
       ? typed.amount !== ''
       : (editing && !backToProposal && position?.unitPrice != null) || (byTime && proposal.data?.found === true)
-  const complete =
-    text.trim() !== '' &&
-    (!labour || (categoryId !== null && priceKnown && (!byTime || time !== '') && (time === '' || unit !== null)))
+  const missing = {
+    text: text.trim() === '',
+    category: labour && categoryId === null,
+    time: labour && byTime && time === '',
+    price: labour && categoryId !== null && !priceKnown,
+  }
+  const missingText = (field: keyof typeof missing) =>
+    showMissing && missing[field] ? t(`serviceOrder.positionDialog.missing.${field}`) : undefined
 
   const submit = async () => {
+    if (Object.values(missing).some(Boolean)) {
+      setShowMissing(true)
+      return
+    }
     setSubmitting(true)
     setError(null)
     try {
@@ -215,8 +239,7 @@ export function PositionDialog({ opened, order, jobId, position, onClose, onSave
         if (text.trim() !== position.text) body.text = text.trim()
         if (labour) {
           if (categoryId !== position.labourCategoryId) body.labourCategoryId = categoryId
-          const before = position.time ? decimal(position.time.quantity) : ''
-          if (time !== before) {
+          if (time !== timeBefore) {
             body.time = time === '' ? null : String(time)
             if (time !== '' && unit) body.timeUnit = unit
           }
@@ -294,7 +317,6 @@ export function PositionDialog({ opened, order, jobId, position, onClose, onSave
       submitLabel={t('serviceOrder.positionDialog.save')}
       cancelLabel={t('common.cancel')}
       submitting={submitting}
-      submitDisabled={!complete}
       size="lg"
     >
       {!editing && (
@@ -315,6 +337,7 @@ export function PositionDialog({ opened, order, jobId, position, onClose, onSave
         onChange={(e) => setText(e.currentTarget.value)}
         maxLength={1000}
         required
+        error={missingText('text')}
         data-autofocus
       />
       {labour && (
@@ -326,12 +349,13 @@ export function PositionDialog({ opened, order, jobId, position, onClose, onSave
             onChange={(value) => {
               setCategoryId(value)
               setTyped(null)
-              setBackToProposal(false)
+              // By time, another category is priced by its own proposal on saving: show it.
+              setBackToProposal(editing && byTime)
             }}
             required
             allowDeselect={false}
             searchable
-            error={categories.isError ? t('serviceOrder.positionDialog.categoriesError') : undefined}
+            error={categories.isError ? t('serviceOrder.positionDialog.categoriesError') : missingText('category')}
           />
           {categories.isSuccess && categoryOptions.length === 0 && (
             <Text size="xs" c="dimmed">
@@ -349,7 +373,14 @@ export function PositionDialog({ opened, order, jobId, position, onClose, onSave
           />
           <SimpleGrid cols={3} spacing="sm">
             <NumberInput
-              label={labourTimeLabel}
+              {...hint(
+                labourTimeLabel,
+                unit === null
+                  ? t('serviceOrder.positionDialog.chooseCategoryFirst')
+                  : !byTime
+                    ? t('serviceOrder.positionDialog.quantityHint')
+                    : undefined,
+              )}
               value={time}
               onChange={(value) => setTime(typeof value === 'number' ? value : '')}
               min={0}
@@ -358,25 +389,30 @@ export function PositionDialog({ opened, order, jobId, position, onClose, onSave
               thousandSeparator="'"
               disabled={unit === null}
               required={byTime}
+              error={missingText('time')}
             />
             <ChfInput
-              label={byTime ? t('serviceOrder.positionDialog.rateNet') : t('serviceOrder.positionDialog.fixedNet')}
+              {...hint(
+                byTime ? t('serviceOrder.positionDialog.rateNet') : t('serviceOrder.positionDialog.fixedNet'),
+                byTime
+                  ? t('serviceOrder.positionDialog.priceLeads')
+                  : `${t('serviceOrder.positionDialog.fixedTyped')} ${t('serviceOrder.positionDialog.priceLeads')}`,
+              )}
               value={netShown}
               onChange={typePrice('net')}
               min={0}
+              error={missingText('price')}
             />
             <ChfInput
-              label={byTime ? t('serviceOrder.positionDialog.rateGross') : t('serviceOrder.positionDialog.fixedGross')}
+              {...hint(
+                byTime ? t('serviceOrder.positionDialog.rateGross') : t('serviceOrder.positionDialog.fixedGross'),
+                t('serviceOrder.positionDialog.grossPreview'),
+              )}
               value={grossShown}
               onChange={typePrice('gross')}
               min={0}
             />
           </SimpleGrid>
-          {unit === null && categoryId === null && (
-            <Text size="xs" c="dimmed">
-              {t('serviceOrder.positionDialog.chooseCategoryFirst')}
-            </Text>
-          )}
           {unit === 'work_units' && workUnitsPerHour && (
             <Text size="xs" c="dimmed">
               {t('serviceOrder.positionDialog.workUnitsPerHour', { count: decimal(workUnitsPerHour) })}
@@ -384,18 +420,15 @@ export function PositionDialog({ opened, order, jobId, position, onClose, onSave
           )}
           {editing && position?.time && (
             <Text size="xs" c="dimmed">
-              {t('serviceOrder.positionDialog.keepsUnit', { unit: t(`serviceOrder.unitName.${position.time.unit}`) })}
+              {unitMoved && unitInForce
+                ? t('serviceOrder.positionDialog.unitMoved', {
+                    entry: t(`serviceOrder.unitName.${position.time.unit}`),
+                    now: t(`serviceOrder.unitName.${unitInForce}`),
+                  })
+                : t('serviceOrder.positionDialog.keepsUnit', { unit: t(`serviceOrder.unitName.${position.time.unit}`) })}
             </Text>
           )}
           {proposalLine()}
-          {!byTime && (
-            <Text size="xs" c="dimmed">
-              {t('serviceOrder.positionDialog.fixedTyped')} {t('serviceOrder.positionDialog.quantityHint')}
-            </Text>
-          )}
-          <Text size="xs" c="dimmed">
-            {t('serviceOrder.positionDialog.priceLeads')}
-          </Text>
         </Stack>
       )}
       {error !== null && (

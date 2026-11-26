@@ -98,7 +98,7 @@ describe('the position dialog (KAN-810, D13)', () => {
     })
   })
 
-  it('fixed-price labour is always typed: no proposal, and «Speichern» waits for the price', async () => {
+  it('fixed-price labour is always typed: no proposal, and a save without a price says so and sends nothing', async () => {
     const user = userEvent.setup()
     const backend = install({ proposal: { timeUnit: 'hours', workUnitsPerHour: null } })
     renderDialog()
@@ -108,7 +108,12 @@ describe('the position dialog (KAN-810, D13)', () => {
     await user.click(screen.getByRole('checkbox', { name: t('serviceOrder.positionDialog.byTime') }))
     expect(screen.queryByTestId('rate-proposal')).not.toBeInTheDocument()
     expect(field(t('serviceOrder.positionDialog.fixedNet'))).toHaveValue('')
-    expect(screen.getByRole('button', { name: t('serviceOrder.positionDialog.save') })).toBeDisabled()
+    // Never a held-back button (UI/UX Specification, Forms): the submit says what is missing.
+    const save = screen.getByRole('button', { name: t('serviceOrder.positionDialog.save') })
+    expect(save).toBeEnabled()
+    await user.click(save)
+    expect(await screen.findByText(t('serviceOrder.positionDialog.missing.price'))).toBeInTheDocument()
+    expect(backend.callsTo(POSITIONS, 'POST')).toHaveLength(0)
 
     await user.type(field(t('serviceOrder.positionDialog.fixedNet')), '250')
     await user.click(screen.getByRole('button', { name: t('serviceOrder.positionDialog.save') }))
@@ -153,21 +158,64 @@ describe('the position dialog (KAN-810, D13)', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent(t('apiRefusal.reasons.service_order_labour_rate_missing'))
   })
 
-  it('a position keeps the unit it was entered with; a changed time is sent in that unit', async () => {
-    const user = userEvent.setup()
-    // The Betrieb has gone over to hours since; the position was typed in work units.
-    const backend = install({ proposal: { timeUnit: 'hours', workUnitsPerHour: null } })
-    renderDialog(LABOUR_BY_TIME)
+  // The server's contract (positions._apply_time): a time is taken only in the unit in force at
+  // the order's location, else 409 service_order_time_unit_changed. The fake keeps that contract.
+  function installUnitContract(unitInForce: 'hours' | 'work_units') {
+    return installFakeBackend([
+      { method: 'GET', match: /^\/dealerships\/dealership-1\/labour-rate-categories$/, handler: () => LABOUR_CATEGORIES },
+      { method: 'GET', match: /^\/dealerships\/dealership-1$/, handler: () => ({ id: 'dealership-1', vatRate: '8.10' }) },
+      {
+        method: 'GET',
+        match: /\/labour-rate-proposal$/,
+        handler: () => proposal({ timeUnit: unitInForce, workUnitsPerHour: unitInForce === 'hours' ? null : '12' }),
+      },
+      {
+        method: 'PATCH',
+        match: /\/positions\/pos-1$/,
+        handler: (req) => {
+          const body = req.body as { timeUnit?: string }
+          return body.timeUnit !== undefined && body.timeUnit !== unitInForce
+            ? status(409, { error: { code: 'conflict', message: 'unit changed', details: { reason: 'service_order_time_unit_changed' } } })
+            : order()
+        },
+      },
+    ])
+  }
 
-    const time = await screen.findByRole('textbox', { name: (name) => name.startsWith(t('serviceOrder.positionDialog.quantityIn', { unit: 'AW' })) })
-    expect(time).toHaveValue('9')
-    expect(screen.getByText(t('serviceOrder.positionDialog.keepsUnit', { unit: t('serviceOrder.unitName.work_units') }))).toBeInTheDocument()
-    await user.clear(time)
-    await user.type(time, '12')
+  it('a position keeps its unit while its time is unchanged; a changed time is typed and sent in the unit in force', async () => {
+    const user = userEvent.setup()
+    // The Betrieb has gone over to hours since; the position was typed in work units (check 48).
+    const backend = installUnitContract('hours')
+    const { onSaved } = renderDialog(LABOUR_BY_TIME)
+
+    const inWorkUnits = await screen.findByRole('textbox', { name: (name) => name.startsWith(t('serviceOrder.positionDialog.quantityIn', { unit: 'AW' })) })
+    expect(inWorkUnits).toHaveValue('9')
+    expect(
+      await screen.findByText(
+        t('serviceOrder.positionDialog.unitMoved', { entry: t('serviceOrder.unitName.work_units'), now: t('serviceOrder.unitName.hours') }),
+      ),
+    ).toBeInTheDocument()
+    await user.clear(inWorkUnits)
+    await user.type(screen.getByRole('textbox', { name: (name) => name.startsWith(t('serviceOrder.positionDialog.quantityIn', { unit: 'h' })) }), '1.5')
     await user.click(screen.getByRole('button', { name: t('serviceOrder.positionDialog.save') }))
-    await waitFor(() => expect(backend.callsTo(/\/positions\/pos-1$/, 'PATCH')).toHaveLength(1))
+
+    await waitFor(() => expect(onSaved).toHaveBeenCalled())
     const [patch] = backend.callsTo(/\/positions\/pos-1$/, 'PATCH')
-    expect(patch.body).toEqual({ time: '12', timeUnit: 'work_units' })
+    expect(patch.body).toEqual({ time: '1.5', timeUnit: 'hours' })
     expect(patch.headers.get('If-Match')).toBe('3')
+  })
+
+  it('a change that leaves the time alone sends no unit, and the position keeps its own', async () => {
+    const user = userEvent.setup()
+    const backend = installUnitContract('hours')
+    const { onSaved } = renderDialog(LABOUR_BY_TIME)
+
+    const text = await screen.findByRole('textbox', { name: (name) => name.startsWith(t('serviceOrder.positionDialog.text')) })
+    await user.clear(text)
+    await user.type(text, 'Jahresservice mit Pollenfilter')
+    await user.click(screen.getByRole('button', { name: t('serviceOrder.positionDialog.save') }))
+
+    await waitFor(() => expect(onSaved).toHaveBeenCalled())
+    expect(backend.callsTo(/\/positions\/pos-1$/, 'PATCH')[0].body).toEqual({ text: 'Jahresservice mit Pollenfilter' })
   })
 })

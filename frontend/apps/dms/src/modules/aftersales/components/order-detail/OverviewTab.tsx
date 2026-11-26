@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react'
-import { Anchor, Button, Group, SimpleGrid, Stack, Text } from '@mantine/core'
+import { Anchor, Button, Group, SimpleGrid, Stack, Text, Tooltip } from '@mantine/core'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { OverviewCard, slate } from '@nexotec/ui-kit'
@@ -55,6 +55,8 @@ export function OverviewTab({
   const [choosing, setChoosing] = useState<PartyRole | null>(null)
   const [error, setError] = useState<unknown>(null)
   const editable = canWrite && !frozen
+  // A missing role hides the actions; a frozen order shows them disabled with the reason.
+  const frozenReason = frozen ? t('serviceOrder.actions.frozen') : null
 
   const roleLabel: Record<PartyRole, string> = {
     contact: t('serviceOrder.overview.contact'),
@@ -72,10 +74,20 @@ export function OverviewTab({
   }
 
   const changeButton = (role: PartyRole) =>
-    editable ? (
-      <Button size="compact-xs" variant="subtle" onClick={() => setChoosing(role)} aria-label={t('serviceOrder.overview.changeTitle', { role: roleLabel[role] })}>
-        {t('serviceOrder.overview.change')}
-      </Button>
+    canWrite ? (
+      <Tooltip label={frozenReason} disabled={frozenReason === null}>
+        <span>
+          <Button
+            size="compact-xs"
+            variant="subtle"
+            disabled={!editable}
+            onClick={() => setChoosing(role)}
+            aria-label={t('serviceOrder.overview.changeTitle', { role: roleLabel[role] })}
+          >
+            {t('serviceOrder.overview.change')}
+          </Button>
+        </span>
+      </Tooltip>
     ) : null
 
   return (
@@ -102,8 +114,8 @@ export function OverviewTab({
               {order.driver?.label ?? t('common.notSet')}
             </Text>
             {changeButton('driver')}
-            {editable && order.driver && (
-              <Button size="compact-xs" variant="subtle" color="gray" onClick={() => void change({ driverContactId: null })}>
+            {canWrite && order.driver && (
+              <Button size="compact-xs" variant="subtle" color="gray" disabled={!editable} title={frozenReason ?? undefined} onClick={() => void change({ driverContactId: null })}>
                 {t('serviceOrder.overview.removeDriver')}
               </Button>
             )}

@@ -81,9 +81,13 @@ function numberInputUses(file: string): NumberInputUse[] {
     const element = source.slice(start, end === -1 ? undefined : end)
     // The label is `label={…}`, or the first argument of a hinted field's
     // spread — `{...hint(label, hint)}` from `useFieldHint()`, or the kit's
-    // `{...fieldHint(label, hint, labels)}` (KAN-443).
+    // `{...fieldHint(label, hint, labels)}` (KAN-443). That first argument is a
+    // `t('…')` call or, as with `label={…}`, a named constant (KAN-810: the
+    // position dialog's `labourTimeLabel`) — named, so the list below judges it.
     const label =
-      element.match(/\blabel=\{([^}]*\)?)\}/)?.[1]?.trim() ?? element.match(/\{\.\.\.(?:fieldHint|hint)\((t\('[^']*'\)),/)?.[1] ?? null
+      element.match(/\blabel=\{([^}]*\)?)\}/)?.[1]?.trim() ??
+      element.match(/\{\.\.\.(?:fieldHint|hint)\(\s*(t\('[^']*'\)|[A-Za-z_]\w*)\s*,/)?.[1] ??
+      null
     const line = source.slice(0, start).split('\n').length
     uses.push({ where: `${relative(APP_ROOT, file)}:${line}`, label })
   }

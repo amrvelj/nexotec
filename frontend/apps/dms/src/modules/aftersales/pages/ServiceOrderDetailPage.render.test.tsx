@@ -132,6 +132,26 @@ describe('the workshop order page (KAN-810, D3)', () => {
     await waitFor(() => expect(backend.callsTo(ORDER_PATH, 'GET').length).toBeGreaterThan(reads))
   })
 
+  it('a frozen order shows the party changes disabled (ADR-061/104: a state disables, only a role hides)', async () => {
+    install({ current: order({ version: 4, state: 'cancelled' }) })
+    renderPage('?tab=overview')
+
+    const change = await screen.findByRole('button', {
+      name: t('serviceOrder.overview.changeTitle', { role: t('serviceOrder.overview.invoiceRecipient') }),
+    })
+    expect(change).toBeDisabled()
+  })
+
+  it('without the role the party changes are hidden', async () => {
+    install({ writable: ALL_GATED_CAPABILITIES.filter((c) => c !== 'service_orders') })
+    renderPage('?tab=overview')
+
+    await screen.findByText(t('serviceOrder.overview.invoiceRecipient'))
+    expect(
+      screen.queryByRole('button', { name: t('serviceOrder.overview.changeTitle', { role: t('serviceOrder.overview.invoiceRecipient') }) }),
+    ).not.toBeInTheDocument()
+  })
+
   it('the overview changes the invoice recipient by contact search, with If-Match', async () => {
     const user = userEvent.setup()
     const backend = install({
@@ -197,7 +217,10 @@ describe('cancelling the order (KAN-810 criterion 5, D16)', () => {
 
     await openCancel(user)
     const submit = await screen.findByRole('button', { name: t('serviceOrder.cancel.submit') })
-    expect(submit).toBeDisabled()
+    // Never a held-back button: a submit without a reason says so and sends nothing.
+    await user.click(submit)
+    expect(await screen.findByText(t('serviceOrder.cancel.reasonMissing'))).toBeInTheDocument()
+    expect(backend.callsTo(/\/cancel$/, 'POST')).toHaveLength(0)
     await user.type(screen.getByRole('textbox', { name: (n) => n.startsWith(t('serviceOrder.cancel.reason')) }), 'Kunde verkauft das Auto')
     await user.click(submit)
 

@@ -41,6 +41,11 @@
     "noLocation": "Für diesen Betrieb ist kein aktiver Standort erfasst.",
     "submit": "Auftrag anlegen",
     "error": "Der Auftrag konnte nicht angelegt werden.",
-    "searchError": "Die Suche ist fehlgeschlagen."
+    "searchError": "Die Suche ist fehlgeschlagen.",
+    "missing": {
+      "vehicle": "Wählen Sie ein Fahrzeug.",
+      "contact": "Wählen Sie den Auftraggeber.",
+      "location": "Wählen Sie den Standort."
+    }
   }
 }

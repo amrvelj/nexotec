@@ -26,15 +26,22 @@ export function JobNameDialog({
   const [name, setName] = useState(initialName)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<unknown>(null)
+  const [missing, setMissing] = useState(false)
 
   useEffect(() => {
     if (opened) {
       setName(initialName)
       setError(null)
+      setMissing(false)
     }
   }, [opened, initialName])
 
   const submit = async () => {
+    // A mirror of the server's `service_order_job_name_required`: said, never a held-back button.
+    if (name.trim() === '') {
+      setMissing(true)
+      return
+    }
     setSubmitting(true)
     setError(null)
     try {
@@ -55,13 +62,15 @@ export function JobNameDialog({
       submitLabel={submitLabel}
       cancelLabel={t('common.cancel')}
       submitting={submitting}
-      // A mirror of the server's `service_order_job_name_required`.
-      submitDisabled={name.trim() === ''}
     >
       <TextInput
         label={t('serviceOrder.jobs.dialog.name')}
         value={name}
-        onChange={(e) => setName(e.currentTarget.value)}
+        onChange={(e) => {
+          setName(e.currentTarget.value)
+          setMissing(false)
+        }}
+        error={missing ? t('serviceOrder.jobs.dialog.nameMissing') : undefined}
         maxLength={200}
         required
         data-autofocus

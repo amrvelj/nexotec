@@ -76,6 +76,7 @@ export function ServiceOrderCreateDialog({ opened, onClose, onCreated }: Service
   const [vehicleCreateOpen, setVehicleCreateOpen] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<unknown>(null)
+  const [missing, setMissing] = useState(false)
 
   useEffect(() => {
     if (!opened) return
@@ -189,10 +190,15 @@ export function ServiceOrderCreateDialog({ opened, onClose, onCreated }: Service
     setDriver(null)
     setHolderNote(null)
     setError(null)
+    setMissing(false)
   }
 
   const submit = async () => {
-    if (!vehicle || !contact || !effectiveLocationId) return
+    if (!vehicle || !contact || !effectiveLocationId) {
+      setMissing(true)
+      return
+    }
+    setMissing(false)
     setSubmitting(true)
     setError(null)
     try {
@@ -251,7 +257,6 @@ export function ServiceOrderCreateDialog({ opened, onClose, onCreated }: Service
         submitLabel={t('serviceOrders.create.submit')}
         cancelLabel={t('common.cancel')}
         submitting={submitting}
-        submitDisabled={!vehicle || !contact || !effectiveLocationId}
         size="lg"
       >
         {vehicle === null && contact === null && (
@@ -384,6 +389,17 @@ export function ServiceOrderCreateDialog({ opened, onClose, onCreated }: Service
           </Stack>
         )}
 
+        {missing && (
+          <Text size="sm" c="red" role="alert">
+            {[
+              !vehicle && t('serviceOrders.create.missing.vehicle'),
+              !contact && t('serviceOrders.create.missing.contact'),
+              !effectiveLocationId && t('serviceOrders.create.missing.location'),
+            ]
+              .filter(Boolean)
+              .join(' ')}
+          </Text>
+        )}
         {error !== null && (
           <Alert color="red" role="alert">
             {apiRefusalText(t, error, 'serviceOrders.create.error')}

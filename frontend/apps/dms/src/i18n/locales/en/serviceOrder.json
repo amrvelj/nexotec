@@ -65,7 +65,8 @@
       "addTitle": "Add group",
       "renameTitle": "Rename group",
       "name": "Name",
-      "add": "Add"
+      "add": "Add",
+      "nameMissing": "Enter a name."
     }
   },
   "positions": {
@@ -124,7 +125,15 @@
     "fixedTyped": "A fixed price is always typed.",
     "keepsUnit": "This position was entered in {{unit}}.",
     "save": "Save",
-    "error": "The position could not be saved."
+    "error": "The position could not be saved.",
+    "missing": {
+      "text": "Enter a description.",
+      "category": "Choose a labour category.",
+      "time": "Enter the time.",
+      "price": "Enter a price."
+    },
+    "unitMoved": "This position was entered in {{entry}}; {{now}} apply here now. A changed time is entered in {{now}}.",
+    "grossPreview": "Worked out from the other price, for display only; the price entered last is the one saved."
   },
   "overview": {
     "parties": "Parties",
@@ -152,7 +161,8 @@
     "submit": "Cancel order",
     "error": "The order could not be cancelled.",
     "bannerTitle": "Cancelled",
-    "bannerBody": "{{who}} cancelled this order on {{when}}. Reason: {{reason}}"
+    "bannerBody": "{{who}} cancelled this order on {{when}}. Reason: {{reason}}",
+    "reasonMissing": "Enter a reason."
   },
   "history": {
     "title": "History",

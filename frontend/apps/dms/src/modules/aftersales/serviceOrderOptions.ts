@@ -14,8 +14,12 @@ export const SERVICE_ORDER_STATES: ServiceOrderState[] = ['draft', 'accepted', '
  * A mirror of the server's `refuse_frozen`, for disabling an action with its reason — the server decides. */
 export const OPEN_STATES: ReadonlySet<ServiceOrderState> = new Set(['draft', 'accepted'])
 
+/** The list's state filter (Anto, 2026-11-26): Entwurf, Angenommen, Storniert. «Rechnungsbereit»
+ * joins it with KAN-816, which builds the state and its chip. */
+export const FILTER_STATES: ServiceOrderState[] = ['draft', 'accepted', 'cancelled']
+
 export function translatedStateOptions(t: Translate): { value: string; label: string }[] {
-  return SERVICE_ORDER_STATES.map((state) => ({ value: state, label: t(`serviceOrder.state.${state}`) }))
+  return FILTER_STATES.map((state) => ({ value: state, label: t(`serviceOrder.state.${state}`) }))
 }
 
 /**

@@ -41,6 +41,9 @@ import { ServiceOrderCreateDialog } from '../components/ServiceOrderCreateDialog
 import { buildServiceOrderRowMenu } from '../components/serviceOrderRowMenu'
 import { applyServiceOrderFilters, serviceOrderHref, translatedStateOptions } from '../serviceOrderOptions'
 
+/** The fields `GET /v1/service-orders` sorts by. */
+const SORTABLE_FIELDS: ReadonlySet<string> = new Set(['orderNumber', 'orderDate', 'createdAt'])
+
 const GRID_KEY = 'serviceOrders.list'
 const DEFAULT_SORT: SortSpec[] = [{ field: 'createdAt', direction: 'desc' }]
 
@@ -81,7 +84,10 @@ export function ServiceOrdersListPage() {
   const [cancelOf, setCancelOf] = useState<ServiceOrderSummary | null>(null)
   const [appliedViewId, setAppliedViewId] = useState<string | null>(null)
 
-  const sort = searchParams.get('sort') ? sortSpecFromQueryParam(searchParams.get('sort')) : gridPrefs.sort
+  // A sort from the URL (hand-edited, or a stale link) keeps only the fields the API sorts by.
+  const sort = (searchParams.get('sort') ? sortSpecFromQueryParam(searchParams.get('sort')) : gridPrefs.sort).filter((s) =>
+    SORTABLE_FIELDS.has(s.field),
+  )
   const urlPredicates = searchParams.get('filters') ? parseFiltersParam(searchParams.get('filters')!) : []
 
   const updateUrl = (patch: Record<string, string | null>) => {

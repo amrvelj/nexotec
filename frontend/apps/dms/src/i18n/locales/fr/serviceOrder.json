@@ -65,7 +65,8 @@
       "addTitle": "Ajouter un groupe",
       "renameTitle": "Renommer le groupe",
       "name": "Désignation",
-      "add": "Ajouter"
+      "add": "Ajouter",
+      "nameMissing": "Saisissez un nom."
     }
   },
   "positions": {
@@ -124,7 +125,15 @@
     "fixedTyped": "Un prix fixe est toujours saisi.",
     "keepsUnit": "Cette position a été saisie en {{unit}}.",
     "save": "Enregistrer",
-    "error": "La position n'a pas pu être enregistrée."
+    "error": "La position n'a pas pu être enregistrée.",
+    "missing": {
+      "text": "Saisissez une désignation.",
+      "category": "Choisissez une catégorie de main-d’œuvre.",
+      "time": "Saisissez le temps.",
+      "price": "Saisissez un prix."
+    },
+    "unitMoved": "Cette position a été saisie en {{entry}} ; ici s’appliquent désormais les {{now}}. Un temps modifié est saisi en {{now}}.",
+    "grossPreview": "Calculé à partir de l’autre prix, pour affichage seulement ; le prix saisi en dernier est celui enregistré."
   },
   "overview": {
     "parties": "Intervenants",
@@ -152,7 +161,8 @@
     "submit": "Annuler l'ordre",
     "error": "L'ordre n'a pas pu être annulé.",
     "bannerTitle": "Annulé",
-    "bannerBody": "{{who}} a annulé cet ordre le {{when}}. Motif : {{reason}}"
+    "bannerBody": "{{who}} a annulé cet ordre le {{when}}. Motif : {{reason}}",
+    "reasonMissing": "Saisissez un motif."
   },
   "history": {
     "title": "Historique",

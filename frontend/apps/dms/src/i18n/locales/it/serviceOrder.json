@@ -65,7 +65,8 @@
       "addTitle": "Aggiungi gruppo",
       "renameTitle": "Rinomina il gruppo",
       "name": "Denominazione",
-      "add": "Aggiungi"
+      "add": "Aggiungi",
+      "nameMissing": "Inserite un nome."
     }
   },
   "positions": {
@@ -124,7 +125,15 @@
     "fixedTyped": "Un prezzo fisso è sempre inserito.",
     "keepsUnit": "Questa posizione è stata inserita in {{unit}}.",
     "save": "Salva",
-    "error": "Non è stato possibile salvare la posizione."
+    "error": "Non è stato possibile salvare la posizione.",
+    "missing": {
+      "text": "Inserite una descrizione.",
+      "category": "Scegliete una categoria di manodopera.",
+      "time": "Inserite il tempo.",
+      "price": "Inserite un prezzo."
+    },
+    "unitMoved": "Questa posizione è stata registrata in {{entry}}; qui valgono ora le {{now}}. Un tempo modificato si registra in {{now}}.",
+    "grossPreview": "Calcolato dall’altro prezzo, solo per la visualizzazione; si salva il prezzo inserito per ultimo."
   },
   "overview": {
     "parties": "Partecipanti",
@@ -152,7 +161,8 @@
     "submit": "Annulla l'ordine",
     "error": "Non è stato possibile annullare l'ordine.",
     "bannerTitle": "Annullato",
-    "bannerBody": "{{who}} ha annullato questo ordine il {{when}}. Motivo: {{reason}}"
+    "bannerBody": "{{who}} ha annullato questo ordine il {{when}}. Motivo: {{reason}}",
+    "reasonMissing": "Inserite un motivo."
   },
   "history": {
     "title": "Cronologia",

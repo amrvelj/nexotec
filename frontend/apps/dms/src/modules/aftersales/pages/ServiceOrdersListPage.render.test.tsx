@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, expect, it, vi } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { Route, Routes, useParams } from 'react-router-dom'
 import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -139,5 +139,26 @@ describe('the workshop order list (KAN-810, D1)', () => {
     await user.click(menuButton)
     await screen.findByRole('menuitem', { name: new RegExp(i18n.t('serviceOrder.actions.open')) })
     expect(screen.queryByRole('menuitem', { name: new RegExp(i18n.t('serviceOrder.actions.cancel')) })).not.toBeInTheDocument()
+  })
+})
+
+// ui-formats.md: a date-only value (the order date, a backend dt.date) names a calendar day and
+// renders the same day west of Greenwich too — the case `new Date('2026-11-26')` gets wrong.
+describe('the order date is a calendar day (KAN-810, ui-formats.md)', () => {
+  let tz: string | undefined
+  beforeAll(() => {
+    tz = process.env.TZ
+    process.env.TZ = 'Pacific/Honolulu'
+  })
+  afterAll(() => {
+    if (tz === undefined) delete process.env.TZ
+    else process.env.TZ = tz
+  })
+
+  it('shows 26.11.2026 under Pacific/Honolulu', async () => {
+    install()
+    renderList()
+    expect((await screen.findAllByText('26.11.2026')).length).toBeGreaterThan(0)
+    expect(screen.queryByText('25.11.2026')).not.toBeInTheDocument()
   })
 })

@@ -41,6 +41,11 @@
     "noLocation": "Aucun site actif n'est saisi pour cette entreprise.",
     "submit": "Créer l'ordre",
     "error": "L'ordre n'a pas pu être créé.",
-    "searchError": "La recherche a échoué."
+    "searchError": "La recherche a échoué.",
+    "missing": {
+      "vehicle": "Choisissez un véhicule.",
+      "contact": "Choisissez le donneur d’ordre.",
+      "location": "Choisissez le site."
+    }
   }
 }
