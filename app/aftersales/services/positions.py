@@ -299,6 +299,7 @@ def _snapshot(position: ServiceOrderPosition) -> dict[str, Any]:
         "vatRate": str(position.vat_rate) if position.vat_rate is not None else None,
         "rateSource": position.rate_source.value if position.rate_source else None,
         "labourRateId": str(position.labour_rate_id) if position.labour_rate_id else None,
+        "checkNeeded": bool(position.check_needed),
     }
 
 

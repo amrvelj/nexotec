@@ -162,6 +162,8 @@ _ADMINISTRATION_MODULE_PREFIXES = (
     "app.api.v1.labour_rate_agreements",
     # KAN-808: the planner's resources (S7) — set up before activation.
     "app.planning.api.resources",
+    # KAN-818: the service catalogue (S1) — Aftersales' data, set up in Dealer Administration.
+    "app.aftersales.api.service_packages",
 )
 _ACCEPT_FIRST = "Accept the current Terms of Service and Data Processing Agreement first."
 # What a manager held by the legal hold may still reach (FR-A-39, Q1 A).

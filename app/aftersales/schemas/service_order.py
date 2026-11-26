@@ -126,6 +126,8 @@ class PositionRead(CamelModel):
     labour_category_id: uuid.UUID | None
     labour_category_label: str | None
     time: LabourTimeRead | None
+    # «Prüfung nötig» (section 3.6): copied from a catalogue package (KAN-818); read by KAN-815's check.
+    check_needed: bool
     unit_price: UnitPriceRead | None
     # The line, net and gross, to the Rappen (ADR-212: both shown in one line).
     line_net: Decimal | None

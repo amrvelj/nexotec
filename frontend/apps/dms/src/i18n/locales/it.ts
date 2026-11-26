@@ -61,6 +61,7 @@ import ns_referenceData from './it/referenceData.json'
 import ns_salesDocuments from './it/salesDocuments.json'
 import ns_salesEnums from './it/salesEnums.json'
 import ns_salesList from './it/salesList.json'
+import ns_serviceCatalogue from './it/serviceCatalogue.json'
 import ns_serviceOrder from './it/serviceOrder.json'
 import ns_serviceOrders from './it/serviceOrders.json'
 import ns_settings from './it/settings.json'
@@ -135,6 +136,7 @@ const bundle = {
   salesDocuments: ns_salesDocuments,
   salesEnums: ns_salesEnums,
   salesList: ns_salesList,
+  serviceCatalogue: ns_serviceCatalogue,
   serviceOrder: ns_serviceOrder,
   serviceOrders: ns_serviceOrders,
   settings: ns_settings,

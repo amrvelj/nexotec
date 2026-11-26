@@ -19,6 +19,7 @@ const NAV_MODULE_BY_HREF: Record<string, string> = {
   '/administration/labour-rates': 'aftersales',
   // KAN-808: the planner's resources are set up with Aftersales (its API 404s without it).
   '/administration/planner-resources': 'aftersales',
+  '/administration/service-catalogue': 'aftersales',
   '/parts': 'parts',
   '/finance': 'finance',
   '/reporting': 'reporting',

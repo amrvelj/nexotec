@@ -44,7 +44,8 @@
     "supportSessions": "Sessions de support",
     "platformUsers": "Utilisateurs de la plateforme",
     "labourRates": "Taux horaires",
-    "plannerResources": "Ressources du planning"
+    "plannerResources": "Ressources du planning",
+    "serviceCatalogue": "Catalogue de services"
   },
   "signOut": "Se déconnecter",
   "environmentNotice": {

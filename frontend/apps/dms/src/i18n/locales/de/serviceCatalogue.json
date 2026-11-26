@@ -1,0 +1,83 @@
+{
+  "title": "Servicekatalog",
+  "subtitle": "Pakete mit Arbeits- und Textpositionen und ihren Zeiten, die der Empfang mit einem Schritt auf eine Arbeit übernimmt. Der Preis ist die Zeit zum Stundenansatz des Auftrags.",
+  "add": "Paket erfassen",
+  "edit": "Bearbeiten",
+  "editNamed": "{{name}} bearbeiten",
+  "activate": "Aktivieren",
+  "activateNamed": "{{name}} aktivieren",
+  "deactivate": "Deaktivieren",
+  "deactivateNamed": "{{name}} deaktivieren",
+  "empty": "Noch kein Paket. Nexotec liefert keine Pakete mit: Erfassen Sie Ihre eigenen.",
+  "readOnly": "Nur die Geschäftsführung ändert den Servicekatalog.",
+  "loadError": "Der Servicekatalog konnte nicht geladen werden.",
+  "saveError": "Das Paket konnte nicht gespeichert werden.",
+  "mixedUnits": "Stunden und AW gemischt",
+  "checkBadge": "Prüfung nötig",
+  "positionCount_one": "{{count, number}} Position ({{labour, number}} Arbeit)",
+  "positionCount_other": "{{count, number}} Positionen ({{labour, number}} Arbeit)",
+  "columns": {
+    "name": "Paket",
+    "positions": "Positionen",
+    "time": "Zeit",
+    "check": "Prüfung",
+    "status": "Status",
+    "actions": "Aktionen"
+  },
+  "status": {
+    "active": "Aktiv",
+    "inactive": "Inaktiv"
+  },
+  "unitInForce": {
+    "hours": "Arbeitszeit wird in Stunden erfasst.",
+    "work_units": "Arbeitszeit wird in Arbeitswerten (AW) erfasst, {{perHour}} AW pro Stunde."
+  },
+  "units": {
+    "hours": "Stunden",
+    "work_units": "Arbeitswerte (AW)"
+  },
+  "unitShort": {
+    "hours": "h",
+    "work_units": "AW"
+  },
+  "kinds": {
+    "labour": "Arbeit",
+    "text": "Text"
+  },
+  "languages": {
+    "de": "Deutsch",
+    "fr": "Französisch",
+    "it": "Italienisch",
+    "en": "Englisch"
+  },
+  "dialog": {
+    "createTitle": "Paket erfassen",
+    "editTitle": "Paket bearbeiten",
+    "name": "Name",
+    "translationsHint": "Optional: der Name in weiteren Sprachen. Wo keiner steht, wird der Name wie erfasst gezeigt.",
+    "translation": "Name ({{language}})",
+    "active": "Aktiv",
+    "activeHint": "Ein inaktives Paket wird für neue Arbeiten nicht mehr angeboten. Bestehende Aufträge ändern sich nicht.",
+    "positions": "Positionen",
+    "unitNote": "Zeit in {{unit}}",
+    "noPositions": "Noch keine Position.",
+    "positionLabel": "Position {{position}}",
+    "moveUp": "Position {{position}} nach oben",
+    "moveDown": "Position {{position}} nach unten",
+    "remove": "Position {{position}} entfernen",
+    "text": "Text",
+    "category": "Arbeitskategorie",
+    "noCategories": "Keine Arbeitskategorie",
+    "time": "Zeit",
+    "checkNeeded": "Prüfung nötig",
+    "checkNeededHint": "Die Arbeit bekommt eine Qualitätskontrolle durch jemanden, der nicht daran gearbeitet hat.",
+    "addLabour": "Arbeit hinzufügen",
+    "addText": "Text hinzufügen"
+  },
+  "missing": {
+    "name": "Geben Sie einen Namen ein.",
+    "text": "Geben Sie den Text ein.",
+    "category": "Wählen Sie eine Arbeitskategorie.",
+    "time": "Geben Sie die Zeit ein."
+  }
+}

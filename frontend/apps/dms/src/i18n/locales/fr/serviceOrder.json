@@ -100,7 +100,8 @@
     "kindLabel": "Type de position",
     "kinds": {
       "labour": "Travail",
-      "text": "Texte"
+      "text": "Texte",
+      "package": "Du catalogue"
     },
     "text": "Désignation",
     "labourCategory": "Catégorie de main-d'œuvre",
@@ -130,10 +131,15 @@
       "text": "Saisissez une désignation.",
       "category": "Choisissez une catégorie de main-d’œuvre.",
       "time": "Saisissez le temps.",
-      "price": "Saisissez un prix."
+      "price": "Saisissez un prix.",
+      "package": "Choisissez un forfait."
     },
     "unitMoved": "Cette position a été saisie en {{entry}} ; l’entreprise compte désormais en {{now}}. Un temps modifié est saisi en {{now}}.",
-    "grossPreview": "Calculé à partir de l’autre prix, pour affichage seulement ; le prix saisi en dernier est celui enregistré."
+    "grossPreview": "Calculé à partir de l’autre prix, pour affichage seulement ; le prix saisi en dernier est celui enregistré.",
+    "package": "Forfait",
+    "packagesError": "La liste des forfaits n'a pas pu être chargée.",
+    "noPackages": "Aucun forfait actif dans le catalogue de services.",
+    "packagePositions": "Sera repris :"
   },
   "overview": {
     "parties": "Intervenants",

@@ -1,0 +1,83 @@
+{
+  "title": "Service catalogue",
+  "subtitle": "Packages of labour and text positions with their times, which the desk puts onto a job in one step. The price is the time at the order's hourly rate.",
+  "add": "Add package",
+  "edit": "Edit",
+  "editNamed": "Edit {{name}}",
+  "activate": "Activate",
+  "activateNamed": "Activate {{name}}",
+  "deactivate": "Deactivate",
+  "deactivateNamed": "Deactivate {{name}}",
+  "empty": "No package yet. Nexotec ships no packages: add your own.",
+  "readOnly": "Only the management changes the service catalogue.",
+  "loadError": "The service catalogue could not be loaded.",
+  "saveError": "The package could not be saved.",
+  "mixedUnits": "Hours and work units mixed",
+  "checkBadge": "Check needed",
+  "positionCount_one": "{{count, number}} position ({{labour, number}} labour)",
+  "positionCount_other": "{{count, number}} positions ({{labour, number}} labour)",
+  "columns": {
+    "name": "Package",
+    "positions": "Positions",
+    "time": "Time",
+    "check": "Check",
+    "status": "Status",
+    "actions": "Actions"
+  },
+  "status": {
+    "active": "Active",
+    "inactive": "Inactive"
+  },
+  "unitInForce": {
+    "hours": "Labour time is entered in hours.",
+    "work_units": "Labour time is entered in work units (WU), {{perHour}} WU per hour."
+  },
+  "units": {
+    "hours": "hours",
+    "work_units": "work units (WU)"
+  },
+  "unitShort": {
+    "hours": "h",
+    "work_units": "WU"
+  },
+  "kinds": {
+    "labour": "Labour",
+    "text": "Text"
+  },
+  "languages": {
+    "de": "German",
+    "fr": "French",
+    "it": "Italian",
+    "en": "English"
+  },
+  "dialog": {
+    "createTitle": "Add package",
+    "editTitle": "Edit package",
+    "name": "Name",
+    "translationsHint": "Optional: the name in other languages. Where there is none, the name is shown as typed.",
+    "translation": "Name ({{language}})",
+    "active": "Active",
+    "activeHint": "An inactive package is no longer offered for new jobs. Existing orders do not change.",
+    "positions": "Positions",
+    "unitNote": "Time in {{unit}}",
+    "noPositions": "No position yet.",
+    "positionLabel": "Position {{position}}",
+    "moveUp": "Move position {{position}} up",
+    "moveDown": "Move position {{position}} down",
+    "remove": "Remove position {{position}}",
+    "text": "Text",
+    "category": "Labour category",
+    "noCategories": "No labour category",
+    "time": "Time",
+    "checkNeeded": "Check needed",
+    "checkNeededHint": "The work gets a quality check by somebody who did not work on it.",
+    "addLabour": "Add labour",
+    "addText": "Add text"
+  },
+  "missing": {
+    "name": "Enter a name.",
+    "text": "Enter the text.",
+    "category": "Choose a labour category.",
+    "time": "Enter the time."
+  }
+}

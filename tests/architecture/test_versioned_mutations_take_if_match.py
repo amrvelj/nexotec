@@ -100,6 +100,8 @@ POST_WITHOUT_IF_MATCH = {
     "/v1/dealerships/{dealership_id}/planning/resources": _NEW_ROW,
     # KAN-809: a block is a new booking; the bookings it marks «neu einplanen» are the service's, under the booking lock.
     "/v1/dealerships/{dealership_id}/planning/blocks": _NEW_ROW,
+    # KAN-818: a new service package (the package is the aggregate; a change is its PUT with If-Match).
+    "/v1/dealerships/{dealership_id}/aftersales/service-packages": _NEW_ROW,
     "/v1/dealerships/{dealership_id}/locations/{location_id}/closures": "a new closure row (KAN-204), versioned "
     "itself; the location's version does not move",
     "/v1/dealerships/{dealership_id}/standard-texts/{category}": "a new standard-text row (KAN-208); with isDefault "

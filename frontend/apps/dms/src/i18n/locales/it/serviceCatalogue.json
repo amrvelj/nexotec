@@ -1,0 +1,83 @@
+{
+  "title": "Catalogo dei servizi",
+  "subtitle": "Pacchetti con posizioni di lavoro e di testo e i loro tempi, che l'accettazione riprende in un passo su un lavoro. Il prezzo è il tempo alla tariffa oraria dell'ordine.",
+  "add": "Inserire un pacchetto",
+  "edit": "Modificare",
+  "editNamed": "Modificare {{name}}",
+  "activate": "Attivare",
+  "activateNamed": "Attivare {{name}}",
+  "deactivate": "Disattivare",
+  "deactivateNamed": "Disattivare {{name}}",
+  "empty": "Ancora nessun pacchetto. Nexotec non fornisce pacchetti: inserite i vostri.",
+  "readOnly": "Solo la direzione modifica il catalogo dei servizi.",
+  "loadError": "Non è stato possibile caricare il catalogo dei servizi.",
+  "saveError": "Non è stato possibile salvare il pacchetto.",
+  "mixedUnits": "Ore e UL miste",
+  "checkBadge": "Controllo necessario",
+  "positionCount_one": "{{count, number}} posizione ({{labour, number}} lavoro)",
+  "positionCount_other": "{{count, number}} posizioni ({{labour, number}} lavoro)",
+  "columns": {
+    "name": "Pacchetto",
+    "positions": "Posizioni",
+    "time": "Tempo",
+    "check": "Controllo",
+    "status": "Stato",
+    "actions": "Azioni"
+  },
+  "status": {
+    "active": "Attivo",
+    "inactive": "Inattivo"
+  },
+  "unitInForce": {
+    "hours": "Il tempo di lavoro è inserito in ore.",
+    "work_units": "Il tempo di lavoro è inserito in unità di lavoro (UL), {{perHour}} UL per ora."
+  },
+  "units": {
+    "hours": "ore",
+    "work_units": "unità di lavoro (UL)"
+  },
+  "unitShort": {
+    "hours": "h",
+    "work_units": "UL"
+  },
+  "kinds": {
+    "labour": "Lavoro",
+    "text": "Testo"
+  },
+  "languages": {
+    "de": "tedesco",
+    "fr": "francese",
+    "it": "italiano",
+    "en": "inglese"
+  },
+  "dialog": {
+    "createTitle": "Inserire un pacchetto",
+    "editTitle": "Modificare il pacchetto",
+    "name": "Nome",
+    "translationsHint": "Facoltativo: il nome in altre lingue. Dove manca, il nome è mostrato come inserito.",
+    "translation": "Nome ({{language}})",
+    "active": "Attivo",
+    "activeHint": "Un pacchetto inattivo non è più offerto per nuovi lavori. Gli ordini esistenti non cambiano.",
+    "positions": "Posizioni",
+    "unitNote": "Tempo in {{unit}}",
+    "noPositions": "Ancora nessuna posizione.",
+    "positionLabel": "Posizione {{position}}",
+    "moveUp": "Spostare in alto la posizione {{position}}",
+    "moveDown": "Spostare in basso la posizione {{position}}",
+    "remove": "Rimuovere la posizione {{position}}",
+    "text": "Testo",
+    "category": "Categoria di lavoro",
+    "noCategories": "Nessuna categoria di lavoro",
+    "time": "Tempo",
+    "checkNeeded": "Controllo necessario",
+    "checkNeededHint": "Il lavoro riceve un controllo qualità da una persona che non vi ha lavorato.",
+    "addLabour": "Aggiungere un lavoro",
+    "addText": "Aggiungere un testo"
+  },
+  "missing": {
+    "name": "Inserite un nome.",
+    "text": "Inserite il testo.",
+    "category": "Scegliete una categoria di lavoro.",
+    "time": "Inserite il tempo."
+  }
+}

@@ -1111,6 +1111,42 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/dealerships/{dealership_id}/aftersales/service-packages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Service Packages */
+        get: operations["list_service_packages_v1_dealerships__dealership_id__aftersales_service_packages_get"];
+        put?: never;
+        /** Create Service Package */
+        post: operations["create_service_package_v1_dealerships__dealership_id__aftersales_service_packages_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/dealerships/{dealership_id}/aftersales/service-packages/{package_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Service Package */
+        get: operations["get_service_package_v1_dealerships__dealership_id__aftersales_service_packages__package_id__get"];
+        /** Change Service Package */
+        put: operations["change_service_package_v1_dealerships__dealership_id__aftersales_service_packages__package_id__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/dealerships/{dealership_id}/ai-prompts": {
         parameters: {
             query?: never;
@@ -5969,6 +6005,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/service-orders/{order_id}/jobs/{job_id}/service-packages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add Service Package
+         * @description D13 «from the catalogue» (KAN-818, check 44): the package's positions copied into the job.
+         */
+        post: operations["add_service_package_v1_service_orders__order_id__jobs__job_id__service_packages_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/service-orders/{order_id}/labour-rate-proposal": {
         parameters: {
             query?: never;
@@ -9925,7 +9981,7 @@ export interface components {
          * CopySubset
          * @enum {string}
          */
-        CopySubset: "standard_texts" | "document_template" | "number_ranges" | "contact_groups" | "settings";
+        CopySubset: "standard_texts" | "document_template" | "number_ranges" | "contact_groups" | "settings" | "service_catalogue";
         /** CurrentLegalDocuments */
         CurrentLegalDocuments: {
             /** Items */
@@ -11101,6 +11157,17 @@ export interface components {
             billingCategory?: components["schemas"]["BillingCategory"];
             /** Name */
             name: string;
+        };
+        /**
+         * JobPackageCopy
+         * @description D13: put a package from the catalogue onto the job.
+         */
+        JobPackageCopy: {
+            /**
+             * Servicepackageid
+             * Format: uuid
+             */
+            servicePackageId: string;
         };
         /** JobRead */
         JobRead: {
@@ -13475,6 +13542,63 @@ export interface components {
             /** Transfers */
             transfers: components["schemas"]["OwnershipTransferRequest"][];
         };
+        /**
+         * PackagePositionKind
+         * @description Section 3.10: labour positions with a fixed time, and text positions.
+         *     Articles join with the slice «parts on the order».
+         * @enum {string}
+         */
+        PackagePositionKind: "labour" | "text";
+        /** PackagePositionRead */
+        PackagePositionRead: {
+            /** Checkneeded */
+            checkNeeded: boolean;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            kind: components["schemas"]["PackagePositionKind"];
+            /** Labourcategoryid */
+            labourCategoryId: string | null;
+            /** Labourcategorylabel */
+            labourCategoryLabel: string | null;
+            /** Sortindex */
+            sortIndex: number;
+            /** Text */
+            text: string;
+            time: components["schemas"]["PackageTimeRead"] | null;
+        };
+        /**
+         * PackagePositionWrite
+         * @description One position as the manager typed it. `id` names a position the package
+         *     holds: sent with the same time, it keeps the unit it was typed in.
+         */
+        PackagePositionWrite: {
+            /**
+             * Checkneeded
+             * @default false
+             */
+            checkNeeded?: boolean;
+            /** Id */
+            id?: string | null;
+            kind: components["schemas"]["PackagePositionKind"];
+            /** Labourcategoryid */
+            labourCategoryId?: string | null;
+            /** Text */
+            text: string;
+            /** Time */
+            time?: string | null;
+            timeUnit?: components["schemas"]["LabourTimeUnit"] | null;
+        };
+        /** PackageTimeRead */
+        PackageTimeRead: {
+            /** Quantity */
+            quantity: string;
+            unit: components["schemas"]["LabourTimeUnit"];
+            /** Workunitsperhour */
+            workUnitsPerHour: string | null;
+        };
         /** PartyRead */
         PartyRead: {
             /**
@@ -13825,6 +13949,8 @@ export interface components {
         PositionKind: "labour_fixed" | "labour_time" | "text";
         /** PositionRead */
         PositionRead: {
+            /** Checkneeded */
+            checkNeeded: boolean;
             /**
              * Id
              * Format: uuid
@@ -15198,6 +15324,55 @@ export interface components {
             version: number;
             /** Waitingforanswer */
             waitingForAnswer: boolean;
+        };
+        /** ServicePackageList */
+        ServicePackageList: {
+            /** Items */
+            items: components["schemas"]["ServicePackageRead"][];
+        };
+        /** ServicePackageRead */
+        ServicePackageRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Isactive */
+            isActive: boolean;
+            /** Name */
+            name: string;
+            /** Nametranslations */
+            nameTranslations: {
+                [key: string]: string;
+            };
+            /** Positions */
+            positions: components["schemas"]["PackagePositionRead"][];
+            /**
+             * Updatedat
+             * Format: date-time
+             */
+            updatedAt: string;
+            /** Version */
+            version: number;
+        };
+        /**
+         * ServicePackageWrite
+         * @description A new package, or the whole package on a change (PUT with If-Match).
+         */
+        ServicePackageWrite: {
+            /**
+             * Isactive
+             * @default true
+             */
+            isActive?: boolean;
+            /** Name */
+            name: string;
+            /** Nametranslations */
+            nameTranslations?: {
+                [key: string]: string;
+            } | null;
+            /** Positions */
+            positions?: components["schemas"]["PackagePositionWrite"][];
         };
         /** SessionList */
         SessionList: {
@@ -20652,6 +20827,162 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AddressAutocompleteConfigRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_service_packages_v1_dealerships__dealership_id__aftersales_service_packages_get: {
+        parameters: {
+            query?: {
+                /** @description Only the packages offered on a job (check 45). */
+                active?: boolean;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServicePackageList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_service_package_v1_dealerships__dealership_id__aftersales_service_packages_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                dealership_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ServicePackageWrite"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServicePackageRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_service_package_v1_dealerships__dealership_id__aftersales_service_packages__package_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                package_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServicePackageRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    change_service_package_v1_dealerships__dealership_id__aftersales_service_packages__package_id__put: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "If-Match"?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                package_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ServicePackageWrite"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServicePackageRead"];
                 };
             };
             /** @description Validation Error */
@@ -33111,6 +33442,49 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["PositionCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServiceOrderRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_service_package_v1_service_orders__order_id__jobs__job_id__service_packages_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "If-Match"?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                order_id: string;
+                job_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["JobPackageCopy"];
             };
         };
         responses: {

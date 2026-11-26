@@ -44,7 +44,8 @@
     "supportSessions": "Sessioni di supporto",
     "platformUsers": "Utenti della piattaforma",
     "labourRates": "Tariffe orarie",
-    "plannerResources": "Risorse della pianificazione"
+    "plannerResources": "Risorse della pianificazione",
+    "serviceCatalogue": "Catalogo dei servizi"
   },
   "signOut": "Disconnetti",
   "environmentNotice": {

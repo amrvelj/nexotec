@@ -98,7 +98,7 @@ def test_within_the_grace_the_manager_is_prompted_not_held(client, db_session, m
 def test_only_administration_routes_pass_the_activation_gate():
     """The gate is judged by the route's endpoint module: every platform route,
     the Betrieb's integration connections, the agreed labour rate (KAN-806) and the planner's resources
-    (KAN-808, S7) pass; no module route does."""
+    (KAN-808, S7) and the service catalogue (KAN-818, S1) pass; no other module route does."""
 
     allowed, gated = set(), set()
     for path, route in api_routes(app.routes):
@@ -106,7 +106,7 @@ def test_only_administration_routes_pass_the_activation_gate():
             continue
         module = route.endpoint.__module__
         (allowed if module.startswith(_ADMINISTRATION_MODULE_PREFIXES) else gated).add(module.split(".")[1])
-    assert allowed == {"platform", "integration", "api", "planning"}
+    assert allowed == {"platform", "integration", "api", "planning", "aftersales"}
     # The one composition-root route of Dealer Administration (KAN-806: an agreed labour rate,
     # composed at the root because it reads the contact).
     assert {
@@ -122,5 +122,13 @@ def test_only_administration_routes_pass_the_activation_gate():
         if route.endpoint.__module__.startswith("app.planning.")
         and route.endpoint.__module__.startswith(_ADMINISTRATION_MODULE_PREFIXES)
     } == {"app.planning.api.resources"}
+    # Of aftersales, only the service catalogue (KAN-818, S1) is Dealer Administration; the orders are gated.
+    assert {
+        route.endpoint.__module__
+        for _, route in api_routes(app.routes)
+        if route.endpoint.__module__.startswith("app.aftersales.")
+        and route.endpoint.__module__.startswith(_ADMINISTRATION_MODULE_PREFIXES)
+    } == {"app.aftersales.api.service_packages"}
+    assert "aftersales" in gated
     assert {"contact", "vehicle", "inventory", "sales", "valuation"} <= gated
     assert "platform" not in gated

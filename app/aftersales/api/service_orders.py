@@ -30,7 +30,8 @@ from app.aftersales.schemas.service_order import (
     ServiceOrderPartiesUpdate,
     ServiceOrderRead,
 )
-from app.aftersales.services import order_read, positions
+from app.aftersales.schemas.service_package import JobPackageCopy
+from app.aftersales.services import order_read, positions, service_packages
 from app.aftersales.services import service_order as service
 from app.core.auth import Principal
 from app.core.concurrency import check_version, require_if_match
@@ -250,6 +251,27 @@ def add_position(
             unit_price=body.unit_price,
             price_entered=body.price_entered,
         ),
+    )
+    return _read(db, principal, order_id)
+
+
+@router.post(
+    "/service-orders/{order_id}/jobs/{job_id}/service-packages", response_model=ServiceOrderRead, status_code=201
+)
+def add_service_package(
+    order_id: uuid.UUID,
+    job_id: uuid.UUID,
+    body: JobPackageCopy,
+    if_match: int = Depends(require_if_match),
+    principal: Principal = Depends(require_write(_READ)),
+    db: Session = Depends(get_db),
+):
+    """D13 «from the catalogue» (KAN-818, check 44): the package's positions copied into the job."""
+
+    order = _locked(db, principal, order_id, if_match)
+    job = positions.get_job_or_404(db, order=order, job_id=job_id)
+    service_packages.copy_package_onto_job(
+        db, order=order, job=job, package_id=body.service_package_id, actor_id=principal.user_id
     )
     return _read(db, principal, order_id)
 

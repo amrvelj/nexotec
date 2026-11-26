@@ -35,8 +35,9 @@ _GATED_MODULES = {"app.vehicle.api.configuration", "app.vehicle.api.identificati
 _GATED_ROUTERS = 13  # KAN-555: the legacy transactions router is gone
 # KAN-810: the service orders; KAN-808: the planning context's routers — both behind `aftersales`.
 # Each package keeps its own floor of routes and its own router count, as each side had alone.
+# KAN-818 adds Aftersales' second router, the service catalogue — behind the same gate.
 _AFTERSALES_GATED = {
-    "app.aftersales.api.": (12, 1),  # (at least this many routes, exactly this many routers)
+    "app.aftersales.api.": (16, 2),  # (at least this many routes, exactly this many routers)
     # KAN-808: the planner resources (S7); KAN-809: the planner page — a router each.
     "app.planning.api.": (19, 2),
 }

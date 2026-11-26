@@ -44,7 +44,8 @@
     "supportSessions": "Support-Sitzungen",
     "platformUsers": "Plattform-Benutzer",
     "labourRates": "Stundenansätze",
-    "plannerResources": "Planer-Ressourcen"
+    "plannerResources": "Planer-Ressourcen",
+    "serviceCatalogue": "Servicekatalog"
   },
   "signOut": "Abmelden",
   "environmentNotice": {

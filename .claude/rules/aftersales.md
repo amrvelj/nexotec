@@ -60,3 +60,19 @@ Last verified against main@32ad509 (2026-11-25). -->
   changing its people take the contact's or car's merge lock before reading it.
 - A billing category exists on every job from the first day, with one value («customer»); later
   slices add values, not a field. A service-catalogue package is **copied** onto a job, never linked.
+- **The service catalogue (KAN-818, section 3.10; `services/service_packages.py`).** `service_package`
+  (name + `name_translations`, ruling 176; active/inactive, never deleted; the version-carrying
+  aggregate, a change is a PUT of the whole package with If-Match) and `service_package_position`
+  (labour: a fixed time with its unit and AW-per-hour as typed, O18/O19 of the Betrieb, a labour
+  category by the three-column pattern refreshed nightly by `aftersales.package_labels`, «check
+  needed»; or text). Names unique per Betrieb, case ignored. API `api/service_packages.py` under
+  `/dealerships/{id}/aftersales/service-packages`, matrix row `service_packages` (aftersales reads,
+  the manager writes), counted as Dealer Administration by the session guard; screen
+  `/administration/service-catalogue`. «From the catalogue» is `POST /service-orders/{id}/jobs/{jobId}/service-packages`
+  (If-Match on the order): labour lands as labour by time with the package's time and unit, priced by
+  `positions.propose_rate` (check 11), `check_needed` copied onto `service_order_position`; whole or not
+  at all (`service_package_labour_rate_missing`); an inactive package 409 `service_package_inactive`; the order's version
+  moves once per copy. D13's third choice «Aus dem Katalog» (`PositionDialog`) lists `?active=true` and calls it.
+  Nothing on a workshop position names the package (check 45); the history row names it. Copied from a
+  sister Betrieb by `ServiceCatalogueCopier` through `app.core.configuration_copy` (its own session,
+  ADR-047, ADR-236). A copy never reactivates a package the target set inactive (`package_inactive_here`). Nexotec ships no package (ruling 174).
