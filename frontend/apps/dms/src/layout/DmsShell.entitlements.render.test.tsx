@@ -56,7 +56,8 @@ describe('DmsShell navigation follows the module entitlements (KAN-198)', () => 
     renderShell(['aftersales'])
     const nav = await screen.findByRole('navigation', { name: t('shell.sidebar.mainNavigation') })
     expect(await within(nav).findByText(t('shell.nav.contacts'))).toBeInTheDocument()
-    expect(within(nav).getByText(t('shell.nav.aftersales'))).toBeInTheDocument()
+    // KAN-810: the workshop orders, «Aufträge».
+    expect(within(nav).getByText(t('shell.nav.orders'))).toBeInTheDocument()
     for (const hidden of ['shell.nav.sales', 'shell.nav.inventory', 'shell.nav.valuations']) {
       expect(within(nav).queryByText(t(hidden))).not.toBeInTheDocument()
     }
@@ -72,7 +73,7 @@ describe('DmsShell navigation follows the module entitlements (KAN-198)', () => 
     renderShell(['sales'])
     const nav = await screen.findByRole('navigation', { name: t('shell.sidebar.mainNavigation') })
     expect(await within(nav).findByText(t('shell.nav.sales'))).toBeInTheDocument()
-    for (const hidden of ['shell.nav.aftersales', 'shell.nav.labourRates', 'shell.nav.plannerResources']) {
+    for (const hidden of ['shell.nav.orders', 'shell.nav.labourRates', 'shell.nav.plannerResources']) {
       expect(within(nav).queryByText(t(hidden))).not.toBeInTheDocument()
     }
     expect(within(nav).getByText(t('shell.nav.locations'))).toBeInTheDocument()
@@ -81,7 +82,7 @@ describe('DmsShell navigation follows the module entitlements (KAN-198)', () => 
   it('a fully entitled Betrieb sees every module entry', async () => {
     renderShell(ALL_ENTITLEMENTS)
     const nav = await screen.findByRole('navigation', { name: t('shell.sidebar.mainNavigation') })
-    for (const shown of ['shell.nav.sales', 'shell.nav.inventory', 'shell.nav.valuations', 'shell.nav.aftersales']) {
+    for (const shown of ['shell.nav.sales', 'shell.nav.inventory', 'shell.nav.valuations', 'shell.nav.orders']) {
       expect(await within(nav).findByText(t(shown))).toBeInTheDocument()
     }
   })

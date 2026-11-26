@@ -47,6 +47,10 @@ const ALLOWED_STRINGS: Record<string, [string, Language[]]> = {
   'contactDetail:overview.removeCustomerRole.title': ['names the role «Kunde»', ALL],
   'contactDetail:overview.removeCustomerRole.body': ['names the role «Kunde»', ALL],
   'contactRowMenu:removeDoNotContactCustomerRole': ['names the role «Kunde»', ALL],
+  // KAN-810: a workshop job's billing category, the payer «Kunde» (slice 1 has this one value; later
+  // slices add warranty, goodwill, internal). A payer, not the contact register: the order's
+  // contact is «Auftraggeber».
+  'serviceOrder:billingCategory.customer': ['the billing category «Kunde» of a job', ALL],
   // AutoScout24's own credential field: the dealer's customer number at AutoScout24.
   'integrationEnums:configKey.kundennummer': ["the marketplace's account number, as it names it", ALL],
   // OAuth vocabulary («Client-ID», «client secret»), French uses the same word.

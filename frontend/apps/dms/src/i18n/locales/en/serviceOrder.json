@@ -1,0 +1,207 @@
+{
+  "state": {
+    "draft": "Draft",
+    "accepted": "Accepted",
+    "ready_for_billing": "Ready for billing",
+    "cancelled": "Cancelled"
+  },
+  "answerState": {
+    "draft": "Draft",
+    "waiting": "Waiting for the answer",
+    "accepted": "Accepted",
+    "declined": "Declined"
+  },
+  "billingCategory": {
+    "customer": "Customer"
+  },
+  "kind": {
+    "labour_fixed": "Labour",
+    "labour_time": "Labour",
+    "text": "Text"
+  },
+  "kindDetail": {
+    "labour_fixed": "fixed price",
+    "labour_time": "by time"
+  },
+  "timeUnit": {
+    "hours": "h",
+    "work_units": "AW"
+  },
+  "unitName": {
+    "hours": "hours",
+    "work_units": "work units (AW)"
+  },
+  "rateSource": {
+    "agreement": "rate agreed with the invoice recipient",
+    "category_rate": "the category's rate at the location",
+    "typed": "typed price"
+  },
+  "loadError": "The order could not be loaded.",
+  "saveError": "The change could not be saved.",
+  "reload": "Reload",
+  "tabs": {
+    "positions": "Positions",
+    "overview": "Overview",
+    "history": "History"
+  },
+  "actions": {
+    "open": "Open",
+    "addJob": "Add group",
+    "cancel": "Cancel order",
+    "frozen": "This order is closed and can no longer be changed.",
+    "cancelNotInState": {
+      "cancelled": "The order is already cancelled.",
+      "ready_for_billing": "An order ready for billing cannot be cancelled."
+    }
+  },
+  "jobs": {
+    "empty": "No group yet. Create the first one with “Add group”.",
+    "addPosition": "Position",
+    "rename": "Rename",
+    "delete": "Delete group",
+    "deleteBody": "Delete “{{name}}” with all its positions?",
+    "noPositions": "No position yet.",
+    "dialog": {
+      "addTitle": "Add group",
+      "renameTitle": "Rename group",
+      "name": "Name",
+      "add": "Add",
+      "nameMissing": "Enter a name."
+    }
+  },
+  "positions": {
+    "columns": {
+      "kind": "Kind",
+      "text": "Description",
+      "quantity": "Quantity",
+      "unitPriceNet": "Price net",
+      "net": "Net",
+      "gross": "Incl. VAT"
+    },
+    "edit": "Edit position",
+    "delete": "Delete position",
+    "deleteBody": "Delete “{{text}}”?",
+    "confirmDelete": "Delete"
+  },
+  "totals": {
+    "title": "Order total per payer",
+    "accepted": "Accepted",
+    "open": "Still open",
+    "net": "Net",
+    "vatLine": "VAT {{rate}} %",
+    "rounding": "Rounding",
+    "total": "Total",
+    "none": "Nothing",
+    "note": "VAT is calculated once per payer. Rounding happens only at the end, on the total."
+  },
+  "positionDialog": {
+    "addTitle": "Position",
+    "editTitle": "Edit position",
+    "kindLabel": "Kind of position",
+    "kinds": {
+      "labour": "Labour",
+      "text": "Text"
+    },
+    "text": "Description",
+    "labourCategory": "Labour category",
+    "noCategories": "No active labour category is recorded for this business.",
+    "categoriesError": "The labour categories could not be loaded.",
+    "byTime": "Bill by clocked time",
+    "quantity": "Quantity",
+    "quantityIn": "Quantity ({{unit}})",
+    "quantityHint": "With a fixed price the time is a guide for planning; the amount is the fixed price.",
+    "workUnitsPerHour": "{{count, number}} AW per hour",
+    "chooseCategoryFirst": "Choose the labour category first.",
+    "rateNet": "Hourly rate net",
+    "rateGross": "Hourly rate incl. VAT",
+    "fixedNet": "Fixed price net",
+    "fixedGross": "Fixed price incl. VAT",
+    "priceLeads": "The price typed last applies; the other follows from it.",
+    "proposal": "Proposed: {{source}}",
+    "proposalFrom": "Proposed: {{source}}, valid from {{date}}",
+    "noProposal": "No hourly rate applies to this category here on the order's date. Type the price.",
+    "proposalError": "The proposal could not be read.",
+    "useProposal": "Use the proposal",
+    "fixedTyped": "A fixed price is always typed.",
+    "keepsUnit": "This position was entered in {{unit}}.",
+    "save": "Save",
+    "error": "The position could not be saved.",
+    "missing": {
+      "text": "Enter a description.",
+      "category": "Choose a labour category.",
+      "time": "Enter the time.",
+      "price": "Enter a price."
+    },
+    "unitMoved": "This position was entered in {{entry}}; the business now works in {{now}}. A changed time is entered in {{now}}.",
+    "grossPreview": "Worked out from the other price, for display only; the price entered last is the one saved."
+  },
+  "overview": {
+    "parties": "Parties",
+    "contact": "Ordering party",
+    "invoiceRecipient": "Invoice to",
+    "driver": "Driver",
+    "driverOptional": "Driver (optional)",
+    "vehicleCard": "Vehicle",
+    "vehicle": "Vehicle",
+    "orderCard": "Order",
+    "orderNumber": "Order number",
+    "location": "Location",
+    "orderDate": "Order date",
+    "createdAt": "Created",
+    "change": "Change",
+    "changeTitle": "Change: {{role}}",
+    "removeDriver": "Remove driver",
+    "contactSearchLabel": "Search contact",
+    "contactSearchPlaceholder": "Name or contact number",
+    "noContactMatches": "No contact found."
+  },
+  "cancel": {
+    "title": "Cancel order",
+    "reason": "Reason for the cancellation",
+    "submit": "Cancel order",
+    "error": "The order could not be cancelled.",
+    "bannerTitle": "Cancelled",
+    "bannerBody": "{{who}} cancelled this order on {{when}}. Reason: {{reason}}",
+    "reasonMissing": "Enter a reason."
+  },
+  "history": {
+    "title": "History",
+    "empty": "No entry yet.",
+    "loadError": "The history could not be loaded.",
+    "system": "System",
+    "unknownUser": "Unknown user",
+    "otherAction": "Change",
+    "withSubject": "{{action}}: {{subject}}",
+    "reason": "Reason: {{reason}}",
+    "actions": {
+      "service_order_created": "Order created",
+      "service_order_cancelled": "Order cancelled",
+      "service_order_parties_changed": "Parties changed",
+      "service_order_job_added": "Group added",
+      "service_order_job_changed": "Group changed",
+      "service_order_job_deleted": "Group deleted",
+      "service_order_job_accepted": "Group accepted",
+      "service_order_position_added": "Position added",
+      "service_order_position_changed": "Position changed",
+      "service_order_position_deleted": "Position deleted"
+    },
+    "fields": {
+      "contactLabel": "Ordering party",
+      "invoiceRecipientLabel": "Invoice to",
+      "driverLabel": "Driver",
+      "vehicleLabel": "Vehicle",
+      "state": "Order status",
+      "name": "Name",
+      "answerState": "Answer",
+      "text": "Description",
+      "time": "Quantity",
+      "unitPrice": "Price",
+      "priceEntered": "Price entered",
+      "rateSource": "Price source"
+    },
+    "priceEntered": {
+      "net": "net",
+      "gross": "incl. VAT"
+    }
+  }
+}
