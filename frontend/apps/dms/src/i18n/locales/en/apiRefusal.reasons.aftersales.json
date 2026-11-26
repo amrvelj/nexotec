@@ -1,0 +1,22 @@
+{
+  "service_order_cancel_reason_required": "Give the reason for the cancellation.",
+  "service_order_clock_has_run": "Time has already been clocked on this order, so it cannot be cancelled. Decline its jobs instead.",
+  "service_order_contact_blocked": "This contact is blocked ({{reason}}). No workshop order can be opened for them.",
+  "service_order_contact_merged": "This contact has been merged into another. Choose the contact it was merged into for the order.",
+  "service_order_frozen": "This order is closed (ready for billing or cancelled) and can no longer be changed.",
+  "service_order_job_accepted": "This job has been accepted and cannot be deleted. Record the answer instead.",
+  "service_order_job_already_answered": "The answer for this job has already been recorded.",
+  "service_order_job_name_required": "A job needs a name.",
+  "service_order_job_time_clocked": "Time has been clocked on this job, so it cannot be deleted. Decline it instead.",
+  "service_order_labour_category_unknown": "This labour category is not one of this business's.",
+  "service_order_labour_rate_missing": "No labour rate applies to this category at this location on the order's day. Enter the price.",
+  "service_order_position_incomplete": "The position is incomplete: labour needs a category, labour by time its time, a fixed price its price, a price whether it is net or with VAT; a text carries no price.",
+  "service_order_position_time_clocked": "Time has been clocked on this position, so it cannot be deleted.",
+  "service_order_price_negative": "A price is not below zero.",
+  "service_order_price_too_many_decimals": "A price has at most four decimals.",
+  "service_order_time_not_positive": "A labour time is above zero.",
+  "service_order_time_too_many_decimals": "A labour time has at most two decimals.",
+  "service_order_time_unit_changed": "Labour time is now entered in another unit here. Check the time and enter it again.",
+  "service_order_vat_rate_not_set": "No VAT rate is set for this business yet, so no price can be entered.",
+  "service_order_vehicle_not_identified": "The car is not identified. Choose it among the vehicles or create it first."
+}

@@ -10,7 +10,7 @@ import enum
 import uuid
 from collections.abc import Iterable
 
-from sqlalchemy import select
+from sqlalchemy import String, cast, or_, select
 from sqlalchemy.orm import Session
 
 from app.contact.models.contact import (
@@ -54,15 +54,24 @@ _OUTBOX_LAG_GRACE = dt.timedelta(hours=1)
 _BOOKING_EVENT_TYPES = ("inventory.stock_item.purchased", "inventory.stock_item.storno")
 # KAN-464 PR-3 (ADR-210): every event this context publishes, and the name it
 # was published under before customers became contacts. A row already in the
-# outbox keeps its name (never rewritten); the old names stay subscribed
-# until the check below finds none pending or dead, then KAN-464 PR-5
-# retires them.
+# outbox keeps its name (never rewritten). KAN-464 PR-5 retired the old-name
+# subscriptions and payload keys; the history read below still reads the old
+# rows, and the check below reports one still pending or dead, which no
+# consumer will now handle.
 _BEFORE_THE_RENAME = {
     "contact.created": "customer.created",
     "contact.updated": "customer.updated",
     "contact.merged": "customer.merged",
     "contact.vehicle_party.linked": "customer.vehicle_party.linked",
     "contact.vehicle_party.unlinked": "customer.vehicle_party.unlinked",
+}
+# KAN-464 PR-5: the facts other contexts publish whose contact keys the
+# rename changed, and the keys they carried before it. Their consumers read
+# only the new keys since PR-5; the check below reports an old one in flight.
+_OLD_PAYLOAD_KEYS = {
+    "inventory.stock_item.purchased": ("tradeInCustomerId",),
+    "inventory.stock_item.storno": ("tradeInCustomerId", "returnedToCustomer"),
+    "sales.contract.confirmed": ("customerId",),
 }
 
 # Every Contact table with created_by / updated_by: each must name a platform
@@ -112,10 +121,12 @@ CHECKS: list[ReferenceCheck | StateCheck] = [
         ),
     ),
     StateCheck(
-        # KAN-464 PR-3 (rule 10): an event published under its name before
-        # the rename, still waiting for a consumer (or dead) an hour on. Zero
-        # findings where a worker runs is KAN-464 PR-5's precondition for
-        # retiring the old names (staging runs none, so it never drains there).
+        # KAN-464 (rule 10): an event published under its name before the
+        # rename, still pending or dead an hour on. Since PR-5 nothing
+        # subscribes to an old name, so a worker publishes such a row with no
+        # consumer at its first poll (staging held no `customer.merged`,
+        # 2026-11-25): this reports only a database no worker has polled yet,
+        # such as one restored from before the rename. Never repaired here.
         label="event under its name before the rename to contacts, still pending or dead",
         source_model=OutboxMessage,
         source_row_id_column=OutboxMessage.id,
@@ -123,6 +134,27 @@ CHECKS: list[ReferenceCheck | StateCheck] = [
             OutboxMessage.event_type.in_(tuple(_BEFORE_THE_RENAME.values()))
             & OutboxMessage.status.in_((OutboxStatus.PENDING, OutboxStatus.DEAD))
             & (OutboxMessage.created_at < utcnow() - _OUTBOX_LAG_GRACE)
+        ),
+    ),
+    StateCheck(
+        # KAN-464 PR-5 (rule 10): a Stock or Sales fact published before the
+        # rename names the contact by its old key. Its consumers refuse such a
+        # payload since PR-5, so a worker dead-letters it (with the alert);
+        # this names those dead rows, and pending ones no worker has polled.
+        label="stock or sales event naming the contact by its key before the rename, still pending or dead",
+        source_model=OutboxMessage,
+        source_row_id_column=OutboxMessage.id,
+        where=lambda: (
+            OutboxMessage.event_type.in_(tuple(_OLD_PAYLOAD_KEYS))
+            & OutboxMessage.status.in_((OutboxStatus.PENDING, OutboxStatus.DEAD))
+            & (OutboxMessage.created_at < utcnow() - _OUTBOX_LAG_GRACE)
+            & or_(
+                *(
+                    (OutboxMessage.event_type == event_type) & cast(OutboxMessage.payload, String).contains(f'"{key}"')
+                    for event_type, keys in _OLD_PAYLOAD_KEYS.items()
+                    for key in keys
+                )
+            )
         ),
     ),
     vehicle_reference_check(

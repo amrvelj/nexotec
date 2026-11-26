@@ -235,28 +235,14 @@ def register_handlers(transport: InProcessTransport) -> None:
         consumer_name="sales.contact_merged",
         handler=handle_contact_merged_message,
     )
-    # KAN-464 PR-3 (ADR-210): a merge published before customers became
-    # contacts is `customer.merged`. Its consumer keeps its own name, so an
-    # event it already processed stays processed; one handler reads both
-    # payloads. KAN-464 PR-5 removes it once contact reconciliation finds no
-    # old-name event pending or dead.
-    transport.register(
-        "customer.merged",
-        consumer_name="sales.customer_merged",
-        handler=handle_contact_merged_message,
-    )
     # KAN-465 — the same fact moves the stock items whose supplier is the
-    # duplicate contact to the survivor, with its name. Its consumer was
-    # `inventory.customer_merged` on `customer.merged` until KAN-464 PR-3;
-    # like Sales', that one stays subscribed under its own name until PR-5.
+    # duplicate contact to the survivor, with its name. KAN-464 PR-5 retired
+    # the old-name twins (`sales.`/`inventory.customer_merged` on
+    # `customer.merged`): no environment that runs a worker held one pending
+    # or dead (staging runs none and held none, 2026-11-25).
     transport.register(
         "contact.merged",
         consumer_name="inventory.contact_merged",
-        handler=move_stock_suppliers_on_contact_merged,
-    )
-    transport.register(
-        "customer.merged",
-        consumer_name="inventory.customer_merged",
         handler=move_stock_suppliers_on_contact_merged,
     )
     # KAN-632 (ADR-147) — the contact context's record of Stock's bookings,

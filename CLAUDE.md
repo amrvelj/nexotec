@@ -110,7 +110,7 @@ Lowest layer first (ADR-131, ADR-211); peers: parts and inventory, aftersales an
 | `inventory` | stock items, pipeline vehicles, reservation, Wagenbuch, marketplace publishing |
 | `parts` | *(stub)* part master, stock, suppliers, purchase orders |
 | `sales` | offers and contracts, pricing build-up, trade-ins, the offer workspace, documents |
-| `aftersales` | *(stub)* service orders, the car's stay, labour (ADR-213) |
+| `aftersales` | service orders, the car's stay, labour (ADR-213) |
 | `finance` | *(stub)* invoicing and payment matching — **not a ledger** (ADR-037) |
 | `reporting` | projections from events (public stock) |
 | `compliance` | *(stub)* audit, revDSG, retention |
@@ -149,7 +149,7 @@ Stubs keep every context in the contract: never delete one or put its concerns e
 12. **A write spanning two contexts is a call with a compensating action, never a shared
     transaction** (ADR-047) — each side commits its own work. It would work today because everything
     shares one database; that is why it is forbidden. The import-linter cannot catch it; `test_adr_047_no_shared_transaction.py`
-    does (its ruled exceptions: `tests-architecture.md`). A contact merge reaches Sales only through `contact.merged` (and `customer.merged` until KAN-464 PR-5).
+    does (its ruled exceptions: `tests-architecture.md`). A contact merge reaches Sales only through `contact.merged`.
 
 ## Preserve verbatim — already correct, do not "improve"
 

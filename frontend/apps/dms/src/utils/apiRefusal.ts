@@ -502,6 +502,27 @@ const REASON_KEYS: Record<string, string> = {
       'document_has_no_contact',
       'whatsapp_text_fixed',
       'message_text_missing',
+      // KAN-810 — the workshop order, its jobs and positions.
+      'service_order_cancel_reason_required',
+      'service_order_clock_has_run',
+      'service_order_contact_blocked',
+      'service_order_contact_merged',
+      'service_order_frozen',
+      'service_order_job_accepted',
+      'service_order_job_already_answered',
+      'service_order_job_name_required',
+      'service_order_job_time_clocked',
+      'service_order_labour_category_unknown',
+      'service_order_labour_rate_missing',
+      'service_order_position_incomplete',
+      'service_order_position_time_clocked',
+      'service_order_price_negative',
+      'service_order_price_too_many_decimals',
+      'service_order_time_not_positive',
+      'service_order_time_too_many_decimals',
+      'service_order_time_unit_changed',
+      'service_order_vat_rate_not_set',
+      'service_order_vehicle_not_identified',
     ].map((reason) => [reason, `apiRefusal.reasons.${reason}`]),
   ),
 }
@@ -530,6 +551,8 @@ const REASON_PARAMS: Record<string, (details: Details, t: TFunction) => Record<s
   // KAN-214 (FR-A-26): the checklist item that blocks the action, by its name.
   setup_checklist_item_missing: (d, t) => ({ item: checklistItemTitle(t, String(d.item ?? '')) }),
   credit_block: (d) => ({ reason: String(d.creditBlockReason ?? '—') }),
+  // KAN-810: a blocked contact's reason, named on the refusal (Contacts FR-21).
+  service_order_contact_blocked: (d) => ({ reason: String(d.blockedReason ?? '—') }),
   // KAN-539: the instant of the first request, as a day in the user's locale.
   invoice_already_requested: (d) => ({
     date:

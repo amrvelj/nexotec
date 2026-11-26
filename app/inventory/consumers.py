@@ -27,8 +27,8 @@ and `consumer_name` of each:
 - `contact.merged` -> `inventory.contact_merged`
   (`handle_contact_merged_message`, KAN-465): an item whose supplier is the
   merged contact moves to the survivor, with its name
-  (app.inventory.services.supplier_labels). `customer.merged` -> `inventory.customer_merged`
-  stays subscribed, the same handler, until KAN-464 PR-5 (ADR-210).
+  (app.inventory.services.supplier_labels). KAN-464 PR-5 retired its
+  pre-rename twin on `customer.merged` (ADR-210).
 """
 
 import uuid
@@ -131,10 +131,8 @@ def handle_contact_merged_message(db: Session, message: OutboxMessage) -> None:
     if message.tenant_id is None:
         raise ValueError(f"contact.merged message {message.id} has no tenant_id.")
     payload = message.payload or {}
-    # KAN-464 PR-3: `customer.merged`, published before the rename, names
-    # the customer; both names are consumed until PR-5 retires the old one.
-    duplicate_id = uuid.UUID(payload.get("contactId", payload.get("customerId")))
-    survivor_id = uuid.UUID(payload.get("duplicateOfContactId", payload.get("duplicateOfCustomerId")))
+    duplicate_id = uuid.UUID(payload["contactId"])
+    survivor_id = uuid.UUID(payload["duplicateOfContactId"])
     # Before any stock item is read: a booking naming the duplicate in flight
     # commits first (and is moved below) or waits and reads it merged.
     lock_supplier_contact(db, duplicate_id)

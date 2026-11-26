@@ -83,15 +83,16 @@ def test_the_consumer_is_registered_for_contact_merged():
     assert transport.registrations[CONSUMER][0] == "contact.merged"
 
 
-def test_the_name_before_the_rename_stays_subscribed_under_its_own_consumer():
-    """KAN-464 PR-3 (ADR-210): a `customer.merged` still in the outbox is
-    consumed under its old consumer name, so one it already processed stays
-    processed. KAN-464 PR-5 removes it."""
+def test_the_name_before_the_rename_is_no_longer_subscribed():
+    """KAN-464 PR-5 (ADR-210): `customer.merged` and its consumer
+    `sales.customer_merged` are retired; the merge reaches Sales as
+    `contact.merged` only."""
 
     transport = _RecordingTransport()
     register_handlers(transport)
 
-    assert transport.registrations["sales.customer_merged"] == ("customer.merged", handle_contact_merged_message)
+    assert "sales.customer_merged" not in transport.registrations
+    assert all(event_type != "customer.merged" for event_type, _ in transport.registrations.values())
 
 
 def test_the_merge_writes_nothing_of_sales_and_the_consumer_moves_it_all_once(db_session):

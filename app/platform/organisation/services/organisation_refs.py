@@ -12,8 +12,10 @@ import dataclasses
 import uuid
 from decimal import Decimal
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.platform.organisation.models.dealership_settings import SHIPPED_CASH_ROUNDING, DealershipSettings
 from app.platform.organisation.schemas.dealership import DealerGroupRead
 from app.platform.organisation.services import dealership as dealership_service
 from app.platform.organisation.services import location as location_service
@@ -45,6 +47,16 @@ def get_dealership_or_404(db: Session, dealership_id: uuid.UUID) -> DealershipSu
 
     row = dealership_service.get_dealership_or_404(db, dealership_id)
     return DealershipSummary(id=row.id, dealer_group_id=row.dealer_group_id, vat_rate=row.vat_rate)
+
+
+def get_dealership_cash_rounding(db: Session, dealership_id: uuid.UUID) -> Decimal:
+    """The Betrieb's cash rounding step (KAN-203, «Rappenrundung», 0.05 as
+    shipped): the step `app.core.money.payer_totals` rounds a payer's total
+    to (KAN-810, the workshop order's total). A SELECT only."""
+
+    step = db.scalar(select(DealershipSettings.cash_rounding).where(DealershipSettings.dealership_id == dealership_id))
+    # A Betrieb inserted around `create_dealership` has no row yet: the shipped step (KAN-203).
+    return step if step is not None else SHIPPED_CASH_ROUNDING
 
 
 def get_location_or_404(db: Session, *, dealership_id: uuid.UUID, location_id: uuid.UUID) -> LocationSummary:

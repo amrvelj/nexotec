@@ -55,7 +55,7 @@ Decided rulings live in the PRD; built only where a bullet says so — check the
   `aftersales`, `parts`, `finance`, `reporting`), written by `platform_admin` only, read by the
   manager; claims `entitlements` + `ent_v`. `require_entitlement(ModuleCode.X)` is a
   **router-level** dependency on every sales, inventory, valuation and configurator router (and
-  `aftersales` on planning's, ADR-221), runs
+  `aftersales` on planning's, ADR-221, and on Aftersales' own, KAN-810), runs
   before any role check and answers **404 for everyone**, staff included
   (`test_sales_routers_carry_entitlement_gate.py`). A changed set bumps
   `dealership.entitlements_version`; a token with another `ent_v` gets 401 and signs in again.
