@@ -135,6 +135,22 @@ describe('ContactBlockDialog — «Gesperrt» (KAN-810)', () => {
     }
   })
 
+  it('a bare 409 — a stale version — says the contact changed and to reload', async () => {
+    const user = userEvent.setup()
+    installBackend(
+      {},
+      { refusal: status(409, { error: { code: 'conflict', message: 'Version mismatch.', details: { currentVersion: 4, ifMatchVersion: 3 } } }) },
+    )
+    renderDetail()
+
+    await openMenuItem(user, i18n.t('contactRowMenu.setBlock'))
+    const dialog = await screen.findByRole('dialog')
+    await user.type(within(dialog).getByRole('textbox'), 'Hausverbot')
+    await user.click(within(dialog).getByRole('button', { name: i18n.t('contactBlockDialog.setSubmit') }))
+    expect(await within(dialog).findByText(i18n.t('contactBlockDialog.conflict'))).toBeInTheDocument()
+    expect(within(dialog).queryByText(/Version mismatch/)).not.toBeInTheDocument()
+  })
+
   it('a supplier-only contact is offered neither block', async () => {
     // Same terms as the credit block (Anto, 2026-11-26): a supplier-only
     // contact has no customer role, so neither block is offered. Without the

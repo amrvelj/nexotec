@@ -90,6 +90,23 @@ def test_check_2_a_blocked_contact_or_invoice_recipient_is_refused_with_the_reas
     assert create_order(client, betrieb, good.id, vehicle_id).json()["orderNumber"].endswith("-00001")
 
 
+@pytest.mark.parametrize("role", ["contact", "invoice_recipient"])
+def test_check_2_a_credit_block_alone_does_not_refuse_the_order(client, db_session, betrieb, role):
+    """Anto, 2026-11-26 (Q1, option 1): «Blocked» is «Gesperrt», not the credit block. An order for a
+    credit-blocked customer exists; the credit block only changes how it is paid (3.7, check 38)."""
+
+    good = make_contact(db_session, betrieb)
+    credit_blocked = make_contact(db_session, betrieb, name="Zahlt bar AG", credit_block_reason="Betreibung")
+    vehicle_id = make_vehicle(db_session)
+
+    if role == "contact":
+        response = create_order(client, betrieb, credit_blocked.id, vehicle_id)
+    else:
+        response = create_order(client, betrieb, good.id, vehicle_id, invoiceRecipientContactId=str(credit_blocked.id))
+
+    assert response.status_code == 201, response.text
+
+
 def test_a_blocked_driver_is_not_refused(client, db_session, betrieb):
     """Table 3.1 names the contact and the invoice recipient only."""
 
