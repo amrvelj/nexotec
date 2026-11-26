@@ -37,7 +37,8 @@ _GATED_ROUTERS = 13  # KAN-555: the legacy transactions router is gone
 # Each package keeps its own floor of routes and its own router count, as each side had alone.
 _AFTERSALES_GATED = {
     "app.aftersales.api.": (12, 1),  # (at least this many routes, exactly this many routers)
-    "app.planning.api.": (15, 1),
+    # KAN-808: the planner resources (S7); KAN-809: the planner page — a router each.
+    "app.planning.api.": (19, 2),
 }
 _AFTERSALES_PACKAGES = tuple(_AFTERSALES_GATED)
 

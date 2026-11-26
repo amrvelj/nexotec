@@ -23,8 +23,8 @@
     "block": "Blocked"
   },
   "replan": "Reschedule",
-  "itemAria": "{{kind}}: {{title}}, {{from}} to {{to}}",
-  "itemAriaReplan": "{{kind}}: {{title}}, {{from}} to {{to}}, reschedule",
+  "itemAria": "{{row}} – {{kind}}: {{title}}, {{from}} to {{to}}",
+  "itemAriaReplan": "{{row}} – {{kind}}: {{title}}, {{from}} to {{to}}, reschedule",
   "setup": {
     "noWorkplace": "No workplace has been set up at this location yet. Without a workplace nothing can be planned here.",
     "noPerson": "No person has been set up at this location yet. Without a person nothing can be planned here.",
@@ -78,6 +78,7 @@
     "failed": "The booking could not be saved.",
     "needsResource": "Choose at least one person or one workplace.",
     "workNeedsWorkplace": "Work holds exactly one workplace.",
+    "timeRequired": "Enter a date and a time for both the start and the end.",
     "endAfterStart": "The end must come after the start."
   },
   "warnings": {
@@ -92,6 +93,6 @@
     "cancel": "Cancel",
     "failed": "The block could not be saved.",
     "marked_one": "One booking is now marked «reschedule».",
-    "marked_other": "{{count}} bookings are now marked «reschedule»."
+    "marked_other": "{{count, number}} bookings are now marked «reschedule»."
   }
 }

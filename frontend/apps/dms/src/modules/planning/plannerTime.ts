@@ -5,29 +5,13 @@
  * arithmetic; no library.
  */
 
+import { wallClockIn } from '../../utils/format'
+
 export const PLANNER_ZONE = 'Europe/Zurich'
 
-const PARTS = new Intl.DateTimeFormat('en-CA', {
-  timeZone: PLANNER_ZONE,
-  year: 'numeric',
-  month: '2-digit',
-  day: '2-digit',
-  hour: '2-digit',
-  minute: '2-digit',
-  hourCycle: 'h23',
-})
-
-interface WallClock {
-  date: string // YYYY-MM-DD
-  time: string // HH:MM
-}
-
 /** An instant as Zurich wall-clock date and time. */
-export function wallClock(instant: string | Date): WallClock {
-  const parts = Object.fromEntries(
-    PARTS.formatToParts(typeof instant === 'string' ? new Date(instant) : instant).map((p) => [p.type, p.value]),
-  )
-  return { date: `${parts.year}-${parts.month}-${parts.day}`, time: `${parts.hour}:${parts.minute}` }
+export function wallClock(instant: string | Date): { date: string; time: string } {
+  return wallClockIn(instant, PLANNER_ZONE)
 }
 
 /** Zurich's offset from UTC at an instant, in minutes. */
@@ -38,8 +22,11 @@ function offsetAt(utcMillis: number): number {
   return (Date.UTC(y, m - 1, d, h, mi) - Math.floor(utcMillis / 60000) * 60000) / 60000
 }
 
-/** A Zurich wall-clock date and time as an ISO instant with its offset. In
- * the hour the clock skips, the time is read with the offset before the change. */
+/** A Zurich wall-clock date and time as an ISO instant with its offset. A time
+ * that does not exist (the hour the clock skips in spring) is written with the
+ * offset after the change, so it names the instant an hour earlier (02:30 →
+ * 01:30 local); a time that exists twice (autumn) is read as the one after the
+ * change, in winter time. */
 export function zurichInstant(date: string, time: string): string {
   const [y, m, d] = date.split('-').map(Number)
   const [h, mi] = time.split(':').map(Number)

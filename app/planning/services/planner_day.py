@@ -23,7 +23,7 @@ from app.core.relative_dates import session_zone
 from app.planning.models.booking import Booking, BookingResource, BookingStatus
 from app.planning.models.resource import Resource
 from app.planning.services.booking_records import BookingRecord, records_of
-from app.planning.services.planner_settings import GRID_MINUTES_KEY, read_minutes_or_none
+from app.planning.services.planner_settings import grid_minutes_or_none
 from app.planning.services.platform_refs import location_belongs_to
 
 
@@ -76,8 +76,6 @@ def planner_day(db: Session, *, dealership_id: uuid.UUID, location_id: uuid.UUID
         location_id=location_id,
         starts_at=starts_at,
         ends_at=ends_at,
-        grid_minutes=read_minutes_or_none(
-            db, dealership_id=dealership_id, location_id=location_id, key=GRID_MINUTES_KEY
-        ),
+        grid_minutes=grid_minutes_or_none(db, dealership_id=dealership_id, location_id=location_id),
         bookings=records_of(db, bookings),
     )

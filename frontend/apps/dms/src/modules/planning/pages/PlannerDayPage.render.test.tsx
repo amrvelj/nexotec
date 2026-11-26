@@ -244,6 +244,51 @@ describe('PlannerDayPage (KAN-809)', () => {
     expect(screen.getByRole('link', { name: i18n.t('planner.setup.open') })).toHaveAttribute('href', '/administration/planner-resources')
   })
 
+  it('a location without a person says so and where to set it up', async () => {
+    install({ resources: [LIFT], bookings: [] })
+    render()
+
+    expect(await screen.findByText(i18n.t('planner.setup.noPerson'))).toBeInTheDocument()
+    expect(screen.getByText(i18n.t('planner.setup.where'))).toBeInTheDocument()
+  })
+
+  it('works without the mouse: Tab reaches a booking, Enter opens it, Escape closes it', async () => {
+    const user = userEvent.setup()
+    install()
+    render()
+
+    await screen.findByRole('group', { name: /Hauptsitz/ })
+    const first = screen.getAllByRole('button', { name: /Auftrag 1001/ })[0]
+    first.focus()
+    expect(first).toHaveFocus()
+    await user.keyboard('{Enter}')
+    expect(await screen.findByRole('dialog', { name: i18n.t('planner.booking.title') })).toBeInTheDocument()
+    await user.keyboard('{Escape}')
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+  })
+
+  it('a cleared date or time is said in a sentence, and nothing is sent', async () => {
+    const user = userEvent.setup()
+    const backend = install()
+    render()
+
+    await user.click((await screen.findAllByRole('button', { name: /Auftrag 1001/ }))[0])
+    const dialog = await screen.findByRole('dialog')
+    await user.clear(within(dialog).getByLabelText(new RegExp(`${i18n.t('planner.fields.to')} – ${i18n.t('planner.fields.time')}`)))
+    await user.click(within(dialog).getByRole('button', { name: i18n.t('planner.booking.save') }))
+
+    expect(within(dialog).getByText(i18n.t('planner.booking.timeRequired'))).toBeInTheDocument()
+    expect(backend.callsTo(/\/bookings\//, 'PATCH')).toHaveLength(0)
+  })
+
+  it('a booking on two resources names the row in each of its accessible names', async () => {
+    install()
+    render()
+
+    expect(await screen.findByRole('button', { name: /^Lea Meier – Arbeit: Auftrag 1001/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^Bühne 1 – Arbeit: Auftrag 1001/ })).toBeInTheDocument()
+  })
+
   it('a location with nobody and nothing says so, and the grid not set says where to set it', async () => {
     install({ resources: [], bookings: [], grid: null })
     render()

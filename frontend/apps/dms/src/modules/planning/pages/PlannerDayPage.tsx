@@ -16,6 +16,7 @@ import type {
   WorkplaceTypeList,
 } from '../../../api/types'
 import { useAuth } from '../../../auth/AuthContext'
+import { formatLongDateOnly } from '../../../utils/format'
 import { useCanWrite } from '../../../auth/useCanWrite'
 import { BlockResourceDialog } from '../components/BlockResourceDialog'
 import { BookingDialog, type PlannerOption } from '../components/BookingDialog'
@@ -131,7 +132,7 @@ export function PlannerDayPage() {
 
   const weekday = isoWeekday(day)
   const bookings = plannerDay.data?.bookings ?? []
-  const itemOf = (booking: BookingRead): DayGridItem => {
+  const itemOf = (booking: BookingRead, row: string): DayGridItem => {
     const startMinute = Math.max(0, minuteOfDay(booking.startsAt, day))
     const endMinute = Math.min(DAY_MINUTES, minuteOfDay(booking.endsAt, day))
     const from = wallClock(booking.startsAt).time
@@ -153,17 +154,21 @@ export function PlannerDayPage() {
       detail,
       tone: booking.kind === 'work' ? 'booking' : booking.kind === 'block' ? 'block' : 'slot',
       flagLabel: replan ? t('planner.replan') : undefined,
-      ariaLabel: t(replan ? 'planner.itemAriaReplan' : 'planner.itemAria', { kind, title, from, to }),
+      ariaLabel: t(replan ? 'planner.itemAriaReplan' : 'planner.itemAria', { row, kind, title, from, to }),
       onActivate: canWrite ? () => setOpened(booking) : undefined,
     }
   }
-  const rowOf = (resource: ResourceRead, subtitle?: string) => ({
-    id: resource.id,
-    title: resource.name ?? resource.userLabel ?? '',
-    subtitle,
-    unavailable: offDuty(resource, weekday),
-    items: bookings.filter((b) => b.resources.some((r) => r.resourceId === resource.id)).map(itemOf),
-  })
+  const rowOf = (resource: ResourceRead, subtitle?: string) => {
+    const title = resource.name ?? resource.userLabel ?? ''
+    return {
+      id: resource.id,
+      title,
+      subtitle,
+      unavailable: offDuty(resource, weekday),
+      // A booking on several resources shows in each of their rows, its name saying which row.
+      items: bookings.filter((b) => b.resources.some((r) => r.resourceId === resource.id)).map((b) => itemOf(b, title)),
+    }
+  }
   const groups: DayGridGroup[] = [
     {
       id: 'people',
@@ -193,16 +198,7 @@ export function PlannerDayPage() {
   const toMinute = Math.min(DAY_MINUTES, Math.ceil(Math.max(18 * 60, ...edges) / 60) * 60)
   const nowMinute = day === zurichToday() ? minutesOf(wallClock(new Date()).time) : null
 
-  const dayLabel = useMemo(() => {
-    const [y, m, d] = day.split('-').map(Number)
-    return new Intl.DateTimeFormat(`${language.slice(0, 2)}-CH`, {
-      weekday: 'long',
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric',
-      timeZone: 'UTC',
-    }).format(new Date(Date.UTC(y, m - 1, d)))
-  }, [day, language])
+  const dayLabel = useMemo(() => formatLongDateOnly(day, `${language.slice(0, 2)}-CH`), [day, language])
 
   const loading = locations.isLoading || resources.isLoading || plannerDay.isLoading
   const loadError = locations.isError || resources.isError || plannerDay.isError

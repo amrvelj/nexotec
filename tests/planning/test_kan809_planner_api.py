@@ -251,5 +251,19 @@ def test_a_resource_of_another_betrieb_cannot_be_blocked(client, db_session, sho
     response = client.post(f"{_base(shop)}/blocks", json={
         "resourceIds": [str(stranger.lift_1)], "startsAt": _iso(p.at(9)), "endsAt": _iso(p.at(10)),
     }, headers=desk)
-    assert response.status_code in (404, 422), response.text
-    assert _day(client, stranger, _headers(client, db_session, stranger.dealership_id, manager=True)).status_code == 404
+    assert response.status_code == 404, response.text
+    # Rule 7: another Betrieb's resource reads as missing, and nothing was written.
+    assert response.json()["error"]["code"] == "not_found"
+    assert _day(client, shop, desk).json()["bookings"] == []
+
+
+def test_a_retried_block_replays_its_answer_and_writes_one(client, db_session, shop, desk):
+    headers = {**desk, "Idempotency-Key": str(uuid.uuid4())}
+    body = {"resourceIds": [str(shop.lift_1)], "startsAt": _iso(p.at(9)), "endsAt": _iso(p.at(10))}
+
+    first = client.post(f"{_base(shop)}/blocks", json=body, headers=headers)
+    again = client.post(f"{_base(shop)}/blocks", json=body, headers=headers)
+
+    assert (first.status_code, again.status_code) == (201, 201), again.text
+    assert again.json()["booking"]["id"] == first.json()["booking"]["id"]
+    assert len(_day(client, shop, desk).json()["bookings"]) == 1

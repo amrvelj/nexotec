@@ -15,6 +15,11 @@ describe('plannerTime', () => {
     expect(zurichInstant('2027-03-28', '01:30')).toBe('2027-03-28T01:30:00+01:00')
     expect(zurichInstant('2027-03-28', '04:00')).toBe('2027-03-28T04:00:00+02:00')
     expect(zurichInstant('2027-10-31', '12:00')).toBe('2027-10-31T12:00:00+01:00')
+    // 02:30 on 28 March does not exist: written with the summer offset, it is 01:30 local.
+    expect(zurichInstant('2027-03-28', '02:30')).toBe('2027-03-28T02:30:00+02:00')
+    expect(wallClock(zurichInstant('2027-03-28', '02:30'))).toEqual({ date: '2027-03-28', time: '01:30' })
+    // 02:30 on 31 October exists twice: the one after the change, winter time.
+    expect(zurichInstant('2027-10-31', '02:30')).toBe('2027-10-31T02:30:00+01:00')
     expect(new Date(zurichInstant('2027-03-01', '09:15')).toISOString()).toBe('2027-03-01T08:15:00.000Z')
   })
 

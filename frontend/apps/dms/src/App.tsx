@@ -207,9 +207,12 @@ export default function App() {
                 <Route path="/sales/offers/:id" element={<OfferDetailPage />} />
                 <Route path="/sales/contracts/:id" element={<ContractDetailPage />} />
                 <Route path="/valuations" element={<ValuationsListPage />} />
-                <Route path="/planner" element={<PlannerDayPage />} />
                 <Route path="/valuations/new" element={<ValuationCreatePage />} />
                 <Route path="/valuations/:id" element={<ValuationDetailPage />} />
+              </Route>
+              {/* KAN-809: the planner is Aftersales' — a Betrieb without the module never reaches it. */}
+              <Route element={<RequireEntitlement module="aftersales" />}>
+                <Route path="/planner" element={<PlannerDayPage />} />
               </Route>
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />

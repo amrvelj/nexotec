@@ -62,6 +62,7 @@ export function BlockResourceDialog({ opened, day, planningPath, people, workpla
   const submit = async () => {
     const resourceIds = [...personIds, ...workplaceIds]
     if (resourceIds.length === 0) return setFormError(t('planner.booking.needsResource'))
+    if (!fromDate || !fromTime || !toDate || !toTime) return setFormError(t('planner.booking.timeRequired'))
     const startsAt = zurichInstant(fromDate, fromTime)
     const endsAt = zurichInstant(toDate, toTime)
     if (new Date(endsAt) <= new Date(startsAt)) return setFormError(t('planner.booking.endAfterStart'))

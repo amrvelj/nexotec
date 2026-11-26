@@ -101,6 +101,7 @@ export function BookingDialog({ booking, planningPath, people, workplaces, resou
     const resourceIds = [...personIds, ...workplaceIds]
     if (resourceIds.length === 0) return setFormError(t('planner.booking.needsResource'))
     if (isWork && workplaceIds.length !== 1) return setFormError(t('planner.booking.workNeedsWorkplace'))
+    if (!fromDate || !fromTime || !toDate || !toTime) return setFormError(t('planner.booking.timeRequired'))
     const startsAt = zurichInstant(fromDate, fromTime)
     const endsAt = zurichInstant(toDate, toTime)
     if (new Date(endsAt) <= new Date(startsAt)) return setFormError(t('planner.booking.endAfterStart'))

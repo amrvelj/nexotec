@@ -23,14 +23,14 @@
     "block": "Bloccato"
   },
   "replan": "Da ripianificare",
-  "itemAria": "{{kind}}: {{title}}, dalle {{from}} alle {{to}}",
-  "itemAriaReplan": "{{kind}}: {{title}}, dalle {{from}} alle {{to}}, da ripianificare",
+  "itemAria": "{{row}} – {{kind}}: {{title}}, dalle {{from}} alle {{to}}",
+  "itemAriaReplan": "{{row}} – {{kind}}: {{title}}, dalle {{from}} alle {{to}}, da ripianificare",
   "setup": {
     "noWorkplace": "In questa sede non è ancora registrata alcuna postazione di lavoro. Senza postazione qui non si può pianificare nulla.",
     "noPerson": "In questa sede non è ancora registrata alcuna persona. Senza persona qui non si può pianificare nulla.",
     "nothing": "In questa sede non sono ancora registrate né persone né postazioni di lavoro. Senza di esse qui non si può pianificare nulla.",
-    "where": "Persone e postazioni di lavoro si registrano nell’amministrazione, alla voce «Risorse del pianificatore».",
-    "open": "Apri le risorse del pianificatore"
+    "where": "Persone e postazioni di lavoro si registrano nell’amministrazione, alla voce «Risorse della pianificazione».",
+    "open": "Apri le risorse della pianificazione"
   },
   "gridNotSet": "La griglia del pianificatore non è impostata per questa sede. Lavori e appuntamenti si potranno pianificare quando sarà impostata nelle impostazioni del pianificatore.",
   "openSettings": "Apri le impostazioni",
@@ -78,6 +78,7 @@
     "failed": "Non è stato possibile salvare la prenotazione.",
     "needsResource": "Scegliete almeno una persona o una postazione di lavoro.",
     "workNeedsWorkplace": "Un lavoro occupa esattamente una postazione di lavoro.",
+    "timeRequired": "Indicate una data e un’ora sia per l’inizio sia per la fine.",
     "endAfterStart": "La fine deve seguire l’inizio."
   },
   "warnings": {
@@ -92,6 +93,6 @@
     "cancel": "Annulla",
     "failed": "Non è stato possibile salvare il blocco.",
     "marked_one": "Una prenotazione è ora segnata «da ripianificare».",
-    "marked_other": "{{count}} prenotazioni sono ora segnate «da ripianificare»."
+    "marked_other": "{{count, number}} prenotazioni sono ora segnate «da ripianificare»."
   }
 }

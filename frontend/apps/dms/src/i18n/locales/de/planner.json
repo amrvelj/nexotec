@@ -23,8 +23,8 @@
     "block": "Blockiert"
   },
   "replan": "Neu einplanen",
-  "itemAria": "{{kind}}: {{title}}, {{from}} bis {{to}}",
-  "itemAriaReplan": "{{kind}}: {{title}}, {{from}} bis {{to}}, neu einplanen",
+  "itemAria": "{{row}} – {{kind}}: {{title}}, {{from}} bis {{to}}",
+  "itemAriaReplan": "{{row}} – {{kind}}: {{title}}, {{from}} bis {{to}}, neu einplanen",
   "setup": {
     "noWorkplace": "An diesem Standort ist noch kein Arbeitsplatz erfasst. Ohne Arbeitsplatz kann hier nichts geplant werden.",
     "noPerson": "An diesem Standort ist noch keine Person erfasst. Ohne Person kann hier nichts geplant werden.",
@@ -78,7 +78,8 @@
     "failed": "Die Buchung konnte nicht gespeichert werden.",
     "needsResource": "Wählen Sie mindestens eine Person oder einen Arbeitsplatz.",
     "workNeedsWorkplace": "Arbeit belegt genau einen Arbeitsplatz.",
-    "endAfterStart": "Das Ende liegt nach dem Beginn."
+    "timeRequired": "Geben Sie für Beginn und Ende je ein Datum und eine Zeit an.",
+    "endAfterStart": "Das Ende muss nach dem Beginn liegen."
   },
   "warnings": {
     "outside_working_hours": "{{resource}} arbeitet zu dieser Zeit nicht.",
@@ -92,6 +93,6 @@
     "cancel": "Abbrechen",
     "failed": "Die Blockierung konnte nicht gespeichert werden.",
     "marked_one": "Eine Buchung ist jetzt als «neu einplanen» markiert.",
-    "marked_other": "{{count}} Buchungen sind jetzt als «neu einplanen» markiert."
+    "marked_other": "{{count, number}} Buchungen sind jetzt als «neu einplanen» markiert."
   }
 }

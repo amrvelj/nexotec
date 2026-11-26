@@ -23,8 +23,8 @@
     "block": "Bloqué"
   },
   "replan": "À replanifier",
-  "itemAria": "{{kind}} : {{title}}, de {{from}} à {{to}}",
-  "itemAriaReplan": "{{kind}} : {{title}}, de {{from}} à {{to}}, à replanifier",
+  "itemAria": "{{row}} – {{kind}} : {{title}}, de {{from}} à {{to}}",
+  "itemAriaReplan": "{{row}} – {{kind}} : {{title}}, de {{from}} à {{to}}, à replanifier",
   "setup": {
     "noWorkplace": "Aucun poste de travail n’est encore saisi sur ce site. Sans poste de travail, rien ne peut y être planifié.",
     "noPerson": "Aucune personne n’est encore saisie sur ce site. Sans personne, rien ne peut y être planifié.",
@@ -78,6 +78,7 @@
     "failed": "La réservation n’a pas pu être enregistrée.",
     "needsResource": "Choisissez au moins une personne ou un poste de travail.",
     "workNeedsWorkplace": "Un travail occupe exactement un poste de travail.",
+    "timeRequired": "Indiquez une date et une heure pour le début et pour la fin.",
     "endAfterStart": "La fin doit suivre le début."
   },
   "warnings": {
@@ -92,6 +93,6 @@
     "cancel": "Annuler",
     "failed": "Le blocage n’a pas pu être enregistré.",
     "marked_one": "Une réservation est maintenant marquée « à replanifier ».",
-    "marked_other": "{{count}} réservations sont maintenant marquées « à replanifier »."
+    "marked_other": "{{count, number}} réservations sont maintenant marquées « à replanifier »."
   }
 }
