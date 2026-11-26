@@ -116,9 +116,10 @@ describe('the row menu without the customer role\'s write (KAN-464 Q3)', () => {
     onCopyContactNumber: vi.fn(),
     onToggleDoNotContact: vi.fn(),
     onManageCreditBlock: vi.fn(),
+    onManageBlock: vi.fn(),
     onMergeInto: vi.fn(),
   }
-  const base = { lifecycleStatus: 'active' as const, creditBlock: false, creditBlockReason: null }
+  const base = { lifecycleStatus: 'active' as const, creditBlock: false, creditBlockReason: null, blocked: false }
   const menu = (c: Parameters<typeof buildContactRowMenu>[1], mayWriteCustomerRole: boolean) =>
     buildContactRowMenu(t, c, handlers, { mayWriteCustomerRole })
   const labels = (m: ReturnType<typeof menu>) => [...(m.overflow.edit ?? []), ...(m.overflow.createFrom ?? [])].map((a) => a.label)
@@ -126,6 +127,10 @@ describe('the row menu without the customer role\'s write (KAN-464 Q3)', () => {
   it('offers no credit block and no merge of a customer; do-not-contact and merging suppliers stay', () => {
     const contactMenu = labels(menu({ ...base, roles: ['customer'] }, false))
     expect(contactMenu).not.toContain('contactRowMenu.setCreditBlock')
+    // KAN-810: «Gesperrt» is offered on the same terms as the credit block.
+    expect(contactMenu).not.toContain('contactRowMenu.setBlock')
+    expect(labels(menu({ ...base, blocked: true, roles: ['customer'] }, false))).not.toContain('contactRowMenu.removeBlock')
+    expect(labels(menu({ ...base, blocked: true, roles: ['customer'] }, true))).toContain('contactRowMenu.removeBlock')
     expect(contactMenu).not.toContain('contactRowMenu.mergeInto')
     expect(contactMenu).toContain('contactRowMenu.setDoNotContact')
     expect(labels(menu({ ...base, creditBlock: true, roles: ['customer'] }, false))).not.toContain('contactRowMenu.removeCreditBlock')

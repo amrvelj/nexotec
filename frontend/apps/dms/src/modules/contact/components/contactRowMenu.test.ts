@@ -18,11 +18,12 @@ function handlers(over: Partial<ContactRowMenuHandlers> = {}): ContactRowMenuHan
   }
 }
 
-type C = Pick<ContactRead, 'lifecycleStatus' | 'creditBlock' | 'creditBlockReason'>
+type C = Pick<ContactRead, 'lifecycleStatus' | 'creditBlock' | 'creditBlockReason' | 'blocked'>
 const cust = (over: Partial<C> = {}): C => ({
   lifecycleStatus: 'active',
   creditBlock: false,
   creditBlockReason: null,
+  blocked: false,
   ...over,
 })
 
