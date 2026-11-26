@@ -82,10 +82,11 @@
     },
     "blockingStrip": {
       "creditBlockTitle": "Blocage de crédit",
+      "blockedTitle": "Bloqué",
       "doNotContactTitle": "Ne pas contacter",
       "doNotContactNote": "Aucun contact commercial. Le service et la correspondance légalement requise restent autorisés ; pas une offre ni un contrat."
     },
-    "customerRoleFieldsHint": "Le statut, le conseiller et le blocage de crédit relèvent du rôle client.",
+    "customerRoleFieldsHint": "Le statut, le conseiller, le blocage de crédit et le blocage relèvent du rôle client.",
     "removeCustomerRole": {
       "title": "Retirer le rôle client ?",
       "body": "Le contact perd son statut et son conseiller ; tous deux relèvent du rôle client. L’historique conserve la modification.",
@@ -216,7 +217,8 @@
       "vehicle_party_add": "Véhicule lié",
       "vehicle_party_update": "Lien au véhicule modifié",
       "vehicle_party_remove": "Lien au véhicule terminé",
-      "credit_block_changed": "Blocage de crédit modifié"
+      "credit_block_changed": "Blocage de crédit modifié",
+      "block_changed": "Blocage modifié"
     },
     "otherAction": "Modification enregistrée",
     "fields": {
@@ -235,6 +237,8 @@
       "duplicateOfContactId": "Doublon du contact",
       "creditBlock": "Blocage de crédit",
       "creditBlockReason": "Motif du blocage de crédit",
+      "blocked": "Bloqué",
+      "blockedReason": "Motif du blocage",
       "vehiclePartiesRepointed": "Liens véhicule transférés",
       "vehiclePartiesKeptClosed": "Liens véhicule conservés clôturés",
       "vehiclePartiesKeptClosedIds": "Liens véhicule conservés clôturés (véhicules)",

@@ -104,7 +104,9 @@ function buildNavGroups(t: (key: string) => string, statusIndicator?: NavItemInd
         // KAN-809 — the planner (PL1): one day of a location. Shown with the aftersales
         // module (navEntitlements); never role-hidden (A-RULE-7): the API's 403/404 decide.
         { label: t('shell.nav.planner'), href: '/planner', icon: CalendarDays, status: 'active' },
-        { label: t('shell.nav.aftersales'), href: '/aftersales', icon: Wrench, status: 'soon' },
+        // KAN-810 — the workshop orders (D1), «Aufträge» (slice 1, X7). Shown with the
+        // aftersales module (navEntitlements); never role-hidden (A-RULE-7): the API decides.
+        { label: t('shell.nav.orders'), href: '/aftersales', icon: Wrench, status: 'active' },
         // WP-7 PR-1: promotes the scaffolded "soon" slot — href moves from
         // /inventory to /stock, matching the reference prototype's own
         // route. Label stays "shell.nav.inventory" as-is (already "Lager"

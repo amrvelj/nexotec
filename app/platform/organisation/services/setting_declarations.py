@@ -151,6 +151,10 @@ def _check(declaration: SettingDeclaration) -> None:
             raise SettingDeclarationError(f"Setting {key!r}: only a whole number is a multiple of another.")
         if other == key or not _KEY.fullmatch(other):
             raise SettingDeclarationError(f"Setting {key!r} is a multiple of {other!r}, no other key.")
+        # KAN-840: the rule counts set values only («not set» breaks nothing), so a
+        # number whose «not set» acts as a value takes no part in it.
+        if WhenNotSet(declaration.when_not_set) == WhenNotSet.ACTS_AS:
+            raise SettingDeclarationError(f"Setting {key!r} acts as a value when not set, so it is no multiple of another.")
     for choice, required in declaration.choice_requires:
         if kind != SettingKind.CHOICE or choice not in declaration.choices:
             raise SettingDeclarationError(f"Setting {key!r}: {choice!r} is no choice of it, so it requires nothing.")
@@ -299,6 +303,10 @@ def check_declaration_references() -> None:
             if SettingKind(other.kind) != SettingKind.NUMBER or other.decimals or other.minimum is None or other.minimum <= 0:
                 raise SettingDeclarationError(
                     f"Setting {declaration.key!r} is a multiple of {other.key!r}, which is no whole number above zero."
+                )
+            if WhenNotSet(other.when_not_set) == WhenNotSet.ACTS_AS:  # KAN-840
+                raise SettingDeclarationError(
+                    f"Setting {declaration.key!r} is a multiple of {other.key!r}, which acts as a value when not set."
                 )
 
 

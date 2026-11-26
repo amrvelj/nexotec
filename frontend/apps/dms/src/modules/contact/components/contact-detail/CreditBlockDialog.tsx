@@ -1,111 +1,14 @@
-import { useEffect, useState } from 'react'
-import { Stack, Text, Textarea } from '@mantine/core'
-import { useTranslation } from 'react-i18next'
-import { FormDialog } from '@nexotec/ui-kit'
-import { api, ApiError } from '../../../../api/client'
-import { useIdempotencyKey } from '../../../../hooks/useIdempotencyKey'
 import type { ContactRead } from '../../../../api/types'
-import { apiRefusalText } from '../../../../utils/apiRefusal'
+import { ContactBlockDialog } from './ContactBlockDialog'
 
 interface CreditBlockDialogProps {
   opened: boolean
   onClose: () => void
-  contact: Pick<ContactRead, 'id' | 'version' | 'contactNumber' | 'creditBlock' | 'creditBlockReason'>
+  contact: Pick<ContactRead, 'id' | 'version' | 'contactNumber' | 'creditBlock' | 'blocked'>
   onSaved: (updated: ContactRead) => void
 }
 
-/**
- * KAN-44 / ADR-065 (S-D19) — the ONLY place the SPA calls
- * `POST /v1/contacts/{id}/credit-block`. Set requires a reason (the API
- * raises 409 without one — mirrored here as a client-side check so the
- * user is told before the round trip); clearing sends `reason: null`.
- * Reached from the shared row menu (`buildContactRowMenu`), never a
- * sixth header button.
- */
-export function CreditBlockDialog({ opened, onClose, contact, onSaved }: CreditBlockDialogProps) {
-  const { t } = useTranslation()
-  const isBlocked = contact.creditBlock
-  const [reason, setReason] = useState('')
-  const [reasonError, setReasonError] = useState<string | null>(null)
-  const [submitError, setSubmitError] = useState<string | null>(null)
-  const [submitting, setSubmitting] = useState(false)
-  // KAN-266: a retried submit replays the first answer instead of a 409.
-  const idempotency = useIdempotencyKey()
-
-  useEffect(() => {
-    if (opened) {
-      setReason('')
-      setReasonError(null)
-      setSubmitError(null)
-      idempotency.renew()
-    }
-  }, [opened, idempotency])
-
-  const submit = async () => {
-    if (!isBlocked && reason.trim().length === 0) {
-      setReasonError(t('creditBlockDialog.reasonRequired'))
-      return
-    }
-    setSubmitting(true)
-    setSubmitError(null)
-    try {
-      const updated = await api.post<ContactRead>(
-        `/contacts/${contact.id}/credit-block`,
-        { blocked: !isBlocked, reason: isBlocked ? null : reason.trim() },
-        { 'If-Match': String(contact.version), ...idempotency.headers() },
-      )
-      idempotency.renew()
-      onSaved(updated)
-      onClose()
-    } catch (err) {
-      setSubmitError(
-        err instanceof ApiError && err.status === 409 ? t('creditBlockDialog.conflict') : apiRefusalText(t, err, 'creditBlockDialog.failed'),
-      )
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
-  return (
-    <FormDialog
-      opened={opened}
-      onClose={onClose}
-      title={isBlocked ? t('creditBlockDialog.clearTitle') : t('creditBlockDialog.setTitle')}
-      onSubmit={submit}
-      submitLabel={isBlocked ? t('creditBlockDialog.clearSubmit') : t('creditBlockDialog.setSubmit')}
-      cancelLabel={t('creditBlockDialog.cancel')}
-      submitting={submitting}
-    >
-      <Stack gap="sm">
-        {isBlocked ? (
-          <Text size="sm">
-            {t('creditBlockDialog.clearBody', { number: contact.contactNumber })}
-          </Text>
-        ) : (
-          <>
-            <Text size="sm">{t('creditBlockDialog.setBody')}</Text>
-            <Textarea
-              label={t('creditBlockDialog.reasonLabel')}
-              value={reason}
-              onChange={(e) => {
-                setReason(e.currentTarget.value)
-                if (reasonError) setReasonError(null)
-              }}
-              error={reasonError}
-              autosize
-              minRows={2}
-              maxRows={5}
-              withAsterisk
-              data-autofocus
-            />
-          </>
-        )}
-        {submitError && (
-          <Text size="xs" c="red">
-            {submitError}
-          </Text>
-        )}
-      </Stack>
-    </FormDialog>
-  )
+/** KAN-44 / ADR-065 (S-D19): the credit block's dialog — `ContactBlockDialog` of kind `credit`. */
+export function CreditBlockDialog(props: CreditBlockDialogProps) {
+  return <ContactBlockDialog kind="credit" {...props} />
 }

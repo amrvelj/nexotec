@@ -24,6 +24,7 @@ import ns_businessProfile from './de/businessProfile.json'
 import ns_catalogueBrowse from './de/catalogueBrowse.json'
 import ns_common from './de/common.json'
 import ns_configurator from './de/configurator.json'
+import ns_contactBlockDialog from './de/contactBlockDialog.json'
 import ns_contactCreate from './de/contactCreate.json'
 import ns_contactDetail from './de/contactDetail.json'
 import ns_contactEnums from './de/contactEnums.json'
@@ -60,6 +61,8 @@ import ns_referenceData from './de/referenceData.json'
 import ns_salesDocuments from './de/salesDocuments.json'
 import ns_salesEnums from './de/salesEnums.json'
 import ns_salesList from './de/salesList.json'
+import ns_serviceOrder from './de/serviceOrder.json'
+import ns_serviceOrders from './de/serviceOrders.json'
 import ns_settings from './de/settings.json'
 import ns_setup from './de/setup.json'
 import ns_shell from './de/shell.json'
@@ -95,6 +98,7 @@ const bundle = {
   catalogueBrowse: ns_catalogueBrowse,
   common: ns_common,
   configurator: ns_configurator,
+  contactBlockDialog: ns_contactBlockDialog,
   contactCreate: ns_contactCreate,
   contactDetail: ns_contactDetail,
   contactEnums: ns_contactEnums,
@@ -131,6 +135,8 @@ const bundle = {
   salesDocuments: ns_salesDocuments,
   salesEnums: ns_salesEnums,
   salesList: ns_salesList,
+  serviceOrder: ns_serviceOrder,
+  serviceOrders: ns_serviceOrders,
   settings: ns_settings,
   setup: ns_setup,
   shell: ns_shell,

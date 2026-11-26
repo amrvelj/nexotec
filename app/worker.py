@@ -20,6 +20,11 @@ import time
 
 from sqlalchemy.orm import Session
 
+from app.aftersales.consumers import CONTACT_MERGED_CONSUMER as AFTERSALES_CONTACT_MERGED_CONSUMER
+from app.aftersales.consumers import VEHICLE_MERGED_CONSUMER as AFTERSALES_VEHICLE_MERGED_CONSUMER
+from app.aftersales.consumers import handle_contact_merged_message as move_workshop_orders_on_contact_merged
+from app.aftersales.consumers import handle_vehicle_merged_message as move_workshop_orders_on_vehicle_merged
+from app.aftersales.public import oldest_order_label_age_seconds, refresh_order_labels
 from app.contact.consumers import (
     handle_stock_item_booking_purchased_message,
     handle_stock_item_booking_storno_message,
@@ -245,6 +250,13 @@ def register_handlers(transport: InProcessTransport) -> None:
         consumer_name="inventory.contact_merged",
         handler=move_stock_suppliers_on_contact_merged,
     )
+    # KAN-837 — and the workshop orders naming the duplicate as customer, invoice
+    # recipient or driver, in Aftersales' own transaction.
+    transport.register(
+        "contact.merged",
+        consumer_name=AFTERSALES_CONTACT_MERGED_CONSUMER,
+        handler=move_workshop_orders_on_contact_merged,
+    )
     # KAN-632 (ADR-147) — the contact context's record of Stock's bookings,
     # which the two trade-in consumers below judge an event's order by. Its
     # own consumers, so a failing trade-in step never loses the row; and
@@ -335,6 +347,12 @@ def register_handlers(transport: InProcessTransport) -> None:
         "vehicle.vehicle_mdm.merged",
         consumer_name="inventory.stock_items_on_vehicle_merged",
         handler=move_stock_items_on_vehicle_merged,
+    )
+    # KAN-837 — the workshop orders naming the merged record follow it.
+    transport.register(
+        "vehicle.vehicle_mdm.merged",
+        consumer_name=AFTERSALES_VEHICLE_MERGED_CONSUMER,
+        handler=move_workshop_orders_on_vehicle_merged,
     )
     # KAN-270 — a host took a configuration: vehicle stamps it taken, so the
     # daily purge of configurations no host ever took keeps it for good.
@@ -502,6 +520,8 @@ def _heartbeat(db, transport: InProcessTransport) -> None:
     record_label_age_seconds("planning.person", planning_person_label_age)
     planning_location_label_age = oldest_planning_location_label_age_seconds(db)
     record_label_age_seconds("planning.location", planning_location_label_age)
+    order_label_age = oldest_order_label_age_seconds(db)
+    record_label_age_seconds("aftersales.order", order_label_age)
 
     logger.info(
         "outbox heartbeat",
@@ -518,6 +538,7 @@ def _heartbeat(db, transport: InProcessTransport) -> None:
             "connectionLocationLabelAgeSeconds": location_label_age,
             "planningPersonLabelAgeSeconds": planning_person_label_age,
             "planningLocationLabelAgeSeconds": planning_location_label_age,
+            "workshopOrderLabelAgeSeconds": order_label_age,
         },
     )
 
@@ -584,6 +605,15 @@ def _refresh_supplier_labels(db: Session) -> None:
 def _refresh_location_labels(db: Session) -> None:
     changed = refresh_location_labels(db)
     logger.info("integration.location_labels: %d connection(s) relabelled", changed)
+
+
+def _refresh_order_labels(db: Session) -> None:
+    report = refresh_order_labels(db)
+    logger.info(
+        "aftersales.order_labels: %d workshop order label(s) changed, %d left alone (no such record, or a merged one)",
+        len(report.changed),
+        len(report.unresolved),
+    )
 
 
 def _refresh_planning_person_labels(db: Session) -> None:
@@ -690,6 +720,9 @@ def register_daily_jobs() -> None:
        within a day. A deactivated user's label is kept as it was.
     7c. ``planning.location_labels`` — KAN-808 PR-1b: the same for every
        planner resource's copy of its location's name.
+    7d. ``aftersales.order_labels`` — KAN-837: a workshop order's copies of
+       its three contacts', its car's and its location's names, through
+       each owner's public.
     8. ``reconciliation.run_all`` — the nightly cross-context reconciliation
        (P-10, CLAUDE.md rule 10). There are no cross-context foreign keys
        anywhere in this codebase, so the database cannot detect a dangling
@@ -786,6 +819,7 @@ def register_daily_jobs() -> None:
     register_daily_job("integration.location_labels", _refresh_location_labels)
     register_daily_job("planning.person_labels", _refresh_planning_person_labels)
     register_daily_job("planning.location_labels", _refresh_planning_location_labels)
+    register_daily_job("aftersales.order_labels", _refresh_order_labels)
     register_daily_job("reconciliation.run_all", run_all_daily)
     register_daily_job("inventory.orphaned_reservations.release", run_daily_reservation_sweep)
     # 9b. KAN-724: a stock item a vehicle merge had to leave on the duplicate follows once nothing blocks it.

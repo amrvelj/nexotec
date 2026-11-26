@@ -115,6 +115,27 @@ describe('apiRefusalText — the API refusal in the UI language, never its Engli
     expect(say(422, { reason: 'planning_time_off_grid' })).toBe(r.planning_time_off_grid.replace('{{minutes}}', '—'))
   })
 
+  it('names both settings of a «multiple of» refusal by their labels (KAN-840)', async () => {
+    await i18n.changeLanguage('fr')
+    const r = fr.apiRefusal.reasons
+    const slot = fr.settings.keys.planning.slot_minutes.label
+    const grid = fr.settings.keys.planning.grid_minutes.label
+    const say = (details: Record<string, unknown>) => apiRefusalText(t, refusal(422, details), FALLBACK)
+    const details = { setting: 'planning.slot_minutes', multipleOf: 'planning.grid_minutes', locationId: null }
+    expect(say({ reason: 'setting_not_a_multiple_of_setting', ...details })).toBe(
+      r.setting_not_a_multiple_of_setting.replaceAll('{{setting}}', slot).replaceAll('{{multipleOf}}', grid),
+    )
+    expect(say({ reason: 'setting_no_longer_divides_setting', ...details })).toBe(
+      r.setting_no_longer_divides_setting.replaceAll('{{setting}}', slot).replaceAll('{{multipleOf}}', grid),
+    )
+    for (const reason of ['setting_not_a_multiple_of_setting', 'setting_no_longer_divides_setting']) {
+      const said = say({ reason, ...details })
+      expect(said).toContain(slot)
+      expect(said).toContain(grid)
+      expect(said).not.toContain('—')
+    }
+  })
+
   it('says a stale If-Match 409 as such, before any reason', () => {
     expect(apiRefusalText(t, refusal(409, { currentVersion: 4, reason: 'contract_not_pending' }), FALLBACK)).toBe(de.apiRefusal.staleVersion)
   })

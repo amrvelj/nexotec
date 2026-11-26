@@ -99,8 +99,11 @@ def make_betrieb(client, db: Session, *, rate: str | None = "150.00", entered: P
 
 
 def make_contact(db: Session, betrieb: Betrieb, *, name: str = "Muster AG", blocked_reason: str | None = None,
+                 credit_block_reason: str | None = None,
                  status: ContactLifecycleStatus = ContactLifecycleStatus.ACTIVE,
                  group_id: uuid.UUID | None = None) -> Contact:
+    """`blocked_reason` makes the contact «Gesperrt» (KAN-810 Q1); `credit_block_reason` gives it a
+    credit block, which does not refuse an order."""
     contact = Contact(
         group_id=group_id or betrieb.group_id,
         contact_number=f"K-{uuid.uuid4().hex[:10]}",
@@ -108,8 +111,10 @@ def make_contact(db: Session, betrieb: Betrieb, *, name: str = "Muster AG", bloc
         company_name=name,
         language="de",
         lifecycle_status=status,
-        credit_block=blocked_reason is not None,
-        credit_block_reason=blocked_reason,
+        blocked=blocked_reason is not None,
+        blocked_reason=blocked_reason,
+        credit_block=credit_block_reason is not None,
+        credit_block_reason=credit_block_reason,
     )
     db.add(contact)
     db.commit()
@@ -154,3 +159,25 @@ def add_position(client, betrieb: Betrieb, order: dict, job_id: str, **body):
 def labour_by_time(betrieb: Betrieb, time: str, **extra) -> dict:
     return {"kind": "labour_time", "text": "Arbeit", "labourCategoryId": str(betrieb.category_id), "time": time,
             **extra}
+
+
+def insert_order(db: Session, *, tenant_id: uuid.UUID, contact_id: uuid.UUID, vehicle_id: uuid.UUID,
+                 label: str = "Duplicate Keller") -> uuid.UUID:
+    """An order row written directly, for the redelivery fixtures that have no
+    client (KAN-837): the customer is also the invoice recipient."""
+
+    from app.aftersales.models.service_order import ServiceOrder
+    from app.core.base import utcnow
+
+    now = utcnow()
+    order = ServiceOrder(
+        tenant_id=tenant_id, order_number=f"W-{uuid.uuid4().hex[:8]}", location_id=uuid.uuid4(),
+        location_label="Hauptsitz", location_label_refreshed_at=now, order_date=now.date(),
+        contact_id=contact_id, contact_label=label, contact_label_refreshed_at=now,
+        invoice_recipient_contact_id=contact_id, invoice_recipient_label=label,
+        invoice_recipient_label_refreshed_at=now, vehicle_id=vehicle_id, vehicle_label="VW Golf",
+        vehicle_label_refreshed_at=now,
+    )
+    db.add(order)
+    db.commit()
+    return order.id
