@@ -91,7 +91,7 @@
   },
   "deactivate": {
     "title": "Ressource deaktivieren",
-    "body": "«{{name}}» erscheint nicht mehr im Planer. Ihre Buchungen, die noch nicht vorbei sind, werden zum Neu-Einplanen markiert."
+    "body": "«{{name}}» erscheint nicht mehr im Planer. Die Buchungen dieser Ressource, die noch nicht vorbei sind, werden zum Neu-Einplanen markiert."
   },
   "kinds": {
     "person": "Person",
@@ -127,7 +127,7 @@
     "workplaceName": "Name des Arbeitsplatzes",
     "sortOrder": "Reihenfolge",
     "sortOrderHint": "Die Reihenfolge im Planer, von 0 bis 9999: kleinere Zahlen zuerst.",
-    "movingNote": "Am neuen Standort gilt die Ressource ab sofort. Ihre Buchungen, die noch nicht vorbei sind, werden zum Neu-Einplanen markiert."
+    "movingNote": "Am neuen Standort gilt die Ressource ab sofort. Die Buchungen dieser Ressource, die noch nicht vorbei sind, werden zum Neu-Einplanen markiert."
   },
   "hours": {
     "title": "Arbeitszeiten von {{name}}",
