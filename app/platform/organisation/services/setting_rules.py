@@ -40,11 +40,7 @@ the same lock, the same «never worse»:
   refused (`setting_no_longer_divides_setting`).
 
 «Not set» on either side breaks nothing: each setting refuses its own reader
-while not set. No acts-as applies: a declaration refuses `multiple_of` on or
-naming a number that acts as a value when not set (KAN-840), so `_effective`
-never meets one here. A stored value that no longer fits its declaration
-reads as not set (the store's `in_force`), and platform reconciliation's
-check judges it the same way.
+while not set. No acts-as applies: a number with an acts-as value has none here.
 """
 
 from __future__ import annotations
