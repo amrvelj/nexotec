@@ -304,6 +304,7 @@ def change_position(
             time_set="time" in sent,
             price_set="unit_price" in sent,
             entered_set="price_entered" in sent,
+            unit_set="time_unit" in sent,
         ),
     )
     return _read(db, principal, order_id)

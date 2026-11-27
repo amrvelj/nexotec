@@ -271,6 +271,7 @@ class PositionInput:
     time_set: bool = False
     price_set: bool = False
     entered_set: bool = False
+    unit_set: bool = False
 
 
 def get_position_or_404(db: Session, *, order: ServiceOrder, position_id: uuid.UUID) -> ServiceOrderPosition:
@@ -452,10 +453,16 @@ def _refuse_change_shape(position: ServiceOrderPosition, data: PositionInput) ->
     def refuse(field: str, message: str) -> None:
         raise UnprocessableEntityError(message, details={"reason": "service_order_position_incomplete", "field": field})
 
-    if position.kind is PositionKind.TEXT and (data.category_set or data.time_set or data.price_set or data.entered_set):
+    if position.kind is PositionKind.TEXT and (
+        data.category_set or data.time_set or data.price_set or data.entered_set or data.unit_set
+    ):
         refuse("kind", "A text position carries no labour category, time or price.")
     if data.entered_set and not data.price_set:
         refuse("unitPrice", "Whether a price is net or with VAT is sent with the price.")
+    # KAN-838: a time unit is checked against the time it came with (ADR-226), never
+    # relabelled; sent alone it would change nothing, so it is refused, not ignored.
+    if data.unit_set and not data.time_set:
+        refuse("time", "The time unit is sent with the time it was typed in.")
 
 
 def change_position(
