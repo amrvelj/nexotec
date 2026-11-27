@@ -233,8 +233,8 @@ def test_the_list_reads_the_workshop_status_from_its_projection(client, db_sessi
 
 
 def _inputs(**overrides) -> StatusInputs:
-    base = dict(order_state=ServiceOrderState.ACCEPTED, car_here=True, car_left=False, clock_running=False,
-                labour_count=2, labour_done=0, check_needed=False, check_passed=False)
+    base = {"order_state": ServiceOrderState.ACCEPTED, "car_here": True, "car_left": False, "clock_running": False,
+            "labour_count": 2, "labour_done": 0, "check_needed": False, "check_passed": False}
     return StatusInputs(**{**base, **overrides})
 
 
