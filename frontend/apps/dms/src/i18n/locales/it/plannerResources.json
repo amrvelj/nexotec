@@ -50,7 +50,7 @@
     "factorHint": "Tempo computato = tempo timbrato × fattore, da 0.01 a 9.99. Vuoto: conta il tempo timbrato.",
     "factorInvalid": "Il fattore è compreso tra 0.01 e 9.99.",
     "mandatory": "Qualifica obbligatoria",
-    "mandatoryHint": "Viene salvata. Sarà verificata solo quando un lavoro o una postazione richiederà una qualifica."
+    "mandatoryHint": "Viene salvata. Sarà verificata solo quando un gruppo o una postazione richiederà una qualifica."
   },
   "languages": {
     "de": "tedesco",

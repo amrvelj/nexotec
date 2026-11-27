@@ -1,6 +1,6 @@
 {
   "title": "Servicekatalog",
-  "subtitle": "Pakete mit Arbeits- und Textpositionen und ihren Zeiten, die der Empfang mit einem Schritt auf eine Arbeit übernimmt. Der Preis ist die Zeit zum Stundenansatz des Auftrags.",
+  "subtitle": "Pakete mit Arbeits- und Textpositionen und ihren Zeiten, die der Empfang mit einem Schritt auf eine Gruppe übernimmt. Der Preis ist die Zeit zum Stundenansatz des Auftrags.",
   "add": "Paket erfassen",
   "edit": "Bearbeiten",
   "editNamed": "{{name}} bearbeiten",
@@ -57,7 +57,7 @@
     "translationsHint": "Optional: der Name in weiteren Sprachen. Wo keiner steht, wird der Name wie erfasst gezeigt.",
     "translation": "Name ({{language}})",
     "active": "Aktiv",
-    "activeHint": "Ein inaktives Paket wird für neue Arbeiten nicht mehr angeboten. Bestehende Aufträge ändern sich nicht.",
+    "activeHint": "Ein inaktives Paket wird für neue Gruppen nicht mehr angeboten. Bestehende Aufträge ändern sich nicht.",
     "positions": "Positionen",
     "unitNote": "Zeit in {{unit}}",
     "noPositions": "Noch keine Position.",

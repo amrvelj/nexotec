@@ -50,7 +50,7 @@
     "factorHint": "Angerechnete Zeit = gestempelte Zeit × Faktor, von 0.01 bis 9.99. Leer: Es zählt die gestempelte Zeit.",
     "factorInvalid": "Der Faktor liegt zwischen 0.01 und 9.99.",
     "mandatory": "Pflichtqualifikation",
-    "mandatoryHint": "Wird gespeichert. Geprüft wird sie erst, wenn eine Arbeit oder ein Arbeitsplatz eine Qualifikation verlangt."
+    "mandatoryHint": "Wird gespeichert. Geprüft wird sie erst, wenn eine Gruppe oder ein Arbeitsplatz eine Qualifikation verlangt."
   },
   "languages": {
     "de": "Deutsch",

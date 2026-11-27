@@ -1,6 +1,6 @@
 {
   "title": "Service catalogue",
-  "subtitle": "Packages of labour and text positions with their times, which the desk puts onto a job in one step. The price is the time at the order's hourly rate.",
+  "subtitle": "Packages of labour and text positions with their times, which the desk puts onto a group in one step. The price is the time at the order's hourly rate.",
   "add": "Add package",
   "edit": "Edit",
   "editNamed": "Edit {{name}}",
@@ -57,7 +57,7 @@
     "translationsHint": "Optional: the name in other languages. Where there is none, the name is shown as typed.",
     "translation": "Name ({{language}})",
     "active": "Active",
-    "activeHint": "An inactive package is no longer offered for new jobs. Existing orders do not change.",
+    "activeHint": "An inactive package is no longer offered for new groups. Existing orders do not change.",
     "positions": "Positions",
     "unitNote": "Time in {{unit}}",
     "noPositions": "No position yet.",
