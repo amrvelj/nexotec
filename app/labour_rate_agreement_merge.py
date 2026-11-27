@@ -17,7 +17,7 @@ registers both functions (`app/worker.py`).
 import logging
 import uuid
 
-from sqlalchemy import select, tuple_
+from sqlalchemy import literal, select, tuple_
 from sqlalchemy.orm import Session
 
 from app.contact.public import (
@@ -66,7 +66,10 @@ def _earlier_merge_pending(
         OutboxMessage.status.in_([OutboxStatus.PENDING, OutboxStatus.DEAD]),
         # (created_at, id): two merges sharing a created_at are ordered by id —
         # the worker's own order (UUIDv7) — so neither waits for the other (KAN-857).
-        tuple_(OutboxMessage.created_at, OutboxMessage.id) < tuple_(before.created_at, before.id),
+        tuple_(OutboxMessage.created_at, OutboxMessage.id)
+        < tuple_(
+            literal(before.created_at, OutboxMessage.created_at.type), literal(before.id, OutboxMessage.id.type)
+        ),
         ~select(ProcessedEvent.event_id)
         .where(ProcessedEvent.event_id == OutboxMessage.id, ProcessedEvent.consumer_name == CONSUMER_NAME)
         .exists(),
