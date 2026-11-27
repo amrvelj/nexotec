@@ -8,6 +8,7 @@ database (SQLAlchemy engines connect lazily). See KAN-35.
 import json
 from pathlib import Path
 
+from app.aftersales.services.order_grid import SERVICE_ORDER_COLUMNS
 from app.core.list_query import grid_schema
 from app.inventory.services.stock_grid import STOCK_ITEM_COLUMNS
 from app.main import app
@@ -17,7 +18,11 @@ OUTPUT_PATH = Path(__file__).resolve().parent.parent / "frontend" / "apps" / "dm
 # test reads it (grid-filters-are-applied.test.ts) without a running backend.
 # tests/test_kan461_grid_schemas_file.py fails when it is stale.
 GRID_SCHEMAS_PATH = OUTPUT_PATH.parent / "src" / "api" / "gridSchemas.json"
-GRID_REGISTRIES = {"/v1/inventory/stock-items": STOCK_ITEM_COLUMNS}
+GRID_REGISTRIES = {
+    "/v1/inventory/stock-items": STOCK_ITEM_COLUMNS,
+    # KAN-848: the workshop order list.
+    "/v1/service-orders": SERVICE_ORDER_COLUMNS,
+}
 
 
 def grid_schemas_document() -> str:

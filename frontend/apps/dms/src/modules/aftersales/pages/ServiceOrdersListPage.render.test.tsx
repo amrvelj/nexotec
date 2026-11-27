@@ -106,25 +106,39 @@ describe('the workshop order list (KAN-810, D1)', () => {
     expect(backend.callsTo(/^\/service-orders$/, 'GET').every((call) => !call.params.has('state'))).toBe(true)
   })
 
-  it('a sortable header sends its sort to the server; only the columns the API sorts by offer one', async () => {
+  it('every visible column sorts server-side, as the served schema says (KAN-848)', async () => {
     const backend = install()
     renderList()
     await screen.findByText('WA-2026-0406')
     expect(backend.callsTo(/^\/service-orders$/, 'GET').at(-1)!.params.get('sort')).toBe('createdAt:desc')
 
-    // Visible by default: number and order date sort; vehicle · party, state and location do not.
-    const sortable = screen.getAllByRole('columnheader').filter((h) => h.getAttribute('aria-sort') !== null)
-    expect(sortable.map((h) => h.textContent)).toEqual([i18n.t('serviceOrders.columns.orderNumber'), i18n.t('serviceOrders.columns.orderDate')].map((label) => expect.stringContaining(label)))
+    // Visible by default: number, vehicle · ordering party, state, order date, location — each sorts.
+    const headers = screen.getAllByRole('columnheader').filter((h) => h.textContent)
+    const labels = ['orderNumber', 'vehicleAndContact', 'state', 'orderDate', 'location'].map((key) => i18n.t(`serviceOrders.columns.${key}`))
+    for (const label of labels) {
+      const header = headers.find((h) => h.textContent?.includes(label))
+      expect(header, label).toBeDefined()
+      expect(header!.getAttribute('aria-sort'), label).not.toBeNull()
+    }
 
-    await userEvent.click(sortable.find((h) => h.textContent?.includes(i18n.t('serviceOrders.columns.orderDate')))!)
-    await waitFor(() => expect(backend.callsTo(/^\/service-orders$/, 'GET').at(-1)!.params.get('sort')).toBe('orderDate:asc'))
+    await userEvent.click(headers.find((h) => h.textContent?.includes(i18n.t('serviceOrders.columns.vehicleAndContact')))!)
+    await waitFor(() => expect(backend.callsTo(/^\/service-orders$/, 'GET').at(-1)!.params.get('sort')).toBe('vehicleLabel:asc'))
+    await userEvent.click(headers.find((h) => h.textContent?.includes(i18n.t('serviceOrders.columns.state')))!)
+    await waitFor(() => expect(backend.callsTo(/^\/service-orders$/, 'GET').at(-1)!.params.get('sort')).toBe('state:asc'))
   })
 
   it('a sort from the URL on a field the API does not sort by is not sent', async () => {
     const backend = install()
-    renderList('/aftersales?sort=state:asc')
+    renderList('/aftersales?sort=invoiceRecipientLabel:asc')
     await screen.findByText('WA-2026-0406')
-    expect(backend.callsTo(/^\/service-orders$/, 'GET').every((call) => call.params.get('sort') !== 'state:asc')).toBe(true)
+    expect(backend.callsTo(/^\/service-orders$/, 'GET').every((call) => call.params.get('sort') !== 'invoiceRecipientLabel:asc')).toBe(true)
+  })
+
+  it('a sort from the URL on a served field is sent: the ordering party (KAN-848)', async () => {
+    const backend = install()
+    renderList('/aftersales?sort=contactLabel:desc')
+    await screen.findByText('WA-2026-0406')
+    expect(backend.callsTo(/^\/service-orders$/, 'GET').at(-1)!.params.get('sort')).toBe('contactLabel:desc')
   })
 
   it('a row opens its order', async () => {
