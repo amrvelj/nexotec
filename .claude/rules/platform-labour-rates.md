@@ -67,8 +67,8 @@ Last verified against main@dbf886d (2026-11-26, KAN-833). -->
   `superseded` on the screen, listed with the withdrawn, not reported); otherwise all move. The POST and the
   consumer serialise on `lock_agreement_contact` (the consumer locks the duplicate, then the target). **Merges are
   replayed in the order they happened:** a merge D→T waits (`EarlierMergeNotYetConsumed`, retried, dead-lettered with
-  its alert if it never clears) until every earlier merge into D or into T is consumed here — a dead one blocks too,
+  its alert if it never clears) until every earlier merge (by `created_at`, a tie by id) into D or into T is consumed here — a dead one blocks too,
   so **replay this consumer's dead letters oldest first**; a merge's rows land on the event's own
   survivor, merged or not, and its own merge carries them on (contact's merge rewrites old pointers, KAN-383, so no
-  read of today's chain could). Nightly `platform.labour_rate_agreement_labels`.
+  read of today's chain could). The guarantee covers merges committed before the later one is consumed; two merges into one survivor committed at the same instant follow option A in consumption order (KAN-857). Nightly `platform.labour_rate_agreement_labels`.
 - **Open:** copying categories from a sister Betrieb (KAN-220's subset).
