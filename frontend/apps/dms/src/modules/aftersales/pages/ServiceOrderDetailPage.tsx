@@ -34,11 +34,11 @@ const TABS: Tab[] = ['positions', 'overview', 'reception', 'history']
  * worked out by the server, KAN-813), one primary — «Antwort erfassen» (D8,
  * KAN-811) — one alternative, «Fahrzeug ist da» (D14, KAN-813), and the
  * overflow carrying the order's row menu (ADR-061; «Antwort erfassen»,
- * «Auftrag stornieren»). «Gruppe hinzufügen» sits on the positions tab, as
- * the design draws it; «Position» on each job. `?dialog=answer` opens D8
- * (the list's row menu). Tabs: Positionen, Übersicht, Annahme, Verlauf.
- * «Arbeit ohne Antwort» is the server's, worked out (section 3.9). Tabs: Positionen, Übersicht, Verlauf (the tab is in
- * the URL). Every change is sent with the order's version (If-Match) and
+ * «Fahrzeug ist da», «Auftrag stornieren»). «Gruppe hinzufügen» sits on the
+ * positions tab, as the design draws it; «Position» on each job.
+ * `?dialog=answer` opens D8 and `?dialog=arrival` D14 (the list's row menu).
+ * Tabs: Positionen, Übersicht, Annahme, Verlauf (the tab is in the URL).
+ * «Arbeit ohne Antwort» is the server's, worked out (section 3.9). Every change is sent with the order's version (If-Match) and
  * answers the order as it is now; a stale version offers «Neu laden». An
  * action the role may not write is hidden (ADR-104); one the order's state
  * forbids is disabled with its reason. The rules are the server's.
@@ -56,18 +56,21 @@ export function ServiceOrderDetailPage() {
   const tab: Tab = tabParam && TABS.includes(tabParam) ? tabParam : 'positions'
   const [addJobOpen, setAddJobOpen] = useState(false)
   const [cancelOpen, setCancelOpen] = useState(false)
-  const [arrivalOpen, setArrivalOpen] = useState(false)
-  const answerOpen = searchParams.get('dialog') === 'answer'
-  const setAnswerOpen = (open: boolean) =>
+  const dialog = searchParams.get('dialog')
+  const setDialog = (name: 'answer' | 'arrival' | null) =>
     setSearchParams(
       (prev) => {
         const params = new URLSearchParams(prev)
-        if (open) params.set('dialog', 'answer')
+        if (name) params.set('dialog', name)
         else params.delete('dialog')
         return params
       },
       { replace: true },
     )
+  const answerOpen = dialog === 'answer'
+  const setAnswerOpen = (open: boolean) => setDialog(open ? 'answer' : null)
+  const arrivalOpen = dialog === 'arrival'
+  const setArrivalOpen = (open: boolean) => setDialog(open ? 'arrival' : null)
 
   const orderQuery = useQuery({
     queryKey: ['service-order', id],
@@ -96,6 +99,7 @@ export function ServiceOrderDetailPage() {
   const frozen = !OPEN_STATES.has(order.state)
   const menu = buildServiceOrderRowMenu(t, order, {
     onRecordAnswer: canWrite ? () => setAnswerOpen(true) : undefined,
+    onArrive: canWrite ? () => setArrivalOpen(true) : undefined,
     onCancel: canWrite ? () => setCancelOpen(true) : undefined,
   })
   const frozenReason = frozen ? t('serviceOrder.actions.frozen') : undefined
@@ -213,7 +217,7 @@ export function ServiceOrderDetailPage() {
       />
       {canWrite && (
         <ArrivalDialog
-          opened={arrivalOpen}
+          opened={arrivalOpen && arrivalReason === undefined}
           order={order}
           onClose={() => setArrivalOpen(false)}
           onSaved={(updated) => {

@@ -16,7 +16,12 @@ three-column pattern. Aftersales reads them only through each owner's
   (ruling 178): nothing here touches a position.
 - **A vehicle merge** (`repoint_orders_on_vehicle_merge`, the consumer
   `aftersales.vehicle_merged`): every order naming the merged record moves to
-  the record the car lives on now.
+  the record the car lives on now, and so does every stay of the car
+  (KAN-813, ADR-213). Two records were one car: when both had a running stay
+  at one Betrieb, the car was received twice by mistake, so the stays become
+  one — the survivor's running stay holds the duplicate's orders and the
+  duplicate's stay row goes (its arrival stays in each order's history), so
+  one running stay per car and Betrieb holds after the merge too.
 - **Every order takes the new name** — on a merge and nightly, whatever its
   state (the ticket's criterion: «it takes the survivor's label»). Sales keeps
   a signed contract's name (Anto's ruling 1A, for Sales only); a ruling that a
@@ -55,6 +60,7 @@ from sqlalchemy import func, or_, select, update
 from sqlalchemy.orm import Session
 
 from app.aftersales.models.service_order import LABEL_LENGTH, ServiceOrder, ServiceOrderPosition
+from app.aftersales.models.service_stay import ServiceOrderStay, ServiceStay
 from app.aftersales.services.service_order import (
     OPEN_STATES,
     lock_order_contacts,
@@ -161,6 +167,7 @@ def repoint_orders_on_vehicle_merge(
     live_id = resolve_merged_vehicle_id(db, survivor_vehicle_id)
     if live_id == duplicate_vehicle_id:
         return []
+    _move_stays(db, duplicate_vehicle_id=duplicate_vehicle_id, live_id=live_id)
     orders = list(
         db.scalars(
             select(ServiceOrder)
@@ -185,6 +192,48 @@ def repoint_orders_on_vehicle_merge(
         )
     db.flush()
     return [order.id for order in orders]
+
+
+def _move_stays(db: Session, *, duplicate_vehicle_id: uuid.UUID, live_id: uuid.UUID) -> None:
+    """KAN-813: the stays of the merged record follow the car (ADR-213). Flushes only."""
+
+    summary = get_vehicle_summaries(db, [live_id]).get(live_id)
+    now = utcnow()
+    stays = list(
+        db.scalars(
+            select(ServiceStay)
+            .where(ServiceStay.vehicle_id == duplicate_vehicle_id)
+            .order_by(ServiceStay.id)
+            .with_for_update()
+        )
+    )
+    for stay in stays:
+        kept = None
+        if stay.departed_at is None:
+            kept = db.scalar(
+                select(ServiceStay)
+                .where(
+                    ServiceStay.tenant_id == stay.tenant_id,
+                    ServiceStay.vehicle_id == live_id,
+                    ServiceStay.departed_at.is_(None),
+                )
+                .with_for_update()
+            )
+        if kept is None:
+            stay.vehicle_id = live_id
+            if summary is not None:
+                stay.vehicle_label, stay.vehicle_label_refreshed_at = vehicle_label(summary), now
+            continue
+        # One car received twice: its orders join the running stay that stays.
+        held = set(db.scalars(select(ServiceOrderStay.service_order_id).where(ServiceOrderStay.stay_id == kept.id)))
+        for link in db.scalars(select(ServiceOrderStay).where(ServiceOrderStay.stay_id == stay.id)):
+            if link.service_order_id in held:
+                db.delete(link)
+            else:
+                link.stay_id = kept.id
+        db.flush()
+        db.delete(stay)
+    db.flush()
 
 
 def handle_vehicle_merged(db: Session, message: OutboxMessage) -> list[uuid.UUID]:
@@ -356,7 +405,51 @@ def refresh_order_labels(db: Session, *, commit: Callable[[], None] | None = Non
             )
             report.restamped += len(order_ids)
         _refresh_position_labels(db, batch, now=now, report=report)
+        _refresh_stay_labels(db, batch, now=now, report=report)
         finish()
+
+
+def _refresh_stay_labels(db: Session, batch: list[ServiceOrder], *, now: dt.datetime, report: RefreshReport) -> None:
+    """KAN-813: the stays of the batch's orders take their car's and location's name, as the
+    order does (rule 2's copies; no version, a current label only restamped)."""
+
+    stays = list(
+        db.scalars(
+            select(ServiceStay)
+            .where(
+                ServiceStay.id.in_(
+                    select(ServiceOrderStay.stay_id).where(ServiceOrderStay.service_order_id.in_([o.id for o in batch]))
+                )
+            )
+            .order_by(ServiceStay.id)
+            .with_for_update(key_share=True, skip_locked=True)
+        )
+    )
+    if not stays:
+        return
+    vehicle_ids = {stay.vehicle_id for stay in stays}
+    vehicles = get_vehicle_summaries(db, vehicle_ids - find_merged_vehicle_ids(db, vehicle_ids))
+    locations = get_location_labels(db, {stay.location_id for stay in stays})
+    for stay in stays:
+        summary = vehicles.get(stay.vehicle_id)
+        location = locations.get(stay.location_id)
+        for label_column, stamp_column, current in (
+            ("vehicle_label", "vehicle_label_refreshed_at", vehicle_label(summary) if summary else None),
+            (
+                "location_label", "location_label_refreshed_at",
+                location.label[:200] if location and location.dealership_id == stay.tenant_id else None,
+            ),
+        ):
+            if current is None:
+                report.unresolved.append((stay.id, label_column))
+                continue
+            if current != getattr(stay, label_column):
+                report.changed.append((stay.id, label_column, getattr(stay, label_column), current))
+                setattr(stay, label_column, current)
+            else:
+                report.restamped += 1
+            setattr(stay, stamp_column, now)
+    db.flush()
 
 
 _STAMP_COLUMNS = (
@@ -366,6 +459,9 @@ _STAMP_COLUMNS = (
     ServiceOrder.vehicle_label_refreshed_at,
     ServiceOrder.location_label_refreshed_at,
     ServiceOrderPosition.labour_category_label_refreshed_at,
+    # KAN-813: the stay's copies of its car and location.
+    ServiceStay.vehicle_label_refreshed_at,
+    ServiceStay.location_label_refreshed_at,
 )
 
 

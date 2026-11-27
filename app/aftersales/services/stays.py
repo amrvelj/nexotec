@@ -43,6 +43,9 @@ ARRIVED_EVENT = "aftersales.stay.arrived"
 _PARKING_LENGTH = 100
 _KEY_TAG_LENGTH = 50
 _REMARK_LENGTH = 1000
+# A mileage a car can show: an odometer has at most seven digits. Above it (or above the
+# column's range) a typing error is refused in one sentence, never a 500.
+MAX_MILEAGE = 9_999_999
 
 
 @dataclass(frozen=True)
@@ -94,9 +97,10 @@ def receive_car(db: Session, *, order: ServiceOrder, actor_id: uuid.UUID, data: 
     then the order's row. Commits."""
 
     orders.refuse_frozen(order)
-    if data.mileage < 0:
+    if not 0 <= data.mileage <= MAX_MILEAGE:
         raise UnprocessableEntityError(
-            "A mileage is a whole number from 0.", details={"reason": "service_stay_mileage_invalid"}
+            f"A mileage is a whole number from 0 to {MAX_MILEAGE:,}.".replace(",", "'"),
+            details={"reason": "service_stay_mileage_invalid", "max": MAX_MILEAGE},
         )
     if orders.running_stay(db, tenant_id=order.tenant_id, vehicle_id=order.vehicle_id) is not None:
         raise ConflictError(

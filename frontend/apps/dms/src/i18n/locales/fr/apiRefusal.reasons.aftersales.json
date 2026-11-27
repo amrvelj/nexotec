@@ -42,6 +42,6 @@
   "service_package_position_text_too_long": "Le texte d'une position compte au plus 1000 caractères.",
   "service_package_time_unit_changed": "Le temps de travail est désormais saisi dans une autre unité. Vérifiez le temps et saisissez-le à nouveau.",
   "service_stay_car_already_here": "Le véhicule est déjà là et ne peut pas être réceptionné une deuxième fois.",
-  "service_stay_mileage_invalid": "Le kilométrage est un nombre entier à partir de 0.",
+  "service_stay_mileage_invalid": "Le kilométrage est un nombre entier de 0 à 9'999'999.",
   "service_stay_text_too_long": "Le texte est trop long ({{maxLength}} caractères au plus)."
 }

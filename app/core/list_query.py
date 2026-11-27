@@ -51,7 +51,7 @@ from app.core.errors import UnprocessableEntityError
 from app.core.pagination import SortPageParams, count_capped, paginate_query_sorted
 from app.core.relative_dates import start_of_current_period, start_of_day, start_of_day_days_ago, today_in_session_zone
 from app.core.schemas import CamelModel
-from app.core.sorting import SortField, build_page_for_sort, decode_cursor_for_sort
+from app.core.sorting import SortField, _nullable, build_page_for_sort, decode_cursor_for_sort
 
 ValueType = Literal["text", "enum", "number", "money", "date", "datetime", "boolean"]
 
@@ -400,11 +400,6 @@ def _sort_column(spec: ColumnSpec) -> Any:
     return spec.sort_column if spec.sort_column is not None else spec.column
 
 
-def _nullable(column: Any) -> bool:
-    """A mapped column says whether it holds NULL; a read-only mapped expression (a
-    `column_property` over a scalar subquery, KAN-813) may yield NULL, so it counts as nullable."""
-
-    return bool(getattr(column.property.columns[0], "nullable", True))
 
 
 def parse_list_sort(sort: str | None, registry: Registry, *, default: Sequence[tuple[str, str]]) -> list[SortField]:

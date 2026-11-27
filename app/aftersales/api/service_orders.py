@@ -65,6 +65,8 @@ settings = get_settings()
 _CONFIRM = Query(default=False, alias="confirmWhileClocked")
 
 _READ = "service_orders"
+
+
 def _locked(db: Session, principal: Principal, order_id: uuid.UUID, if_match: int) -> ServiceOrder:
     order = service.get_order_or_404(db, tenant_id=principal.tenant_id, order_id=order_id, lock=True)
     check_version(order.version, if_match, entity_name="Service order")

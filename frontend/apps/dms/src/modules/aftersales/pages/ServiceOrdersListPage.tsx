@@ -339,6 +339,7 @@ export function ServiceOrdersListPage() {
               onOpen: () => navigate(serviceOrderHref(row.id)),
               // D8 opens on the order page, which holds the jobs it asks about (KAN-811).
               onRecordAnswer: canWrite ? () => navigate(`${serviceOrderHref(row.id)}?dialog=answer`) : undefined,
+              onArrive: canWrite ? () => navigate(`${serviceOrderHref(row.id)}?dialog=arrival`) : undefined,
               onCancel: canWrite ? () => setCancelOf(row) : undefined,
             })
           }

@@ -99,10 +99,13 @@ def _column_type(column: Any) -> Any:
 
 def _nullable(column: Any) -> bool:
     """A mapped column's own `nullable`; a derived SQL expression (a `Label`
-    whose key names the value each row carries) may be NULL, so counts as
-    nullable (KAN-786)."""
+    whose key names the value each row carries, KAN-786, or a read-only
+    `column_property` over a scalar subquery, KAN-813) may be NULL, so counts
+    as nullable."""
 
-    return True if isinstance(column, Label) else column.property.columns[0].nullable
+    if isinstance(column, Label):
+        return True
+    return bool(getattr(column.property.columns[0], "nullable", True))
 
 
 # --- A sorted cursor answers the sort it is replayed with (KAN-182) ---------

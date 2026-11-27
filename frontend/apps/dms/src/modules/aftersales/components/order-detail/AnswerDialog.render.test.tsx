@@ -176,6 +176,38 @@ describe('D8 — the customer\'s answer (KAN-811)', () => {
     expect(within(klima).getByRole('button', { name: t('serviceOrder.jobs.addPosition') })).toBeDisabled()
   })
 
+  it('a change while somebody is clocked asks first, names the person, and is sent again confirmed (check 6)', async () => {
+    let calls = 0
+    const backend = install(order(), [
+      {
+        method: 'DELETE',
+        match: /\/positions\/pos-2/,
+        handler: () =>
+          ++calls === 1
+            ? status(409, {
+                error: {
+                  code: 'conflict',
+                  message: 'x',
+                  details: { reason: 'service_order_job_clocked_confirm', people: [{ userId: 'u-9', label: 'Marco Mechaniker' }] },
+                },
+              })
+            : order(),
+      },
+    ])
+    const user = userEvent.setup()
+    renderPage()
+
+    const row = await screen.findByTestId('position-pos-2')
+    await user.click(within(row).getByRole('button', { name: t('serviceOrder.positions.delete') }))
+    const dialog = await screen.findByRole('dialog')
+    await user.click(within(dialog).getByRole('button', { name: t('serviceOrder.positions.confirmDelete') }))
+    expect(await within(dialog).findByText(t('apiRefusal.reasons.service_order_job_clocked_confirm', { names: 'Marco Mechaniker' }))).toBeInTheDocument()
+
+    await user.click(within(dialog).getByRole('button', { name: t('serviceOrder.answer.changeAnyway') }))
+    await waitFor(() => expect(backend.calls.filter((c) => c.method === 'DELETE')).toHaveLength(2))
+    expect(backend.calls.filter((c) => c.method === 'DELETE')[1].params.get('confirmWhileClocked')).toBe('true')
+  })
+
   it('«Arbeit ohne Antwort» shows on the order while a job waits and somebody works on it', async () => {
     install(order({ workWithoutAnswer: true, jobs: [waitingJob({ workWithoutAnswer: true })] }))
     renderPage()

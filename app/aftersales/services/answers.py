@@ -5,14 +5,17 @@ rulings 30, 48, 49, 167, 172; decisions 31, 54, 64; checks 3 to 8).
 | --- | --- | --- | --- |
 | Record «accepted», with how it came | Draft, waits | Accepted, with who, when and the amount; a job may be accepted before it has a price (ruling 167) | Already accepted; declined; stopped |
 | Record «declined» | Draft, waits | Declined | The note is missing; stopped |
-| Record «declined» on an accepted job | Accepted | Without clocked time: declined. With clocked time: the clocks stop, the people are told, and the advisor's choice decides — «hours billed» keeps it accepted and stopped, «not billed» declines and stops it (ruling 48, decision 54) | The choice is missing where time was clocked |
+| Record «declined» on a job with clocked time | Any (an accepted job, or one waiting again with work running) | The clocks stop, the people are named in the fact `aftersales.service_order_job.stopped`, and the advisor's choice decides — «hours billed» keeps it accepted and stopped, «not billed» declines and stops it (ruling 48, decision 54) | The choice is missing |
+| Record «declined» on an accepted job without clocked time | Accepted | Declined: nothing was done, so nothing stops | – |
 | The amount of a job accepted with a price changes | Accepted | Waits for the answer; keeps «accepted before: CHF x» (ruling 30). A text alone changes nothing (decision 31) | – |
 | An accepted job is changed while somebody is clocked on it | Accepted | Asks first, naming the person (ruling 49) | Not confirmed |
 | A stopped job is changed, answered or clocked | Stopped | – | Always (decision 54) |
 
 `record_answers` is the one write path of an answer (it replaced KAN-810's
-`accept_job`). Every answer is its own row, `service_order_job_answer`,
-append-only; the job's `answer_state` is the state now. «Wartet auf
+`accept_job`). Every answer is its own row, `service_order_job_answer`, never
+changed; deleting a job (draft, waiting, declined) deletes its answers with
+it, and the order's history keeps them. The job's `answer_state` is the
+state now. «Wartet auf
 Antwort», «Arbeit ohne Antwort» and «accepted before» are worked out on read
 (section 3.9), never stored.
 
@@ -47,10 +50,18 @@ from app.aftersales.models.service_order import (
     ServiceOrderPosition,
 )
 from app.aftersales.services import order_money, work_guard
-from app.aftersales.services.service_order import order_follows_accepted_job, record_order_change, refuse_frozen
+from app.aftersales.services.service_order import (
+    ENTITY_TYPE,
+    PRODUCER,
+    order_follows_accepted_job,
+    record_order_change,
+    refuse_frozen,
+)
 from app.core.base import utcnow
 from app.core.errors import ConflictError, NotFoundError, UnprocessableEntityError
+from app.core.outbox import OutboxEvent, publish
 
+JOB_STOPPED_EVENT = "aftersales.service_order_job.stopped"
 _NOTE_LENGTH = 1000
 _ANSWERABLE = frozenset({JobAnswerState.DRAFT, JobAnswerState.WAITING})
 
@@ -115,8 +126,9 @@ def refuse_stopped(job: ServiceOrderJob) -> None:
 def refuse_unconfirmed_change_while_clocked(
     db: Session, *, order: ServiceOrder, job: ServiceOrderJob, confirmed: bool
 ) -> None:
-    """Ruling 49, check 6: changing an accepted job while somebody is clocked on it asks
-    first and names the person. The work goes on; if the change moves the amount, the
+    """Ruling 49, check 6: changing an accepted job's content (its positions, a package)
+    while somebody is clocked on it asks first and names the person. Renaming the job is
+    not asked: a text moves no amount and needs no new answer (decision 31). The work goes on; if the change moves the amount, the
     job waits for the answer and the order shows «Arbeit ohne Antwort»."""
 
     if confirmed or job.answer_state is not JobAnswerState.ACCEPTED:
@@ -173,6 +185,35 @@ def follow_amount(db: Session, *, order: ServiceOrder, job: ServiceOrderJob, act
     )
 
 
+def _publish_stopped(
+    db: Session, *, order: ServiceOrder, job: ServiceOrderJob, people: list[work_guard.ClockedPerson]
+) -> None:
+    """Ruling 48: the people whose clocks the stop ended are told. Aftersales states the
+    fact in the stop's own transaction; telling them is platform's staff notification,
+    raised by its consumer of this fact (a separate ticket: catalogue code and ADR)."""
+
+    publish(
+        db,
+        OutboxEvent(
+            event_type=JOB_STOPPED_EVENT,
+            tenant_id=order.tenant_id,
+            producer=PRODUCER,
+            aggregate_type=ENTITY_TYPE,
+            aggregate_id=order.id,
+            payload={
+                "serviceOrderId": str(order.id),
+                "orderNumber": order.order_number,
+                "jobId": str(job.id),
+                "jobName": job.name,
+                "hoursBilled": job.hours_billed,
+                "stoppedAt": job.stopped_at.isoformat() if job.stopped_at else None,
+                "stoppedBy": str(job.stopped_by) if job.stopped_by else None,
+                "people": [str(person.user_id) for person in people],
+            },
+        ),
+    )
+
+
 def _snapshot(job: ServiceOrderJob) -> dict[str, Any]:
     return {
         "jobId": str(job.id),
@@ -222,10 +263,9 @@ def _answer(
                 f"Job «{job.name}» already has the answer «declined».",
                 details={"reason": "service_order_job_already_answered", "answerState": job.answer_state.value},
             )
-        clocked = job.answer_state is JobAnswerState.ACCEPTED and work_guard.time_clocked_on_job(
-            db, tenant_id=order.tenant_id, job_id=job.id
-        )
-        if clocked:
+        # Ruling 48 whatever the job's state: a job that waits again while work runs on it
+        # («Arbeit ohne Antwort», check 6) has clocked time just as an accepted one does.
+        if work_guard.time_clocked_on_job(db, tenant_id=order.tenant_id, job_id=job.id):
             # Ruling 48: work started — the clocks stop, the people are told, and the
             # advisor says whether the hours are billed.
             if data.hours_billed is None:
@@ -237,6 +277,7 @@ def _answer(
             told = work_guard.stop_clocks_on_job(db, tenant_id=order.tenant_id, job_id=job.id, actor_id=actor_id)
             job.stopped_at, job.stopped_by, job.hours_billed = now, actor_id, hours_billed
             job.answer_state = JobAnswerState.ACCEPTED if hours_billed else JobAnswerState.DECLINED
+            _publish_stopped(db, order=order, job=job, people=told)
         else:
             job.answer_state = JobAnswerState.DECLINED
         # Its bookings that have not started are released, and the advisor told, with
@@ -304,12 +345,3 @@ def record_answers(
             raise NotFoundError(f"Job {data.job_id} was not found.")
         _answer(db, order=order, job=job, data=data, channel=channel, actor_id=actor_id, now=now)
     db.commit()
-
-
-def accept_job(db: Session, *, order: ServiceOrder, job: ServiceOrderJob, actor_id: uuid.UUID) -> None:
-    """«Accepted» at the desk for one job: `record_answers` with one answer. Commits."""
-
-    record_answers(
-        db, order=order, actor_id=actor_id, channel=AnswerChannel.DESK,
-        answers=[JobAnswerInput(job_id=job.id, result=AnswerResult.ACCEPTED)],
-    )

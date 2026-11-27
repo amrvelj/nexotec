@@ -82,6 +82,10 @@ def test_check_22_a_mileage_is_required_and_a_whole_number_from_0(client, db_ses
     assert (negative.status_code, _reason(negative)) == (422, "service_stay_mileage_invalid")
     fraction = _arrive(client, betrieb, order, mileage=12.5)
     assert fraction.status_code == 422
+    # A typing error far above any odometer is refused in one sentence, never a 500 (int4 overflow).
+    for too_far in (10_000_000, 3_000_000_000):
+        refused = _arrive(client, betrieb, order, mileage=too_far)
+        assert (refused.status_code, _reason(refused)) == (422, "service_stay_mileage_invalid")
     assert db_session.scalar(select(ServiceStay.id)) is None
 
 
@@ -186,6 +190,71 @@ def test_the_arrival_takes_the_orders_version_and_is_not_found_elsewhere(client,
     other = make_betrieb(client, db_session)
     assert client.post(f"/v1/service-orders/{order['id']}/arrival", json={"mileage": 1},
                        headers=headers(other, if_match=order["version"])).status_code == 404
+
+
+# --- a vehicle merge: the stay follows the car (ADR-213) ------------------------------------------------
+
+
+def _merge_cars(db_session, *, duplicate, survivor) -> None:
+    from app.aftersales.consumers import VEHICLE_MERGED_CONSUMER, handle_vehicle_merged_message
+    from app.core.consumer import consume_once
+    from app.vehicle.services.merge import MERGED_EVENT, merge_vehicles
+
+    merge_vehicles(db_session, survivor_id=survivor, duplicate_id=duplicate, actor_id=uuid.uuid4())
+    db_session.commit()
+    message = db_session.scalars(
+        select(OutboxMessage).where(OutboxMessage.event_type == MERGED_EVENT, OutboxMessage.aggregate_id == duplicate)
+    ).one()
+    assert consume_once(db_session, message=message, consumer_name=VEHICLE_MERGED_CONSUMER,
+                        handler=handle_vehicle_merged_message)
+    db_session.expire_all()
+
+
+def test_a_running_stay_follows_a_vehicle_merge_and_a_new_order_joins_it(client, db_session, betrieb):
+    duplicate, survivor = make_vehicle(db_session), make_vehicle(db_session)
+    order = _order(client, db_session, betrieb, duplicate)
+    stay_id = _arrive(client, betrieb, order).json()["stay"]["id"]
+
+    _merge_cars(db_session, duplicate=duplicate, survivor=survivor)
+
+    stay = db_session.get(ServiceStay, uuid.UUID(stay_id))
+    assert stay is not None and stay.vehicle_id == survivor
+    second = _order(client, db_session, betrieb, survivor)
+    assert second["stay"]["id"] == stay_id  # one running stay per car: the new order joins it
+    assert (_arrive(client, betrieb, second).status_code) == 409
+
+
+def test_two_running_stays_of_one_merged_car_become_one(client, db_session, betrieb):
+    duplicate, survivor = make_vehicle(db_session), make_vehicle(db_session)
+    on_duplicate = _order(client, db_session, betrieb, duplicate)
+    on_survivor = _order(client, db_session, betrieb, survivor)
+    _arrive(client, betrieb, on_duplicate)
+    kept = _arrive(client, betrieb, on_survivor).json()["stay"]["id"]
+
+    _merge_cars(db_session, duplicate=duplicate, survivor=survivor)
+
+    running = db_session.scalars(
+        select(ServiceStay).where(ServiceStay.tenant_id == betrieb.id, ServiceStay.departed_at.is_(None))
+    ).all()
+    assert [str(stay.id) for stay in running] == [kept]
+    both = {on_duplicate["orderNumber"], on_survivor["orderNumber"]}
+    assert {o["orderNumber"] for o in _get(client, betrieb, on_duplicate)["stay"]["orders"]} == both
+    assert _get(client, betrieb, on_duplicate)["workshopStatus"] == "car_here"
+
+
+def test_the_nightly_refresh_renames_the_stays_location(client, db_session, betrieb):
+    from app.aftersales.services.order_references import refresh_order_labels
+    from app.platform.organisation.models.dealership import Location
+
+    order = _order(client, db_session, betrieb)
+    stay_id = _arrive(client, betrieb, order).json()["stay"]["id"]
+    db_session.get(Location, betrieb.location_id).name = "Aarau Nord"
+    db_session.commit()
+
+    refresh_order_labels(db_session)
+
+    db_session.expire_all()
+    assert db_session.get(ServiceStay, uuid.UUID(stay_id)).location_label == "Aarau Nord"
 
 
 # --- check 24: the mileage reaches the car's record through an event -------------------------------------
@@ -293,16 +362,28 @@ def test_no_write_path_sets_the_workshop_status():
         methods = getattr(route, "methods", set()) or set()
         assert not ("workshop" in path and methods & {"POST", "PUT", "PATCH", "DELETE"}), path
 
-    writers = set()
-    for path in (ROOT / "app").rglob("*.py"):
-        tree = ast.parse(path.read_text(encoding="utf-8"))
+    # Every module that names the projection at all, and why. A new one fails here, so a
+    # write (a constructor, an `update(...)`, an attribute set) cannot slip in elsewhere.
+    readers = {
+        "app/aftersales/models/service_stay.py",  # the table
+        "app/aftersales/models/service_order.py",  # the read-only column_property (a SELECT)
+        "app/aftersales/services/data_export.py",  # the export reads it
+        "app/model_registry.py",  # registration
+    }
+    named = {
+        path.relative_to(ROOT).as_posix()
+        for path in (ROOT / "app").rglob("*.py")
+        if "ServiceOrderWorkshopStatus" in path.read_text(encoding="utf-8")
+    }
+    assert named == readers | {"app/aftersales/services/workshop_status.py"}
+    for reader in readers:
+        tree = ast.parse((ROOT / reader).read_text(encoding="utf-8"))
         for node in ast.walk(tree):
-            if isinstance(node, ast.Call) and getattr(node.func, "id", None) == "ServiceOrderWorkshopStatus":
-                writers.add(path.relative_to(ROOT).as_posix())
-            if isinstance(node, ast.Assign):
-                for target in node.targets:
-                    elements = target.elts if isinstance(target, ast.Tuple) else [target]
-                    for element in elements:
-                        if isinstance(element, ast.Attribute) and element.attr == "status" and "workshop" in path.name:
-                            writers.add(path.relative_to(ROOT).as_posix())
-    assert writers == {"app/aftersales/services/workshop_status.py"}
+            if isinstance(node, ast.Call) and getattr(node.func, "id", None) in {"ServiceOrderWorkshopStatus", "update",
+                                                                                  "insert", "delete"}:
+                assert not any(
+                    isinstance(arg, ast.Name) and arg.id == "ServiceOrderWorkshopStatus" for arg in node.args
+                ) and getattr(node.func, "id", None) != "ServiceOrderWorkshopStatus", reader
+
+    writers = set()
+    assert writers <= {"app/aftersales/services/workshop_status.py"}

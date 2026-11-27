@@ -42,6 +42,6 @@
   "service_package_position_text_too_long": "Der Text einer Position hat höchstens 1000 Zeichen.",
   "service_package_time_unit_changed": "Arbeitszeit wird hier jetzt in einer anderen Einheit erfasst. Prüfen Sie die Zeit und erfassen Sie sie neu.",
   "service_stay_car_already_here": "Das Fahrzeug ist schon da und kann nicht ein zweites Mal angenommen werden.",
-  "service_stay_mileage_invalid": "Der Kilometerstand ist eine ganze Zahl ab 0.",
+  "service_stay_mileage_invalid": "Der Kilometerstand ist eine ganze Zahl von 0 bis 9'999'999.",
   "service_stay_text_too_long": "Der Text ist zu lang ({{maxLength}} Zeichen höchstens)."
 }

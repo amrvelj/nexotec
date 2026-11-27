@@ -99,6 +99,8 @@ export function ArrivalDialog({
             setMissing(false)
           }}
           min={0}
+          max={9_999_999}
+          clampBehavior="strict"
           allowNegative={false}
           allowDecimal={false}
           thousandSeparator="'"

@@ -51,7 +51,7 @@ from decimal import Decimal
 from sqlalchemy import Boolean, Date, ForeignKey, Index, Integer, Numeric, String, UniqueConstraint, false, select
 from sqlalchemy.orm import Mapped, column_property, mapped_column
 
-from app.aftersales.models.service_stay import ServiceOrderWorkshopStatus, WorkshopStatus
+from app.aftersales.models.service_stay import ServiceOrderWorkshopStatus
 from app.core.base import PrimaryKeyMixin, TenantScopedMixin, TimestampMixin, VersionedMixin
 from app.core.enum_type import StoredEnum
 from app.core.money import PriceEntry
@@ -205,7 +205,6 @@ ServiceOrder.workshop_status = column_property(  # type: ignore[attr-defined]
     .label("workshop_status"),
     deferred=False,
 )
-_ = WorkshopStatus  # the enum the expression reads, re-read by the grid registry
 
 
 class ServiceOrderJob(PrimaryKeyMixin, TenantScopedMixin, TimestampMixin, Base):
@@ -237,7 +236,8 @@ class ServiceOrderJob(PrimaryKeyMixin, TenantScopedMixin, TimestampMixin, Base):
 class ServiceOrderJobAnswer(PrimaryKeyMixin, TenantScopedMixin, TimestampMixin, Base):
     """One answer of the customer to a job (KAN-811; table 3.2, checks 3 to 5).
 
-    Its own record, append-only: every answer is kept, so «accepted before: CHF x»
+    Its own record, never changed: every answer of a job is kept while the job
+    exists (deleting a job deletes its answers; the order's history keeps them), so «accepted before: CHF x»
     (ruling 30) and who answered how and when are read from here, never typed.
     `amount_net`/`amount_gross` are the job's amount the customer said yes to, to the
     Rappen — null when the job had no price yet (ruling 167): such a job never waits

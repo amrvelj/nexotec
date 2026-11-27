@@ -172,6 +172,14 @@ CHECKS: list[ReferenceCheck | StateCheck] = [
         where=lambda: _live()
         & vehicle_is_merged(ServiceOrder.vehicle_id, updated_before=utcnow() - _MERGE_GRACE, correlate=ServiceOrder),
     ),
+    # KAN-813: a running stay follows a vehicle merge like its orders (ADR-213).
+    StateCheck(
+        label="service_stay.vehicle_id names a merged vehicle record",
+        source_model=ServiceStay,
+        source_row_id_column=ServiceStay.id,
+        where=lambda: ServiceStay.departed_at.is_(None)
+        & vehicle_is_merged(ServiceStay.vehicle_id, updated_before=utcnow() - _MERGE_GRACE, correlate=ServiceStay),
+    ),
     *actor_reference_checks(*ACTOR_TABLES),
 ]
 

@@ -7,12 +7,12 @@ KAN-814 and KAN-816):
 | What happens | In state | Result | Refused when |
 | --- | --- | --- | --- |
 | Add or change | Open | The typed price leads (decision 15); up to four decimals per unit (decision 23) | The order is frozen; the job is stopped (KAN-811) |
+| Delete | Open | Gone | Time was clocked on it (decision 64) |
 
 A change of an accepted job's positions follows the customer's answer
 (KAN-811, `answers.py`): it asks first while somebody is clocked on the job
 (ruling 49), and a changed amount makes the job wait for the answer again
 (ruling 30).
-| Delete | Open | Gone | Time was clocked on it (decision 64) |
 
 A job (table 3.2) gets a name and the billing category; it is deleted only
 while draft, waiting or declined, and never with clocked time. Recording the

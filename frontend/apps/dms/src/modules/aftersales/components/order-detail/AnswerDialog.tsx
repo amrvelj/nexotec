@@ -33,9 +33,10 @@ function choicesFor(job: ServiceOrderJobRead): Choice[] {
   return ['keep']
 }
 
-/** Declining an accepted job with clocked time asks whether the hours are billed (ruling 48, check 8). */
+/** Declining a job with clocked time — accepted, or waiting again with work running — asks
+ * whether the hours are billed (ruling 48, check 8). */
 function asksHours(job: ServiceOrderJobRead, draft: Draft): boolean {
-  return draft.choice === 'declined' && job.answerState === 'accepted' && job.timeClocked
+  return draft.choice === 'declined' && Boolean(job.timeClocked)
 }
 
 /**

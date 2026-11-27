@@ -9,6 +9,7 @@ from sqlalchemy import select
 
 from app.aftersales.models.service_order import ServiceOrder, ServiceOrderJobAnswer
 from app.aftersales.services import work_guard
+from app.core.outbox_model import OutboxMessage
 from tests.aftersales.service_order_support import (
     add_job,
     add_position,
@@ -275,8 +276,33 @@ def test_check_7_a_job_with_clocked_time_cannot_be_deleted_but_can_be_declined(c
                             headers=headers(betrieb, if_match=order["version"]))
     assert (refused.status_code, _reason(refused)) == (409, "service_order_job_time_clocked")
 
-    order = _ok(_answer(client, betrieb, order, {"jobId": job_id, "result": "declined", "note": "Kunde will nicht"}))
-    assert _job(order, job_id)["answerState"] == "declined"
+    order = _ok(_answer(client, betrieb, order,
+                        {"jobId": job_id, "result": "declined", "note": "Kunde will nicht", "hoursBilled": False}))
+    job = _job(order, job_id)
+    assert (job["answerState"], job["stopped"]) == ("declined", True)
+
+
+def test_check_8_a_job_waiting_again_with_work_running_is_stopped_when_declined(
+    client, db_session, betrieb, monkeypatch
+):
+    """«Arbeit ohne Antwort» (check 6) then «declined»: the work that ran is stopped like
+    on an accepted job (ruling 48) — the clocks stop and the hours question is asked."""
+
+    order, job_id = _accepted(client, db_session, betrieb)
+    position_id = _job(order, job_id)["positions"][0]["id"]
+    order = _ok(client.patch(f"/v1/service-orders/{order['id']}/positions/{position_id}", json={"time": "2"},
+                             headers=headers(betrieb, if_match=order["version"])))
+    assert _job(order, job_id)["answerState"] == "waiting"
+    stopped: list = []
+    _clocked(monkeypatch, stopped=stopped)
+
+    asked = _answer(client, betrieb, order, {"jobId": job_id, "result": "declined", "note": "Doch nicht"})
+    assert (asked.status_code, _reason(asked)) == (422, "service_order_answer_hours_billed_required")
+    order = _ok(_answer(client, betrieb, order,
+                        {"jobId": job_id, "result": "declined", "note": "Doch nicht", "hoursBilled": False}))
+    job = _job(order, job_id)
+    assert (job["answerState"], job["stopped"], job["hoursBilled"]) == ("declined", True, False)
+    assert stopped == [uuid.UUID(job_id)]
 
 
 @pytest.mark.parametrize(("hours_billed", "state"), [(True, "accepted"), (False, "declined")])
@@ -301,6 +327,14 @@ def test_check_8_declining_an_accepted_job_with_clocked_time_asks_hours_billed_a
     assert [i["after"]["peopleTold"] for i in items if i["action"] == "service_order_job_answered"][-1] == [
         "Marco Mechaniker"
     ]
+    # The people are told through the fact of the stop (platform's notification consumes it).
+    fact = db_session.scalar(
+        select(OutboxMessage).where(OutboxMessage.event_type == "aftersales.service_order_job.stopped")
+    )
+    assert fact is not None
+    assert (fact.payload["jobId"], fact.payload["hoursBilled"], len(fact.payload["people"])) == (
+        job_id, hours_billed, 1,
+    )
 
 
 def test_check_8_a_stopped_job_is_not_changed_or_answered_again(client, db_session, betrieb, monkeypatch):
