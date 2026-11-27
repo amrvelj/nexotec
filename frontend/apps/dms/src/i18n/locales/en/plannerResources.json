@@ -50,7 +50,7 @@
     "factorHint": "Counted time = clocked time × factor, from 0.01 to 9.99. Empty: the clocked time counts.",
     "factorInvalid": "The factor lies between 0.01 and 9.99.",
     "mandatory": "Mandatory qualification",
-    "mandatoryHint": "It is stored. It is only checked once a job or a workplace requires a qualification."
+    "mandatoryHint": "It is stored. It is only checked once a group or a workplace requires a qualification."
   },
   "languages": {
     "de": "German",

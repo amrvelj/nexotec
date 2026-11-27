@@ -54,7 +54,7 @@
     "title": "Modifica prenotazione",
     "blockTitle": "Modifica blocco",
     "order": "Ordine",
-    "job": "Lavoro",
+    "job": "Gruppo",
     "vehicle": "Veicolo",
     "replanSince": "Da ripianificare dal {{since}}: {{cause}}",
     "causes": {
