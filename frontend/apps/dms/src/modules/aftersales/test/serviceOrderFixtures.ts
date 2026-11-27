@@ -26,6 +26,7 @@ export function summary(overrides: Partial<ServiceOrderSummary> = {}): ServiceOr
     vehicleLabel: 'Mercedes-Benz GLC · W1KBMRB80MN6DTN3X',
     waitingForAnswer: false,
     createdAt: '2026-11-26T08:10:00Z',
+    workshopStatus: 'planned',
     ...overrides,
   }
 }
@@ -135,6 +136,8 @@ export function order(overrides: Partial<ServiceOrderRead> = {}): ServiceOrderRe
     },
     cancellation: null,
     workWithoutAnswer: false,
+    stay: null,
+    vehicleMileage: 166402,
     updatedAt: '2026-11-26T08:20:00Z',
     ...overrides,
   }

@@ -62,3 +62,9 @@ def stop_clocks_on_job(
     (ruling 48, check 8). Inside the caller's transaction; does not commit."""
 
     return []
+
+
+def clock_running_on_order(db: Session, *, tenant_id: uuid.UUID, order_id: uuid.UUID) -> bool:
+    """A clock runs on a position of the order now (KAN-813: «in work», section 3.9)."""
+
+    return False

@@ -11,6 +11,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.aftersales.models.service_order import ServiceOrder, ServiceOrderJob, ServiceOrderPosition
+from app.aftersales.models.service_stay import ServiceOrderStay, ServiceStay, WorkshopStatus
 from app.aftersales.schemas.service_order import (
     AmountRead,
     CancellationRead,
@@ -26,16 +27,19 @@ from app.aftersales.schemas.service_order import (
     PositionRead,
     ServiceOrderRead,
     ServiceOrderSummary,
+    StayOrderRead,
+    StayRead,
     UnitPriceRead,
     VatLineRead,
 )
 from app.aftersales.services import answers as answer_service
-from app.aftersales.services import order_money, work_guard
+from app.aftersales.services import order_money, work_guard, workshop_status
 from app.aftersales.services.positions import RateProposal, TimeUnitInForce
 from app.aftersales.services.service_order import ENTITY_TYPE, waiting_for_answer_ids
 from app.core.audit import list_audit_events
 from app.core.money import PayerTotal, Price
 from app.platform.public import get_dealership_cash_rounding, get_group_display_labels
+from app.vehicle.public import current_mileage
 
 
 def _unit_price(price: Price | None) -> UnitPriceRead | None:
@@ -105,7 +109,7 @@ def _user_labels(db: Session, *, order: ServiceOrder, group_id: uuid.UUID, user_
     return users
 
 
-def summary(order: ServiceOrder, *, waiting: bool) -> ServiceOrderSummary:
+def summary(order: ServiceOrder, *, waiting: bool, status: WorkshopStatus | None = None) -> ServiceOrderSummary:
     return ServiceOrderSummary(
         id=order.id,
         version=order.version,
@@ -119,12 +123,45 @@ def summary(order: ServiceOrder, *, waiting: bool) -> ServiceOrderSummary:
         vehicle_label=order.vehicle_label,
         waiting_for_answer=waiting,
         created_at=order.created_at,
+        workshop_status=status or WorkshopStatus.PLANNED,
     )
 
 
 def summaries(db: Session, orders: list[ServiceOrder]) -> list[ServiceOrderSummary]:
-    waiting = waiting_for_answer_ids(db, [order.id for order in orders])
-    return [summary(order, waiting=order.id in waiting) for order in orders]
+    ids = [order.id for order in orders]
+    waiting = waiting_for_answer_ids(db, ids)
+    statuses = workshop_status.statuses_of(db, ids)
+    return [summary(order, waiting=order.id in waiting, status=statuses.get(order.id)) for order in orders]
+
+
+def _stay_read(db: Session, *, order: ServiceOrder, group_id: uuid.UUID) -> StayRead | None:
+    stays = workshop_status.stays_of(db, order.id)
+    running = [stay for stay in stays if stay.departed_at is None]
+    stay: ServiceStay | None = running[-1] if running else (stays[-1] if stays else None)
+    if stay is None:
+        return None
+    labels = _user_labels(db, order=order, group_id=group_id, user_ids={stay.arrived_by} if stay.arrived_by else set())
+    held = db.execute(
+        select(ServiceOrder.id, ServiceOrder.order_number)
+        .join(ServiceOrderStay, ServiceOrderStay.service_order_id == ServiceOrder.id)
+        .where(ServiceOrderStay.stay_id == stay.id)
+        .order_by(ServiceOrder.order_number)
+    ).all()
+    return StayRead(
+        id=stay.id,
+        arrived_at=stay.arrived_at,
+        arrived_by=stay.arrived_by,
+        arrived_by_label=labels.get(stay.arrived_by) if stay.arrived_by else None,
+        arrival_channel=stay.arrival_channel,
+        arrival_mileage=stay.arrival_mileage,
+        previous_mileage=stay.previous_mileage,
+        mileage_below_previous=stay.previous_mileage is not None and stay.arrival_mileage < stay.previous_mileage,
+        key_tag=stay.key_tag,
+        parking_place=stay.parking_place,
+        remark=stay.arrival_remark,
+        departed_at=stay.departed_at,
+        orders=[StayOrderRead(id=row.id, order_number=row.order_number) for row in held],
+    )
 
 
 def order_read(db: Session, *, order: ServiceOrder, group_id: uuid.UUID) -> ServiceOrderRead:
@@ -191,7 +228,10 @@ def order_read(db: Session, *, order: ServiceOrder, group_id: uuid.UUID) -> Serv
             work_without_answer=job.id in without_answer,
         )
 
-    base = summary(order, waiting=any(job.answer_state.value == "waiting" for job in jobs))
+    base = summary(
+        order, waiting=any(job.answer_state.value == "waiting" for job in jobs),
+        status=workshop_status.statuses_of(db, [order.id]).get(order.id),
+    )
     return ServiceOrderRead(
         **base.model_dump(),
         invoice_recipient=PartyRead(contact_id=order.invoice_recipient_contact_id, label=order.invoice_recipient_label),
@@ -206,6 +246,8 @@ def order_read(db: Session, *, order: ServiceOrder, group_id: uuid.UUID) -> Serv
         ),
         cancellation=cancellation,
         work_without_answer=bool(without_answer),
+        stay=_stay_read(db, order=order, group_id=group_id),
+        vehicle_mileage=current_mileage(db, order.vehicle_id),
         updated_at=order.updated_at,
     )
 

@@ -19,6 +19,7 @@ from sqlalchemy.orm import Session
 
 from app.aftersales.models.service_order import ServiceOrder, ServiceOrderState
 from app.aftersales.schemas.service_order import (
+    ArrivalCreate,
     HistoryRead,
     JobCreate,
     JobUpdate,
@@ -33,7 +34,7 @@ from app.aftersales.schemas.service_order import (
     ServiceOrderRead,
 )
 from app.aftersales.schemas.service_package import JobPackageCopy
-from app.aftersales.services import answers, order_read, positions, service_packages
+from app.aftersales.services import answers, order_read, positions, service_packages, stays
 from app.aftersales.services import service_order as service
 from app.core.auth import Principal
 from app.core.concurrency import check_version, require_if_match
@@ -209,6 +210,31 @@ def record_answers(
             answers.JobAnswerInput(job_id=e.job_id, result=e.result, note=e.note, hours_billed=e.hours_billed)
             for e in body.jobs
         ],
+    )
+    return _read(db, principal, order_id)
+
+
+# --- the stay of the car (KAN-813) ---------------------------------------------------------------
+
+
+@router.post("/service-orders/{order_id}/arrival", response_model=ServiceOrderRead, status_code=201)
+def receive_car(
+    order_id: uuid.UUID,
+    body: ArrivalCreate,
+    if_match: int = Depends(require_if_match),
+    principal: Principal = Depends(require_write(_READ)),
+    db: Session = Depends(get_db),
+):
+    """D14 «Fahrzeug ist da»: the car of the order is here (check 22-24)."""
+
+    unlocked = service.get_order_or_404(db, tenant_id=principal.tenant_id, order_id=order_id)
+    # The car's stay lock before any order row (the arrival also takes the car's other open orders).
+    service.lock_stay_car(db, tenant_id=principal.tenant_id, vehicle_id=unlocked.vehicle_id)
+    order = _locked(db, principal, order_id, if_match)
+    stays.receive_car(
+        db, order=order, actor_id=principal.user_id,
+        data=stays.ArrivalInput(mileage=body.mileage, key_tag=body.key_tag, parking_place=body.parking_place,
+                                remark=body.remark),
     )
     return _read(db, principal, order_id)
 

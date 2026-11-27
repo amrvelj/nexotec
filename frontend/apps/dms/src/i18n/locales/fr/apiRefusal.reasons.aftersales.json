@@ -11,7 +11,7 @@
   "service_order_frozen": "Cet ordre est clos (prêt à facturer ou annulé) et ne peut plus être modifié.",
   "service_order_job_accepted": "Ce groupe est accepté et ne peut pas être supprimé. Enregistrez plutôt la réponse.",
   "service_order_job_already_answered": "La réponse pour ce groupe est déjà enregistrée.",
-  "service_order_job_clocked_confirm": "{{names}} travaille en ce moment sur ce groupe. Le modifier quand même ? Si le montant change, le groupe attend la réponse du client.",
+  "service_order_job_clocked_confirm": "{{names}} travaille en ce moment sur ce groupe. Le modifier quand même ? Si le montant change, le groupe attend à nouveau la réponse.",
   "service_order_job_name_required": "Un groupe a besoin d'une désignation.",
   "service_order_job_stopped": "Ce groupe a été arrêté et ne peut plus être modifié. Tout travail supplémentaire est un nouveau groupe.",
   "service_order_job_time_clocked": "Du temps a été pointé sur ce groupe ; il ne peut pas être supprimé. Refusez-le plutôt.",
@@ -40,5 +40,8 @@
   "service_package_position_incomplete": "Une position de texte n'a ni catégorie de travail, ni temps, ni contrôle.",
   "service_package_position_text_required": "Chaque position du forfait a besoin de son texte.",
   "service_package_position_text_too_long": "Le texte d'une position compte au plus 1000 caractères.",
-  "service_package_time_unit_changed": "Le temps de travail est désormais saisi dans une autre unité. Vérifiez le temps et saisissez-le à nouveau."
+  "service_package_time_unit_changed": "Le temps de travail est désormais saisi dans une autre unité. Vérifiez le temps et saisissez-le à nouveau.",
+  "service_stay_car_already_here": "Le véhicule est déjà là et ne peut pas être réceptionné une deuxième fois.",
+  "service_stay_mileage_invalid": "Le kilométrage est un nombre entier à partir de 0.",
+  "service_stay_text_too_long": "Le texte est trop long ({{maxLength}} caractères au plus)."
 }

@@ -11,7 +11,7 @@
   "service_order_frozen": "This order is closed (ready for billing or cancelled) and can no longer be changed.",
   "service_order_job_accepted": "This group has been accepted and cannot be deleted. Record the answer instead.",
   "service_order_job_already_answered": "The answer for this group has already been recorded.",
-  "service_order_job_clocked_confirm": "{{names}} is working on this group right now. Change it anyway? If the amount changes, the group waits for the customer's answer.",
+  "service_order_job_clocked_confirm": "{{names}} is working on this group right now. Change it anyway? If the amount changes, the group waits for the answer again.",
   "service_order_job_name_required": "A group needs a name.",
   "service_order_job_stopped": "This group was stopped and can no longer be changed. Further work is a new group.",
   "service_order_job_time_clocked": "Time has been clocked on this group, so it cannot be deleted. Decline it instead.",
@@ -40,5 +40,8 @@
   "service_package_position_incomplete": "A text position has no labour category, no time and no check.",
   "service_package_position_text_required": "Every position of the package needs its text.",
   "service_package_position_text_too_long": "A position's text has at most 1000 characters.",
-  "service_package_time_unit_changed": "Labour time is now entered in another unit here. Check the time and enter it again."
+  "service_package_time_unit_changed": "Labour time is now entered in another unit here. Check the time and enter it again.",
+  "service_stay_car_already_here": "The car is here already and cannot be received a second time.",
+  "service_stay_mileage_invalid": "A mileage is a whole number from 0.",
+  "service_stay_text_too_long": "The text is too long (at most {{maxLength}} characters)."
 }

@@ -42,7 +42,8 @@
   "tabs": {
     "positions": "Posizioni",
     "overview": "Panoramica",
-    "history": "Cronologia"
+    "history": "Cronologia",
+    "reception": "Accettazione"
   },
   "actions": {
     "open": "Apri",
@@ -192,7 +193,9 @@
       "service_order_position_changed": "Posizione modificata",
       "service_order_position_deleted": "Posizione eliminata",
       "service_order_job_answered": "Risposta registrata",
-      "service_order_job_waits_again": "Il gruppo attende la risposta"
+      "service_order_job_waits_again": "Il gruppo attende la risposta",
+      "service_order_car_arrived": "Veicolo arrivato",
+      "service_order_joined_stay": "Ordine associato al soggiorno"
     },
     "fields": {
       "contactLabel": "Committente",
@@ -244,7 +247,39 @@
     "stoppedBilled": "Fermato, ore fatturate",
     "stoppedNotBilled": "Fermato, ore non fatturate",
     "workWithoutAnswerTitle": "Lavoro senza risposta",
-    "workWithoutAnswerBody": "Si lavora mentre il cliente non ha ancora risposto: {{jobs}}.",
+    "workWithoutAnswerBody": "Si lavora anche se la risposta manca ancora: {{jobs}}.",
     "changeAnyway": "Modificare comunque"
+  },
+  "workshopStatus": {
+    "planned": "Pianificato",
+    "car_here": "Veicolo arrivato",
+    "in_work": "In lavorazione",
+    "work_done": "Lavoro terminato",
+    "checked": "Controllato",
+    "ready_for_pickup": "Pronto per il ritiro",
+    "handed_over": "Consegnato"
+  },
+  "arrival": {
+    "title": "Veicolo arrivato",
+    "submit": "Veicolo arrivato",
+    "mileage": "Chilometraggio",
+    "mileageMissing": "Inserite il chilometraggio.",
+    "keyTag": "Portachiavi",
+    "parkingPlace": "Posteggio",
+    "remark": "Giro del veicolo sul cellulare o tralasciato: osservazione",
+    "lastMileage": "Ultima lettura: {{km}} km",
+    "noLastMileage": "Nessun chilometraggio registrato.",
+    "belowLast": "Inferiore all'ultima lettura: viene ripreso e segnalato sul veicolo.",
+    "alreadyHere": "Il veicolo è già qui."
+  },
+  "reception": {
+    "title": "Accettazione",
+    "notHere": "Il veicolo non è ancora qui.",
+    "received": "Accettato",
+    "channel": {
+      "desk": "allo sportello"
+    },
+    "belowPrevious": "inferiore all'ultima lettura ({{km}} km)",
+    "orders": "Ordini di questo soggiorno"
   }
 }

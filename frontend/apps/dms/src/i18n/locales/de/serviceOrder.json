@@ -42,7 +42,8 @@
   "tabs": {
     "positions": "Positionen",
     "overview": "Übersicht",
-    "history": "Verlauf"
+    "history": "Verlauf",
+    "reception": "Annahme"
   },
   "actions": {
     "open": "Öffnen",
@@ -192,7 +193,9 @@
       "service_order_position_changed": "Position geändert",
       "service_order_position_deleted": "Position gelöscht",
       "service_order_job_answered": "Antwort erfasst",
-      "service_order_job_waits_again": "Gruppe wartet auf Antwort"
+      "service_order_job_waits_again": "Gruppe wartet auf Antwort",
+      "service_order_car_arrived": "Fahrzeug ist da",
+      "service_order_joined_stay": "Auftrag dem Aufenthalt zugeordnet"
     },
     "fields": {
       "contactLabel": "Auftraggeber",
@@ -244,7 +247,39 @@
     "stoppedBilled": "Gestoppt, Stunden verrechnet",
     "stoppedNotBilled": "Gestoppt, Stunden nicht verrechnet",
     "workWithoutAnswerTitle": "Arbeit ohne Antwort",
-    "workWithoutAnswerBody": "Es wird gearbeitet, während der Kunde noch nicht geantwortet hat: {{jobs}}.",
+    "workWithoutAnswerBody": "Es wird gearbeitet, obwohl die Antwort noch fehlt: {{jobs}}.",
     "changeAnyway": "Trotzdem ändern"
+  },
+  "workshopStatus": {
+    "planned": "Geplant",
+    "car_here": "Fahrzeug ist da",
+    "in_work": "In Arbeit",
+    "work_done": "Arbeit erledigt",
+    "checked": "Kontrolliert",
+    "ready_for_pickup": "Abholbereit",
+    "handed_over": "Übergeben"
+  },
+  "arrival": {
+    "title": "Fahrzeug ist da",
+    "submit": "Fahrzeug ist da",
+    "mileage": "Kilometerstand",
+    "mileageMissing": "Geben Sie den Kilometerstand ein.",
+    "keyTag": "Schlüsselanhänger",
+    "parkingPlace": "Parkplatz",
+    "remark": "Rundgang folgt am Handy oder entfällt: Bemerkung",
+    "lastMileage": "Letzter Stand: {{km}} km",
+    "noLastMileage": "Noch kein Kilometerstand erfasst.",
+    "belowLast": "Tiefer als der letzte Stand: wird übernommen und beim Fahrzeug markiert.",
+    "alreadyHere": "Das Fahrzeug ist schon da."
+  },
+  "reception": {
+    "title": "Annahme",
+    "notHere": "Das Fahrzeug ist noch nicht da.",
+    "received": "Angenommen",
+    "channel": {
+      "desk": "am Schalter"
+    },
+    "belowPrevious": "tiefer als der letzte Stand ({{km}} km)",
+    "orders": "Aufträge dieses Aufenthalts"
   }
 }

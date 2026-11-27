@@ -20,6 +20,7 @@ from app.aftersales.models.service_order import (
     RateSource,
     ServiceOrderState,
 )
+from app.aftersales.models.service_stay import ArrivalChannel, WorkshopStatus
 from app.core.money import PriceEntry
 from app.core.schemas import CamelModel
 from app.core.validators import DecimalStr
@@ -109,6 +110,16 @@ class ServiceOrderAnswersCreate(CamelModel):
 
     channel: AnswerChannel
     jobs: list[JobAnswerEntry] = Field(max_length=200)
+
+
+class ArrivalCreate(CamelModel):
+    """D14 «Fahrzeug ist da» (KAN-813): the mileage (required, a whole number from 0),
+    the key tag, the parking place and a remark."""
+
+    mileage: int
+    key_tag: str | None = Field(default=None, max_length=50)
+    parking_place: str | None = Field(default=None, max_length=100)
+    remark: str | None = Field(default=None, max_length=1000)
 
 
 # --- reads ------------------------------------------------------------------------------
@@ -260,6 +271,34 @@ class ServiceOrderSummary(CamelModel):
     vehicle_label: str
     waiting_for_answer: bool
     created_at: dt.datetime
+    # KAN-813, criterion 5: worked out, read from its projection; no endpoint sets it.
+    workshop_status: WorkshopStatus = WorkshopStatus.PLANNED
+
+
+class StayOrderRead(CamelModel):
+    id: uuid.UUID
+    order_number: str
+
+
+class StayRead(CamelModel):
+    """The stay of the car the order belongs to (KAN-813): the reception tab's arrival —
+    who, when, how — and what was taken in."""
+
+    id: uuid.UUID
+    arrived_at: dt.datetime
+    arrived_by: uuid.UUID | None
+    arrived_by_label: str | None
+    arrival_channel: ArrivalChannel
+    arrival_mileage: int
+    # The car's last reading at the arrival; a lower mileage is taken and flagged (check 22).
+    previous_mileage: int | None
+    mileage_below_previous: bool
+    key_tag: str | None
+    parking_place: str | None
+    remark: str | None
+    departed_at: dt.datetime | None
+    # Every order the stay holds (check 23: a second order joins it).
+    orders: list[StayOrderRead]
 
 
 class ServiceOrderRead(ServiceOrderSummary):
@@ -270,6 +309,9 @@ class ServiceOrderRead(ServiceOrderSummary):
     cancellation: CancellationRead | None
     # «Arbeit ohne Antwort» on the order (section 3.9): a job of it has work without an answer.
     work_without_answer: bool = False
+    # KAN-813: the car's stay (running, else the last), and the car's mileage now (vehicle's).
+    stay: StayRead | None = None
+    vehicle_mileage: int | None = None
     updated_at: dt.datetime
 
 

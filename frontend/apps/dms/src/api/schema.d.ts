@@ -5939,6 +5939,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/service-orders/{order_id}/arrival": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Receive Car
+         * @description D14 «Fahrzeug ist da»: the car of the order is here (check 22-24).
+         */
+        post: operations["receive_car_v1_service_orders__order_id__arrival_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/service-orders/{order_id}/cancel": {
         parameters: {
             query?: never;
@@ -6963,6 +6983,28 @@ export interface components {
             settings: components["schemas"]["AreaSettingRead"][];
             /** Showslocations */
             showsLocations: boolean;
+        };
+        /**
+         * ArrivalChannel
+         * @description How the car was received. «At the car on the phone» comes with the slice
+         *     «offer and answer» (section 2).
+         * @enum {string}
+         */
+        ArrivalChannel: "desk";
+        /**
+         * ArrivalCreate
+         * @description D14 «Fahrzeug ist da» (KAN-813): the mileage (required, a whole number from 0),
+         *     the key tag, the parking place and a remark.
+         */
+        ArrivalCreate: {
+            /** Keytag */
+            keyTag?: string | null;
+            /** Mileage */
+            mileage: number;
+            /** Parkingplace */
+            parkingPlace?: string | null;
+            /** Remark */
+            remark?: string | null;
         };
         /** AttachValuationRequest */
         AttachValuationRequest: {
@@ -15393,6 +15435,7 @@ export interface components {
             /** Ordernumber */
             orderNumber: string;
             state: components["schemas"]["ServiceOrderState"];
+            stay?: components["schemas"]["StayRead"] | null;
             totals: components["schemas"]["OrderTotalsRead"];
             /**
              * Updatedat
@@ -15406,6 +15449,8 @@ export interface components {
             vehicleId: string;
             /** Vehiclelabel */
             vehicleLabel: string;
+            /** Vehiclemileage */
+            vehicleMileage?: number | null;
             /** Version */
             version: number;
             /** Waitingforanswer */
@@ -15415,6 +15460,8 @@ export interface components {
              * @default false
              */
             workWithoutAnswer?: boolean;
+            /** @default planned */
+            workshopStatus?: components["schemas"]["WorkshopStatus"];
         };
         /**
          * ServiceOrderState
@@ -15465,6 +15512,8 @@ export interface components {
             version: number;
             /** Waitingforanswer */
             waitingForAnswer: boolean;
+            /** @default planned */
+            workshopStatus?: components["schemas"]["WorkshopStatus"];
         };
         /** ServicePackageList */
         ServicePackageList: {
@@ -16156,6 +16205,54 @@ export interface components {
          * @enum {string}
          */
         StatusState: "ok" | "warning" | "blocked";
+        /** StayOrderRead */
+        StayOrderRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Ordernumber */
+            orderNumber: string;
+        };
+        /**
+         * StayRead
+         * @description The stay of the car the order belongs to (KAN-813): the reception tab's arrival —
+         *     who, when, how — and what was taken in.
+         */
+        StayRead: {
+            arrivalChannel: components["schemas"]["ArrivalChannel"];
+            /** Arrivalmileage */
+            arrivalMileage: number;
+            /**
+             * Arrivedat
+             * Format: date-time
+             */
+            arrivedAt: string;
+            /** Arrivedby */
+            arrivedBy: string | null;
+            /** Arrivedbylabel */
+            arrivedByLabel: string | null;
+            /** Departedat */
+            departedAt: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Keytag */
+            keyTag: string | null;
+            /** Mileagebelowprevious */
+            mileageBelowPrevious: boolean;
+            /** Orders */
+            orders: components["schemas"]["StayOrderRead"][];
+            /** Parkingplace */
+            parkingPlace: string | null;
+            /** Previousmileage */
+            previousMileage: number | null;
+            /** Remark */
+            remark: string | null;
+        };
         /**
          * StockItemCondition
          * @enum {string}
@@ -18295,6 +18392,12 @@ export interface components {
             /** Sortorder */
             sortOrder?: number | null;
         };
+        /**
+         * WorkshopStatus
+         * @description Criterion 5, section 3.9: worked out, never set.
+         * @enum {string}
+         */
+        WorkshopStatus: "planned" | "car_here" | "in_work" | "work_done" | "checked" | "ready_for_pickup" | "handed_over";
     };
     responses: never;
     parameters: never;
@@ -33385,6 +33488,48 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["ServiceOrderAnswersCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServiceOrderRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    receive_car_v1_service_orders__order_id__arrival_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "If-Match"?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                order_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ArrivalCreate"];
             };
         };
         responses: {

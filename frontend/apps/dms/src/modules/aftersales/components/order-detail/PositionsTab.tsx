@@ -42,6 +42,8 @@ interface PositionsTabProps {
   frozen: boolean
   onOrder: (order: ServiceOrderRead) => void
   onReload: () => void
+  /** «Gruppe hinzufügen» (the design's toolbar above the jobs). */
+  onAddJob: () => void
 }
 
 function IconAction({ label, disabledReason, onClick, children }: { label: string; disabledReason: string | null; onClick: () => void; children: ReactNode }) {
@@ -64,7 +66,7 @@ function IconAction({ label, disabledReason, onClick, children }: { label: strin
  * (kind · description · quantity with its unit · price net · net · incl. VAT,
  * every figure the server's), then «Auftragstotal je Zahler».
  */
-export function PositionsTab({ order, canWrite, frozen, onOrder, onReload }: PositionsTabProps) {
+export function PositionsTab({ order, canWrite, frozen, onOrder, onReload, onAddJob }: PositionsTabProps) {
   const { t, i18n } = useTranslation()
   const locale = toSwissLocale(i18n.language as SupportedLanguage)
   const [pending, setPending] = useState<Pending | null>(null)
@@ -250,6 +252,17 @@ export function PositionsTab({ order, canWrite, frozen, onOrder, onReload }: Pos
 
   return (
     <Stack gap="md">
+      {canWrite && (
+        <Group>
+          <Tooltip label={frozenReason} disabled={frozenReason === null}>
+            <span>
+              <Button variant="default" leftSection={<Plus size={16} />} disabled={frozen} onClick={onAddJob}>
+                {t('serviceOrder.actions.addJob')}
+              </Button>
+            </span>
+          </Tooltip>
+        </Group>
+      )}
       {order.jobs.length === 0 && (
         <Text size="sm" c="dimmed">
           {t('serviceOrder.jobs.empty')}

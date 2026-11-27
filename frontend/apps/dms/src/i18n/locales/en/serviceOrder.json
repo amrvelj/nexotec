@@ -42,7 +42,8 @@
   "tabs": {
     "positions": "Positions",
     "overview": "Overview",
-    "history": "History"
+    "history": "History",
+    "reception": "Reception"
   },
   "actions": {
     "open": "Open",
@@ -192,7 +193,9 @@
       "service_order_position_changed": "Position changed",
       "service_order_position_deleted": "Position deleted",
       "service_order_job_answered": "Answer recorded",
-      "service_order_job_waits_again": "Group waits for the answer"
+      "service_order_job_waits_again": "Group waits for the answer",
+      "service_order_car_arrived": "Car is here",
+      "service_order_joined_stay": "Order joined the stay"
     },
     "fields": {
       "contactLabel": "Ordering party",
@@ -244,7 +247,39 @@
     "stoppedBilled": "Stopped, hours billed",
     "stoppedNotBilled": "Stopped, hours not billed",
     "workWithoutAnswerTitle": "Work without an answer",
-    "workWithoutAnswerBody": "Work goes on while the customer has not answered yet: {{jobs}}.",
+    "workWithoutAnswerBody": "Work goes on while the answer is still missing: {{jobs}}.",
     "changeAnyway": "Change anyway"
+  },
+  "workshopStatus": {
+    "planned": "Planned",
+    "car_here": "Car is here",
+    "in_work": "In work",
+    "work_done": "Work done",
+    "checked": "Checked",
+    "ready_for_pickup": "Ready for pick-up",
+    "handed_over": "Handed over"
+  },
+  "arrival": {
+    "title": "Car is here",
+    "submit": "Car is here",
+    "mileage": "Mileage",
+    "mileageMissing": "Enter the mileage.",
+    "keyTag": "Key tag",
+    "parkingPlace": "Parking place",
+    "remark": "Walk-round follows on the phone or is skipped: remark",
+    "lastMileage": "Last reading: {{km}} km",
+    "noLastMileage": "No mileage recorded yet.",
+    "belowLast": "Lower than the last reading: taken and flagged on the car.",
+    "alreadyHere": "The car is here already."
+  },
+  "reception": {
+    "title": "Reception",
+    "notHere": "The car is not here yet.",
+    "received": "Received",
+    "channel": {
+      "desk": "at the desk"
+    },
+    "belowPrevious": "lower than the last reading ({{km}} km)",
+    "orders": "Orders of this stay"
   }
 }

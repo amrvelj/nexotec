@@ -1,5 +1,6 @@
 """Aftersales' export declaration (KAN-218; FR-A-44): the Betrieb's workshop
-orders with their jobs, the customer's answers (KAN-811) and positions (KAN-810), and the service catalogue's
+orders with their jobs, the customer's answers (KAN-811) and positions (KAN-810), the stays of
+the cars with the workshop status (KAN-813), and the service catalogue's
 packages with their positions (KAN-818). All three are the Betrieb's
 own (`tenant_id`); the contacts they name are exported for the Betrieb's
 relationship through `references`."""
@@ -17,6 +18,7 @@ from app.aftersales.models.service_order import (
     ServiceOrderPosition,
 )
 from app.aftersales.models.service_package import ServicePackage, ServicePackagePosition
+from app.aftersales.models.service_stay import ServiceOrderStay, ServiceOrderWorkshopStatus, ServiceStay
 from app.core.export import ExportedTable, ExportScope, TableExporter, table_of
 
 
@@ -36,6 +38,9 @@ class AftersalesExporter(TableExporter):
             _tenant(ServiceOrderPosition),
             _tenant(ServicePackage),
             _tenant(ServicePackagePosition),
+            _tenant(ServiceStay),
+            _tenant(ServiceOrderStay),
+            _tenant(ServiceOrderWorkshopStatus),
         )
 
     def references(self, db: Session, scope: ExportScope) -> Mapping[str, frozenset[uuid.UUID]]:

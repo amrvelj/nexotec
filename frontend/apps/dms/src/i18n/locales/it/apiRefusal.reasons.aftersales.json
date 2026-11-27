@@ -11,7 +11,7 @@
   "service_order_frozen": "Questo ordine è chiuso (pronto per la fattura o annullato) e non può più essere modificato.",
   "service_order_job_accepted": "Questo gruppo è accettato e non può essere eliminato. Registrate invece la risposta.",
   "service_order_job_already_answered": "La risposta per questo gruppo è già registrata.",
-  "service_order_job_clocked_confirm": "{{names}} sta lavorando su questo gruppo. Modificarlo comunque? Se l'importo cambia, il gruppo attende la risposta del cliente.",
+  "service_order_job_clocked_confirm": "{{names}} sta lavorando su questo gruppo. Modificarlo comunque? Se l'importo cambia, il gruppo attende di nuovo la risposta.",
   "service_order_job_name_required": "Un gruppo ha bisogno di una descrizione.",
   "service_order_job_stopped": "Questo gruppo è stato fermato e non può più essere modificato. Altro lavoro è un nuovo gruppo.",
   "service_order_job_time_clocked": "Su questo gruppo è stato timbrato del tempo; non può essere eliminato. Rifiutatelo invece.",
@@ -40,5 +40,8 @@
   "service_package_position_incomplete": "Una posizione di testo non ha categoria di lavoro, tempo né controllo.",
   "service_package_position_text_required": "Ogni posizione del pacchetto ha bisogno del suo testo.",
   "service_package_position_text_too_long": "Il testo di una posizione ha al massimo 1000 caratteri.",
-  "service_package_time_unit_changed": "Il tempo di lavoro è ora inserito in un'altra unità. Verificate il tempo e inseritelo di nuovo."
+  "service_package_time_unit_changed": "Il tempo di lavoro è ora inserito in un'altra unità. Verificate il tempo e inseritelo di nuovo.",
+  "service_stay_car_already_here": "Il veicolo è già qui e non può essere accettato una seconda volta.",
+  "service_stay_mileage_invalid": "Il chilometraggio è un numero intero da 0.",
+  "service_stay_text_too_long": "Il testo è troppo lungo (al massimo {{maxLength}} caratteri)."
 }

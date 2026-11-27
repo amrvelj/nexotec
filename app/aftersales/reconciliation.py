@@ -40,6 +40,7 @@ from app.aftersales.models.service_order import (
     ServiceOrderState,
 )
 from app.aftersales.models.service_package import ServicePackage, ServicePackagePosition
+from app.aftersales.models.service_stay import ServiceOrderStay, ServiceStay
 from app.contact.public import contact_exists, contact_in_group, contact_is_merged, contact_reference_check
 from app.core.base import utcnow
 from app.core.reconciliation import ReconciliationRun, ReferenceCheck, StateCheck, run_reconciliation
@@ -54,7 +55,8 @@ from app.vehicle.public import vehicle_is_merged, vehicle_reference_check
 
 CONTEXT = "aftersales"
 
-ACTOR_TABLES = (ServiceOrder, ServiceOrderJob, ServiceOrderJobAnswer, ServiceOrderPosition, ServicePackage, ServicePackagePosition)
+ACTOR_TABLES = (ServiceOrder, ServiceOrderJob, ServiceOrderJobAnswer, ServiceOrderPosition, ServiceStay,
+                ServiceOrderStay, ServicePackage, ServicePackagePosition)
 
 _MERGE_GRACE = dt.timedelta(days=1)
 
@@ -133,6 +135,19 @@ CHECKS: list[ReferenceCheck | StateCheck] = [
         source_model=ServiceOrder,
         source_row_id_column=ServiceOrder.id,
         source_fk_column=ServiceOrder.vehicle_id,
+    ),
+    # KAN-813: the stay's car and location (ADR-213).
+    vehicle_reference_check(
+        label="service_stay.vehicle_id -> vehicle_mdm.id",
+        source_model=ServiceStay,
+        source_row_id_column=ServiceStay.id,
+        source_fk_column=ServiceStay.vehicle_id,
+    ),
+    location_reference_check(
+        label="service_stay.location_id -> location.id",
+        source_model=ServiceStay,
+        source_row_id_column=ServiceStay.id,
+        source_fk_column=ServiceStay.location_id,
     ),
     labour_rate_category_reference_check(
         label="service_order_position.labour_category_id -> labour_rate_category.id",

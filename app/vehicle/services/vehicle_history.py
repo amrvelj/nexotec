@@ -22,12 +22,16 @@ def record_odometer_reading(
     reading_date: dt.date,
     source: OdometerSource,
     recording_tenant_id: uuid.UUID,
+    commit: bool = True,
 ) -> VehicleOdometerReading:
     """A lower reading is accepted and flagged, never rejected (amended
     FR-V-07) — implausible is decided once, here, against whatever the
     current mileage was AT THIS MOMENT, and stored permanently on the row.
     It is not recomputed later, so an out-of-order backfill import can't
     silently flip the flag on a reading nobody re-reads.
+
+    `commit=False` flushes only: a consumer's harness commits the reading
+    with its processed-event row (KAN-813).
     """
 
     current = current_mileage(db, vehicle_id=vehicle_id)
@@ -42,6 +46,9 @@ def record_odometer_reading(
         recording_tenant_id=recording_tenant_id,
     )
     db.add(reading)
+    if not commit:
+        db.flush()
+        return reading
     db.commit()
     db.refresh(reading)
     return reading

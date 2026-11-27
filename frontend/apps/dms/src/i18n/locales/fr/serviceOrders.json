@@ -10,7 +10,8 @@
     "state": "Statut de l'ordre",
     "orderDate": "Date de l'ordre",
     "location": "Site",
-    "createdAt": "Saisi le"
+    "createdAt": "Saisi le",
+    "workshopStatus": "Statut atelier"
   },
   "emptyState": {
     "title": "Aucun ordre d'atelier pour l'instant",

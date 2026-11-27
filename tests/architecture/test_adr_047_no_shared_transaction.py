@@ -481,6 +481,8 @@ _READS = {
     "app.vehicle.public.get_provider_valuation_input",
     "app.vehicle.public.get_vehicle_equipment",
     "app.vehicle.public.get_vehicle_mdm_or_404",
+    # KAN-813: the car's current mileage beside «Fahrzeug ist da» and on the stay; a SELECT only.
+    "app.vehicle.public.current_mileage",
     # KAN-84: vehicle labels for contact's VehicleParty, batched.
     "app.vehicle.public.get_vehicle_summaries",
     # KAN-706: the trade-in consumers read the contact's rows on every record of a
