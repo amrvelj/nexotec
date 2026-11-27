@@ -258,7 +258,11 @@
       "contactGroupsRepointed": "Kontaktgruppen übertragen",
       "contactGroupsDropped": "Kontaktgruppen verworfen",
       "rolesGained": "Rollen übernommen",
-      "roleRowsMoved": "Rolleneinträge übertragen"
+      "roleRowsMoved": "Rolleneinträge übertragen",
+      "creditBlockCarried": "Kreditsperre übernommen",
+      "creditBlockReasonCarried": "Grund der übernommenen Kreditsperre",
+      "blockedCarried": "Sperre übernommen",
+      "blockedReasonCarried": "Grund der übernommenen Sperre"
     }
   },
   "linkVehicle": {

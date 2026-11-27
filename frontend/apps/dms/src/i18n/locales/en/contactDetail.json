@@ -258,7 +258,11 @@
       "contactGroupsRepointed": "Contact groups moved",
       "contactGroupsDropped": "Contact groups dropped",
       "rolesGained": "Roles taken over",
-      "roleRowsMoved": "Role entries moved"
+      "roleRowsMoved": "Role entries moved",
+      "creditBlockCarried": "Credit block taken over",
+      "creditBlockReasonCarried": "Reason of the credit block taken over",
+      "blockedCarried": "Block taken over",
+      "blockedReasonCarried": "Reason of the block taken over"
     }
   },
   "linkVehicle": {

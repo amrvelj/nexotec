@@ -9,6 +9,7 @@
     "invalid": "Bitte prüfen Sie Ihre Eingaben.",
     "uidTaken": "Diese UID gehört bereits einem anderen Betrieb.",
     "confirmationRequired": "Eine Änderung von Firma, UID oder MWST braucht Ihre Bestätigung.",
+    "vatRateOutOfRange": "Der MWST-Satz liegt zwischen 0 und unter 100 % und hat höchstens zwei Dezimalstellen, z. B. 8.10.",
     "unknownReferenceCode": "Dieser Wert steht nicht in der Auswahlliste.",
     "qrReferenceNeedsQrIban": "Die QR-Referenz braucht eine QR-IBAN. Erfassen Sie die QR-IBAN oder wählen Sie einen anderen Referenztyp.",
     "qrIbanNeedsQrReference": "Eine QR-IBAN wird nur mit der QR-Referenz verwendet. Entfernen Sie die QR-IBAN oder wählen Sie die QR-Referenz.",

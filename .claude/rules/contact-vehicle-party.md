@@ -117,8 +117,9 @@ contact.md by KAN-615 (2026-11-13). Last verified against main@32ad509 (2026-11-
   and the Vehicles tab shows «Zusammengeführt», opening the survivor. **Allocation and a reopen refuse a merged contact**
   (409 `contact_merged`), reading the contact row `FOR SHARE` under their advisory lock.
 - **Lock order for a merge and an allocation:** advisory locks of every (vehicle, role, group) pair
-  the duplicate holds, sorted → both contact rows in id order (duplicate `FOR NO KEY UPDATE`,
-  survivor `FOR SHARE`, statuses re-read under them) → party rows. Exceptions: a reopen locks its
+  the duplicate holds, sorted → both contact rows in id order, both `FOR NO KEY UPDATE` (the
+  survivor `FOR SHARE` until KAN-843: a merge may write the survivor's blocks, and two merges
+  sharing it deadlocked), statuses re-read under them → party rows. Exceptions: a reopen locks its
   party row before reading its contact row (still after the advisory lock), and the re-point of
   earlier merges. A pair that appears while a merge waits is only tried, never waited for — held,
   the merge is refused `merge_vehicle_party_busy` and can be sent again.

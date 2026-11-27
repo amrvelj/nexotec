@@ -258,7 +258,11 @@
       "contactGroupsRepointed": "Gruppi di contatti trasferiti",
       "contactGroupsDropped": "Gruppi di contatti scartati",
       "rolesGained": "Ruoli ripresi",
-      "roleRowsMoved": "Voci di ruolo trasferite"
+      "roleRowsMoved": "Voci di ruolo trasferite",
+      "creditBlockCarried": "Blocco creditizio ripreso",
+      "creditBlockReasonCarried": "Motivo del blocco creditizio ripreso",
+      "blockedCarried": "Blocco ripreso",
+      "blockedReasonCarried": "Motivo del blocco ripreso"
     }
   },
   "linkVehicle": {
