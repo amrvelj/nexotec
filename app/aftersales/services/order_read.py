@@ -12,9 +12,11 @@ from sqlalchemy.orm import Session
 
 from app.aftersales.models.service_order import ServiceOrder, ServiceOrderJob, ServiceOrderPosition
 from app.aftersales.schemas.service_order import (
+    AmountRead,
     CancellationRead,
     HistoryEntryRead,
     HistoryRead,
+    JobAnswerRead,
     JobRead,
     LabourRateProposalRead,
     LabourTimeRead,
@@ -27,7 +29,8 @@ from app.aftersales.schemas.service_order import (
     UnitPriceRead,
     VatLineRead,
 )
-from app.aftersales.services import order_money
+from app.aftersales.services import answers as answer_service
+from app.aftersales.services import order_money, work_guard
 from app.aftersales.services.positions import RateProposal, TimeUnitInForce
 from app.aftersales.services.service_order import ENTITY_TYPE, waiting_for_answer_ids
 from app.core.audit import list_audit_events
@@ -43,7 +46,7 @@ def _unit_price(price: Price | None) -> UnitPriceRead | None:
                          gross=figures[1])
 
 
-def _position(position: ServiceOrderPosition, payer: str) -> PositionRead:
+def _position(position: ServiceOrderPosition, payer: str, users: dict | None = None) -> PositionRead:
     hours = order_money.position_hours(position)
     time = None
     if position.time_quantity is not None and position.time_unit is not None:
@@ -73,7 +76,12 @@ def _position(position: ServiceOrderPosition, payer: str) -> PositionRead:
         rate_valid_from=position.rate_valid_from,
         priced_at=position.priced_at,
         priced_by=position.priced_by,
+        priced_by_label=(users or {}).get(position.priced_by) if position.priced_by else None,
     )
+
+
+def _amount(net, gross) -> AmountRead | None:
+    return AmountRead(net=net, gross=gross) if net is not None and gross is not None else None
 
 
 def _payer_total(total: PayerTotal) -> PayerTotalRead:
@@ -146,6 +154,43 @@ def order_read(db: Session, *, order: ServiceOrder, group_id: uuid.UUID) -> Serv
             cancelled_by_label=labels.get(order.cancelled_by) if order.cancelled_by else None,
             reason=order.cancel_reason or "",
         )
+    answers = answer_service.answers_of(db, order_id=order.id)
+    users = _user_labels(
+        db, order=order, group_id=group_id,
+        user_ids={p.priced_by for p in positions if p.priced_by} | {a.recorded_by for a in answers if a.recorded_by},
+    )
+    without_answer = answer_service.work_without_answer(db, order=order, jobs=jobs)
+
+    def job_read(job: ServiceOrderJob) -> JobRead:
+        amount = order_money.job_amount(job, positions)
+        before = answer_service.accepted_before(job, answers)
+        return JobRead(
+            id=job.id,
+            sort_index=job.sort_index,
+            name=job.name,
+            billing_category=job.billing_category,
+            answer_state=job.answer_state,
+            answered_at=job.answered_at,
+            answered_by=job.answered_by,
+            positions=[_position(p, payer_of[job.id], users) for p in positions if p.job_id == job.id],
+            amount=_amount(amount.net, amount.gross) if amount else None,
+            accepted_before=_amount(before.amount_net, before.amount_gross) if before else None,
+            answers=[
+                JobAnswerRead(
+                    id=a.id, result=a.result, channel=a.channel, note=a.note,
+                    amount=_amount(a.amount_net, a.amount_gross), hours_billed=a.hours_billed,
+                    recorded_at=a.recorded_at, recorded_by=a.recorded_by,
+                    recorded_by_label=users.get(a.recorded_by) if a.recorded_by else None,
+                )
+                for a in answers
+                if a.job_id == job.id
+            ],
+            stopped=job.stopped_at is not None,
+            hours_billed=job.hours_billed,
+            time_clocked=work_guard.time_clocked_on_job(db, tenant_id=order.tenant_id, job_id=job.id),
+            work_without_answer=job.id in without_answer,
+        )
+
     base = summary(order, waiting=any(job.answer_state.value == "waiting" for job in jobs))
     return ServiceOrderRead(
         **base.model_dump(),
@@ -155,23 +200,12 @@ def order_read(db: Session, *, order: ServiceOrder, group_id: uuid.UUID) -> Serv
             if order.driver_contact_id
             else None
         ),
-        jobs=[
-            JobRead(
-                id=job.id,
-                sort_index=job.sort_index,
-                name=job.name,
-                billing_category=job.billing_category,
-                answer_state=job.answer_state,
-                answered_at=job.answered_at,
-                answered_by=job.answered_by,
-                positions=[_position(p, payer_of[job.id]) for p in positions if p.job_id == job.id],
-            )
-            for job in jobs
-        ],
+        jobs=[job_read(job) for job in jobs],
         totals=OrderTotalsRead(
             accepted=[_payer_total(t) for t in totals.accepted], open=[_payer_total(t) for t in totals.open]
         ),
         cancellation=cancellation,
+        work_without_answer=bool(without_answer),
         updated_at=order.updated_at,
     )
 

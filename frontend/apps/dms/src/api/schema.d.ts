@@ -5919,6 +5919,26 @@ export interface paths {
         patch: operations["change_service_order_parties_v1_service_orders__order_id__patch"];
         trace?: never;
     };
+    "/v1/service-orders/{order_id}/answers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Record Answers
+         * @description D8 «Antwort erfassen»: the customer's answer to one or more jobs, and how it came.
+         */
+        post: operations["record_answers_v1_service_orders__order_id__answers_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/service-orders/{order_id}/cancel": {
         parameters: {
             query?: never;
@@ -6895,6 +6915,28 @@ export interface components {
             /** Userprompt */
             userPrompt?: string | null;
         };
+        /**
+         * AmountRead
+         * @description A job's amount, net and incl. VAT, to the Rappen.
+         */
+        AmountRead: {
+            /** Gross */
+            gross: string;
+            /** Net */
+            net: string;
+        };
+        /**
+         * AnswerChannel
+         * @description How the answer came (table 3.2): at the desk, by phone, by a message.
+         * @enum {string}
+         */
+        AnswerChannel: "desk" | "phone" | "message";
+        /**
+         * AnswerResult
+         * @description What the customer said to a job (table 3.2; KAN-811).
+         * @enum {string}
+         */
+        AnswerResult: "accepted" | "declined";
         /**
          * ArchiveExportRequest
          * @description Q2 B: staff produce an archive export for a former manager who asked
@@ -11145,6 +11187,51 @@ export interface components {
             token: string;
         };
         /**
+         * JobAnswerEntry
+         * @description One job's answer in D8. `note` is required for «declined»; `hoursBilled` is
+         *     asked only when an accepted job with clocked time is declined (ruling 48).
+         */
+        JobAnswerEntry: {
+            /** Hoursbilled */
+            hoursBilled?: boolean | null;
+            /**
+             * Jobid
+             * Format: uuid
+             */
+            jobId: string;
+            /** Note */
+            note?: string | null;
+            result: components["schemas"]["AnswerResult"];
+        };
+        /**
+         * JobAnswerRead
+         * @description One recorded answer (KAN-811): who, how and when, and the amount said yes to
+         *     (null when the job had no price yet, ruling 167).
+         */
+        JobAnswerRead: {
+            amount: components["schemas"]["AmountRead"] | null;
+            channel: components["schemas"]["AnswerChannel"];
+            /** Hoursbilled */
+            hoursBilled: boolean | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Note */
+            note: string | null;
+            /**
+             * Recordedat
+             * Format: date-time
+             */
+            recordedAt: string;
+            /** Recordedby */
+            recordedBy: string | null;
+            /** Recordedbylabel */
+            recordedByLabel: string | null;
+            result: components["schemas"]["AnswerResult"];
+        };
+        /**
          * JobAnswerState
          * @description Table 3.2: the customer's answer on a job. Recorded with KAN-811;
          *     «stopped» is a mark an accepted or declined job carries (KAN-811).
@@ -11164,6 +11251,11 @@ export interface components {
          */
         JobPackageCopy: {
             /**
+             * Confirmwhileclocked
+             * @default false
+             */
+            confirmWhileClocked?: boolean;
+            /**
              * Servicepackageid
              * Format: uuid
              */
@@ -11171,12 +11263,18 @@ export interface components {
         };
         /** JobRead */
         JobRead: {
+            acceptedBefore?: components["schemas"]["AmountRead"] | null;
+            amount?: components["schemas"]["AmountRead"] | null;
             answerState: components["schemas"]["JobAnswerState"];
             /** Answeredat */
             answeredAt: string | null;
             /** Answeredby */
             answeredBy: string | null;
+            /** Answers */
+            answers?: components["schemas"]["JobAnswerRead"][];
             billingCategory: components["schemas"]["BillingCategory"];
+            /** Hoursbilled */
+            hoursBilled?: boolean | null;
             /**
              * Id
              * Format: uuid
@@ -11188,6 +11286,21 @@ export interface components {
             positions: components["schemas"]["PositionRead"][];
             /** Sortindex */
             sortIndex: number;
+            /**
+             * Stopped
+             * @default false
+             */
+            stopped?: boolean;
+            /**
+             * Timeclocked
+             * @default false
+             */
+            timeClocked?: boolean;
+            /**
+             * Workwithoutanswer
+             * @default false
+             */
+            workWithoutAnswer?: boolean;
         };
         /** JobUpdate */
         JobUpdate: {
@@ -13932,6 +14045,11 @@ export interface components {
          *     Betrieb's labour rates (by time); a typed price leads, net or gross.
          */
         PositionCreate: {
+            /**
+             * Confirmwhileclocked
+             * @default false
+             */
+            confirmWhileClocked?: boolean;
             kind: components["schemas"]["PositionKind"];
             /** Labourcategoryid */
             labourCategoryId?: string | null;
@@ -13978,6 +14096,8 @@ export interface components {
             pricedAt: string | null;
             /** Pricedby */
             pricedBy: string | null;
+            /** Pricedbylabel */
+            pricedByLabel?: string | null;
             rateSource: components["schemas"]["RateSource"] | null;
             /** Ratevalidfrom */
             rateValidFrom: string | null;
@@ -14001,6 +14121,11 @@ export interface components {
          *     by time takes the proposed rate again.
          */
         PositionUpdate: {
+            /**
+             * Confirmwhileclocked
+             * @default false
+             */
+            confirmWhileClocked?: boolean;
             /** Labourcategoryid */
             labourCategoryId?: string | null;
             priceEntered?: components["schemas"]["PriceEntry"] | null;
@@ -15175,6 +15300,15 @@ export interface components {
          * @enum {string}
          */
         SendingIdentityStatus: "active" | "error" | "disconnected";
+        /**
+         * ServiceOrderAnswersCreate
+         * @description D8 «Antwort erfassen» (KAN-811): how the answer came, and one entry per job answered.
+         */
+        ServiceOrderAnswersCreate: {
+            channel: components["schemas"]["AnswerChannel"];
+            /** Jobs */
+            jobs: components["schemas"]["JobAnswerEntry"][];
+        };
         /** ServiceOrderCancel */
         ServiceOrderCancel: {
             /** Reason */
@@ -15276,6 +15410,11 @@ export interface components {
             version: number;
             /** Waitingforanswer */
             waitingForAnswer: boolean;
+            /**
+             * Workwithoutanswer
+             * @default false
+             */
+            workWithoutAnswer?: boolean;
         };
         /**
          * ServiceOrderState
@@ -33227,6 +33366,48 @@ export interface operations {
             };
         };
     };
+    record_answers_v1_service_orders__order_id__answers_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "If-Match"?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                order_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ServiceOrderAnswersCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServiceOrderRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     cancel_service_order_v1_service_orders__order_id__cancel_post: {
         parameters: {
             query?: never;
@@ -33549,7 +33730,9 @@ export interface operations {
     };
     delete_position_v1_service_orders__order_id__positions__position_id__delete: {
         parameters: {
-            query?: never;
+            query?: {
+                confirmWhileClocked?: boolean;
+            };
             header?: {
                 authorization?: string | null;
                 "If-Match"?: string | null;

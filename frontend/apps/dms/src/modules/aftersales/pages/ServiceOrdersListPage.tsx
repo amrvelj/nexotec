@@ -310,6 +310,8 @@ export function ServiceOrdersListPage() {
           rowActions={(row) =>
             buildServiceOrderRowMenu(t, row, {
               onOpen: () => navigate(serviceOrderHref(row.id)),
+              // D8 opens on the order page, which holds the jobs it asks about (KAN-811).
+              onRecordAnswer: canWrite ? () => navigate(`${serviceOrderHref(row.id)}?dialog=answer`) : undefined,
               onCancel: canWrite ? () => setCancelOf(row) : undefined,
             })
           }

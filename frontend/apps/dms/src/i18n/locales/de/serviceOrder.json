@@ -52,7 +52,8 @@
     "cancelNotInState": {
       "cancelled": "Der Auftrag ist schon storniert.",
       "ready_for_billing": "Ein rechnungsbereiter Auftrag kann nicht storniert werden."
-    }
+    },
+    "recordAnswer": "Antwort erfassen"
   },
   "jobs": {
     "empty": "Noch keine Gruppe. Legen Sie mit «Gruppe hinzufügen» die erste an.",
@@ -189,7 +190,9 @@
       "service_order_job_accepted": "Gruppe angenommen",
       "service_order_position_added": "Position hinzugefügt",
       "service_order_position_changed": "Position geändert",
-      "service_order_position_deleted": "Position gelöscht"
+      "service_order_position_deleted": "Position gelöscht",
+      "service_order_job_answered": "Antwort erfasst",
+      "service_order_job_waits_again": "Gruppe wartet auf Antwort"
     },
     "fields": {
       "contactLabel": "Auftraggeber",
@@ -209,5 +212,39 @@
       "net": "netto",
       "gross": "inkl. MWST"
     }
+  },
+  "answer": {
+    "title": "Antwort erfassen",
+    "channelLabel": "Antwort kam",
+    "channel": {
+      "desk": "am Schalter",
+      "phone": "per Telefon",
+      "message": "per Nachricht"
+    },
+    "result": {
+      "accepted": "Angenommen",
+      "declined": "Abgelehnt"
+    },
+    "resultFor": "Antwort zu «{{name}}»",
+    "noteFor": "Notiz zu «{{name}}»",
+    "notePlaceholder": "Notiz, bei Ablehnung Pflicht",
+    "noteMissing": "Eine Ablehnung braucht eine Notiz.",
+    "amount": "{{net}} · {{gross}} inkl. MWST",
+    "noPrice": "Noch ohne Preis",
+    "hoursQuestion": "Auf dieser Gruppe wurde Zeit gestempelt. Werden die Stunden verrechnet?",
+    "hoursBilled": "Gestoppt, Stunden verrechnet",
+    "hoursNotBilled": "Gestoppt, Stunden nicht verrechnet",
+    "hoursMissing": "Wählen Sie, ob die Stunden verrechnet werden.",
+    "nothingChosen": "Wählen Sie für mindestens eine Gruppe eine Antwort.",
+    "noJobs": "Keine Gruppe kann eine Antwort erhalten.",
+    "save": "Speichern",
+    "last": "{{result}} {{channel}} · {{who}} · {{when}}",
+    "pricedBy": "Preis erfasst von {{who}}, {{when}}",
+    "acceptedBefore": "vorher angenommen: {{amount}}",
+    "stoppedBilled": "Gestoppt, Stunden verrechnet",
+    "stoppedNotBilled": "Gestoppt, Stunden nicht verrechnet",
+    "workWithoutAnswerTitle": "Arbeit ohne Antwort",
+    "workWithoutAnswerBody": "Es wird gearbeitet, während der Kunde noch nicht geantwortet hat: {{jobs}}.",
+    "changeAnyway": "Trotzdem ändern"
   }
 }

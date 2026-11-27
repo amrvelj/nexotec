@@ -231,7 +231,8 @@ export function PositionDialog({ opened, order, jobId, position, onClose, onSave
   const missingText = (field: keyof typeof missing) =>
     showMissing && missing[field] ? t(`serviceOrder.positionDialog.missing.${field}`) : undefined
 
-  const submit = async () => {
+  // `confirmed`: sent again after «Trotzdem ändern» while somebody is clocked on the job (check 6).
+  const submit = async (confirmed = false) => {
     if (Object.values(missing).some(Boolean)) {
       setShowMissing(true)
       return
@@ -243,11 +244,12 @@ export function PositionDialog({ opened, order, jobId, position, onClose, onSave
       const headers = { 'If-Match': String(order.version) }
       if (fromCatalogue && packageId !== null) {
         const path = `/service-orders/${order.id}/jobs/${jobId}/service-packages`
-        const body = { servicePackageId: packageId }
+        const body = confirmed ? { servicePackageId: packageId, confirmWhileClocked: true } : { servicePackageId: packageId }
         updated = await api.post<ServiceOrderRead>(path, body, { ...headers, ...idempotency.headers([path, body]) })
         idempotency.renew()
       } else if (!position) {
         const body: ServiceOrderPositionCreate = { kind, text: text.trim() }
+        if (confirmed) body.confirmWhileClocked = true
         if (labour) {
           body.labourCategoryId = categoryId
           if (time !== '' && unit) {
@@ -264,6 +266,7 @@ export function PositionDialog({ opened, order, jobId, position, onClose, onSave
         idempotency.renew()
       } else {
         const body: ServiceOrderPositionUpdate = {}
+        if (confirmed) body.confirmWhileClocked = true
         if (text.trim() !== position.text) body.text = text.trim()
         if (labour) {
           if (categoryId !== position.labourCategoryId) body.labourCategoryId = categoryId
@@ -341,7 +344,7 @@ export function PositionDialog({ opened, order, jobId, position, onClose, onSave
       opened={opened}
       onClose={onClose}
       title={editing ? t('serviceOrder.positionDialog.editTitle') : t('serviceOrder.positionDialog.addTitle')}
-      onSubmit={submit}
+      onSubmit={() => void submit()}
       submitLabel={t('serviceOrder.positionDialog.save')}
       cancelLabel={t('common.cancel')}
       submitting={submitting}
@@ -507,6 +510,7 @@ export function PositionDialog({ opened, order, jobId, position, onClose, onSave
             onReload()
             onClose()
           }}
+          onConfirmClocked={() => void submit(true)}
         />
       )}
     </FormDialog>

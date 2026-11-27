@@ -52,7 +52,8 @@
     "cancelNotInState": {
       "cancelled": "L'ordre est déjà annulé.",
       "ready_for_billing": "Un ordre prêt à facturer ne peut pas être annulé."
-    }
+    },
+    "recordAnswer": "Saisir la réponse"
   },
   "jobs": {
     "empty": "Aucun groupe pour l'instant. Créez le premier avec « Ajouter un groupe ».",
@@ -189,7 +190,9 @@
       "service_order_job_accepted": "Groupe accepté",
       "service_order_position_added": "Position ajoutée",
       "service_order_position_changed": "Position modifiée",
-      "service_order_position_deleted": "Position supprimée"
+      "service_order_position_deleted": "Position supprimée",
+      "service_order_job_answered": "Réponse saisie",
+      "service_order_job_waits_again": "Le groupe attend la réponse"
     },
     "fields": {
       "contactLabel": "Donneur d'ordre",
@@ -209,5 +212,39 @@
       "net": "net",
       "gross": "TVA incl."
     }
+  },
+  "answer": {
+    "title": "Saisir la réponse",
+    "channelLabel": "Réponse reçue",
+    "channel": {
+      "desk": "au guichet",
+      "phone": "par téléphone",
+      "message": "par message"
+    },
+    "result": {
+      "accepted": "Accepté",
+      "declined": "Refusé"
+    },
+    "resultFor": "Réponse pour «{{name}}»",
+    "noteFor": "Note pour «{{name}}»",
+    "notePlaceholder": "Note, obligatoire en cas de refus",
+    "noteMissing": "Un refus nécessite une note.",
+    "amount": "{{net}} · {{gross}} TVA incl.",
+    "noPrice": "Encore sans prix",
+    "hoursQuestion": "Du temps a été pointé sur ce groupe. Les heures sont-elles facturées ?",
+    "hoursBilled": "Arrêté, heures facturées",
+    "hoursNotBilled": "Arrêté, heures non facturées",
+    "hoursMissing": "Indiquez si les heures sont facturées.",
+    "nothingChosen": "Choisissez une réponse pour au moins un groupe.",
+    "noJobs": "Aucun groupe ne peut recevoir de réponse.",
+    "save": "Enregistrer",
+    "last": "{{result}} {{channel}} · {{who}} · {{when}}",
+    "pricedBy": "Prix saisi par {{who}}, {{when}}",
+    "acceptedBefore": "accepté avant : {{amount}}",
+    "stoppedBilled": "Arrêté, heures facturées",
+    "stoppedNotBilled": "Arrêté, heures non facturées",
+    "workWithoutAnswerTitle": "Travail sans réponse",
+    "workWithoutAnswerBody": "On travaille alors que le client n'a pas encore répondu : {{jobs}}.",
+    "changeAnyway": "Modifier quand même"
   }
 }

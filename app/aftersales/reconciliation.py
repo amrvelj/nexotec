@@ -35,6 +35,7 @@ from sqlalchemy.orm import InstrumentedAttribute, Session
 from app.aftersales.models.service_order import (
     ServiceOrder,
     ServiceOrderJob,
+    ServiceOrderJobAnswer,
     ServiceOrderPosition,
     ServiceOrderState,
 )
@@ -53,7 +54,7 @@ from app.vehicle.public import vehicle_is_merged, vehicle_reference_check
 
 CONTEXT = "aftersales"
 
-ACTOR_TABLES = (ServiceOrder, ServiceOrderJob, ServiceOrderPosition, ServicePackage, ServicePackagePosition)
+ACTOR_TABLES = (ServiceOrder, ServiceOrderJob, ServiceOrderJobAnswer, ServiceOrderPosition, ServicePackage, ServicePackagePosition)
 
 _MERGE_GRACE = dt.timedelta(days=1)
 

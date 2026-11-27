@@ -88,6 +88,21 @@ class JobAnswerState(str, enum.Enum):
     DECLINED = "declined"
 
 
+class AnswerResult(str, enum.Enum):
+    """What the customer said to a job (table 3.2; KAN-811)."""
+
+    ACCEPTED = "accepted"
+    DECLINED = "declined"
+
+
+class AnswerChannel(str, enum.Enum):
+    """How the answer came (table 3.2): at the desk, by phone, by a message."""
+
+    DESK = "desk"
+    PHONE = "phone"
+    MESSAGE = "message"
+
+
 class BillingCategory(str, enum.Enum):
     """Who pays a job (section 10). One value in this slice; warranty,
     goodwill, free service and internal come with the slice «payers»."""
@@ -193,6 +208,42 @@ class ServiceOrderJob(PrimaryKeyMixin, TenantScopedMixin, TimestampMixin, Base):
     )
     answered_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)
     answered_by: Mapped[uuid.UUID | None] = mapped_column(GUID(), nullable=True)
+
+    # «Stopped» (table 3.2, ruling 48, decision 54; KAN-811): the customer stopped an
+    # accepted job after work started. `hours_billed` is the advisor's choice: true keeps
+    # the job accepted with what was done, false declines it (the hours stay a cost).
+    # A stopped job is never changed, answered or clocked again.
+    stopped_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)
+    stopped_by: Mapped[uuid.UUID | None] = mapped_column(GUID(), nullable=True)
+    hours_billed: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+
+
+class ServiceOrderJobAnswer(PrimaryKeyMixin, TenantScopedMixin, TimestampMixin, Base):
+    """One answer of the customer to a job (KAN-811; table 3.2, checks 3 to 5).
+
+    Its own record, append-only: every answer is kept, so «accepted before: CHF x»
+    (ruling 30) and who answered how and when are read from here, never typed.
+    `amount_net`/`amount_gross` are the job's amount the customer said yes to, to the
+    Rappen — null when the job had no price yet (ruling 167): such a job never waits
+    again for a price entered later (ruling 172). The job's `answer_state` is the
+    current state; «wartet auf Antwort» and «Arbeit ohne Antwort» are worked out on
+    read (section 3.9)."""
+
+    __tablename__ = "service_order_job_answer"
+
+    service_order_id: Mapped[uuid.UUID] = mapped_column(
+        GUID(), ForeignKey("service_order.id"), nullable=False, index=True
+    )
+    job_id: Mapped[uuid.UUID] = mapped_column(GUID(), ForeignKey("service_order_job.id"), nullable=False, index=True)
+    result: Mapped[AnswerResult] = mapped_column(StoredEnum(AnswerResult, length=16), nullable=False)
+    channel: Mapped[AnswerChannel] = mapped_column(StoredEnum(AnswerChannel, length=16), nullable=False)
+    note: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+    amount_net: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
+    amount_gross: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
+    # Set when the answer stopped an accepted job with clocked time (ruling 48).
+    hours_billed: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    recorded_at: Mapped[dt.datetime] = mapped_column(UTCDateTime(), nullable=False)
+    recorded_by: Mapped[uuid.UUID | None] = mapped_column(GUID(), nullable=True)
 
 
 class ServiceOrderPosition(PrimaryKeyMixin, TenantScopedMixin, TimestampMixin, Base):

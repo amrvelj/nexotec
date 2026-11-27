@@ -135,3 +135,28 @@ def order_totals(
         accepted=tuple(payer_totals(accepted, cash_rounding=cash_rounding).values()),
         open=tuple(payer_totals(still_open, cash_rounding=cash_rounding).values()),
     )
+
+
+@dataclasses.dataclass(frozen=True)
+class JobAmount:
+    """A job's amount as the customer says yes to it (KAN-811, ruling 30): its net sum
+    and its total incl. VAT, to the Rappen, before the cash rounding (which belongs to
+    the payer's total, never to a job)."""
+
+    net: Decimal
+    gross: Decimal
+
+
+def job_amount(job: ServiceOrderJob, positions: Iterable[ServiceOrderPosition]) -> JobAmount | None:
+    """The job's amount, or None while no position of it carries a price (ruling 167)."""
+
+    lines = [
+        line
+        for position in positions
+        if position.job_id == job.id
+        and (line := position_line(position, payer=job.billing_category.value)) is not None
+    ]
+    if not lines:
+        return None
+    (total,) = payer_totals(lines, cash_rounding=Decimal("0.01")).values()
+    return JobAmount(net=total.net, gross=total.total)

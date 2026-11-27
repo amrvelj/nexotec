@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { Alert, Loader, Stack } from '@mantine/core'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Ban, Plus, Wrench } from 'lucide-react'
+import { AlertTriangle, Ban, Plus, UserCheck, Wrench } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { DetailHeader, DetailTabs, useSetBreadcrumb } from '@nexotec/ui-kit'
 import { api } from '../../../api/client'
@@ -13,6 +13,7 @@ import { toSwissLocale, type SupportedLanguage } from '../../../i18n'
 import { apiRefusalText } from '../../../utils/apiRefusal'
 import { formatDateTime } from '../../../utils/format'
 import { CancelServiceOrderDialog } from '../components/CancelServiceOrderDialog'
+import { AnswerDialog } from '../components/order-detail/AnswerDialog'
 import { HistoryTab } from '../components/order-detail/HistoryTab'
 import { JobNameDialog } from '../components/order-detail/OrderDialogs'
 import { OverviewTab } from '../components/order-detail/OverviewTab'
@@ -27,9 +28,11 @@ const TABS: Tab[] = ['positions', 'overview', 'history']
 /**
  * D3 — the workshop order (KAN-810 criterion 6): the kit's DetailHeader
  * («<vehicle> · <ordering party>», the number, the state), one primary —
- * «Gruppe hinzufügen» (a position belongs to a job, so «Position» sits on each
- * job) — and the overflow carrying the order's row menu (ADR-061; here
- * «Auftrag stornieren»). Tabs: Positionen, Übersicht, Verlauf (the tab is in
+ * «Antwort erfassen» (D8, KAN-811) — one alternative, «Gruppe hinzufügen» (a
+ * position belongs to a job, so «Position» sits on each job), and the
+ * overflow carrying the order's row menu (ADR-061; «Antwort erfassen»,
+ * «Auftrag stornieren»). `?dialog=answer` opens D8 (the list's row menu).
+ * «Arbeit ohne Antwort» is the server's, worked out (section 3.9). Tabs: Positionen, Übersicht, Verlauf (the tab is in
  * the URL). Every change is sent with the order's version (If-Match) and
  * answers the order as it is now; a stale version offers «Neu laden». An
  * action the role may not write is hidden (ADR-104); one the order's state
@@ -48,6 +51,17 @@ export function ServiceOrderDetailPage() {
   const tab: Tab = tabParam && TABS.includes(tabParam) ? tabParam : 'positions'
   const [addJobOpen, setAddJobOpen] = useState(false)
   const [cancelOpen, setCancelOpen] = useState(false)
+  const answerOpen = searchParams.get('dialog') === 'answer'
+  const setAnswerOpen = (open: boolean) =>
+    setSearchParams(
+      (prev) => {
+        const params = new URLSearchParams(prev)
+        if (open) params.set('dialog', 'answer')
+        else params.delete('dialog')
+        return params
+      },
+      { replace: true },
+    )
 
   const orderQuery = useQuery({
     queryKey: ['service-order', id],
@@ -74,7 +88,11 @@ export function ServiceOrderDetailPage() {
   }
 
   const frozen = !OPEN_STATES.has(order.state)
-  const menu = buildServiceOrderRowMenu(t, order, { onCancel: canWrite ? () => setCancelOpen(true) : undefined })
+  const menu = buildServiceOrderRowMenu(t, order, {
+    onRecordAnswer: canWrite ? () => setAnswerOpen(true) : undefined,
+    onCancel: canWrite ? () => setCancelOpen(true) : undefined,
+  })
+  const frozenReason = frozen ? t('serviceOrder.actions.frozen') : undefined
   const cancellation = order.cancellation
 
   return (
@@ -88,15 +106,26 @@ export function ServiceOrderDetailPage() {
         primaryAction={
           canWrite
             ? {
+                label: t('serviceOrder.actions.recordAnswer'),
+                icon: <UserCheck size={16} />,
+                onClick: () => setAnswerOpen(true),
+                disabled: frozen,
+                disabledReason: frozenReason,
+              }
+            : undefined
+        }
+        alternativeAction={
+          canWrite
+            ? {
                 label: t('serviceOrder.actions.addJob'),
                 icon: <Plus size={16} />,
                 onClick: () => setAddJobOpen(true),
                 disabled: frozen,
-                disabledReason: frozen ? t('serviceOrder.actions.frozen') : undefined,
+                disabledReason: frozenReason,
               }
             : undefined
         }
-        overflowActions={menu.destructive ? menu : undefined}
+        overflowActions={menu.destructive || menu.edit ? menu : undefined}
       />
 
       {cancellation && (
@@ -105,6 +134,14 @@ export function ServiceOrderDetailPage() {
             who: cancellation.cancelledBy ? (cancellation.cancelledByLabel ?? t('serviceOrder.history.unknownUser')) : t('serviceOrder.history.system'),
             when: formatDateTime(cancellation.cancelledAt, locale),
             reason: cancellation.reason,
+          })}
+        </Alert>
+      )}
+
+      {order.workWithoutAnswer && (
+        <Alert color="orange" icon={<AlertTriangle size={18} />} title={t('serviceOrder.answer.workWithoutAnswerTitle')} data-testid="work-without-answer">
+          {t('serviceOrder.answer.workWithoutAnswerBody', {
+            jobs: order.jobs.filter((job) => job.workWithoutAnswer).map((job) => job.name).join(', '),
           })}
         </Alert>
       )}
@@ -154,6 +191,18 @@ export function ServiceOrderDetailPage() {
         }}
         onReload={reload}
       />
+      {canWrite && (
+        <AnswerDialog
+          opened={answerOpen && !frozen}
+          order={order}
+          onClose={() => setAnswerOpen(false)}
+          onSaved={(updated) => {
+            setOrder(updated)
+            setAnswerOpen(false)
+          }}
+          onReload={reload}
+        />
+      )}
       <CancelServiceOrderDialog
         opened={cancelOpen}
         order={order}

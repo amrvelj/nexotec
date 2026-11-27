@@ -15,7 +15,7 @@ type Translate = (key: string, options?: Record<string, unknown>) => string
 type Snapshot = Record<string, unknown> | null
 
 // Every action the order's service writes to its audit trail
-// (app/aftersales/services/service_order.py, positions.py); another reads as `otherAction`.
+// (app/aftersales/services/service_order.py, positions.py, answers.py); another reads as `otherAction`.
 const KNOWN_ACTIONS = new Set([
   'service_order_created',
   'service_order_cancelled',
@@ -24,6 +24,9 @@ const KNOWN_ACTIONS = new Set([
   'service_order_job_changed',
   'service_order_job_deleted',
   'service_order_job_accepted',
+  // KAN-811 (answers.py): an answer recorded; an accepted job waiting again after its amount moved.
+  'service_order_job_answered',
+  'service_order_job_waits_again',
   'service_order_position_added',
   'service_order_position_changed',
   'service_order_position_deleted',

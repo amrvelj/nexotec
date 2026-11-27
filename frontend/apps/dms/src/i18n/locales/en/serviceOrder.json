@@ -52,7 +52,8 @@
     "cancelNotInState": {
       "cancelled": "The order is already cancelled.",
       "ready_for_billing": "An order ready for billing cannot be cancelled."
-    }
+    },
+    "recordAnswer": "Record answer"
   },
   "jobs": {
     "empty": "No group yet. Create the first one with “Add group”.",
@@ -189,7 +190,9 @@
       "service_order_job_accepted": "Group accepted",
       "service_order_position_added": "Position added",
       "service_order_position_changed": "Position changed",
-      "service_order_position_deleted": "Position deleted"
+      "service_order_position_deleted": "Position deleted",
+      "service_order_job_answered": "Answer recorded",
+      "service_order_job_waits_again": "Group waits for the answer"
     },
     "fields": {
       "contactLabel": "Ordering party",
@@ -209,5 +212,39 @@
       "net": "net",
       "gross": "incl. VAT"
     }
+  },
+  "answer": {
+    "title": "Record answer",
+    "channelLabel": "Answer came",
+    "channel": {
+      "desk": "at the desk",
+      "phone": "by phone",
+      "message": "by message"
+    },
+    "result": {
+      "accepted": "Accepted",
+      "declined": "Declined"
+    },
+    "resultFor": "Answer for «{{name}}»",
+    "noteFor": "Note for «{{name}}»",
+    "notePlaceholder": "Note, required when declined",
+    "noteMissing": "A decline needs a note.",
+    "amount": "{{net}} · {{gross}} incl. VAT",
+    "noPrice": "No price yet",
+    "hoursQuestion": "Time was clocked on this group. Are the hours billed?",
+    "hoursBilled": "Stopped, hours billed",
+    "hoursNotBilled": "Stopped, hours not billed",
+    "hoursMissing": "Choose whether the hours are billed.",
+    "nothingChosen": "Choose an answer for at least one group.",
+    "noJobs": "No group can take an answer.",
+    "save": "Save",
+    "last": "{{result}} {{channel}} · {{who}} · {{when}}",
+    "pricedBy": "Price entered by {{who}}, {{when}}",
+    "acceptedBefore": "accepted before: {{amount}}",
+    "stoppedBilled": "Stopped, hours billed",
+    "stoppedNotBilled": "Stopped, hours not billed",
+    "workWithoutAnswerTitle": "Work without an answer",
+    "workWithoutAnswerBody": "Work goes on while the customer has not answered yet: {{jobs}}.",
+    "changeAnyway": "Change anyway"
   }
 }

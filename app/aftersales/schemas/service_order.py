@@ -10,6 +10,8 @@ from decimal import Decimal
 from pydantic import Field
 
 from app.aftersales.models.service_order import (
+    AnswerChannel,
+    AnswerResult,
     BillingCategory,
     JobAnswerState,
     LabourTimeUnit,
@@ -74,6 +76,8 @@ class PositionCreate(CamelModel):
     time_unit: LabourTimeUnit | None = None
     unit_price: DecimalStr | None = None
     price_entered: PriceEntry | None = None
+    # KAN-811, check 6: confirmed while somebody is clocked on an accepted job.
+    confirm_while_clocked: bool = False
 
 
 class PositionUpdate(CamelModel):
@@ -86,6 +90,25 @@ class PositionUpdate(CamelModel):
     time_unit: LabourTimeUnit | None = None
     unit_price: DecimalStr | None = None
     price_entered: PriceEntry | None = None
+    # KAN-811, check 6: confirmed while somebody is clocked on an accepted job.
+    confirm_while_clocked: bool = False
+
+
+class JobAnswerEntry(CamelModel):
+    """One job's answer in D8. `note` is required for «declined»; `hoursBilled` is
+    asked only when an accepted job with clocked time is declined (ruling 48)."""
+
+    job_id: uuid.UUID
+    result: AnswerResult
+    note: str | None = Field(default=None, max_length=1000)
+    hours_billed: bool | None = None
+
+
+class ServiceOrderAnswersCreate(CamelModel):
+    """D8 «Antwort erfassen» (KAN-811): how the answer came, and one entry per job answered."""
+
+    channel: AnswerChannel
+    jobs: list[JobAnswerEntry] = Field(max_length=200)
 
 
 # --- reads ------------------------------------------------------------------------------
@@ -137,6 +160,30 @@ class PositionRead(CamelModel):
     rate_valid_from: dt.date | None
     priced_at: dt.datetime | None
     priced_by: uuid.UUID | None
+    # Who entered the price (section 3.2, check 3): the user's name, or null when unknown.
+    priced_by_label: str | None = None
+
+
+class AmountRead(CamelModel):
+    """A job's amount, net and incl. VAT, to the Rappen."""
+
+    net: Decimal
+    gross: Decimal
+
+
+class JobAnswerRead(CamelModel):
+    """One recorded answer (KAN-811): who, how and when, and the amount said yes to
+    (null when the job had no price yet, ruling 167)."""
+
+    id: uuid.UUID
+    result: AnswerResult
+    channel: AnswerChannel
+    note: str | None
+    amount: AmountRead | None
+    hours_billed: bool | None
+    recorded_at: dt.datetime
+    recorded_by: uuid.UUID | None
+    recorded_by_label: str | None
 
 
 class JobRead(CamelModel):
@@ -148,6 +195,19 @@ class JobRead(CamelModel):
     answered_at: dt.datetime | None
     answered_by: uuid.UUID | None
     positions: list[PositionRead]
+    # KAN-811. The job's amount now (null while nothing on it has a price).
+    amount: AmountRead | None = None
+    # «Accepted before: CHF x» (ruling 30): set while the job waits again after its amount changed.
+    accepted_before: AmountRead | None = None
+    # Every answer of the job, oldest first.
+    answers: list[JobAnswerRead] = Field(default_factory=list)
+    # «Stopped» (ruling 48): the customer stopped the job after work started; `hoursBilled` is the choice.
+    stopped: bool = False
+    hours_billed: bool | None = None
+    # Time was clocked on the job: declining it asks «hours billed or not» (check 8).
+    time_clocked: bool = False
+    # «Arbeit ohne Antwort» (ruling 49): waits for the answer while somebody is clocked on it.
+    work_without_answer: bool = False
 
 
 class VatLineRead(CamelModel):
@@ -208,6 +268,8 @@ class ServiceOrderRead(ServiceOrderSummary):
     jobs: list[JobRead]
     totals: OrderTotalsRead
     cancellation: CancellationRead | None
+    # «Arbeit ohne Antwort» on the order (section 3.9): a job of it has work without an answer.
+    work_without_answer: bool = False
     updated_at: dt.datetime
 
 

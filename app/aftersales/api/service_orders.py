@@ -1,5 +1,6 @@
 """The workshop order's endpoints (KAN-810; D1 order list, D2 new order, D3 the
-order with its positions, overview and history, D13 position, D16 cancel).
+order with its positions, overview and history, D13 position, D16 cancel; D8
+the customer's answer, KAN-811).
 
 Every route sits behind the `aftersales` module switch, router-level, so a
 Betrieb without the module gets 404 for everybody before any role check
@@ -24,6 +25,7 @@ from app.aftersales.schemas.service_order import (
     LabourRateProposalRead,
     PositionCreate,
     PositionUpdate,
+    ServiceOrderAnswersCreate,
     ServiceOrderCancel,
     ServiceOrderCreate,
     ServiceOrderPage,
@@ -31,7 +33,7 @@ from app.aftersales.schemas.service_order import (
     ServiceOrderRead,
 )
 from app.aftersales.schemas.service_package import JobPackageCopy
-from app.aftersales.services import order_read, positions, service_packages
+from app.aftersales.services import answers, order_read, positions, service_packages
 from app.aftersales.services import service_order as service
 from app.core.auth import Principal
 from app.core.concurrency import check_version, require_if_match
@@ -49,6 +51,13 @@ router = APIRouter(
     dependencies=[Depends(require_entitlement(ModuleCode.AFTERSALES))],
 )
 settings = get_settings()
+
+# Check 6 (ruling 49): a change of an accepted job while somebody is clocked on it is
+# refused with `service_order_job_clocked_confirm`, naming the people, until it is sent
+# again confirmed — the SPA's «ask first». POST and PATCH carry `confirmWhileClocked`
+# in the body (an idempotent POST stores its body, never a query); DELETE, which has no
+# body, as this query parameter.
+_CONFIRM = Query(default=False, alias="confirmWhileClocked")
 
 _READ = "service_orders"
 _SORT_FIELDS: dict[str, object] = {
@@ -177,6 +186,33 @@ def get_labour_rate_proposal(
     return order_read.proposal_read(proposal, positions.time_unit_in_force(db, order=order))
 
 
+# --- the customer's answer (KAN-811) -----------------------------------------------------------
+
+
+@router.post("/service-orders/{order_id}/answers", response_model=ServiceOrderRead, status_code=201)
+def record_answers(
+    order_id: uuid.UUID,
+    body: ServiceOrderAnswersCreate,
+    if_match: int = Depends(require_if_match),
+    principal: Principal = Depends(require_write(_READ)),
+    db: Session = Depends(get_db),
+):
+    """D8 «Antwort erfassen»: the customer's answer to one or more jobs, and how it came."""
+
+    order = _locked(db, principal, order_id, if_match)
+    answers.record_answers(
+        db,
+        order=order,
+        actor_id=principal.user_id,
+        channel=body.channel,
+        answers=[
+            answers.JobAnswerInput(job_id=e.job_id, result=e.result, note=e.note, hours_billed=e.hours_billed)
+            for e in body.jobs
+        ],
+    )
+    return _read(db, principal, order_id)
+
+
 # --- jobs -------------------------------------------------------------------------------------
 
 
@@ -251,6 +287,7 @@ def add_position(
             unit_price=body.unit_price,
             price_entered=body.price_entered,
         ),
+        confirmed=body.confirm_while_clocked,
     )
     return _read(db, principal, order_id)
 
@@ -271,7 +308,8 @@ def add_service_package(
     order = _locked(db, principal, order_id, if_match)
     job = positions.get_job_or_404(db, order=order, job_id=job_id)
     service_packages.copy_package_onto_job(
-        db, order=order, job=job, package_id=body.service_package_id, actor_id=principal.user_id
+        db, order=order, job=job, package_id=body.service_package_id, actor_id=principal.user_id,
+        confirmed=body.confirm_while_clocked,
     )
     return _read(db, principal, order_id)
 
@@ -306,6 +344,7 @@ def change_position(
             entered_set="price_entered" in sent,
             unit_set="time_unit" in sent,
         ),
+        confirmed=body.confirm_while_clocked,
     )
     return _read(db, principal, order_id)
 
@@ -314,11 +353,13 @@ def change_position(
 def delete_position(
     order_id: uuid.UUID,
     position_id: uuid.UUID,
+    confirm_while_clocked: bool = _CONFIRM,
     if_match: int = Depends(require_if_match),
     principal: Principal = Depends(require_write(_READ)),
     db: Session = Depends(get_db),
 ):
     order = _locked(db, principal, order_id, if_match)
     position = positions.get_position_or_404(db, order=order, position_id=position_id)
-    positions.delete_position(db, order=order, position=position, actor_id=principal.user_id)
+    positions.delete_position(db, order=order, position=position, actor_id=principal.user_id,
+                              confirmed=confirm_while_clocked)
     return _read(db, principal, order_id)
