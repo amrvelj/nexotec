@@ -9,6 +9,7 @@
     "invalid": "Veuillez vérifier vos saisies.",
     "uidTaken": "Cet IDE appartient déjà à une autre entreprise.",
     "confirmationRequired": "Une modification de la raison sociale, de l'IDE ou de la TVA requiert votre confirmation.",
+    "vatRateOutOfRange": "Le taux de TVA est compris entre 0 et moins de 100 % et a au plus deux décimales, p. ex. 8.10.",
     "unknownReferenceCode": "Cette valeur ne figure pas dans la liste.",
     "qrReferenceNeedsQrIban": "La référence QR requiert un QR-IBAN. Saisissez le QR-IBAN ou choisissez un autre type de référence.",
     "qrIbanNeedsQrReference": "Un QR-IBAN ne s'utilise qu'avec la référence QR. Retirez le QR-IBAN ou choisissez la référence QR.",

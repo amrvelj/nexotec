@@ -377,6 +377,29 @@ def _assert_status_change(
     )
 
 
+# KAN-844: the range `app.core.money` takes a VAT rate in (ADR-215) — from 0 to
+# below 100 %, at most two decimals (the column's DECIMAL(5, 2)). A rate outside
+# it would be stored, then fail every price and document built from it.
+_VAT_RATE_MAX_EXCLUSIVE = Decimal(100)
+_VAT_RATE_PLACES = 2
+
+
+def _assert_vat_rate(vat_rate: Decimal | None) -> None:
+    if vat_rate is None:
+        return
+    if not vat_rate.is_finite():
+        exponent: int | str = "n"
+    else:
+        # «8.100» is 8.10; only a third significant decimal is one the column would round away.
+        exponent = vat_rate.normalize().as_tuple().exponent
+    places = -exponent if isinstance(exponent, int) and exponent < 0 else 0
+    if not vat_rate.is_finite() or vat_rate < 0 or vat_rate >= _VAT_RATE_MAX_EXCLUSIVE or places > _VAT_RATE_PLACES:
+        raise UnprocessableEntityError(
+            "The VAT rate is a percentage from 0 to below 100 with at most two decimals (8.10 for 8.1 %).",
+            details={"reason": "vat_rate_out_of_range", "field": "vatRate"},
+        )
+
+
 def update_dealership(
     db: Session, *, dealership: Dealership, data: DealershipUpdate, actor_id: uuid.UUID, actor_is_staff: bool = False
 ) -> Dealership:
@@ -415,6 +438,9 @@ def update_dealership(
             }
             for licence in data.collective_vehicle_licences
         ]
+
+    if "vat_rate" in changes:
+        _assert_vat_rate(changes["vat_rate"])
 
     if "status" in data.model_fields_set:
         _assert_status_change(dealership, changes.get("status"), actor_is_staff=actor_is_staff)
