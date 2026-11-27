@@ -524,6 +524,7 @@ const REASON_KEYS: Record<string, string> = {
       'service_order_job_stopped',
       // KAN-813 — «Fahrzeug ist da» and the stay of the car.
       'service_stay_car_already_here',
+      'service_stay_car_changed',
       'service_stay_mileage_invalid',
       'service_stay_text_too_long',
       'service_order_job_name_required',

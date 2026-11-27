@@ -472,7 +472,10 @@ def _odometer_from_service_visit(db_session, engine, monkeypatch):
     db_session.commit()
     order_id = insert_order(db_session, tenant_id=uuid.uuid4(), contact_id=uuid.uuid4(), vehicle_id=car.id)
     order = db_session.get(ServiceOrder, order_id)
-    stay = stays.receive_car(db_session, order=order, actor_id=uuid.uuid4(), data=stays.ArrivalInput(mileage=42_000))
+    stay = stays.receive_car(
+        db_session, tenant_id=order.tenant_id, order_id=order.id, expected_version=order.version,
+        actor_id=uuid.uuid4(), data=stays.ArrivalInput(mileage=42_000),
+    )
     message = _message(db_session, stays.ARRIVED_EVENT, stay.id)
 
     def readings(db: Session) -> int:

@@ -42,6 +42,7 @@
   "service_package_position_text_too_long": "Il testo di una posizione ha al massimo 1000 caratteri.",
   "service_package_time_unit_changed": "Il tempo di lavoro è ora inserito in un'altra unità. Verificate il tempo e inseritelo di nuovo.",
   "service_stay_car_already_here": "Il veicolo è già qui e non può essere accettato una seconda volta.",
+  "service_stay_car_changed": "Il veicolo di questo ordine è cambiato durante l'accettazione. Ricaricate l'ordine e riprovate.",
   "service_stay_mileage_invalid": "Il chilometraggio è un numero intero da 0 a 9'999'999.",
   "service_stay_text_too_long": "Il testo è troppo lungo (al massimo {{maxLength}} caratteri)."
 }

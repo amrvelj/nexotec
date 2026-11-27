@@ -6,7 +6,7 @@ host taking a configuration (KAN-270), each its own consumer of
 `handle_configuration_taken_message` — below; and Stock's two facts of which
 records a Betrieb holds in stock (KAN-667), each its own consumer of
 `handle_stock_holding_message` (`services/stock_holding.py::CONSUMERS`); and
-Aftersales' `aftersales.stay.arrived` as "vehicle.odometer_from_service_visit"
+Aftersales' `aftersales.service_stay.arrived` as "vehicle.odometer_from_service_visit"
 (KAN-813, check 24): the mileage read at «Fahrzeug ist da» becomes a reading
 with the source «service visit», in the receiving Betrieb's name (the
 message's `tenant_id`), on the Swiss day of the arrival (`arrivedOn`). A
@@ -110,7 +110,7 @@ def handle_stay_arrived_message(db: Session, message: OutboxMessage) -> None:
     records nothing twice."""
 
     if message.tenant_id is None:
-        raise ValueError(f"aftersales.stay.arrived message {message.id} has no tenant_id.")
+        raise ValueError(f"aftersales.service_stay.arrived message {message.id} has no tenant_id.")
     payload = message.payload or {}
     record_odometer_reading(
         db,

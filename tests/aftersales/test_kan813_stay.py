@@ -261,7 +261,7 @@ def test_the_nightly_refresh_renames_the_stays_location(client, db_session, betr
 
 
 def _deliver_arrival(db_session) -> OutboxMessage:
-    message = db_session.scalar(select(OutboxMessage).where(OutboxMessage.event_type == "aftersales.stay.arrived"))
+    message = db_session.scalar(select(OutboxMessage).where(OutboxMessage.event_type == "aftersales.service_stay.arrived"))
     assert message is not None
     handle_stay_arrived_message(db_session, message)
     db_session.commit()
@@ -379,11 +379,12 @@ def test_no_write_path_sets_the_workshop_status():
     for reader in readers:
         tree = ast.parse((ROOT / reader).read_text(encoding="utf-8"))
         for node in ast.walk(tree):
-            if isinstance(node, ast.Call) and getattr(node.func, "id", None) in {"ServiceOrderWorkshopStatus", "update",
-                                                                                  "insert", "delete"}:
+            if not isinstance(node, ast.Call):
+                continue
+            # `update(...)`, `sa.update(...)`, a constructor: none in a reader.
+            called = getattr(node.func, "id", None) or getattr(node.func, "attr", None)
+            assert called != "ServiceOrderWorkshopStatus", reader
+            if called in {"update", "insert", "delete"}:
                 assert not any(
                     isinstance(arg, ast.Name) and arg.id == "ServiceOrderWorkshopStatus" for arg in node.args
-                ) and getattr(node.func, "id", None) != "ServiceOrderWorkshopStatus", reader
-
-    writers = set()
-    assert writers <= {"app/aftersales/services/workshop_status.py"}
+                ), reader

@@ -256,12 +256,10 @@ def receive_car(
 ):
     """D14 «Fahrzeug ist da»: the car of the order is here (check 22-24)."""
 
-    unlocked = service.get_order_or_404(db, tenant_id=principal.tenant_id, order_id=order_id)
-    # The car's stay lock before any order row (the arrival also takes the car's other open orders).
-    service.lock_stay_car(db, tenant_id=principal.tenant_id, vehicle_id=unlocked.vehicle_id)
-    order = _locked(db, principal, order_id, if_match)
+    # The arrival takes its own locks (the car's merge and stay locks, then every order the
+    # stay will hold in id order) and judges If-Match on the order as it stands after them.
     stays.receive_car(
-        db, order=order, actor_id=principal.user_id,
+        db, tenant_id=principal.tenant_id, order_id=order_id, expected_version=if_match, actor_id=principal.user_id,
         data=stays.ArrivalInput(mileage=body.mileage, key_tag=body.key_tag, parking_place=body.parking_place,
                                 remark=body.remark),
     )

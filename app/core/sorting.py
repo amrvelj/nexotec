@@ -84,7 +84,7 @@ def parse_sort(sort: str | None, *, allowed: dict[str, Any]) -> list[SortField]:
                 api_name=name,
                 column=column,
                 direction=direction,
-                nullable=_nullable(column),
+                nullable=sort_field_nullable(column),
             )
         )
     return fields
@@ -97,7 +97,7 @@ def _column_type(column: Any) -> Any:
     return column.type if isinstance(column, Label) else column.property.columns[0].type
 
 
-def _nullable(column: Any) -> bool:
+def sort_field_nullable(column: Any) -> bool:
     """A mapped column's own `nullable`; a derived SQL expression (a `Label`
     whose key names the value each row carries, KAN-786, or a read-only
     `column_property` over a scalar subquery, KAN-813) may be NULL, so counts

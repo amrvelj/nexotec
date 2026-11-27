@@ -51,7 +51,6 @@ from app.aftersales.models.service_order import (
 )
 from app.aftersales.services import order_money, work_guard
 from app.aftersales.services.service_order import (
-    ENTITY_TYPE,
     PRODUCER,
     order_follows_accepted_job,
     record_order_change,
@@ -61,6 +60,7 @@ from app.core.base import utcnow
 from app.core.errors import ConflictError, NotFoundError, UnprocessableEntityError
 from app.core.outbox import OutboxEvent, publish
 
+JOB_ENTITY_TYPE = "service_order_job"
 JOB_STOPPED_EVENT = "aftersales.service_order_job.stopped"
 _NOTE_LENGTH = 1000
 _ANSWERABLE = frozenset({JobAnswerState.DRAFT, JobAnswerState.WAITING})
@@ -198,8 +198,10 @@ def _publish_stopped(
             event_type=JOB_STOPPED_EVENT,
             tenant_id=order.tenant_id,
             producer=PRODUCER,
-            aggregate_type=ENTITY_TYPE,
-            aggregate_id=order.id,
+            # The job is the entity of this fact (its name says so); one payload shape for the
+            # job's events (ADR-202) — the order's events keep theirs.
+            aggregate_type=JOB_ENTITY_TYPE,
+            aggregate_id=job.id,
             payload={
                 "serviceOrderId": str(order.id),
                 "orderNumber": order.order_number,

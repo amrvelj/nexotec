@@ -347,7 +347,7 @@ def register_handlers(transport: InProcessTransport) -> None:
     # KAN-813 (check 24) — the mileage of «Fahrzeug ist da» becomes the car's odometer
     # reading with the source «service visit».
     transport.register(
-        "aftersales.stay.arrived",
+        "aftersales.service_stay.arrived",
         consumer_name="vehicle.odometer_from_service_visit",
         handler=handle_stay_arrived_message,
     )
