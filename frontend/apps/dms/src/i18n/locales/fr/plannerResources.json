@@ -1,7 +1,7 @@
 {
   "title": "Ressources du planning",
   "subtitle": "Les personnes et les postes de travail que le planning réserve, par site, leurs types et qualifications, ainsi que la trame du planning.",
-  "readOnly": "Seule la direction modifie les ressources du planning. Vous voyez les entrées.",
+  "readOnly": "Seule la direction modifie les ressources du planning ; vous pouvez consulter les entrées.",
   "loadError": "Les ressources du planning n'ont pas pu être chargées.",
   "saveError": "La modification n'a pas pu être enregistrée.",
   "settings": {
@@ -41,7 +41,7 @@
   },
   "entryDialog": {
     "name": "Nom",
-    "nameHint": "Le nom vaut dans chaque langue pour laquelle vous ne saisissez pas de traduction.",
+    "nameHint": "Le nom s'applique dans chaque langue pour laquelle vous ne saisissez pas de traduction.",
     "translation": "Nom en {{language}}",
     "rank": "Rang",
     "rankHint": "Un nombre entier de 1 à 99. Laissez vide si aucun rang ne s'applique.",
@@ -104,12 +104,12 @@
   },
   "resources": {
     "title": "Ressources",
-    "subtitle": "Les personnes et les postes de travail que le planning planifie, par site.",
+    "subtitle": "Les personnes et les postes de travail que le planning réserve, par site.",
     "filter": "Site",
     "allLocations": "Tous les sites",
     "addPerson": "Ajouter une personne",
     "addWorkplace": "Ajouter un poste de travail",
-    "empty": "Aucune ressource pour l'instant. Ajoutez des personnes et des postes de travail pour que le planning puisse les planifier.",
+    "empty": "Aucune ressource pour l'instant. Ajoutez des personnes et des postes de travail pour que le planning puisse les réserver.",
     "emptyAtLocation": "Ce site n'a encore aucune ressource.",
     "locationInactive": "Site inactif",
     "tableLabel": "Ressources du site {{location}}"
@@ -127,7 +127,7 @@
     "workplaceName": "Nom du poste de travail",
     "sortOrder": "Ordre",
     "sortOrderHint": "L'ordre dans le planning, de 0 à 9999 : les petits nombres d'abord.",
-    "movingNote": "Au nouveau site, la ressource est disponible immédiatement. Ses réservations qui ne sont pas encore terminées sont marquées à replanifier."
+    "movingNote": "La ressource relève du nouveau site dès maintenant. Ses réservations qui ne sont pas encore terminées sont signalées comme à replanifier."
   },
   "hours": {
     "title": "Horaires de travail de {{name}}",

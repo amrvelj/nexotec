@@ -33,13 +33,17 @@ from app.aftersales.schemas.service_order import (
 from app.aftersales.schemas.service_package import JobPackageCopy
 from app.aftersales.services import order_read, positions, service_packages
 from app.aftersales.services import service_order as service
-from app.aftersales.services.order_grid import DEFAULT_SERVICE_ORDER_SORT, SERVICE_ORDER_COLUMNS
+from app.aftersales.services.order_grid import (
+    DEFAULT_SERVICE_ORDER_SORT,
+    SERVICE_ORDER_COLUMNS,
+    service_order_grid_schema,
+)
 from app.core.auth import Principal
 from app.core.concurrency import check_version, require_if_match
 from app.core.config import get_settings
 from app.core.errors import BadRequestError
 from app.core.idempotent_route import IdempotentRoute
-from app.core.list_query import GridSchemaRead, grid_schema, parse_list_query
+from app.core.list_query import GridSchemaRead, parse_list_query
 from app.core.permissions import ModuleCode, require_entitlement, require_read, require_write
 from app.db import get_db
 
@@ -72,7 +76,7 @@ def _read(db: Session, principal: Principal, order_id: uuid.UUID) -> ServiceOrde
     ),
 )
 def get_service_order_grid_schema(principal: Principal = Depends(require_read(_READ))):
-    return grid_schema(SERVICE_ORDER_COLUMNS)
+    return service_order_grid_schema()
 
 
 @router.get("/service-orders", response_model=ServiceOrderPage)

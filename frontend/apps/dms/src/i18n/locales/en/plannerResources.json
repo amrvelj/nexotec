@@ -1,7 +1,7 @@
 {
   "title": "Planner resources",
   "subtitle": "Who and what the planner books: people and workplaces per location, their types and qualifications, and the planner's grid.",
-  "readOnly": "Only management changes the planner resources. You see the entries.",
+  "readOnly": "Only management changes the planner resources; you can view the entries.",
   "loadError": "The planner resources could not be loaded.",
   "saveError": "The change could not be saved.",
   "settings": {

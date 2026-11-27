@@ -9,7 +9,7 @@ from app.core.auth import Principal, get_current_principal
 from app.core.concurrency import check_version, require_if_match
 from app.core.config import get_settings
 from app.core.idempotent_route import IdempotentRoute
-from app.core.list_query import GridSchemaRead, grid_schema, parse_list_query
+from app.core.list_query import GridSchemaRead, parse_list_query
 from app.core.permissions import ModuleCode, require_entitlement, require_write
 from app.core.sorting import SortField
 from app.db import get_db
@@ -26,7 +26,7 @@ from app.inventory.schemas.stock_item import (
 )
 from app.inventory.services import purchase as purchase_service
 from app.inventory.services import stock_item as stock_item_service
-from app.inventory.services.stock_grid import DEFAULT_STOCK_ITEM_SORT, STOCK_ITEM_COLUMNS
+from app.inventory.services.stock_grid import DEFAULT_STOCK_ITEM_SORT, STOCK_ITEM_COLUMNS, stock_item_grid_schema
 from app.inventory.services.supplier_lock import lock_supplier_contact
 
 # KAN-198 (D-A-04): the entitlement gate runs before any role check; an
@@ -83,7 +83,7 @@ def create_stock_item(
     ),
 )
 def get_stock_item_grid_schema(principal: Principal = Depends(get_current_principal)):
-    return grid_schema(STOCK_ITEM_COLUMNS)
+    return stock_item_grid_schema()
 
 
 def _legacy_filters(

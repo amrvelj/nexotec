@@ -5,7 +5,7 @@ import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import i18n from '../../../i18n'
 import { renderWithProviders } from '../../../test/renderWithProviders'
-import { ALL_ENTITLEMENTS, ALL_GATED_CAPABILITIES, installFakeBackend } from '../../../test/fakeBackend'
+import { ALL_ENTITLEMENTS, ALL_GATED_CAPABILITIES, installFakeBackend, status } from '../../../test/fakeBackend'
 import { ServiceOrdersListPage } from './ServiceOrdersListPage'
 import { summary } from '../test/serviceOrderFixtures'
 
@@ -139,6 +139,14 @@ describe('the workshop order list (KAN-810, D1)', () => {
     renderList('/aftersales?sort=contactLabel:desc')
     await screen.findByText('WA-2026-0406')
     expect(backend.callsTo(/^\/service-orders$/, 'GET').at(-1)!.params.get('sort')).toBe('contactLabel:desc')
+  })
+
+  it('a failed read of the grid schema is said, not an endless skeleton (KAN-848)', async () => {
+    installFakeBackend([
+      { method: 'GET', match: /^\/service-orders\/grid-schema$/, handler: () => status(503, { error: { code: 'unavailable', message: 'down', details: null } }) },
+    ])
+    renderList()
+    expect(await screen.findByText(i18n.t('serviceOrders.loadError'))).toBeInTheDocument()
   })
 
   it('a row opens its order', async () => {

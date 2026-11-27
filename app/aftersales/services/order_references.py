@@ -54,7 +54,7 @@ from dataclasses import dataclass, field
 from sqlalchemy import func, or_, select, update
 from sqlalchemy.orm import Session
 
-from app.aftersales.models.service_order import ServiceOrder, ServiceOrderPosition
+from app.aftersales.models.service_order import LABEL_LENGTH, ServiceOrder, ServiceOrderPosition
 from app.aftersales.services.service_order import (
     OPEN_STATES,
     lock_order_contacts,
@@ -276,7 +276,7 @@ def _refresh_position_labels(
         if found is None:
             report.positions_unresolved.append(position.id)
             continue
-        current = found.name[:200]
+        current = found.name[:LABEL_LENGTH]
         if current == position.labour_category_label:
             restamp.append(position.id)
         elif orders[position.service_order_id].state not in OPEN_STATES:

@@ -87,7 +87,7 @@ export function ServiceOrdersListPage() {
 
   // The served registry: which headers sort, which columns show by default. Fetched once; the
   // list waits for it, so a link's sort is neither dropped nor sent unchecked meanwhile.
-  const { data: gridSchema } = useQuery({
+  const { data: gridSchema, isError: schemaFailed, refetch: refetchSchema } = useQuery({
     queryKey: ['grid-schema', 'service-orders'],
     queryFn: () => api.get<GridSchemaRead>('/service-orders/grid-schema'),
     staleTime: Infinity,
@@ -291,13 +291,14 @@ export function ServiceOrdersListPage() {
           density={density}
           rowHref={(row) => serviceOrderHref(row.id)}
           linkComponent={Link}
-          loading={isLoading || gridSchema === undefined}
+          // A failed schema read is said, never an endless skeleton (KAN-848 review).
+          loading={!schemaFailed && (isLoading || gridSchema === undefined)}
           refetching={isRefetching && !isLoading}
           fetchingNextPage={isFetchingNextPage}
           hasNextPage={Boolean(hasNextPage)}
           onLoadMore={() => fetchNextPage()}
-          error={isError ? t('serviceOrders.loadError') : null}
-          onRetry={() => refetch()}
+          error={isError || schemaFailed ? t('serviceOrders.loadError') : null}
+          onRetry={() => (schemaFailed ? void refetchSchema() : void refetch())}
           total={total}
           totalIsEstimate={totalIsEstimate}
           isFiltered={isFiltered}
