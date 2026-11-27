@@ -1,6 +1,6 @@
 {
   "title": "Risorse della pianificazione",
-  "subtitle": "Chi e cosa la pianificazione pianifica: le persone e le postazioni di lavoro per sede, i loro tipi e qualifiche, e la griglia della pianificazione.",
+  "subtitle": "Le persone e le postazioni di lavoro che la pianificazione prenota, per sede, i loro tipi e qualifiche, e la griglia della pianificazione.",
   "readOnly": "Solo la direzione modifica le risorse della pianificazione. Vedete le voci.",
   "loadError": "Non è stato possibile caricare le risorse della pianificazione.",
   "saveError": "Non è stato possibile salvare la modifica.",
@@ -127,7 +127,7 @@
     "workplaceName": "Nome della postazione",
     "sortOrder": "Ordine",
     "sortOrderHint": "L'ordine nella pianificazione, da 0 a 9999: prima i numeri più piccoli.",
-    "movingNote": "Nella nuova sede la risorsa vale subito. Le sue prenotazioni non ancora trascorse vengono contrassegnate da ripianificare."
+    "movingNote": "Nella nuova sede la risorsa è subito disponibile. Le sue prenotazioni non ancora concluse vengono contrassegnate da ripianificare."
   },
   "hours": {
     "title": "Orari di lavoro di {{name}}",

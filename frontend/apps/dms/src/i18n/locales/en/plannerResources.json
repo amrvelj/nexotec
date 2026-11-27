@@ -1,7 +1,7 @@
 {
   "title": "Planner resources",
   "subtitle": "Who and what the planner books: people and workplaces per location, their types and qualifications, and the planner's grid.",
-  "readOnly": "Only the management changes the planner resources. You see the entries.",
+  "readOnly": "Only management changes the planner resources. You see the entries.",
   "loadError": "The planner resources could not be loaded.",
   "saveError": "The change could not be saved.",
   "settings": {
@@ -123,7 +123,7 @@
     "noPerson": "No person chosen yet",
     "choosePerson": "Choose person",
     "searchPerson": "Search person",
-    "noCandidates": "Everyone who works in this business already is a resource.",
+    "noCandidates": "Everyone who works in this business is already a resource.",
     "workplaceName": "Workplace name",
     "sortOrder": "Order",
     "sortOrderHint": "The order in the planner, from 0 to 9999: smaller numbers first.",

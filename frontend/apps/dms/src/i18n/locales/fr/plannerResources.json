@@ -1,6 +1,6 @@
 {
   "title": "Ressources du planning",
-  "subtitle": "Qui et quoi le planning planifie : les personnes et les postes de travail par site, leurs types et qualifications, ainsi que la trame du planning.",
+  "subtitle": "Les personnes et les postes de travail que le planning réserve, par site, leurs types et qualifications, ainsi que la trame du planning.",
   "readOnly": "Seule la direction modifie les ressources du planning. Vous voyez les entrées.",
   "loadError": "Les ressources du planning n'ont pas pu être chargées.",
   "saveError": "La modification n'a pas pu être enregistrée.",
@@ -65,7 +65,7 @@
     "mandatory": "Obligatoire",
     "usedBy": "Utilisé par",
     "actions": "Actions",
-    "kind": "Genre",
+    "kind": "Catégorie",
     "type": "Type",
     "location": "Site",
     "technicianType": "Type de technicien",
@@ -127,7 +127,7 @@
     "workplaceName": "Nom du poste de travail",
     "sortOrder": "Ordre",
     "sortOrderHint": "L'ordre dans le planning, de 0 à 9999 : les petits nombres d'abord.",
-    "movingNote": "La ressource vaut immédiatement au nouveau site. Ses réservations qui ne sont pas encore passées sont marquées à replanifier."
+    "movingNote": "Au nouveau site, la ressource est disponible immédiatement. Ses réservations qui ne sont pas encore terminées sont marquées à replanifier."
   },
   "hours": {
     "title": "Horaires de travail de {{name}}",
@@ -140,7 +140,7 @@
     "endsAt": "Fin",
     "secondStartsAt": "Début après la pause",
     "secondEndsAt": "Fin après la pause",
-    "off": "Congé",
+    "off": "Non travaillé",
     "invalid": "Les heures du {{day}} ne concordent pas : chaque plage se termine après son début, et la deuxième commence après la fin de la première."
   }
 }

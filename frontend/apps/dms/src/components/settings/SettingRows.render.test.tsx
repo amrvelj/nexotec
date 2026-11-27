@@ -328,6 +328,21 @@ describe('SettingRows (KAN-805)', () => {
     expect(backend.calls.find((call) => call.method === 'PUT')!.body).toEqual({ value: { number: '45' } })
   })
 
+  it('a Betrieb O7 the API accepts is sent, though a location stays broken as it already was (KAN-842)', async () => {
+    // loc-a holds its own O6 20 under the Betrieb's O7 45 (reactivated, already broken there). 45 → 75 breaks
+    // nothing newly: check_multiple_rules accepts it, so the screen sends it.
+    const backend = render(plannerArea({ grid: '15', slot: '45', locationGrid: '20' }), ['planning.grid_minutes', 'planning.slot_minutes'], [
+      { method: 'PUT', match: /\/setting-values\/planning\.slot_minutes$/, handler: () => slot({ isSet: true, value: { number: '75' }, version: 2 }) },
+    ])
+    const betrieb = await rowCell(slotLabel(), 1)
+    await openEditor(betrieb)
+    const input = await screen.findByRole('textbox', { name: `${slotLabel()} · Betrieb` })
+    await userEvent.clear(input)
+    await userEvent.type(input, '75{Enter}')
+    await waitFor(() => expect(backend.calls.filter((call) => call.method === 'PUT')).toHaveLength(1))
+    expect(backend.calls.find((call) => call.method === 'PUT')!.body).toEqual({ value: { number: '75' } })
+  })
+
   it('a location with its own O6 hints and checks its O7 against that one (KAN-808)', async () => {
     render(plannerArea({ grid: '15', locationGrid: '20' }), ['planning.grid_minutes', 'planning.slot_minutes'])
     const hauptsitz = await rowCell(slotLabel(), 2)

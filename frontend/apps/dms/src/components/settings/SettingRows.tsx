@@ -7,7 +7,7 @@ import type { AreaSettingRead, AreaSettingsRead, SettingSlotRead } from '../../a
 import { useCanWrite } from '../../auth/useCanWrite'
 import { SettingCell } from './SettingCell'
 import { SettingHistory, type HistoryScope } from './SettingHistory'
-import { numberRuleAt } from './numberRules'
+import { multipleRuleViolation, numberRuleAt } from './numberRules'
 import { settingLabel } from './settingValue'
 import { useRefreshSettings, writeSetting } from './useSettings'
 
@@ -141,6 +141,7 @@ export function SettingRows({ dealershipId, data, keys, onReload }: SettingRowsP
                       canWrite={canWrite}
                       unavailableChoices={unavailableAt(setting, null)}
                       numberRule={numberRuleAt(data, setting, null)}
+                      multipleViolation={(proposed) => multipleRuleViolation(data, declaration.key, null, proposed)}
                       onSave={save(setting, null)}
                       onReload={onReload}
                     />
@@ -155,6 +156,7 @@ export function SettingRows({ dealershipId, data, keys, onReload }: SettingRowsP
                         canWrite={canWrite && location.isActive}
                         unavailableChoices={unavailableAt(setting, location.id)}
                         numberRule={numberRuleAt(data, setting, location.id)}
+                        multipleViolation={(proposed) => multipleRuleViolation(data, declaration.key, location.id, proposed)}
                         onSave={save(setting, location.id)}
                         onReload={onReload}
                       />
