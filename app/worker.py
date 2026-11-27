@@ -111,6 +111,11 @@ from app.inventory.public import (
     refresh_supplier_labels,
 )
 from app.inventory.public import referenced_configuration_ids as referenced_by_stock_items
+from app.labour_rate_agreement_merge import CONSUMER_NAME as AGREEMENTS_ON_CONTACT_MERGED
+from app.labour_rate_agreement_merge import (
+    move_labour_rate_agreements_on_contact_merged,
+    refresh_agreement_contact_labels_daily,
+)
 from app.message_type_registry import register_message_types
 from app.ownership_registry import register_ownership_providers
 from app.planning.consumers import STARTING_SETS_CONSUMER_NAME as PLANNING_STARTING_SETS_CONSUMER
@@ -139,6 +144,7 @@ from app.platform.daily_jobs import (
     run_daily_support_session_expiry,
     run_daily_user_expiry,
 )
+from app.platform.public import oldest_agreement_contact_label_age_seconds
 from app.reconciliation_runner import run_all_daily
 from app.reporting.consumers import CONSUMER_NAME as REPORTING_PUBLIC_STOCK_CONSUMER
 from app.reporting.consumers import EVENT_TYPE as REPORTING_WEBSITE_LISTING_EVENT
@@ -261,6 +267,13 @@ def register_handlers(transport: InProcessTransport) -> None:
         "contact.merged",
         consumer_name=AFTERSALES_CONTACT_MERGED_CONSUMER,
         handler=move_workshop_orders_on_contact_merged,
+    )
+    # KAN-831 (ADR-232) — and the duplicate's labour-rate agreements, in platform's own
+    # transaction, composed in app/labour_rate_agreement_merge.py (contact is above platform).
+    transport.register(
+        "contact.merged",
+        consumer_name=AGREEMENTS_ON_CONTACT_MERGED,
+        handler=move_labour_rate_agreements_on_contact_merged,
     )
     # KAN-632 (ADR-147) — the contact context's record of Stock's bookings,
     # which the two trade-in consumers below judge an event's order by. Its
@@ -529,6 +542,8 @@ def _heartbeat(db, transport: InProcessTransport) -> None:
     record_label_age_seconds("aftersales.order", order_label_age)
     package_label_age = oldest_package_label_age_seconds(db)
     record_label_age_seconds("aftersales.package", package_label_age)
+    agreement_label_age = oldest_agreement_contact_label_age_seconds(db)
+    record_label_age_seconds("platform.labour_rate_agreement", agreement_label_age)
 
     logger.info(
         "outbox heartbeat",
@@ -547,6 +562,7 @@ def _heartbeat(db, transport: InProcessTransport) -> None:
             "planningLocationLabelAgeSeconds": planning_location_label_age,
             "workshopOrderLabelAgeSeconds": order_label_age,
             "servicePackageLabelAgeSeconds": package_label_age,
+            "labourRateAgreementLabelAgeSeconds": agreement_label_age,
         },
     )
 
@@ -743,6 +759,10 @@ def register_daily_jobs() -> None:
     7e. ``aftersales.package_labels`` — KAN-818: a service-catalogue
        position's copy of its labour category's name, through platform's
        public.
+    7f. ``platform.labour_rate_agreement_labels`` — KAN-831: a labour-rate
+       agreement's copy of its contact's name, read through app.contact.public
+       in app/labour_rate_agreement_merge.py. A merged contact's row is left
+       alone (the merge consumer moves it).
     8. ``reconciliation.run_all`` — the nightly cross-context reconciliation
        (P-10, CLAUDE.md rule 10). There are no cross-context foreign keys
        anywhere in this codebase, so the database cannot detect a dangling
@@ -841,6 +861,7 @@ def register_daily_jobs() -> None:
     register_daily_job("planning.location_labels", _refresh_planning_location_labels)
     register_daily_job("aftersales.order_labels", _refresh_order_labels)
     register_daily_job("aftersales.package_labels", _refresh_package_labels)
+    register_daily_job("platform.labour_rate_agreement_labels", refresh_agreement_contact_labels_daily)
     register_daily_job("reconciliation.run_all", run_all_daily)
     register_daily_job("inventory.orphaned_reservations.release", run_daily_reservation_sweep)
     # 9b. KAN-724: a stock item a vehicle merge had to leave on the duplicate follows once nothing blocks it.

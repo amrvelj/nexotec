@@ -105,6 +105,8 @@ class LabourRateAgreementRead(CamelModel):
     entered: PriceEntry | None
     status: LabourRateStatus
     withdrawn_at: dt.datetime | None
+    # KAN-831: set aside by a contact merge (the survivor holds an agreement of that category, ADR-232).
+    set_aside_at: dt.datetime | None
     version: int
     created_at: dt.datetime
 

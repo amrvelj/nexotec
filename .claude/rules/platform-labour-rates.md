@@ -6,6 +6,8 @@ paths:
   - "app/platform/administration/*/labour_rates.py"
   - "app/api/v1/labour_rate_agreements.py"
   - "tests/platform/test_kan806_*.py"
+  - "app/labour_rate_agreement_merge.py"
+  - "tests/cross_context/test_kan831_*.py"
   - "frontend/apps/dms/src/pages/LabourRatesPage*"
   - "frontend/apps/dms/src/components/labourRates/**"
 ---
@@ -57,6 +59,16 @@ Last verified against main@dbf886d (2026-11-26, KAN-833). -->
   category with a rate at an active location, one still to come counting (Anto, 2026-11-25); neither blocks an
   action after activation yet. `tests/setup_checklist_support.complete_checklist` completes both for an
   Aftersales Betrieb.
-- **Open:** a `contact.merged` re-point and a nightly label refresh of agreements (KAN-831, waiting for Anto on
-  how a duplicate's rows of other dates combine with the survivor's agreement); copying categories from a
-  sister Betrieb (KAN-220's subset).
+- **A contact merge and a rename (KAN-831, ADR-232)** — composed in `app/labour_rate_agreement_merge.py`
+  (contact sits above platform): `platform.labour_rate_agreements_on_contact_merged` moves the duplicate's rows
+  to the event's survivor (`services/labour_rate_contacts.py`). **The survivor's agreement survives**
+  (Anto, option A, 2026-11-27): once the survivor holds a live rate row of a category in the Betrieb (an end alone is none), every row
+  of the duplicate for that category is **set aside** (`set_aside_at`: never an answer of `labour_rate_for`,
+  `superseded` on the screen, listed with the withdrawn, not reported); otherwise all move. The POST and the
+  consumer serialise on `lock_agreement_contact` (the consumer locks the duplicate, then the target). **Merges are
+  replayed in the order they happened:** a merge D→T waits (`EarlierMergeNotYetConsumed`, retried, dead-lettered with
+  its alert if it never clears) until every earlier merge into D or into T is consumed here — a dead one blocks too,
+  so **replay this consumer's dead letters oldest first**; a merge's rows land on the event's own
+  survivor, merged or not, and its own merge carries them on (contact's merge rewrites old pointers, KAN-383, so no
+  read of today's chain could). Nightly `platform.labour_rate_agreement_labels`.
+- **Open:** copying categories from a sister Betrieb (KAN-220's subset).
