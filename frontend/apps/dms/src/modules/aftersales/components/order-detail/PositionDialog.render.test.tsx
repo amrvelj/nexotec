@@ -309,4 +309,79 @@ describe('the position dialog (KAN-810, D13)', () => {
     await waitFor(() => expect(onSaved).toHaveBeenCalled())
     expect(backend.callsTo(/\/positions\/pos-1$/, 'PATCH')[0].body).toEqual({ labourCategoryId: 'cat-2', unitPrice: null })
   })
+  // KAN-851: typed input never vanishes because another field was set.
+  it('a price typed first survives choosing the category and unticking «nach Zeit»', async () => {
+    const user = userEvent.setup()
+    const backend = install({ proposal: { timeUnit: 'hours', workUnitsPerHour: null } })
+    renderDialog()
+
+    await user.type(field(t('serviceOrder.positionDialog.text')), 'Pauschale Bremsen')
+    await user.type(field(t('serviceOrder.positionDialog.rateNet')), '250')
+    await user.tab()
+    await chooseCategory(user)
+    await screen.findByTestId('rate-proposal')
+    expect(field(t('serviceOrder.positionDialog.rateNet'))).toHaveValue('CHF 250.00')
+    await user.click(screen.getByRole('checkbox', { name: t('serviceOrder.positionDialog.byTime') }))
+    expect(field(t('serviceOrder.positionDialog.fixedNet'))).toHaveValue('CHF 250.00')
+
+    await user.click(screen.getByRole('button', { name: t('serviceOrder.positionDialog.save') }))
+    await waitFor(() => expect(backend.callsTo(POSITIONS, 'POST')).toHaveLength(1))
+    expect(backend.callsTo(POSITIONS, 'POST')[0].body).toEqual({
+      kind: 'labour_fixed',
+      text: 'Pauschale Bremsen',
+      labourCategoryId: 'cat-1',
+      unitPrice: '250',
+      priceEntered: 'net',
+    })
+  })
+
+  it('a fixed price typed after the category survives changing the category and ticking «nach Zeit» again', async () => {
+    const user = userEvent.setup()
+    const backend = install({ proposal: { timeUnit: 'hours', workUnitsPerHour: null } })
+    renderDialog()
+
+    await user.type(field(t('serviceOrder.positionDialog.text')), 'Pauschale')
+    await chooseCategory(user)
+    await user.click(screen.getByRole('checkbox', { name: t('serviceOrder.positionDialog.byTime') }))
+    await user.type(field(t('serviceOrder.positionDialog.fixedGross')), '300')
+    await user.tab()
+    await user.click(await screen.findByRole('textbox', { name: (name) => name.startsWith(t('serviceOrder.positionDialog.labourCategory')) }))
+    await user.click(await screen.findByRole('option', { name: 'Karosserie' }))
+    expect(field(t('serviceOrder.positionDialog.fixedGross'))).toHaveValue('CHF 300.00')
+    await user.click(screen.getByRole('checkbox', { name: t('serviceOrder.positionDialog.byTime') }))
+    // By time the typed figure leads as the rate; «Vorschlag übernehmen» would bring the proposal.
+    expect(field(t('serviceOrder.positionDialog.rateGross'))).toHaveValue('CHF 300.00')
+    expect(await screen.findByRole('button', { name: t('serviceOrder.positionDialog.useProposal') })).toBeInTheDocument()
+
+    await user.type(field(t('serviceOrder.positionDialog.quantityIn', { unit: t('serviceOrder.timeUnit.hours') })), '2')
+    await user.click(screen.getByRole('button', { name: t('serviceOrder.positionDialog.save') }))
+    await waitFor(() => expect(backend.callsTo(POSITIONS, 'POST')).toHaveLength(1))
+    expect(backend.callsTo(POSITIONS, 'POST')[0].body).toMatchObject({
+      kind: 'labour_time',
+      labourCategoryId: 'cat-2',
+      unitPrice: '300',
+      priceEntered: 'gross',
+    })
+  })
+
+  it('while the proposal loads, the time field does not ask for a category already chosen', async () => {
+    const user = userEvent.setup()
+    let answer: (value: unknown) => void = () => {}
+    const pending = new Promise((resolve) => {
+      answer = resolve
+    })
+    installFakeBackend([
+      { method: 'GET', match: /^\/dealerships\/dealership-1\/labour-rate-categories$/, handler: () => LABOUR_CATEGORIES },
+      { method: 'GET', match: /^\/dealerships\/dealership-1$/, handler: () => ({ id: 'dealership-1', vatRate: '8.10' }) },
+      { method: 'GET', match: /\/labour-rate-proposal$/, handler: () => pending },
+    ])
+    renderDialog()
+
+    expect(await screen.findAllByText(t('serviceOrder.positionDialog.chooseCategoryFirst'))).not.toHaveLength(0)
+    await chooseCategory(user)
+    await waitFor(() => expect(screen.queryByText(t('serviceOrder.positionDialog.chooseCategoryFirst'))).not.toBeInTheDocument())
+
+    answer(proposal())
+    expect(await screen.findByTestId('rate-proposal')).toBeInTheDocument()
+  })
 })
