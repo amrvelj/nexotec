@@ -718,9 +718,8 @@ def set_credit_block(
     # takes the lock too, so a lift that waited for a merge carrying a block
     # onto this contact is a 409 (another version), never a silent overwrite.
     _lock_for_role_change(db, contact)
-    if blocked:
-        if ContactRole.CUSTOMER.value not in roles_service.open_roles(db, contact.id):
-            raise roles_service.customer_role_required("creditBlock")
+    if blocked and ContactRole.CUSTOMER.value not in roles_service.open_roles(db, contact.id):
+        raise roles_service.customer_role_required("creditBlock")
 
     before = {"creditBlock": contact.credit_block, "creditBlockReason": contact.credit_block_reason}
     contact.credit_block = blocked
@@ -775,9 +774,8 @@ def set_block(
     # between; a lift too (KAN-843), so it never overwrites a block a merge
     # carried onto this contact meanwhile.
     _lock_for_role_change(db, contact)
-    if blocked:
-        if ContactRole.CUSTOMER.value not in roles_service.open_roles(db, contact.id):
-            raise roles_service.customer_role_required("blocked")
+    if blocked and ContactRole.CUSTOMER.value not in roles_service.open_roles(db, contact.id):
+        raise roles_service.customer_role_required("blocked")
 
     before = {"blocked": contact.blocked, "blockedReason": contact.blocked_reason}
     contact.blocked = blocked
