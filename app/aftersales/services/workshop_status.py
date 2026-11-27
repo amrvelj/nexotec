@@ -135,16 +135,3 @@ def refresh(db: Session, order: ServiceOrder) -> WorkshopStatus:
     elif row.status is not status:
         row.status, row.refreshed_at = status, utcnow()
     return status
-
-
-def statuses_of(db: Session, order_ids: list[uuid.UUID]) -> dict[uuid.UUID, WorkshopStatus]:
-    """The projection, for the list (criterion 5)."""
-
-    if not order_ids:
-        return {}
-    return {
-        row.service_order_id: row.status
-        for row in db.scalars(
-            select(ServiceOrderWorkshopStatus).where(ServiceOrderWorkshopStatus.service_order_id.in_(order_ids))
-        )
-    }

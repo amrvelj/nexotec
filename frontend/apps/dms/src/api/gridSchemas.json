@@ -695,6 +695,48 @@
       },
       {
         "defaultVisible": true,
+        "field": "workshopStatus",
+        "labelKey": "serviceOrders.columns.workshopStatus",
+        "operators": [
+          "is",
+          "isNot",
+          "in"
+        ],
+        "options": [
+          {
+            "labelKey": "serviceOrder.workshopStatus.planned",
+            "value": "planned"
+          },
+          {
+            "labelKey": "serviceOrder.workshopStatus.car_here",
+            "value": "car_here"
+          },
+          {
+            "labelKey": "serviceOrder.workshopStatus.in_work",
+            "value": "in_work"
+          },
+          {
+            "labelKey": "serviceOrder.workshopStatus.work_done",
+            "value": "work_done"
+          },
+          {
+            "labelKey": "serviceOrder.workshopStatus.checked",
+            "value": "checked"
+          },
+          {
+            "labelKey": "serviceOrder.workshopStatus.ready_for_pickup",
+            "value": "ready_for_pickup"
+          },
+          {
+            "labelKey": "serviceOrder.workshopStatus.handed_over",
+            "value": "handed_over"
+          }
+        ],
+        "sortable": true,
+        "type": "enum"
+      },
+      {
+        "defaultVisible": true,
         "field": "orderDate",
         "labelKey": "serviceOrders.columns.orderDate",
         "operators": [

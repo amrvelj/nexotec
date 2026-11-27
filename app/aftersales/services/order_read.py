@@ -109,7 +109,7 @@ def _user_labels(db: Session, *, order: ServiceOrder, group_id: uuid.UUID, user_
     return users
 
 
-def summary(order: ServiceOrder, *, waiting: bool, status: WorkshopStatus | None = None) -> ServiceOrderSummary:
+def summary(order: ServiceOrder, *, waiting: bool) -> ServiceOrderSummary:
     return ServiceOrderSummary(
         id=order.id,
         version=order.version,
@@ -123,15 +123,14 @@ def summary(order: ServiceOrder, *, waiting: bool, status: WorkshopStatus | None
         vehicle_label=order.vehicle_label,
         waiting_for_answer=waiting,
         created_at=order.created_at,
-        workshop_status=status or WorkshopStatus.PLANNED,
+        # KAN-813: the projection's, through the order's read-only expression.
+        workshop_status=order.workshop_status or WorkshopStatus.PLANNED,  # type: ignore[attr-defined]
     )
 
 
 def summaries(db: Session, orders: list[ServiceOrder]) -> list[ServiceOrderSummary]:
-    ids = [order.id for order in orders]
-    waiting = waiting_for_answer_ids(db, ids)
-    statuses = workshop_status.statuses_of(db, ids)
-    return [summary(order, waiting=order.id in waiting, status=statuses.get(order.id)) for order in orders]
+    waiting = waiting_for_answer_ids(db, [order.id for order in orders])
+    return [summary(order, waiting=order.id in waiting) for order in orders]
 
 
 def _stay_read(db: Session, *, order: ServiceOrder, group_id: uuid.UUID) -> StayRead | None:
@@ -228,10 +227,8 @@ def order_read(db: Session, *, order: ServiceOrder, group_id: uuid.UUID) -> Serv
             work_without_answer=job.id in without_answer,
         )
 
-    base = summary(
-        order, waiting=any(job.answer_state.value == "waiting" for job in jobs),
-        status=workshop_status.statuses_of(db, [order.id]).get(order.id),
-    )
+    db.refresh(order, ["workshop_status"])
+    base = summary(order, waiting=any(job.answer_state.value == "waiting" for job in jobs))
     return ServiceOrderRead(
         **base.model_dump(),
         invoice_recipient=PartyRead(contact_id=order.invoice_recipient_contact_id, label=order.invoice_recipient_label),

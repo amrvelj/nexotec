@@ -48,9 +48,10 @@ import enum
 import uuid
 from decimal import Decimal
 
-from sqlalchemy import Boolean, Date, ForeignKey, Index, Integer, Numeric, String, UniqueConstraint, false
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy import Boolean, Date, ForeignKey, Index, Integer, Numeric, String, UniqueConstraint, false, select
+from sqlalchemy.orm import Mapped, column_property, mapped_column
 
+from app.aftersales.models.service_stay import ServiceOrderWorkshopStatus, WorkshopStatus
 from app.core.base import PrimaryKeyMixin, TenantScopedMixin, TimestampMixin, VersionedMixin
 from app.core.enum_type import StoredEnum
 from app.core.money import PriceEntry
@@ -190,6 +191,21 @@ class ServiceOrder(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, Timestamp
     cancelled_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)
     cancelled_by: Mapped[uuid.UUID | None] = mapped_column(GUID(), nullable=True)
     cancel_reason: Mapped[str | None] = mapped_column(String(500), nullable=True)
+
+
+# KAN-813, criterion 5: the order's workshop status as the list reads, sorts and filters it — a
+# read-only expression over its projection (`service_order_workshop_status`, one row per order,
+# written by `services/workshop_status.refresh` alone). Not a column of the order: nothing can set
+# it through the order (ADR-213: «never a status column on the order»).
+ServiceOrder.workshop_status = column_property(  # type: ignore[attr-defined]
+    select(ServiceOrderWorkshopStatus.status)
+    .where(ServiceOrderWorkshopStatus.service_order_id == ServiceOrder.id)
+    .correlate_except(ServiceOrderWorkshopStatus)
+    .scalar_subquery()
+    .label("workshop_status"),
+    deferred=False,
+)
+_ = WorkshopStatus  # the enum the expression reads, re-read by the grid registry
 
 
 class ServiceOrderJob(PrimaryKeyMixin, TenantScopedMixin, TimestampMixin, Base):

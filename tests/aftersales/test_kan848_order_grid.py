@@ -40,7 +40,8 @@ def test_the_grid_schema_serves_every_column_and_each_sorts(client, db_session, 
     fields = response.json()["fields"]
     assert [f["field"] for f in fields] == [spec.api_name for spec in SERVICE_ORDER_COLUMNS]
     assert [f["field"] for f in fields] == [
-        "orderNumber", "vehicleLabel", "contactLabel", "state", "orderDate", "locationLabel", "createdAt",
+        "orderNumber", "vehicleLabel", "contactLabel", "state", "workshopStatus", "orderDate", "locationLabel",
+        "createdAt",
     ]
     assert all(f["sortable"] for f in fields)
     state = next(f for f in fields if f["field"] == "state")

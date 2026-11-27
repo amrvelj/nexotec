@@ -232,6 +232,23 @@ def test_the_list_reads_the_workshop_status_from_its_projection(client, db_sessi
     assert row is not None and row.status is WorkshopStatus.CAR_HERE
 
 
+def test_the_list_sorts_and_filters_by_the_workshop_status(client, db_session, betrieb):
+    here = _order(client, db_session, betrieb)
+    planned = _order(client, db_session, betrieb)
+    _arrive(client, betrieb, here)
+
+    def listed(**params) -> list[str]:
+        response = client.get("/v1/service-orders", params=params, headers=headers(betrieb))
+        assert response.status_code == 200, response.text
+        return [item["id"] for item in response.json()["items"]]
+
+    assert listed(filter="workshopStatus:is:car_here") == [here["id"]]
+    assert listed(filter="workshopStatus:is:planned") == [planned["id"]]
+    # Codes sort as stored: «car_here» before «planned».
+    assert listed(sort="workshopStatus:asc") == [here["id"], planned["id"]]
+    assert listed(sort="workshopStatus:desc") == [planned["id"], here["id"]]
+
+
 def _inputs(**overrides) -> StatusInputs:
     base = {"order_state": ServiceOrderState.ACCEPTED, "car_here": True, "car_left": False, "clock_running": False,
             "labour_count": 2, "labour_done": 0, "check_needed": False, "check_passed": False}
