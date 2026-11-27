@@ -68,6 +68,8 @@ const REASON_KEYS: Record<string, string> = {
   status_transition_not_allowed: 'business.statusRefusals.status_transition_not_allowed',
   use_activation_procedure: 'business.statusRefusals.use_activation_procedure',
   use_offboarding_procedure: 'business.statusRefusals.use_offboarding_procedure',
+  // KAN-844 — the dealership PATCH's VAT rate range (app/core/money.py's, ADR-215).
+  vat_rate_out_of_range: 'business.errors.vatRateOutOfRange',
   // KAN-225 — the publishing profile's files and lead routing.
   ...Object.fromEntries(
     [

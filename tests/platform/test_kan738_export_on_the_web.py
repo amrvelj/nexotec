@@ -25,7 +25,7 @@ from tests.data_export_support import (
     get_export,
     request_export,
 )
-from tests.postgres_only import ROW_LOCKS
+from tests.postgres_only import NEEDS_ITS_OWN_CONNECTION, ROW_LOCKS
 
 
 class _RecordingTransport:
@@ -154,6 +154,12 @@ def test_the_web_service_starts_its_runner_and_stops_it_on_shutdown(monkeypatch)
     assert calls == [("start", SessionLocal), "stop"]
 
 
+# KAN-852: on the SQLite lane the runner thread's session and the polling
+# requests' sessions share the one in-memory connection; a GET that commits
+# while the runner is mid-export ends the runner's transaction too, and its
+# commit fails («cannot commit - no transaction is active», nightly run
+# 45806611511) — the marker's reason. Postgres gives each its own connection.
+@NEEDS_ITS_OWN_CONNECTION
 def test_the_runner_thread_produces_a_request_it_is_woken_for(client, export_store, engine):
     """The real thread, started as app.main starts it, on a long interval:
     only the wake makes it look."""

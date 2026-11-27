@@ -9,6 +9,7 @@
     "invalid": "Verificate i dati inseriti.",
     "uidTaken": "Questo IDI appartiene già a un'altra azienda.",
     "confirmationRequired": "La modifica di ragione sociale, IDI o IVA richiede la vostra conferma.",
+    "vatRateOutOfRange": "L'aliquota IVA è compresa tra 0 e meno del 100 % e ha al massimo due decimali, p. es. 8.10.",
     "unknownReferenceCode": "Questo valore non è nell'elenco.",
     "qrReferenceNeedsQrIban": "Il riferimento QR richiede un QR-IBAN. Inserite il QR-IBAN o scegliete un altro tipo di riferimento.",
     "qrIbanNeedsQrReference": "Un QR-IBAN si usa solo con il riferimento QR. Rimuovete il QR-IBAN o scegliete il riferimento QR.",

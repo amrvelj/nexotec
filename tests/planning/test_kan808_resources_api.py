@@ -21,6 +21,7 @@ from app.platform.organisation.services.entitlement import list_active_modules
 from tests import setup_checklist_support as s
 from tests.identity_support import PasswordLogin, cookie_headers, create_dealership
 from tests.platform_tenant_support import ensure_platform_tenant
+from tests.text_sort_support import text_sort_order
 from tests.token_support import dealer_group_of
 
 
@@ -583,7 +584,11 @@ def test_the_lists_keep_their_order(client, db_session, betrieb):
         _post(client, f"{base}/qualifications", {"name": name, "sortOrder": order}, boss)
     _post(client, f"{base}/qualifications", {"name": "Zuletzt", "sortOrder": 5}, boss)
     names = [item["name"] for item in client.get(f"{base}/qualifications", headers=boss).json()["items"]]
-    assert names == ["alpha", "Ärztin", "Erst", "Zeta", "Zuletzt"]
+    # The sort order first, then the word sort (KAN-740, ADR-190), asked of the database itself
+    # (KAN-852): on the SQLite fast lane a sort carries no collation and is byte order.
+    assert names == [*text_sort_order(db_session, ["Zeta", "alpha", "Ärztin", "Erst"]), "Zuletzt"]
+    if db_session.get_bind().dialect.name == "postgresql":
+        assert names == ["alpha", "Ärztin", "Erst", "Zeta", "Zuletzt"]
 
 
 

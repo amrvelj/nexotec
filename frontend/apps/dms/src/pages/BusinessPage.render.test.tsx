@@ -284,6 +284,33 @@ describe('BusinessPage (KAN-203)', () => {
     expect(fiscal.queryByRole('alert')).toBeNull()
   })
 
+  it('a mistyped VAT rate is sent as typed, never clamped to another rate, and its refusal is said (KAN-844)', async () => {
+    const backend = installFakeBackend(
+      routes([
+        {
+          method: 'PATCH',
+          match: /\/dealerships\/dealership-1$/,
+          handler: () =>
+            status(422, { error: { code: 'unprocessable_entity', message: 'out of range', details: { reason: 'vat_rate_out_of_range', field: 'vatRate' } } }),
+        },
+      ]),
+    )
+    const user = userEvent.setup()
+    renderWithProviders(<BusinessPage />, { route: '/administration/business' })
+    const fiscal = within(await screen.findByRole('region', { name: 'Kaufmännische Vorgaben' }))
+
+    const rate = fiscal.getByLabelText(/MWST-Satz/)
+    await user.clear(rate)
+    await user.type(rate, '810')
+    await user.tab()
+    expect(rate).toHaveValue('810 %')
+    await user.click(fiscal.getByRole('button', { name: 'Speichern' }))
+
+    await waitFor(() => expect(backend.callsTo(/\/dealerships\/dealership-1$/, 'PATCH')).toHaveLength(1))
+    expect(backend.callsTo(/\/dealerships\/dealership-1$/, 'PATCH')[0].body).toEqual({ vatRate: '810' })
+    expect(await fiscal.findByText(/Der MWST-Satz liegt zwischen 0 und unter 100 %/)).toBeInTheDocument()
+  })
+
   it("saves the Betrieb's e-mail and website for the documents' footer (KAN-206)", async () => {
     const backend = installFakeBackend(
       routes([{ method: 'PATCH', match: /\/dealerships\/dealership-1$/, handler: (req) => ({ ...DEALERSHIP, ...(req.body as object), version: 4 }) }]),

@@ -9,6 +9,7 @@
     "invalid": "Please check your entries.",
     "uidTaken": "This UID already belongs to another business.",
     "confirmationRequired": "A change of the legal name, UID or VAT needs your confirmation.",
+    "vatRateOutOfRange": "The VAT rate is from 0 to below 100 % with at most two decimals, e.g. 8.10.",
     "unknownReferenceCode": "This value is not in the list.",
     "qrReferenceNeedsQrIban": "The QR reference needs a QR-IBAN. Enter the QR-IBAN or choose another reference type.",
     "qrIbanNeedsQrReference": "A QR-IBAN is only used with the QR reference. Remove the QR-IBAN or choose the QR reference.",
