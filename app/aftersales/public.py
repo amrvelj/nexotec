@@ -21,6 +21,7 @@ the composition root).
 
 from app.aftersales.models.service_order import ServiceOrderState
 from app.aftersales.services.data_export import AftersalesExporter
+from app.aftersales.services.order_grid import service_order_grid_schema
 from app.aftersales.services.order_references import oldest_order_label_age_seconds, refresh_order_labels
 from app.aftersales.services.service_order import CANCELLED_EVENT as SERVICE_ORDER_CANCELLED_EVENT
 from app.aftersales.services.service_order import CREATED_EVENT as SERVICE_ORDER_CREATED_EVENT
@@ -40,4 +41,5 @@ __all__ = [
     "oldest_package_label_age_seconds",
     "refresh_order_labels",
     "refresh_package_labels",
+    "service_order_grid_schema",
 ]

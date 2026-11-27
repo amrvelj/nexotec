@@ -9,7 +9,7 @@ is an identifier (`IDENTIFIER_TEXT` on its column) and keeps byte order.
 """
 
 from app.aftersales.models.service_order import ServiceOrder, ServiceOrderState
-from app.core.list_query import ColumnSpec, Registry
+from app.core.list_query import ColumnSpec, GridSchemaRead, Registry, grid_schema
 
 _L = "serviceOrders.columns."
 
@@ -28,3 +28,10 @@ SERVICE_ORDER_COLUMNS: Registry = (
 )
 
 DEFAULT_SERVICE_ORDER_SORT = (("createdAt", "desc"),)
+
+
+def service_order_grid_schema() -> GridSchemaRead:
+    """The served schema of the order list, as `aftersales.public` hands it to
+    the type generator (scripts/generate_openapi_schema.py; ADR-047)."""
+
+    return grid_schema(SERVICE_ORDER_COLUMNS)

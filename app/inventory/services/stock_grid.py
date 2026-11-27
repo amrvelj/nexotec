@@ -15,7 +15,7 @@ from typing import Any
 from sqlalchemy import ColumnElement, and_, false, or_
 
 from app.core.base import utcnow
-from app.core.list_query import ColumnSpec, Registry
+from app.core.list_query import ColumnSpec, GridSchemaRead, Registry, grid_schema
 from app.inventory.models.stock_item import (
     AgeingBucket,
     LifecycleStatus,
@@ -149,3 +149,10 @@ STOCK_ITEM_EXCLUDED_COLUMNS: dict[str, str] = {
 }
 
 DEFAULT_STOCK_ITEM_SORT: tuple[tuple[str, str], ...] = (("updatedAt", "desc"),)
+
+
+def stock_item_grid_schema() -> GridSchemaRead:
+    """The served schema of the Stock grid, as `inventory.public` hands it to
+    the type generator (scripts/generate_openapi_schema.py; ADR-047)."""
+
+    return grid_schema(STOCK_ITEM_COLUMNS)
