@@ -67,9 +67,7 @@ function otherFigure(price: TypedPrice, vatRate: number | null): number | '' {
  * - a fixed price is always typed (Anto, Q2): no proposal for it;
  * - the price typed last leads, net or gross (check 12): it is sent as
  *   `unitPrice` with `priceEntered`; the other field shows the other figure
- *   as a preview only, never sent; it survives choosing or changing the
- *   category (KAN-851) — «Vorschlag übernehmen» and toggling «nach Zeit» (a
- *   rate is not a fixed price) drop it;
+ *   as a preview only, never sent;
  * - the time is typed in the unit in force at the order's location (hours
  *   or work units, O18/O19, which the proposal endpoint names); a position
  *   keeps the unit it was entered with while its time is not changed (check
@@ -415,10 +413,6 @@ export function PositionDialog({ opened, order, jobId, position, onClose, onSave
             value={categoryId}
             onChange={(value) => {
               setCategoryId(value)
-              // KAN-851: a price typed in this dialog survives the category: a fixed price is
-              // always typed (Anto, KAN-810 Q2), and a typed rate is kept by the server too.
-              // A field typed and emptied again holds no price: the proposal may come back.
-              if (typed !== null && typed.amount !== '') return
               setTyped(null)
               // The server's rule (positions.change_position): a changed category takes that
               // category's rate for a proposed price and keeps a typed one. Show what it will do.
@@ -440,9 +434,6 @@ export function PositionDialog({ opened, order, jobId, position, onClose, onSave
             disabled={editing}
             onChange={(e) => {
               setByTime(e.currentTarget.checked)
-              // KAN-851: a typed figure does not carry across this toggle — a rate per hour and a
-              // fixed price are different amounts of money, so it no longer applies (the question
-              // whether it should is with Anto on the ticket).
               setTyped(null)
             }}
           />
@@ -451,12 +442,9 @@ export function PositionDialog({ opened, order, jobId, position, onClose, onSave
               {...hint(
                 labourTimeLabel,
                 unit === null
-                  ? categoryId === null
-                    ? t('serviceOrder.positionDialog.chooseCategoryFirst')
-                    : proposal.isError
-                      ? t('serviceOrder.positionDialog.proposalError')
-                      : // KAN-851: the category is chosen; the unit arrives with the proposal.
-                        undefined
+                  ? categoryId !== null && proposal.isError
+                    ? t('serviceOrder.positionDialog.proposalError')
+                    : t('serviceOrder.positionDialog.chooseCategoryFirst')
                   : !byTime
                     ? t('serviceOrder.positionDialog.quantityHint')
                     : undefined,
