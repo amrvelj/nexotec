@@ -10,7 +10,7 @@ import { useInlineEditRefusal } from '../../hooks/useInlineEditRefusal'
 import { LANGUAGE_ENDONYMS, LANGUAGE_ORDER } from '../../i18n/languageEndonyms'
 import { apiRefusalText, isStaleVersion } from '../../utils/apiRefusal'
 import { formatNumber } from '../../utils/format'
-import { allowedDivisors, ruleViolation, type NumberRule, type RuleViolation } from './numberRules'
+import { allowedDivisors, declarationDivisorViolation, type NumberRule, type RuleViolation } from './numberRules'
 import { SWITCH_OFF, SWITCH_ON, formatSettingValue, fromDraft, settingLabel, toDraft, type SettingKind } from './settingValue'
 
 const CLEAR = '__clear__'
@@ -40,6 +40,9 @@ export interface SettingCellProps {
   /** The number rules in force in this column (`divides`, `multipleOf`; KAN-808): shown as
    * the field's hint, offered or checked before the write. */
   numberRule?: NumberRule
+  /** KAN-842: the store's multiple rule for a write to this cell (null: a clear) —
+   * `numberRules.multipleRuleViolation` bound to the column. */
+  multipleViolation?: (proposed: number | null) => RuleViolation | null
   onSave: (value: SettingValueBody | null, version: number) => Promise<void>
   onReload: () => void
 }
@@ -59,6 +62,7 @@ export function SettingCell({
   canWrite,
   unavailableChoices = [],
   numberRule,
+  multipleViolation,
   onSave,
   onReload,
 }: SettingCellProps) {
@@ -141,21 +145,27 @@ export function SettingCell({
   const ruleHint = numberRule ? numberRuleHint(t, declaration, numberRule) : null
   const violationText = (violation: RuleViolation, value: number) =>
     t(`settings.rule.refused.${violation.kind}`, {
-      value: formatted(value),
+      value: formatted(violation.value ?? value),
       // Another setting's number may have another unit: the bound reads as a number.
       bound: formatNumber(violation.bound.value),
       setting: violation.bound.key === null ? '' : settingLabel(t, violation.bound.key),
     })
+  // The declaration's own divisor, then the store's multiple rule for exactly this write — a
+  // clear included (KAN-842).
+  const violationOf = (value: number | null): RuleViolation | null =>
+    (value !== null && numberRule ? declarationDivisorViolation(numberRule, value) : null) ??
+    (multipleViolation ? multipleViolation(value) : null)
   const checkRule = (body: SettingValueBody | null) => {
-    if (!numberRule || body?.number == null) return
-    const value = Number(body.number)
-    const violation = ruleViolation(numberRule, value)
-    if (violation) throw new SettingRuleRefusal(violationText(violation, value))
+    if (kind !== 'number') return
+    const value = body?.number == null ? null : Number(body.number)
+    if (value !== null && !Number.isFinite(value)) return
+    const violation = violationOf(value)
+    if (violation) throw new SettingRuleRefusal(violationText(violation, value ?? 0))
   }
   const divisorOptions = allowedDivisors(declaration)?.map((value) => ({
     value: String(value),
     label: formatted(value),
-    disabled: numberRule ? ruleViolation(numberRule, value) !== null : false,
+    disabled: violationOf(value) !== null,
   }))
 
   let field: React.ReactNode

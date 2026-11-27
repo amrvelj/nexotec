@@ -12,7 +12,7 @@
   },
   "grid": {
     "resource": "Ressource",
-    "unavailable": "Nicht im Dienst",
+    "unavailableSpan": "Nicht im Dienst, {{from}}–{{to}}",
     "now": "Jetzt",
     "aria": "Planer, {{day}}, {{location}}"
   },
@@ -82,6 +82,7 @@
     "timeRequired": "Geben Sie für Beginn und Ende je ein Datum und eine Zeit an.",
     "endAfterStart": "Das Ende muss nach dem Beginn liegen.",
     "notBookable": "{{name}} (nicht mehr buchbar)",
+    "otherLocation": "{{name}} (anderer Standort)",
     "slotLength": "Ein Annahme- oder Abholtermin dauert so lange, wie in den Einstellungen des Planers festgelegt; sein Ende folgt seinem Beginn."
   },
   "warnings": {

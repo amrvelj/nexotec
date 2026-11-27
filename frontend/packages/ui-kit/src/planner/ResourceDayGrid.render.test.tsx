@@ -13,9 +13,13 @@ import { testTheme } from "../test/testTheme";
 
 const wrap = (ui: ReactNode) => render(<MantineProvider theme={testTheme}>{ui}</MantineProvider>);
 
+const labelOf = (minute: number) =>
+  `${String(Math.floor(minute / 60)).padStart(2, "0")}:${String(minute % 60).padStart(2, "0")}`;
+
 const labels = {
   resource: "Ressource",
-  unavailable: "nicht im Dienst",
+  unavailable: (span: { startMinute: number; endMinute: number }) =>
+    `nicht im Dienst, ${labelOf(span.startMinute)}–${labelOf(span.endMinute)}`,
   now: "Jetzt",
   hour: (minute: number) => `${String(Math.floor(minute / 60)).padStart(2, "0")}:00`,
 };
@@ -76,7 +80,9 @@ describe("ResourceDayGrid (KAN-809)", () => {
     const { container } = wrap(<ResourceDayGrid fromMinute={420} toMinute={1080} groups={groups()} labels={labels} ariaLabel="Planer" />);
     expect(within(screen.getByRole("button", { name: "Auftrag 1002" })).getByText("neu einplanen")).toBeInTheDocument();
     const hatched = container.querySelector("[data-unavailable]");
-    expect(hatched?.getAttribute("title")).toBe("nicht im Dienst");
+    expect(hatched?.getAttribute("title")).toBe("nicht im Dienst, 00:00–07:30");
+    // KAN-846: the span is named with its times, for a screen reader too.
+    expect(screen.getByRole("img", { name: "nicht im Dienst, 00:00–07:30" })).toBe(hatched);
   });
 
   it("activates an item by click and by keyboard", async () => {

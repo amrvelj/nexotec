@@ -33,7 +33,9 @@ Last verified against main@32ad509 (2026-11-25). -->
 
 - **List-query layer** (ADR-179, `app/core/list_query.py`): one column registry per entity; `sort` and
   `filter=field:op[:value]` over it, 422 outside, served at `…/grid-schema` and generated into `src/api/gridSchemas.json` (`make generate-frontend-types`). A grid on it (Stock; more in
-  KAN-461 PR-2…4) takes filter fields, `sortableFields` and default visibility from the schema — never a hand list or `meta.sortField`.
+  KAN-461 PR-2…4) takes filter fields, `sortableFields` and default visibility from the schema — never a hand list or `meta.sortField`. The workshop
+  order list (KAN-848, `aftersales/services/order_grid.py`) takes `sortableFields` and default visibility from it; its one
+  filter stays the state with the options of Anto's ruling (`FILTER_STATES`), sent as `state` (= `filter=state:is:…`).
 - **Text order** (ADR-190; Anto, 2026-11-18): every `SortField` over a word column sorts under the ICU collation
   `nexotec_text_sort` (case ignored, Ä/é beside A/e, one order for every language; `app/core/text_collation.py`); a code
   or identifier column (VIN, numbers, phone, a code or key) is `info=IDENTIFIER_TEXT` and keeps byte order. A fixed

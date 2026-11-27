@@ -12,7 +12,7 @@
   },
   "grid": {
     "resource": "Risorsa",
-    "unavailable": "Non in servizio",
+    "unavailableSpan": "Non in servizio, {{from}}–{{to}}",
     "now": "Adesso",
     "aria": "Pianificatore, {{day}}, {{location}}"
   },
@@ -82,6 +82,7 @@
     "timeRequired": "Indicate una data e un’ora sia per l’inizio sia per la fine.",
     "endAfterStart": "La fine deve seguire l’inizio.",
     "notBookable": "{{name}} (non più prenotabile)",
+    "otherLocation": "{{name}} (altra sede)",
     "slotLength": "Un appuntamento di accettazione o di ritiro dura quanto fissato nelle impostazioni del pianificatore; la sua fine segue l’inizio."
   },
   "warnings": {

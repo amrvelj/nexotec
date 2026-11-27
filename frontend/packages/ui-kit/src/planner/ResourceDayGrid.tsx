@@ -13,8 +13,9 @@ import { purple, radius, semantic, slate, slate25, white } from "../tokens";
  * - Groups of rows (people, workplaces), each row a label and a track.
  * - Items in a row that overlap are laid in lanes, so none hides another.
  * - `unavailable` spans (outside a person's working hours) are hatched — and
- *   carry their meaning in text too (`labels.unavailable` as their title and
- *   accessible name), never by pattern alone.
+ *   carry their meaning in text too (`labels.unavailable(span)` as their title
+ *   and accessible name, with the span's times — KAN-846), never by pattern
+ *   alone.
  * - An item marked `flagLabel` («neu einplanen») gets a dashed destructive
  *   border AND the label as text.
  * - Every item the caller lets open (`onActivate`) is a button in the tab
@@ -61,8 +62,8 @@ export interface DayGridGroup {
 export interface ResourceDayGridLabels {
   /** The header of the label column («Ressource»). */
   resource: string;
-  /** The text for a hatched span («nicht im Dienst»). */
-  unavailable: string;
+  /** The text for a hatched span, with its times («Nicht im Dienst, 12:00–13:00», KAN-846). */
+  unavailable: (span: DayGridSpan) => string;
   /** The now line's accessible name («Jetzt»). */
   now: string;
   /** An hour's label on the axis («08:00»). */
@@ -229,9 +230,9 @@ export function ResourceDayGrid({
                       gap.endMinute > fromMinute && gap.startMinute < toMinute ? (
                         <Box
                           key={`${gap.startMinute}-${gap.endMinute}`}
-                          title={labels.unavailable}
+                          title={labels.unavailable(gap)}
                           role="img"
-                          aria-label={labels.unavailable}
+                          aria-label={labels.unavailable(gap)}
                           data-unavailable
                           style={{
                             position: "absolute",

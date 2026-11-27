@@ -59,10 +59,9 @@ from app.core.audit import record_audit_event
 from app.core.base import utcnow
 from app.core.config import get_settings
 from app.core.errors import ConflictError, NotFoundError, UnprocessableEntityError
+from app.core.list_query import ListQuery, run_list_query
 from app.core.outbox import OutboxEvent, publish
-from app.core.pagination import SortPageParams, count_capped, paginate_query_sorted
 from app.core.relative_dates import today_in_session_zone
-from app.core.sorting import build_page_for_sort
 from app.platform.public import NumberRangeDocumentType, allocate_number, get_location_or_404
 from app.vehicle.public import get_vehicle_mdm_or_404, get_vehicle_summaries, resolve_merged_vehicle_id
 
@@ -123,17 +122,18 @@ def list_orders(
     *,
     tenant_id: uuid.UUID,
     chip: str | None,
-    state: ServiceOrderState | None,
     q: str | None,
-    params: SortPageParams,
+    query: ListQuery,
 ) -> tuple[list[ServiceOrder], str | None, int, bool]:
-    stmt: Select = select(ServiceOrder).where(ServiceOrder.tenant_id == tenant_id)
+    """The order list (D1) on the list-query layer (KAN-848): the chip and
+    the search narrow it, `query` filters and sorts over
+    `order_grid.SERVICE_ORDER_COLUMNS`, scoped to the Betrieb."""
+
+    stmt: Select = select(ServiceOrder)
     if chip == "waiting_for_answer":
         stmt = stmt.where(ServiceOrder.state.in_(OPEN_STATES), _waiting_for_answer(ServiceOrder.id))
     elif chip == "ready_for_billing":
         stmt = stmt.where(ServiceOrder.state == ServiceOrderState.READY_FOR_BILLING)
-    if state is not None:
-        stmt = stmt.where(ServiceOrder.state == state)
     if q:
         # `%` and `_` typed into the search are letters, not wildcards.
         stmt = stmt.where(
@@ -144,10 +144,14 @@ def list_orders(
                 ServiceOrder.vehicle_label.icontains(q, autoescape=True),
             )
         )
-    total, total_is_estimate = count_capped(db, stmt, threshold=get_settings().count_exact_threshold)
-    rows = list(db.scalars(paginate_query_sorted(stmt, model=ServiceOrder, params=params)).all())
-    items, next_cursor = build_page_for_sort(rows, params)
-    return items, next_cursor, total, total_is_estimate
+    return run_list_query(
+        db,
+        stmt,
+        model=ServiceOrder,
+        scope=[ServiceOrder.tenant_id == tenant_id],
+        query=query,
+        count_threshold=get_settings().count_exact_threshold,
+    )
 
 
 # --- the people and the car -----------------------------------------------------------------

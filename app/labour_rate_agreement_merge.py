@@ -17,7 +17,7 @@ registers both functions (`app/worker.py`).
 import logging
 import uuid
 
-from sqlalchemy import select
+from sqlalchemy import literal, select, tuple_
 from sqlalchemy.orm import Session
 
 from app.contact.public import (
@@ -52,7 +52,7 @@ def _earlier_merge_pending(
     db: Session, *, contact_ids: tuple[uuid.UUID, ...], before: OutboxMessage
 ) -> uuid.UUID | None:
     """The id of a `contact.merged` event into one of `contact_ids`, created
-    before `before`, that this consumer has not consumed and that is still
+    before `before` (by `created_at`, a tie broken by `id`), that this consumer has not consumed and that is still
     pending or was dead-lettered — else None. A dead one blocks too: replaying
     it after a later merge went ahead would leave its rows on a contact whose
     own merge is already consumed, so the later merge waits (and dead-letters,
@@ -64,13 +64,17 @@ def _earlier_merge_pending(
         OutboxMessage.event_type == "contact.merged",
         OutboxMessage.payload["duplicateOfContactId"].as_string().in_([str(c) for c in contact_ids]),
         OutboxMessage.status.in_([OutboxStatus.PENDING, OutboxStatus.DEAD]),
-        OutboxMessage.created_at <= before.created_at,
-        OutboxMessage.id != before.id,
+        # (created_at, id): two merges sharing a created_at are ordered by id —
+        # the worker's own order (UUIDv7) — so neither waits for the other (KAN-857).
+        tuple_(OutboxMessage.created_at, OutboxMessage.id)
+        < tuple_(
+            literal(before.created_at, OutboxMessage.created_at.type), literal(before.id, OutboxMessage.id.type)
+        ),
         ~select(ProcessedEvent.event_id)
         .where(ProcessedEvent.event_id == OutboxMessage.id, ProcessedEvent.consumer_name == CONSUMER_NAME)
         .exists(),
     )
-    return db.scalar(earlier.order_by(OutboxMessage.created_at).limit(1))
+    return db.scalar(earlier.order_by(OutboxMessage.created_at, OutboxMessage.id).limit(1))
 
 
 def move_labour_rate_agreements_on_contact_merged(db: Session, message: OutboxMessage) -> None:
@@ -86,7 +90,12 @@ def move_labour_rate_agreements_on_contact_merged(db: Session, message: OutboxMe
     X's rows against D's and moves them onto D (merged, but its own merge is
     still to come), D→T carries D's rows — X's among them — on to T, and T is
     judged with Y's rows already there. Any chain, any fan-in, any delivery
-    order. In normal operation the wait never fires: the worker dispatches by
+    order — of merges committed before the later one is consumed: two merges
+    into one survivor take only a shared lock on it (contact's merge), so they
+    can commit at the same instant, and one created later but visible first is
+    consumed before the earlier one exists for this read; the pair then follows
+    option A in consumption order, which is defensible for truly simultaneous
+    merges (KAN-857). In normal operation the wait never fires: the worker dispatches by
     id (UUIDv7, the merges' own order) and each consumer commits before the
     next message; it fires only while this consumer fails on an earlier merge.
     Reading the outbox to order itself ties this consumer to the Postgres

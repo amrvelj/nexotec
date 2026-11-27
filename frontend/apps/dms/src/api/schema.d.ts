@@ -5901,6 +5901,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/service-orders/grid-schema": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Service Order Grid Schema
+         * @description KAN-848: the order list's column registry — every field, its type, the conditions `filter` takes on it, whether it sorts, its label key, whether the grid shows it by default and (an enum) its options. The SPA takes the sortable headers from it.
+         */
+        get: operations["get_service_order_grid_schema_v1_service_orders_grid_schema_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/service-orders/{order_id}": {
         parameters: {
             query?: never;
@@ -33319,8 +33339,12 @@ export interface operations {
             query?: {
                 /** @description waiting_for_answer|ready_for_billing */
                 chip?: string | null;
+                /** @description KAN-848: one predicate per parameter, `field:operator[:value]`, repeatable (ANDed). Fields, operators and enum values come from `GET /v1/service-orders/grid-schema`; anything else is 422 (`details.reason`: unknown_field, operator_not_allowed, filter_malformed, invalid_filter_value). */
+                filter?: string[] | null;
+                /** @description The order's state — the same as `filter=state:is:<code>`. */
                 state?: components["schemas"]["ServiceOrderState"] | null;
                 q?: string | null;
+                /** @description Any grid-schema field that sorts, e.g. 'contactLabel:asc,orderDate:desc' */
                 sort?: string | null;
                 limit?: number;
                 cursor?: string | null;
@@ -33381,6 +33405,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ServiceOrderRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_service_order_grid_schema_v1_service_orders_grid_schema_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GridSchemaRead"];
                 };
             };
             /** @description Validation Error */

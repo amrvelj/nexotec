@@ -7,6 +7,8 @@
   "columns": {
     "orderNumber": "Ordre",
     "vehicleAndContact": "Véhicule · donneur d'ordre",
+    "vehicle": "Véhicule",
+    "contact": "Donneur d'ordre",
     "state": "Statut de l'ordre",
     "orderDate": "Date de l'ordre",
     "location": "Site",

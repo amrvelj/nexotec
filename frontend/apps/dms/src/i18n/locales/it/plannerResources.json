@@ -1,7 +1,7 @@
 {
   "title": "Risorse della pianificazione",
-  "subtitle": "Chi e cosa la pianificazione pianifica: le persone e le postazioni di lavoro per sede, i loro tipi e qualifiche, e la griglia della pianificazione.",
-  "readOnly": "Solo la direzione modifica le risorse della pianificazione. Vedete le voci.",
+  "subtitle": "Le persone e le postazioni di lavoro che la pianificazione prenota, per sede, i loro tipi e qualifiche, e la griglia della pianificazione.",
+  "readOnly": "Solo la direzione modifica le risorse della pianificazione; potete consultare le voci.",
   "loadError": "Non è stato possibile caricare le risorse della pianificazione.",
   "saveError": "Non è stato possibile salvare la modifica.",
   "settings": {
@@ -41,7 +41,7 @@
   },
   "entryDialog": {
     "name": "Nome",
-    "nameHint": "Il nome vale in ogni lingua per cui non inserite una traduzione.",
+    "nameHint": "Il nome si applica in ogni lingua per cui non inserite una traduzione.",
     "translation": "Nome in {{language}}",
     "rank": "Rango",
     "rankHint": "Un numero intero da 1 a 99. Lasciate vuoto se non vale alcun rango.",
@@ -65,7 +65,7 @@
     "mandatory": "Obbligatoria",
     "usedBy": "Usato da",
     "actions": "Azioni",
-    "kind": "Genere",
+    "kind": "Categoria",
     "type": "Tipo",
     "location": "Sede",
     "technicianType": "Tipo di tecnico",
@@ -91,7 +91,7 @@
   },
   "deactivate": {
     "title": "Disattivare la risorsa",
-    "body": "«{{name}}» non compare più nella pianificazione. Le sue prenotazioni non ancora trascorse vengono contrassegnate da ripianificare."
+    "body": "«{{name}}» non compare più nella pianificazione. Le sue prenotazioni non ancora trascorse vengono contrassegnate come da ripianificare."
   },
   "kinds": {
     "person": "Persona",
@@ -104,12 +104,12 @@
   },
   "resources": {
     "title": "Risorse",
-    "subtitle": "Le persone e le postazioni di lavoro che la pianificazione pianifica, per sede.",
+    "subtitle": "Le persone e le postazioni di lavoro che la pianificazione prenota, per sede.",
     "filter": "Sede",
     "allLocations": "Tutte le sedi",
     "addPerson": "Aggiungere una persona",
     "addWorkplace": "Aggiungere una postazione",
-    "empty": "Ancora nessuna risorsa. Aggiungete persone e postazioni di lavoro affinché la pianificazione possa pianificarle.",
+    "empty": "Ancora nessuna risorsa. Aggiungete persone e postazioni di lavoro affinché la pianificazione possa prenotarle.",
     "emptyAtLocation": "Questa sede non ha ancora risorse.",
     "locationInactive": "Sede inattiva",
     "tableLabel": "Risorse della sede {{location}}"
@@ -127,7 +127,7 @@
     "workplaceName": "Nome della postazione",
     "sortOrder": "Ordine",
     "sortOrderHint": "L'ordine nella pianificazione, da 0 a 9999: prima i numeri più piccoli.",
-    "movingNote": "Nella nuova sede la risorsa vale subito. Le sue prenotazioni non ancora trascorse vengono contrassegnate da ripianificare."
+    "movingNote": "La risorsa appartiene subito alla nuova sede. Le sue prenotazioni non ancora concluse vengono contrassegnate come da ripianificare."
   },
   "hours": {
     "title": "Orari di lavoro di {{name}}",
