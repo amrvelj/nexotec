@@ -12,6 +12,7 @@ follows a contact merge and refreshes its contact label.
 - The nightly `platform.labour_rate_agreement_labels` relabels a renamed contact.
 """
 
+import datetime as dt
 import uuid
 from decimal import Decimal
 
@@ -214,6 +215,34 @@ def test_the_duplicates_end_never_ends_the_survivors_agreement(db_session, betri
     # Before the survivor's own agreement starts, the category rate applies (the
     # duplicate's 90 is set aside — the Betrieb re-enters it if it should apply).
     assert _answer(db_session, dealership_id, category, recipient=survivor.id).source != "agreement"
+
+
+def test_a_survivor_holding_only_an_end_holds_no_agreement_so_the_duplicates_rate_moves(db_session, betrieb):
+    """The second review's case: the survivor's rate from next month was
+    withdrawn, its end stayed. An end alone is no agreement (option A, second
+    half): the duplicate's rate in force today moves, so the survivor keeps an
+    agreed rate."""
+
+    dealership_id, group_id = betrieb
+    category = _category(db_session, dealership_id)
+    survivor = _contact(db_session, group_id, dealership_id, "Survivor")
+    duplicate = _contact(db_session, group_id, dealership_id, "Duplicate")
+    survivor_rate = _agreement(db_session, dealership_id, category, survivor, amount="110.00", valid_from=NEXT_MONTH)
+    _agreement(db_session, dealership_id, category, survivor, valid_from=NEXT_MONTH + dt.timedelta(days=14),
+               kind=LabourRateAgreementKind.END)
+    rates.withdraw_agreement(db_session, dealership_id=dealership_id, agreement_id=survivor_rate.id,
+                             expected_version=survivor_rate.version, actor_id=None, on=TODAY)
+    db_session.commit()
+    duplicate_rate = _agreement(db_session, dealership_id, category, duplicate, amount="90.00")
+    message = _merge(db_session, duplicate_id=duplicate.id, survivor_id=survivor.id, group_id=group_id)
+
+    assert _deliver(db_session, message)
+    db_session.commit()
+
+    moved = _row(db_session, duplicate_rate)
+    assert moved.contact_id == survivor.id and moved.set_aside_at is None
+    answer = _answer(db_session, dealership_id, category, recipient=survivor.id)
+    assert answer.source == "agreement" and answer.amount == Decimal("90.0000")
 
 
 def test_without_a_survivor_agreement_the_duplicates_rate_and_end_both_move(db_session, betrieb):

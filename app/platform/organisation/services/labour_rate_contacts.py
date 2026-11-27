@@ -4,7 +4,8 @@
 `labour_rate_agreement.contact_id` names a contact the contact context owns
 (rule 2's three-column pattern: `contact_label`, `contact_label_refreshed_at`).
 Contact sits above platform, so platform never reads it (ADR-131): the
-composition root (`app/worker.py`, `app/api/v1/labour_rate_agreements.py`)
+composition roots (`app/labour_rate_agreement_merge.py`,
+`app/api/v1/labour_rate_agreements.py`)
 reads the contact through `contact.public` and hands platform what it needs.
 
 - **On a contact merge** (`repoint_agreements_of_merged_contact`, the
@@ -14,8 +15,9 @@ reads the contact through `contact.public` and hands platform what it needs.
   platform's own transaction (ADR-047). Moving the reference changes no rate:
   ruling 178 is about the amounts and dates.
 - **The survivor's agreement survives, per Betrieb and category** (Anto,
-  2026-11-25 and 2026-11-27, option A): once the survivor holds any live
-  agreement row for a category in a Betrieb, **every** row of the duplicate
+  2026-11-25 and 2026-11-27, option A): once the survivor holds an agreement
+  for a category in a Betrieb — a live, not set-aside rate row, whatever its
+  date; an end row alone is no agreement — **every** row of the duplicate
   for that category there is set aside — none of them, whatever its date
   (a later rate, an end), ever changes the survivor's agreement. Where the
   survivor holds none, the duplicate's rows all move. Rows are written once
@@ -48,7 +50,7 @@ from sqlalchemy.orm import Session
 
 from app.core.audit import record_audit_event
 from app.core.base import utcnow
-from app.platform.organisation.models.labour_rate import LabourRateAgreement
+from app.platform.organisation.models.labour_rate import LabourRateAgreement, LabourRateAgreementKind
 from app.platform.organisation.services.labour_rates import agreement_audit
 
 _BATCH = 500
@@ -127,6 +129,9 @@ def repoint_agreements_of_merged_contact(
             .where(
                 LabourRateAgreement.dealership_id.in_({row.dealership_id for row in rows}),
                 LabourRateAgreement.contact_id == target_id,
+                # An agreement is a rate: an end row alone (its rate withdrawn) holds none,
+                # so the duplicate's rows of that category move (option A, second half).
+                LabourRateAgreement.kind == LabourRateAgreementKind.RATE,
                 LabourRateAgreement.withdrawn_at.is_(None),
                 LabourRateAgreement.set_aside_at.is_(None),
             )

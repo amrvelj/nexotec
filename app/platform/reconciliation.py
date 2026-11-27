@@ -368,8 +368,8 @@ CHECKS: list[ReferenceCheck | StateCheck] = [
         where=_platform_admin_homed_outside_the_platform_tenant,
     ),
     # KAN-806: an agreed labour rate names a contact, which contact owns (rule 2). It is
-    # read here only, through contact.public; a merge's re-point and the label refresh are
-    # a follow-up (the agreement keeps the label it was given until then).
+    # read here only, through contact.public; a merge re-points it and the nightly
+    # platform.labour_rate_agreement_labels refreshes its label (KAN-831).
     contact_reference_check(
         label="labour_rate_agreement.contact_id -> contact.id",
         source_model=LabourRateAgreement,

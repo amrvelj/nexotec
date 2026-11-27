@@ -62,7 +62,7 @@ Last verified against main@dbf886d (2026-11-26, KAN-833). -->
 - **A contact merge and a rename (KAN-831, ADR-232)** — composed in `app/labour_rate_agreement_merge.py`
   (contact sits above platform): `platform.labour_rate_agreements_on_contact_merged` moves the duplicate's rows
   to the end of the survivor's chain (`services/labour_rate_contacts.py`). **The survivor's agreement survives**
-  (Anto, option A, 2026-11-27): once the survivor holds any live row of a category in the Betrieb, every row
+  (Anto, option A, 2026-11-27): once the survivor holds a live rate row of a category in the Betrieb (an end alone is none), every row
   of the duplicate for that category is **set aside** (`set_aside_at`: never an answer of `labour_rate_for`,
   `superseded` on the screen, listed with the withdrawn, not reported); otherwise all move. The POST and the
   consumer serialise on `lock_agreement_contact`. Nightly `platform.labour_rate_agreement_labels`.
