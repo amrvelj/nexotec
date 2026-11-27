@@ -4,7 +4,7 @@ import { ApiError } from '../../../../api/client'
 import { apiRefusalText, isStaleVersion } from '../../../../utils/apiRefusal'
 
 /** Ruling 49, check 6 (KAN-811): somebody is clocked on the accepted job — the change is asked first. */
-export function asksClockedConfirm(error: unknown): boolean {
+function asksClockedConfirm(error: unknown): boolean {
   return error instanceof ApiError && error.details?.reason === 'service_order_job_clocked_confirm'
 }
 
