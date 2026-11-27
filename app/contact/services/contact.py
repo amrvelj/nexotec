@@ -586,9 +586,9 @@ def update_contact(
 
     # KAN-390: the contact row and its new tag rows reach the database here,
     # inside the guard — not at the audit row's flush below, outside it. A
-    # merge into this contact (KAN-372 holds it FOR SHARE) can move a
-    # duplicate's tag of the same name onto it while this PATCH waits; the
-    # insert then hits uq_contact_tag_contact_id_tag, a conflict (409), not
+    # merge into this contact (KAN-372 holds it, FOR NO KEY UPDATE since
+    # KAN-843) can move a duplicate's tag of the same name onto it while
+    # this PATCH waits; the insert then hits uq_contact_tag_contact_id_tag, a conflict (409), not
     # a 500. Tags, roles and contact groups (KAN-466: the same race on
     # uq_contact_group_assignment_contact_id_value_code, 409
     # contact_group_assignment_exists) are this function's only child rows. The

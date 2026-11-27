@@ -237,9 +237,10 @@ def _repoint_earlier_merges(
     names T. Chains written before KAN-383 are not repaired.
 
     Read after the merge holds D's row FOR NO KEY UPDATE (KAN-372): a merge
-    X→D still in flight holds D FOR SHARE, so this merge waits for it to
-    commit and then finds X here — the race order KAN-372 could not refuse
-    ends with X naming T as well. The X rows are locked in id order, after
+    X→D still in flight holds D, its survivor (FOR NO KEY UPDATE since
+    KAN-843, FOR SHARE before), so this merge waits for it to commit and
+    then finds X here — the race order KAN-372 could not refuse ends with X
+    naming T as well. The X rows are locked in id order, after
     the merge's own party rows: the one place a merge locks a contact row
     outside "advisory → contact rows → party rows". No writer holding an X
     row waits on this merge: allocation, a reopen and a merge into or of X
@@ -408,7 +409,14 @@ _BLOCK_REASON_JOIN = " · "
 # Per block: the audit keys (flag, reason), the survivor's own audit action,
 # and the columns (flag, reason, placed at).
 _BLOCKS = (
-    ("creditBlock", "creditBlockReason", "credit_block_changed", "credit_block", "credit_block_reason", "credit_blocked_at"),
+    (
+        "creditBlock",
+        "creditBlockReason",
+        "credit_block_changed",
+        "credit_block",
+        "credit_block_reason",
+        "credit_blocked_at",
+    ),
     ("blocked", "blockedReason", "block_changed", "blocked", "blocked_reason", "blocked_at"),
 )
 

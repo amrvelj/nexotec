@@ -68,8 +68,8 @@ function otherFigure(price: TypedPrice, vatRate: number | null): number | '' {
  * - the price typed last leads, net or gross (check 12): it is sent as
  *   `unitPrice` with `priceEntered`; the other field shows the other figure
  *   as a preview only, never sent; it survives choosing or changing the
- *   category and toggling «nach Zeit» (KAN-851) — only «Vorschlag übernehmen»
- *   drops it;
+ *   category (KAN-851) — «Vorschlag übernehmen» and toggling «nach Zeit» (a
+ *   rate is not a fixed price) drop it;
  * - the time is typed in the unit in force at the order's location (hours
  *   or work units, O18/O19, which the proposal endpoint names); a position
  *   keeps the unit it was entered with while its time is not changed (check
@@ -417,7 +417,9 @@ export function PositionDialog({ opened, order, jobId, position, onClose, onSave
               setCategoryId(value)
               // KAN-851: a price typed in this dialog survives the category: a fixed price is
               // always typed (Anto, KAN-810 Q2), and a typed rate is kept by the server too.
-              if (typed !== null) return
+              // A field typed and emptied again holds no price: the proposal may come back.
+              if (typed !== null && typed.amount !== '') return
+              setTyped(null)
               // The server's rule (positions.change_position): a changed category takes that
               // category's rate for a proposed price and keeps a typed one. Show what it will do.
               setBackToProposal(editing && byTime && position?.rateSource !== 'typed' && value !== position?.labourCategoryId)
@@ -437,9 +439,11 @@ export function PositionDialog({ opened, order, jobId, position, onClose, onSave
             checked={byTime}
             disabled={editing}
             onChange={(e) => {
-              // KAN-851: the typed figure stays; the field's label says what it now is (a fixed
-              // price or a rate), and by time «Vorschlag übernehmen» brings the proposal instead.
               setByTime(e.currentTarget.checked)
+              // KAN-851: a typed figure does not carry across this toggle — a rate per hour and a
+              // fixed price are different amounts of money, so it no longer applies (the question
+              // whether it should is with Anto on the ticket).
+              setTyped(null)
             }}
           />
           <SimpleGrid cols={3} spacing="sm">
