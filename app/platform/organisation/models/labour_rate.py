@@ -159,3 +159,8 @@ class LabourRateAgreement(PrimaryKeyMixin, VersionedMixin, TimestampMixin, Base)
     amount: Mapped[Decimal | None] = mapped_column(AMOUNT_TYPE, nullable=True)
     entered: Mapped[PriceEntry | None] = mapped_column(StoredEnum(PriceEntry, length=8), nullable=True)
     withdrawn_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)
+    # KAN-831 (ADR-232): a contact merge found the survivor holding an agreement
+    # of this category in the Betrieb, so this row of the duplicate stays on the
+    # duplicate's id and is set aside — never an answer of labour_rate_for (Anto,
+    # option A: the survivor's agreement survives). Written once (ruling 178).
+    set_aside_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)
