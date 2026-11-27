@@ -191,6 +191,34 @@ def test_a_chain_merge_delivered_out_of_order_lands_on_the_end_of_the_chain(db_s
     assert moved.contact_id == end.id and moved.contact_label == "End Keller"
 
 
+def test_a_chain_consumed_in_order_after_both_merges_keeps_the_intermediate_survivors_agreement(
+    db_session, betrieb
+):
+    """The second review's case: X merged into D, then D into T, both committed
+    before the worker runs; X→D is consumed first. D survived X, so D's rate
+    must be T's agreement — X's rate is set aside, not moved ahead of D's."""
+
+    dealership_id, group_id = betrieb
+    category = _category(db_session, dealership_id)
+    end = _contact(db_session, group_id, dealership_id, "End")
+    middle = _contact(db_session, group_id, dealership_id, "Middle")
+    first = _contact(db_session, group_id, dealership_id, "First")
+    middle_rate = _agreement(db_session, dealership_id, category, middle, amount="110.00")
+    first_rate = _agreement(db_session, dealership_id, category, first, amount="90.00")
+    first_into_middle = _merge(db_session, duplicate_id=first.id, survivor_id=middle.id, group_id=group_id)
+    middle_into_end = _merge(db_session, duplicate_id=middle.id, survivor_id=end.id, group_id=group_id)
+
+    assert _deliver(db_session, first_into_middle)
+    assert _deliver(db_session, middle_into_end)
+    db_session.commit()
+
+    set_aside = _row(db_session, first_rate)
+    assert set_aside.contact_id == first.id and set_aside.set_aside_at is not None
+    assert _row(db_session, middle_rate).contact_id == end.id
+    answer = _answer(db_session, dealership_id, category, recipient=end.id)
+    assert answer.source == "agreement" and answer.amount == Decimal("110.0000")
+
+
 def test_the_duplicates_end_never_ends_the_survivors_agreement(db_session, betrieb):
     """The review's case: the duplicate's agreement and its end from next month.
     Its end is set aside with its rate, so the survivor's agreement goes on."""

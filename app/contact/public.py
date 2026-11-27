@@ -43,7 +43,7 @@ from app.contact.services.message_recipient import (
 from app.contact.services.reconciliation_targets import contact_exists, contact_reference_check
 from app.contact.services.supplier_contact import SupplierContact, supplier_contact
 from app.contact.services.vehicle_page import StockItemsFor, contact_vehicle_page
-from app.contact.services.vehicle_party import resolve_live_contact_id
+from app.contact.services.vehicle_party import contact_merge_chain, resolve_live_contact_id
 from app.contact.services.vehicle_party_labels import (
     oldest_vehicle_party_label_age_seconds,
     refresh_vehicle_party_labels,
@@ -73,6 +73,7 @@ __all__ = [
     "contact_exists",
     "contact_in_group",
     "contact_is_merged",
+    "contact_merge_chain",
     "contact_reference_check",
     "contact_vehicle_page",
     "get_contact_or_404",

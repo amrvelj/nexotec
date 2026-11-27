@@ -1,8 +1,8 @@
 """kan831 labour rate agreement set aside (KAN-831, ADR-232)
 
 `labour_rate_agreement.set_aside_at`: a contact merge moves the duplicate's
-agreements to the survivor; where the survivor already holds a live agreement
-of a category in the Betrieb, the survivor's agreement survives (Anto, option
+agreements to the survivor; where the survivor already holds an agreed rate
+(a live rate row) of a category in the Betrieb, the survivor's agreement survives (Anto, option
 A, 2026-11-27) and every row of the duplicate for that category stays on the
 duplicate's id, set aside.
 Nullable, no backfill: no row was set aside before this revision.

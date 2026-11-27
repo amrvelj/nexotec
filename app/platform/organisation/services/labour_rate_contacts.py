@@ -6,7 +6,7 @@
 Contact sits above platform, so platform never reads it (ADR-131): the
 composition roots (`app/labour_rate_agreement_merge.py`,
 `app/api/v1/labour_rate_agreements.py`)
-reads the contact through `contact.public` and hands platform what it needs.
+read the contact through `contact.public` and hand platform what it needs.
 
 - **On a contact merge** (`repoint_agreements_of_merged_contact`, the
   consumer `platform.labour_rate_agreements_on_contact_merged`): the
@@ -42,7 +42,7 @@ reads the contact through `contact.public` and hands platform what it needs.
 import datetime as dt
 import hashlib
 import uuid
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Collection, Mapping
 from dataclasses import dataclass, field
 
 from sqlalchemy import func, select, text, update
@@ -94,6 +94,7 @@ def repoint_agreements_of_merged_contact(
     duplicate_id: uuid.UUID,
     target_id: uuid.UUID,
     target_label: str | None,
+    on_the_way: Collection[uuid.UUID] = (),
 ) -> MergeReport:
     """Move the agreements naming the merged `duplicate_id` to `target_id`,
     or set aside every row of a category the survivor already holds in that
@@ -128,7 +129,11 @@ def repoint_agreements_of_merged_contact(
             select(LabourRateAgreement)
             .where(
                 LabourRateAgreement.dealership_id.in_({row.dealership_id for row in rows}),
-                LabourRateAgreement.contact_id == target_id,
+                # The survivor's own rows, and those of the merged contacts between the
+                # event's survivor and the end of its chain (`on_the_way`): their merges
+                # are still to be consumed, and their rows follow to the target then, so
+                # they are the survivor's agreement too (a chain X→D→T consumed X first).
+                LabourRateAgreement.contact_id.in_({target_id, *on_the_way}),
                 # An agreement is a rate: an end row alone (its rate withdrawn) holds none,
                 # so the duplicate's rows of that category move (option A, second half).
                 LabourRateAgreement.kind == LabourRateAgreementKind.RATE,

@@ -735,6 +735,31 @@ def resolve_live_contact_id(db: Session, *, group_id: uuid.UUID, contact_id: uui
     return None
 
 
+def contact_merge_chain(db: Session, *, group_id: uuid.UUID, contact_id: uuid.UUID) -> list[uuid.UUID]:
+    """KAN-831 — the contacts from `contact_id` to the live contact its merge
+    chain ends at, both included, in order (`[contact_id]` for a live one).
+    Empty when the chain leaves `group_id` or does not end, as
+    `resolve_live_contact_id` answers None. Read-only."""
+
+    chain: list[uuid.UUID] = []
+    current = contact_id
+    for _ in range(32):
+        row = db.execute(
+            select(Contact.lifecycle_status, Contact.duplicate_of_contact_id, Contact.group_id).where(
+                Contact.id == current
+            )
+        ).one_or_none()
+        if row is None or row.group_id != group_id or current in chain:
+            return []
+        chain.append(current)
+        if row.lifecycle_status != ContactLifecycleStatus.MERGED:
+            return chain
+        if row.duplicate_of_contact_id is None:
+            return []
+        current = row.duplicate_of_contact_id
+    return []
+
+
 def _open_holders_in_group(
     db: Session,
     *,

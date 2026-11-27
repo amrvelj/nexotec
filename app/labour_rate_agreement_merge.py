@@ -23,9 +23,9 @@ from sqlalchemy.orm import Session
 
 from app.contact.public import (
     contact_display_name,
+    contact_merge_chain,
     get_contact_or_404,
     get_contact_sales_labels,
-    resolve_live_contact_id,
 )
 from app.core.errors import NotFoundError
 from app.core.outbox_model import OutboxMessage
@@ -54,13 +54,19 @@ def move_labour_rate_agreements_on_contact_merged(db: Session, message: OutboxMe
     # Before any agreement is read: a create naming the duplicate in flight commits
     # first (and is moved below) or waits and reads it merged.
     lock_agreement_contact(db, duplicate_id)
-    target_id = resolve_live_contact_id(db, group_id=message.tenant_id, contact_id=survivor_id) or survivor_id
+    # The survivor's chain to its live end: the end is the target; the merged contacts on
+    # the way still hold the agreement their own merge will bring there (option A, ADR-232).
+    chain = contact_merge_chain(db, group_id=message.tenant_id, contact_id=survivor_id) or [survivor_id]
+    target_id, on_the_way = chain[-1], chain[:-1]
+    # And the target: an agreement created for it meanwhile is seen below or waits (the
+    # POST takes the same lock), so the duplicate's rows never land beside it unjudged.
+    lock_agreement_contact(db, target_id)
     try:
         label: str | None = contact_display_name(get_contact_or_404(db, message.tenant_id, target_id))
     except NotFoundError:
         label = None
     report = repoint_agreements_of_merged_contact(
-        db, duplicate_id=duplicate_id, target_id=target_id, target_label=label
+        db, duplicate_id=duplicate_id, target_id=target_id, target_label=label, on_the_way=on_the_way
     )
     logger.info(
         "%s: %d agreement row(s) moved, %d set aside", CONSUMER_NAME, len(report.moved), len(report.set_aside)
