@@ -9,9 +9,14 @@ KAN-814 and KAN-816):
 | Add or change | Open | The typed price leads (decision 15); up to four decimals per unit (decision 23) | The order is frozen; the job is stopped (KAN-811) |
 | Delete | Open | Gone | Time was clocked on it (decision 64) |
 
+A change of an accepted job's positions follows the customer's answer
+(KAN-811, `answers.py`): it asks first while somebody is clocked on the job
+(ruling 49), and a changed amount makes the job wait for the answer again
+(ruling 30).
+
 A job (table 3.2) gets a name and the billing category; it is deleted only
 while draft, waiting or declined, and never with clocked time. Recording the
-customer's answer is KAN-811; `accept_job` is the state change it makes.
+customer's answer is `answers.py` (KAN-811).
 
 **Labour.** A position names its labour category. By time, the time is typed
 in the Betrieb's unit at the order's location (O18/O19 through
@@ -43,14 +48,11 @@ from app.aftersales.models.service_order import (
     RateSource,
     ServiceOrder,
     ServiceOrderJob,
+    ServiceOrderJobAnswer,
     ServiceOrderPosition,
 )
-from app.aftersales.services import work_guard
-from app.aftersales.services.service_order import (
-    order_follows_accepted_job,
-    record_order_change,
-    refuse_frozen,
-)
+from app.aftersales.services import answers, work_guard
+from app.aftersales.services.service_order import record_order_change, refuse_frozen
 from app.core.base import utcnow
 from app.core.errors import ConflictError, NotFoundError, UnprocessableEntityError
 from app.core.money import UNIT_PRICE_PLACES, PriceEntry
@@ -124,6 +126,7 @@ def add_job(
 
 def rename_job(db: Session, *, order: ServiceOrder, job: ServiceOrderJob, actor_id: uuid.UUID, name: str) -> None:
     refuse_frozen(order)
+    answers.refuse_stopped(job)
     before = _job_snapshot(job)
     job.name = _name(name, "A job")
     job.updated_by = actor_id
@@ -151,32 +154,12 @@ def delete_job(db: Session, *, order: ServiceOrder, job: ServiceOrderJob, actor_
     before = _job_snapshot(job)
     for position in db.scalars(select(ServiceOrderPosition).where(ServiceOrderPosition.job_id == job.id)):
         db.delete(position)
+    # Its answers go with it; the history keeps them (the audit rows of the order).
+    for answer in db.scalars(select(ServiceOrderJobAnswer).where(ServiceOrderJobAnswer.job_id == job.id)):
+        db.delete(answer)
     db.flush()
     db.delete(job)
     record_order_change(db, order, action="service_order_job_deleted", actor_id=actor_id, before=before)
-    db.commit()
-
-
-def accept_job(db: Session, *, order: ServiceOrder, job: ServiceOrderJob, actor_id: uuid.UUID) -> None:
-    """The state change of «the customer accepted the job» (tables 3.1 and 3.2): the job
-    is accepted, a draft order becomes accepted (check 4). KAN-811 records how the answer
-    came and the amount, and gives it its route; a job may be accepted before it has a
-    price (ruling 167). Commits."""
-
-    refuse_frozen(order)
-    if job.answer_state not in {JobAnswerState.DRAFT, JobAnswerState.WAITING}:
-        raise ConflictError(
-            f"Job «{job.name}» already has its answer.", details={"reason": "service_order_job_already_answered"}
-        )
-    before = _job_snapshot(job)
-    job.answer_state = JobAnswerState.ACCEPTED
-    job.answered_at = utcnow()
-    job.answered_by = actor_id
-    order_follows_accepted_job(order)
-    record_order_change(
-        db, order, action="service_order_job_accepted", actor_id=actor_id, before=before,
-        after={**_job_snapshot(job), "orderState": order.state.value},
-    )
     db.commit()
 
 
@@ -409,8 +392,13 @@ def add_position(
     actor_id: uuid.UUID,
     kind: PositionKind,
     data: PositionInput,
+    confirmed: bool = False,
 ) -> ServiceOrderPosition:
+    """`confirmed`: the advisor confirmed a change while somebody is clocked on the job (check 6)."""
+
     refuse_frozen(order)
+    answers.refuse_stopped(job)
+    answers.refuse_unconfirmed_change_while_clocked(db, order=order, job=job, confirmed=confirmed)
     _refuse_shape(kind, category_id=data.labour_category_id, time=data.time, price=data.unit_price,
                   entered=data.price_entered)
     text = (data.text or "").strip()
@@ -439,6 +427,7 @@ def add_position(
     db.add(position)
     db.flush()
     record_order_change(db, order, action="service_order_position_added", actor_id=actor_id, after=_snapshot(position))
+    answers.follow_amount(db, order=order, job=job, actor_id=actor_id)
     db.commit()
     return position
 
@@ -465,8 +454,15 @@ def _refuse_change_shape(position: ServiceOrderPosition, data: PositionInput) ->
         refuse("time", "The time unit is sent with the time it was typed in.")
 
 
+def _job_of(db: Session, position: ServiceOrderPosition) -> ServiceOrderJob:
+    job = db.get(ServiceOrderJob, position.job_id)
+    assert job is not None, "a position belongs to a job"
+    return job
+
+
 def change_position(
-    db: Session, *, order: ServiceOrder, position: ServiceOrderPosition, actor_id: uuid.UUID, data: PositionInput
+    db: Session, *, order: ServiceOrder, position: ServiceOrderPosition, actor_id: uuid.UUID, data: PositionInput,
+    confirmed: bool = False,
 ) -> ServiceOrderPosition:
     """A change keeps what was not sent.
 
@@ -479,9 +475,14 @@ def change_position(
       which applies now. A category changed takes that category's rate for a proposed
       price and keeps a typed one.
     - `pricedAt`/`pricedBy` move only when the price itself changes (section 3.2).
+    - An accepted job whose amount moves waits for the answer again (check 5); a text
+      alone moves nothing.
     """
 
     refuse_frozen(order)
+    job = _job_of(db, position)
+    answers.refuse_stopped(job)
+    answers.refuse_unconfirmed_change_while_clocked(db, order=order, job=job, confirmed=confirmed)
     _refuse_change_shape(position, data)
     before = _snapshot(position)
     if data.text is not None:
@@ -521,14 +522,20 @@ def change_position(
         record_order_change(
             db, order, action="service_order_position_changed", actor_id=actor_id, before=before, after=after
         )
+        answers.follow_amount(db, order=order, job=job, actor_id=actor_id)
     db.commit()
     return position
 
 
-def delete_position(db: Session, *, order: ServiceOrder, position: ServiceOrderPosition, actor_id: uuid.UUID) -> None:
+def delete_position(
+    db: Session, *, order: ServiceOrder, position: ServiceOrderPosition, actor_id: uuid.UUID, confirmed: bool = False
+) -> None:
     """Table 3.3: gone, unless time was clocked on it (decision 64)."""
 
     refuse_frozen(order)
+    job = _job_of(db, position)
+    answers.refuse_stopped(job)
+    answers.refuse_unconfirmed_change_while_clocked(db, order=order, job=job, confirmed=confirmed)
     if work_guard.time_clocked_on_position(db, tenant_id=order.tenant_id, position_id=position.id):
         raise ConflictError(
             "Time has been clocked on this position, so it cannot be deleted.",
@@ -537,4 +544,5 @@ def delete_position(db: Session, *, order: ServiceOrder, position: ServiceOrderP
     before = _snapshot(position)
     db.delete(position)
     record_order_change(db, order, action="service_order_position_deleted", actor_id=actor_id, before=before)
+    answers.follow_amount(db, order=order, job=job, actor_id=actor_id)
     db.commit()

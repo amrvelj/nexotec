@@ -4,8 +4,14 @@ outside all ten context packages, like app.main and app.db — nothing but
 this composition role.
 """
 
-from app.aftersales.models.service_order import ServiceOrder, ServiceOrderJob, ServiceOrderPosition
+from app.aftersales.models.service_order import (
+    ServiceOrder,
+    ServiceOrderJob,
+    ServiceOrderJobAnswer,
+    ServiceOrderPosition,
+)
 from app.aftersales.models.service_package import ServicePackage, ServicePackagePosition
+from app.aftersales.models.service_stay import ServiceOrderStay, ServiceOrderWorkshopStatus, ServiceStay
 from app.contact.models.contact import (
     Contact,
     ContactAddress,
@@ -242,9 +248,13 @@ __all__ = [
     "SendingIdentity",
     "ServiceOrder",
     "ServiceOrderJob",
+    "ServiceOrderJobAnswer",
     "ServiceOrderPosition",
+    "ServiceOrderStay",
+    "ServiceOrderWorkshopStatus",
     "ServicePackage",
     "ServicePackagePosition",
+    "ServiceStay",
     "SettingValue",
     "SettingValueChange",
     "SetupChecklistRegression",

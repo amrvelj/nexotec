@@ -399,10 +399,10 @@ def _round_trip(column, value):
     from types import SimpleNamespace
 
     from app.core.pagination import SortPageParams
-    from app.core.sorting import _nullable, build_page_for_sort
+    from app.core.sorting import build_page_for_sort, sort_field_nullable
 
     # A mapped column or a labelled expression (KAN-786: the support-session log's shown end).
-    field = SortField(api_name="x", column=column, direction="asc", nullable=_nullable(column))
+    field = SortField(api_name="x", column=column, direction="asc", nullable=sort_field_nullable(column))
     key = column.key
     rows = [SimpleNamespace(**{key: value, "id": uuid.uuid4()}) for _ in range(2)]
     page, cursor = build_page_for_sort(rows, SortPageParams(limit=1, cursor=None, sort_fields=[field]))

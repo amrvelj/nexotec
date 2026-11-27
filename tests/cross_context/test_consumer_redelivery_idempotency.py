@@ -458,6 +458,34 @@ def _workshop_orders_on_vehicle_merged(db_session, engine, monkeypatch):
     return message, on_survivor
 
 
+def _odometer_from_service_visit(db_session, engine, monkeypatch):
+    """KAN-813 — «Fahrzeug ist da», from the real producer: vehicle records the
+    mileage as a reading with the source «service visit», once."""
+
+    from app.aftersales.models.service_order import ServiceOrder
+    from app.aftersales.services import stays
+    from app.vehicle.models.vehicle_history import VehicleOdometerReading
+    from app.vehicle.services.vehicle_mdm import create_vehicle_mdm
+    from tests.aftersales.service_order_support import insert_order
+
+    car = create_vehicle_mdm(db_session, vin="WVWZZZ1KZAW813001", catalogue_variant_id=None)
+    db_session.commit()
+    order_id = insert_order(db_session, tenant_id=uuid.uuid4(), contact_id=uuid.uuid4(), vehicle_id=car.id)
+    order = db_session.get(ServiceOrder, order_id)
+    stay = stays.receive_car(
+        db_session, tenant_id=order.tenant_id, order_id=order.id, expected_version=order.version,
+        actor_id=uuid.uuid4(), data=stays.ArrivalInput(mileage=42_000),
+    )
+    message = _message(db_session, stays.ARRIVED_EVENT, stay.id)
+
+    def readings(db: Session) -> int:
+        return db.scalar(
+            select(func.count()).select_from(VehicleOdometerReading).where(VehicleOdometerReading.vehicle_id == car.id)
+        )
+
+    return message, readings
+
+
 def _labour_rate_agreements_on_contact_merged(db_session, engine, monkeypatch):
     """KAN-831 — a contact merge: platform moves the duplicate's labour-rate
     agreement to the survivor once (the measure counts the agreements on the survivor)."""
@@ -1218,6 +1246,7 @@ _FIXTURES: dict[str, Fixture] = {
     "inventory.contact_merged": _stock_suppliers_on_contact_merged,
     "aftersales.contact_merged": _workshop_orders_on_contact_merged,
     "aftersales.vehicle_merged": _workshop_orders_on_vehicle_merged,
+    "vehicle.odometer_from_service_visit": _odometer_from_service_visit,
     "platform.labour_rate_agreements_on_contact_merged": _labour_rate_agreements_on_contact_merged,
     "sales.stock_item_reassigned": _stock_item_reassigned,
     "inventory.marketplace_transmission_on_publish": _stock_item_published,

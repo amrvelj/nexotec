@@ -38,6 +38,7 @@ import { sortableFieldsOf } from '../../../shared/gridSchema'
 import { formatDateOnly, formatDateTime } from '../../../utils/format'
 import { CancelServiceOrderDialog } from '../components/CancelServiceOrderDialog'
 import { OrderStateBadge } from '../components/OrderStateBadge'
+import { WorkshopStatusBadge } from '../components/WorkshopStatusBadge'
 import { ServiceOrderCreateDialog } from '../components/ServiceOrderCreateDialog'
 import { buildServiceOrderRowMenu } from '../components/serviceOrderRowMenu'
 import { applyServiceOrderFilters, serviceOrderHref, translatedStateOptions } from '../serviceOrderOptions'
@@ -153,6 +154,12 @@ export function ServiceOrdersListPage() {
         header: t('serviceOrders.columns.state'),
         cell: ({ row }) => <OrderStateBadge state={row.original.state} />,
         meta: { filter: { type: 'select', param: 'state', options: translatedStateOptions(t), conditions: ['is'] } },
+      },
+      {
+        // KAN-813, criterion 5: read from the server's projection, worked out, never set.
+        id: 'workshopStatus',
+        header: t('serviceOrders.columns.workshopStatus'),
+        cell: ({ row }) => <WorkshopStatusBadge status={row.original.workshopStatus ?? 'planned'} />,
       },
       {
         id: 'orderDate',
@@ -330,6 +337,9 @@ export function ServiceOrdersListPage() {
           rowActions={(row) =>
             buildServiceOrderRowMenu(t, row, {
               onOpen: () => navigate(serviceOrderHref(row.id)),
+              // D8 opens on the order page, which holds the jobs it asks about (KAN-811).
+              onRecordAnswer: canWrite ? () => navigate(`${serviceOrderHref(row.id)}?dialog=answer`) : undefined,
+              onArrive: canWrite ? () => navigate(`${serviceOrderHref(row.id)}?dialog=arrival`) : undefined,
               onCancel: canWrite ? () => setCancelOf(row) : undefined,
             })
           }

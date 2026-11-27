@@ -42,7 +42,8 @@
   "tabs": {
     "positions": "Posizioni",
     "overview": "Panoramica",
-    "history": "Cronologia"
+    "history": "Cronologia",
+    "reception": "Accettazione"
   },
   "actions": {
     "open": "Apri",
@@ -52,7 +53,8 @@
     "cancelNotInState": {
       "cancelled": "L'ordine è già annullato.",
       "ready_for_billing": "Un ordine pronto per la fatturazione non può essere annullato."
-    }
+    },
+    "recordAnswer": "Registrare la risposta"
   },
   "jobs": {
     "empty": "Ancora nessun gruppo. Create il primo con «Aggiungi gruppo».",
@@ -189,7 +191,11 @@
       "service_order_job_accepted": "Gruppo accettato",
       "service_order_position_added": "Posizione aggiunta",
       "service_order_position_changed": "Posizione modificata",
-      "service_order_position_deleted": "Posizione eliminata"
+      "service_order_position_deleted": "Posizione eliminata",
+      "service_order_job_answered": "Risposta registrata",
+      "service_order_job_waits_again": "Il gruppo attende la risposta",
+      "service_order_car_arrived": "Veicolo arrivato",
+      "service_order_joined_stay": "Ordine associato al soggiorno"
     },
     "fields": {
       "contactLabel": "Committente",
@@ -209,5 +215,71 @@
       "net": "netto",
       "gross": "IVA incl."
     }
+  },
+  "answer": {
+    "title": "Registrare la risposta",
+    "channelLabel": "Risposta ricevuta",
+    "channel": {
+      "desk": "allo sportello",
+      "phone": "per telefono",
+      "message": "per messaggio"
+    },
+    "result": {
+      "accepted": "Accettato",
+      "declined": "Rifiutato"
+    },
+    "resultFor": "Risposta per «{{name}}»",
+    "noteFor": "Nota per «{{name}}»",
+    "notePlaceholder": "Nota, obbligatoria in caso di rifiuto",
+    "noteMissing": "Un rifiuto richiede una nota.",
+    "amount": "{{net}} · {{gross}} IVA incl.",
+    "noPrice": "Ancora senza prezzo",
+    "hoursQuestion": "Su questo gruppo è stato timbrato del tempo. Le ore vengono fatturate?",
+    "hoursBilled": "Fermato, ore fatturate",
+    "hoursNotBilled": "Fermato, ore non fatturate",
+    "hoursMissing": "Indicate se le ore vengono fatturate.",
+    "nothingChosen": "Scegliete una risposta per almeno un gruppo.",
+    "noJobs": "Nessun gruppo può ricevere una risposta.",
+    "save": "Salvare",
+    "last": "{{result}} {{channel}} · {{who}} · {{when}}",
+    "pricedBy": "Prezzo registrato da {{who}}, {{when}}",
+    "acceptedBefore": "accettato prima: {{amount}}",
+    "stoppedBilled": "Fermato, ore fatturate",
+    "stoppedNotBilled": "Fermato, ore non fatturate",
+    "workWithoutAnswerTitle": "Lavoro senza risposta",
+    "workWithoutAnswerBody": "Si lavora anche se la risposta manca ancora: {{jobs}}.",
+    "changeAnyway": "Modificare comunque"
+  },
+  "workshopStatus": {
+    "planned": "Pianificato",
+    "car_here": "Veicolo arrivato",
+    "in_work": "In lavorazione",
+    "work_done": "Lavoro terminato",
+    "checked": "Controllato",
+    "ready_for_pickup": "Pronto per il ritiro",
+    "handed_over": "Consegnato"
+  },
+  "arrival": {
+    "title": "Veicolo arrivato",
+    "submit": "Veicolo arrivato",
+    "mileage": "Chilometraggio",
+    "mileageMissing": "Inserite il chilometraggio.",
+    "keyTag": "Portachiavi",
+    "parkingPlace": "Posteggio",
+    "remark": "Giro del veicolo sul cellulare o tralasciato: osservazione",
+    "lastMileage": "Ultima lettura: {{km}} km",
+    "noLastMileage": "Nessun chilometraggio registrato.",
+    "belowLast": "Inferiore all'ultima lettura: viene ripreso e segnalato sul veicolo.",
+    "alreadyHere": "Il veicolo è già qui."
+  },
+  "reception": {
+    "title": "Accettazione",
+    "notHere": "Il veicolo non è ancora qui.",
+    "received": "Accettato",
+    "channel": {
+      "desk": "allo sportello"
+    },
+    "belowPrevious": "inferiore all'ultima lettura ({{km}} km)",
+    "orders": "Ordini di questo soggiorno"
   }
 }

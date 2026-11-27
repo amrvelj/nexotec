@@ -12,7 +12,8 @@
     "state": "Order status",
     "orderDate": "Order date",
     "location": "Location",
-    "createdAt": "Created"
+    "createdAt": "Created",
+    "workshopStatus": "Workshop status"
   },
   "emptyState": {
     "title": "No workshop order yet",

@@ -171,6 +171,7 @@ from app.valuation.public import referenced_configuration_ids as referenced_by_v
 from app.vehicle.consumers import (
     handle_configuration_taken_message,
     handle_invoice_requested_message,
+    handle_stay_arrived_message,
     handle_stock_holding_message,
 )
 from app.vehicle.daily_jobs import run_daily_unattached_configuration_purge
@@ -342,6 +343,13 @@ def register_handlers(transport: InProcessTransport) -> None:
         "sales.contract.invoice_requested",
         consumer_name="vehicle.plate_on_invoice_requested",
         handler=handle_invoice_requested_message,
+    )
+    # KAN-813 (check 24) — the mileage of «Fahrzeug ist da» becomes the car's odometer
+    # reading with the source «service visit».
+    transport.register(
+        "aftersales.service_stay.arrived",
+        consumer_name="vehicle.odometer_from_service_visit",
+        handler=handle_stay_arrived_message,
     )
     # KAN-186 — a vehicle's changed label (a VIN correction, a new first
     # registration) reaches every party row naming it when the event is

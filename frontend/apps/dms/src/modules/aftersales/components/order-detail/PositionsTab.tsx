@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react'
 import { ActionIcon, Button, Group, Paper, Stack, Table, Text, Tooltip } from '@mantine/core'
-import { FileText, Pencil, Plus, Tag, Trash2, Wrench } from 'lucide-react'
+import { CircleStop, FileText, History, Pencil, Plus, Tag, Trash2, Wrench } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Badge, type BadgeTone } from '@nexotec/ui-kit'
 import { api } from '../../../../api/client'
@@ -10,7 +10,8 @@ import type {
   ServiceOrderPositionRead,
   ServiceOrderRead,
 } from '../../../../api/types'
-import { formatCurrencyChf } from '../../../../utils/format'
+import { toSwissLocale, type SupportedLanguage } from '../../../../i18n'
+import { formatCurrencyChf, formatDateTime } from '../../../../utils/format'
 import { decimal, formatLabourTime } from '../../serviceOrderOptions'
 import { ConfirmDeleteDialog, JobNameDialog } from './OrderDialogs'
 import { OrderTotalsCard } from './OrderTotalsCard'
@@ -41,6 +42,8 @@ interface PositionsTabProps {
   frozen: boolean
   onOrder: (order: ServiceOrderRead) => void
   onReload: () => void
+  /** «Gruppe hinzufügen» (the design's toolbar above the jobs). */
+  onAddJob: () => void
 }
 
 function IconAction({ label, disabledReason, onClick, children }: { label: string; disabledReason: string | null; onClick: () => void; children: ReactNode }) {
@@ -63,8 +66,9 @@ function IconAction({ label, disabledReason, onClick, children }: { label: strin
  * (kind · description · quantity with its unit · price net · net · incl. VAT,
  * every figure the server's), then «Auftragstotal je Zahler».
  */
-export function PositionsTab({ order, canWrite, frozen, onOrder, onReload }: PositionsTabProps) {
-  const { t } = useTranslation()
+export function PositionsTab({ order, canWrite, frozen, onOrder, onReload, onAddJob }: PositionsTabProps) {
+  const { t, i18n } = useTranslation()
+  const locale = toSwissLocale(i18n.language as SupportedLanguage)
   const [pending, setPending] = useState<Pending | null>(null)
   const frozenReason = frozen ? t('serviceOrder.actions.frozen') : null
   const ifMatch = { 'If-Match': String(order.version) }
@@ -82,10 +86,43 @@ export function PositionsTab({ order, canWrite, frozen, onOrder, onReload }: Pos
 
   const money = (value: string | null | undefined) => (value == null ? '' : formatCurrencyChf(decimal(value)))
 
+  // The last answer, as recorded (check 4: who, how and when) — never a sentence nobody typed.
+  const lastAnswer = (job: ServiceOrderJobRead) => {
+    const answers = job.answers ?? []
+    const answer = answers[answers.length - 1]
+    if (!answer) return null
+    return t('serviceOrder.answer.last', {
+      result: t(`serviceOrder.answer.result.${answer.result}`),
+      channel: t(`serviceOrder.answer.channel.${answer.channel}`),
+      who: answer.recordedByLabel ?? t('serviceOrder.history.unknownUser'),
+      when: formatDateTime(answer.recordedAt, locale),
+    })
+  }
+
+  // Section 3.2: the order says who entered each price and when.
+  const pricedBy = (position: ServiceOrderPositionRead) =>
+    position.pricedAt
+      ? t('serviceOrder.answer.pricedBy', {
+          who: position.pricedByLabel ?? t('serviceOrder.history.unknownUser'),
+          when: formatDateTime(position.pricedAt, locale),
+        })
+      : null
+
+  // Decision 54: a stopped job is not changed — mirrored with its reason; the server decides.
+  const reasonFor = (job: ServiceOrderJobRead) =>
+    frozenReason ?? (job.stopped ? t('apiRefusal.reasons.service_order_job_stopped') : null)
+
   const jobCard = (job: ServiceOrderJobRead) => (
     <Paper key={job.id} withBorder radius="md" data-testid={`job-${job.id}`}>
       <Group justify="space-between" p="md" wrap="nowrap">
-        <Text fw={600}>{job.name}</Text>
+        <Stack gap={2}>
+          <Text fw={600}>{job.name}</Text>
+          {lastAnswer(job) && (
+            <Text size="xs" c="dimmed" data-testid={`last-answer-${job.id}`}>
+              {lastAnswer(job)}
+            </Text>
+          )}
+        </Stack>
         <Group gap="xs" wrap="nowrap">
           <Badge tone="purple" icon={<Tag size={12} />}>
             {t(`serviceOrder.billingCategory.${job.billingCategory}`)}
@@ -93,9 +130,19 @@ export function PositionsTab({ order, canWrite, frozen, onOrder, onReload }: Pos
           <Badge tone={ANSWER_TONE[job.answerState]} dot>
             {t(`serviceOrder.answerState.${job.answerState}`)}
           </Badge>
+          {job.acceptedBefore && (
+            <Badge tone="slate" icon={<History size={12} />}>
+              {t('serviceOrder.answer.acceptedBefore', { amount: money(job.acceptedBefore.gross) })}
+            </Badge>
+          )}
+          {job.stopped && (
+            <Badge tone="destructive" icon={<CircleStop size={12} />}>
+              {t(job.hoursBilled ? 'serviceOrder.answer.stoppedBilled' : 'serviceOrder.answer.stoppedNotBilled')}
+            </Badge>
+          )}
           {canWrite && (
             <>
-              <IconAction label={t('serviceOrder.jobs.rename')} disabledReason={frozenReason} onClick={() => setPending({ kind: 'renameJob', job })}>
+              <IconAction label={t('serviceOrder.jobs.rename')} disabledReason={reasonFor(job)} onClick={() => setPending({ kind: 'renameJob', job })}>
                 <Pencil size={16} />
               </IconAction>
               <IconAction
@@ -107,13 +154,13 @@ export function PositionsTab({ order, canWrite, frozen, onOrder, onReload }: Pos
               >
                 <Trash2 size={16} />
               </IconAction>
-              <Tooltip label={frozenReason} disabled={frozenReason === null}>
+              <Tooltip label={reasonFor(job)} disabled={reasonFor(job) === null}>
                 <span>
                   <Button
                     size="xs"
                     variant="default"
                     leftSection={<Plus size={14} />}
-                    disabled={frozen}
+                    disabled={reasonFor(job) !== null}
                     onClick={() => setPending({ kind: 'position', jobId: job.id, position: null })}
                   >
                     {t('serviceOrder.jobs.addPosition')}
@@ -165,6 +212,11 @@ export function PositionsTab({ order, canWrite, frozen, onOrder, onReload }: Pos
                         .join(' · ')}
                     </Text>
                   )}
+                  {pricedBy(position) && (
+                    <Text size="xs" c="dimmed" data-testid={`priced-by-${position.id}`}>
+                      {pricedBy(position)}
+                    </Text>
+                  )}
                 </Table.Td>
                 <Table.Td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>{quantity(position)}</Table.Td>
                 <Table.Td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>{money(position.unitPrice?.net)}</Table.Td>
@@ -175,14 +227,14 @@ export function PositionsTab({ order, canWrite, frozen, onOrder, onReload }: Pos
                     <Group gap={2} wrap="nowrap" justify="flex-end">
                       <IconAction
                         label={t('serviceOrder.positions.edit')}
-                        disabledReason={frozenReason}
+                        disabledReason={reasonFor(job)}
                         onClick={() => setPending({ kind: 'position', jobId: job.id, position })}
                       >
                         <Pencil size={16} />
                       </IconAction>
                       <IconAction
                         label={t('serviceOrder.positions.delete')}
-                        disabledReason={frozenReason}
+                        disabledReason={reasonFor(job)}
                         onClick={() => setPending({ kind: 'deletePosition', position })}
                       >
                         <Trash2 size={16} />
@@ -200,6 +252,17 @@ export function PositionsTab({ order, canWrite, frozen, onOrder, onReload }: Pos
 
   return (
     <Stack gap="md">
+      {canWrite && (
+        <Group>
+          <Tooltip label={frozenReason} disabled={frozenReason === null}>
+            <span>
+              <Button variant="default" leftSection={<Plus size={16} />} disabled={frozen} onClick={onAddJob}>
+                {t('serviceOrder.actions.addJob')}
+              </Button>
+            </span>
+          </Tooltip>
+        </Group>
+      )}
       {order.jobs.length === 0 && (
         <Text size="sm" c="dimmed">
           {t('serviceOrder.jobs.empty')}
@@ -236,9 +299,10 @@ export function PositionsTab({ order, canWrite, frozen, onOrder, onReload }: Pos
         title={t('serviceOrder.positions.delete')}
         body={pending?.kind === 'deletePosition' ? t('serviceOrder.positions.deleteBody', { text: pending.position.text }) : ''}
         onClose={() => setPending(null)}
-        onConfirm={async () => {
+        onConfirm={async (confirmed) => {
           if (pending?.kind !== 'deletePosition') return
-          done(await api.delete<ServiceOrderRead>(`/service-orders/${order.id}/positions/${pending.position.id}`, ifMatch))
+          const confirm = confirmed ? '?confirmWhileClocked=true' : ''
+          done(await api.delete<ServiceOrderRead>(`/service-orders/${order.id}/positions/${pending.position.id}${confirm}`, ifMatch))
         }}
         onReload={onReload}
       />

@@ -102,7 +102,8 @@ export function ConfirmDeleteDialog({
   title: string
   body: string
   onClose: () => void
-  onConfirm: () => Promise<void>
+  /** `confirmed`: sent again after «Trotzdem ändern» while somebody is clocked on the job (check 6). */
+  onConfirm: (confirmed: boolean) => Promise<void>
   onReload: () => void
 }) {
   const { t } = useTranslation()
@@ -113,11 +114,11 @@ export function ConfirmDeleteDialog({
     if (opened) setError(null)
   }, [opened])
 
-  const submit = async () => {
+  const submit = async (confirmed = false) => {
     setSubmitting(true)
     setError(null)
     try {
-      await onConfirm()
+      await onConfirm(confirmed)
     } catch (err) {
       setError(err)
     } finally {
@@ -130,7 +131,7 @@ export function ConfirmDeleteDialog({
       opened={opened}
       onClose={onClose}
       title={title}
-      onSubmit={submit}
+      onSubmit={() => void submit()}
       submitLabel={t('serviceOrder.positions.confirmDelete')}
       cancelLabel={t('common.cancel')}
       submitting={submitting}
@@ -145,6 +146,7 @@ export function ConfirmDeleteDialog({
             onReload()
             onClose()
           }}
+          onConfirmClocked={() => void submit(true)}
         />
       )}
     </FormDialog>

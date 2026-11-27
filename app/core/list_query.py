@@ -51,7 +51,7 @@ from app.core.errors import UnprocessableEntityError
 from app.core.pagination import SortPageParams, count_capped, paginate_query_sorted
 from app.core.relative_dates import start_of_current_period, start_of_day, start_of_day_days_ago, today_in_session_zone
 from app.core.schemas import CamelModel
-from app.core.sorting import SortField, build_page_for_sort, decode_cursor_for_sort
+from app.core.sorting import SortField, build_page_for_sort, decode_cursor_for_sort, sort_field_nullable
 
 ValueType = Literal["text", "enum", "number", "money", "date", "datetime", "boolean"]
 
@@ -446,9 +446,7 @@ def parse_list_sort(sort: str | None, registry: Registry, *, default: Sequence[t
         column = _sort_column(spec)
         if spec.sort_inverted:
             direction = "desc" if direction == "asc" else "asc"
-        fields.append(
-            SortField(api_name=name, column=column, direction=direction, nullable=column.property.columns[0].nullable)
-        )
+        fields.append(SortField(api_name=name, column=column, direction=direction, nullable=sort_field_nullable(column)))
     return fields
 
 

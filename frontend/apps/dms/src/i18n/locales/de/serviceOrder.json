@@ -42,7 +42,8 @@
   "tabs": {
     "positions": "Positionen",
     "overview": "Übersicht",
-    "history": "Verlauf"
+    "history": "Verlauf",
+    "reception": "Annahme"
   },
   "actions": {
     "open": "Öffnen",
@@ -52,7 +53,8 @@
     "cancelNotInState": {
       "cancelled": "Der Auftrag ist schon storniert.",
       "ready_for_billing": "Ein rechnungsbereiter Auftrag kann nicht storniert werden."
-    }
+    },
+    "recordAnswer": "Antwort erfassen"
   },
   "jobs": {
     "empty": "Noch keine Gruppe. Legen Sie mit «Gruppe hinzufügen» die erste an.",
@@ -189,7 +191,11 @@
       "service_order_job_accepted": "Gruppe angenommen",
       "service_order_position_added": "Position hinzugefügt",
       "service_order_position_changed": "Position geändert",
-      "service_order_position_deleted": "Position gelöscht"
+      "service_order_position_deleted": "Position gelöscht",
+      "service_order_job_answered": "Antwort erfasst",
+      "service_order_job_waits_again": "Gruppe wartet auf Antwort",
+      "service_order_car_arrived": "Fahrzeug ist da",
+      "service_order_joined_stay": "Auftrag dem Aufenthalt zugeordnet"
     },
     "fields": {
       "contactLabel": "Auftraggeber",
@@ -209,5 +215,71 @@
       "net": "netto",
       "gross": "inkl. MWST"
     }
+  },
+  "answer": {
+    "title": "Antwort erfassen",
+    "channelLabel": "Antwort kam",
+    "channel": {
+      "desk": "am Schalter",
+      "phone": "per Telefon",
+      "message": "per Nachricht"
+    },
+    "result": {
+      "accepted": "Angenommen",
+      "declined": "Abgelehnt"
+    },
+    "resultFor": "Antwort zu «{{name}}»",
+    "noteFor": "Notiz zu «{{name}}»",
+    "notePlaceholder": "Notiz, bei Ablehnung Pflicht",
+    "noteMissing": "Eine Ablehnung braucht eine Notiz.",
+    "amount": "{{net}} · {{gross}} inkl. MWST",
+    "noPrice": "Noch ohne Preis",
+    "hoursQuestion": "Auf dieser Gruppe wurde Zeit gestempelt. Werden die Stunden verrechnet?",
+    "hoursBilled": "Gestoppt, Stunden verrechnet",
+    "hoursNotBilled": "Gestoppt, Stunden nicht verrechnet",
+    "hoursMissing": "Wählen Sie, ob die Stunden verrechnet werden.",
+    "nothingChosen": "Wählen Sie für mindestens eine Gruppe eine Antwort.",
+    "noJobs": "Keine Gruppe kann eine Antwort erhalten.",
+    "save": "Speichern",
+    "last": "{{result}} {{channel}} · {{who}} · {{when}}",
+    "pricedBy": "Preis erfasst von {{who}}, {{when}}",
+    "acceptedBefore": "vorher angenommen: {{amount}}",
+    "stoppedBilled": "Gestoppt, Stunden verrechnet",
+    "stoppedNotBilled": "Gestoppt, Stunden nicht verrechnet",
+    "workWithoutAnswerTitle": "Arbeit ohne Antwort",
+    "workWithoutAnswerBody": "Es wird gearbeitet, obwohl die Antwort noch fehlt: {{jobs}}.",
+    "changeAnyway": "Trotzdem ändern"
+  },
+  "workshopStatus": {
+    "planned": "Geplant",
+    "car_here": "Fahrzeug ist da",
+    "in_work": "In Arbeit",
+    "work_done": "Arbeit erledigt",
+    "checked": "Kontrolliert",
+    "ready_for_pickup": "Abholbereit",
+    "handed_over": "Übergeben"
+  },
+  "arrival": {
+    "title": "Fahrzeug ist da",
+    "submit": "Fahrzeug ist da",
+    "mileage": "Kilometerstand",
+    "mileageMissing": "Geben Sie den Kilometerstand ein.",
+    "keyTag": "Schlüsselanhänger",
+    "parkingPlace": "Parkplatz",
+    "remark": "Rundgang folgt am Handy oder entfällt: Bemerkung",
+    "lastMileage": "Letzter Stand: {{km}} km",
+    "noLastMileage": "Noch kein Kilometerstand erfasst.",
+    "belowLast": "Tiefer als der letzte Stand: wird übernommen und beim Fahrzeug markiert.",
+    "alreadyHere": "Das Fahrzeug ist schon da."
+  },
+  "reception": {
+    "title": "Annahme",
+    "notHere": "Das Fahrzeug ist noch nicht da.",
+    "received": "Angenommen",
+    "channel": {
+      "desk": "am Schalter"
+    },
+    "belowPrevious": "tiefer als der letzte Stand ({{km}} km)",
+    "orders": "Aufträge dieses Aufenthalts"
   }
 }

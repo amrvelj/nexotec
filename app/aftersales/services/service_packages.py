@@ -70,6 +70,7 @@ from app.aftersales.models.service_package import (
     ServicePackage,
     ServicePackagePosition,
 )
+from app.aftersales.services import answers
 from app.aftersales.services.positions import _snapshot as position_snapshot
 from app.aftersales.services.positions import propose_rate
 from app.aftersales.services.service_order import ENTITY_TYPE as ORDER_ENTITY_TYPE
@@ -485,12 +486,16 @@ def copy_package_onto_job(
     job: ServiceOrderJob,
     package_id: uuid.UUID,
     actor_id: uuid.UUID,
+    confirmed: bool = False,
 ) -> list[ServiceOrderPosition]:
     """Copies an active package's positions into the job, after its own
     (section 3.10). From then on they are positions like typed ones: nothing
-    names the package (check 45). Commits."""
+    names the package (check 45). Refused on a stopped job; an accepted job
+    follows the customer's answer like a typed position (KAN-811). Commits."""
 
     refuse_frozen(order)
+    answers.refuse_stopped(job)
+    answers.refuse_unconfirmed_change_while_clocked(db, order=order, job=job, confirmed=confirmed)
     package = get_package_or_404(db, dealership_id=order.tenant_id, package_id=package_id)
     if not package.is_active:
         raise ConflictError(
@@ -568,6 +573,7 @@ def copy_package_onto_job(
                 db, entity_type=ORDER_ENTITY_TYPE, entity_id=order.id, tenant_id=order.tenant_id,
                 action="service_order_position_added", actor_id=actor_id, after=after,
             )
+    answers.follow_amount(db, order=order, job=job, actor_id=actor_id)
     db.commit()
     return copied
 

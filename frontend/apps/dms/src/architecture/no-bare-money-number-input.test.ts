@@ -29,6 +29,7 @@ const NOT_MONEY_LABELS = new Set([
   "t('valuationCreate.validForDays')", // days
   "t('configurator.summary.mileage')", // kilometres
   "t('vehicleDetail.odometer.value')", // kilometres
+  "t('serviceOrder.arrival.mileage')", // kilometres, «Fahrzeug ist da» (KAN-813)
   "t('business.fiscal.paymentTerms')", // days (KAN-203)
   "t('business.fiscal.vatRate')", // a percentage (KAN-203)
   "t('numberRanges.startValue')", // a counter's start (KAN-207)

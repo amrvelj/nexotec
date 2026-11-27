@@ -12,7 +12,8 @@
     "state": "Stato dell'ordine",
     "orderDate": "Data dell'ordine",
     "location": "Sede",
-    "createdAt": "Registrato il"
+    "createdAt": "Registrato il",
+    "workshopStatus": "Stato officina"
   },
   "emptyState": {
     "title": "Ancora nessun ordine d'officina",

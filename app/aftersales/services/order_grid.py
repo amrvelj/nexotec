@@ -9,7 +9,12 @@ is an identifier (`IDENTIFIER_TEXT` on its column) and keeps byte order.
 """
 
 from app.aftersales.models.service_order import ServiceOrder, ServiceOrderState
+from app.aftersales.models.service_stay import WorkshopStatus
 from app.core.list_query import ColumnSpec, GridSchemaRead, Registry, grid_schema
+
+# KAN-813, criterion 5: the workshop status the list shows, sorts and filters is the
+# projection's, read through the order's read-only `workshop_status` expression.
+_WORKSHOP_STATUS = ServiceOrder.workshop_status  # type: ignore[attr-defined]
 
 _L = "serviceOrders.columns."
 
@@ -21,6 +26,10 @@ SERVICE_ORDER_COLUMNS: Registry = (
     ColumnSpec(
         "state", ServiceOrder.state, "enum", _L + "state", default_visible=True,
         enum=ServiceOrderState, enum_label_prefix="serviceOrder.state",
+    ),
+    ColumnSpec(
+        "workshopStatus", _WORKSHOP_STATUS, "enum", _L + "workshopStatus", default_visible=True,
+        enum=WorkshopStatus, enum_label_prefix="serviceOrder.workshopStatus",
     ),
     ColumnSpec("orderDate", ServiceOrder.order_date, "date", _L + "orderDate", default_visible=True),
     ColumnSpec("locationLabel", ServiceOrder.location_label, "text", _L + "location", default_visible=True),

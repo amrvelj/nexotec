@@ -514,6 +514,19 @@ const REASON_KEYS: Record<string, string> = {
       'service_order_frozen',
       'service_order_job_accepted',
       'service_order_job_already_answered',
+      // KAN-811 — the customer's answer per job.
+      'service_order_answer_empty',
+      'service_order_answer_hours_billed_required',
+      'service_order_answer_job_twice',
+      'service_order_answer_note_required',
+      'service_order_answer_note_too_long',
+      'service_order_job_clocked_confirm',
+      'service_order_job_stopped',
+      // KAN-813 — «Fahrzeug ist da» and the stay of the car.
+      'service_stay_car_already_here',
+      'service_stay_car_changed',
+      'service_stay_mileage_invalid',
+      'service_stay_text_too_long',
       'service_order_job_name_required',
       'service_order_job_time_clocked',
       'service_order_labour_category_unknown',
@@ -573,6 +586,12 @@ const REASON_PARAMS: Record<string, (details: Details, t: TFunction) => Record<s
   credit_block: (d) => ({ reason: String(d.creditBlockReason ?? '—') }),
   // KAN-810: a blocked contact's reason, named on the refusal (Contacts FR-21).
   service_order_contact_blocked: (d) => ({ reason: String(d.blockedReason ?? '—') }),
+  // KAN-813: a text's limit, as the API names it.
+  service_stay_text_too_long: (d) => ({ maxLength: String(d.maxLength ?? '—') }),
+  // KAN-811: the people clocked on the job, named before a change (ruling 49, check 6).
+  service_order_job_clocked_confirm: (d) => ({
+    names: Array.isArray(d.people) ? d.people.map((p) => String((p as { label?: unknown }).label ?? '—')).join(', ') : '—',
+  }),
   // KAN-539: the instant of the first request, as a day in the user's locale.
   invoice_already_requested: (d) => ({
     date:
