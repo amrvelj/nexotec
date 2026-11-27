@@ -634,9 +634,13 @@ def _refresh_location_labels(db: Session) -> None:
 def _refresh_order_labels(db: Session) -> None:
     report = refresh_order_labels(db)
     logger.info(
-        "aftersales.order_labels: %d workshop order label(s) changed, %d left alone (no such record, or a merged one)",
+        "aftersales.order_labels: %d workshop order label(s) changed, %d left alone (no such record, or a merged one);"
+        " %d position category name(s) changed, %d kept on a frozen order, %d left alone (no such category)",
         len(report.changed),
         len(report.unresolved),
+        len(report.positions_changed),
+        len(report.positions_kept),
+        len(report.positions_unresolved),
     )
 
 
@@ -755,7 +759,8 @@ def register_daily_jobs() -> None:
        planner resource's copy of its location's name.
     7d. ``aftersales.order_labels`` — KAN-837: a workshop order's copies of
        its three contacts', its car's and its location's names, through
-       each owner's public.
+       each owner's public, and (KAN-845) its labour positions' category
+       names — an open order's follow, a frozen order's are kept.
     7e. ``aftersales.package_labels`` — KAN-818: a service-catalogue
        position's copy of its labour category's name, through platform's
        public.

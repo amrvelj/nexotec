@@ -5,6 +5,8 @@ a contact or vehicle merge and refreshes its labels.
   customer, invoice recipient or driver to the end of the survivor's chain.
 - `aftersales.vehicle_merged` moves every order naming the merged record.
 - `aftersales.order_labels` refreshes the five labels nightly, on every order.
+- KAN-845: the same job refreshes a labour position's category name — an
+  open order's follows, a frozen order's is kept — and the gauge counts it.
 - After the consumers ran, PR-1's StateChecks find nothing.
 """
 
@@ -21,7 +23,7 @@ from app.aftersales.consumers import (
     handle_contact_merged_message,
     handle_vehicle_merged_message,
 )
-from app.aftersales.models.service_order import ServiceOrder, ServiceOrderState
+from app.aftersales.models.service_order import ServiceOrder, ServiceOrderPosition, ServiceOrderState
 from app.aftersales.services.order_references import oldest_order_label_age_seconds, refresh_order_labels
 from app.contact.models.contact import Contact
 from app.contact.services import contact_common as contact_common_service
@@ -31,10 +33,19 @@ from app.core.consumer import consume_once
 from app.core.outbox_model import OutboxMessage
 from app.core.reconciliation import StateCheck, find_rows_in_state
 from app.platform.organisation.models.dealership import Location
+from app.platform.organisation.models.labour_rate import LabourRateCategory
 from app.vehicle.models.vehicle_mdm import VehicleMdm
 from app.vehicle.services.merge import MERGED_EVENT, merge_vehicles
 from app.worker import register_daily_jobs, register_handlers
-from tests.aftersales.service_order_support import make_betrieb, make_contact, make_vehicle, new_order
+from tests.aftersales.service_order_support import (
+    add_job,
+    add_position,
+    labour_by_time,
+    make_betrieb,
+    make_contact,
+    make_vehicle,
+    new_order,
+)
 from tests.cross_context.test_consumer_redelivery_idempotency import _RecordingTransport
 
 _LONG_AGO = dt.datetime(2026, 1, 1, tzinfo=dt.UTC)
@@ -285,3 +296,63 @@ def test_the_worker_heartbeat_records_the_order_label_age(client, db_session, mo
     worker._heartbeat(db_session, worker.InProcessTransport(lambda: db_session))
 
     assert recorded["aftersales.order"] is not None
+
+
+def _order_with_labour(client, db, betrieb) -> tuple[dict, uuid.UUID]:
+    order = add_job(client, betrieb, new_order(client, db, betrieb))
+    response = add_position(client, betrieb, order, order["jobs"][0]["id"], **labour_by_time(betrieb, "1"))
+    assert response.status_code == 201, response.text
+    body = response.json()
+    return body, uuid.UUID(body["jobs"][0]["positions"][0]["id"])
+
+
+def _position(db, position_id) -> ServiceOrderPosition:
+    db.expire_all()
+    return db.get(ServiceOrderPosition, position_id)
+
+
+def test_the_nightly_job_renames_an_open_orders_position_and_keeps_a_frozen_ones(client, db_session):
+    """KAN-845: a renamed labour category («Mechanik» → «Mechanik PW») reaches
+    an open order's labour position; a frozen (cancelled) order's position
+    keeps the name it carries and is restamped. Neither price moves."""
+
+    betrieb = make_betrieb(client, db_session)
+    open_order, open_position = _order_with_labour(client, db_session, betrieb)
+    frozen_order, frozen_position = _order_with_labour(client, db_session, betrieb)
+    old_name = _position(db_session, open_position).labour_category_label
+    prices = {p: _position(db_session, p).unit_price for p in (open_position, frozen_position)}
+    db_session.execute(
+        update(ServiceOrder).where(ServiceOrder.id == uuid.UUID(frozen_order["id"])).values(state=ServiceOrderState.CANCELLED)
+    )
+    db_session.get(LabourRateCategory, betrieb.category_id).name = "Mechanik PW"
+    db_session.execute(update(ServiceOrderPosition).values(labour_category_label_refreshed_at=_LONG_AGO))
+    db_session.commit()
+    assert oldest_order_label_age_seconds(db_session) > 300 * 86400  # the gauge counts the positions' stamps
+
+    report = refresh_order_labels(db_session)
+
+    renamed, kept = _position(db_session, open_position), _position(db_session, frozen_position)
+    assert renamed.labour_category_label == "Mechanik PW" and renamed.labour_category_label_refreshed_at > _LONG_AGO
+    assert kept.labour_category_label == old_name != "Mechanik PW"
+    assert kept.labour_category_label_refreshed_at > _LONG_AGO
+    assert {p: _position(db_session, p).unit_price for p in (open_position, frozen_position)} == prices
+    assert report.positions_changed == [(open_position, old_name, "Mechanik PW")]
+    assert report.positions_kept == [frozen_position]
+    assert _order(db_session, open_order["id"]).version == open_order["version"]  # no version bump
+    assert oldest_order_label_age_seconds(db_session) < 60
+
+
+def test_a_position_whose_category_names_nothing_is_left_alone(client, db_session):
+    betrieb = make_betrieb(client, db_session)
+    _, position_id = _order_with_labour(client, db_session, betrieb)
+    db_session.execute(
+        update(ServiceOrderPosition).where(ServiceOrderPosition.id == position_id).values(
+            labour_category_id=uuid.uuid4(), labour_category_label_refreshed_at=_LONG_AGO
+        )
+    )
+    db_session.commit()
+
+    report = refresh_order_labels(db_session)
+
+    assert report.positions_unresolved == [position_id]
+    assert _position(db_session, position_id).labour_category_label_refreshed_at == _LONG_AGO

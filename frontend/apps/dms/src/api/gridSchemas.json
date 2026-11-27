@@ -621,5 +621,129 @@
         "type": "datetime"
       }
     ]
+  },
+  "/v1/service-orders": {
+    "fields": [
+      {
+        "defaultVisible": true,
+        "field": "orderNumber",
+        "labelKey": "serviceOrders.columns.orderNumber",
+        "operators": [
+          "contains",
+          "equals",
+          "notEquals"
+        ],
+        "options": null,
+        "sortable": true,
+        "type": "text"
+      },
+      {
+        "defaultVisible": true,
+        "field": "vehicleLabel",
+        "labelKey": "serviceOrders.columns.vehicle",
+        "operators": [
+          "contains",
+          "equals",
+          "notEquals"
+        ],
+        "options": null,
+        "sortable": true,
+        "type": "text"
+      },
+      {
+        "defaultVisible": false,
+        "field": "contactLabel",
+        "labelKey": "serviceOrders.columns.contact",
+        "operators": [
+          "contains",
+          "equals",
+          "notEquals"
+        ],
+        "options": null,
+        "sortable": true,
+        "type": "text"
+      },
+      {
+        "defaultVisible": true,
+        "field": "state",
+        "labelKey": "serviceOrders.columns.state",
+        "operators": [
+          "is",
+          "isNot",
+          "in"
+        ],
+        "options": [
+          {
+            "labelKey": "serviceOrder.state.draft",
+            "value": "draft"
+          },
+          {
+            "labelKey": "serviceOrder.state.accepted",
+            "value": "accepted"
+          },
+          {
+            "labelKey": "serviceOrder.state.ready_for_billing",
+            "value": "ready_for_billing"
+          },
+          {
+            "labelKey": "serviceOrder.state.cancelled",
+            "value": "cancelled"
+          }
+        ],
+        "sortable": true,
+        "type": "enum"
+      },
+      {
+        "defaultVisible": true,
+        "field": "orderDate",
+        "labelKey": "serviceOrders.columns.orderDate",
+        "operators": [
+          "today",
+          "thisWeek",
+          "thisMonth",
+          "thisYear",
+          "inTheLastDays",
+          "moreThanDaysAgo",
+          "on",
+          "before",
+          "after"
+        ],
+        "options": null,
+        "sortable": true,
+        "type": "date"
+      },
+      {
+        "defaultVisible": true,
+        "field": "locationLabel",
+        "labelKey": "serviceOrders.columns.location",
+        "operators": [
+          "contains",
+          "equals",
+          "notEquals"
+        ],
+        "options": null,
+        "sortable": true,
+        "type": "text"
+      },
+      {
+        "defaultVisible": false,
+        "field": "createdAt",
+        "labelKey": "serviceOrders.columns.createdAt",
+        "operators": [
+          "today",
+          "thisWeek",
+          "thisMonth",
+          "thisYear",
+          "inTheLastDays",
+          "moreThanDaysAgo",
+          "on",
+          "before",
+          "after"
+        ],
+        "options": null,
+        "sortable": true,
+        "type": "datetime"
+      }
+    ]
   }
 }

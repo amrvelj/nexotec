@@ -76,6 +76,7 @@ from app.inventory.services.reconciliation_targets import (
 from app.inventory.services.reservation import release, reserve, reserve_for_contract
 from app.inventory.services.sales_contract import CONSUMERS as SALES_CONTRACT_PROJECTION_CONSUMERS
 from app.inventory.services.sales_contract import apply_backfilled_contract, backfill_recorded, record_backfill
+from app.inventory.services.stock_grid import stock_item_grid_schema
 from app.inventory.services.stock_item import get_stock_numbers, is_stock_item_purchased
 from app.inventory.services.supplier_labels import oldest_supplier_label_age_seconds, refresh_supplier_labels
 from app.inventory.services.valuation import set_valuation_ref
@@ -114,6 +115,7 @@ __all__ = [
     "set_valuation_ref",
     "stock_item_differs_from_holding",
     "stock_item_exists",
+    "stock_item_grid_schema",
     "stock_item_prices_moved",
     "stock_item_reference_check",
     "stock_item_reservation_exists",

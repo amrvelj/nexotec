@@ -471,4 +471,160 @@ describe('PlannerResourcesPage (KAN-808)', () => {
       i18n.t('settings.rule.multipleOfNotSet', { setting: i18n.t('settings.keys.planning.grid_minutes.label') }),
     )
   })
+
+  // KAN-842 — the review follow-ups of KAN-808 PR-2.
+  it('creates a workplace with its name, location and type', async () => {
+    const backend = install({
+      extra: [{ method: 'POST', match: new RegExp(`${PLANNING}/resources$`), handler: () => status(201, RESOURCES[2]) }],
+    })
+    render()
+    await resourcesAt('Hauptsitz')
+    await userEvent.click(screen.getByRole('button', { name: i18n.t('plannerResources.resources.addWorkplace') }))
+    const dialog = await screen.findByRole('dialog', { name: i18n.t('plannerResources.resourceDialog.workplaceCreateTitle') })
+    await userEvent.type(within(dialog).getByRole('textbox', { name: (n) => n.startsWith(i18n.t('plannerResources.resourceDialog.workplaceName')) }), 'Bühne 2')
+    await userEvent.click(within(dialog).getByRole('textbox', { name: (n) => n.startsWith(i18n.t('plannerResources.columns.location')) }))
+    await userEvent.click(await screen.findByRole('option', { name: 'Filiale' }))
+    await userEvent.click(within(dialog).getByRole('textbox', { name: i18n.t('plannerResources.columns.workplaceType') }))
+    await userEvent.click(await screen.findByRole('option', { name: 'Waschplatz' }))
+    await userEvent.click(within(dialog).getByRole('button', { name: i18n.t('common.save') }))
+
+    await waitFor(() => expect(calls(backend, 'POST', /\/planning\/resources$/)).toHaveLength(1))
+    expect(calls(backend, 'POST', /\/planning\/resources$/)[0].body).toEqual({
+      kind: 'workplace', locationId: 'loc-2', sortOrder: 0, name: 'Bühne 2', workplaceTypeId: 'wt-2',
+    })
+  })
+
+  it('edits a workplace sending only what changed, with If-Match', async () => {
+    const backend = install({
+      extra: [{ method: 'PATCH', match: new RegExp(`${PLANNING}/resources/r-3$`), handler: () => ({ ...RESOURCES[2], name: 'Bühne 9', version: 2 }) }],
+    })
+    render()
+    const filiale = await resourcesAt('Filiale')
+    await userEvent.click(within(filiale).getByRole('button', { name: i18n.t('plannerResources.actions.editNamed', { name: 'Bühne 1' }) }))
+    const dialog = await screen.findByRole('dialog', { name: i18n.t('plannerResources.resourceDialog.workplaceEditTitle') })
+    const nameField = within(dialog).getByRole('textbox', { name: (n) => n.startsWith(i18n.t('plannerResources.resourceDialog.workplaceName')) })
+    await userEvent.clear(nameField)
+    await userEvent.type(nameField, 'Bühne 9')
+    await userEvent.click(within(dialog).getByRole('button', { name: i18n.t('common.save') }))
+
+    await waitFor(() => expect(calls(backend, 'PATCH', /\/resources\/r-3$/)).toHaveLength(1))
+    const patch = calls(backend, 'PATCH', /\/resources\/r-3$/)[0]
+    expect(patch.body).toEqual({ name: 'Bühne 9' })
+    expect(patch.headers.get('If-Match')).toBe('1')
+  })
+
+  it('edits a person sending only what changed, and says what moving to another location does', async () => {
+    const backend = install({
+      extra: [{ method: 'PATCH', match: new RegExp(`${PLANNING}/resources/r-1$`), handler: () => ({ ...RESOURCES[0], locationId: 'loc-2', version: 4 }) }],
+    })
+    render()
+    const hauptsitz = await resourcesAt('Hauptsitz')
+    await userEvent.click(within(hauptsitz).getByRole('button', { name: i18n.t('plannerResources.actions.editNamed', { name: 'Lea Meier' }) }))
+    const dialog = await screen.findByRole('dialog', { name: i18n.t('plannerResources.resourceDialog.personEditTitle') })
+    expect(within(dialog).queryByText(i18n.t('plannerResources.resourceDialog.movingNote'))).toBeNull()
+    await userEvent.click(within(dialog).getByRole('textbox', { name: (n) => n.startsWith(i18n.t('plannerResources.columns.location')) }))
+    await userEvent.click(await screen.findByRole('option', { name: 'Filiale' }))
+    expect(within(dialog).getByText(i18n.t('plannerResources.resourceDialog.movingNote'))).toBeInTheDocument()
+    await userEvent.click(within(dialog).getByRole('button', { name: i18n.t('common.save') }))
+
+    await waitFor(() => expect(calls(backend, 'PATCH', /\/resources\/r-1$/)).toHaveLength(1))
+    const patch = calls(backend, 'PATCH', /\/resources\/r-1$/)[0]
+    expect(patch.body).toEqual({ locationId: 'loc-2' })
+    expect(patch.headers.get('If-Match')).toBe('3')
+  })
+
+  it('reactivates a resource with If-Match, once however often it is clicked', async () => {
+    const inactive = resource('r-4', { kind: 'workplace', name: 'Bühne alt', isActive: false, version: 5 })
+    let release: () => void = () => {}
+    const backend = install({
+      extra: [
+        { method: 'GET', match: new RegExp(`${PLANNING}/resources$`), handler: () => ({ items: [...RESOURCES, inactive] }) },
+        {
+          method: 'PATCH',
+          match: new RegExp(`${PLANNING}/resources/r-4$`),
+          // Held until the test lets it go: the second click lands while the first is in flight.
+          handler: () => new Promise((resolve) => { release = () => resolve({ ...inactive, isActive: true, version: 6 }) }),
+        },
+      ],
+    })
+    render()
+    const hauptsitz = await resourcesAt('Hauptsitz')
+    const reactivate = within(hauptsitz).getByRole('button', { name: i18n.t('plannerResources.actions.reactivateNamed', { name: 'Bühne alt' }) })
+    await userEvent.dblClick(reactivate)
+    await waitFor(() => expect(calls(backend, 'PATCH', /\/resources\/r-4$/)).toHaveLength(1))
+    release()
+    await waitFor(() => expect(calls(backend, 'GET', /\/planning\/resources$/).length).toBeGreaterThan(1))
+    const patches = calls(backend, 'PATCH', /\/resources\/r-4$/)
+    expect(patches).toHaveLength(1)
+    expect(patches[0].body).toEqual({ isActive: true })
+    expect(patches[0].headers.get('If-Match')).toBe('5')
+  })
+
+  it('confirms a sample once on a double click', async () => {
+    let release: () => void = () => {}
+    const backend = install({
+      extra: [
+        {
+          method: 'POST',
+          match: new RegExp(`${PLANNING}/workplace-types/wt-1/confirmation$`),
+          handler: () => new Promise((resolve) => { release = () => resolve({ ...WORKPLACE_TYPES[0], isSample: false, version: 2 }) }),
+        },
+      ],
+    })
+    render()
+    const workplaceTypes = await listTable('workplaceTypes')
+    await userEvent.dblClick(within(workplaceTypes).getByRole('button', { name: i18n.t('plannerResources.samples.confirmNamed', { name: 'Hebebühne' }) }))
+    await waitFor(() => expect(calls(backend, 'POST', /\/confirmation$/)).toHaveLength(1))
+    release()
+    await waitFor(() => expect(calls(backend, 'GET', /\/workplace-types$/).length).toBeGreaterThan(1))
+    expect(calls(backend, 'POST', /\/confirmation$/)).toHaveLength(1)
+    expect(screen.queryByText(i18n.t('apiRefusal.staleVersion'))).toBeNull()
+  })
+
+  it('a role that may not read sees the load error and no «you see the entries» note', async () => {
+    const forbidden = () => status(403, { error: { code: 'forbidden', message: 'no', details: null } })
+    install({
+      canWrite: false,
+      extra: [
+        { method: 'GET', match: new RegExp(`${PLANNING}/workplace-types$`), handler: forbidden },
+        { method: 'GET', match: new RegExp(`${PLANNING}/technician-types$`), handler: forbidden },
+        { method: 'GET', match: new RegExp(`${PLANNING}/qualifications$`), handler: forbidden },
+        { method: 'GET', match: new RegExp(`${PLANNING}/resources$`), handler: forbidden },
+      ],
+    })
+    render()
+    expect(await screen.findByRole('alert')).toBeInTheDocument()
+    expect(screen.queryByText(i18n.t('plannerResources.readOnly'))).toBeNull()
+  })
+
+  it('groups the resources only once the locations are known: no «Standort inaktiv» meanwhile', async () => {
+    let releaseLocations: () => void = () => {}
+    install({
+      extra: [
+        {
+          method: 'GET',
+          match: new RegExp(`${BASE.source}/locations$`),
+          handler: () =>
+            new Promise((resolve) => {
+              releaseLocations = () =>
+                resolve({ items: [{ id: 'loc-1', name: 'Hauptsitz', isActive: true }, { id: 'loc-2', name: 'Filiale', isActive: true }] })
+            }),
+        },
+      ],
+    })
+    render()
+    await listTable('workplaceTypes')
+    expect(screen.queryByText(i18n.t('plannerResources.resources.locationInactive'))).toBeNull()
+    releaseLocations()
+    await resourcesAt('Hauptsitz')
+    expect(screen.queryByText(i18n.t('plannerResources.resources.locationInactive'))).toBeNull()
+  })
+
+  it('a failed read of the locations is said, not a silently missing resource list (KAN-842)', async () => {
+    install({
+      extra: [{ method: 'GET', match: new RegExp(`${BASE.source}/locations$`), handler: () => status(503, { error: { code: 'unavailable', message: 'down', details: null } }) }],
+    })
+    render()
+    expect(await screen.findByRole('alert')).toBeInTheDocument()
+  })
 })

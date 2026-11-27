@@ -461,3 +461,35 @@ def test_a_dead_earlier_merge_blocks_and_a_published_one_does_not(db_session, be
     db_session.commit()
     assert _deliver(db_session, d_into_t)
     db_session.commit()
+
+
+def test_two_merges_sharing_a_created_at_are_ordered_by_id_so_neither_waits_forever(db_session, betrieb):
+    """KAN-857: two merges into one survivor stamped with the same instant
+    (two concurrent transactions) are ordered by id, the worker's own order.
+    The lower id goes first; the higher waits for it, then follows. Compared
+    by `created_at` alone, each waited for the other and both dead-lettered."""
+
+    dealership_id, group_id = betrieb
+    category = _category(db_session, dealership_id)
+    t = _contact(db_session, group_id, dealership_id, "Target")
+    y = _contact(db_session, group_id, dealership_id, "Yankee")
+    d = _contact(db_session, group_id, dealership_id, "Delta")
+    _agreement(db_session, dealership_id, category, y, amount="90.00")
+    _agreement(db_session, dealership_id, category, d, amount="80.00")
+    one = _merge(db_session, duplicate_id=y.id, survivor_id=t.id, group_id=group_id)
+    two = _merge(db_session, duplicate_id=d.id, survivor_id=t.id, group_id=group_id)
+    two.created_at = one.created_at
+    db_session.commit()
+    first, second = sorted([one, two], key=lambda message: message.id)
+
+    with pytest.raises(EarlierMergeNotYetConsumed):
+        _deliver(db_session, second)
+    db_session.rollback()
+
+    assert _deliver(db_session, first)
+    db_session.commit()
+    assert _deliver(db_session, second)
+    db_session.commit()
+
+    first_amount = Decimal("90.0000") if first.id == one.id else Decimal("80.0000")
+    assert _answer(db_session, dealership_id, category, recipient=t.id).amount == first_amount
