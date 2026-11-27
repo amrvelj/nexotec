@@ -42,29 +42,35 @@ DAILY_JOB_NAME = "platform.labour_rate_agreement_labels"
 
 
 class EarlierMergeNotYetConsumed(Exception):
-    """The duplicate was itself the survivor of an earlier merge whose event this
-    consumer has not consumed yet: this message waits for it (the harness retries
-    it with backoff, and dead-letters it — alerting — if the earlier one never
-    comes through)."""
+    """An earlier merge into the duplicate or into the survivor has not been
+    consumed here yet: this message waits for it (the harness retries it with
+    backoff, and dead-letters it — alerting — if the earlier one never comes
+    through; replay dead letters oldest first)."""
 
 
-def _earlier_merge_into_pending(db: Session, *, contact_id: uuid.UUID, before: OutboxMessage) -> uuid.UUID | None:
-    """The id of a `contact.merged` event into `contact_id`, created before
-    `before`, that is still pending and that this consumer has not consumed —
-    else None. An earlier merge published or dead-lettered before this
-    consumer existed never blocks."""
+def _earlier_merge_pending(
+    db: Session, *, contact_ids: tuple[uuid.UUID, ...], before: OutboxMessage
+) -> uuid.UUID | None:
+    """The id of a `contact.merged` event into one of `contact_ids`, created
+    before `before`, that this consumer has not consumed and that is still
+    pending or was dead-lettered — else None. A dead one blocks too: replaying
+    it after a later merge went ahead would leave its rows on a contact whose
+    own merge is already consumed, so the later merge waits (and dead-letters,
+    named by the alert) and the operator replays the two oldest first. An
+    earlier merge already published — before this consumer existed, or by it —
+    never blocks."""
 
     earlier = select(OutboxMessage.id).where(
         OutboxMessage.event_type == "contact.merged",
-        OutboxMessage.payload["duplicateOfContactId"].as_string() == str(contact_id),
-        OutboxMessage.status == OutboxStatus.PENDING,
+        OutboxMessage.payload["duplicateOfContactId"].as_string().in_([str(c) for c in contact_ids]),
+        OutboxMessage.status.in_([OutboxStatus.PENDING, OutboxStatus.DEAD]),
         OutboxMessage.created_at <= before.created_at,
         OutboxMessage.id != before.id,
         ~select(ProcessedEvent.event_id)
         .where(ProcessedEvent.event_id == OutboxMessage.id, ProcessedEvent.consumer_name == CONSUMER_NAME)
         .exists(),
     )
-    return db.scalar(earlier.limit(1))
+    return db.scalar(earlier.order_by(OutboxMessage.created_at).limit(1))
 
 
 def move_labour_rate_agreements_on_contact_merged(db: Session, message: OutboxMessage) -> None:
@@ -75,10 +81,17 @@ def move_labour_rate_agreements_on_contact_merged(db: Session, message: OutboxMe
     judges the duplicate's rows against what the survivor held *when it was
     merged*, and contact's merge rewrites earlier «merged into» pointers
     (KAN-383), so no read of today's chain can rebuild that. So a merge D→T
-    waits until every earlier merge into D (X→D) has been consumed here; then
-    X→D always finds D unmoved, judges X's rows against D's and moves them onto
-    D (merged, but its own merge is still to come), and D→T carries D's rows —
-    X's among them — on to T. Any chain length, any delivery order."""
+    waits until every earlier merge into D (X→D, a chain) and into T (Y→T,
+    fan-in) has been consumed here; then X→D always finds D unmoved, judges
+    X's rows against D's and moves them onto D (merged, but its own merge is
+    still to come), D→T carries D's rows — X's among them — on to T, and T is
+    judged with Y's rows already there. Any chain, any fan-in, any delivery
+    order. In normal operation the wait never fires: the worker dispatches by
+    id (UUIDv7, the merges' own order) and each consumer commits before the
+    next message; it fires only while this consumer fails on an earlier merge.
+    Reading the outbox to order itself ties this consumer to the Postgres
+    transport (ADR-006 keeps a broker as the destination) — recorded in
+    ADR-232."""
 
     if message.tenant_id is None:
         raise ValueError(f"contact.merged message {message.id} has no tenant_id.")
@@ -90,10 +103,11 @@ def move_labour_rate_agreements_on_contact_merged(db: Session, message: OutboxMe
     # makes a create for the target be seen below or wait.
     lock_agreement_contact(db, duplicate_id)
     lock_agreement_contact(db, target_id)
-    pending = _earlier_merge_into_pending(db, contact_id=duplicate_id, before=message)
+    pending = _earlier_merge_pending(db, contact_ids=(duplicate_id, target_id), before=message)
     if pending is not None:
         raise EarlierMergeNotYetConsumed(
-            f"contact.merged {message.id}: the earlier merge {pending} into {duplicate_id} is not consumed yet."
+            f"contact.merged {message.id}: the earlier merge {pending} into {duplicate_id} or {target_id}"
+            " is not consumed yet."
         )
     try:
         label: str | None = contact_display_name(get_contact_or_404(db, message.tenant_id, target_id))

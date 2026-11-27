@@ -10,8 +10,8 @@ read the contact through `contact.public` and hand platform what it needs.
 
 - **On a contact merge** (`repoint_agreements_of_merged_contact`, the
   consumer `platform.labour_rate_agreements_on_contact_merged`): the
-  duplicate's agreement rows move to the survivor (the end of its merge
-  chain, which the composition root resolved), with the survivor's name, in
+  duplicate's agreement rows move to the event's survivor (the composition
+  root replays the merges in the order they happened), with the survivor's name, in
   platform's own transaction (ADR-047). Moving the reference changes no rate:
   ruling 178 is about the amounts and dates.
 - **The survivor's agreement survives, per Betrieb and category** (Anto,

@@ -52,6 +52,9 @@ small; ADR-047 addendum, ADR-081, ADR-105, ADR-107. Last verified against main@3
   current label only restamped, a deactivated user's label kept, an id naming nothing left
   alone, batches `FOR NO KEY UPDATE SKIP LOCKED` (the vehicle-party job locks in id order and
   waits — `contact-vehicle-party.md`).
+- **One consumer orders itself** (ADR-232): `platform.labour_rate_agreements_on_contact_merged` waits for earlier
+  `contact.merged` into the same contacts by reading `outbox_message`/`processed_event` (a tie to the Postgres
+  transport); replay its dead letters oldest first. Not a pattern to copy without an ADR.
 - **A label may also follow its owner's event** (`vehicle.vehicle_mdm.summary_changed` →
   `contact.vehicle_party_labels_on_summary_changed`): the consumer re-reads the label through
   the owner's `public`, never trusting the payload (delivery is unordered); the nightly job stays

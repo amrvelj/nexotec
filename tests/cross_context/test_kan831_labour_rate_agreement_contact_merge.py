@@ -3,8 +3,8 @@ follows a contact merge and refreshes its contact label.
 
 - The consumer `platform.labour_rate_agreements_on_contact_merged`, composed
   in `app/labour_rate_agreement_merge.py` (contact sits above platform), moves
-  the duplicate's agreements to the end of the survivor's merge chain, in
-  platform's own transaction, idempotent by eventId.
+  the duplicate's agreements to the event's survivor, replaying the merges in
+  the order they happened, in platform's own transaction, idempotent by eventId.
 - The survivor's agreement survives (Anto, 2026-11-25 and 2026-11-27, option
   A): once the survivor holds any agreement for a category in the Betrieb,
   every row of the duplicate for that category — same date, later rate, end —
@@ -23,6 +23,7 @@ from app.contact.models.contact import Contact
 from app.core.audit_model import AuditEvent
 from app.core.consumer import consume_once
 from app.core.money import PriceEntry
+from app.core.outbox_model import OutboxStatus
 from app.labour_rate_agreement_merge import (
     EarlierMergeNotYetConsumed,
     move_labour_rate_agreements_on_contact_merged,
@@ -396,3 +397,67 @@ def test_the_nightly_job_relabels_a_renamed_contact_and_leaves_a_merged_one(db_s
     report = platform.refresh_agreement_contact_labels(db_session, labels_of=_agreement_contacts_now(db_session))
     assert report.changed == [] and report.restamped == 2 and len(report.unresolved) == 1
     assert platform.oldest_agreement_contact_label_age_seconds(db_session) is not None
+
+
+def _drain(db_session, messages):
+    """Deliver like the worker's retries: a message that must wait is tried again later."""
+
+    pending = list(messages)
+    for _ in range(20):
+        if not pending:
+            return
+        message = pending.pop(0)
+        try:
+            assert _deliver(db_session, message)
+            db_session.commit()
+        except EarlierMergeNotYetConsumed:
+            db_session.rollback()
+            pending.append(message)
+    raise AssertionError("the merges never cleared")
+
+
+@pytest.mark.parametrize("order", ["as_merged", "reversed"])
+def test_two_merges_into_one_survivor_give_the_same_agreement_in_either_order(db_session, betrieb, order):
+    """The fourth review's fan-in case: Y (90) merged into T, then D (80) into
+    T; T held none. When D was merged, T already held Y's rate (option A), so
+    D's is set aside and T answers 90 — also when D→T arrives first."""
+
+    dealership_id, group_id = betrieb
+    category = _category(db_session, dealership_id)
+    t = _contact(db_session, group_id, dealership_id, "Target")
+    y = _contact(db_session, group_id, dealership_id, "Yankee")
+    d = _contact(db_session, group_id, dealership_id, "Delta")
+    _agreement(db_session, dealership_id, category, y, amount="90.00")
+    d_rate = _agreement(db_session, dealership_id, category, d, amount="80.00")
+    y_into_t = _merge(db_session, duplicate_id=y.id, survivor_id=t.id, group_id=group_id)
+    d_into_t = _merge(db_session, duplicate_id=d.id, survivor_id=t.id, group_id=group_id)
+
+    _drain(db_session, [y_into_t, d_into_t] if order == "as_merged" else [d_into_t, y_into_t])
+
+    assert _row(db_session, d_rate).set_aside_at is not None
+    assert _answer(db_session, dealership_id, category, recipient=t.id).amount == Decimal("90.0000")
+
+
+def test_a_dead_earlier_merge_blocks_and_a_published_one_does_not(db_session, betrieb):
+    """A dead-lettered earlier merge into the duplicate makes the later one wait
+    (replay oldest first); one already published never blocks."""
+
+    dealership_id, group_id = betrieb
+    category = _category(db_session, dealership_id)
+    t = _contact(db_session, group_id, dealership_id, "Target")
+    d = _contact(db_session, group_id, dealership_id, "Delta")
+    x = _contact(db_session, group_id, dealership_id, "Xray")
+    _agreement(db_session, dealership_id, category, x, amount="90.00")
+    x_into_d = _merge(db_session, duplicate_id=x.id, survivor_id=d.id, group_id=group_id)
+    d_into_t = _merge(db_session, duplicate_id=d.id, survivor_id=t.id, group_id=group_id)
+
+    x_into_d.status = OutboxStatus.DEAD
+    db_session.commit()
+    with pytest.raises(EarlierMergeNotYetConsumed):
+        _deliver(db_session, d_into_t)
+    db_session.rollback()
+
+    x_into_d.status = OutboxStatus.PUBLISHED  # e.g. published before this consumer existed
+    db_session.commit()
+    assert _deliver(db_session, d_into_t)
+    db_session.commit()
