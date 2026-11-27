@@ -23,10 +23,11 @@ from app.contact.models.contact import Contact
 from app.core.audit_model import AuditEvent
 from app.core.consumer import consume_once
 from app.core.money import PriceEntry
-from app.labour_rate_agreement_merge import _contacts_now as _agreement_contacts_now
 from app.labour_rate_agreement_merge import (
+    EarlierMergeNotYetConsumed,
     move_labour_rate_agreements_on_contact_merged,
 )
+from app.labour_rate_agreement_merge import _contacts_now as _agreement_contacts_now
 from app.labour_rate_agreement_merge import refresh_agreement_contact_labels_daily as _refresh_agreement_contact_labels
 from app.platform import public as platform
 from app.platform.organisation.models.dealership import Dealership
@@ -171,8 +172,10 @@ def test_a_collision_keeps_the_survivors_agreement_and_sets_the_duplicates_aside
     ).one()
 
 
-def test_a_chain_merge_delivered_out_of_order_lands_on_the_end_of_the_chain(db_session, betrieb):
-    """X→D is delivered after D→T: X's agreement lands on T, never on the merged D."""
+def test_a_later_merge_waits_for_the_earlier_merge_into_its_duplicate(db_session, betrieb):
+    """The merges are replayed in the order they happened: D→T delivered before
+    X→D waits (nothing written, retried by the harness); once X→D is consumed,
+    D→T carries X's and D's rows on to T."""
 
     dealership_id, group_id = betrieb
     category = _category(db_session, dealership_id)
@@ -183,12 +186,88 @@ def test_a_chain_merge_delivered_out_of_order_lands_on_the_end_of_the_chain(db_s
     first_into_middle = _merge(db_session, duplicate_id=first.id, survivor_id=middle.id, group_id=group_id)
     middle_into_end = _merge(db_session, duplicate_id=middle.id, survivor_id=end.id, group_id=group_id)
 
-    assert _deliver(db_session, middle_into_end)
+    with pytest.raises(EarlierMergeNotYetConsumed):
+        _deliver(db_session, middle_into_end)
+    db_session.rollback()
+    assert _row(db_session, row).contact_id == first.id
+
     assert _deliver(db_session, first_into_middle)
+    db_session.commit()
+    assert _row(db_session, row).contact_id == middle.id  # onto D: its own merge is still to come
+    assert _deliver(db_session, middle_into_end)
     db_session.commit()
 
     moved = _row(db_session, row)
     assert moved.contact_id == end.id and moved.contact_label == "End Keller"
+
+
+def test_a_three_step_chain_keeps_the_agreement_of_the_contact_that_survived_each_merge(db_session, betrieb):
+    """The third review's case: X→D, D→T, T→U all committed before the worker
+    runs (contact's merge has re-pointed X and D straight at U, KAN-383). T held
+    110, X 90: T survived X's line, so U answers 110 — whatever order the three
+    events arrive in."""
+
+    dealership_id, group_id = betrieb
+    category = _category(db_session, dealership_id)
+    u = _contact(db_session, group_id, dealership_id, "Ultimo")
+    t = _contact(db_session, group_id, dealership_id, "Tertio")
+    d = _contact(db_session, group_id, dealership_id, "Secondo")
+    x = _contact(db_session, group_id, dealership_id, "Primo")
+    t_rate = _agreement(db_session, dealership_id, category, t, amount="110.00")
+    x_rate = _agreement(db_session, dealership_id, category, x, amount="90.00")
+    x_into_d = _merge(db_session, duplicate_id=x.id, survivor_id=d.id, group_id=group_id)
+    d_into_t = _merge(db_session, duplicate_id=d.id, survivor_id=t.id, group_id=group_id)
+    t_into_u = _merge(db_session, duplicate_id=t.id, survivor_id=u.id, group_id=group_id)
+
+    pending = [t_into_u, d_into_t, x_into_d]  # the worst order: last merge first
+    while pending:
+        message = pending.pop(0)
+        try:
+            assert _deliver(db_session, message)
+            db_session.commit()
+        except EarlierMergeNotYetConsumed:
+            db_session.rollback()
+            pending.append(message)  # the harness retries it later
+
+    assert _row(db_session, t_rate).contact_id == u.id
+    set_aside = _row(db_session, x_rate)
+    assert set_aside.contact_id == d.id and set_aside.set_aside_at is not None
+    answer = _answer(db_session, dealership_id, category, recipient=u.id)
+    assert answer.source == "agreement" and answer.amount == Decimal("110.0000")
+
+
+def test_a_middle_survivors_lone_end_gives_the_same_answer_in_either_order(db_session, betrieb):
+    """The third review's order case: D holds only an end (its rate withdrawn),
+    X a rate. X→D moves X's rate onto D (an end alone is no agreement); D→T
+    then carries both, so the end stops X's rate — in both delivery orders."""
+
+    dealership_id, group_id = betrieb
+    category = _category(db_session, dealership_id)
+    for order in ("in", "reversed"):
+        t = _contact(db_session, group_id, dealership_id, f"T{order}")
+        d = _contact(db_session, group_id, dealership_id, f"D{order}")
+        x = _contact(db_session, group_id, dealership_id, f"X{order}")
+        d_rate = _agreement(db_session, dealership_id, category, d, amount="80.00", valid_from=NEXT_MONTH)
+        _agreement(db_session, dealership_id, category, d, valid_from=NEXT_MONTH + dt.timedelta(days=14),
+                   kind=LabourRateAgreementKind.END)
+        rates.withdraw_agreement(db_session, dealership_id=dealership_id, agreement_id=d_rate.id,
+                                 expected_version=d_rate.version, actor_id=None, on=TODAY)
+        db_session.commit()
+        _agreement(db_session, dealership_id, category, x, amount="90.00")
+        x_into_d = _merge(db_session, duplicate_id=x.id, survivor_id=d.id, group_id=group_id)
+        d_into_t = _merge(db_session, duplicate_id=d.id, survivor_id=t.id, group_id=group_id)
+        pending = [x_into_d, d_into_t] if order == "in" else [d_into_t, x_into_d]
+        while pending:
+            message = pending.pop(0)
+            try:
+                assert _deliver(db_session, message)
+                db_session.commit()
+            except EarlierMergeNotYetConsumed:
+                db_session.rollback()
+                pending.append(message)
+        assert _answer(db_session, dealership_id, category, recipient=t.id).amount == Decimal("90.0000"), order
+        after_end = _answer(db_session, dealership_id, category, recipient=t.id, on=NEXT_MONTH + dt.timedelta(days=20))
+        assert after_end.source != "agreement", order
 
 
 def test_a_chain_consumed_in_order_after_both_merges_keeps_the_intermediate_survivors_agreement(

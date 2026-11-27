@@ -8,10 +8,8 @@ registers both functions (`app/worker.py`).
 
 - `move_labour_rate_agreements_on_contact_merged`: the consumer
   `platform.labour_rate_agreements_on_contact_merged` of `contact.merged`.
-  Delivery is unordered, so the survivor is re-read from its owner (the end of
-  its merge chain), as Sales', Stock's and Aftersales' consumers do; a chain
-  that leaves the group or does not end falls back to the payload's survivor,
-  and a survivor the group cannot read moves the rows without a new label.
+  The merges are replayed in the order they happened (see the function); a
+  survivor the group cannot read moves the rows without a new label.
 - `refresh_agreement_contact_labels_daily`: the daily job
   `platform.labour_rate_agreement_labels`.
 """
@@ -19,16 +17,17 @@ registers both functions (`app/worker.py`).
 import logging
 import uuid
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.contact.public import (
     contact_display_name,
-    contact_merge_chain,
     get_contact_or_404,
     get_contact_sales_labels,
 )
 from app.core.errors import NotFoundError
-from app.core.outbox_model import OutboxMessage
+from app.core.outbox_model import OutboxMessage, OutboxStatus
+from app.core.processed_event_model import ProcessedEvent
 from app.platform.public import (
     ContactNow,
     lock_agreement_contact,
@@ -42,31 +41,66 @@ CONSUMER_NAME = "platform.labour_rate_agreements_on_contact_merged"
 DAILY_JOB_NAME = "platform.labour_rate_agreement_labels"
 
 
+class EarlierMergeNotYetConsumed(Exception):
+    """The duplicate was itself the survivor of an earlier merge whose event this
+    consumer has not consumed yet: this message waits for it (the harness retries
+    it with backoff, and dead-letters it — alerting — if the earlier one never
+    comes through)."""
+
+
+def _earlier_merge_into_pending(db: Session, *, contact_id: uuid.UUID, before: OutboxMessage) -> uuid.UUID | None:
+    """The id of a `contact.merged` event into `contact_id`, created before
+    `before`, that is still pending and that this consumer has not consumed —
+    else None. An earlier merge published or dead-lettered before this
+    consumer existed never blocks."""
+
+    earlier = select(OutboxMessage.id).where(
+        OutboxMessage.event_type == "contact.merged",
+        OutboxMessage.payload["duplicateOfContactId"].as_string() == str(contact_id),
+        OutboxMessage.status == OutboxStatus.PENDING,
+        OutboxMessage.created_at <= before.created_at,
+        OutboxMessage.id != before.id,
+        ~select(ProcessedEvent.event_id)
+        .where(ProcessedEvent.event_id == OutboxMessage.id, ProcessedEvent.consumer_name == CONSUMER_NAME)
+        .exists(),
+    )
+    return db.scalar(earlier.limit(1))
+
+
 def move_labour_rate_agreements_on_contact_merged(db: Session, message: OutboxMessage) -> None:
     """Moves the duplicate's agreements in platform's own transaction (ADR-047).
-    Flushes only; the consumer harness commits with the processed-event row."""
+    Flushes only; the consumer harness commits with the processed-event row.
+
+    **The merges are replayed in the order they happened** (ADR-232): option A
+    judges the duplicate's rows against what the survivor held *when it was
+    merged*, and contact's merge rewrites earlier «merged into» pointers
+    (KAN-383), so no read of today's chain can rebuild that. So a merge D→T
+    waits until every earlier merge into D (X→D) has been consumed here; then
+    X→D always finds D unmoved, judges X's rows against D's and moves them onto
+    D (merged, but its own merge is still to come), and D→T carries D's rows —
+    X's among them — on to T. Any chain length, any delivery order."""
 
     if message.tenant_id is None:
         raise ValueError(f"contact.merged message {message.id} has no tenant_id.")
     payload = message.payload or {}
     duplicate_id = uuid.UUID(payload["contactId"])
-    survivor_id = uuid.UUID(payload["duplicateOfContactId"])
+    target_id = uuid.UUID(payload["duplicateOfContactId"])
     # Before any agreement is read: a create naming the duplicate in flight commits
-    # first (and is moved below) or waits and reads it merged.
+    # first (and is moved below) or waits and reads it merged; the target's lock
+    # makes a create for the target be seen below or wait.
     lock_agreement_contact(db, duplicate_id)
-    # The survivor's chain to its live end: the end is the target; the merged contacts on
-    # the way still hold the agreement their own merge will bring there (option A, ADR-232).
-    chain = contact_merge_chain(db, group_id=message.tenant_id, contact_id=survivor_id) or [survivor_id]
-    target_id, on_the_way = chain[-1], chain[:-1]
-    # And the target: an agreement created for it meanwhile is seen below or waits (the
-    # POST takes the same lock), so the duplicate's rows never land beside it unjudged.
     lock_agreement_contact(db, target_id)
+    pending = _earlier_merge_into_pending(db, contact_id=duplicate_id, before=message)
+    if pending is not None:
+        raise EarlierMergeNotYetConsumed(
+            f"contact.merged {message.id}: the earlier merge {pending} into {duplicate_id} is not consumed yet."
+        )
     try:
         label: str | None = contact_display_name(get_contact_or_404(db, message.tenant_id, target_id))
     except NotFoundError:
         label = None
     report = repoint_agreements_of_merged_contact(
-        db, duplicate_id=duplicate_id, target_id=target_id, target_label=label, on_the_way=on_the_way
+        db, duplicate_id=duplicate_id, target_id=target_id, target_label=label
     )
     logger.info(
         "%s: %d agreement row(s) moved, %d set aside", CONSUMER_NAME, len(report.moved), len(report.set_aside)

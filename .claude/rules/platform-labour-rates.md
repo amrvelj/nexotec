@@ -65,7 +65,9 @@ Last verified against main@dbf886d (2026-11-26, KAN-833). -->
   (Anto, option A, 2026-11-27): once the survivor holds a live rate row of a category in the Betrieb (an end alone is none), every row
   of the duplicate for that category is **set aside** (`set_aside_at`: never an answer of `labour_rate_for`,
   `superseded` on the screen, listed with the withdrawn, not reported); otherwise all move. The POST and the
-  consumer serialise on `lock_agreement_contact` (the consumer locks the duplicate, then the target). The
-  merged contacts between the event's survivor and its chain's end (`contact.public.contact_merge_chain`) hold too:
-  their rows follow there. Nightly `platform.labour_rate_agreement_labels`.
+  consumer serialise on `lock_agreement_contact` (the consumer locks the duplicate, then the target). **Merges are
+  replayed in the order they happened:** a merge D→T waits (`EarlierMergeNotYetConsumed`, retried, dead-lettered with
+  its alert if it never clears) until every earlier merge into D is consumed; a merge's rows land on the event's own
+  survivor, merged or not, and its own merge carries them on (contact's merge rewrites old pointers, KAN-383, so no
+  read of today's chain could). Nightly `platform.labour_rate_agreement_labels`.
 - **Open:** copying categories from a sister Betrieb (KAN-220's subset).
