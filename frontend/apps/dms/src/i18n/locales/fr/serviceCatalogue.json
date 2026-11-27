@@ -1,6 +1,6 @@
 {
   "title": "Catalogue de services",
-  "subtitle": "Des forfaits avec positions de travail et de texte et leurs temps, que la réception reprend en une étape sur un travail. Le prix est le temps au taux horaire de l'ordre.",
+  "subtitle": "Des forfaits avec positions de travail et de texte et leurs temps, que la réception reprend en une étape sur un groupe. Le prix est le temps au taux horaire de l'ordre.",
   "add": "Saisir un forfait",
   "edit": "Modifier",
   "editNamed": "Modifier {{name}}",
@@ -57,7 +57,7 @@
     "translationsHint": "Facultatif : le nom dans d'autres langues. Sans traduction, le nom est affiché tel que saisi.",
     "translation": "Nom ({{language}})",
     "active": "Actif",
-    "activeHint": "Un forfait inactif n'est plus proposé pour de nouveaux travaux. Les ordres existants ne changent pas.",
+    "activeHint": "Un forfait inactif n'est plus proposé pour de nouveaux groupes. Les ordres existants ne changent pas.",
     "positions": "Positions",
     "unitNote": "Temps en {{unit}}",
     "noPositions": "Aucune position pour l'instant.",

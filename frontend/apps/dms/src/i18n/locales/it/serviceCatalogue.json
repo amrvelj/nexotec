@@ -1,6 +1,6 @@
 {
   "title": "Catalogo dei servizi",
-  "subtitle": "Pacchetti con posizioni di lavoro e di testo e i loro tempi, che l'accettazione riprende in un passo su un lavoro. Il prezzo è il tempo alla tariffa oraria dell'ordine.",
+  "subtitle": "Pacchetti con posizioni di lavoro e di testo e i loro tempi, che l'accettazione riprende in un passo su un gruppo. Il prezzo è il tempo alla tariffa oraria dell'ordine.",
   "add": "Inserire un pacchetto",
   "edit": "Modificare",
   "editNamed": "Modificare {{name}}",
@@ -57,7 +57,7 @@
     "translationsHint": "Facoltativo: il nome in altre lingue. Dove manca, il nome è mostrato come inserito.",
     "translation": "Nome ({{language}})",
     "active": "Attivo",
-    "activeHint": "Un pacchetto inattivo non è più offerto per nuovi lavori. Gli ordini esistenti non cambiano.",
+    "activeHint": "Un pacchetto inattivo non è più offerto per nuovi gruppi. Gli ordini esistenti non cambiano.",
     "positions": "Posizioni",
     "unitNote": "Tempo in {{unit}}",
     "noPositions": "Ancora nessuna posizione.",
