@@ -131,6 +131,11 @@ const HISTORY_FIELDS = new Set([
   'contactGroupsDropped',
   'rolesGained',
   'roleRowsMoved',
+  // KAN-843: the duplicate's blocks a merge carried onto the survivor.
+  'creditBlockCarried',
+  'creditBlockReasonCarried',
+  'blockedCarried',
+  'blockedReasonCarried',
 ])
 
 // A field this tab does not know yet is shown under its key exactly as

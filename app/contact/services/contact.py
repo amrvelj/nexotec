@@ -713,10 +713,12 @@ def set_credit_block(
         raise roles_service.customer_role_not_permitted("creditBlock")
     if blocked and not reason:
         raise ConflictError("A reason is required to place a credit block.")
+    # KAN-464 (Q1): the credit block is the customer role's. Locked first, so
+    # a PATCH taking the role away cannot slip in between. KAN-843: lifting it
+    # takes the lock too, so a lift that waited for a merge carrying a block
+    # onto this contact is a 409 (another version), never a silent overwrite.
+    _lock_for_role_change(db, contact)
     if blocked:
-        # KAN-464 (Q1): the credit block is the customer role's. Locked
-        # first, so a PATCH taking the role away cannot slip in between.
-        _lock_for_role_change(db, contact)
         if ContactRole.CUSTOMER.value not in roles_service.open_roles(db, contact.id):
             raise roles_service.customer_role_required("creditBlock")
 
@@ -769,9 +771,11 @@ def set_block(
             "A reason is required to block a contact.",
             details={"reason": "contact_block_reason_required"},
         )
+    # Locked first, so a PATCH taking the customer role away cannot slip in
+    # between; a lift too (KAN-843), so it never overwrites a block a merge
+    # carried onto this contact meanwhile.
+    _lock_for_role_change(db, contact)
     if blocked:
-        # Locked first, so a PATCH taking the customer role away cannot slip in between.
-        _lock_for_role_change(db, contact)
         if ContactRole.CUSTOMER.value not in roles_service.open_roles(db, contact.id):
             raise roles_service.customer_role_required("blocked")
 

@@ -57,5 +57,12 @@ budget; the two sections moved as they were, with «Gesperrt» added to them. KA
   `blockedAt`, audited `block_changed`, the customer role's data (409 `customer_role_blocked` when
   the role is taken away), `contact.public`'s `ContactRef.blocked`. One SPA dialog serves both
   blocks (`ContactBlockDialog`, kind `credit` or `contact`).
+- **A merge carries both blocks** (KAN-843; Anto, 2026-11-26, option 1): the survivor holds every
+  block either side held, each with its reason — one only the duplicate held moves with its time,
+  one both held keeps the survivor's time and joins the reasons (`a · b`, cut at 500 with «…»).
+  The merge's audit names what moved (`creditBlockCarried`, `blockedCarried` and their reasons);
+  the survivor gets its own `credit_block_changed` / `block_changed`, reason `contact_merged`.
+  Lifting a block takes the contact row and re-checks its version like placing one, so a lift
+  read before such a merge is a 409, never an overwrite (`test_kan843_merge_carries_blocks.py`).
 - **`vatStatusConfirmed`**: `vatRegistered = false` is also the default, so a second checkbox says
   someone checked it; every row started unconfirmed; the purchase booking's supplier VAT prefill reads it (KAN-465).
