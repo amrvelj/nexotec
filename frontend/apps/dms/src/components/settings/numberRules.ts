@@ -45,20 +45,6 @@ export type RuleViolation =
 
 const whole = (value: number) => Number.isInteger(value) && value > 0
 
-/** The first rule `value` breaks, or null. */
-export function ruleViolation(rule: NumberRule, value: number): RuleViolation | null {
-  if (!whole(value)) return null // the declaration's own refusal (decimals, minimum) says why
-  for (const bound of rule.divides) {
-    if (whole(bound.value) && bound.value % value !== 0) {
-      return { kind: bound.key === null ? 'notADivisor' : 'wouldNotDivide', bound }
-    }
-  }
-  for (const bound of rule.multipleOf) {
-    if (whole(bound.value) && value % bound.value !== 0) return { kind: 'notAMultiple', bound }
-  }
-  return null
-}
-
 /** The values a `divides` declaration takes: the divisors of its number within its
  * bounds, ascending; null for a declaration without the rule. */
 export function allowedDivisors(declaration: SettingDeclarationRead): number[] | null {

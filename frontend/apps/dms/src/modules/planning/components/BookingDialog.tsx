@@ -19,6 +19,8 @@ interface BookingDialogProps {
   booking: BookingRead | null
   /** `/dealerships/{id}/planning` */
   planningPath: string
+  /** The page's query keys start with it, so its invalidations reach this read too. */
+  dealershipId: string
   people: PlannerOption[]
   workplaces: PlannerOption[]
   resourceLabels: ReadonlyMap<string, string>
@@ -37,7 +39,7 @@ interface BookingDialogProps {
  * sends back exactly the warnings shown (per warning, never per code). A
  * change to any field after that withdraws the confirmation.
  */
-export function BookingDialog({ booking, planningPath, people, workplaces, resourceLabels, onClose, onSaved }: BookingDialogProps) {
+export function BookingDialog({ booking, planningPath, dealershipId, people, workplaces, resourceLabels, onClose, onSaved }: BookingDialogProps) {
   const { t } = useTranslation()
   const isWork = booking?.kind === 'work'
   const isBlock = booking?.kind === 'block'
@@ -79,7 +81,7 @@ export function BookingDialog({ booking, planningPath, people, workplaces, resou
     (r) => !(r.kind === 'person' ? people : workplaces).some((o) => o.value === r.resourceId),
   )
   const everyResource = useQuery({
-    queryKey: ['planner', planningPath, 'resources', 'all'],
+    queryKey: ['planner', dealershipId, 'resources', 'all'],
     queryFn: () => api.get<ResourceList>(`${planningPath}/resources?includeInactive=true`),
     enabled: unoffered.length > 0,
   })
@@ -95,7 +97,8 @@ export function BookingDialog({ booking, planningPath, people, workplaces, resou
   }
   // A drop-off or pick-up slot is O7 long (planning.md): its end follows its start, server-side.
   const isSlot = booking?.kind === 'drop_off' || booking?.kind === 'pick_up'
-  // KAN-846: the shown end follows an edited start by the slot's length, as the server will set it.
+  // KAN-846: the shown end follows an edited start by the slot's own length. The server sets the
+  // end from O7 as it stands when saving (`bookings.py`), so after an O7 change the saved end may differ.
   const slotEnd = (() => {
     if (!isSlot || !booking || !/^\d{4}-\d{2}-\d{2}$/.test(fromDate) || !/^\d{2}:\d{2}$/.test(fromTime)) return null
     const length = new Date(booking.endsAt).getTime() - new Date(booking.startsAt).getTime()

@@ -91,7 +91,7 @@
   },
   "deactivate": {
     "title": "Désactiver la ressource",
-    "body": "«{{name}}» n'apparaît plus dans le planning. Ses réservations qui ne sont pas encore passées sont marquées à replanifier."
+    "body": "«{{name}}» n'apparaît plus dans le planning. Ses réservations qui ne sont pas encore passées sont signalées comme à replanifier."
   },
   "kinds": {
     "person": "Personne",

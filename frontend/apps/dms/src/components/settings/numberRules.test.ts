@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { AreaSettingRead, AreaSettingsRead, SettingDeclarationRead, SettingSlotRead } from '../../api/types'
-import { allowedDivisors, multipleRuleViolation, numberInForceAt, numberRuleAt, ruleViolation } from './numberRules'
+import { allowedDivisors, declarationDivisorViolation, multipleRuleViolation, numberInForceAt, numberRuleAt } from './numberRules'
 
 // KAN-808 (PR-1c review finding 5): the screen's mirror of the store's `divides` and
 // `multipleOf` (setting_declarations.validate_value, setting_rules) — O6 a divisor of 60,
@@ -72,25 +72,27 @@ describe('the settings screen’s number rules (KAN-808)', () => {
     const [, slotSetting] = data.settings
     const atA = numberRuleAt(data, slotSetting, 'loc-a')!
     expect(atA.multipleOf).toEqual([{ value: 20, key: GRID.key }])
-    expect(ruleViolation(atA, 40)).toBeNull()
-    expect(ruleViolation(atA, 45)).toEqual({ kind: 'notAMultiple', bound: { value: 20, key: GRID.key } })
+    expect(multipleRuleViolation(data, SLOT.key, 'loc-a', 40)).toBeNull()
+    expect(multipleRuleViolation(data, SLOT.key, 'loc-a', 45)).toEqual({ kind: 'notAMultiple', bound: { value: 20, key: GRID.key }, value: 45 })
     // The Betrieb's O7 is in force at loc-b and loc-a (neither holds its own): both grids count.
     const atBetrieb = numberRuleAt(data, slotSetting, null)!
     expect(atBetrieb.multipleOf.map((bound) => bound.value).sort()).toEqual([15, 20])
-    expect(ruleViolation(atBetrieb, 45)?.kind).toBe('notAMultiple')
-    expect(ruleViolation(atBetrieb, 60)).toBeNull()
+    expect(multipleRuleViolation(data, SLOT.key, null, 45)?.kind).toBe('notAMultiple')
+    expect(multipleRuleViolation(data, SLOT.key, null, 60)).toBeNull()
   })
 
   it('O6 must divide 60 and keep O7 a multiple of it; «not set» breaks nothing', () => {
     const data = area([], [slot('45', 'loc-b')])
     const [gridSetting] = data.settings
     const atB = numberRuleAt(data, gridSetting, 'loc-b')!
-    expect(ruleViolation(atB, 25)?.kind).toBe('notADivisor')
-    expect(ruleViolation(atB, 15)).toBeNull()
-    expect(ruleViolation(atB, 30)).toEqual({ kind: 'wouldNotDivide', bound: { value: 45, key: SLOT.key } })
+    expect(declarationDivisorViolation(atB, 25)?.kind).toBe('notADivisor')
+    expect(declarationDivisorViolation(atB, 15)).toBeNull()
+    expect(multipleRuleViolation(data, GRID.key, 'loc-b', 15)).toBeNull()
+    expect(multipleRuleViolation(data, GRID.key, 'loc-b', 30)).toEqual({ kind: 'wouldNotDivide', bound: { value: 45, key: SLOT.key }, value: 30 })
     // loc-a has no O7 and the Betrieb's is not set: only 60 counts there.
     const atA = numberRuleAt(data, gridSetting, 'loc-a')!
-    expect(ruleViolation(atA, 30)).toBeNull()
+    expect(declarationDivisorViolation(atA, 30)).toBeNull()
+    expect(multipleRuleViolation(data, GRID.key, 'loc-a', 30)).toBeNull()
   })
 
   it('names the other setting while it is in force nowhere in the column', () => {
@@ -98,7 +100,7 @@ describe('the settings screen’s number rules (KAN-808)', () => {
     const rule = numberRuleAt(data, data.settings[1], null)!
     expect(rule.multipleOf).toEqual([])
     expect(rule.multipleOfNotInForce).toBe(GRID.key)
-    expect(ruleViolation(rule, 7)).toBeNull()
+    expect(multipleRuleViolation(data, SLOT.key, null, 7)).toBeNull()
   })
 
   it('a setting with neither rule gets none', () => {

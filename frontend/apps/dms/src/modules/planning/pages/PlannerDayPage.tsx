@@ -340,6 +340,7 @@ export function PlannerDayPage() {
       <BookingDialog
         booking={opened}
         planningPath={planningPath}
+        dealershipId={dealershipId}
         people={personOptions}
         workplaces={workplaceOptions}
         resourceLabels={resourceLabels}

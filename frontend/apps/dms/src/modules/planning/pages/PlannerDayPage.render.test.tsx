@@ -311,11 +311,12 @@ describe('PlannerDayPage (KAN-809)', () => {
   it('a held resource moved to another location is named for that, not as no longer bookable (KAN-846)', async () => {
     const user = userEvent.setup()
     const moved = resource('r-moved', { kind: 'workplace', name: 'Bühne Nord', workplaceTypeId: 'wt-1', locationId: 'loc-2', locationLabel: 'Filiale Nord' })
-    const gone = resource('r-old', { kind: 'workplace', name: 'Bühne alt', workplaceTypeId: 'wt-1', isActive: false })
+    const gone = resource('r-old', { userId: 'u-2', userLabel: 'Max Alt', isActive: false })
     const held = booking('b-8', {
       resources: [
         { resourceId: 'r-lea', kind: 'person', label: 'Lea Meier' },
         { resourceId: 'r-moved', kind: 'workplace', label: 'Bühne Nord' },
+        { resourceId: 'r-old', kind: 'person', label: 'Max Alt' },
       ],
       replan: { cause: 'resource_moved', since: '2027-02-28T10:00:00Z', causedByBookingId: null, causedByResourceId: 'r-moved' },
     })
@@ -334,6 +335,9 @@ describe('PlannerDayPage (KAN-809)', () => {
     const dialog = await screen.findByRole('dialog')
     expect(await within(dialog).findByDisplayValue(i18n.t('planner.booking.otherLocation', { name: 'Bühne Nord' }))).toBeInTheDocument()
     expect(within(dialog).queryByDisplayValue(i18n.t('planner.booking.notBookable', { name: 'Bühne Nord' }))).not.toBeInTheDocument()
+    // A deactivated one, read from the same list, stays «nicht mehr buchbar».
+    await user.click(within(dialog).getByRole('textbox', { name: i18n.t('planner.fields.people') }))
+    expect(await screen.findByRole('option', { name: i18n.t('planner.booking.notBookable', { name: 'Max Alt' }) })).toBeInTheDocument()
   })
 
   it('a location without a person says so and where to set it up', async () => {

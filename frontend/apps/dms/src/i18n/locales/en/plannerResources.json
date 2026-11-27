@@ -127,7 +127,7 @@
     "workplaceName": "Workplace name",
     "sortOrder": "Order",
     "sortOrderHint": "The order in the planner, from 0 to 9999: smaller numbers first.",
-    "movingNote": "The resource counts at the new location at once. Its bookings that have not yet ended are marked to be re-planned."
+    "movingNote": "The resource belongs to the new location straight away. Its bookings that have not yet ended are marked to be re-planned."
   },
   "hours": {
     "title": "Working hours of {{name}}",

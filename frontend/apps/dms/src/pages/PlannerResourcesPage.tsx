@@ -154,8 +154,9 @@ export function PlannerResourcesPage() {
     technicianTypes: technicianTypes.data?.items,
     qualifications: qualifications.data?.items,
   }
-  const loadError = [workplaceTypes, technicianTypes, qualifications, resources, settings].find((query) => query.isError)
-  const loading = [workplaceTypes, technicianTypes, qualifications, resources, settings].some((query) => query.isLoading)
+  // The locations too (KAN-842): the resource groups wait for them, so a failed read must say so.
+  const loadError = [workplaceTypes, technicianTypes, qualifications, resources, settings, locations].find((query) => query.isError)
+  const loading = [workplaceTypes, technicianTypes, qualifications, resources, settings, locations].some((query) => query.isLoading)
   const activeLocations = (locations.data?.items ?? []).filter((location) => location.isActive)
   const name = (entry: ListEntry) => entryName(entry, i18n.language)
   const resourceName = (resource: ResourceRead) => (resource.kind === 'person' ? resource.userLabel : resource.name) ?? ''

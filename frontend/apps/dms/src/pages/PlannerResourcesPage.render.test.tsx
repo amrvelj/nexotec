@@ -619,4 +619,12 @@ describe('PlannerResourcesPage (KAN-808)', () => {
     await resourcesAt('Hauptsitz')
     expect(screen.queryByText(i18n.t('plannerResources.resources.locationInactive'))).toBeNull()
   })
+
+  it('a failed read of the locations is said, not a silently missing resource list (KAN-842)', async () => {
+    install({
+      extra: [{ method: 'GET', match: new RegExp(`${BASE.source}/locations$`), handler: () => status(503, { error: { code: 'unavailable', message: 'down', details: null } }) }],
+    })
+    render()
+    expect(await screen.findByRole('alert')).toBeInTheDocument()
+  })
 })

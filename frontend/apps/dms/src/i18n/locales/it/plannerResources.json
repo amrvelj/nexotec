@@ -65,7 +65,7 @@
     "mandatory": "Obbligatoria",
     "usedBy": "Usato da",
     "actions": "Azioni",
-    "kind": "Genere",
+    "kind": "Categoria",
     "type": "Tipo",
     "location": "Sede",
     "technicianType": "Tipo di tecnico",
@@ -91,7 +91,7 @@
   },
   "deactivate": {
     "title": "Disattivare la risorsa",
-    "body": "«{{name}}» non compare più nella pianificazione. Le sue prenotazioni non ancora trascorse vengono contrassegnate da ripianificare."
+    "body": "«{{name}}» non compare più nella pianificazione. Le sue prenotazioni non ancora trascorse vengono contrassegnate come da ripianificare."
   },
   "kinds": {
     "person": "Persona",

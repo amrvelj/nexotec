@@ -69,7 +69,7 @@ def test_every_field_sorts_and_pages_by_cursor(client, db_session, orders, field
     assert sorted(ids) == sorted(order["id"] for order in made)
 
 
-def test_the_vehicle_and_the_location_sort(client, db_session, orders):
+def test_the_vehicle_sorts_under_the_collation(client, db_session, orders):
     betrieb, made = orders
     response = _list(client, betrieb, sort="vehicleLabel:desc")
     shown = [item["vehicleLabel"] for item in response.json()["items"]]
