@@ -26,6 +26,12 @@ three-column pattern. Aftersales reads them only through each owner's
   `.claude/rules/events-worker.md`): no `version` bump, a current label only
   restamped, an id naming nothing or a merged record left alone (the merge
   consumers move it), batches `FOR NO KEY UPDATE SKIP LOCKED`.
+- **A position's labour category** (KAN-845): the same job re-reads each
+  labour position's category name through `platform.public`. An open order's
+  positions take a renamed category's name; a frozen order's (ready for
+  billing, cancelled — table 3.1) keep the name they were billed under and are
+  only restamped, so the gauge stays true. Prices and rate provenance are
+  never touched (ruling 178).
 - **A write racing a merge** is serialised by a transaction advisory lock on
   the contact's or the car's id (`service_order.lock_order_contacts`, `lock_order_vehicle`),
   which creating an order and changing its people take before they read the
@@ -48,8 +54,9 @@ from dataclasses import dataclass, field
 from sqlalchemy import func, or_, select, update
 from sqlalchemy.orm import Session
 
-from app.aftersales.models.service_order import ServiceOrder
+from app.aftersales.models.service_order import ServiceOrder, ServiceOrderPosition
 from app.aftersales.services.service_order import (
+    OPEN_STATES,
     lock_order_contacts,
     lock_order_vehicle,
     record_order_change,
@@ -65,7 +72,7 @@ from app.contact.public import (
 from app.core.base import utcnow
 from app.core.errors import NotFoundError
 from app.core.outbox_model import OutboxMessage
-from app.platform.public import get_location_labels
+from app.platform.public import get_location_labels, labour_category_labels
 from app.vehicle.public import find_merged_vehicle_ids, get_vehicle_summaries, resolve_merged_vehicle_id
 
 _BATCH = 500
@@ -202,6 +209,12 @@ class RefreshReport:
     restamped: int = 0
     # (order id, column): an id naming nothing, a merged contact or car, another Betrieb's location.
     unresolved: list[tuple[uuid.UUID, str]] = field(default_factory=list)
+    # Labour positions' category names (KAN-845): (position id, old label, new label).
+    positions_changed: list[tuple[uuid.UUID, str | None, str]] = field(default_factory=list)
+    # A frozen order's position whose category was renamed: its name kept, restamped.
+    positions_kept: list[uuid.UUID] = field(default_factory=list)
+    # A position whose category names nothing in its Betrieb.
+    positions_unresolved: list[uuid.UUID] = field(default_factory=list)
 
 
 def _apply(
@@ -227,10 +240,68 @@ def _apply(
     setattr(order, stamp_column, now)
 
 
+def _refresh_position_labels(
+    db: Session, batch: list[ServiceOrder], *, now: dt.datetime, report: RefreshReport
+) -> None:
+    """The labour positions of `batch`'s orders: an open order's take their
+    category's current name, a frozen order's keep theirs; both are restamped.
+    A position another writer holds is left for the next night."""
+
+    orders = {order.id: order for order in batch}
+    positions = list(
+        db.scalars(
+            select(ServiceOrderPosition)
+            .where(
+                ServiceOrderPosition.service_order_id.in_(orders),
+                ServiceOrderPosition.labour_category_id.is_not(None),
+            )
+            .order_by(ServiceOrderPosition.id)
+            .with_for_update(key_share=True, skip_locked=True)
+        )
+    )
+    if not positions:
+        return
+    by_tenant: dict[uuid.UUID, set[uuid.UUID]] = {}
+    for position in positions:
+        assert position.labour_category_id is not None
+        by_tenant.setdefault(position.tenant_id, set()).add(position.labour_category_id)
+    labels = {
+        tenant_id: labour_category_labels(db, dealership_id=tenant_id, category_ids=sorted(ids))
+        for tenant_id, ids in by_tenant.items()
+    }
+    restamp: list[uuid.UUID] = []
+    for position in positions:
+        assert position.labour_category_id is not None
+        found = labels[position.tenant_id].get(position.labour_category_id)
+        if found is None:
+            report.positions_unresolved.append(position.id)
+            continue
+        current = found.name[:200]
+        if current == position.labour_category_label:
+            restamp.append(position.id)
+        elif orders[position.service_order_id].state not in OPEN_STATES:
+            report.positions_kept.append(position.id)
+            restamp.append(position.id)
+        else:
+            report.positions_changed.append((position.id, position.labour_category_label, current))
+            position.labour_category_label = current
+            position.labour_category_label_refreshed_at = now
+    db.flush()
+    if restamp:
+        db.execute(
+            update(ServiceOrderPosition)
+            .where(ServiceOrderPosition.id.in_(restamp))
+            .values(labour_category_label_refreshed_at=now, updated_at=ServiceOrderPosition.updated_at)
+            .execution_options(synchronize_session=False)
+        )
+        report.restamped += len(restamp)
+
+
 def refresh_order_labels(db: Session, *, commit: Callable[[], None] | None = None) -> RefreshReport:
     """Re-read every order's labels — its three contacts, its car and its
-    location — in id order, one `commit()` per batch read FOR NO KEY UPDATE
-    SKIP LOCKED: an order another writer holds is left for the next night."""
+    location — and its labour positions' category names, in id order, one
+    `commit()` per batch read FOR NO KEY UPDATE SKIP LOCKED: an order another
+    writer holds is left for the next night."""
 
     finish = commit or db.commit
     report = RefreshReport()
@@ -284,6 +355,7 @@ def refresh_order_labels(db: Session, *, commit: Callable[[], None] | None = Non
                 .execution_options(synchronize_session=False)
             )
             report.restamped += len(order_ids)
+        _refresh_position_labels(db, batch, now=now, report=report)
         finish()
 
 
@@ -293,11 +365,13 @@ _STAMP_COLUMNS = (
     ServiceOrder.driver_label_refreshed_at,
     ServiceOrder.vehicle_label_refreshed_at,
     ServiceOrder.location_label_refreshed_at,
+    ServiceOrderPosition.labour_category_label_refreshed_at,
 )
 
 
 def oldest_order_label_age_seconds(db: Session) -> float | None:
-    """Age of the stalest label on a workshop order (any of its five) — what
+    """Age of the stalest label on a workshop order (any of its five, or a
+    labour position's category name, KAN-845) — what
     the worker heartbeat records as `dms.label.age_seconds{label="aftersales.order"}`
     (CLAUDE.md rule 10). None when there is no order."""
 
