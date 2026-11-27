@@ -328,7 +328,8 @@ export function PlannerDayPage() {
             ariaLabel={t('planner.grid.aria', { day: dayLabel, location: location?.name ?? '' })}
             labels={{
               resource: t('planner.grid.resource'),
-              unavailable: t('planner.grid.unavailable'),
+              unavailable: (span) =>
+                t('planner.grid.unavailableSpan', { from: clockOf(span.startMinute), to: span.endMinute >= DAY_MINUTES ? '24:00' : clockOf(span.endMinute) }),
               now: t('planner.grid.now'),
               hour: clockOf,
             }}

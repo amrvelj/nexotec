@@ -295,14 +295,45 @@ describe('PlannerDayPage (KAN-809)', () => {
     expect(toTime).toHaveAttribute('readonly')
     expect(within(dialog).getByText(i18n.t('planner.booking.slotLength'))).toBeInTheDocument()
     const fromTime = within(dialog).getByLabelText(new RegExp(`${i18n.t('planner.fields.from')} – ${i18n.t('planner.fields.time')}`))
+    expect(toTime).toHaveValue('08:30')
     await user.clear(fromTime)
     await user.type(fromTime, '09:00')
+    // KAN-846: the shown end follows the start by the slot's length — never an end before the start.
+    expect(toTime).toHaveValue('09:30')
     await user.click(within(dialog).getByRole('button', { name: i18n.t('planner.booking.save') }))
 
     await waitFor(() => expect(backend.callsTo(/\/bookings\/b-7$/, 'PATCH')).toHaveLength(1))
     const body = backend.callsTo(/\/bookings\/b-7$/, 'PATCH')[0].body as Record<string, unknown>
     expect(body.startsAt).toBe('2027-03-01T09:00:00+01:00')
     expect(body).not.toHaveProperty('endsAt')
+  })
+
+  it('a held resource moved to another location is named for that, not as no longer bookable (KAN-846)', async () => {
+    const user = userEvent.setup()
+    const moved = resource('r-moved', { kind: 'workplace', name: 'Bühne Nord', workplaceTypeId: 'wt-1', locationId: 'loc-2', locationLabel: 'Filiale Nord' })
+    const gone = resource('r-old', { kind: 'workplace', name: 'Bühne alt', workplaceTypeId: 'wt-1', isActive: false })
+    const held = booking('b-8', {
+      resources: [
+        { resourceId: 'r-lea', kind: 'person', label: 'Lea Meier' },
+        { resourceId: 'r-moved', kind: 'workplace', label: 'Bühne Nord' },
+      ],
+      replan: { cause: 'resource_moved', since: '2027-02-28T10:00:00Z', causedByBookingId: null, causedByResourceId: 'r-moved' },
+    })
+    install({
+      bookings: [held],
+      extra: [{
+        method: 'GET',
+        match: new RegExp(`${PLANNING}/resources$`),
+        // This location's list (the page) holds neither; the Betrieb's (the dialog) holds both.
+        handler: (req) => ({ items: req.url.searchParams.get('locationId') ? [LEA, LIFT] : [LEA, LIFT, moved, gone] }),
+      }],
+    })
+    render()
+
+    await user.click(await screen.findByRole('button', { name: /^Lea Meier – .*neu einplanen/ }))
+    const dialog = await screen.findByRole('dialog')
+    expect(await within(dialog).findByDisplayValue(i18n.t('planner.booking.otherLocation', { name: 'Bühne Nord' }))).toBeInTheDocument()
+    expect(within(dialog).queryByDisplayValue(i18n.t('planner.booking.notBookable', { name: 'Bühne Nord' }))).not.toBeInTheDocument()
   })
 
   it('a location without a person says so and where to set it up', async () => {

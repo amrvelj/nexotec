@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { Alert, Button, Group, List, MultiSelect, Select, SimpleGrid, Stack, Text, TextInput } from '@mantine/core'
 import { CircleAlert, RotateCcw, TriangleAlert } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { FormDialog } from '@nexotec/ui-kit'
 import { api, ApiError } from '../../../api/client'
-import type { BookingOutcomeRead, BookingRead, ConfirmedWarningWrite } from '../../../api/types'
+import type { BookingOutcomeRead, BookingRead, ConfirmedWarningWrite, ResourceList } from '../../../api/types'
 import { apiRefusalText, isStaleVersion } from '../../../utils/apiRefusal'
 import { wallClock, zurichDateTime, zurichInstant } from '../plannerTime'
 import { unconfirmedWarnings, warningText } from '../warningText'
@@ -68,17 +69,41 @@ export function BookingDialog({ booking, planningPath, people, workplaces, resou
     setConfirmRelease(false)
   }, [booking])
 
-  // The booking's own resources stay visible, even one the page does not offer (deactivated, or
-  // moved to another location): named as no longer bookable, so a refusal on saving is no surprise
-  // (the server refuses it, planning_resource_inactive).
+  // The booking's own resources stay visible, even one the page does not offer, named for what
+  // it is (KAN-846), so the answer on saving is no surprise. Deactivated (or unknown): «nicht mehr
+  // buchbar» — the server refuses it, planning_resource_inactive. Moved to another location and
+  // still active: «anderer Standort» — kept beside this location's resources the server refuses
+  // planning_resources_at_several_locations; kept alone it accepts it and the booking moves with
+  // it. Which one is read from the Betrieb's resources, only when such a resource is held.
+  const unoffered = (booking?.resources ?? []).filter(
+    (r) => !(r.kind === 'person' ? people : workplaces).some((o) => o.value === r.resourceId),
+  )
+  const everyResource = useQuery({
+    queryKey: ['planner', planningPath, 'resources', 'all'],
+    queryFn: () => api.get<ResourceList>(`${planningPath}/resources?includeInactive=true`),
+    enabled: unoffered.length > 0,
+  })
   const withOwn = (options: PlannerOption[], kind: 'person' | 'workplace') => {
-    const own = (booking?.resources ?? [])
-      .filter((r) => r.kind === kind && !options.some((o) => o.value === r.resourceId))
-      .map((r) => ({ value: r.resourceId, label: t('planner.booking.notBookable', { name: r.label }) }))
+    const own = unoffered
+      .filter((r) => r.kind === kind)
+      .map((r) => {
+        const found = everyResource.data?.items.find((item) => item.id === r.resourceId)
+        const key = found?.isActive ? 'planner.booking.otherLocation' : 'planner.booking.notBookable'
+        return { value: r.resourceId, label: t(key, { name: r.label }) }
+      })
     return [...options, ...own]
   }
   // A drop-off or pick-up slot is O7 long (planning.md): its end follows its start, server-side.
   const isSlot = booking?.kind === 'drop_off' || booking?.kind === 'pick_up'
+  // KAN-846: the shown end follows an edited start by the slot's length, as the server will set it.
+  const slotEnd = (() => {
+    if (!isSlot || !booking || !/^\d{4}-\d{2}-\d{2}$/.test(fromDate) || !/^\d{2}:\d{2}$/.test(fromTime)) return null
+    const length = new Date(booking.endsAt).getTime() - new Date(booking.startsAt).getTime()
+    const start = new Date(zurichInstant(fromDate, fromTime)).getTime()
+    return Number.isFinite(start) ? wallClock(new Date(start + length)) : null
+  })()
+  const shownToDate = slotEnd?.date ?? toDate
+  const shownToTime = slotEnd?.time ?? toTime
   const peopleOptions = withOwn(people, 'person')
   const workplaceOptions = withOwn(workplaces, 'workplace')
 
@@ -177,8 +202,8 @@ export function BookingDialog({ booking, planningPath, people, workplaces, resou
         <SimpleGrid cols={2} spacing="sm">
           <TextInput type="date" label={`${t('planner.fields.from')} – ${t('planner.fields.date')}`} value={fromDate} onChange={(e) => changed(setFromDate)(e.currentTarget.value)} required />
           <TextInput type="time" label={`${t('planner.fields.from')} – ${t('planner.fields.time')}`} value={fromTime} onChange={(e) => changed(setFromTime)(e.currentTarget.value)} required />
-          <TextInput type="date" label={`${t('planner.fields.to')} – ${t('planner.fields.date')}`} value={toDate} onChange={(e) => changed(setToDate)(e.currentTarget.value)} required={!isSlot} readOnly={isSlot} />
-          <TextInput type="time" label={`${t('planner.fields.to')} – ${t('planner.fields.time')}`} value={toTime} onChange={(e) => changed(setToTime)(e.currentTarget.value)} required={!isSlot} readOnly={isSlot} />
+          <TextInput type="date" label={`${t('planner.fields.to')} – ${t('planner.fields.date')}`} value={shownToDate} onChange={(e) => changed(setToDate)(e.currentTarget.value)} required={!isSlot} readOnly={isSlot} />
+          <TextInput type="time" label={`${t('planner.fields.to')} – ${t('planner.fields.time')}`} value={shownToTime} onChange={(e) => changed(setToTime)(e.currentTarget.value)} required={!isSlot} readOnly={isSlot} />
         </SimpleGrid>
         {isSlot && (
           <Text size="xs" c="dimmed">
