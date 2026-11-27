@@ -131,7 +131,7 @@ export function FiscalDefaultsSection({ dealership, settings }: { dealership: De
           <NumberInput label={t('business.fiscal.paymentTerms')} value={form.defaultPaymentTermsDays} onChange={(v) => set('defaultPaymentTermsDays', v)} min={0} max={365} suffix={` ${t('business.fiscal.days')}`} allowDecimal={false} />
           <Select label={t('business.fiscal.fiscalMonth')} data={MONTHS.map((m) => ({ value: m, label: t(`business.fiscal.months.${m}`) }))} value={form.fiscalMonth} onChange={(v) => v && set('fiscalMonth', v)} allowDeselect={false} />
           <Select label={t('business.fiscal.fiscalDay')} data={DAY_OPTIONS} value={form.fiscalDay} onChange={(v) => v && set('fiscalDay', v)} allowDeselect={false} />
-          <NumberInput {...hint(t('business.fiscal.vatRate'), t('business.fiscal.vatRateHint'))} value={vat.form.vatRate} onChange={(v) => vat.set('vatRate', v)} min={0} max={99.99} decimalScale={2} suffix=" %" />
+          <NumberInput {...hint(t('business.fiscal.vatRate'), t('business.fiscal.vatRateHint'))} value={vat.form.vatRate} onChange={(v) => vat.set('vatRate', v)} min={0} max={99.99} clampBehavior="none" decimalScale={2} suffix=" %" />
         </SimpleGrid>
         <SimpleGrid cols={{ base: 1, sm: 2 }}>
           <TextInput {...hint(t('business.fiscal.accountingSystem'), t('business.fiscal.accountingSystemHint'))} value={form.accountingSystem} onChange={(e) => set('accountingSystem', e.currentTarget.value)} placeholder="Abacus, bexio, Sage …" />
