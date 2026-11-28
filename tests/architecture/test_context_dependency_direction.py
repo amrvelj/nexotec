@@ -101,6 +101,9 @@ _TOP_LEVEL: dict[str, int] = {
     # KAN-805: names every area's setting declarations for platform's settings
     # store, as message_type_registry does for the send dialog.
     "setting_registry": _COMPOSITION_ROOT_RANK,
+    # KAN-831 (ADR-232): composes contact's survivor and name with platform's
+    # labour-rate agreements on a merge, as api/v1/labour_rate_agreements.py does for the POST.
+    "labour_rate_agreement_merge": _COMPOSITION_ROOT_RANK,
     # KAN-818: names every context's part of «copy configuration from a sister
     # Betrieb» for app.core.configuration_copy's registry, as setting_registry does.
     "configuration_copy_registry": _COMPOSITION_ROOT_RANK,

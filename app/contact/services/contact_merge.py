@@ -43,13 +43,21 @@ CONTACT_MERGED_REASON = "contact_merged"
 
 def _lock_merge_contacts(db: Session, *, duplicate_id: uuid.UUID, target_id: uuid.UUID) -> None:
     """KAN-372: a merge locks both contact rows — the duplicate FOR NO KEY
-    UPDATE (KAN-365), the survivor FOR SHARE — and decides on their committed
-    status under those locks. The survivor's status was read without a lock,
+    UPDATE (KAN-365), the survivor FOR NO KEY UPDATE as well since KAN-843
+    (FOR SHARE before) — and decides on their committed status under those
+    locks. KAN-843: the merge may write the survivor's own row (the blocks it
+    carries over, `_carry_blocks`); two merges into one survivor holding it
+    FOR SHARE would each wait for the other's share to write it, a deadlock,
+    so the survivor is taken at the strength the write needs, up front. Two
+    merges into one survivor now run one after the other; an allocation or
+    reopen for the survivor (FOR SHARE, after its advisory lock) waits for
+    the merge instead of running beside it, and waits for nothing the merge
+    holds afterwards. The survivor's status was read without a lock,
     and re-pointing rows onto it takes only the foreign key's KEY SHARE, which
     does not wait for the survivor's own merge: so a merge X→D could commit
     while D→T was in flight and leave X's rows, and X's
-    `duplicateOfContactId`, on a merged contact. FOR SHARE waits for that
-    merge's FOR NO KEY UPDATE; the re-read then finds D merged (409
+    `duplicateOfContactId`, on a merged contact. The survivor's lock waits for
+    that merge's FOR NO KEY UPDATE; the re-read then finds D merged (409
     `merge_target_merged`). The duplicate is re-read too, so a second merge of
     the same contact that waited for the first is refused
     (`contact_already_merged`) instead of overwriting its survivor.
@@ -59,16 +67,13 @@ def _lock_merge_contacts(db: Session, *, duplicate_id: uuid.UUID, target_id: uui
     B→A) therefore ask for the two rows in the same order and the second
     waits; without the order each would hold its duplicate and wait for the
     other's. Allocation and a reopen take one contact row FOR SHARE after
-    their advisory lock, compatible with a merge's FOR SHARE on its survivor
-    and waiting, as KAN-365 intends, for its FOR NO KEY UPDATE on the
-    duplicate."""
+    their advisory lock (every one they need, the trade-in consumers
+    included), so they wait for a merge's lock on either row — on the
+    duplicate as KAN-365 intends — and never hold a contact row while waiting
+    for an advisory lock the merge holds."""
 
     for contact_id in sorted((duplicate_id, target_id)):
-        stmt = select(Contact.id).where(Contact.id == contact_id)
-        if contact_id == duplicate_id:
-            db.execute(stmt.with_for_update(key_share=True))
-        else:
-            db.execute(stmt.with_for_update(read=True))
+        db.execute(select(Contact.id).where(Contact.id == contact_id).with_for_update(key_share=True))
     status: dict[uuid.UUID, ContactLifecycleStatus] = {
         row.id: row.lifecycle_status
         for row in db.execute(
@@ -232,9 +237,10 @@ def _repoint_earlier_merges(
     names T. Chains written before KAN-383 are not repaired.
 
     Read after the merge holds D's row FOR NO KEY UPDATE (KAN-372): a merge
-    X→D still in flight holds D FOR SHARE, so this merge waits for it to
-    commit and then finds X here — the race order KAN-372 could not refuse
-    ends with X naming T as well. The X rows are locked in id order, after
+    X→D still in flight holds D, its survivor (FOR NO KEY UPDATE since
+    KAN-843, FOR SHARE before), so this merge waits for it to commit and
+    then finds X here — the race order KAN-372 could not refuse ends with X
+    naming T as well. The X rows are locked in id order, after
     the merge's own party rows: the one place a merge locks a contact row
     outside "advisory → contact rows → party rows". No writer holding an X
     row waits on this merge: allocation, a reopen and a merge into or of X
@@ -395,6 +401,107 @@ def _repoint_contact_tags(db: Session, *, duplicate_id: uuid.UUID, target_id: uu
     return repointed, dropped
 
 
+# KAN-843: the reason columns' width (`Contact.credit_block_reason`,
+# `Contact.blocked_reason`, String(500)) and how two reasons are joined.
+_BLOCK_REASON_MAX = 500
+_BLOCK_REASON_JOIN = " · "
+
+# Per block: the audit keys (flag, reason), the survivor's own audit action,
+# and the columns (flag, reason, placed at).
+_BLOCKS = (
+    (
+        "creditBlock",
+        "creditBlockReason",
+        "credit_block_changed",
+        "credit_block",
+        "credit_block_reason",
+        "credit_blocked_at",
+    ),
+    ("blocked", "blockedReason", "block_changed", "blocked", "blocked_reason", "blocked_at"),
+)
+
+
+def _joined_reason(survivor_reason: str | None, duplicate_reason: str | None) -> str | None:
+    """Both reasons, the survivor's first; one the survivor already states is
+    not repeated. Cut to the column's width with «…» — the audit rows keep
+    both in full."""
+
+    parts = [r for r in (survivor_reason, duplicate_reason) if r]
+    if len(parts) == 2 and parts[0] == parts[1]:
+        parts = parts[:1]
+    if not parts:
+        return None
+    joined = _BLOCK_REASON_JOIN.join(parts)
+    if len(joined) > _BLOCK_REASON_MAX:
+        joined = joined[: _BLOCK_REASON_MAX - 1] + "…"
+    return joined
+
+
+def _carry_blocks(
+    db: Session,
+    *,
+    duplicate: Contact,
+    target: Contact,
+    actor_id: uuid.UUID,
+    acting_dealership_id: uuid.UUID | None,
+) -> dict[str, Any]:
+    """KAN-843 (Anto, 2026-11-26, option 1): the survivor carries every block
+    either side held — the credit block (ADR-065) and «Gesperrt» (KAN-810)
+    alike, each with its reason. A merge is a clean-up, never a decision to
+    lift a block. A block only the duplicate held moves with its reason and
+    the time it was placed; one both held keeps the survivor's time and joins
+    the two reasons. The duplicate's tombstone keeps its own values (history).
+
+    Each block that changes the survivor is audited on the survivor as the
+    block's own action (`credit_block_changed` / `block_changed`, reason
+    `contact_merged`), so its History says why it is blocked; the returned
+    keys go into the merge's audit row (`creditBlockCarried` and its
+    reason, `blockedCarried` and its reason), naming what moved.
+
+    Called under both contact-row locks (`_lock_merge_contacts`), after the
+    roles moved: a block is the customer role's data, and the duplicate could
+    hold one only with that role, which the survivor now holds as well. Both
+    rows are re-read under those locks, so a block placed or lifted on either
+    side before the merge took them is seen."""
+
+    db.refresh(duplicate)
+    db.refresh(target)
+    carried: dict[str, Any] = {}
+    changed = False
+    for flag_key, reason_key, action, flag, reason_col, at_col in _BLOCKS:
+        if not getattr(duplicate, flag):
+            continue
+        duplicate_reason = getattr(duplicate, reason_col)
+        carried[f"{flag_key}Carried"] = True
+        carried[f"{reason_key}Carried"] = duplicate_reason
+        survivor_had = bool(getattr(target, flag))
+        before = {flag_key: survivor_had, reason_key: getattr(target, reason_col)}
+        reason = _joined_reason(before[reason_key] if survivor_had else None, duplicate_reason)
+        if survivor_had and reason == before[reason_key]:
+            continue
+        setattr(target, flag, True)
+        setattr(target, reason_col, reason)
+        if not survivor_had:
+            setattr(target, at_col, getattr(duplicate, at_col) or utcnow())
+        record_audit_event(
+            db,
+            entity_type="contact",
+            entity_id=target.id,
+            tenant_id=target.group_id,
+            action=action,
+            actor_id=actor_id,
+            acting_dealership_id=acting_dealership_id,
+            before=before,
+            after={flag_key: True, reason_key: reason},
+            reason=CONTACT_MERGED_REASON,
+        )
+        changed = True
+    if changed:
+        target.updated_by = actor_id
+        target.version += 1
+    return carried
+
+
 def merge_contact(
     db: Session,
     *,
@@ -478,6 +585,10 @@ def merge_contact(
         raise roles_service.customer_role_not_permitted("merge")
     # KAN-464: the survivor holds every role either contact held.
     roles_gained, role_rows_moved = roles_service.repoint_roles(db, duplicate_id=contact.id, target_id=target.id)
+    # KAN-843: the survivor keeps every block either side held.
+    blocks_carried = _carry_blocks(
+        db, duplicate=contact, target=target, actor_id=actor_id, acting_dealership_id=acting_dealership_id
+    )
     earlier_merges_repointed, party_copies_repointed = _repoint_earlier_merges(
         db,
         duplicate_id=contact.id,
@@ -526,6 +637,8 @@ def merge_contact(
             "earlierMergesRepointedIds": [str(contact_id) for contact_id in earlier_merges_repointed],
             # KAN-392: the vehicle-link copies those earlier merges kept, now naming the survivor.
             "vehiclePartyCopiesRepointedIds": [str(party_id) for party_id in party_copies_repointed],
+            # KAN-843: the duplicate's blocks the survivor now carries, with their reasons.
+            **blocks_carried,
         },
     )
     # KAN-185 (ADR-047) — Sales moves its records of the duplicate (offers,

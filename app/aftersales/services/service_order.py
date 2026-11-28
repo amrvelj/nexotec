@@ -46,7 +46,8 @@ from app.aftersales.models.service_order import (
     ServiceOrderJob,
     ServiceOrderState,
 )
-from app.aftersales.services import work_guard
+from app.aftersales.models.service_stay import ServiceOrderStay, ServiceStay
+from app.aftersales.services import work_guard, workshop_status
 from app.contact.public import (
     ContactLifecycleStatus,
     ContactRef,
@@ -58,10 +59,9 @@ from app.core.audit import record_audit_event
 from app.core.base import utcnow
 from app.core.config import get_settings
 from app.core.errors import ConflictError, NotFoundError, UnprocessableEntityError
+from app.core.list_query import ListQuery, run_list_query
 from app.core.outbox import OutboxEvent, publish
-from app.core.pagination import SortPageParams, count_capped, paginate_query_sorted
 from app.core.relative_dates import today_in_session_zone
-from app.core.sorting import build_page_for_sort
 from app.platform.public import NumberRangeDocumentType, allocate_number, get_location_or_404
 from app.vehicle.public import get_vehicle_mdm_or_404, get_vehicle_summaries, resolve_merged_vehicle_id
 
@@ -122,17 +122,18 @@ def list_orders(
     *,
     tenant_id: uuid.UUID,
     chip: str | None,
-    state: ServiceOrderState | None,
     q: str | None,
-    params: SortPageParams,
+    query: ListQuery,
 ) -> tuple[list[ServiceOrder], str | None, int, bool]:
-    stmt: Select = select(ServiceOrder).where(ServiceOrder.tenant_id == tenant_id)
+    """The order list (D1) on the list-query layer (KAN-848): the chip and
+    the search narrow it, `query` filters and sorts over
+    `order_grid.SERVICE_ORDER_COLUMNS`, scoped to the Betrieb."""
+
+    stmt: Select = select(ServiceOrder)
     if chip == "waiting_for_answer":
         stmt = stmt.where(ServiceOrder.state.in_(OPEN_STATES), _waiting_for_answer(ServiceOrder.id))
     elif chip == "ready_for_billing":
         stmt = stmt.where(ServiceOrder.state == ServiceOrderState.READY_FOR_BILLING)
-    if state is not None:
-        stmt = stmt.where(ServiceOrder.state == state)
     if q:
         # `%` and `_` typed into the search are letters, not wildcards.
         stmt = stmt.where(
@@ -143,10 +144,14 @@ def list_orders(
                 ServiceOrder.vehicle_label.icontains(q, autoescape=True),
             )
         )
-    total, total_is_estimate = count_capped(db, stmt, threshold=get_settings().count_exact_threshold)
-    rows = list(db.scalars(paginate_query_sorted(stmt, model=ServiceOrder, params=params)).all())
-    items, next_cursor = build_page_for_sort(rows, params)
-    return items, next_cursor, total, total_is_estimate
+    return run_list_query(
+        db,
+        stmt,
+        model=ServiceOrder,
+        scope=[ServiceOrder.tenant_id == tenant_id],
+        query=query,
+        count_threshold=get_settings().count_exact_threshold,
+    )
 
 
 # --- the people and the car -----------------------------------------------------------------
@@ -169,6 +174,25 @@ def lock_order_contacts(db: Session, contact_ids: Iterable[uuid.UUID | None]) ->
 
     for contact_id in sorted({c for c in contact_ids if c is not None}):
         _advisory_lock(db, f"aftersales.order_contact:{contact_id}")
+
+
+def lock_stay_car(db: Session, *, tenant_id: uuid.UUID, vehicle_id: uuid.UUID) -> None:
+    """KAN-813: serialises everything that begins a stay of this car at this Betrieb or
+    joins one (decision 61). Taken before any order row of the car."""
+
+    _advisory_lock(db, f"aftersales.stay:{tenant_id}:{vehicle_id}")
+
+
+def running_stay(db: Session, *, tenant_id: uuid.UUID, vehicle_id: uuid.UUID) -> ServiceStay | None:
+    """The car's running stay at this Betrieb (ADR-213: at most one)."""
+
+    return db.scalar(
+        select(ServiceStay).where(
+            ServiceStay.tenant_id == tenant_id,
+            ServiceStay.vehicle_id == vehicle_id,
+            ServiceStay.departed_at.is_(None),
+        )
+    )
 
 
 def lock_order_vehicle(db: Session, vehicle_id: uuid.UUID | None) -> None:
@@ -301,7 +325,8 @@ def record_order_change(
     reason: str | None = None,
 ) -> None:
     """Every change of the order, its jobs and its positions: the order's version
-    moves (the order is the aggregate) and the history gets its audit row."""
+    moves (the order is the aggregate), the history gets its audit row, and the
+    workshop status is worked out again (KAN-813)."""
 
     order.version += 1
     order.updated_by = actor_id
@@ -317,6 +342,7 @@ def record_order_change(
         after=after,
         reason=reason,
     )
+    workshop_status.refresh(db, order)
 
 
 def refuse_frozen(order: ServiceOrder) -> None:
@@ -345,7 +371,8 @@ def create_order(
     vehicle_id: uuid.UUID | None,
 ) -> ServiceOrder:
     """A new order: a draft, with its number from the range (check 1). Refused for a
-    blocked contact or invoice recipient (check 2) and for a car not identified."""
+    blocked contact or invoice recipient (check 2) and for a car not identified. An
+    order for a car that is here joins its running stay (KAN-813, decision 61, check 23)."""
 
     # KAN-837: every contact first, in id order (a merge consumer moves what this commits).
     lock_order_contacts(db, [contact_id, invoice_recipient_contact_id, driver_contact_id])
@@ -365,6 +392,7 @@ def create_order(
         else None
     )
     car = _vehicle(db, vehicle_id)
+    lock_stay_car(db, tenant_id=tenant_id, vehicle_id=car.id)
 
     now = utcnow()
     order = ServiceOrder(
@@ -403,6 +431,16 @@ def create_order(
         actor_id=actor_id,
         after=snapshot(order),
     )
+    stay = running_stay(db, tenant_id=tenant_id, vehicle_id=order.vehicle_id)
+    if stay is not None:
+        db.add(ServiceOrderStay(tenant_id=tenant_id, service_order_id=order.id, stay_id=stay.id, joined_at=now,
+                                created_by=actor_id, updated_by=actor_id))
+        db.flush()
+        record_audit_event(
+            db, entity_type=ENTITY_TYPE, entity_id=order.id, tenant_id=tenant_id, action="service_order_joined_stay",
+            actor_id=actor_id, after={"stayId": str(stay.id), "arrivedAt": stay.arrived_at.isoformat()},
+        )
+    workshop_status.refresh(db, order)
     _publish(db, order, CREATED_EVENT)
     db.commit()
     db.refresh(order)

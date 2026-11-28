@@ -5,7 +5,13 @@ as "vehicle.plate_on_invoice_requested" (KAN-523); and the five facts of a
 host taking a configuration (KAN-270), each its own consumer of
 `handle_configuration_taken_message` — below; and Stock's two facts of which
 records a Betrieb holds in stock (KAN-667), each its own consumer of
-`handle_stock_holding_message` (`services/stock_holding.py::CONSUMERS`).
+`handle_stock_holding_message` (`services/stock_holding.py::CONSUMERS`); and
+Aftersales' `aftersales.service_stay.arrived` as "vehicle.odometer_from_service_visit"
+(KAN-813, check 24): the mileage read at «Fahrzeug ist da» becomes a reading
+with the source «service visit», in the receiving Betrieb's name (the
+message's `tenant_id`), on the Swiss day of the arrival (`arrivedOn`). A
+lower reading than the last is taken and flagged by the reading's own rule
+(FR-V-07). A car merged since is followed to the record it lives on.
 
 The plate event's contract, as Sales publishes it (`app/sales/services/contract.py
 ::request_invoice`; the contract is the aggregate, the delivering Betrieb the
@@ -32,10 +38,13 @@ import uuid
 from sqlalchemy.orm import Session
 
 from app.core.outbox_model import OutboxMessage
+from app.vehicle.models.vehicle_history import OdometerSource
 from app.vehicle.services.configuration_retention import mark_configuration_taken
+from app.vehicle.services.merge import resolve_merged_id
 from app.vehicle.services.plate import PlateVersionRef
 from app.vehicle.services.plate_handover import record_plate_on_invoice_requested
 from app.vehicle.services.stock_holding import apply_stock_holding_message
+from app.vehicle.services.vehicle_history import record_odometer_reading
 
 
 def handle_invoice_requested_message(db: Session, message: OutboxMessage) -> None:
@@ -93,3 +102,22 @@ def handle_stock_holding_message(db: Session, message: OutboxMessage) -> None:
     (`services/stock_holding.py`), which the identity PATCH reads."""
 
     apply_stock_holding_message(db, message)
+
+
+def handle_stay_arrived_message(db: Session, message: OutboxMessage) -> None:
+    """KAN-813 — Aftersales received a car: its mileage is recorded on the car's record.
+    Flushes only; the harness commits it with the processed-event row, so a redelivery
+    records nothing twice."""
+
+    if message.tenant_id is None:
+        raise ValueError(f"aftersales.service_stay.arrived message {message.id} has no tenant_id.")
+    payload = message.payload or {}
+    record_odometer_reading(
+        db,
+        vehicle_id=resolve_merged_id(db, uuid.UUID(payload["vehicleId"])),
+        value=int(payload["arrivalMileage"]),
+        reading_date=dt.date.fromisoformat(payload["arrivedOn"]),
+        source=OdometerSource.SERVICE_VISIT,
+        recording_tenant_id=message.tenant_id,
+        commit=False,
+    )

@@ -13,7 +13,8 @@ paths:
 <!-- Maintainer note. ADR-214, ADR-216; Anto's rulings of 2026-11-24 on KAN-805 (restore for the store
 only, history read by every role, checklist settings declared after activation only notify, the
 per-location column while any location holds a value). Split out of platform-admin.md by KAN-805 PR-2.
-Last verified against main@32ad509 (2026-11-25); O6/O7 and `divides` added by KAN-808 PR-1c. -->
+Last verified against main@d2fef39 (2026-11-27); O6/O7 and `divides` added by KAN-808 PR-1c; the multiple's
+screen hint and check by KAN-808 PR-2; the check made the store's exactly (newly broken scope, stale slot, clear) by KAN-842. -->
 
 # The settings store (KAN-805) — built: store, API, checklist, copy, screen
 
@@ -58,7 +59,10 @@ Last verified against main@32ad509 (2026-11-25); O6/O7 and `divides` added by KA
   them with the info icon beside the value and checks them before the write (`components/settings/numberRules.ts`): a
   `divides` number offers only its divisors within the bounds, a multiple is checked against the other number in force
   in that column (the Betrieb's column: also at each active location taking the Betrieb's value), and a divisor whose
-  multiple would break is offered disabled — as `unavailableAt` mirrors check 49; the API stays the authority.
+  multiple would break is offered disabled — as `unavailableAt` mirrors check 49; the API stays the authority. The
+  check is `numberRules.multipleRuleViolation`, `check_multiple_rules` line for line (KAN-842): the same scopes, only a
+  scope the write newly breaks refuses (a location already broken does not block the Betrieb's change), a stale slot
+  (`fitsDeclaration: false`) reads as not set, and a clear is checked too.
 - **Setup checklist** (`administration/services/setup_checklist.py`): a declaration with
   `checklist_item` is an item, code = its key (a contributed code never has a dot), applying with
   its module, linked to `/administration/settings/<area>`, complete while **the Betrieb's own value**

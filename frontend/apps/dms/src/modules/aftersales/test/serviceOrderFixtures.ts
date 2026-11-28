@@ -26,6 +26,7 @@ export function summary(overrides: Partial<ServiceOrderSummary> = {}): ServiceOr
     vehicleLabel: 'Mercedes-Benz GLC · W1KBMRB80MN6DTN3X',
     waitingForAnswer: false,
     createdAt: '2026-11-26T08:10:00Z',
+    workshopStatus: 'planned',
     ...overrides,
   }
 }
@@ -48,6 +49,7 @@ export const LABOUR_BY_TIME: ServiceOrderPositionRead = {
   rateValidFrom: '2026-11-01',
   pricedAt: '2026-11-26T08:12:00Z',
   pricedBy: 'user-1',
+  pricedByLabel: 'Sandra Keller',
   checkNeeded: false,
 }
 
@@ -87,6 +89,25 @@ export function order(overrides: Partial<ServiceOrderRead> = {}): ServiceOrderRe
         answeredAt: '2026-11-26T08:20:00Z',
         answeredBy: 'user-1',
         positions: [LABOUR_BY_TIME, TEXT_POSITION],
+        amount: { net: '434.85', gross: '470.07' },
+        acceptedBefore: null,
+        answers: [
+          {
+            id: 'answer-1',
+            result: 'accepted',
+            channel: 'phone',
+            note: null,
+            amount: { net: '434.85', gross: '470.07' },
+            hoursBilled: null,
+            recordedAt: '2026-11-26T08:20:00Z',
+            recordedBy: 'user-1',
+            recordedByLabel: 'Sandra Keller',
+          },
+        ],
+        stopped: false,
+        hoursBilled: null,
+        timeClocked: false,
+        workWithoutAnswer: false,
       },
     ],
     totals: {
@@ -114,6 +135,9 @@ export function order(overrides: Partial<ServiceOrderRead> = {}): ServiceOrderRe
       ],
     },
     cancellation: null,
+    workWithoutAnswer: false,
+    stay: null,
+    vehicleMileage: 166402,
     updatedAt: '2026-11-26T08:20:00Z',
     ...overrides,
   }

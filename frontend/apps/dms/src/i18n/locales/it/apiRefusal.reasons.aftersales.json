@@ -1,4 +1,9 @@
 {
+  "service_order_answer_empty": "Scegliete una risposta per almeno un gruppo.",
+  "service_order_answer_hours_billed_required": "Su questo gruppo è stato timbrato del tempo. Indicate se le ore vengono fatturate.",
+  "service_order_answer_job_twice": "Ogni gruppo riceve una sola risposta per registrazione.",
+  "service_order_answer_note_required": "Un rifiuto richiede una nota.",
+  "service_order_answer_note_too_long": "Una nota ha al massimo 1000 caratteri.",
   "service_order_cancel_reason_required": "Indicate il motivo dell'annullamento.",
   "service_order_clock_has_run": "Su questo ordine è già stato timbrato del tempo; non può essere annullato. Rifiutate invece i suoi gruppi.",
   "service_order_contact_blocked": "Questo contatto è bloccato ({{reason}}). Non è possibile aprire un ordine d'officina per lui.",
@@ -6,7 +11,9 @@
   "service_order_frozen": "Questo ordine è chiuso (pronto per la fattura o annullato) e non può più essere modificato.",
   "service_order_job_accepted": "Questo gruppo è accettato e non può essere eliminato. Registrate invece la risposta.",
   "service_order_job_already_answered": "La risposta per questo gruppo è già registrata.",
+  "service_order_job_clocked_confirm": "{{names}} sta lavorando su questo gruppo. Modificarlo comunque? Se l'importo cambia, il gruppo attende di nuovo la risposta.",
   "service_order_job_name_required": "Un gruppo ha bisogno di una descrizione.",
+  "service_order_job_stopped": "Questo gruppo è stato fermato e non può più essere modificato. Altro lavoro è un nuovo gruppo.",
   "service_order_job_time_clocked": "Su questo gruppo è stato timbrato del tempo; non può essere eliminato. Rifiutatelo invece.",
   "service_order_labour_category_unknown": "Questa categoria di manodopera non appartiene a questa azienda.",
   "service_order_labour_rate_missing": "Nessuna tariffa oraria si applica a questa categoria in questa sede alla data dell'ordine. Inserite il prezzo.",
@@ -33,5 +40,9 @@
   "service_package_position_incomplete": "Una posizione di testo non ha categoria di lavoro, tempo né controllo.",
   "service_package_position_text_required": "Ogni posizione del pacchetto ha bisogno del suo testo.",
   "service_package_position_text_too_long": "Il testo di una posizione ha al massimo 1000 caratteri.",
-  "service_package_time_unit_changed": "Il tempo di lavoro è ora inserito in un'altra unità. Verificate il tempo e inseritelo di nuovo."
+  "service_package_time_unit_changed": "Il tempo di lavoro è ora inserito in un'altra unità. Verificate il tempo e inseritelo di nuovo.",
+  "service_stay_car_already_here": "Il veicolo è già qui e non può essere accettato una seconda volta.",
+  "service_stay_car_changed": "Il veicolo di questo ordine è cambiato durante l'accettazione. Ricaricate l'ordine e riprovate.",
+  "service_stay_mileage_invalid": "Il chilometraggio è un numero intero da 0 a 9'999'999.",
+  "service_stay_text_too_long": "Il testo è troppo lungo (al massimo {{maxLength}} caratteri)."
 }

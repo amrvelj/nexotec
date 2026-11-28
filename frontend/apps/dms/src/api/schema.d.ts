@@ -5901,6 +5901,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/service-orders/grid-schema": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Service Order Grid Schema
+         * @description KAN-848: the order list's column registry — every field, its type, the conditions `filter` takes on it, whether it sorts, its label key, whether the grid shows it by default and (an enum) its options. The SPA takes the sortable headers from it.
+         */
+        get: operations["get_service_order_grid_schema_v1_service_orders_grid_schema_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/service-orders/{order_id}": {
         parameters: {
             query?: never;
@@ -5917,6 +5937,46 @@ export interface paths {
         head?: never;
         /** Change Service Order Parties */
         patch: operations["change_service_order_parties_v1_service_orders__order_id__patch"];
+        trace?: never;
+    };
+    "/v1/service-orders/{order_id}/answers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Record Answers
+         * @description D8 «Antwort erfassen»: the customer's answer to one or more jobs, and how it came.
+         */
+        post: operations["record_answers_v1_service_orders__order_id__answers_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/service-orders/{order_id}/arrival": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Receive Car
+         * @description D14 «Fahrzeug ist da»: the car of the order is here (check 22-24).
+         */
+        post: operations["receive_car_v1_service_orders__order_id__arrival_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/v1/service-orders/{order_id}/cancel": {
@@ -6896,6 +6956,28 @@ export interface components {
             userPrompt?: string | null;
         };
         /**
+         * AmountRead
+         * @description A job's amount, net and incl. VAT, to the Rappen.
+         */
+        AmountRead: {
+            /** Gross */
+            gross: string;
+            /** Net */
+            net: string;
+        };
+        /**
+         * AnswerChannel
+         * @description How the answer came (table 3.2): at the desk, by phone, by a message.
+         * @enum {string}
+         */
+        AnswerChannel: "desk" | "phone" | "message";
+        /**
+         * AnswerResult
+         * @description What the customer said to a job (table 3.2; KAN-811).
+         * @enum {string}
+         */
+        AnswerResult: "accepted" | "declined";
+        /**
          * ArchiveExportRequest
          * @description Q2 B: staff produce an archive export for a former manager who asked
          *     support — with the reason, which the audit row keeps.
@@ -6921,6 +7003,28 @@ export interface components {
             settings: components["schemas"]["AreaSettingRead"][];
             /** Showslocations */
             showsLocations: boolean;
+        };
+        /**
+         * ArrivalChannel
+         * @description How the car was received. «At the car on the phone» comes with the slice
+         *     «offer and answer» (section 2).
+         * @enum {string}
+         */
+        ArrivalChannel: "desk";
+        /**
+         * ArrivalCreate
+         * @description D14 «Fahrzeug ist da» (KAN-813): the mileage (required, a whole number from 0),
+         *     the key tag, the parking place and a remark.
+         */
+        ArrivalCreate: {
+            /** Keytag */
+            keyTag?: string | null;
+            /** Mileage */
+            mileage: number;
+            /** Parkingplace */
+            parkingPlace?: string | null;
+            /** Remark */
+            remark?: string | null;
         };
         /** AttachValuationRequest */
         AttachValuationRequest: {
@@ -11145,6 +11249,51 @@ export interface components {
             token: string;
         };
         /**
+         * JobAnswerEntry
+         * @description One job's answer in D8. `note` is required for «declined»; `hoursBilled` is
+         *     asked only when an accepted job with clocked time is declined (ruling 48).
+         */
+        JobAnswerEntry: {
+            /** Hoursbilled */
+            hoursBilled?: boolean | null;
+            /**
+             * Jobid
+             * Format: uuid
+             */
+            jobId: string;
+            /** Note */
+            note?: string | null;
+            result: components["schemas"]["AnswerResult"];
+        };
+        /**
+         * JobAnswerRead
+         * @description One recorded answer (KAN-811): who, how and when, and the amount said yes to
+         *     (null when the job had no price yet, ruling 167).
+         */
+        JobAnswerRead: {
+            amount: components["schemas"]["AmountRead"] | null;
+            channel: components["schemas"]["AnswerChannel"];
+            /** Hoursbilled */
+            hoursBilled: boolean | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Note */
+            note: string | null;
+            /**
+             * Recordedat
+             * Format: date-time
+             */
+            recordedAt: string;
+            /** Recordedby */
+            recordedBy: string | null;
+            /** Recordedbylabel */
+            recordedByLabel: string | null;
+            result: components["schemas"]["AnswerResult"];
+        };
+        /**
          * JobAnswerState
          * @description Table 3.2: the customer's answer on a job. Recorded with KAN-811;
          *     «stopped» is a mark an accepted or declined job carries (KAN-811).
@@ -11164,6 +11313,11 @@ export interface components {
          */
         JobPackageCopy: {
             /**
+             * Confirmwhileclocked
+             * @default false
+             */
+            confirmWhileClocked?: boolean;
+            /**
              * Servicepackageid
              * Format: uuid
              */
@@ -11171,12 +11325,18 @@ export interface components {
         };
         /** JobRead */
         JobRead: {
+            acceptedBefore?: components["schemas"]["AmountRead"] | null;
+            amount?: components["schemas"]["AmountRead"] | null;
             answerState: components["schemas"]["JobAnswerState"];
             /** Answeredat */
             answeredAt: string | null;
             /** Answeredby */
             answeredBy: string | null;
+            /** Answers */
+            answers?: components["schemas"]["JobAnswerRead"][];
             billingCategory: components["schemas"]["BillingCategory"];
+            /** Hoursbilled */
+            hoursBilled?: boolean | null;
             /**
              * Id
              * Format: uuid
@@ -11188,6 +11348,21 @@ export interface components {
             positions: components["schemas"]["PositionRead"][];
             /** Sortindex */
             sortIndex: number;
+            /**
+             * Stopped
+             * @default false
+             */
+            stopped?: boolean;
+            /**
+             * Timeclocked
+             * @default false
+             */
+            timeClocked?: boolean;
+            /**
+             * Workwithoutanswer
+             * @default false
+             */
+            workWithoutAnswer?: boolean;
         };
         /** JobUpdate */
         JobUpdate: {
@@ -11311,6 +11486,8 @@ export interface components {
              */
             id: string;
             kind: components["schemas"]["LabourRateAgreementKind"];
+            /** Setasideat */
+            setAsideAt: string | null;
             status: components["schemas"]["LabourRateStatus"];
             /**
              * Validfrom
@@ -13930,6 +14107,11 @@ export interface components {
          *     Betrieb's labour rates (by time); a typed price leads, net or gross.
          */
         PositionCreate: {
+            /**
+             * Confirmwhileclocked
+             * @default false
+             */
+            confirmWhileClocked?: boolean;
             kind: components["schemas"]["PositionKind"];
             /** Labourcategoryid */
             labourCategoryId?: string | null;
@@ -13976,6 +14158,8 @@ export interface components {
             pricedAt: string | null;
             /** Pricedby */
             pricedBy: string | null;
+            /** Pricedbylabel */
+            pricedByLabel?: string | null;
             rateSource: components["schemas"]["RateSource"] | null;
             /** Ratevalidfrom */
             rateValidFrom: string | null;
@@ -13999,6 +14183,11 @@ export interface components {
          *     by time takes the proposed rate again.
          */
         PositionUpdate: {
+            /**
+             * Confirmwhileclocked
+             * @default false
+             */
+            confirmWhileClocked?: boolean;
             /** Labourcategoryid */
             labourCategoryId?: string | null;
             priceEntered?: components["schemas"]["PriceEntry"] | null;
@@ -15173,6 +15362,15 @@ export interface components {
          * @enum {string}
          */
         SendingIdentityStatus: "active" | "error" | "disconnected";
+        /**
+         * ServiceOrderAnswersCreate
+         * @description D8 «Antwort erfassen» (KAN-811): how the answer came, and one entry per job answered.
+         */
+        ServiceOrderAnswersCreate: {
+            channel: components["schemas"]["AnswerChannel"];
+            /** Jobs */
+            jobs: components["schemas"]["JobAnswerEntry"][];
+        };
         /** ServiceOrderCancel */
         ServiceOrderCancel: {
             /** Reason */
@@ -15257,6 +15455,7 @@ export interface components {
             /** Ordernumber */
             orderNumber: string;
             state: components["schemas"]["ServiceOrderState"];
+            stay?: components["schemas"]["StayRead"] | null;
             totals: components["schemas"]["OrderTotalsRead"];
             /**
              * Updatedat
@@ -15270,10 +15469,19 @@ export interface components {
             vehicleId: string;
             /** Vehiclelabel */
             vehicleLabel: string;
+            /** Vehiclemileage */
+            vehicleMileage?: number | null;
             /** Version */
             version: number;
             /** Waitingforanswer */
             waitingForAnswer: boolean;
+            /**
+             * Workwithoutanswer
+             * @default false
+             */
+            workWithoutAnswer?: boolean;
+            /** @default planned */
+            workshopStatus?: components["schemas"]["WorkshopStatus"];
         };
         /**
          * ServiceOrderState
@@ -15324,6 +15532,8 @@ export interface components {
             version: number;
             /** Waitingforanswer */
             waitingForAnswer: boolean;
+            /** @default planned */
+            workshopStatus?: components["schemas"]["WorkshopStatus"];
         };
         /** ServicePackageList */
         ServicePackageList: {
@@ -16015,6 +16225,54 @@ export interface components {
          * @enum {string}
          */
         StatusState: "ok" | "warning" | "blocked";
+        /** StayOrderRead */
+        StayOrderRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Ordernumber */
+            orderNumber: string;
+        };
+        /**
+         * StayRead
+         * @description The stay of the car the order belongs to (KAN-813): the reception tab's arrival —
+         *     who, when, how — and what was taken in.
+         */
+        StayRead: {
+            arrivalChannel: components["schemas"]["ArrivalChannel"];
+            /** Arrivalmileage */
+            arrivalMileage: number;
+            /**
+             * Arrivedat
+             * Format: date-time
+             */
+            arrivedAt: string;
+            /** Arrivedby */
+            arrivedBy: string | null;
+            /** Arrivedbylabel */
+            arrivedByLabel: string | null;
+            /** Departedat */
+            departedAt: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Keytag */
+            keyTag: string | null;
+            /** Mileagebelowprevious */
+            mileageBelowPrevious: boolean;
+            /** Orders */
+            orders: components["schemas"]["StayOrderRead"][];
+            /** Parkingplace */
+            parkingPlace: string | null;
+            /** Previousmileage */
+            previousMileage: number | null;
+            /** Remark */
+            remark: string | null;
+        };
         /**
          * StockItemCondition
          * @enum {string}
@@ -18154,6 +18412,12 @@ export interface components {
             /** Sortorder */
             sortOrder?: number | null;
         };
+        /**
+         * WorkshopStatus
+         * @description Criterion 5, section 3.9: worked out, never set.
+         * @enum {string}
+         */
+        WorkshopStatus: "planned" | "car_here" | "in_work" | "work_done" | "checked" | "ready_for_pickup" | "handed_over";
     };
     responses: never;
     parameters: never;
@@ -33075,8 +33339,12 @@ export interface operations {
             query?: {
                 /** @description waiting_for_answer|ready_for_billing */
                 chip?: string | null;
+                /** @description KAN-848: one predicate per parameter, `field:operator[:value]`, repeatable (ANDed). Fields, operators and enum values come from `GET /v1/service-orders/grid-schema`; anything else is 422 (`details.reason`: unknown_field, operator_not_allowed, filter_malformed, invalid_filter_value). */
+                filter?: string[] | null;
+                /** @description The order's state — the same as `filter=state:is:<code>`. */
                 state?: components["schemas"]["ServiceOrderState"] | null;
                 q?: string | null;
+                /** @description Any grid-schema field that sorts, e.g. 'contactLabel:asc,orderDate:desc' */
                 sort?: string | null;
                 limit?: number;
                 cursor?: string | null;
@@ -33150,6 +33418,39 @@ export interface operations {
             };
         };
     };
+    get_service_order_grid_schema_v1_service_orders_grid_schema_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GridSchemaRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_service_order_v1_service_orders__order_id__get: {
         parameters: {
             query?: never;
@@ -33207,6 +33508,90 @@ export interface operations {
         responses: {
             /** @description Successful Response */
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServiceOrderRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    record_answers_v1_service_orders__order_id__answers_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "If-Match"?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                order_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ServiceOrderAnswersCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServiceOrderRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    receive_car_v1_service_orders__order_id__arrival_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "If-Match"?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                order_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ArrivalCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -33547,7 +33932,9 @@ export interface operations {
     };
     delete_position_v1_service_orders__order_id__positions__position_id__delete: {
         parameters: {
-            query?: never;
+            query?: {
+                confirmWhileClocked?: boolean;
+            };
             header?: {
                 authorization?: string | null;
                 "If-Match"?: string | null;

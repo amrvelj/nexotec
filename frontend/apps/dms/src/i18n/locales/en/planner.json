@@ -12,7 +12,7 @@
   },
   "grid": {
     "resource": "Resource",
-    "unavailable": "Not on duty",
+    "unavailableSpan": "Not on duty, {{from}}–{{to}}",
     "now": "Now",
     "aria": "Planner, {{day}}, {{location}}"
   },
@@ -82,6 +82,7 @@
     "timeRequired": "Enter a date and a time for both the start and the end.",
     "endAfterStart": "The end must come after the start.",
     "notBookable": "{{name}} (no longer bookable)",
+    "otherLocation": "{{name}} (another location)",
     "slotLength": "A drop-off or pick-up slot lasts as long as the planner's settings say; its end follows its start."
   },
   "warnings": {

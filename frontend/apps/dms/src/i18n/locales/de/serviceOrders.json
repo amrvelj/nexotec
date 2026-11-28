@@ -7,10 +7,13 @@
   "columns": {
     "orderNumber": "Auftrag",
     "vehicleAndContact": "Fahrzeug · Auftraggeber",
+    "vehicle": "Fahrzeug",
+    "contact": "Auftraggeber",
     "state": "Auftragsstatus",
     "orderDate": "Auftragsdatum",
     "location": "Standort",
-    "createdAt": "Erfasst am"
+    "createdAt": "Erfasst am",
+    "workshopStatus": "Werkstattstatus"
   },
   "emptyState": {
     "title": "Noch kein Werkstattauftrag",

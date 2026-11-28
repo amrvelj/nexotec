@@ -48,9 +48,10 @@ import enum
 import uuid
 from decimal import Decimal
 
-from sqlalchemy import Boolean, Date, ForeignKey, Index, Integer, Numeric, String, UniqueConstraint, false
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy import Boolean, Date, ForeignKey, Index, Integer, Numeric, String, UniqueConstraint, false, select
+from sqlalchemy.orm import Mapped, column_property, mapped_column
 
+from app.aftersales.models.service_stay import ServiceOrderWorkshopStatus
 from app.core.base import PrimaryKeyMixin, TenantScopedMixin, TimestampMixin, VersionedMixin
 from app.core.enum_type import StoredEnum
 from app.core.money import PriceEntry
@@ -86,6 +87,21 @@ class JobAnswerState(str, enum.Enum):
     WAITING = "waiting"
     ACCEPTED = "accepted"
     DECLINED = "declined"
+
+
+class AnswerResult(str, enum.Enum):
+    """What the customer said to a job (table 3.2; KAN-811)."""
+
+    ACCEPTED = "accepted"
+    DECLINED = "declined"
+
+
+class AnswerChannel(str, enum.Enum):
+    """How the answer came (table 3.2): at the desk, by phone, by a message."""
+
+    DESK = "desk"
+    PHONE = "phone"
+    MESSAGE = "message"
 
 
 class BillingCategory(str, enum.Enum):
@@ -177,6 +193,20 @@ class ServiceOrder(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, Timestamp
     cancel_reason: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
 
+# KAN-813, criterion 5: the order's workshop status as the list reads, sorts and filters it — a
+# read-only expression over its projection (`service_order_workshop_status`, one row per order,
+# written by `services/workshop_status.refresh` alone). Not a column of the order: nothing can set
+# it through the order (ADR-213: «never a status column on the order»).
+ServiceOrder.workshop_status = column_property(  # type: ignore[attr-defined]
+    select(ServiceOrderWorkshopStatus.status)
+    .where(ServiceOrderWorkshopStatus.service_order_id == ServiceOrder.id)
+    .correlate_except(ServiceOrderWorkshopStatus)
+    .scalar_subquery()
+    .label("workshop_status"),
+    deferred=False,
+)
+
+
 class ServiceOrderJob(PrimaryKeyMixin, TenantScopedMixin, TimestampMixin, Base):
     __tablename__ = "service_order_job"
 
@@ -193,6 +223,43 @@ class ServiceOrderJob(PrimaryKeyMixin, TenantScopedMixin, TimestampMixin, Base):
     )
     answered_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)
     answered_by: Mapped[uuid.UUID | None] = mapped_column(GUID(), nullable=True)
+
+    # «Stopped» (table 3.2, ruling 48, decision 54; KAN-811): the customer stopped an
+    # accepted job after work started. `hours_billed` is the advisor's choice: true keeps
+    # the job accepted with what was done, false declines it (the hours stay a cost).
+    # A stopped job is never changed, answered or clocked again.
+    stopped_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)
+    stopped_by: Mapped[uuid.UUID | None] = mapped_column(GUID(), nullable=True)
+    hours_billed: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+
+
+class ServiceOrderJobAnswer(PrimaryKeyMixin, TenantScopedMixin, TimestampMixin, Base):
+    """One answer of the customer to a job (KAN-811; table 3.2, checks 3 to 5).
+
+    Its own record, never changed: every answer of a job is kept while the job
+    exists (deleting a job deletes its answers; the order's history keeps them), so «accepted before: CHF x»
+    (ruling 30) and who answered how and when are read from here, never typed.
+    `amount_net`/`amount_gross` are the job's amount the customer said yes to, to the
+    Rappen — null when the job had no price yet (ruling 167): such a job never waits
+    again for a price entered later (ruling 172). The job's `answer_state` is the
+    current state; «wartet auf Antwort» and «Arbeit ohne Antwort» are worked out on
+    read (section 3.9)."""
+
+    __tablename__ = "service_order_job_answer"
+
+    service_order_id: Mapped[uuid.UUID] = mapped_column(
+        GUID(), ForeignKey("service_order.id"), nullable=False, index=True
+    )
+    job_id: Mapped[uuid.UUID] = mapped_column(GUID(), ForeignKey("service_order_job.id"), nullable=False, index=True)
+    result: Mapped[AnswerResult] = mapped_column(StoredEnum(AnswerResult, length=16), nullable=False)
+    channel: Mapped[AnswerChannel] = mapped_column(StoredEnum(AnswerChannel, length=16), nullable=False)
+    note: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+    amount_net: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
+    amount_gross: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
+    # Set when the answer stopped an accepted job with clocked time (ruling 48).
+    hours_billed: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    recorded_at: Mapped[dt.datetime] = mapped_column(UTCDateTime(), nullable=False)
+    recorded_by: Mapped[uuid.UUID | None] = mapped_column(GUID(), nullable=True)
 
 
 class ServiceOrderPosition(PrimaryKeyMixin, TenantScopedMixin, TimestampMixin, Base):

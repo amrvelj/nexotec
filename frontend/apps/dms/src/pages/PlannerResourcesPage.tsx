@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Alert, Skeleton, Stack, Text, Title } from '@mantine/core'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
@@ -123,13 +123,20 @@ export function PlannerResourcesPage() {
     void refresh()
     void locations.refetch()
   }
+  // KAN-842: one write at a time from «Bestätigen» and «Reaktivieren» — a double click would
+  // send the same If-Match twice and the second would come back stale.
+  const inFlight = useRef(false)
   const run = async (call: () => Promise<unknown>) => {
+    if (inFlight.current) return
+    inFlight.current = true
     clear()
     try {
       await call()
       await refresh()
     } catch (err) {
       refuse(err)
+    } finally {
+      inFlight.current = false
     }
   }
 
@@ -147,8 +154,9 @@ export function PlannerResourcesPage() {
     technicianTypes: technicianTypes.data?.items,
     qualifications: qualifications.data?.items,
   }
-  const loadError = [workplaceTypes, technicianTypes, qualifications, resources, settings].find((query) => query.isError)
-  const loading = [workplaceTypes, technicianTypes, qualifications, resources, settings].some((query) => query.isLoading)
+  // The locations too (KAN-842): the resource groups wait for them, so a failed read must say so.
+  const loadError = [workplaceTypes, technicianTypes, qualifications, resources, settings, locations].find((query) => query.isError)
+  const loading = [workplaceTypes, technicianTypes, qualifications, resources, settings, locations].some((query) => query.isLoading)
   const activeLocations = (locations.data?.items ?? []).filter((location) => location.isActive)
   const name = (entry: ListEntry) => entryName(entry, i18n.language)
   const resourceName = (resource: ResourceRead) => (resource.kind === 'person' ? resource.userLabel : resource.name) ?? ''
@@ -168,7 +176,8 @@ export function PlannerResourcesPage() {
       )}
       <RefusalAlert refusal={refusal} reloadLabel={reloadLabel} onReload={reload} onClose={clear} />
       {loading && <Skeleton height={240} radius="md" />}
-      {!loading && !canWrite && (
+      {/* KAN-842: not beside a load error — a role that may not even read sees no entries. */}
+      {!loading && !canWrite && !loadError && (
         <Text c="dimmed" fz="sm">
           {t('plannerResources.readOnly')}
         </Text>
@@ -210,7 +219,8 @@ export function PlannerResourcesPage() {
         )
       })}
 
-      {resources.data && (
+      {/* KAN-842: the groups wait for the locations, so none shows «Standort inaktiv» meanwhile. */}
+      {resources.data && locations.data && (
         <ResourcesSection
           resources={resourceRows}
           locations={locations.data?.items ?? []}

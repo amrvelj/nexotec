@@ -85,6 +85,16 @@ def get_vehicle_mdm_or_404(db: Session, vehicle_id: uuid.UUID) -> ResolvedVehicl
     return ResolvedVehicleMdm(id=record.id, vin=record.vin)
 
 
+def current_mileage(db: Session, vehicle_id: uuid.UUID) -> int | None:
+    """KAN-813 — the car's current mileage (FR-V-07: the latest reading by reading date),
+    or None without a reading. Read-only; Aftersales shows it beside «Fahrzeug ist da»."""
+
+    from app.vehicle.services.vehicle_history import current_mileage as _current_mileage
+
+    reading = _current_mileage(db, vehicle_id=vehicle_id)
+    return reading.value if reading is not None else None
+
+
 def resolve_merged_vehicle_id(db: Session, vehicle_id: uuid.UUID) -> uuid.UUID:
     """KAN-634 (FR-V-12) — the record a merged vehicle-mdm id now lives on:
     follows `merged_into_vehicle_id` to the end of the chain (A merged into

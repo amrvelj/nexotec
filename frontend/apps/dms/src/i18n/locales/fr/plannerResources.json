@@ -1,7 +1,7 @@
 {
   "title": "Ressources du planning",
-  "subtitle": "Qui et quoi le planning planifie : les personnes et les postes de travail par site, leurs types et qualifications, ainsi que la trame du planning.",
-  "readOnly": "Seule la direction modifie les ressources du planning. Vous voyez les entrées.",
+  "subtitle": "Les personnes et les postes de travail que le planning réserve, par site, leurs types et qualifications, ainsi que la trame du planning.",
+  "readOnly": "Seule la direction modifie les ressources du planning ; vous pouvez consulter les entrées.",
   "loadError": "Les ressources du planning n'ont pas pu être chargées.",
   "saveError": "La modification n'a pas pu être enregistrée.",
   "settings": {
@@ -41,7 +41,7 @@
   },
   "entryDialog": {
     "name": "Nom",
-    "nameHint": "Le nom vaut dans chaque langue pour laquelle vous ne saisissez pas de traduction.",
+    "nameHint": "Le nom s'applique dans chaque langue pour laquelle vous ne saisissez pas de traduction.",
     "translation": "Nom en {{language}}",
     "rank": "Rang",
     "rankHint": "Un nombre entier de 1 à 99. Laissez vide si aucun rang ne s'applique.",
@@ -65,7 +65,7 @@
     "mandatory": "Obligatoire",
     "usedBy": "Utilisé par",
     "actions": "Actions",
-    "kind": "Genre",
+    "kind": "Catégorie",
     "type": "Type",
     "location": "Site",
     "technicianType": "Type de technicien",
@@ -91,7 +91,7 @@
   },
   "deactivate": {
     "title": "Désactiver la ressource",
-    "body": "«{{name}}» n'apparaît plus dans le planning. Ses réservations qui ne sont pas encore passées sont marquées à replanifier."
+    "body": "«{{name}}» n'apparaît plus dans le planning. Ses réservations qui ne sont pas encore passées sont signalées comme à replanifier."
   },
   "kinds": {
     "person": "Personne",
@@ -104,12 +104,12 @@
   },
   "resources": {
     "title": "Ressources",
-    "subtitle": "Les personnes et les postes de travail que le planning planifie, par site.",
+    "subtitle": "Les personnes et les postes de travail que le planning réserve, par site.",
     "filter": "Site",
     "allLocations": "Tous les sites",
     "addPerson": "Ajouter une personne",
     "addWorkplace": "Ajouter un poste de travail",
-    "empty": "Aucune ressource pour l'instant. Ajoutez des personnes et des postes de travail pour que le planning puisse les planifier.",
+    "empty": "Aucune ressource pour l'instant. Ajoutez des personnes et des postes de travail pour que le planning puisse les réserver.",
     "emptyAtLocation": "Ce site n'a encore aucune ressource.",
     "locationInactive": "Site inactif",
     "tableLabel": "Ressources du site {{location}}"
@@ -127,7 +127,7 @@
     "workplaceName": "Nom du poste de travail",
     "sortOrder": "Ordre",
     "sortOrderHint": "L'ordre dans le planning, de 0 à 9999 : les petits nombres d'abord.",
-    "movingNote": "La ressource vaut immédiatement au nouveau site. Ses réservations qui ne sont pas encore passées sont marquées à replanifier."
+    "movingNote": "La ressource relève du nouveau site dès maintenant. Ses réservations qui ne sont pas encore terminées sont signalées comme à replanifier."
   },
   "hours": {
     "title": "Horaires de travail de {{name}}",
@@ -140,7 +140,7 @@
     "endsAt": "Fin",
     "secondStartsAt": "Début après la pause",
     "secondEndsAt": "Fin après la pause",
-    "off": "Congé",
+    "off": "Non travaillé",
     "invalid": "Les heures du {{day}} ne concordent pas : chaque plage se termine après son début, et la deuxième commence après la fin de la première."
   }
 }

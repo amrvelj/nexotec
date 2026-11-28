@@ -35,10 +35,12 @@ from sqlalchemy.orm import InstrumentedAttribute, Session
 from app.aftersales.models.service_order import (
     ServiceOrder,
     ServiceOrderJob,
+    ServiceOrderJobAnswer,
     ServiceOrderPosition,
     ServiceOrderState,
 )
 from app.aftersales.models.service_package import ServicePackage, ServicePackagePosition
+from app.aftersales.models.service_stay import ServiceOrderStay, ServiceStay
 from app.contact.public import contact_exists, contact_in_group, contact_is_merged, contact_reference_check
 from app.core.base import utcnow
 from app.core.reconciliation import ReconciliationRun, ReferenceCheck, StateCheck, run_reconciliation
@@ -53,7 +55,8 @@ from app.vehicle.public import vehicle_is_merged, vehicle_reference_check
 
 CONTEXT = "aftersales"
 
-ACTOR_TABLES = (ServiceOrder, ServiceOrderJob, ServiceOrderPosition, ServicePackage, ServicePackagePosition)
+ACTOR_TABLES = (ServiceOrder, ServiceOrderJob, ServiceOrderJobAnswer, ServiceOrderPosition, ServiceStay,
+                ServiceOrderStay, ServicePackage, ServicePackagePosition)
 
 _MERGE_GRACE = dt.timedelta(days=1)
 
@@ -133,6 +136,19 @@ CHECKS: list[ReferenceCheck | StateCheck] = [
         source_row_id_column=ServiceOrder.id,
         source_fk_column=ServiceOrder.vehicle_id,
     ),
+    # KAN-813: the stay's car and location (ADR-213).
+    vehicle_reference_check(
+        label="service_stay.vehicle_id -> vehicle_mdm.id",
+        source_model=ServiceStay,
+        source_row_id_column=ServiceStay.id,
+        source_fk_column=ServiceStay.vehicle_id,
+    ),
+    location_reference_check(
+        label="service_stay.location_id -> location.id",
+        source_model=ServiceStay,
+        source_row_id_column=ServiceStay.id,
+        source_fk_column=ServiceStay.location_id,
+    ),
     labour_rate_category_reference_check(
         label="service_order_position.labour_category_id -> labour_rate_category.id",
         source_model=ServiceOrderPosition,
@@ -155,6 +171,14 @@ CHECKS: list[ReferenceCheck | StateCheck] = [
         source_row_id_column=ServiceOrder.id,
         where=lambda: _live()
         & vehicle_is_merged(ServiceOrder.vehicle_id, updated_before=utcnow() - _MERGE_GRACE, correlate=ServiceOrder),
+    ),
+    # KAN-813: a running stay follows a vehicle merge like its orders (ADR-213).
+    StateCheck(
+        label="service_stay.vehicle_id names a merged vehicle record",
+        source_model=ServiceStay,
+        source_row_id_column=ServiceStay.id,
+        where=lambda: ServiceStay.departed_at.is_(None)
+        & vehicle_is_merged(ServiceStay.vehicle_id, updated_before=utcnow() - _MERGE_GRACE, correlate=ServiceStay),
     ),
     *actor_reference_checks(*ACTOR_TABLES),
 ]

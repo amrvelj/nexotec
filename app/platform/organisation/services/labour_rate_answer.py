@@ -149,6 +149,8 @@ def labour_rate_for(
                 LabourRateAgreement.category_id == category_id,
                 LabourRateAgreement.valid_from <= on,
                 LabourRateAgreement.withdrawn_at.is_(None),
+                # KAN-831: a row a contact merge set aside never answers.
+                LabourRateAgreement.set_aside_at.is_(None),
             )
             .order_by(LabourRateAgreement.valid_from.desc())
             .limit(1)

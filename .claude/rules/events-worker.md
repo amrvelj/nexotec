@@ -54,10 +54,13 @@ small; ADR-047 addendum, ADR-081, ADR-105, ADR-107. Last verified against main@3
   (KAN-222: a connection's and, KAN-226, a Business Profile binding's copy of its location's name), `inventory.location_labels` (KAN-739: a
   stock item's copy of its location's name), `inventory.supplier_labels` (KAN-465: its supplier contact's), `planning.person_labels` and
   `planning.location_labels` (KAN-808: a planner resource's user and location names) and
-  `aftersales.order_labels` (KAN-837: a workshop order's contacts, car and location, every order) and `aftersales.package_labels` (KAN-818: a service-catalogue position's labour category). Shared rules: no `version` bump, a
+  `aftersales.order_labels` (KAN-837: a workshop order's contacts, car and location, every order; KAN-845: its labour positions' category names — an open order's follow, a frozen order's are kept and restamped), `aftersales.package_labels` (KAN-818: a service-catalogue position's labour category) and `platform.labour_rate_agreement_labels` (KAN-831: an agreement's contact, read in the composition root `app/labour_rate_agreement_merge.py`). Shared rules: no `version` bump, a
   current label only restamped, a deactivated user's label kept, an id naming nothing left
   alone, batches `FOR NO KEY UPDATE SKIP LOCKED` (the vehicle-party job locks in id order and
   waits — `contact-vehicle-party.md`).
+- **One consumer orders itself** (ADR-232): `platform.labour_rate_agreements_on_contact_merged` waits for earlier
+  `contact.merged` into the same contacts by reading `outbox_message`/`processed_event` (a tie to the Postgres
+  transport); replay its dead letters oldest first. Not a pattern to copy without an ADR.
 - **A label may also follow its owner's event** (`vehicle.vehicle_mdm.summary_changed` →
   `contact.vehicle_party_labels_on_summary_changed`): the consumer re-reads the label through
   the owner's `public`, never trusting the payload (delivery is unordered); the nightly job stays

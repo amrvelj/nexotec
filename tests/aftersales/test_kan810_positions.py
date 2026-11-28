@@ -10,8 +10,8 @@ from decimal import Decimal
 import pytest
 from sqlalchemy import select
 
-from app.aftersales.models.service_order import ServiceOrder, ServiceOrderJob
-from app.aftersales.services import positions as positions_service
+from app.aftersales.models.service_order import AnswerChannel, AnswerResult, ServiceOrder, ServiceOrderJob
+from app.aftersales.services import answers as answers_service
 from app.aftersales.services import work_guard
 from app.core.money import PriceEntry
 from app.platform.organisation.models.labour_rate import LabourRateAgreementKind
@@ -35,6 +35,15 @@ from tests.aftersales.service_order_support import (
 @pytest.fixture()
 def betrieb(client, db_session):
     return make_betrieb(client, db_session)
+
+
+def _accept(db, order, job, betrieb) -> None:
+    """The customer accepted the job at the desk (KAN-811's one write path)."""
+
+    answers_service.record_answers(
+        db, order=order, actor_id=betrieb.user_id, channel=AnswerChannel.DESK,
+        answers=[answers_service.JobAnswerInput(job_id=job.id, result=AnswerResult.ACCEPTED)],
+    )
 
 
 def _reason(response) -> str:
@@ -262,7 +271,7 @@ def test_the_total_has_an_accepted_and_an_open_part(client, db_session):
 
     row = db_session.get(ServiceOrder, uuid.UUID(order["id"]))
     job = db_session.get(ServiceOrderJob, uuid.UUID(accepted_job))
-    positions_service.accept_job(db_session, order=row, job=job, actor_id=betrieb.user_id)
+    _accept(db_session, row, job, betrieb)
 
     body = client.get(f"/v1/service-orders/{order['id']}", headers=headers(betrieb)).json()
     assert body["state"] == "accepted"  # the first accepted job makes the order accepted (table 3.1)
@@ -320,9 +329,7 @@ def test_a_position_is_deleted_unless_time_was_clocked_on_it(client, db_session,
 def test_an_accepted_job_is_not_deleted(client, db_session, betrieb):
     order, job_id = _with_job(client, db_session, betrieb)
     row = db_session.get(ServiceOrder, uuid.UUID(order["id"]))
-    positions_service.accept_job(
-        db_session, order=row, job=db_session.get(ServiceOrderJob, uuid.UUID(job_id)), actor_id=betrieb.user_id
-    )
+    _accept(db_session, row, db_session.get(ServiceOrderJob, uuid.UUID(job_id)), betrieb)
     response = client.delete(f"/v1/service-orders/{order['id']}/jobs/{job_id}",
                              headers=headers(betrieb, if_match=row.version))
     assert (response.status_code, _reason(response)) == (409, "service_order_job_accepted")

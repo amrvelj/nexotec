@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Button, Group, Stack, Title } from '@mantine/core'
 import { useDebouncedValue } from '@mantine/hooks'
-import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query'
+import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Plus, Wrench } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import {
@@ -24,7 +24,7 @@ import {
   ViewsAndFilters,
 } from '@nexotec/ui-kit'
 import { api } from '../../../api/client'
-import type { ServiceOrderPage, ServiceOrderSummary } from '../../../api/types'
+import type { GridSchemaRead, ServiceOrderPage, ServiceOrderSummary } from '../../../api/types'
 import { useCanWrite } from '../../../auth/useCanWrite'
 import { useActionBarLabels } from '../../../hooks/useActionBarLabels'
 import { useColumnPanelLabels } from '../../../hooks/useColumnPanelLabels'
@@ -34,15 +34,14 @@ import { useSavedViews } from '../../../hooks/useSavedViews'
 import { useUiPreferencesContext } from '../../../hooks/UiPreferencesContext'
 import { useViewsAndFiltersLabels } from '../../../hooks/useViewsAndFiltersLabels'
 import { toSwissLocale, type SupportedLanguage } from '../../../i18n'
+import { sortableFieldsOf } from '../../../shared/gridSchema'
 import { formatDateOnly, formatDateTime } from '../../../utils/format'
 import { CancelServiceOrderDialog } from '../components/CancelServiceOrderDialog'
 import { OrderStateBadge } from '../components/OrderStateBadge'
+import { WorkshopStatusBadge } from '../components/WorkshopStatusBadge'
 import { ServiceOrderCreateDialog } from '../components/ServiceOrderCreateDialog'
 import { buildServiceOrderRowMenu } from '../components/serviceOrderRowMenu'
 import { applyServiceOrderFilters, serviceOrderHref, translatedStateOptions } from '../serviceOrderOptions'
-
-/** The fields `GET /v1/service-orders` sorts by. */
-const SORTABLE_FIELDS: ReadonlySet<string> = new Set(['orderNumber', 'orderDate', 'createdAt'])
 
 const GRID_KEY = 'serviceOrders.list'
 const DEFAULT_SORT: SortSpec[] = [{ field: 'createdAt', direction: 'desc' }]
@@ -62,8 +61,11 @@ function parseFiltersParam(raw: string): FilterPredicate[] {
  * cursor paging over `GET /v1/service-orders`; one filter, the order's state
  * (Anto, 2026-11-26: the chips of the slice page come each with the ticket
  * that builds its fact, so this list has none yet). Search, filter and sort
- * live in the URL (ADR-056). The API sorts by number, order date and creation
- * only, so only those columns sort.
+ * live in the URL (ADR-056). KAN-848: the list is on the list-query layer
+ * (ADR-179) — every column sorts server-side, the sortable headers and the
+ * default visibility are the served schema's (`…/service-orders/grid-schema`),
+ * a column's id is its schema field. The filter stays the state alone, with
+ * the options of Anto's ruling (`FILTER_STATES`), through `state`.
  */
 export function ServiceOrdersListPage() {
   const { t, i18n } = useTranslation()
@@ -84,9 +86,17 @@ export function ServiceOrdersListPage() {
   const [cancelOf, setCancelOf] = useState<ServiceOrderSummary | null>(null)
   const [appliedViewId, setAppliedViewId] = useState<string | null>(null)
 
+  // The served registry: which headers sort, which columns show by default. Fetched once; the
+  // list waits for it, so a link's sort is neither dropped nor sent unchecked meanwhile.
+  const { data: gridSchema, isError: schemaFailed, refetch: refetchSchema } = useQuery({
+    queryKey: ['grid-schema', 'service-orders'],
+    queryFn: () => api.get<GridSchemaRead>('/service-orders/grid-schema'),
+    staleTime: Infinity,
+  })
+  const sortableFields = useMemo(() => sortableFieldsOf(gridSchema), [gridSchema])
   // A sort from the URL (hand-edited, or a stale link) keeps only the fields the API sorts by.
   const sort = (searchParams.get('sort') ? sortSpecFromQueryParam(searchParams.get('sort')) : gridPrefs.sort).filter((s) =>
-    SORTABLE_FIELDS.has(s.field),
+    sortableFields.has(s.field),
   )
   const urlPredicates = searchParams.get('filters') ? parseFiltersParam(searchParams.get('filters')!) : []
 
@@ -124,14 +134,20 @@ export function ServiceOrdersListPage() {
         id: 'orderNumber',
         header: t('serviceOrders.columns.orderNumber'),
         cell: ({ row }) => row.original.orderNumber,
-        meta: { sortField: 'orderNumber', pinned: 'left', mono: true, locked: true },
+        meta: { pinned: 'left', mono: true, locked: true },
       },
       {
-        id: 'vehicleAndContact',
+        id: 'vehicleLabel',
         header: t('serviceOrders.columns.vehicleAndContact'),
-        // § Composite cells: the vehicle, then the ordering party as the secondary fact.
+        // § Composite cells: the vehicle, then the ordering party as the secondary fact. It sorts by
+        // the vehicle; the ordering party sorts in its own column.
         cell: ({ row }) => row.original.vehicleLabel,
         meta: { secondary: (row) => row.contact.label },
+      },
+      {
+        id: 'contactLabel',
+        header: t('serviceOrders.columns.contact'),
+        cell: ({ row }) => row.original.contact.label,
       },
       {
         id: 'state',
@@ -140,13 +156,19 @@ export function ServiceOrdersListPage() {
         meta: { filter: { type: 'select', param: 'state', options: translatedStateOptions(t), conditions: ['is'] } },
       },
       {
+        // KAN-813, criterion 5: read from the server's projection, worked out, never set.
+        id: 'workshopStatus',
+        header: t('serviceOrders.columns.workshopStatus'),
+        cell: ({ row }) => <WorkshopStatusBadge status={row.original.workshopStatus ?? 'planned'} />,
+      },
+      {
         id: 'orderDate',
         header: t('serviceOrders.columns.orderDate'),
         cell: ({ row }) => formatDateOnly(row.original.orderDate, locale),
-        meta: { sortField: 'orderDate', align: 'right' },
+        meta: { align: 'right' },
       },
       {
-        id: 'location',
+        id: 'locationLabel',
         header: t('serviceOrders.columns.location'),
         cell: ({ row }) => row.original.locationLabel,
       },
@@ -154,7 +176,7 @@ export function ServiceOrdersListPage() {
         id: 'createdAt',
         header: t('serviceOrders.columns.createdAt'),
         cell: ({ row }) => formatDateTime(row.original.createdAt, locale),
-        meta: { sortField: 'createdAt', align: 'right', defaultVisible: false },
+        meta: { align: 'right' },
       },
     ],
     [t, locale],
@@ -164,15 +186,17 @@ export function ServiceOrdersListPage() {
   // KAN-458: a predicate from the URL or a saved view this grid does not offer is neither sent nor shown.
   const predicates = offeredPredicates(urlPredicates, filterFields)
 
+  // Default visibility is the served registry's — a column it does not show by default is one click away.
+  const defaultVisible = useMemo(() => new Map((gridSchema?.fields ?? []).map((f) => [f.field, f.defaultVisible])), [gridSchema])
   const columnRegistry: ColumnRegistryEntry[] = useMemo(
     () =>
       columns.map((c) => ({
         id: String(c.id),
         label: typeof c.header === 'string' ? c.header : String(c.id),
-        defaultVisible: c.meta?.defaultVisible ?? true,
+        defaultVisible: defaultVisible.get(String(c.id)) ?? false,
         locked: c.meta?.locked,
       })),
-    [columns],
+    [columns, defaultVisible],
   )
   const columnLayout = useMemo(
     () => gridPrefs.columnLayout ?? defaultColumnLayout(columnRegistry),
@@ -193,6 +217,7 @@ export function ServiceOrdersListPage() {
     },
     initialPageParam: null as string | null,
     getNextPageParam: (lastPage) => lastPage.nextCursor,
+    enabled: gridSchema !== undefined,
   })
 
   const rows = useMemo(() => data?.pages.flatMap((page) => page.items) ?? [], [data])
@@ -269,16 +294,18 @@ export function ServiceOrdersListPage() {
           getRowId={(row) => row.id}
           sort={sort}
           onSortChange={setSort}
+          sortableFields={sortableFields}
           density={density}
           rowHref={(row) => serviceOrderHref(row.id)}
           linkComponent={Link}
-          loading={isLoading}
+          // A failed schema read is said, never an endless skeleton (KAN-848 review).
+          loading={!schemaFailed && (isLoading || gridSchema === undefined)}
           refetching={isRefetching && !isLoading}
           fetchingNextPage={isFetchingNextPage}
           hasNextPage={Boolean(hasNextPage)}
           onLoadMore={() => fetchNextPage()}
-          error={isError ? t('serviceOrders.loadError') : null}
-          onRetry={() => refetch()}
+          error={isError || schemaFailed ? t('serviceOrders.loadError') : null}
+          onRetry={() => (schemaFailed ? void refetchSchema() : void refetch())}
           total={total}
           totalIsEstimate={totalIsEstimate}
           isFiltered={isFiltered}
@@ -310,6 +337,9 @@ export function ServiceOrdersListPage() {
           rowActions={(row) =>
             buildServiceOrderRowMenu(t, row, {
               onOpen: () => navigate(serviceOrderHref(row.id)),
+              // D8 opens on the order page, which holds the jobs it asks about (KAN-811).
+              onRecordAnswer: canWrite ? () => navigate(`${serviceOrderHref(row.id)}?dialog=answer`) : undefined,
+              onArrive: canWrite ? () => navigate(`${serviceOrderHref(row.id)}?dialog=arrival`) : undefined,
               onCancel: canWrite ? () => setCancelOf(row) : undefined,
             })
           }

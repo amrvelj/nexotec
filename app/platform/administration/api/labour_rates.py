@@ -131,6 +131,7 @@ def agreement_read(row: LabourRateAgreement, status) -> LabourRateAgreementRead:
         entered=row.entered,
         status=status,
         withdrawn_at=row.withdrawn_at,
+        set_aside_at=row.set_aside_at,
         version=row.version,
         created_at=row.created_at,
     )

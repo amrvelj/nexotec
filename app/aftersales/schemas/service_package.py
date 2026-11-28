@@ -72,3 +72,5 @@ class JobPackageCopy(CamelModel):
     """D13: put a package from the catalogue onto the job."""
 
     service_package_id: uuid.UUID
+    # KAN-811, check 6: confirmed while somebody is clocked on an accepted job.
+    confirm_while_clocked: bool = False
