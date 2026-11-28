@@ -12,6 +12,17 @@ be the real thing:
   - JSON logging with correlationId/tenantId always applies, unconditionally
     — that part needs no external service to be worth having.
 
+No query string leaves the process (KAN-829): a search box's text — a
+name, a phone number, an e-mail address, a UID — travels as `?q=`, and
+neither the access log, a span nor a Sentry event may carry it (revDSG:
+logs sit outside the record's retention and erasure). uvicorn's access line
+is scrubbed by `QueryStringAccessLogFilter` (installed by configure_logging,
+so whatever command starts the server), spans by `scrub_span_query` (the
+FastAPI instrumentation's request hook), Sentry events by
+`_drop_query_string` (the query string, and the `Referer`'s query: the SPA
+writes a list's search into its own URL). The application's own `app.http`
+line never had the query (`httpPath`) and logs no Referer.
+
 correlationId/tenantId are contextvars, not parameters threaded through
 every function — the entire point is that a log line logged deep inside a
 service function, with no access to the request at all, still carries them.
@@ -25,7 +36,7 @@ import contextvars
 import json
 import logging
 import time
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 import jwt
 from fastapi import FastAPI
@@ -39,6 +50,9 @@ from app.core.auth import SESSION_COOKIE_NAME
 from app.core.config import get_settings
 from app.core.correlation import correlation_id_from_header, correlation_scope, get_correlation_id
 from app.core.redact import REDACTED_PLACEHOLDER, SECRET_FIELDS, is_secret_field
+
+if TYPE_CHECKING:
+    from sentry_sdk.types import Event, Hint
 
 CORRELATION_ID_HEADER = "X-Correlation-Id"
 
@@ -150,12 +164,35 @@ class JSONLogFormatter(logging.Formatter):
         return json.dumps(payload, default=str)
 
 
+def _without_query(target: str) -> str:
+    return target.split("?", 1)[0]
+
+
+class QueryStringAccessLogFilter(logging.Filter):
+    """KAN-829: uvicorn's access line (`uvicorn.access`, on by default) writes
+    the request target with its query string — `"GET /v1/contacts?q=… HTTP/1.1"
+    200`. Its record's args are (client, method, target, http version, status);
+    the target loses everything from `?` on. The line is kept: it is the
+    server's own word that a request arrived."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        args = record.args
+        if isinstance(args, tuple) and len(args) >= 3 and isinstance(args[2], str):
+            record.args = (*args[:2], _without_query(args[2]), *args[3:])
+        return True
+
+
 def configure_logging() -> None:
     handler = logging.StreamHandler()
     handler.setFormatter(JSONLogFormatter())
     root = logging.getLogger()
     root.handlers = [handler]
     root.setLevel(logging.INFO)
+    # uvicorn configures its own loggers before it imports the app; a filter
+    # on the logger itself holds whatever its handlers are (KAN-829).
+    access = logging.getLogger("uvicorn.access")
+    if not any(isinstance(f, QueryStringAccessLogFilter) for f in access.filters):
+        access.addFilter(QueryStringAccessLogFilter())
 
 
 def _otlp_headers(raw: str | None) -> dict[str, str]:
@@ -182,6 +219,35 @@ def otel_resource_attributes(process: Literal["web", "worker"]) -> dict[str, str
     return {"service.name": service_name, "deployment.environment": settings.environment}
 
 
+# The span attributes that carry a request's URL or its query (old and stable
+# HTTP semantic conventions): `http.target` is the path alone already.
+_SPAN_URL_ATTRIBUTES = ("http.url", "url.full", "http.target")
+
+
+def scrub_span_query(span: Any, scope: dict[str, Any]) -> None:
+    """KAN-829: the FastAPI (ASGI) instrumentation's server request hook. It
+    runs once the server span has its attributes: each URL attribute loses
+    its query string, and the stable conventions' `url.query` is emptied (an
+    attribute cannot be removed)."""
+
+    attributes = getattr(span, "attributes", None) or {}
+    for name in _SPAN_URL_ATTRIBUTES:
+        value = attributes.get(name)
+        if isinstance(value, str) and "?" in value:
+            span.set_attribute(name, _without_query(value))
+    if attributes.get("url.query"):
+        span.set_attribute("url.query", "")
+
+
+def instrument_app(app: FastAPI, **kwargs: Any) -> None:
+    """The one FastAPI instrumentation of the web process (configure_tracing),
+    with the query scrubbed from every server span (KAN-829)."""
+
+    from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+
+    FastAPIInstrumentor.instrument_app(app, server_request_hook=scrub_span_query, **kwargs)
+
+
 def configure_tracing(app: FastAPI | None = None, *, process: Literal["web", "worker"] = "web") -> None:
     """Registers the OTLP trace and metric providers. `app` is None for a
     process with no HTTP server (app.worker, KAN-248): it gets the same
@@ -197,7 +263,6 @@ def configure_tracing(app: FastAPI | None = None, *, process: Literal["web", "wo
     from opentelemetry import metrics, trace
     from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
     from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
-    from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
     from opentelemetry.sdk.metrics import MeterProvider
     from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
     from opentelemetry.sdk.resources import Resource
@@ -229,7 +294,7 @@ def configure_tracing(app: FastAPI | None = None, *, process: Literal["web", "wo
     # here hand-rolls that. Distributed traces across the HTTP boundary are
     # the same call.
     if app is not None:
-        FastAPIInstrumentor.instrument_app(app)
+        instrument_app(app)
 
 
 def _sentry_secret_names() -> list[str]:
@@ -237,6 +302,29 @@ def _sentry_secret_names() -> list[str]:
     (`secret_value`) and camelCase (`secretValue` -> `secretvalue`)."""
 
     return sorted(SECRET_FIELDS | {name.replace("_", "") for name in SECRET_FIELDS})
+
+
+def _drop_query_string(event: "Event", hint: "Hint") -> "Event | None":
+    """KAN-829: Sentry's ASGI integration sends the request's query string
+    (`request.query_string`) and its headers with every error and
+    transaction. The query string never leaves, and neither does the
+    `Referer`'s: the SPA is served from the same origin and writes a list's
+    search into its own URL (`/contacts?q=…`), so every API call from that
+    page names the search in its Referer. `request.url` is already without
+    a query; it is cut too, should that change."""
+
+    request = event.get("request")
+    if isinstance(request, dict):
+        request.pop("query_string", None)
+        url = request.get("url")
+        if isinstance(url, str):
+            request["url"] = _without_query(url)
+        headers = request.get("headers")
+        if isinstance(headers, dict):
+            for name, value in list(headers.items()):
+                if isinstance(name, str) and name.lower() == "referer" and isinstance(value, str):
+                    headers[name] = _without_query(value)
+    return event
 
 
 def configure_sentry() -> None:
@@ -264,6 +352,8 @@ def configure_sentry() -> None:
         include_local_variables=False,
         event_scrubber=EventScrubber(denylist=[*DEFAULT_DENYLIST, *_sentry_secret_names()], recursive=True),
         integrations=[FastApiIntegration(), LoggingIntegration(level=logging.INFO, event_level=logging.ERROR)],
+        before_send=_drop_query_string,
+        before_send_transaction=_drop_query_string,
     )
 
 

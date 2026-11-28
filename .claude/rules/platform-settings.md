@@ -54,8 +54,8 @@ screen hint and check by KAN-808 PR-2; the check made the store's exactly (newly
   worse»): 422 `setting_not_a_multiple_of_setting` writing the multiple, `setting_no_longer_divides_setting` writing the
   other (`details`: `setting`, `multipleOf`, `locationId`); «not set» on either side breaks nothing.
   `check_declaration_references()` refuses an undeclared key, another module's, or one that is no whole number above
-  zero; the copy writes the other key first; platform's reconciliation reports a scope a reactivated location left
-  broken. The area API names both on the declaration (`divides`, `multipleOf`; KAN-808 PR-2); `SettingCell` hints
+  zero; the copy writes the pair as one change (KAN-839, below); platform's reconciliation reports a scope a
+  reactivated location left broken. The area API names both on the declaration (`divides`, `multipleOf`; KAN-808 PR-2); `SettingCell` hints
   them with the info icon beside the value and checks them before the write (`components/settings/numberRules.ts`): a
   `divides` number offers only its divisors within the bounds, a multiple is checked against the other number in force
   in that column (the Betrieb's column: also at each active location taking the Betrieb's value), and a divisor whose
@@ -79,10 +79,13 @@ screen hint and check by KAN-808 PR-2; the check made the store's exactly (newly
   that would hide an area from the generic screen (criterion 6; KAN-806's topic screen lives at its
   own path and embeds the rows).
 - **Copy from a sister Betrieb** (`administration/services/configuration_copy.py`, subset `settings`):
-  the source's own value of each setting the target configures (module held, or none), written by
-  `change_setting` as origin `copy` (history, restore); «not set» in the source keeps the target's
+  the source's own value of each setting the target configures (module held, or none), written through
+  the store (`change_setting`, a `multiple_of` pair `change_settings`) as origin `copy` (history, restore); «not set» in the source keeps the target's
   value; a location's value is never copied; a source value that no longer fits is skipped
-  (`setting_value_stale`).
+  (`setting_value_stale`). A pair tied by `multiple_of` (O6/O7) goes through `setting_store.change_settings` as
+  one change (KAN-839): the rules judge the state after both keys, each key keeps its own history and audit row,
+  so source 10/40 lands whole on target 15/45; refused as a whole (a target location's own value), each key is
+  tried alone.
 - **Screen** (`/administration/settings`, the areas; `/administration/settings/:area`): one row
   component, `components/settings/SettingRows.tsx`, which a topic screen embeds with `keys` (ticket
   criterion 6, 2026-11-25). «Not set» is a slate badge (never empty, zero, «off» or the empty-field

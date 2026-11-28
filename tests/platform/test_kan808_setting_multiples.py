@@ -173,6 +173,86 @@ def test_the_copy_writes_the_grid_before_the_slot_length(client, engine):
     assert (_value_in(engine, target, GRID), _value_in(engine, target, SLOT)) == (Decimal(10), Decimal(30))
 
 
+def test_the_copy_writes_a_pair_that_fits_neither_order_as_one_change(client, engine):
+    """KAN-839: target O6 15 / O7 45, source O6 10 / O7 40. One at a time,
+    O6=10 is refused (45 is no multiple of 10) and then O7=40 (40 is no
+    multiple of 15) — although 10/40 is valid. Judged together, both land, each
+    with its own history row of origin copy."""
+
+    from app.platform.organisation.models.setting_value import SettingChangeOrigin, SettingValueChange
+    from tests.platform.test_kan805_settings_copy import _session
+
+    source, target, _, headers = _aftersales_pair(client, engine)
+    _set_in(engine, target, GRID, Decimal(15))
+    _set_in(engine, target, SLOT, Decimal(45))
+    _set_in(engine, source, GRID, Decimal(10))
+    _set_in(engine, source, SLOT, Decimal(40))
+    expected = {GRID: ("overwritten", None), SLOT: ("overwritten", None)}
+    assert _items(_copy(client, target, headers, source, dry_run=True, subsets=SETTINGS)) == expected
+    assert (_value_in(engine, target, GRID), _value_in(engine, target, SLOT)) == (Decimal(15), Decimal(45))
+    assert _items(_copy(client, target, headers, source, dry_run=False, subsets=SETTINGS)) == expected
+    assert (_value_in(engine, target, GRID), _value_in(engine, target, SLOT)) == (Decimal(10), Decimal(40))
+    with _session(engine) as db:
+        copied = db.scalars(
+            select(SettingValueChange.key).where(
+                SettingValueChange.dealership_id == uuid.UUID(target),
+                SettingValueChange.origin == SettingChangeOrigin.COPY,
+            )
+        ).all()
+    assert sorted(copied) == sorted([GRID, SLOT])
+
+
+def test_a_pair_the_target_refuses_as_a_whole_is_tried_key_by_key(client, engine):
+    """KAN-839: the pair is judged against every scope of the target. A target
+    location's own O7 45 breaks a copied grid of 10 there, so the pair is
+    refused as a whole; each key is then tried alone, as before: the grid is
+    refused (it no longer divides the location's 45), the slot length 30 fits
+    the target's grid of 15 and lands."""
+
+    from tests.platform.test_kan805_settings_copy import _session
+
+    source, target, _, headers = _aftersales_pair(client, engine)
+    with _session(engine) as db:
+        location_id = db.scalar(select(Location.id).where(Location.tenant_id == uuid.UUID(target)))
+    _set_in(engine, target, GRID, Decimal(15))
+    _set_in(engine, target, SLOT, Decimal(45))
+    _set_in(engine, target, SLOT, Decimal(45), location_id=location_id)
+    _set_in(engine, source, GRID, Decimal(10))
+    _set_in(engine, source, SLOT, Decimal(30))
+    expected = {GRID: ("skipped", "setting_no_longer_divides_setting"), SLOT: ("overwritten", None)}
+    assert _items(_copy(client, target, headers, source, dry_run=False, subsets=SETTINGS)) == expected
+    assert (_value_in(engine, target, GRID), _value_in(engine, target, SLOT)) == (Decimal(15), Decimal(30))
+
+
+def test_the_store_judges_a_joint_change_on_the_state_after_all_of_it(db_session, betrieb):
+    """KAN-839: `change_settings` checks the rule once, after every slot of the
+    change — and refuses before writing anything when the result breaks it."""
+
+    _set(db_session, betrieb, GRID, 15)
+    _set(db_session, betrieb, SLOT, 45)
+
+    def _slot(key):
+        return store.get_slot(db_session, dealership_id=betrieb, location_id=None, key=key)
+
+    def _joint(grid, slot):
+        store.change_settings(
+            db_session, dealership_id=betrieb, actor_id=None,
+            writes=[
+                store.SettingWrite(key=GRID, value=Decimal(grid), expected_version=_slot(GRID).version),
+                store.SettingWrite(key=SLOT, value=Decimal(slot), expected_version=_slot(SLOT).version),
+            ],
+        )
+
+    with pytest.raises(SettingValueError) as caught:
+        _joint(10, 25)
+    db_session.rollback()
+    assert caught.value.reason == "setting_not_a_multiple_of_setting"
+    assert (_slot(GRID).value, _slot(SLOT).value) == (Decimal(15), Decimal(45))
+    _joint(10, 40)
+    db_session.commit()
+    assert (_slot(GRID).value, _slot(SLOT).value) == (Decimal(10), Decimal(40))
+
+
 def _findings(db) -> list[uuid.UUID]:
     check = next(c for c in reconciliation.CHECKS if c.label == _CHECK)
     return [row for row, _ in find_rows_in_state(db, check)]

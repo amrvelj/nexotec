@@ -47,8 +47,9 @@ class NotificationEventCode(str, enum.Enum):
     # Raised by the support session's start and end (KAN-221 PR-4).
     IMPERSONATION_STARTED = "security.impersonation_started"
     IMPERSONATION_ENDED = "security.impersonation_ended"
-    # Linked: registered now; raised when linking ships with the Outlook
-    # integration (no linking flow exists today). Revoked: live.
+    # Both raised by `security_alerts.on_auth_event`: linked on the auth event
+    # `connected_account_linked` (KAN-215's mailbox link, KAN-799), revoked on
+    # `connected_account_revoked`.
     CONNECTED_ACCOUNT_LINKED = "security.connected_account_linked"
     CONNECTED_ACCOUNT_REVOKED = "security.connected_account_revoked"
     PLATFORM_RECOVERY_ACTION = "security.platform_recovery_action"

@@ -17,6 +17,7 @@ records the event notifies; a path that rolls back owes nothing.
 | `password_reset` | `security.password_changed` | always |
 | `password_set` | `security.password_changed` | only when it replaced a password (`details.replaced`): a first password is the invitation's own step |
 | `session_revoked` | `security.session_revoked_by_other` | the actor is someone other than the user (a manager's status or role change, platform staff) |
+| `connected_account_linked` | `security.connected_account_linked` | always (KAN-799: a linked mailbox can send mail as the user, ADR-187) |
 | `connected_account_revoked` | `security.connected_account_revoked` | always |
 
 Platform staff's recovery actions arrive through `security_notifications`
@@ -24,8 +25,7 @@ Platform staff's recovery actions arrive through `security_notifications`
 mechanism events the action records (`mfa_removed`, `session_revoked`, …) —
 each fact is told once. The impersonation pair is raised by the
 support session itself (`support_sessions.py`, KAN-221 PR-4), which is no auth
-event. `security.connected_account_linked` is in the catalogue; nothing raises
-it until linking (the Outlook integration) ships.
+event.
 
 Every call names its code literally — the architecture test reads them.
 """
@@ -124,19 +124,31 @@ def on_auth_event(db: Session, event: AuthEvent) -> None:
                 user_id=user_id,
                 dealership_id=dealership_id,
             )
-    elif kind == AuthEventKind.CONNECTED_ACCOUNT_REVOKED:
-        account_id = details.get("connectedAccountId")
+    elif kind == AuthEventKind.CONNECTED_ACCOUNT_LINKED:
         notifications.notify(
             db,
-            NotificationEventCode.CONNECTED_ACCOUNT_REVOKED,
-            subject=notifications.NotificationSubject(
-                type="connected_account",
-                id=uuid.UUID(account_id) if isinstance(account_id, str) else None,
-                link=CONNECTED_ACCOUNTS_LINK,
-            ),
+            NotificationEventCode.CONNECTED_ACCOUNT_LINKED,
+            subject=_connected_account(details),
             user_id=user_id,
             dealership_id=dealership_id,
         )
+    elif kind == AuthEventKind.CONNECTED_ACCOUNT_REVOKED:
+        notifications.notify(
+            db,
+            NotificationEventCode.CONNECTED_ACCOUNT_REVOKED,
+            subject=_connected_account(details),
+            user_id=user_id,
+            dealership_id=dealership_id,
+        )
+
+
+def _connected_account(details: dict) -> notifications.NotificationSubject:
+    account_id = details.get("connectedAccountId")
+    return notifications.NotificationSubject(
+        type="connected_account",
+        id=uuid.UUID(account_id) if isinstance(account_id, str) else None,
+        link=CONNECTED_ACCOUNTS_LINK,
+    )
 
 
 def notify_recovery_action(db: Session, *, user_id: uuid.UUID, dealership_id: uuid.UUID, kind: str) -> None:

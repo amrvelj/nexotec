@@ -55,7 +55,11 @@ groups since KAN-466; FR-A-01's "role presets" has nothing behind it, D-A-03):
   a source value that no longer fits today's declaration is skipped
   (`setting_value_stale`), as the store reads it as «not set»; a target value
   that no longer fits is overwritten. The target's settings are locked from
-  the first read to the commit.
+  the first read to the commit. A pair tied by «multiple of» (O6/O7) is
+  written as one change (KAN-839), so a pair valid on its own lands whole
+  even where neither key fits the target's other key alone (target 15/45,
+  source 10/40); only when the pair is refused as a whole is each key tried
+  alone, as any other setting.
 
 Every item goes through its entity's own write path (validation, audit row,
 version), with the commit left to this service. The dry run runs the very
@@ -99,6 +103,7 @@ from app.platform.organisation.services.entitlement import list_active_modules
 from app.platform.organisation.services.setting_declarations import (
     SettingValueError,
     declared_settings_in_write_order,
+    multiple_rules,
 )
 
 SUMMARY_ACTION = "configuration_copied"
@@ -511,45 +516,96 @@ def _copy_settings(
     setting_store.lock_settings(db, dealership_id=target.id)
     # A key a choice requires first (KAN-806: O19 before O18 «work units»), so a pair
     # the source holds whole is never refused half-way (setting_rules).
-    for declaration in declared_settings_in_write_order():
-        if declaration.module is not None and declaration.module not in held:
+    declarations = [
+        declaration
+        for declaration in declared_settings_in_write_order()
+        if declaration.module is None or declaration.module in held
+    ]
+    configured = {declaration.key for declaration in declarations}
+    # KAN-839: a multiple and the key it is a multiple of are judged and written
+    # together — one at a time, a pair valid on its own can be refused twice.
+    # Only a key in exactly one such rule is paired; a key in two rules (none
+    # today) keeps the one-at-a-time path rather than an arbitrary partner.
+    rules = [(m.key, of) for m, of in multiple_rules() if m.key in configured and of in configured]
+    in_rules = [key for pair in rules for key in pair]
+    partner: dict[str, str] = {}
+    for multiple_key, of_key in rules:
+        if in_rules.count(multiple_key) == 1 and in_rules.count(of_key) == 1:
+            partner[multiple_key] = of_key
+            partner[of_key] = multiple_key
+    done: set[str] = set()
+    for declaration in declarations:
+        if declaration.key in done:
             continue
-        key = declaration.key
-        wanted = setting_store.get_slot(db, dealership_id=source.id, location_id=None, key=key)
-        if not wanted.is_set:
-            if not wanted.fits_declaration:
-                report.items.append(
-                    CopyItem(
-                        subset=CopySubset.SETTINGS, key=key, outcome=CopyOutcome.SKIPPED, reason="setting_value_stale"
+        group = [declaration.key]
+        if declaration.key in partner and partner[declaration.key] not in done:
+            group.append(partner[declaration.key])
+        done.update(group)
+        # The group's items in write order, whatever their outcome.
+        items: list[CopyItem] = []
+        pending: list[tuple[CopyItem, setting_store.SettingSlot, setting_store.SettingSlot]] = []
+        for key in group:
+            wanted = setting_store.get_slot(db, dealership_id=source.id, location_id=None, key=key)
+            if not wanted.is_set:
+                if not wanted.fits_declaration:
+                    items.append(
+                        CopyItem(
+                            subset=CopySubset.SETTINGS, key=key, outcome=CopyOutcome.SKIPPED, reason="setting_value_stale"
+                        )
                     )
-                )
-            # «Not set» in the source: the target's value is kept.
-            continue
-        current = setting_store.get_slot(db, dealership_id=target.id, location_id=None, key=key)
-        item = CopyItem(subset=CopySubset.SETTINGS, key=key, outcome=CopyOutcome.UNCHANGED)
-        if current.is_set and current.value == wanted.value:
-            report.items.append(item)
-            continue
-        try:
-            with db.begin_nested():
-                setting_store.change_setting(
-                    db,
-                    dealership_id=target.id,
-                    location_id=None,
-                    key=key,
-                    value=wanted.value,
-                    expected_version=current.version,
-                    actor_id=actor_id,
-                    origin=SettingChangeOrigin.COPY,
-                )
-            # A stored value that no longer fits reads «not set», but it is
-            # still replaced: the history shows an overwrite, and so does this.
-            replaced = current.is_set or not current.fits_declaration
-            item.outcome = CopyOutcome.OVERWRITTEN if replaced else CopyOutcome.CREATED
-        except SettingValueError as refused:
-            item.outcome = CopyOutcome.SKIPPED
-            item.reason = refused.reason
-        report.items.append(item)
+                # «Not set» in the source: the target's value is kept.
+                continue
+            current = setting_store.get_slot(db, dealership_id=target.id, location_id=None, key=key)
+            item = CopyItem(subset=CopySubset.SETTINGS, key=key, outcome=CopyOutcome.UNCHANGED)
+            items.append(item)
+            if not (current.is_set and current.value == wanted.value):
+                pending.append((item, current, wanted))
+        written = False
+        if len(pending) > 1:
+            try:
+                _write_copied_settings(db, target=target, actor_id=actor_id, pending=pending)
+                written = True
+            except SettingValueError:
+                # The pair as a whole does not fit the target (a location's own
+                # value, say): each key is tried alone, as any other setting.
+                pass
+        if not written:
+            for one in pending:
+                try:
+                    _write_copied_settings(db, target=target, actor_id=actor_id, pending=[one])
+                except SettingValueError as refused:
+                    one[0].outcome = CopyOutcome.SKIPPED
+                    one[0].reason = refused.reason
+        report.items.extend(items)
+
+
+def _write_copied_settings(
+    db: Session,
+    *,
+    target: Dealership,
+    actor_id: uuid.UUID,
+    pending: list[tuple[CopyItem, setting_store.SettingSlot, setting_store.SettingSlot]],
+) -> None:
+    """One change of the target's settings through the store's own path
+    (origin `copy`: history and restore), in its own savepoint: refused, it
+    leaves nothing behind. Sets each item's outcome once written."""
+
+    with db.begin_nested():
+        setting_store.change_settings(
+            db,
+            dealership_id=target.id,
+            writes=[
+                setting_store.SettingWrite(key=item.key, value=wanted.value, expected_version=current.version)
+                for item, current, wanted in pending
+            ],
+            actor_id=actor_id,
+            origin=SettingChangeOrigin.COPY,
+        )
+    for item, current, _ in pending:
+        # A stored value that no longer fits reads «not set», but it is
+        # still replaced: the history shows an overwrite, and so does this.
+        replaced = current.is_set or not current.fits_declaration
+        item.outcome = CopyOutcome.OVERWRITTEN if replaced else CopyOutcome.CREATED
 
 
 # The subsets a context above platform owns, run through `app.core.configuration_copy`.
