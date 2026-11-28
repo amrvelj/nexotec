@@ -710,13 +710,21 @@ class ServiceCatalogueCopier:
 
         db = session_factory()
         try:
+            # KAN-855, as the configuration copy (KAN-834): every write sits inside one savepoint of
+            # the copier's own, and the dry run rolls back to it. The writers' own savepoints are
+            # then never the outermost transaction, which a driver that opens its transaction only
+            # at the first write (pysqlite) commits on their RELEASE — so the preview would be
+            # written after all.
+            outer = db.begin_nested()
             items = self._copy(
                 db, source_dealership_id=source_dealership_id, target_dealership_id=target_dealership_id,
                 actor_id=actor_id,
             )
             if dry_run:
+                outer.rollback()
                 db.rollback()
             else:
+                outer.commit()
                 db.commit()
             return items
         except BaseException:
