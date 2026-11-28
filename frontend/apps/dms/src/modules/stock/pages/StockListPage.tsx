@@ -75,7 +75,7 @@ export function StockListPage() {
   // under which conditions, which headers sort, which columns show by
   // default. Fetched once; the list waits for it, so a link's filters are
   // neither dropped nor sent unchecked meanwhile.
-  const { data: gridSchema } = useQuery({
+  const { data: gridSchema, isError: schemaFailed, refetch: refetchSchema } = useQuery({
     queryKey: ['grid-schema', 'stock-items'],
     queryFn: () => api.get<GridSchemaRead>('/inventory/stock-items/grid-schema'),
     staleTime: Infinity,
@@ -576,14 +576,15 @@ export function StockListPage() {
           rowHref={(row) => `/stock/${row.id}`}
           linkComponent={Link}
           // KAN-461: the list waits for the schema; until then it is loading,
-          // never «no cars».
-          loading={isLoading || gridSchema === undefined}
+          // never «no cars». KAN-859: a failed schema read is the list's load
+          // error, and its retry reads the schema again.
+          loading={!schemaFailed && (isLoading || gridSchema === undefined)}
           refetching={isRefetching && !isLoading}
           fetchingNextPage={isFetchingNextPage}
           hasNextPage={Boolean(hasNextPage)}
           onLoadMore={() => fetchNextPage()}
-          error={isError ? t('stockList.loadError') : null}
-          onRetry={() => refetch()}
+          error={isError || schemaFailed ? t('stockList.loadError') : null}
+          onRetry={() => (schemaFailed ? void refetchSchema() : void refetch())}
           total={total}
           totalIsEstimate={totalIsEstimate}
           isFiltered={isFiltered}
